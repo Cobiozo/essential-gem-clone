@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
+import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
 
 interface CMSSection {
@@ -36,6 +37,9 @@ const Index = () => {
   const [headerText, setHeaderText] = React.useState<string>('');
   const [authorText, setAuthorText] = React.useState<string>('');
   const [loading, setLoading] = React.useState(true);
+  
+  // Enable security preventions
+  useSecurityPreventions();
 
   React.useEffect(() => {
     fetchCMSData();

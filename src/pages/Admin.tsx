@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
+import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
 
 interface CMSSection {
@@ -67,6 +68,9 @@ const Admin = () => {
     title: '',
     position: 0,
   });
+  
+  // Enable security preventions
+  useSecurityPreventions();
 
   useEffect(() => {
     if (!user) {

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, X, Image, Video, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { SecureMedia } from './SecureMedia';
 
 interface MediaUploadProps {
   onMediaUploaded: (url: string, type: 'image' | 'video', altText?: string) => void;
@@ -152,20 +153,12 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
             </div>
             
             <div className="space-y-3">
-              {currentMediaType === 'image' ? (
-                <img
-                  src={currentMediaUrl}
-                  alt={currentAltText || 'Podgląd'}
-                  className="w-full max-h-48 object-cover rounded border"
-                />
-              ) : (
-                <video
-                  src={currentMediaUrl}
-                  className="w-full max-h-48 rounded border"
-                  controls
-                  preload="metadata"
-                />
-              )}
+              <SecureMedia
+                mediaUrl={currentMediaUrl}
+                mediaType={currentMediaType}
+                altText={currentAltText || 'Podgląd'}
+                className="w-full max-h-48 object-cover rounded border"
+              />
               
               <div>
                 <Label htmlFor="alt-text" className="text-xs">

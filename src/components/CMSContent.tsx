@@ -1,5 +1,6 @@
 import React from 'react';
 import { CMSButton } from './CMSButton';
+import { SecureMedia } from './SecureMedia';
 
 interface CMSItem {
   id: string;
@@ -25,39 +26,17 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
     }
   };
 
-  // Render media content if available
   const renderMedia = () => {
-    if (!item.media_url) return null;
-
-    const mediaProps = {
-      className: "w-full max-w-md mx-auto rounded-lg shadow-sm mb-4",
-      style: { maxHeight: '300px', objectFit: 'cover' as const }
-    };
-
-    if (item.media_type === 'image') {
-      return (
-        <img
-          src={item.media_url}
-          alt={item.media_alt_text || item.title || 'Zdjęcie'}
-          {...mediaProps}
-        />
-      );
-    } else if (item.media_type === 'video') {
-      return (
-        <video
-          src={item.media_url}
-          controls
-          preload="metadata"
-          className="w-full max-w-md mx-auto rounded-lg shadow-sm mb-4"
-          style={{ maxHeight: '300px' }}
-        >
-          {item.media_alt_text && <track kind="descriptions" label={item.media_alt_text} />}
-          Twoja przeglądarka nie obsługuje odtwarzania wideo.
-        </video>
-      );
-    }
-
-    return null;
+    if (!item.media_url || !item.media_type) return null;
+    
+    return (
+      <SecureMedia
+        mediaUrl={item.media_url}
+        mediaType={item.media_type as 'image' | 'video'}
+        altText={item.media_alt_text || item.title || 'Zabezpieczone media'}
+        className="w-full max-w-md mx-auto shadow-lg mb-4"
+      />
+    );
   };
 
   switch (item.type) {
