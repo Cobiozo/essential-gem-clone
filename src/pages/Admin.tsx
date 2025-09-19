@@ -48,12 +48,17 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState<CMSSection | null>(null);
   const [editingItem, setEditingItem] = useState<CMSItem | null>(null);
+  const [editingSection, setEditingSection] = useState<CMSSection | null>(null);
   const [newItem, setNewItem] = useState({
     type: 'button',
     title: '',
     description: '',
     url: '',
     icon: '',
+  });
+  const [newSection, setNewSection] = useState({
+    title: '',
+    position: 0,
   });
 
   useEffect(() => {
@@ -105,6 +110,71 @@ const Admin = () => {
     }
   };
 
+  const createSection = async () => {
+    try {
+      const maxPosition = Math.max(...sections.map(s => s.position), 0);
+      
+      const { data, error } = await supabase
+        .from('cms_sections')
+        .insert({
+          title: newSection.title,
+          position: maxPosition + 1,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSections([...sections, data]);
+      setNewSection({ title: '', position: 0 });
+      toast({
+        title: "Sukces",
+        description: "Nowa sekcja została utworzona.",
+      });
+    } catch (error) {
+      console.error('Error creating section:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się utworzyć sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteSection = async (sectionId: string) => {
+    try {
+      // First delete all items in the section
+      const { error: itemsError } = await supabase
+        .from('cms_items')
+        .delete()
+        .eq('section_id', sectionId);
+
+      if (itemsError) throw itemsError;
+
+      // Then delete the section
+      const { error: sectionError } = await supabase
+        .from('cms_sections')
+        .delete()
+        .eq('id', sectionId);
+
+      if (sectionError) throw sectionError;
+
+      setSections(sections.filter(s => s.id !== sectionId));
+      setItems(items.filter(i => i.section_id !== sectionId));
+      toast({
+        title: "Sukces",
+        description: "Sekcja została usunięta.",
+      });
+    } catch (error) {
+      console.error('Error deleting section:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateSection = async (sectionId: string, updates: Partial<CMSSection>) => {
     try {
       const { error } = await supabase
@@ -115,6 +185,7 @@ const Admin = () => {
       if (error) throw error;
 
       setSections(sections.map(s => s.id === sectionId ? { ...s, ...updates } : s));
+      setEditingSection(null);
       toast({
         title: "Sukces",
         description: "Sekcja została zaktualizowana.",
@@ -250,6 +321,45 @@ const Admin = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Section Management */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Zarządzanie sekcjami</h2>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Dodaj sekcję
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Dodaj nową sekcję</DialogTitle>
+                  <DialogDescription>
+                    Utwórz nową sekcję CMS
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="section-title">Tytuł sekcji</Label>
+                    <Input
+                      value={newSection.title}
+                      onChange={(e) => setNewSection({...newSection, title: e.target.value})}
+                      placeholder="Nazwa sekcji"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={createSection} disabled={!newSection.title.trim()}>
+                    <Save className="w-4 h-4 mr-2" />
+                    Utwórz sekcję
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
         <div className="grid gap-8">
           {sections.map((section) => {
             const sectionItems = items.filter(i => i.section_id === section.id);
@@ -274,6 +384,12 @@ const Admin = () => {
                         checked={section.is_active}
                         onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
                       />
+                      <Button variant="outline" size="sm" onClick={() => setEditingSection(section)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm">
@@ -471,6 +587,51 @@ const Admin = () => {
                 title: editingItem.title,
                 description: editingItem.description,
                 url: editingItem.url,
+              })}>
+                <Save className="w-4 h-4 mr-2" />
+                Zapisz zmiany
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Section Dialog */}
+      {editingSection && (
+        <Dialog open={!!editingSection} onOpenChange={() => setEditingSection(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edytuj sekcję</DialogTitle>
+              <DialogDescription>
+                Modyfikuj dane sekcji
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-section-title">Tytuł sekcji</Label>
+                <Input
+                  value={editingSection.title || ''}
+                  onChange={(e) => setEditingSection({...editingSection, title: e.target.value})}
+                  placeholder="Nazwa sekcji"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-section-position">Pozycja</Label>
+                <Input
+                  type="number"
+                  value={editingSection.position}
+                  onChange={(e) => setEditingSection({...editingSection, position: parseInt(e.target.value) || 0})}
+                  placeholder="Pozycja sekcji"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingSection(null)}>
+                Anuluj
+              </Button>
+              <Button onClick={() => updateSection(editingSection.id, {
+                title: editingSection.title,
+                position: editingSection.position,
               })}>
                 <Save className="w-4 h-4 mr-2" />
                 Zapisz zmiany
