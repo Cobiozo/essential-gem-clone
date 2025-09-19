@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
+import pureLifeLogo from '@/assets/logo-purelife.png';
 
 interface CMSSection {
   id: string;
@@ -105,17 +106,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl mx-auto">
-        <div className="flex items-center justify-center mb-4">
-          <img src={pureLifeDroplet} alt="Pure Life Droplet" className="w-10 h-10 sm:w-12 sm:h-12 mr-3" />
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 mb-1">
-              NIEZBĘDNIK
-            </h1>
-            <div className="text-base sm:text-lg lg:text-xl font-semibold text-gray-700">
-              PURE LIFE
-            </div>
-          </div>
+      <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
+        <div className="mb-6">
+          <img src={pureLifeLogo} alt="Pure Life Logo" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto mb-4" />
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
+            NIEZBĘDNIK
+          </h1>
         </div>
         <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
           {headerText || "Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem."}
