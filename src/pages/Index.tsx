@@ -1,6 +1,6 @@
 import React from 'react';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
-import { CMSButton } from '@/components/CMSButton';
+import { CMSContent } from '@/components/CMSContent';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,9 +27,11 @@ interface CMSItem {
 }
 
 const Index = () => {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [sections, setSections] = React.useState<CMSSection[]>([]);
   const [items, setItems] = React.useState<CMSItem[]>([]);
+  const [headerText, setHeaderText] = React.useState<string>('');
+  const [authorText, setAuthorText] = React.useState<string>('');
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -52,6 +54,14 @@ const Index = () => {
 
       setSections(sectionsData || []);
       setItems(itemsData || []);
+      
+      // Pobierz teksty nagłówka
+      const headerItem = itemsData?.find(item => item.type === 'header_text');
+      const authorItem = itemsData?.find(item => item.type === 'author');
+      
+      if (headerItem?.description) setHeaderText(headerItem.description);
+      if (authorItem?.description) setAuthorText(authorItem.description);
+      
     } catch (error) {
       console.error('Error fetching CMS data:', error);
     } finally {
@@ -101,14 +111,10 @@ const Index = () => {
           </div>
         </div>
         <p className="text-sm text-gray-600 leading-relaxed mb-6">
-          Witaj w Niezbędniku Pure Life - przestrzeni 
-          stworzonej z myślą o Tobie i Twojej codziennej pracy 
-          w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, 
-          które pomogą Ci być skutecznym profesjonalistą i 14 
-          lekarstwem.
+          {headerText || "Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem."}
         </p>
         <p className="text-xs text-gray-500 mb-4">
-          Pozostałem - Dawid Kowalczyk
+          {authorText || "Pozostałem - Dawid Kowalczyk"}
         </p>
         
         {/* Admin Controls */}
@@ -142,7 +148,12 @@ const Index = () => {
       {/* Main Content */}
       <main className="max-w-md mx-auto space-y-3">
         {sections.map((section) => {
-          const sectionItems = items.filter(item => item.section_id === section.id);
+          const sectionItems = items.filter(item => 
+            item.section_id === section.id && 
+            item.type !== 'header_text' && 
+            item.type !== 'author'
+          ).sort((a, b) => a.position - b.position);
+          
           const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
           
           return (
@@ -153,19 +164,13 @@ const Index = () => {
               showShareButton={shouldShowShare}
             >
               <div className="space-y-3">
-                {sectionItems.map((item) => {
-                  const hasDescription = item.description && item.description.length > 50;
-                  return (
-                    <CMSButton
-                      key={item.id}
-                      title={item.title || ''}
-                      description={item.description}
-                      url={item.url}
-                      type={hasDescription ? 'detailed' : 'simple'}
-                      onClick={() => handleButtonClick(item.title || '', item.url || undefined)}
-                    />
-                  );
-                })}
+                {sectionItems.map((item) => (
+                  <CMSContent
+                    key={item.id}
+                    item={item}
+                    onButtonClick={handleButtonClick}
+                  />
+                ))}
                 {sectionItems.length === 0 && (
                   <div className="text-center text-gray-500 py-6 text-sm">
                     Brak elementów w tej sekcji

@@ -295,11 +295,16 @@ const Admin = () => {
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="button">Przycisk</SelectItem>
-                                  <SelectItem value="link">Link</SelectItem>
-                                  <SelectItem value="text">Tekst</SelectItem>
-                                </SelectContent>
+                                 <SelectContent>
+                                   <SelectItem value="button">Przycisk</SelectItem>
+                                   <SelectItem value="info_text">Informacja</SelectItem>
+                                   <SelectItem value="tip">Wskazówka</SelectItem>
+                                   <SelectItem value="description">Opis</SelectItem>
+                                   <SelectItem value="contact_info">Info kontaktowe</SelectItem>
+                                   <SelectItem value="support_info">Info wsparcia</SelectItem>
+                                   <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                                   <SelectItem value="author">Autor</SelectItem>
+                                 </SelectContent>
                               </Select>
                             </div>
                             <div>
@@ -404,11 +409,16 @@ const Admin = () => {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="button">Przycisk</SelectItem>
-                    <SelectItem value="link">Link</SelectItem>
-                    <SelectItem value="text">Tekst</SelectItem>
-                  </SelectContent>
+                   <SelectContent>
+                     <SelectItem value="button">Przycisk</SelectItem>
+                     <SelectItem value="info_text">Informacja</SelectItem>
+                     <SelectItem value="tip">Wskazówka</SelectItem>
+                     <SelectItem value="description">Opis</SelectItem>
+                     <SelectItem value="contact_info">Info kontaktowe</SelectItem>
+                     <SelectItem value="support_info">Info wsparcia</SelectItem>
+                     <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                     <SelectItem value="author">Autor</SelectItem>
+                   </SelectContent>
                 </Select>
               </div>
               <div>
