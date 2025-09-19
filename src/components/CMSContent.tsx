@@ -3,90 +3,104 @@ import { CMSButton } from './CMSButton';
 
 interface CMSItem {
   id: string;
-  section_id: string;
   type: string;
   title: string | null;
   description: string | null;
   url: string | null;
   position: number;
-  is_active: boolean;
 }
 
 interface CMSContentProps {
   item: CMSItem;
-  onButtonClick: (title: string, url?: string) => void;
+  onClick?: (title: string, url?: string) => void;
 }
 
-export const CMSContent: React.FC<CMSContentProps> = ({ item, onButtonClick }) => {
-  const { type, title, description, url } = item;
+export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
+  const handleClick = () => {
+    if (onClick) {
+      onClick(item.title || '', item.url || undefined);
+    }
+  };
 
-  switch (type) {
-    case 'button':
-      const hasDescription = description && description.length > 50;
+  switch (item.type) {
+    case 'header_text':
       return (
-        <CMSButton
-          title={title || ''}
-          description={description}
-          url={url}
-          type={hasDescription ? 'detailed' : 'simple'}
-          onClick={() => onButtonClick(title || '', url || undefined)}
-        />
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 leading-relaxed">
+            {item.description}
+          </p>
+        </div>
+      );
+
+    case 'author':
+      return (
+        <div className="mb-4">
+          <p className="text-xs text-gray-500">
+            {item.description}
+          </p>
+        </div>
       );
 
     case 'info_text':
       return (
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-          <div className="text-sm text-blue-800">
-            {title && <div className="font-medium mb-2">{title}</div>}
-            {description && <div className="whitespace-pre-line">{description}</div>}
-          </div>
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+          <p className="text-sm text-gray-700 leading-relaxed">
+            {item.description}
+          </p>
         </div>
       );
 
     case 'tip':
       return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-          <div className="text-sm text-yellow-800">
-            {title && <div className="font-medium mb-1">💡 {title}</div>}
-            {description && <div>{description}</div>}
-          </div>
+        <div className="mt-4 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+          <p className="text-sm text-gray-700 leading-relaxed">
+            <span className="font-medium">💡 Wskazówka: </span>
+            {item.description}
+          </p>
         </div>
       );
 
     case 'description':
       return (
-        <div className="text-sm text-gray-600 mb-4 leading-relaxed">
-          {title && <div className="font-medium mb-2">{title}</div>}
-          {description && <div className="whitespace-pre-line">{description}</div>}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <h4 className="font-medium text-gray-800 mb-2">{item.title}</h4>
+          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+            {item.description}
+          </p>
         </div>
       );
 
     case 'contact_info':
       return (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-          <div className="text-sm text-gray-700">
-            {title && <div className="font-medium mb-2">📞 {title}</div>}
-            {description && <div className="whitespace-pre-line">{description}</div>}
-          </div>
+        <div className="mb-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
+          <h4 className="font-medium text-green-800 mb-2">📞 {item.title}</h4>
+          <p className="text-sm text-green-700 leading-relaxed">
+            {item.description}
+          </p>
         </div>
       );
 
     case 'support_info':
       return (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <div className="text-sm text-green-800">
-            {title && <div className="font-medium mb-2">🆘 {title}</div>}
-            {description && <div className="whitespace-pre-line">{description}</div>}
-          </div>
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+          <h4 className="font-medium text-blue-800 mb-2">🛟 {item.title}</h4>
+          <p className="text-sm text-blue-700 leading-relaxed">
+            {item.description}
+          </p>
         </div>
       );
 
+    case 'button':
     default:
+      const hasDescription = item.description && item.description.length > 50;
       return (
-        <div className="text-sm text-gray-600 mb-3">
-          {title && <div className="font-medium">{title}</div>}
-          {description && <div>{description}</div>}
-        </div>
+        <CMSButton
+          title={item.title || ''}
+          description={item.description}
+          url={item.url}
+          type={hasDescription ? 'detailed' : 'simple'}
+          onClick={handleClick}
+        />
       );
   }
 };

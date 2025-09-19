@@ -164,13 +164,13 @@ const Index = () => {
               showShareButton={shouldShowShare}
             >
               <div className="space-y-3">
-                {sectionItems.map((item) => (
-                  <CMSContent
-                    key={item.id}
-                    item={item}
-                    onButtonClick={handleButtonClick}
-                  />
-                ))}
+                 {sectionItems.map((item) => (
+                   <CMSContent
+                     key={item.id}
+                     item={item}
+                     onClick={handleButtonClick}
+                   />
+                 ))}
                 {sectionItems.length === 0 && (
                   <div className="text-center text-gray-500 py-6 text-sm">
                     Brak elementów w tej sekcji

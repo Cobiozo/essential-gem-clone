@@ -347,21 +347,37 @@ const Admin = () => {
                   <div className="space-y-4">
                     {sectionItems.map((item) => (
                       <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Badge variant="outline">{item.type}</Badge>
-                            <Badge variant={item.is_active ? "default" : "secondary"}>
-                              {item.is_active ? "Aktywny" : "Nieaktywny"}
-                            </Badge>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Badge 
+                                variant="outline" 
+                                className={
+                                  item.type === 'button' ? 'bg-green-100 text-green-800' :
+                                  item.type === 'header_text' ? 'bg-blue-100 text-blue-800' :
+                                  item.type === 'info_text' ? 'bg-purple-100 text-purple-800' :
+                                  item.type === 'tip' ? 'bg-yellow-100 text-yellow-800' :
+                                  item.type === 'contact_info' ? 'bg-emerald-100 text-emerald-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }
+                              >
+                                {item.type === 'header_text' ? 'Nagłówek' :
+                                 item.type === 'info_text' ? 'Info' :
+                                 item.type === 'contact_info' ? 'Kontakt' :
+                                 item.type === 'support_info' ? 'Wsparcie' :
+                                 item.type}
+                              </Badge>
+                              <Badge variant={item.is_active ? "default" : "secondary"}>
+                                {item.is_active ? "Aktywny" : "Nieaktywny"}
+                              </Badge>
+                            </div>
+                            <h4 className="font-medium">{item.title}</h4>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+                            )}
+                            {item.url && (
+                              <p className="text-xs text-muted-foreground mt-1 truncate">{item.url}</p>
+                            )}
                           </div>
-                          <h4 className="font-medium">{item.title}</h4>
-                          {item.description && (
-                            <p className="text-sm text-muted-foreground">{item.description}</p>
-                          )}
-                          {item.url && (
-                            <p className="text-xs text-muted-foreground mt-1">{item.url}</p>
-                          )}
-                        </div>
                         <div className="flex items-center space-x-2">
                           <Switch
                             checked={item.is_active}
