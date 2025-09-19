@@ -183,7 +183,7 @@ const Admin = () => {
     const previousSection = sections[sectionIndex - 1];
 
     try {
-      // Swap positions
+      // Swap positions in database
       await Promise.all([
         supabase
           .from('cms_sections')
@@ -195,13 +195,8 @@ const Admin = () => {
           .eq('id', previousSection.id)
       ]);
 
-      // Update local state with swapped positions
-      const newSections = [...sections];
-      const tempPosition = currentSection.position;
-      newSections[sectionIndex].position = previousSection.position;
-      newSections[sectionIndex - 1].position = tempPosition;
-      
-      setSections(newSections.sort((a, b) => a.position - b.position));
+      // Re-fetch data to ensure consistency
+      await fetchData();
       
       toast({
         title: "Pozycja zmieniona",
@@ -225,7 +220,7 @@ const Admin = () => {
     const nextSection = sections[sectionIndex + 1];
 
     try {
-      // Swap positions
+      // Swap positions in database
       await Promise.all([
         supabase
           .from('cms_sections')
@@ -237,13 +232,8 @@ const Admin = () => {
           .eq('id', nextSection.id)
       ]);
 
-      // Update local state with swapped positions
-      const newSections = [...sections];
-      const tempPosition = currentSection.position;
-      newSections[sectionIndex].position = nextSection.position;
-      newSections[sectionIndex + 1].position = tempPosition;
-      
-      setSections(newSections.sort((a, b) => a.position - b.position));
+      // Re-fetch data to ensure consistency
+      await fetchData();
       
       toast({
         title: "Pozycja zmieniona", 
