@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown } from 'lucide-react';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
 
 interface CMSSection {
@@ -170,6 +170,96 @@ const Admin = () => {
       toast({
         title: "Błąd",
         description: "Nie udało się usunąć sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const moveSectionUp = async (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex <= 0) return;
+
+    const currentSection = sections[sectionIndex];
+    const previousSection = sections[sectionIndex - 1];
+
+    try {
+      // Swap positions
+      await Promise.all([
+        supabase
+          .from('cms_sections')
+          .update({ position: previousSection.position })
+          .eq('id', currentSection.id),
+        supabase
+          .from('cms_sections')
+          .update({ position: currentSection.position })
+          .eq('id', previousSection.id)
+      ]);
+
+      // Update local state
+      const newSections = [...sections];
+      [newSections[sectionIndex], newSections[sectionIndex - 1]] = 
+      [newSections[sectionIndex - 1], newSections[sectionIndex]];
+      
+      // Update positions in local state
+      newSections[sectionIndex].position = currentSection.position;
+      newSections[sectionIndex - 1].position = previousSection.position;
+      
+      setSections(newSections.sort((a, b) => a.position - b.position));
+      
+      toast({
+        title: "Sukces",
+        description: "Pozycja sekcji została zmieniona.",
+      });
+    } catch (error) {
+      console.error('Error moving section up:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zmienić pozycji sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const moveSectionDown = async (sectionId: string) => {
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex >= sections.length - 1) return;
+
+    const currentSection = sections[sectionIndex];
+    const nextSection = sections[sectionIndex + 1];
+
+    try {
+      // Swap positions
+      await Promise.all([
+        supabase
+          .from('cms_sections')
+          .update({ position: nextSection.position })
+          .eq('id', currentSection.id),
+        supabase
+          .from('cms_sections')
+          .update({ position: currentSection.position })
+          .eq('id', nextSection.id)
+      ]);
+
+      // Update local state
+      const newSections = [...sections];
+      [newSections[sectionIndex], newSections[sectionIndex + 1]] = 
+      [newSections[sectionIndex + 1], newSections[sectionIndex]];
+      
+      // Update positions in local state
+      newSections[sectionIndex].position = currentSection.position;
+      newSections[sectionIndex + 1].position = nextSection.position;
+      
+      setSections(newSections.sort((a, b) => a.position - b.position));
+      
+      toast({
+        title: "Sukces",
+        description: "Pozycja sekcji została zmieniona.",
+      });
+    } catch (error) {
+      console.error('Error moving section down:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zmienić pozycji sekcji.",
         variant: "destructive",
       });
     }
@@ -380,6 +470,26 @@ const Admin = () => {
                       </CardDescription>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <div className="flex flex-col">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => moveSectionUp(section.id)}
+                          disabled={sections.findIndex(s => s.id === section.id) === 0}
+                          className="h-6 w-8 p-0"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => moveSectionDown(section.id)}
+                          disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
+                          className="h-6 w-8 p-0"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </Button>
+                      </div>
                       <Switch
                         checked={section.is_active}
                         onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
