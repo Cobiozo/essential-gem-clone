@@ -375,33 +375,35 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
-            <img src={pureLifeDroplet} alt="Pure Life" className="w-8 h-8" />
-            <h1 className="text-2xl font-bold text-foreground">Panel CMS - Pure Life</h1>
+            <img src={pureLifeDroplet} alt="Pure Life" className="w-6 h-6 sm:w-8 sm:h-8" />
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground">Panel CMS - Pure Life</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <Badge variant="secondary">Administrator</Badge>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-              <Home className="w-4 h-4 mr-2" />
-              Strona główna
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Wyloguj
-            </Button>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto">
+            <Badge variant="secondary" className="text-xs">Administrator</Badge>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={() => navigate('/')} className="flex-1 sm:flex-none">
+                <Home className="w-4 h-4 mr-2" />
+                Strona główna
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSignOut} className="flex-1 sm:flex-none">
+                <LogOut className="w-4 h-4 mr-2" />
+                Wyloguj
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Section Management */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
             <h2 className="text-xl font-semibold">Zarządzanie sekcjami</h2>
             <Dialog>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Dodaj sekcję
                 </Button>
@@ -434,57 +436,57 @@ const Admin = () => {
           </div>
         </div>
 
-        <div className="grid gap-8">
+        <div className="grid gap-6 lg:gap-8">
           {sections.map((section) => {
             const sectionItems = items.filter(i => i.section_id === section.id);
             
             return (
               <Card key={section.id}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center space-x-2">
-                        <span>{section.title}</span>
-                        <Badge variant={section.is_active ? "default" : "secondary"}>
-                          {section.is_active ? "Aktywna" : "Nieaktywna"}
-                        </Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        Pozycja: {section.position} | Elementów: {sectionItems.length}
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex flex-col">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => moveSectionUp(section.id)}
-                          disabled={sections.findIndex(s => s.id === section.id) === 0}
-                          className="h-6 w-8 p-0"
-                        >
-                          <ChevronUp className="w-3 h-3" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => moveSectionDown(section.id)}
-                          disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
-                          className="h-6 w-8 p-0"
-                        >
-                          <ChevronDown className="w-3 h-3" />
-                        </Button>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div>
+                        <CardTitle className="flex items-center space-x-2">
+                          <span>{section.title}</span>
+                          <Badge variant={section.is_active ? "default" : "secondary"}>
+                            {section.is_active ? "Aktywna" : "Nieaktywna"}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          Pozycja: {section.position} | Elementów: {sectionItems.length}
+                        </CardDescription>
                       </div>
-                      <Switch
-                        checked={section.is_active}
-                        onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
-                      />
-                      <Button variant="outline" size="sm" onClick={() => setEditingSection(section)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                      <Dialog>
+                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <div className="flex flex-col">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => moveSectionUp(section.id)}
+                            disabled={sections.findIndex(s => s.id === section.id) === 0}
+                            className="h-6 w-8 p-0"
+                          >
+                            <ChevronUp className="w-3 h-3" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => moveSectionDown(section.id)}
+                            disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
+                            className="h-6 w-8 p-0"
+                          >
+                            <ChevronDown className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <Switch
+                          checked={section.is_active}
+                          onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
+                        />
+                        <Button variant="outline" size="sm" onClick={() => setEditingSection(section)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm">
                             <Plus className="w-4 h-4 mr-2" />
@@ -556,51 +558,51 @@ const Admin = () => {
                 <CardContent>
                   <div className="space-y-4">
                     {sectionItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <Badge 
-                                variant="outline" 
-                                className={
-                                  item.type === 'button' ? 'bg-green-100 text-green-800' :
-                                  item.type === 'header_text' ? 'bg-blue-100 text-blue-800' :
-                                  item.type === 'info_text' ? 'bg-purple-100 text-purple-800' :
-                                  item.type === 'tip' ? 'bg-yellow-100 text-yellow-800' :
-                                  item.type === 'contact_info' ? 'bg-emerald-100 text-emerald-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }
-                              >
-                                {item.type === 'header_text' ? 'Nagłówek' :
-                                 item.type === 'info_text' ? 'Info' :
-                                 item.type === 'contact_info' ? 'Kontakt' :
-                                 item.type === 'support_info' ? 'Wsparcie' :
-                                 item.type}
-                              </Badge>
-                              <Badge variant={item.is_active ? "default" : "secondary"}>
-                                {item.is_active ? "Aktywny" : "Nieaktywny"}
-                              </Badge>
-                            </div>
-                            <h4 className="font-medium">{item.title}</h4>
-                            {item.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
-                            )}
-                            {item.url && (
-                              <p className="text-xs text-muted-foreground mt-1 truncate">{item.url}</p>
-                            )}
-                          </div>
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            checked={item.is_active}
-                            onCheckedChange={(checked) => updateItem(item.id, { is_active: checked })}
-                          />
-                          <Button variant="outline" size="sm" onClick={() => setEditingItem(item)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => deleteItem(item.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+                       <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4">
+                           <div className="flex-1 min-w-0">
+                             <div className="flex flex-wrap items-center gap-2 mb-2">
+                               <Badge 
+                                 variant="outline" 
+                                 className={
+                                   item.type === 'button' ? 'bg-green-100 text-green-800' :
+                                   item.type === 'header_text' ? 'bg-blue-100 text-blue-800' :
+                                   item.type === 'info_text' ? 'bg-purple-100 text-purple-800' :
+                                   item.type === 'tip' ? 'bg-yellow-100 text-yellow-800' :
+                                   item.type === 'contact_info' ? 'bg-emerald-100 text-emerald-800' :
+                                   'bg-gray-100 text-gray-800'
+                                 }
+                               >
+                                 {item.type === 'header_text' ? 'Nagłówek' :
+                                  item.type === 'info_text' ? 'Info' :
+                                  item.type === 'contact_info' ? 'Kontakt' :
+                                  item.type === 'support_info' ? 'Wsparcie' :
+                                  item.type}
+                               </Badge>
+                               <Badge variant={item.is_active ? "default" : "secondary"}>
+                                 {item.is_active ? "Aktywny" : "Nieaktywny"}
+                               </Badge>
+                             </div>
+                             <h4 className="font-medium text-sm sm:text-base truncate">{item.title}</h4>
+                             {item.description && (
+                               <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
+                             )}
+                             {item.url && (
+                               <p className="text-xs text-muted-foreground mt-1 truncate">{item.url}</p>
+                             )}
+                           </div>
+                         <div className="flex items-center gap-2 flex-shrink-0">
+                           <Switch
+                             checked={item.is_active}
+                             onCheckedChange={(checked) => updateItem(item.id, { is_active: checked })}
+                           />
+                           <Button variant="outline" size="sm" onClick={() => setEditingItem(item)}>
+                             <Pencil className="w-4 h-4" />
+                           </Button>
+                           <Button variant="destructive" size="sm" onClick={() => deleteItem(item.id)}>
+                             <Trash2 className="w-4 h-4" />
+                           </Button>
+                         </div>
+                       </div>
                     ))}
                     {sectionItems.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">

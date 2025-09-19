@@ -51,29 +51,29 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     <div className={cn("border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm", className)}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
+        className="w-full px-4 sm:px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
       >
-        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-        <div className="flex items-center space-x-2">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-800 pr-2">{title}</h3>
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           {showShareButton && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleShare}
-              className="p-2 h-8 w-8 text-gray-600 hover:text-gray-800"
+              className="p-1 sm:p-2 h-6 w-6 sm:h-8 sm:w-8 text-gray-600 hover:text-gray-800"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           )}
           {isOpen ? (
-            <ChevronUp className="w-5 h-5 text-gray-600" />
+            <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-600" />
+            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
           )}
         </div>
       </button>
       {isOpen && (
-        <div className="px-6 py-4 border-t border-gray-200">
+        <div className="px-4 sm:px-6 py-4 border-t border-gray-200">
           {children}
           {showShareButton && (
             <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center">
@@ -81,9 +81,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={handleShare}
-                className="text-gray-600 border-gray-300"
+                className="text-gray-600 border-gray-300 text-xs sm:text-sm"
               >
-                <Share2 className="w-4 h-4 mr-2" />
+                <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 Udostępnij
               </Button>
             </div>

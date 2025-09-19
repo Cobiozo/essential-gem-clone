@@ -75,12 +75,12 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-foreground">PURE LIFE</h1>
-          <p className="text-muted-foreground mt-2">Panel administracyjny</p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-sm sm:max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <img src={pureLifeDroplet} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">PURE LIFE</h1>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">Panel administracyjny</p>
         </div>
 
         <Tabs defaultValue="signin" className="w-full">
