@@ -195,20 +195,17 @@ const Admin = () => {
           .eq('id', previousSection.id)
       ]);
 
-      // Update local state
+      // Update local state with swapped positions
       const newSections = [...sections];
-      [newSections[sectionIndex], newSections[sectionIndex - 1]] = 
-      [newSections[sectionIndex - 1], newSections[sectionIndex]];
-      
-      // Update positions in local state
-      newSections[sectionIndex].position = currentSection.position;
-      newSections[sectionIndex - 1].position = previousSection.position;
+      const tempPosition = currentSection.position;
+      newSections[sectionIndex].position = previousSection.position;
+      newSections[sectionIndex - 1].position = tempPosition;
       
       setSections(newSections.sort((a, b) => a.position - b.position));
       
       toast({
-        title: "Sukces",
-        description: "Pozycja sekcji została zmieniona.",
+        title: "Pozycja zmieniona",
+        description: "Sekcja została przesunięta w górę.",
       });
     } catch (error) {
       console.error('Error moving section up:', error);
@@ -240,20 +237,17 @@ const Admin = () => {
           .eq('id', nextSection.id)
       ]);
 
-      // Update local state
+      // Update local state with swapped positions
       const newSections = [...sections];
-      [newSections[sectionIndex], newSections[sectionIndex + 1]] = 
-      [newSections[sectionIndex + 1], newSections[sectionIndex]];
-      
-      // Update positions in local state
-      newSections[sectionIndex].position = currentSection.position;
-      newSections[sectionIndex + 1].position = nextSection.position;
+      const tempPosition = currentSection.position;
+      newSections[sectionIndex].position = nextSection.position;
+      newSections[sectionIndex + 1].position = tempPosition;
       
       setSections(newSections.sort((a, b) => a.position - b.position));
       
       toast({
-        title: "Sukces",
-        description: "Pozycja sekcji została zmieniona.",
+        title: "Pozycja zmieniona", 
+        description: "Sekcja została przesunięta w dół.",
       });
     } catch (error) {
       console.error('Error moving section down:', error);
