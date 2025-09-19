@@ -1,7 +1,6 @@
 import React from 'react';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
-import { GreenButton } from '@/components/GreenButton';
-import { ShareButton } from '@/components/ShareButton';
+import { CMSButton } from '@/components/CMSButton';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,46 +86,52 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <header className="text-center mb-8">
-        <div className="flex items-center justify-center mb-6">
-          <img src={pureLifeDroplet} alt="Pure Life Droplet" className="w-16 h-16 mr-4" />
+      <header className="text-center mb-8 max-w-md mx-auto">
+        <div className="flex items-center justify-center mb-4">
+          <img src={pureLifeDroplet} alt="Pure Life Droplet" className="w-12 h-12 mr-3" />
           <div>
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2">
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">
               NIEZBĘDNIK
             </h1>
-            <h2 className="text-2xl md:text-3xl font-semibold text-foreground">
+            <div className="text-lg font-semibold text-gray-700">
               PURE LIFE
-            </h2>
+            </div>
           </div>
         </div>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Witaj w centralnym hub-ie wszystkich narzędzi, materiałów i zasobów Pure Life. 
-          Znajdziesz tutaj wszystko czego potrzebujesz do efektywnej pracy i współpracy.
+        <p className="text-sm text-gray-600 leading-relaxed mb-6">
+          Witaj w Niezbędniku Pure Life - przestrzeni 
+          stworzonej z myślą o Tobie i Twojej codziennej pracy 
+          w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, 
+          które pomogą Ci być skutecznym profesjonalistą i 14 
+          lekarstwem.
+        </p>
+        <p className="text-xs text-gray-500 mb-4">
+          Pozostałem - Dawid Kowalczyk
         </p>
         
         {/* Admin Controls */}
         {user && (
-          <div className="flex justify-center space-x-4 mt-6">
+          <div className="flex justify-center space-x-2 mb-4">
             <Link to="/admin">
-              <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="sm" className="text-xs">
+                <Settings className="w-3 h-3 mr-1" />
                 Panel CMS
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs">
+              <LogOut className="w-3 h-3 mr-1" />
               Wyloguj
             </Button>
           </div>
         )}
         
         {!user && (
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center mb-4">
             <Link to="/auth">
-              <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="sm" className="text-xs">
+                <Settings className="w-3 h-3 mr-1" />
                 Logowanie
               </Button>
             </Link>
@@ -135,28 +140,34 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto space-y-4">
+      <main className="max-w-md mx-auto space-y-3">
         {sections.map((section) => {
           const sectionItems = items.filter(item => item.section_id === section.id);
+          const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
           
           return (
             <CollapsibleSection 
               key={section.id} 
               title={section.title}
-              defaultOpen={section.position === 1}
+              defaultOpen={false}
+              showShareButton={shouldShowShare}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {sectionItems.map((item) => (
-                  <GreenButton 
-                    key={item.id}
-                    onClick={() => handleButtonClick(item.title || '', item.url || undefined)} 
-                    className="h-16"
-                  >
-                    {item.title}
-                  </GreenButton>
-                ))}
+              <div className="space-y-3">
+                {sectionItems.map((item) => {
+                  const hasDescription = item.description && item.description.length > 50;
+                  return (
+                    <CMSButton
+                      key={item.id}
+                      title={item.title || ''}
+                      description={item.description}
+                      url={item.url}
+                      type={hasDescription ? 'detailed' : 'simple'}
+                      onClick={() => handleButtonClick(item.title || '', item.url || undefined)}
+                    />
+                  );
+                })}
                 {sectionItems.length === 0 && (
-                  <div className="col-span-full text-center text-muted-foreground py-8">
+                  <div className="text-center text-gray-500 py-6 text-sm">
                     Brak elementów w tej sekcji
                   </div>
                 )}
@@ -166,11 +177,11 @@ const Index = () => {
         })}
         
         {sections.length === 0 && (
-          <div className="text-center text-muted-foreground py-16">
-            <img src={pureLifeDroplet} alt="Pure Life" className="w-24 h-24 mx-auto mb-4 opacity-50" />
-            <p className="text-lg">Brak zawartości do wyświetlenia</p>
-            <p className="text-sm mt-2">
-              {user && isAdmin ? (
+          <div className="text-center text-gray-500 py-12">
+            <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-base mb-2">Brak zawartości do wyświetlenia</p>
+            <p className="text-xs">
+              {user ? (
                 <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
               ) : (
                 <>Skontaktuj się z administratorem aby dodać treści.</>
@@ -178,6 +189,12 @@ const Index = () => {
             </p>
           </div>
         )}
+        
+        {/* Footer Logo */}
+        <div className="text-center py-8">
+          <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto" />
+          <div className="text-lg font-bold text-gray-700 mt-2">PURE LIFE</div>
+        </div>
       </main>
     </div>
   );
