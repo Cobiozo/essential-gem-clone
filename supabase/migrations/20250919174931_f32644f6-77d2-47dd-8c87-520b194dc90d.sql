@@ -1,0 +1,1 @@
+UPDATE profiles SET role = 'admin' WHERE email = 'biuro@mobilne-it.pl';
