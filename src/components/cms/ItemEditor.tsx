@@ -147,11 +147,12 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     });
   };
 
-  const handleMediaUpload = (url: string, type: 'image' | 'video') => {
+  const handleMediaUpload = (url: string, type: 'image' | 'video', altText?: string) => {
     setEditedItem({
       ...editedItem,
       media_url: url,
-      media_type: type
+      media_type: type,
+      media_alt_text: altText || ''
     });
   };
 
@@ -280,9 +281,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           </div>
 
           <MediaUpload
-            onUpload={handleMediaUpload}
-            currentUrl={editedItem.media_url}
-            currentType={editedItem.media_type}
+            onMediaUploaded={handleMediaUpload}
+            currentMediaUrl={editedItem.media_url || undefined}
+            currentMediaType={(editedItem.media_type === 'image' || editedItem.media_type === 'video') ? editedItem.media_type : undefined}
+            currentAltText={editedItem.media_alt_text || undefined}
           />
 
           {editedItem.media_url && (
