@@ -416,11 +416,11 @@ const Admin = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Section Management */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-            <h2 className="text-xl font-semibold">Zarządzanie sekcjami</h2>
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col gap-4 mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold">Zarządzanie sekcjami</h2>
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto">
@@ -428,25 +428,31 @@ const Admin = () => {
                   Dodaj sekcję
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="w-[95vw] max-w-md mx-auto">
                 <DialogHeader>
-                  <DialogTitle>Dodaj nową sekcję</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-base sm:text-lg">Dodaj nową sekcję</DialogTitle>
+                  <DialogDescription className="text-sm">
                     Utwórz nową sekcję CMS
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 py-2">
                   <div>
-                    <Label htmlFor="section-title">Tytuł sekcji</Label>
+                    <Label htmlFor="section-title" className="text-sm font-medium">Tytuł sekcji</Label>
                     <Input
+                      id="section-title"
                       value={newSection.title}
                       onChange={(e) => setNewSection({...newSection, title: e.target.value})}
                       placeholder="Nazwa sekcji"
+                      className="mt-1 h-10"
                     />
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button onClick={createSection} disabled={!newSection.title.trim()}>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button 
+                    onClick={createSection} 
+                    disabled={!newSection.title.trim()}
+                    className="w-full sm:w-auto"
+                  >
                     <Save className="w-4 h-4 mr-2" />
                     Utwórz sekcję
                   </Button>
@@ -456,191 +462,218 @@ const Admin = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:gap-8">
+        <div className="grid gap-4 sm:gap-6 lg:gap-8">
           {sections.map((section) => {
             const sectionItems = items.filter(i => i.section_id === section.id);
             
             return (
               <Card key={section.id}>
-                <CardHeader>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div>
-                        <CardTitle className="flex items-center space-x-2">
-                          <span>{section.title}</span>
-                          <Badge variant={section.is_active ? "default" : "secondary"}>
-                            {section.is_active ? "Aktywna" : "Nieaktywna"}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription>
-                          Pozycja: {section.position} | Elementów: {sectionItems.length}
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                        <div className="flex flex-col">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => moveSectionUp(section.id)}
-                            disabled={sections.findIndex(s => s.id === section.id) === 0}
-                            className="h-6 w-8 p-0"
-                          >
-                            <ChevronUp className="w-3 h-3" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => moveSectionDown(section.id)}
-                            disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
-                            className="h-6 w-8 p-0"
-                          >
-                            <ChevronDown className="w-3 h-3" />
-                          </Button>
+                <CardHeader className="p-4 sm:p-6">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <CardTitle className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 text-base sm:text-lg">
+                            <span className="break-words">{section.title}</span>
+                            <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
+                              {section.is_active ? "Aktywna" : "Nieaktywna"}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="text-xs sm:text-sm mt-1">
+                            Pozycja: {section.position} | Elementów: {sectionItems.length}
+                          </CardDescription>
                         </div>
-                        <Switch
-                          checked={section.is_active}
-                          onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
-                        />
-                        <Button variant="outline" size="sm" onClick={() => setEditingSection(section)}>
-                          <Pencil className="w-4 h-4" />
+                        <div className="flex items-center justify-between sm:justify-end gap-3">
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => moveSectionUp(section.id)}
+                              disabled={sections.findIndex(s => s.id === section.id) === 0}
+                              className="h-8 w-8 p-0"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => moveSectionDown(section.id)}
+                              disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
+                              className="h-8 w-8 p-0"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <Switch
+                            checked={section.is_active}
+                            onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" onClick={() => setEditingSection(section)} className="flex-1 sm:flex-none">
+                          <Pencil className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Edytuj</span>
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)}>
-                          <Trash2 className="w-4 h-4" />
+                        <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)} className="flex-1 sm:flex-none">
+                          <Trash2 className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Usuń</span>
                         </Button>
                         <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Dodaj element
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Dodaj nowy element</DialogTitle>
-                            <DialogDescription>
-                              Dodaj nowy element do sekcji "{section.title}"
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="type">Typ</Label>
-                              <Select value={newItem.type} onValueChange={(value) => setNewItem({...newItem, type: value})}>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                 <SelectContent>
-                                   <SelectItem value="button">Przycisk</SelectItem>
-                                   <SelectItem value="info_text">Informacja</SelectItem>
-                                   <SelectItem value="tip">Wskazówka</SelectItem>
-                                   <SelectItem value="description">Opis</SelectItem>
-                                   <SelectItem value="contact_info">Info kontaktowe</SelectItem>
-                                   <SelectItem value="support_info">Info wsparcia</SelectItem>
-                                   <SelectItem value="header_text">Tekst nagłówka</SelectItem>
-                                   <SelectItem value="author">Autor</SelectItem>
-                                 </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label htmlFor="title">Tytuł</Label>
-                              <Input
-                                value={newItem.title}
-                                onChange={(e) => setNewItem({...newItem, title: e.target.value})}
-                                placeholder="Nazwa elementu"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="description">Opis</Label>
-                              <Textarea
-                                value={newItem.description}
-                                onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                                placeholder="Opcjonalny opis"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="url">URL</Label>
-                              <Input
-                                value={newItem.url}
-                                onChange={(e) => setNewItem({...newItem, url: e.target.value})}
-                                placeholder="https://..."
-                              />
-                            </div>
-                            <MediaUpload
-                              onMediaUploaded={(url, type, altText) => setNewItem({
-                                ...newItem, 
-                                media_url: url, 
-                                media_type: type, 
-                                media_alt_text: altText || ''
-                              })}
-                              currentMediaUrl={newItem.media_url}
-                              currentMediaType={newItem.media_type as 'image' | 'video' | undefined}
-                              currentAltText={newItem.media_alt_text}
-                            />
-                          </div>
-                          <DialogFooter>
-                            <Button onClick={() => createItem(section.id)}>
-                              <Save className="w-4 h-4 mr-2" />
-                              Zapisz
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                              <Plus className="w-4 h-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Dodaj element</span>
+                              <span className="sm:hidden">Dodaj</span>
                             </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
+                          </DialogTrigger>
+                          <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle className="text-base sm:text-lg">Dodaj nowy element</DialogTitle>
+                              <DialogDescription className="text-sm">
+                                Dodaj nowy element do sekcji "{section.title}"
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                              <div>
+                                <Label htmlFor="type" className="text-sm font-medium">Typ</Label>
+                                <Select value={newItem.type} onValueChange={(value) => setNewItem({...newItem, type: value})}>
+                                  <SelectTrigger className="mt-1 h-10">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="button">Przycisk</SelectItem>
+                                    <SelectItem value="info_text">Informacja</SelectItem>
+                                    <SelectItem value="tip">Wskazówka</SelectItem>
+                                    <SelectItem value="description">Opis</SelectItem>
+                                    <SelectItem value="contact_info">Info kontaktowe</SelectItem>
+                                    <SelectItem value="support_info">Info wsparcia</SelectItem>
+                                    <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                                    <SelectItem value="author">Autor</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label htmlFor="title" className="text-sm font-medium">Tytuł</Label>
+                                <Input
+                                  id="title"
+                                  value={newItem.title}
+                                  onChange={(e) => setNewItem({...newItem, title: e.target.value})}
+                                  placeholder="Nazwa elementu"
+                                  className="mt-1 h-10"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="description" className="text-sm font-medium">Opis</Label>
+                                <Textarea
+                                  id="description"
+                                  value={newItem.description}
+                                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                                  placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
+                                  className="mt-1 min-h-[80px] resize-none"
+                                  rows={3}
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="url" className="text-sm font-medium">URL</Label>
+                                <Input
+                                  id="url"
+                                  value={newItem.url}
+                                  onChange={(e) => setNewItem({...newItem, url: e.target.value})}
+                                  placeholder="https://..."
+                                  className="mt-1 h-10"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">Plik multimedialny</Label>
+                                <div className="mt-1">
+                                  <MediaUpload
+                                    onMediaUploaded={(url, type, altText) => setNewItem({
+                                      ...newItem, 
+                                      media_url: url, 
+                                      media_type: type, 
+                                      media_alt_text: altText || ''
+                                    })}
+                                    currentMediaUrl={newItem.media_url}
+                                    currentMediaType={newItem.media_type as 'image' | 'video' | undefined}
+                                    currentAltText={newItem.media_alt_text}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
+                              <Button onClick={() => createItem(section.id)} className="w-full sm:w-auto">
+                                <Save className="w-4 h-4 mr-2" />
+                                Zapisz zmiany
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
-                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {sectionItems.map((item) => (
-                       <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4">
-                           <div className="flex-1 min-w-0">
-                             <div className="flex flex-wrap items-center gap-2 mb-2">
-                               <Badge 
-                                 variant="outline" 
-                                 className={
-                                   item.type === 'button' ? 'bg-green-100 text-green-800' :
-                                   item.type === 'header_text' ? 'bg-blue-100 text-blue-800' :
-                                   item.type === 'info_text' ? 'bg-purple-100 text-purple-800' :
-                                   item.type === 'tip' ? 'bg-yellow-100 text-yellow-800' :
-                                   item.type === 'contact_info' ? 'bg-emerald-100 text-emerald-800' :
-                                   'bg-gray-100 text-gray-800'
-                                 }
-                               >
-                                 {item.type === 'header_text' ? 'Nagłówek' :
-                                  item.type === 'info_text' ? 'Info' :
-                                  item.type === 'contact_info' ? 'Kontakt' :
-                                  item.type === 'support_info' ? 'Wsparcie' :
-                                  item.type}
-                               </Badge>
-                               <Badge variant={item.is_active ? "default" : "secondary"}>
-                                 {item.is_active ? "Aktywny" : "Nieaktywny"}
-                               </Badge>
+                       <div key={item.id} className="flex flex-col gap-3 p-3 sm:p-4 border rounded-lg bg-gray-50/50">
+                           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                             <div className="flex-1 min-w-0">
+                               <div className="flex flex-wrap items-center gap-2 mb-2">
+                                 <Badge variant="outline" className="text-xs">{item.type}</Badge>
+                                 <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
+                                   {item.is_active ? "Aktywny" : "Nieaktywny"}
+                                 </Badge>
+                               </div>
+                               <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
+                                 {item.title || 'Bez tytułu'}
+                               </h4>
+                               {item.description && (
+                                 <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
+                                   {item.description.length > 100 
+                                     ? `${item.description.substring(0, 100)}...` 
+                                     : item.description
+                                   }
+                                 </p>
+                               )}
+                               {item.url && (
+                                 <p className="text-xs text-blue-600 mt-1 break-all">
+                                   {item.url.length > 50 ? `${item.url.substring(0, 50)}...` : item.url}
+                                 </p>
+                               )}
                              </div>
-                             <h4 className="font-medium text-sm sm:text-base truncate">{item.title}</h4>
-                             {item.description && (
-                               <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
-                             )}
-                             {item.url && (
-                               <p className="text-xs text-muted-foreground mt-1 truncate">{item.url}</p>
-                             )}
                            </div>
-                         <div className="flex items-center gap-2 flex-shrink-0">
-                           <Switch
-                             checked={item.is_active}
-                             onCheckedChange={(checked) => updateItem(item.id, { is_active: checked })}
-                           />
-                           <Button variant="outline" size="sm" onClick={() => setEditingItem(item)}>
-                             <Pencil className="w-4 h-4" />
-                           </Button>
-                           <Button variant="destructive" size="sm" onClick={() => deleteItem(item.id)}>
-                             <Trash2 className="w-4 h-4" />
-                           </Button>
-                         </div>
+                           <div className="flex flex-wrap gap-2">
+                             <Switch
+                               checked={item.is_active}
+                               onCheckedChange={(checked) => updateItem(item.id, { is_active: checked })}
+                               className="mr-2"
+                             />
+                             <Button 
+                               variant="outline" 
+                               size="sm" 
+                               onClick={() => setEditingItem(item)}
+                               className="flex-1 sm:flex-none"
+                             >
+                               <Pencil className="w-4 h-4 sm:mr-2" />
+                               <span className="hidden sm:inline">Edytuj</span>
+                             </Button>
+                             <Button 
+                               variant="destructive" 
+                               size="sm" 
+                               onClick={() => deleteItem(item.id)}
+                               className="flex-1 sm:flex-none"
+                             >
+                               <Trash2 className="w-4 h-4 sm:mr-2" />
+                               <span className="hidden sm:inline">Usuń</span>
+                             </Button>
+                           </div>
                        </div>
-                    ))}
-                    {sectionItems.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">
-                        Brak elementów w tej sekcji
-                      </p>
-                    )}
-                  </div>
+                     ))}
+                     {sectionItems.length === 0 && (
+                       <p className="text-center text-muted-foreground py-8">
+                         Brak elementów w tej sekcji
+                       </p>
+                     )}
+                   </div>
                 </CardContent>
               </Card>
             );
@@ -651,21 +684,21 @@ const Admin = () => {
       {/* Edit Item Dialog */}
       {editingItem && (
         <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
-          <DialogContent>
+          <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edytuj element</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base sm:text-lg">Edytuj element</DialogTitle>
+              <DialogDescription className="text-sm">
                 Modyfikuj dane elementu
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 py-2">
               <div>
-                <Label htmlFor="edit-type">Typ</Label>
+                <Label htmlFor="edit-type" className="text-sm font-medium">Typ</Label>
                 <Select 
                   value={editingItem.type} 
                   onValueChange={(value) => setEditingItem({...editingItem, type: value})}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1 h-10">
                     <SelectValue />
                   </SelectTrigger>
                    <SelectContent>
@@ -681,54 +714,58 @@ const Admin = () => {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="edit-title">Tytuł</Label>
+                <Label htmlFor="edit-title" className="text-sm font-medium">Tytuł</Label>
                 <Input
+                  id="edit-title"
                   value={editingItem.title || ''}
                   onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
-                  placeholder="Nazwa elementu"
+                  placeholder="Wskazówka"
+                  className="mt-1 h-10"
                 />
               </div>
               <div>
-                <Label htmlFor="edit-description">Opis</Label>
+                <Label htmlFor="edit-description" className="text-sm font-medium">Opis</Label>
                 <Textarea
+                  id="edit-description"
                   value={editingItem.description || ''}
                   onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
-                  placeholder="Opcjonalny opis"
+                  placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
+                  className="mt-1 min-h-[80px] resize-none"
+                  rows={3}
                 />
               </div>
               <div>
-                <Label htmlFor="edit-url">URL</Label>
+                <Label htmlFor="edit-url" className="text-sm font-medium">URL</Label>
                 <Input
+                  id="edit-url"
                   value={editingItem.url || ''}
                   onChange={(e) => setEditingItem({...editingItem, url: e.target.value})}
                   placeholder="https://..."
+                  className="mt-1 h-10"
                 />
               </div>
-              <MediaUpload
-                onMediaUploaded={(url, type, altText) => setEditingItem({
-                  ...editingItem, 
-                  media_url: url, 
-                  media_type: type, 
-                  media_alt_text: altText || ''
-                })}
-                currentMediaUrl={editingItem.media_url || ''}
-                currentMediaType={editingItem.media_type as 'image' | 'video' | undefined}
-                currentAltText={editingItem.media_alt_text || ''}
-              />
+              <div>
+                <Label className="text-sm font-medium">Plik multimedialny</Label>
+                <div className="mt-1">
+                  <MediaUpload
+                    onMediaUploaded={(url, type, altText) => setEditingItem({
+                      ...editingItem, 
+                      media_url: url, 
+                      media_type: type, 
+                      media_alt_text: altText || ''
+                    })}
+                    currentMediaUrl={editingItem.media_url || ''}
+                    currentMediaType={editingItem.media_type as 'image' | 'video' | undefined}
+                    currentAltText={editingItem.media_alt_text || ''}
+                  />
+                </div>
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingItem(null)}>
-                Anuluj
-              </Button>
-              <Button onClick={() => updateItem(editingItem.id, {
-                type: editingItem.type,
-                title: editingItem.title,
-                description: editingItem.description,
-                url: editingItem.url,
-                media_url: editingItem.media_url,
-                media_type: editingItem.media_type,
-                media_alt_text: editingItem.media_alt_text,
-              })}>
+            <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
+              <Button 
+                onClick={() => updateItem(editingItem.id, editingItem)} 
+                className="w-full sm:w-auto"
+              >
                 <Save className="w-4 h-4 mr-2" />
                 Zapisz zmiany
               </Button>

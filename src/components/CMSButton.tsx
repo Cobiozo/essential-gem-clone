@@ -37,13 +37,13 @@ export const CMSButton: React.FC<CMSButtonProps> = ({
         <Button
           onClick={handleClick}
           className={cn(
-            "w-full min-h-[80px] sm:min-h-[70px] lg:min-h-[80px] bg-green-600 hover:bg-green-700 text-white font-medium text-left p-4 sm:p-6 rounded-lg shadow-sm border-0",
+            "w-full min-h-[70px] sm:min-h-[60px] lg:min-h-[70px] bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-left p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border-0",
             "flex flex-col items-start justify-center space-y-1 sm:space-y-2",
             className
           )}
         >
           <span className="font-semibold text-sm sm:text-base leading-tight">{title}</span>
-          <span className="text-xs sm:text-sm text-green-100 font-normal leading-tight">{description}</span>
+          <span className="text-xs sm:text-sm text-primary-foreground/80 font-normal leading-tight">{description}</span>
         </Button>
       </div>
     );
@@ -53,7 +53,7 @@ export const CMSButton: React.FC<CMSButtonProps> = ({
     <Button
       onClick={handleClick}
       className={cn(
-        "w-full min-h-[50px] sm:min-h-[45px] lg:min-h-[50px] bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-sm border-0 px-3 sm:px-4 py-3 text-sm sm:text-base",
+        "w-full min-h-[45px] sm:min-h-[40px] lg:min-h-[45px] bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg shadow-sm border-0 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base",
         className
       )}
     >

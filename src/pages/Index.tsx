@@ -171,21 +171,21 @@ const Index = () => {
                      onClick={handleButtonClick}
                    />
                  ))}
-                {sectionItems.length === 0 && (
-                  <div className="text-center text-gray-500 py-6 text-sm">
-                    Brak elementów w tej sekcji
-                  </div>
-                )}
+                 {sectionItems.length === 0 && (
+                   <div className="text-center text-gray-500 py-4 sm:py-6 text-xs sm:text-sm">
+                     Brak elementów w tej sekcji
+                   </div>
+                 )}
               </div>
             </CollapsibleSection>
           );
         })}
         
         {sections.length === 0 && (
-          <div className="text-center text-gray-500 py-12">
-            <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-base mb-2">Brak zawartości do wyświetlenia</p>
-            <p className="text-xs">
+          <div className="text-center text-gray-500 py-8 sm:py-12">
+            <img src={pureLifeDroplet} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
+            <p className="text-xs sm:text-sm px-4">
               {user ? (
                 <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
               ) : (
@@ -196,9 +196,9 @@ const Index = () => {
         )}
         
         {/* Footer Logo */}
-        <div className="text-center py-8">
-          <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto" />
-          <div className="text-lg font-bold text-gray-700 mt-2">PURE LIFE</div>
+        <div className="text-center py-6 sm:py-8">
+          <img src={pureLifeDroplet} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" />
+          <div className="text-base sm:text-lg font-bold text-gray-700 mt-2">PURE LIFE</div>
         </div>
       </main>
     </div>
