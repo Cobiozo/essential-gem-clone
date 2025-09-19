@@ -1,0 +1,399 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff } from 'lucide-react';
+import { EmojiPicker } from './EmojiPicker';
+
+interface Section {
+  id?: string;
+  title: string;
+  description?: string;
+  position: number;
+  is_active: boolean;
+  background_color?: string;
+  text_color?: string;
+  font_size?: number;
+  alignment?: 'left' | 'center' | 'right';
+  padding?: number;
+  margin?: number;
+  border_radius?: number;
+  style_class?: string;
+}
+
+interface SectionEditorProps {
+  section?: Section;
+  onSave: (section: Section) => void;
+  onCancel?: () => void;
+  isNew?: boolean;
+  trigger?: React.ReactNode;
+}
+
+export const SectionEditor: React.FC<SectionEditorProps> = ({
+  section,
+  onSave,
+  onCancel,
+  isNew = false,
+  trigger
+}) => {
+  const [editedSection, setEditedSection] = useState<Section>(
+    section || {
+      title: '',
+      description: '',
+      position: 1,
+      is_active: true,
+      background_color: 'hsl(var(--background))',
+      text_color: 'hsl(var(--foreground))',
+      font_size: 16,
+      alignment: 'left',
+      padding: 16,
+      margin: 8,
+      border_radius: 8,
+      style_class: ''
+    }
+  );
+
+  const [isOpen, setIsOpen] = useState(false);
+
+  const alignmentOptions = [
+    { value: 'left', label: 'Do lewej' },
+    { value: 'center', label: 'Do środka' },
+    { value: 'right', label: 'Do prawej' }
+  ];
+
+  const backgroundPresets = [
+    { name: 'Domyślne', color: 'hsl(var(--background))' },
+    { name: 'Białe', color: 'hsl(0 0% 100%)' },
+    { name: 'Szare', color: 'hsl(0 0% 95%)' },
+    { name: 'Podstawowe', color: 'hsl(var(--primary))' },
+    { name: 'Akcentowe', color: 'hsl(var(--accent))' },
+    { name: 'Przezroczyste', color: 'transparent' }
+  ];
+
+  const handleSave = () => {
+    onSave(editedSection);
+    setIsOpen(false);
+  };
+
+  const handleCancel = () => {
+    setEditedSection(section || {
+      title: '',
+      description: '',
+      position: 1,
+      is_active: true,
+      background_color: 'hsl(var(--background))',
+      text_color: 'hsl(var(--foreground))',
+      font_size: 16,
+      alignment: 'left',
+      padding: 16,
+      margin: 8,
+      border_radius: 8,
+      style_class: ''
+    });
+    setIsOpen(false);
+    onCancel?.();
+  };
+
+  const addEmoji = (emoji: string) => {
+    setEditedSection({
+      ...editedSection,
+      title: editedSection.title + emoji
+    });
+  };
+
+  const editorContent = (
+    <div className="space-y-6 max-h-[80vh] overflow-y-auto">
+      {/* Basic Information */}
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="section-title" className="text-sm font-medium">
+            Tytuł sekcji
+          </Label>
+          <div className="flex space-x-2 mt-1">
+            <Input
+              id="section-title"
+              value={editedSection.title}
+              onChange={(e) => setEditedSection({...editedSection, title: e.target.value})}
+              placeholder="Nazwa sekcji"
+            />
+            <EmojiPicker 
+              onEmojiSelect={addEmoji}
+              trigger={
+                <Button variant="outline" size="icon" type="button">
+                  😀
+                </Button>
+              }
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="section-description" className="text-sm font-medium">
+            Opis sekcji (opcjonalny)
+          </Label>
+          <Textarea
+            id="section-description"
+            value={editedSection.description || ''}
+            onChange={(e) => setEditedSection({...editedSection, description: e.target.value})}
+            placeholder="Krótki opis sekcji"
+            rows={3}
+            className="mt-1"
+          />
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="section-active"
+            checked={editedSection.is_active}
+            onCheckedChange={(checked) => setEditedSection({...editedSection, is_active: checked})}
+          />
+          <Label htmlFor="section-active" className="text-sm font-medium">
+            Sekcja aktywna
+          </Label>
+          {editedSection.is_active ? (
+            <Eye className="w-4 h-4 text-green-600" />
+          ) : (
+            <EyeOff className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+      </div>
+
+      {/* Typography Settings */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Type className="w-4 h-4" />
+          <h4 className="font-medium">Typografia</h4>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Rozmiar czcionki: {editedSection.font_size}px
+          </Label>
+          <Slider
+            value={[editedSection.font_size || 16]}
+            onValueChange={([value]) => setEditedSection({...editedSection, font_size: value})}
+            min={12}
+            max={32}
+            step={1}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Wyrównanie tekstu</Label>
+          <Select 
+            value={editedSection.alignment} 
+            onValueChange={(value: 'left' | 'center' | 'right') => 
+              setEditedSection({...editedSection, alignment: value})
+            }
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {alignmentOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="text-color" className="text-sm font-medium">
+            Kolor tekstu
+          </Label>
+          <Input
+            id="text-color"
+            type="color"
+            value={editedSection.text_color?.includes('hsl') ? '#333333' : editedSection.text_color}
+            onChange={(e) => setEditedSection({...editedSection, text_color: e.target.value})}
+            className="mt-1 h-10 w-full"
+          />
+        </div>
+      </div>
+
+      {/* Style Settings */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Palette className="w-4 h-4" />
+          <h4 className="font-medium">Wygląd i styl</h4>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Kolor tła</Label>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {backgroundPresets.map((preset) => (
+              <Button
+                key={preset.name}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs justify-start"
+                onClick={() => setEditedSection({...editedSection, background_color: preset.color})}
+              >
+                <div 
+                  className="w-4 h-4 rounded mr-2 border" 
+                  style={{ backgroundColor: preset.color === 'transparent' ? 'white' : preset.color }}
+                />
+                {preset.name}
+              </Button>
+            ))}
+          </div>
+          <Input
+            type="color"
+            value={editedSection.background_color?.includes('hsl') ? '#f5f5f5' : editedSection.background_color}
+            onChange={(e) => setEditedSection({...editedSection, background_color: e.target.value})}
+            className="w-full h-10"
+          />
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Padding: {editedSection.padding}px
+          </Label>
+          <Slider
+            value={[editedSection.padding || 16]}
+            onValueChange={([value]) => setEditedSection({...editedSection, padding: value})}
+            min={0}
+            max={64}
+            step={4}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Margin: {editedSection.margin}px
+          </Label>
+          <Slider
+            value={[editedSection.margin || 8]}
+            onValueChange={([value]) => setEditedSection({...editedSection, margin: value})}
+            min={0}
+            max={32}
+            step={4}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Zaokrąglenie rogów: {editedSection.border_radius}px
+          </Label>
+          <Slider
+            value={[editedSection.border_radius || 8]}
+            onValueChange={([value]) => setEditedSection({...editedSection, border_radius: value})}
+            min={0}
+            max={24}
+            step={2}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="style-class" className="text-sm font-medium">
+            Dodatkowe klasy CSS (opcjonalne)
+          </Label>
+          <Input
+            id="style-class"
+            value={editedSection.style_class || ''}
+            onChange={(e) => setEditedSection({...editedSection, style_class: e.target.value})}
+            placeholder="np. shadow-lg border-2"
+            className="mt-1"
+          />
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Layout className="w-4 h-4" />
+          <h4 className="font-medium">Podgląd</h4>
+        </div>
+        
+        <div 
+          className="p-4 border rounded-lg"
+          style={{
+            backgroundColor: editedSection.background_color,
+            color: editedSection.text_color,
+            fontSize: `${editedSection.font_size}px`,
+            textAlign: editedSection.alignment,
+            padding: `${editedSection.padding}px`,
+            margin: `${editedSection.margin}px`,
+            borderRadius: `${editedSection.border_radius}px`
+          }}
+        >
+          <h3 className="font-semibold mb-2">{editedSection.title || 'Przykładowy tytuł'}</h3>
+          {editedSection.description && (
+            <p className="text-sm opacity-80">{editedSection.description}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (trigger) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>
+              {isNew ? 'Dodaj nową sekcję' : 'Edytuj sekcję'}
+            </DialogTitle>
+            <DialogDescription>
+              Skonfiguruj wygląd i zawartość sekcji
+            </DialogDescription>
+          </DialogHeader>
+          {editorContent}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancel}>
+              <X className="w-4 h-4 mr-2" />
+              Anuluj
+            </Button>
+            <Button onClick={handleSave} disabled={!editedSection.title.trim()}>
+              <Save className="w-4 h-4 mr-2" />
+              {isNew ? 'Utwórz sekcję' : 'Zapisz zmiany'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <Edit3 className="w-5 h-5" />
+          <span>{isNew ? 'Nowa sekcja' : 'Edytuj sekcję'}</span>
+        </CardTitle>
+        <CardDescription>
+          Skonfiguruj wygląd i zawartość sekcji
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {editorContent}
+        <div className="flex space-x-3 mt-6">
+          <Button onClick={handleSave} disabled={!editedSection.title.trim()}>
+            <Save className="w-4 h-4 mr-2" />
+            {isNew ? 'Utwórz sekcję' : 'Zapisz zmiany'}
+          </Button>
+          <Button variant="outline" onClick={handleCancel}>
+            <X className="w-4 h-4 mr-2" />
+            Anuluj
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
