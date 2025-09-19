@@ -109,14 +109,12 @@ const Index = () => {
         {/* Admin Controls */}
         {user && (
           <div className="flex justify-center space-x-4 mt-6">
-            {isAdmin && (
-              <Link to="/admin">
-                <Button variant="outline" size="sm">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Panel CMS
-                </Button>
-              </Link>
-            )}
+            <Link to="/admin">
+              <Button variant="outline" size="sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Panel CMS
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Wyloguj
