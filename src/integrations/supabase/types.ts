@@ -21,6 +21,9 @@ export type Database = {
           icon: string | null
           id: string
           is_active: boolean
+          media_alt_text: string | null
+          media_type: string | null
+          media_url: string | null
           position: number
           section_id: string
           title: string | null
@@ -34,6 +37,9 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean
+          media_alt_text?: string | null
+          media_type?: string | null
+          media_url?: string | null
           position: number
           section_id: string
           title?: string | null
@@ -47,6 +53,9 @@ export type Database = {
           icon?: string | null
           id?: string
           is_active?: boolean
+          media_alt_text?: string | null
+          media_type?: string | null
+          media_url?: string | null
           position?: number
           section_id?: string
           title?: string | null

@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown } from 'lucide-react';
+import { MediaUpload } from '@/components/MediaUpload';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
 
 interface CMSSection {
@@ -37,6 +38,9 @@ interface CMSItem {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  media_url?: string | null;
+  media_type?: string | null;
+  media_alt_text?: string | null;
 }
 
 const Admin = () => {
@@ -55,6 +59,9 @@ const Admin = () => {
     description: '',
     url: '',
     icon: '',
+    media_url: '',
+    media_type: '' as 'image' | 'video' | '',
+    media_alt_text: '',
   });
   const [newSection, setNewSection] = useState({
     title: '',
@@ -291,7 +298,16 @@ const Admin = () => {
       if (error) throw error;
 
       setItems([...items, data]);
-      setNewItem({ type: 'button', title: '', description: '', url: '', icon: '' });
+      setNewItem({ 
+        type: 'button', 
+        title: '', 
+        description: '', 
+        url: '', 
+        icon: '',
+        media_url: '',
+        media_type: '' as 'image' | 'video' | '',
+        media_alt_text: '',
+      });
       toast({
         title: "Sukces",
         description: "Element został dodany.",
@@ -543,6 +559,17 @@ const Admin = () => {
                                 placeholder="https://..."
                               />
                             </div>
+                            <MediaUpload
+                              onMediaUploaded={(url, type, altText) => setNewItem({
+                                ...newItem, 
+                                media_url: url, 
+                                media_type: type, 
+                                media_alt_text: altText || ''
+                              })}
+                              currentMediaUrl={newItem.media_url}
+                              currentMediaType={newItem.media_type as 'image' | 'video' | undefined}
+                              currentAltText={newItem.media_alt_text}
+                            />
                           </div>
                           <DialogFooter>
                             <Button onClick={() => createItem(section.id)}>
@@ -673,6 +700,17 @@ const Admin = () => {
                   placeholder="https://..."
                 />
               </div>
+              <MediaUpload
+                onMediaUploaded={(url, type, altText) => setEditingItem({
+                  ...editingItem, 
+                  media_url: url, 
+                  media_type: type, 
+                  media_alt_text: altText || ''
+                })}
+                currentMediaUrl={editingItem.media_url || ''}
+                currentMediaType={editingItem.media_type as 'image' | 'video' | undefined}
+                currentAltText={editingItem.media_alt_text || ''}
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditingItem(null)}>
@@ -683,6 +721,9 @@ const Admin = () => {
                 title: editingItem.title,
                 description: editingItem.description,
                 url: editingItem.url,
+                media_url: editingItem.media_url,
+                media_type: editingItem.media_type,
+                media_alt_text: editingItem.media_alt_text,
               })}>
                 <Save className="w-4 h-4 mr-2" />
                 Zapisz zmiany

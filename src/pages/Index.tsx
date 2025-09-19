@@ -24,6 +24,9 @@ interface CMSItem {
   url: string | null;
   position: number;
   is_active: boolean;
+  media_url?: string | null;
+  media_type?: string | null;
+  media_alt_text?: string | null;
 }
 
 const Index = () => {
