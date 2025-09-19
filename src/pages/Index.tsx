@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
-import pureLifeLogo from '@/assets/logo-purelife.png';
+import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 
 interface CMSSection {
   id: string;
@@ -108,10 +108,7 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
         <div className="mb-6">
-          <img src={pureLifeLogo} alt="Pure Life Logo" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto mb-4" />
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
-            NIEZBĘDNIK
-          </h1>
+          <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
         </div>
         <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
           {headerText || "Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem."}
