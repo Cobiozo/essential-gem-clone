@@ -213,8 +213,8 @@ const Admin = () => {
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się załadować klientów.",
+        title: t('toast.error'),
+        description: t('error.loadClients'),
         variant: "destructive",
       });
     } finally {
@@ -244,8 +244,8 @@ const Admin = () => {
     } catch (error: any) {
       console.error('Error updating user role:', error);
       toast({
-        title: "Błąd",
-        description: error.message || "Nie udało się zmienić roli klienta.",
+        title: t('toast.error'),
+        description: error.message || t('error.changeRole'),
         variant: "destructive",
       });
     }
@@ -263,23 +263,23 @@ const Admin = () => {
 
       if (data) {
         toast({
-          title: "Sukces",
-          description: "Email klienta został potwierdzony.",
+          title: t('toast.success'),
+          description: t('success.emailConfirmed'),
         });
         // Refresh users list to show updated status
         fetchUsers();
       } else {
         toast({
-          title: "Informacja",
-          description: "Email był już wcześniej potwierdzony.",
+          title: t('toast.info'),
+          description: t('success.emailAlreadyConfirmed'),
           variant: "default",
         });
       }
     } catch (error) {
       console.error('Error confirming user email:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się potwierdzić emaila klienta.",
+        title: t('toast.error'),
+        description: t('error.confirmEmail'),
         variant: "destructive",
       });
     }
@@ -307,8 +307,8 @@ const Admin = () => {
     } catch (error: any) {
       console.error('Error toggling user status:', error);
       toast({
-        title: "Błąd",
-        description: error.message || "Nie udało się zmienić statusu klienta.",
+        title: t('toast.error'),
+        description: error.message || t('error.changeStatus'),
         variant: "destructive",
       });
     }
@@ -317,8 +317,8 @@ const Admin = () => {
   const handlePasswordChange = async () => {
     if (!passwordData.currentPassword) {
       toast({
-        title: "Błąd",
-        description: "Podaj aktualne hasło.",
+        title: t('toast.error'),
+        description: t('error.currentPassword'),
         variant: "destructive",
       });
       return;
@@ -326,8 +326,8 @@ const Admin = () => {
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast({
-        title: "Błąd",
-        description: "Hasła nie są identyczne.",
+        title: t('toast.error'),
+        description: t('error.passwordMismatch'),
         variant: "destructive",
       });
       return;
@@ -335,8 +335,8 @@ const Admin = () => {
 
     if (passwordData.newPassword.length < 6) {
       toast({
-        title: "Błąd", 
-        description: "Hasło musi mieć co najmniej 6 znaków.",
+        title: t('toast.error'), 
+        description: t('error.passwordLength'),
         variant: "destructive",
       });
       return;
@@ -352,8 +352,8 @@ const Admin = () => {
 
       if (signInError) {
         toast({
-          title: "Błąd",
-          description: "Aktualne hasło jest nieprawidłowe.",
+          title: t('toast.error'),
+          description: t('error.incorrectPassword'),
           variant: "destructive",
         });
         return;
@@ -368,14 +368,14 @@ const Admin = () => {
 
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       toast({
-        title: "Sukces",
-        description: "Hasło zostało zmienione.",
+        title: t('toast.success'),
+        description: t('success.passwordChanged'),
       });
     } catch (error: any) {
       console.error('Error changing password:', error);
       toast({
-        title: "Błąd",
-        description: error.message || "Nie udało się zmienić hasła.",
+        title: t('toast.error'),
+        description: error.message || t('error.changePassword'),
         variant: "destructive",
       });
     } finally {
@@ -387,8 +387,8 @@ const Admin = () => {
   const createUser = async () => {
     if (!newUser.email || !newUser.password) {
       toast({
-        title: "Błąd",
-        description: "Wypełnij wszystkie pola.",
+        title: t('toast.error'),
+        description: t('error.fillAllFields'),
         variant: "destructive",
       });
       return;
@@ -396,8 +396,8 @@ const Admin = () => {
 
     if (newUser.password.length < 6) {
       toast({
-        title: "Błąd",
-        description: "Hasło musi mieć co najmniej 6 znaków.",
+        title: t('toast.error'),
+        description: t('error.passwordLength'),
         variant: "destructive",
       });
       return;
@@ -438,8 +438,8 @@ const Admin = () => {
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast({
-        title: "Błąd",
-        description: error.message || "Nie udało się utworzyć klienta.",
+        title: t('toast.error'),
+        description: error.message || t('error.createClient'),
         variant: "destructive",
       });
     } finally {
@@ -636,8 +636,8 @@ const Admin = () => {
     
     if (!isAdmin) {
       toast({
-        title: "Przekierowanie",
-        description: "Zostaniesz przekierowany na stronę Moje konto.",
+        title: t('toast.redirect'),
+        description: t('success.redirectToAccount'),
         variant: "default",
       });
       navigate('/my-account');
@@ -668,8 +668,8 @@ const Admin = () => {
     } catch (error) {
       console.error('Error fetching CMS data:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się załadować danych CMS.",
+        title: t('toast.error'),
+        description: t('error.loadCMS'),
         variant: "destructive",
       });
     } finally {
@@ -704,14 +704,14 @@ const Admin = () => {
         visible_to_everyone: true,
       });
       toast({
-        title: "Sukces",
-        description: "Nowa sekcja została utworzona.",
+        title: t('toast.success'),
+        description: t('success.sectionCreated'),
       });
     } catch (error) {
       console.error('Error creating section:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się utworzyć sekcji.",
+        title: t('toast.error'),
+        description: t('error.createSection'),
         variant: "destructive",
       });
     }
@@ -738,14 +738,14 @@ const Admin = () => {
       setSections(sections.filter(s => s.id !== sectionId));
       setItems(items.filter(i => i.section_id !== sectionId));
       toast({
-        title: "Sukces",
-        description: "Sekcja została usunięta.",
+        title: t('toast.success'),
+        description: t('success.sectionDeleted'),
       });
     } catch (error) {
       console.error('Error deleting section:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się usunąć sekcji.",
+        title: t('toast.error'),
+        description: t('error.deleteSection'),
         variant: "destructive",
       });
     }
@@ -775,14 +775,14 @@ const Admin = () => {
       await fetchData();
       
       toast({
-        title: "Pozycja zmieniona",
-        description: "Sekcja została przesunięta w górę.",
+        title: t('toast.positionChanged'),
+        description: t('success.sectionMovedUp'),
       });
     } catch (error) {
       console.error('Error moving section up:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zmienić pozycji sekcji.",
+        title: t('toast.error'),
+        description: t('error.changeSectionPosition'),
         variant: "destructive",
       });
     }
@@ -812,14 +812,14 @@ const Admin = () => {
       await fetchData();
       
       toast({
-        title: "Pozycja zmieniona", 
-        description: "Sekcja została przesunięta w dół.",
+        title: t('toast.positionChanged'), 
+        description: t('success.sectionMovedDown'),
       });
     } catch (error) {
       console.error('Error moving section down:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zmienić pozycji sekcji.",
+        title: t('toast.error'),
+        description: t('error.changeSectionPosition'),
         variant: "destructive",
       });
     }
@@ -837,14 +837,14 @@ const Admin = () => {
       setSections(sections.map(s => s.id === sectionId ? { ...s, ...updates } : s));
       setEditingSection(null);
       toast({
-        title: "Sukces",
-        description: "Sekcja została zaktualizowana.",
+        title: t('toast.success'),
+        description: t('success.sectionUpdated'),
       });
     } catch (error) {
       console.error('Error updating section:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zaktualizować sekcji.",
+        title: t('toast.error'),
+        description: t('error.updateSection'),
         variant: "destructive",
       });
     }
@@ -890,14 +890,14 @@ const Admin = () => {
       setNewItemTitleMode(false);
       setNewItemTextMode(false);
       toast({
-        title: "Sukces",
-        description: "Element został dodany.",
+        title: t('toast.success'),
+        description: t('success.elementAdded'),
       });
     } catch (error) {
       console.error('Error creating item:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się dodać elementu.",
+        title: t('toast.error'),
+        description: t('error.addElement'),
         variant: "destructive",
       });
     }
@@ -917,14 +917,14 @@ const Admin = () => {
       setItems(items.map(i => i.id === itemId ? { ...i, ...updates } : i));
       setEditingItem(null);
       toast({
-        title: "Sukces",
-        description: "Element został zaktualizowany.",
+        title: t('toast.success'),
+        description: t('success.elementUpdated'),
       });
     } catch (error) {
       console.error('Error updating item:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zaktualizować elementu.",
+        title: t('toast.error'),
+        description: t('error.updateElement'),
         variant: "destructive",
       });
     }
@@ -941,14 +941,14 @@ const Admin = () => {
 
       setItems(items.filter(i => i.id !== itemId));
       toast({
-        title: "Sukces",
-        description: "Element został usunięty.",
+        title: t('toast.success'),
+        description: t('success.elementDeleted'),
       });
     } catch (error) {
       console.error('Error deleting item:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się usunąć elementu.",
+        title: t('toast.error'),
+        description: t('error.deleteElement'),
         variant: "destructive",
       });
     }
@@ -1022,14 +1022,14 @@ const Admin = () => {
       });
       
       toast({
-        title: "Strona utworzona",
-        description: "Nowa strona została pomyślnie utworzona.",
+        title: t('toast.pageCreated'),
+        description: t('success.pageCreated'),
       });
     } catch (error) {
       console.error('Create page error:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się utworzyć strony.",
+        title: t('toast.error'),
+        description: t('error.createPage'),
         variant: "destructive",
       });
     }
@@ -1051,14 +1051,14 @@ const Admin = () => {
       ));
 
       toast({
-        title: "Widoczność zaktualizowana",
-        description: "Ustawienia widoczności strony zostały zaktualizowane.",
+        title: t('toast.visibilityUpdated'),
+        description: t('success.pageVisibilityUpdated'),
       });
     } catch (error) {
       console.error('Update page visibility error:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zaktualizować widoczności strony.",
+        title: t('toast.error'),
+        description: t('error.updatePageVisibility'),
         variant: "destructive",
       });
     }
@@ -1080,13 +1080,13 @@ const Admin = () => {
       ));
 
       toast({
-        title: "Widoczność zaktualizowana",
+        title: t('toast.visibilityUpdated'),
         description: "Ustawienia widoczności sekcji zostały zaktualizowane.",
       });
     } catch (error) {
       console.error('Update section visibility error:', error);
       toast({
-        title: "Błąd",
+        title: t('toast.error'),
         description: "Nie udało się zaktualizować widoczności sekcji.",
         variant: "destructive",
       });
@@ -1108,14 +1108,14 @@ const Admin = () => {
       setEditingPage(null);
       
       toast({
-        title: "Strona zaktualizowana",
-        description: "Strona została pomyślnie zaktualizowana.",
+        title: t('toast.pageUpdated'),
+        description: t('success.pageUpdated'),
       });
     } catch (error) {
       console.error('Update page error:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zaktualizować strony.",
+        title: t('toast.error'),
+        description: t('error.updatePage'),
         variant: "destructive",
       });
     }
@@ -1133,14 +1133,14 @@ const Admin = () => {
       setPages(pages.filter(page => page.id !== pageId));
       
       toast({
-        title: "Strona usunięta",
-        description: "Strona została pomyślnie usunięta.",
+        title: t('toast.pageDeleted'),
+        description: t('success.pageDeleted'),
       });
     } catch (error) {
       console.error('Delete page error:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się usunąć strony.",
+        title: t('toast.error'),
+        description: t('error.deletePage'),
         variant: "destructive",
       });
     }
@@ -1521,7 +1521,7 @@ const Admin = () => {
                     />
                   </div>
                   <div className="space-y-3">
-                    <h4 className="text-sm font-medium">Widoczność sekcji dla ról:</h4>
+                    <h4 className="text-sm font-medium">{t('admin.pageVisibility')}:</h4>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <input
@@ -1663,20 +1663,20 @@ const Admin = () => {
                           <DialogTrigger asChild>
                             <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                               <Plus className="w-4 h-4 sm:mr-2" />
-                              <span className="hidden sm:inline">Dodaj element</span>
-                              <span className="sm:hidden">Dodaj</span>
+                              <span className="hidden sm:inline">{t('admin.addItem')}</span>
+                              <span className="sm:hidden">{t('admin.addItem')}</span>
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
-                              <DialogTitle className="text-base sm:text-lg">Dodaj nowy element</DialogTitle>
+                              <DialogTitle className="text-base sm:text-lg">{t('admin.addItem')}</DialogTitle>
                               <DialogDescription className="text-sm">
                                 Dodaj nowy element do sekcji "{section.title}"
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-2">
                               <div>
-                                <Label htmlFor="type" className="text-sm font-medium">Typ</Label>
+                                <Label htmlFor="type" className="text-sm font-medium">{t('admin.itemType')}</Label>
                                 <Select value={newItem.type} onValueChange={(value) => setNewItem({...newItem, type: value})}>
                                   <SelectTrigger className="mt-1 h-10">
                                     <SelectValue />
@@ -1695,7 +1695,7 @@ const Admin = () => {
                               </div>
                                <div>
                                  <div className="flex items-center justify-between mb-2">
-                                   <Label htmlFor="title" className="text-sm font-medium">Tytuł</Label>
+                                   <Label htmlFor="title" className="text-sm font-medium">{t('admin.itemTitle')}</Label>
                                    <Button
                                      variant="outline"
                                      size="sm"
@@ -1730,7 +1730,7 @@ const Admin = () => {
                                </div>
                                <div>
                                  <div className="flex items-center justify-between mb-2">
-                                   <Label htmlFor="description" className="text-sm font-medium">Opis</Label>
+                                   <Label htmlFor="description" className="text-sm font-medium">{t('admin.description')}</Label>
                                    <Button
                                      variant="outline"
                                      size="sm"
@@ -1770,7 +1770,7 @@ const Admin = () => {
                                  )}
                                </div>
                               <div>
-                                <Label htmlFor="url" className="text-sm font-medium">URL</Label>
+                                <Label htmlFor="url" className="text-sm font-medium">{t('admin.url')}</Label>
                                 <Input
                                   id="url"
                                   value={newItem.url}
@@ -1780,7 +1780,7 @@ const Admin = () => {
                                 />
                               </div>
                               <div>
-                                <Label className="text-sm font-medium">Plik multimedialny</Label>
+                                <Label className="text-sm font-medium">{t('admin.media')}</Label>
                                 <div className="mt-1">
                                   <MediaUpload
                                     onMediaUploaded={(url, type, altText) => setNewItem({
@@ -1893,7 +1893,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Type className="w-5 h-5" />
-                  <span>Zarządzanie czcionkami</span>
+                  <span>{t('admin.fonts')}</span>
                 </CardTitle>
                 <CardDescription>
                   Dostosuj czcionki używane w aplikacji
@@ -1910,7 +1910,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Palette className="w-5 h-5" />
-                  <span>Schemat kolorów</span>
+                  <span>{t('admin.colors')}</span>
                 </CardTitle>
                 <CardDescription>
                   Personalizuj kolorystykę aplikacji
@@ -1927,7 +1927,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Type className="w-5 h-5" />
-                  <span>Edytor tekstu</span>
+                  <span>{t('admin.textEditor')}</span>
                 </CardTitle>
                 <CardDescription>
                   Zaawansowany edytor do formatowania treści
@@ -1952,7 +1952,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Settings2 className="w-5 h-5" />
-                  <span>Ustawienia konta</span>
+                  <span>{t('admin.account')}</span>
                 </CardTitle>
                 <CardDescription>
                   Zarządzaj swoim kontem administratora
@@ -1960,20 +1960,20 @@ const Admin = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium mb-4">Informacje o koncie</h3>
+                  <h3 className="text-lg font-medium mb-4">{t('account.profile')}</h3>
                   <div className="space-y-2 text-sm">
-                    <p><strong>Email:</strong> {user?.email}</p>
-                    <p><strong>Rola:</strong> Administrator</p>
+                    <p><strong>{t('auth.email')}:</strong> {user?.email}</p>
+                    <p><strong>{t('admin.userRole')}:</strong> Administrator</p>
                   </div>
                 </div>
                 
                 <Separator />
                 
                 <div>
-                  <h3 className="text-lg font-medium mb-4">Zmiana hasła</h3>
+                  <h3 className="text-lg font-medium mb-4">{t('auth.password')}</h3>
                   <div className="space-y-4 max-w-md">
                     <div>
-                      <Label htmlFor="current-password">Aktualne hasło</Label>
+                      <Label htmlFor="current-password">{t('auth.password')} (aktualne)</Label>
                       <Input
                         id="current-password"
                         type="password"
@@ -1984,7 +1984,7 @@ const Admin = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="new-password">Nowe hasło</Label>
+                      <Label htmlFor="new-password">{t('auth.password')} (nowe)</Label>
                       <Input
                         id="new-password"
                         type="password"
@@ -1995,7 +1995,7 @@ const Admin = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="confirm-password">Potwierdź hasło</Label>
+                      <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
                       <Input
                         id="confirm-password"
                         type="password"
@@ -2023,7 +2023,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <FileText className="w-5 h-5" />
-                  <span>Zarządzanie stronami</span>
+                  <span>{t('admin.pages')}</span>
                 </CardTitle>
                 <CardDescription>
                   Dodawaj, edytuj i usuwaj strony w systemie
@@ -2032,10 +2032,10 @@ const Admin = () => {
               <CardContent className="space-y-6">
                 {/* Add New Page */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Dodaj nową stronę</h3>
+                  <h3 className="text-lg font-medium">{t('admin.addPage')}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="page-title">Tytuł strony</Label>
+                      <Label htmlFor="page-title">{t('admin.pageTitle')}</Label>
                       <Input
                         id="page-title"
                         value={newPage.title}
@@ -2044,7 +2044,7 @@ const Admin = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="page-slug">Slug (URL)</Label>
+                      <Label htmlFor="page-slug">{t('admin.slug')} (URL)</Label>
                       <Input
                         id="page-slug"
                         value={newPage.slug}
@@ -2055,7 +2055,7 @@ const Admin = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="page-meta-title">Meta tytuł (SEO)</Label>
+                      <Label htmlFor="page-meta-title">{t('admin.metaTitle')} (SEO)</Label>
                       <Input
                         id="page-meta-title"
                         value={newPage.meta_title}
@@ -2064,7 +2064,7 @@ const Admin = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="page-meta-description">Meta opis (SEO)</Label>
+                      <Label htmlFor="page-meta-description">{t('admin.metaDescription')} (SEO)</Label>
                       <Input
                         id="page-meta-description"
                         value={newPage.meta_description}
@@ -2074,7 +2074,7 @@ const Admin = () => {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="page-content">Treść strony</Label>
+                    <Label htmlFor="page-content">{t('admin.content')}</Label>
                     <Textarea
                       id="page-content"
                       value={newPage.content}
@@ -2089,10 +2089,10 @@ const Admin = () => {
                        checked={newPage.is_published}
                        onCheckedChange={(checked) => setNewPage({...newPage, is_published: checked})}
                      />
-                     <Label htmlFor="page-published">Opublikuj stronę</Label>
+                     <Label htmlFor="page-published">{t('admin.published')}</Label>
                    </div>
                    <div className="space-y-3">
-                     <h4 className="text-sm font-medium">Widoczność strony dla ról:</h4>
+                     <h4 className="text-sm font-medium">{t('admin.pageVisibility')}:</h4>
                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0">
                        <div className="flex items-center space-x-2">
                          <input
@@ -2102,7 +2102,7 @@ const Admin = () => {
                            onChange={(e) => setNewPage({...newPage, visible_to_partners: e.target.checked})}
                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                          />
-                         <Label htmlFor="new-page-partners">Partner</Label>
+                         <Label htmlFor="new-page-partners">{t('admin.visibleToPartners')}</Label>
                        </div>
                        <div className="flex items-center space-x-2">
                          <input
@@ -2112,7 +2112,7 @@ const Admin = () => {
                            onChange={(e) => setNewPage({...newPage, visible_to_clients: e.target.checked})}
                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                          />
-                         <Label htmlFor="new-page-clients">Klient</Label>
+                         <Label htmlFor="new-page-clients">{t('admin.visibleToClients')}</Label>
                        </div>
                        <div className="flex items-center space-x-2">
                          <input
@@ -2122,7 +2122,7 @@ const Admin = () => {
                            onChange={(e) => setNewPage({...newPage, visible_to_everyone: e.target.checked})}
                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                          />
-                         <Label htmlFor="new-page-everyone">Dla wszystkich</Label>
+                         <Label htmlFor="new-page-everyone">{t('admin.visibleToEveryone')}</Label>
                        </div>
                      </div>
                    </div>
@@ -2136,9 +2136,9 @@ const Admin = () => {
 
                 {/* Pages List */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Istniejące strony</h3>
+                  <h3 className="text-lg font-medium">{t('admin.pages')}</h3>
                   {pagesLoading ? (
-                    <div className="text-center py-4">Ładowanie stron...</div>
+                    <div className="text-center py-4">{t('admin.loadingPages')}</div>
                   ) : pages.length === 0 ? (
                     <div className="text-center py-4 text-muted-foreground">
                       Brak stron do wyświetlenia
@@ -2203,7 +2203,7 @@ const Admin = () => {
                                        onChange={(e) => updatePageVisibility(page.id, { visible_to_partners: e.target.checked })}
                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                      />
-                                     <label htmlFor={`partner-${page.id}`} className="text-sm">Partner</label>
+                                     <label htmlFor={`partner-${page.id}`} className="text-sm">{t('admin.visibleToPartners')}</label>
                                    </div>
                                    <div className="flex items-center space-x-2">
                                      <input
@@ -2213,7 +2213,7 @@ const Admin = () => {
                                        onChange={(e) => updatePageVisibility(page.id, { visible_to_clients: e.target.checked })}
                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                      />
-                                     <label htmlFor={`client-${page.id}`} className="text-sm">Klient</label>
+                                     <label htmlFor={`client-${page.id}`} className="text-sm">{t('admin.visibleToClients')}</label>
                                    </div>
                                    <div className="flex items-center space-x-2">
                                      <input
@@ -2223,7 +2223,7 @@ const Admin = () => {
                                        onChange={(e) => updatePageVisibility(page.id, { visible_to_everyone: e.target.checked })}
                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                      />
-                                     <label htmlFor={`everyone-${page.id}`} className="text-sm">Dla wszystkich</label>
+                                     <label htmlFor={`everyone-${page.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
                                    </div>
                                  </div>
                                </div>
@@ -2264,7 +2264,7 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Users className="w-5 h-5" />
-                  <span>Zarządzanie klientami</span>
+                  <span>{t('admin.userManagement')}</span>
                 </CardTitle>
                 <CardDescription>
                   Zarządzaj klientami i ich rolami w systemie
