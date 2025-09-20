@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
@@ -22,6 +22,9 @@ import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 
 interface CMSSection {
   id: string;
@@ -135,6 +138,19 @@ const Admin = () => {
     confirmPassword: ''
   });
   const [passwordLoading, setPasswordLoading] = useState(false);
+  
+  // New user creation state
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    role: 'user' as 'user' | 'admin'
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
+  
+  // User sorting state
+  const [userSortBy, setUserSortBy] = useState<'email' | 'role' | 'created_at' | 'is_active'>('created_at');
+  const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Enable security preventions
   useSecurityPreventions();
@@ -319,6 +335,230 @@ const Admin = () => {
     } finally {
       setPasswordLoading(false);
     }
+  };
+
+  // Create new user function
+  const createUser = async () => {
+    if (!newUser.email || !newUser.password) {
+      toast({
+        title: "Błąd",
+        description: "Wypełnij wszystkie pola.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newUser.password.length < 6) {
+      toast({
+        title: "Błąd",
+        description: "Hasło musi mieć co najmniej 6 znaków.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Update the user role if admin
+        if (newUser.role === 'admin') {
+          const { error: roleError } = await supabase
+            .from('profiles')
+            .update({ role: 'admin' })
+            .eq('user_id', data.user.id);
+
+          if (roleError) {
+            console.error('Error updating role:', roleError);
+          }
+        }
+
+        setNewUser({ email: '', password: '', role: 'user' });
+        setShowCreateUserDialog(false);
+        fetchUsers(); // Refresh users list
+
+        toast({
+          title: "Sukces",
+          description: `Użytkownik ${newUser.email} został utworzony.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się utworzyć użytkownika.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  // Sort users function
+  const sortedUsers = [...users].sort((a, b) => {
+    let aValue: any = a[userSortBy];
+    let bValue: any = b[userSortBy];
+
+    if (userSortBy === 'created_at') {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
+    } else if (userSortBy === 'is_active') {
+      aValue = aValue ? 1 : 0;
+      bValue = bValue ? 1 : 0;
+    } else if (typeof aValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    if (userSortOrder === 'asc') {
+      return aValue > bValue ? 1 : -1;
+    } else {
+      return aValue < bValue ? 1 : -1;
+    }
+  });
+
+  // Export functions
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('Lista Użytkowników', 20, 20);
+    
+    let yPosition = 40;
+    doc.setFontSize(12);
+    
+    users.forEach((user, index) => {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      doc.text(`${index + 1}. Email: ${user.email}`, 20, yPosition);
+      doc.text(`   Rola: ${user.role === 'admin' ? 'Administrator' : 'Użytkownik'}`, 20, yPosition + 10);
+      doc.text(`   Status: ${user.is_active ? 'Aktywny' : 'Nieaktywny'}`, 20, yPosition + 20);
+      doc.text(`   Utworzono: ${new Date(user.created_at).toLocaleDateString('pl-PL')}`, 20, yPosition + 30);
+      yPosition += 45;
+    });
+    
+    doc.save('uzytkownicy.pdf');
+  };
+
+  const exportToXLSX = () => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      users.map(user => ({
+        Email: user.email,
+        Rola: user.role === 'admin' ? 'Administrator' : 'Użytkownik',
+        Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
+        'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
+        'Email potwierdzony': user.email_confirmed_at ? 'Tak' : 'Nie',
+        ID: user.user_id
+      }))
+    );
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Użytkownicy');
+    XLSX.writeFile(workbook, 'uzytkownicy.xlsx');
+  };
+
+  const exportToXML = () => {
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<users>\n';
+    
+    users.forEach(user => {
+      xml += '  <user>\n';
+      xml += `    <email>${user.email}</email>\n`;
+      xml += `    <role>${user.role}</role>\n`;
+      xml += `    <is_active>${user.is_active}</is_active>\n`;
+      xml += `    <created_at>${user.created_at}</created_at>\n`;
+      xml += `    <email_confirmed>${user.email_confirmed_at ? 'true' : 'false'}</email_confirmed>\n`;
+      xml += `    <user_id>${user.user_id}</user_id>\n`;
+      xml += '  </user>\n';
+    });
+    
+    xml += '</users>';
+    
+    const blob = new Blob([xml], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'uzytkownicy.xml';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToZIP = async () => {
+    const zip = new JSZip();
+    
+    // Add PDF
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('Lista Użytkowników', 20, 20);
+    
+    let yPosition = 40;
+    doc.setFontSize(12);
+    
+    users.forEach((user, index) => {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      doc.text(`${index + 1}. Email: ${user.email}`, 20, yPosition);
+      doc.text(`   Rola: ${user.role === 'admin' ? 'Administrator' : 'Użytkownik'}`, 20, yPosition + 10);
+      doc.text(`   Status: ${user.is_active ? 'Aktywny' : 'Nieaktywny'}`, 20, yPosition + 20);
+      doc.text(`   Utworzono: ${new Date(user.created_at).toLocaleDateString('pl-PL')}`, 20, yPosition + 30);
+      yPosition += 45;
+    });
+    
+    const pdfBlob = doc.output('blob');
+    zip.file('uzytkownicy.pdf', pdfBlob);
+    
+    // Add XLSX
+    const worksheet = XLSX.utils.json_to_sheet(
+      users.map(user => ({
+        Email: user.email,
+        Rola: user.role === 'admin' ? 'Administrator' : 'Użytkownik',
+        Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
+        'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
+        'Email potwierdzony': user.email_confirmed_at ? 'Tak' : 'Nie',
+        ID: user.user_id
+      }))
+    );
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Użytkownicy');
+    const xlsxBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+    zip.file('uzytkownicy.xlsx', xlsxBuffer);
+    
+    // Add XML
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<users>\n';
+    
+    users.forEach(user => {
+      xml += '  <user>\n';
+      xml += `    <email>${user.email}</email>\n`;
+      xml += `    <role>${user.role}</role>\n`;
+      xml += `    <is_active>${user.is_active}</is_active>\n`;
+      xml += `    <created_at>${user.created_at}</created_at>\n`;
+      xml += `    <email_confirmed>${user.email_confirmed_at ? 'true' : 'false'}</email_confirmed>\n`;
+      xml += `    <user_id>${user.user_id}</user_id>\n`;
+      xml += '  </user>\n';
+    });
+    
+    xml += '</users>';
+    zip.file('uzytkownicy.xml', xml);
+    
+    // Generate and download ZIP
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'uzytkownicy.zip';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Load users when switching to users tab
@@ -1527,17 +1767,76 @@ const Admin = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-muted-foreground">
-                        Łączna liczba użytkowników: {users.length}
-                      </p>
-                      <Button variant="outline" size="sm" onClick={fetchUsers}>
-                        Odśwież listę
-                      </Button>
+                    {/* Action Bar */}
+                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                      <div className="flex items-center gap-4">
+                        <p className="text-sm text-muted-foreground">
+                          Łączna liczba użytkowników: {users.length}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={fetchUsers}>
+                          Odśwież listę
+                        </Button>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          onClick={() => setShowCreateUserDialog(true)}
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          Dodaj użytkownika
+                        </Button>
+                        
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" onClick={exportToPDF}>
+                            <Download className="w-4 h-4 mr-1" />
+                            PDF
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={exportToXLSX}>
+                            <Download className="w-4 h-4 mr-1" />
+                            XLS
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={exportToXML}>
+                            <Download className="w-4 h-4 mr-1" />
+                            XML
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={exportToZIP}>
+                            <Download className="w-4 h-4 mr-1" />
+                            ZIP
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sorting Controls */}
+                    <div className="flex flex-wrap gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <SortAsc className="w-4 h-4" />
+                      <span className="text-sm font-medium">Sortuj według:</span>
+                      <Select value={userSortBy} onValueChange={(value: any) => setUserSortBy(value)}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="role">Rola</SelectItem>
+                          <SelectItem value="is_active">Status</SelectItem>
+                          <SelectItem value="created_at">Data utworzenia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={userSortOrder} onValueChange={(value: any) => setUserSortOrder(value)}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="asc">Rosnąco</SelectItem>
+                          <SelectItem value="desc">Malejąco</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     <div className="space-y-3">
-                      {users.map((userProfile) => (
+                      {sortedUsers.map((userProfile) => (
                         <Card key={userProfile.id} className="p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div className="space-y-1">
@@ -1639,6 +1938,68 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Create User Dialog */}
+            <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}>
+              <DialogContent className="w-[95vw] max-w-md mx-auto">
+                <DialogHeader>
+                  <DialogTitle>Dodaj nowego użytkownika</DialogTitle>
+                  <DialogDescription>
+                    Utwórz nowe konto użytkownika w systemie
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label htmlFor="new-user-email">Email</Label>
+                    <Input
+                      id="new-user-email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      placeholder="uzytkownik@example.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="new-user-password">Hasło</Label>
+                    <Input
+                      id="new-user-password"
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      placeholder="Minimum 6 znaków"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="new-user-role">Rola</Label>
+                    <Select value={newUser.role} onValueChange={(value: any) => setNewUser({ ...newUser, role: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">Użytkownik</SelectItem>
+                        <SelectItem value="admin">Administrator</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateUserDialog(false);
+                      setNewUser({ email: '', password: '', role: 'user' });
+                    }}
+                  >
+                    Anuluj
+                  </Button>
+                  <Button onClick={createUser} disabled={creatingUser}>
+                    {creatingUser ? 'Tworzenie...' : 'Utwórz użytkownika'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </div>
