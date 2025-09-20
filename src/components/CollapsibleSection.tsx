@@ -3,6 +3,7 @@ import { ChevronUp, ChevronDown, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -21,6 +22,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -41,8 +43,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   const fallbackShare = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {
       toast({
-        title: "Link skopiowany",
-        description: "Link do strony został skopiowany do schowka",
+        title: t('share.copied'),
       });
     });
   };
@@ -60,7 +61,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
               variant="ghost"
               size="sm"
               onClick={handleShare}
-              aria-label="Udostępnij sekcję"
+              aria-label={t('share.section')}
               className="p-1 sm:p-2 h-6 w-6 sm:h-8 sm:w-8 text-gray-600 hover:text-gray-800"
             >
               <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -85,7 +86,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 className="text-gray-600 border-gray-300 text-xs sm:text-sm"
               >
                 <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                Udostępnij
+                {t('common.share')}
               </Button>
             </div>
           )}

@@ -23,6 +23,8 @@ import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
 import { SectionEditor } from '@/components/cms/SectionEditor';
 import { ItemEditor } from '@/components/cms/ItemEditor';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -91,6 +93,7 @@ interface Page {
 
 const Admin = () => {
   const { user, isAdmin, signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [sections, setSections] = useState<CMSSection[]>([]);
@@ -1390,7 +1393,7 @@ const Admin = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Ładowanie panelu administracyjnego...</p>
+          <p className="text-muted-foreground">{t('common.loading')}...</p>
         </div>
       </div>
     );
@@ -1406,20 +1409,23 @@ const Admin = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <img src={newPureLifeLogo} alt="Pure Life" className="w-6 h-6" />
-                <h1 className="text-lg font-bold text-foreground">Panel CMS - Pure Life</h1>
+                <h1 className="text-lg font-bold text-foreground">{t('admin.title')}</h1>
               </div>
-              <ThemeSelector />
+              <div className="flex items-center gap-2">
+                <LanguageSelector />
+                <ThemeSelector />
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               <Badge variant="secondary" className="text-xs self-start">Administrator</Badge>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => navigate('/')} className="flex-1">
                   <Home className="w-4 h-4 mr-2" />
-                  Strona główna
+                  {t('nav.home')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleSignOut} className="flex-1">
                   <LogOut className="w-4 h-4 mr-2" />
-                  Wyloguj
+                  {t('nav.logout')}
                 </Button>
               </div>
             </div>
@@ -1429,19 +1435,20 @@ const Admin = () => {
           <div className="hidden sm:flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <img src={newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
-              <h1 className="text-2xl font-bold text-foreground">Panel CMS - Pure Life</h1>
+              <h1 className="text-2xl font-bold text-foreground">{t('admin.title')}</h1>
             </div>
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="text-xs">Administrator</Badge>
               <div className="flex gap-2">
+                <LanguageSelector />
                 <ThemeSelector />
                 <Button variant="outline" size="sm" onClick={() => navigate('/')}>
                   <Home className="w-4 h-4 mr-2" />
-                  Strona główna
+                  {t('nav.home')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleSignOut}>
                   <LogOut className="w-4 h-4 mr-2" />
-                  Wyloguj
+                  {t('nav.logout')}
                 </Button>
               </div>
             </div>

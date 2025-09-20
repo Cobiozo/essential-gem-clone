@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 
@@ -39,6 +41,7 @@ interface CMSItem {
 
 const Index = () => {
   const { user, isAdmin, isPartner, signOut } = useAuth();
+  const { t } = useLanguage();
   const [sections, setSections] = React.useState<CMSSection[]>([]);
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [headerText, setHeaderText] = React.useState<string>('');
@@ -114,7 +117,7 @@ const Index = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Ładowanie...</p>
+          <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -122,8 +125,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 relative">
-      {/* Theme Selector - positioned in top right */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Language & Theme Selector - positioned in top right */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <LanguageSelector />
         <ThemeSelector />
       </div>
       
@@ -212,20 +216,20 @@ const Index = () => {
               <Link to="/admin">
                 <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
                   <Settings className="w-3 h-3 mr-1" />
-                  Panel CMS
+                  {t('nav.admin')}
                 </Button>
               </Link>
              ) : (
               <Link to="/my-account">
                 <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
                   <Settings className="w-3 h-3 mr-1" />
-                  {isPartner ? 'Moje konto partnera' : 'Moje konto'}
+                  {t('nav.myAccount')}
                 </Button>
               </Link>
              )}
             <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
               <LogOut className="w-3 h-3 mr-1" />
-              Wyloguj się
+              {t('nav.logout')}
             </Button>
           </div>
         )}
@@ -235,7 +239,7 @@ const Index = () => {
             <Link to="/auth">
               <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
                 <Settings className="w-3 h-3 mr-1" />
-                Logowanie
+                {t('nav.login')}
               </Button>
             </Link>
           </div>
@@ -268,11 +272,11 @@ const Index = () => {
                      onClick={handleButtonClick}
                    />
                  ))}
-                 {sectionItems.length === 0 && (
-                   <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                     Brak elementów w tej sekcji
-                   </div>
-                 )}
+                  {sectionItems.length === 0 && (
+                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                      {t('common.noContent')}
+                    </div>
+                  )}
               </div>
             </CollapsibleSection>
           );

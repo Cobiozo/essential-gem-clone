@@ -10,6 +10,8 @@ import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const getPolishErrorMessage = (error: any): string => {
@@ -55,6 +57,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn, signUp, user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -167,14 +170,15 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-sm sm:max-w-md">
-        {/* Back to home button */}
-        <div className="mb-4">
+        {/* Language & Back to home button */}
+        <div className="flex justify-between items-center mb-4">
           <Link to="/">
             <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="w-4 h-4" />
-              Powrót do strony głównej
+              {t('nav.home')}
             </Button>
           </Link>
+          <LanguageSelector />
         </div>
         
         <div className="text-center mb-6 sm:mb-8">
@@ -185,14 +189,14 @@ const Auth = () => {
 
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">Logowanie</TabsTrigger>
-            <TabsTrigger value="signup">Rejestracja</TabsTrigger>
+            <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
+            <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin">
             <Card>
               <CardHeader>
-                <CardTitle>Zaloguj się</CardTitle>
+                <CardTitle>{t('auth.signIn')}</CardTitle>
                 <CardDescription>
                   Wprowadź swoje dane aby uzyskać dostęp do panelu
                 </CardDescription>
@@ -200,7 +204,7 @@ const Auth = () => {
               <form onSubmit={handleSignIn}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('auth.email')}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -211,7 +215,7 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Hasło</Label>
+                    <Label htmlFor="password">{t('auth.password')}</Label>
                     <Input
                       id="password"
                       type="password"
@@ -229,7 +233,7 @@ const Auth = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Logowanie...' : 'Zaloguj się'}
+                    {loading ? `${t('common.loading')}...` : t('auth.signIn')}
                   </Button>
                 </CardFooter>
               </form>
@@ -239,7 +243,7 @@ const Auth = () => {
           <TabsContent value="signup">
             <Card>
               <CardHeader>
-                <CardTitle>Zarejestruj się</CardTitle>
+                <CardTitle>{t('auth.signUp')}</CardTitle>
                 <CardDescription>
                   Utwórz nowe konto administratora
                 </CardDescription>
@@ -247,7 +251,7 @@ const Auth = () => {
               <form onSubmit={handleSignUp}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email">{t('auth.email')}</Label>
                     <Input
                       id="signup-email"
                       type="email"
@@ -270,7 +274,7 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Powtórz hasło</Label>
+                    <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
                     <Input
                       id="confirm-password"
                       type="password"
@@ -289,7 +293,7 @@ const Auth = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Rejestracja...' : 'Zarejestruj się'}
+                    {loading ? `${t('common.loading')}...` : t('auth.signUp')}
                   </Button>
                 </CardFooter>
               </form>
