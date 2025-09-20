@@ -100,6 +100,7 @@ const Admin = () => {
   
   // Password change state
   const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
@@ -222,6 +223,15 @@ const Admin = () => {
   };
 
   const handlePasswordChange = async () => {
+    if (!passwordData.currentPassword) {
+      toast({
+        title: "Błąd",
+        description: "Podaj aktualne hasło.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast({
         title: "Błąd",
@@ -242,13 +252,29 @@ const Admin = () => {
 
     setPasswordLoading(true);
     try {
+      // First verify current password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: passwordData.currentPassword
+      });
+
+      if (signInError) {
+        toast({
+          title: "Błąd",
+          description: "Aktualne hasło jest nieprawidłowe.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If current password is correct, update to new password
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword
       });
 
       if (error) throw error;
 
-      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       toast({
         title: "Sukces",
         description: "Hasło zostało zmienione.",
@@ -1076,6 +1102,17 @@ const Admin = () => {
                   <h3 className="text-lg font-medium mb-4">Zmiana hasła</h3>
                   <div className="space-y-4 max-w-md">
                     <div>
+                      <Label htmlFor="current-password">Aktualne hasło</Label>
+                      <Input
+                        id="current-password"
+                        type="password"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                        placeholder="Wprowadź aktualne hasło"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="new-password">Nowe hasło</Label>
                       <Input
                         id="new-password"
@@ -1099,7 +1136,7 @@ const Admin = () => {
                     </div>
                     <Button
                       onClick={handlePasswordChange}
-                      disabled={passwordLoading || !passwordData.newPassword || !passwordData.confirmPassword}
+                      disabled={passwordLoading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
                       className="w-full"
                     >
                       {passwordLoading ? "Zapisywanie..." : "Zmień hasło"}

@@ -27,6 +27,11 @@ const MyAccount = () => {
     e.preventDefault();
     setError('');
     
+    if (!currentPassword) {
+      setError('Podaj aktualne hasło');
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setError('Nowe hasła nie są identyczne');
       return;
@@ -40,6 +45,18 @@ const MyAccount = () => {
     setLoading(true);
     
     try {
+      // First verify current password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword
+      });
+
+      if (signInError) {
+        setError('Aktualne hasło jest nieprawidłowe');
+        return;
+      }
+
+      // If current password is correct, update to new password
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -249,7 +266,20 @@ const MyAccount = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handlePasswordChange} className="space-y-4">
+               <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Aktualne hasło</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Wprowadź aktualne hasło"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="new-password">Nowe hasło</Label>
                   <Input
@@ -285,7 +315,7 @@ const MyAccount = () => {
                 )}
 
                 <div className="flex gap-3">
-                  <Button type="submit" disabled={loading || !newPassword || !confirmPassword}>
+                  <Button type="submit" disabled={loading || !currentPassword || !newPassword || !confirmPassword}>
                     {loading ? 'Zmienianie...' : 'Zmień hasło'}
                   </Button>
                   <Button
