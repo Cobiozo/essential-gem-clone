@@ -40,6 +40,7 @@ const Index = () => {
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [headerText, setHeaderText] = React.useState<string>('');
   const [authorText, setAuthorText] = React.useState<string>('');
+  const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   
   // Enable security preventions
@@ -72,6 +73,16 @@ const Index = () => {
       
       if (headerItem?.description) setHeaderText(headerItem.description);
       if (authorItem?.description) setAuthorText(authorItem.description);
+      
+      // Pobierz opublikowane strony
+      const { data: pagesData } = await supabase
+        .from('pages')
+        .select('id, title, slug, meta_description, created_at')
+        .eq('is_published', true)
+        .eq('is_active', true)
+        .order('position', { ascending: true });
+      
+      setPublishedPages(pagesData || []);
       
     } catch (error) {
       console.error('Error fetching CMS data:', error);
@@ -263,6 +274,47 @@ const Index = () => {
             </CollapsibleSection>
           );
         })}
+        
+        {/* Published Pages Section */}
+        {publishedPages.length > 0 && (
+          <CollapsibleSection
+            title="📄 Dostępne strony"
+            defaultOpen={false}
+            showShareButton={false}
+          >
+            <div className="space-y-3">
+              {publishedPages.map((page) => (
+                <div key={page.id} className="group">
+                  <Link
+                    to={`/page/${page.slug}`}
+                    className="block p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                          {page.title}
+                        </h3>
+                        {page.meta_description && (
+                          <p className="text-gray-600 dark:text-gray-300 text-xs sm:text-sm mt-1 line-clamp-2">
+                            {page.meta_description}
+                          </p>
+                        )}
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                          Opublikowano: {new Date(page.created_at).toLocaleDateString('pl-PL')}
+                        </p>
+                      </div>
+                      <div className="ml-4 text-green-600 dark:text-green-400">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
         
         {sections.length === 0 && (
           <div className="text-center text-gray-500 py-8 sm:py-12">

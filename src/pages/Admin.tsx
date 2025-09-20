@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -1434,7 +1434,7 @@ const Admin = () => {
                         <Card key={page.id}>
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
-                              <div className="space-y-1">
+                              <div className="space-y-1 flex-1">
                                 <div className="flex items-center space-x-2">
                                   <h4 className="font-medium">{page.title}</h4>
                                   <Badge variant={page.is_published ? "default" : "secondary"}>
@@ -1444,13 +1444,43 @@ const Admin = () => {
                                 <p className="text-sm text-muted-foreground">
                                   Slug: /{page.slug}
                                 </p>
+                                {page.is_published && (
+                                  <div className="flex items-center space-x-2">
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      asChild
+                                      className="h-auto p-0 text-primary"
+                                    >
+                                      <Link to={`/page/${page.slug}`} target="_blank">
+                                        🔗 Zobacz stronę
+                                      </Link>
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">|</span>
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      className="h-auto p-0 text-xs"
+                                      onClick={() => {
+                                        const url = `${window.location.origin}/page/${page.slug}`;
+                                        navigator.clipboard.writeText(url);
+                                        toast({
+                                          title: "Link skopiowany",
+                                          description: "Link do strony został skopiowany do schowka",
+                                        });
+                                      }}
+                                    >
+                                      📋 Kopiuj link
+                                    </Button>
+                                  </div>
+                                )}
                                 {page.meta_description && (
                                   <p className="text-sm text-muted-foreground line-clamp-2">
                                     {page.meta_description}
                                   </p>
                                 )}
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 ml-4">
                                 <Button
                                   variant="outline"
                                   size="sm"
