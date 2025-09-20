@@ -177,19 +177,6 @@ const Page = () => {
                   fontSize: '16px'
                 }}
               />
-              
-              <footer className="mt-12 pt-8 border-t border-border">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>
-                    Opublikowano: {new Date(page.created_at).toLocaleDateString('pl-PL')}
-                  </span>
-                  {page.updated_at !== page.created_at && (
-                    <span>
-                      Zaktualizowano: {new Date(page.updated_at).toLocaleDateString('pl-PL')}
-                    </span>
-                  )}
-                </div>
-              </footer>
             </article>
           </CardContent>
         </Card>
