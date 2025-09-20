@@ -65,6 +65,15 @@ interface CMSSection {
   content_wrap?: string | null;
   min_height?: number | null;
   overflow_behavior?: string | null;
+  // Hover states
+  hover_background_color?: string | null;
+  hover_background_gradient?: string | null;
+  hover_text_color?: string | null;
+  hover_border_color?: string | null;
+  hover_box_shadow?: string | null;
+  hover_opacity?: number | null;
+  hover_scale?: number | null;
+  hover_transition_duration?: number | null;
 }
 
 interface CMSItem {
