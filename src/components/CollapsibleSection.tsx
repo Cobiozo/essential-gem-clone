@@ -60,6 +60,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
               variant="ghost"
               size="sm"
               onClick={handleShare}
+              aria-label="Udostępnij sekcję"
               className="p-1 sm:p-2 h-6 w-6 sm:h-8 sm:w-8 text-gray-600 hover:text-gray-800"
             >
               <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
