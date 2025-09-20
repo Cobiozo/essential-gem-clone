@@ -1462,31 +1462,31 @@ const Admin = () => {
           <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Zawartość</span>
+              <span className="hidden sm:inline">{t('admin.contentManagement')}</span>
             </TabsTrigger>
             <TabsTrigger value="fonts" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
-              <span className="hidden sm:inline">Czcionki</span>
+              <span className="hidden sm:inline">{t('admin.fonts')}</span>
             </TabsTrigger>
             <TabsTrigger value="colors" className="flex items-center gap-2">
               <Palette className="w-4 h-4" />
-              <span className="hidden sm:inline">Kolory</span>
+              <span className="hidden sm:inline">{t('admin.colors')}</span>
             </TabsTrigger>
             <TabsTrigger value="text-editor" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
-              <span className="hidden sm:inline">Edytor</span>
+              <span className="hidden sm:inline">{t('admin.textEditor')}</span>
             </TabsTrigger>
             <TabsTrigger value="pages" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Strony</span>
+              <span className="hidden sm:inline">{t('admin.pages')}</span>
             </TabsTrigger>
             <TabsTrigger value="account" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Konto</span>
+              <span className="hidden sm:inline">{t('admin.account')}</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Użytkownicy</span>
+              <span className="hidden sm:inline">{t('admin.users')}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1494,24 +1494,24 @@ const Admin = () => {
             {/* Section Management */}
             <div className="mb-6 sm:mb-8">
           <div className="flex flex-col gap-4 mb-4">
-            <h2 className="text-lg sm:text-xl font-semibold">Zarządzanie sekcjami</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">{t('admin.sectionManagement')}</h2>
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
-                  Dodaj sekcję
+                  {t('admin.addSection')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="w-[95vw] max-w-md mx-auto">
                 <DialogHeader>
-                  <DialogTitle className="text-base sm:text-lg">Dodaj nową sekcję</DialogTitle>
+                  <DialogTitle className="text-base sm:text-lg">{t('admin.addSection')}</DialogTitle>
                   <DialogDescription className="text-sm">
                     Utwórz nową sekcję CMS
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div>
-                    <Label htmlFor="section-title" className="text-sm font-medium">Tytuł sekcji</Label>
+                    <Label htmlFor="section-title" className="text-sm font-medium">{t('admin.sectionTitle')}</Label>
                     <Input
                       id="section-title"
                       value={newSection.title}
@@ -1531,7 +1531,7 @@ const Admin = () => {
                           onChange={(e) => setNewSection({...newSection, visible_to_partners: e.target.checked})}
                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                         />
-                        <Label htmlFor="new-section-partners">Partner</Label>
+                        <Label htmlFor="new-section-partners">{t('admin.visibleToPartners')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <input
@@ -1541,7 +1541,7 @@ const Admin = () => {
                           onChange={(e) => setNewSection({...newSection, visible_to_clients: e.target.checked})}
                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                         />
-                        <Label htmlFor="new-section-clients">Klient</Label>
+                        <Label htmlFor="new-section-clients">{t('admin.visibleToClients')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <input
@@ -1551,7 +1551,7 @@ const Admin = () => {
                           onChange={(e) => setNewSection({...newSection, visible_to_everyone: e.target.checked})}
                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                         />
-                        <Label htmlFor="new-section-everyone">Dla wszystkich</Label>
+                        <Label htmlFor="new-section-everyone">{t('admin.visibleToEveryone')}</Label>
                       </div>
                     </div>
                   </div>
@@ -1563,7 +1563,7 @@ const Admin = () => {
                     className="w-full sm:w-auto"
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    Utwórz sekcję
+                    {t('admin.save')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -1583,13 +1583,13 @@ const Admin = () => {
                         <div className="flex-1">
                            <CardTitle className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 text-base sm:text-lg">
                              <span className="break-words">{section.title}</span>
-                             <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
-                               {section.is_active ? "Aktywna" : "Nieaktywna"}
-                             </Badge>
-                           </CardTitle>
-                           <CardDescription className="text-xs sm:text-sm mt-1">
-                             Pozycja: {section.position} | Elementów: {sectionItems.length}
-                           </CardDescription>
+                              <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
+                                {section.is_active ? t('admin.active') : t('admin.inactive')}
+                              </Badge>
+                            </CardTitle>
+                            <CardDescription className="text-xs sm:text-sm mt-1">
+                              {t('common.position')}: {section.position} | Elementów: {sectionItems.length}
+                            </CardDescription>
                            <div className="flex flex-wrap gap-2 mt-2">
                              <div className="flex items-center space-x-2">
                                <input
@@ -1599,27 +1599,27 @@ const Admin = () => {
                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_partners: e.target.checked })}
                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                />
-                               <label htmlFor={`section-partner-${section.id}`} className="text-sm">Partner</label>
-                             </div>
-                             <div className="flex items-center space-x-2">
-                               <input
-                                 type="checkbox"
-                                 id={`section-client-${section.id}`}
-                                 checked={section.visible_to_clients}
-                                 onChange={(e) => updateSectionVisibility(section.id, { visible_to_clients: e.target.checked })}
-                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                               />
-                               <label htmlFor={`section-client-${section.id}`} className="text-sm">Klient</label>
-                             </div>
-                             <div className="flex items-center space-x-2">
-                               <input
-                                 type="checkbox"
-                                 id={`section-everyone-${section.id}`}
-                                 checked={section.visible_to_everyone}
-                                 onChange={(e) => updateSectionVisibility(section.id, { visible_to_everyone: e.target.checked })}
-                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                               />
-                               <label htmlFor={`section-everyone-${section.id}`} className="text-sm">Dla wszystkich</label>
+                                <label htmlFor={`section-partner-${section.id}`} className="text-sm">{t('admin.visibleToPartners')}</label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`section-client-${section.id}`}
+                                  checked={section.visible_to_clients}
+                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_clients: e.target.checked })}
+                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                                <label htmlFor={`section-client-${section.id}`} className="text-sm">{t('admin.visibleToClients')}</label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`section-everyone-${section.id}`}
+                                  checked={section.visible_to_everyone}
+                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_everyone: e.target.checked })}
+                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                                <label htmlFor={`section-everyone-${section.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
                              </div>
                            </div>
                          </div>

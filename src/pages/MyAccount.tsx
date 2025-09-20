@@ -12,10 +12,13 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, Home, Key, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const MyAccount = () => {
   const { user, profile, signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentPassword, setCurrentPassword] = useState('');
@@ -129,14 +132,15 @@ const MyAccount = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              <LanguageSelector />
               <ThemeSelector />
               <Button variant="outline" size="sm" onClick={() => navigate('/')}>
                 <Home className="w-4 h-4 mr-2" />
-                Strona główna
+                {t('nav.home')}
               </Button>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="w-4 h-4 mr-2" />
-                Wyloguj się
+                {t('nav.logout')}
               </Button>
             </div>
           </div>
@@ -176,14 +180,15 @@ const MyAccount = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <LanguageSelector />
             <ThemeSelector />
             <Button variant="outline" size="sm" onClick={() => navigate('/')}>
               <Home className="w-4 h-4 mr-2" />
-              Strona główna
+              {t('nav.home')}
             </Button>
             <Button variant="outline" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
-              Wyloguj się
+              {t('nav.logout')}
             </Button>
           </div>
         </div>
@@ -193,7 +198,7 @@ const MyAccount = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Moje konto</h2>
+            <h2 className="text-2xl font-bold mb-2">{t('account.myAccount')}</h2>
             <p className="text-muted-foreground">Zarządzaj swoim kontem i ustawieniami</p>
           </div>
 
@@ -202,7 +207,7 @@ const MyAccount = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="w-5 h-5" />
-                Informacje o koncie
+                {t('account.profile')}
               </CardTitle>
               <CardDescription>
                 Podstawowe informacje o Twoim koncie
@@ -211,14 +216,14 @@ const MyAccount = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Email</Label>
+                  <Label className="text-sm font-medium">{t('auth.email')}</Label>
                   <div className="mt-1 p-3 bg-muted rounded-md">
                     {profile.email}
                   </div>
                 </div>
                 
                 <div>
-                  <Label className="text-sm font-medium">Rola</Label>
+                  <Label className="text-sm font-medium">{t('admin.userRole')}</Label>
                   <div className="mt-1">
                     <Badge variant={profile.role === 'admin' ? 'default' : profile.role === 'partner' ? 'outline' : 'secondary'}>
                       {getRoleDisplayName(profile.role)}
@@ -229,7 +234,7 @@ const MyAccount = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Data utworzenia</Label>
+                  <Label className="text-sm font-medium">{t('admin.created')}</Label>
                   <div className="mt-1 p-3 bg-muted rounded-md text-sm">
                     {new Date(profile.created_at).toLocaleDateString('pl-PL', {
                       day: 'numeric',
@@ -247,12 +252,12 @@ const MyAccount = () => {
                     {profile.is_active ? (
                       <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
                         <CheckCircle className="w-3 h-3 mr-1" />
-                        Aktywne
+                        {t('admin.active')}
                       </Badge>
                     ) : (
                       <Badge variant="destructive">
                         <AlertCircle className="w-3 h-3 mr-1" />
-                        Nieaktywne
+                        {t('admin.inactive')}
                       </Badge>
                     )}
                   </div>
@@ -273,7 +278,7 @@ const MyAccount = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="w-5 h-5" />
-                Zmiana hasła
+                {t('auth.password')}
               </CardTitle>
               <CardDescription>
                 Zaktualizuj swoje hasło, aby utrzymać bezpieczeństwo konta
@@ -281,8 +286,8 @@ const MyAccount = () => {
             </CardHeader>
             <CardContent>
                <form onSubmit={handlePasswordChange} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Aktualne hasło</Label>
+                 <div className="space-y-2">
+                   <Label htmlFor="current-password">{t('auth.password')}</Label>
                   <Input
                     id="current-password"
                     type="password"
@@ -294,8 +299,8 @@ const MyAccount = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">Nowe hasło</Label>
+                 <div className="space-y-2">
+                   <Label htmlFor="new-password">{t('auth.password')}</Label>
                   <Input
                     id="new-password"
                     type="password"
@@ -308,8 +313,8 @@ const MyAccount = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Potwierdź nowe hasło</Label>
+                 <div className="space-y-2">
+                   <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
                   <Input
                     id="confirm-password"
                     type="password"
@@ -328,24 +333,24 @@ const MyAccount = () => {
                   </Alert>
                 )}
 
-                <div className="flex gap-3">
-                  <Button type="submit" disabled={loading || !currentPassword || !newPassword || !confirmPassword}>
-                    {loading ? 'Zmienianie...' : 'Zmień hasło'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setCurrentPassword('');
-                      setNewPassword('');
-                      setConfirmPassword('');
-                      setError('');
-                    }}
-                    disabled={loading}
-                  >
-                    Anuluj
-                  </Button>
-                </div>
+                 <div className="flex gap-3">
+                   <Button type="submit" disabled={loading || !currentPassword || !newPassword || !confirmPassword}>
+                     {loading ? `${t('common.loading')}...` : t('admin.save')}
+                   </Button>
+                   <Button
+                     type="button"
+                     variant="outline"
+                     onClick={() => {
+                       setCurrentPassword('');
+                       setNewPassword('');
+                       setConfirmPassword('');
+                       setError('');
+                     }}
+                     disabled={loading}
+                   >
+                     {t('admin.cancel')}
+                   </Button>
+                 </div>
               </form>
             </CardContent>
           </Card>

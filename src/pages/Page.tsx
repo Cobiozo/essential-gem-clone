@@ -8,6 +8,8 @@ import { Home, ArrowLeft } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { CMSContent } from '@/components/CMSContent';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface CMSSection {
@@ -58,6 +60,7 @@ interface Page {
 const PageComponent = () => {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [page, setPage] = useState<Page | null>(null);
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
@@ -165,7 +168,7 @@ const PageComponent = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Ładowanie strony...</p>
+          <p className="text-muted-foreground">{t('common.loading')}...</p>
         </div>
       </div>
     );
@@ -183,7 +186,7 @@ const PageComponent = () => {
           <div className="max-w-2xl mx-auto text-center">
             <div className="mb-8">
               <h1 className="text-4xl font-bold text-foreground mb-4">403</h1>
-              <h2 className="text-2xl font-semibold text-foreground mb-4">Brak dostępu do strony</h2>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">{t('error.forbidden')}</h2>
               <p className="text-muted-foreground mb-8">
                 Ta strona jest dostępna tylko dla użytkowników z odpowiednimi uprawnieniami. 
                 Skontaktuj się z administratorem aby uzyskać dostęp.
@@ -194,7 +197,7 @@ const PageComponent = () => {
               <Button asChild>
                 <Link to="/">
                   <Home className="w-4 h-4 mr-2" />
-                  Strona główna
+                  {t('nav.home')}
                 </Link>
               </Button>
               <Button variant="outline" onClick={() => window.history.back()}>
@@ -210,8 +213,9 @@ const PageComponent = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Theme Selector */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Language & Theme Selector */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <LanguageSelector />
         <ThemeSelector />
       </div>
       
@@ -222,7 +226,7 @@ const PageComponent = () => {
             <Button variant="ghost" asChild>
               <Link to="/">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Powrót do strony głównej
+                {t('nav.home')}
               </Link>
             </Button>
             
@@ -262,7 +266,7 @@ const PageComponent = () => {
                     ))}
                   {items.filter(item => item.section_id === section.id).length === 0 && (
                     <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                      Brak elementów w tej sekcji
+                      {t('common.noContent')}
                     </div>
                   )}
                 </div>
