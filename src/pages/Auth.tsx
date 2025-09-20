@@ -13,6 +13,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn, signUp, user } = useAuth();
@@ -55,6 +56,18 @@ const Auth = () => {
     setLoading(true);
     setError('');
 
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      setError('Hasła nie są identyczne');
+      toast({
+        title: "Błąd rejestracji",
+        description: "Hasła nie są identyczne",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     const { error } = await signUp(email, password);
     
     if (error) {
@@ -69,6 +82,11 @@ const Auth = () => {
         title: "Rejestracja pomyślna",
         description: "Sprawdź swoją skrzynkę email w celu potwierdzenia konta.",
       });
+      // Clear form after successful registration
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setError('');
     }
     
     setLoading(false);
@@ -164,6 +182,18 @@ const Auth = () => {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      minLength={6}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Powtórz hasło</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       disabled={loading}
                       minLength={6}
