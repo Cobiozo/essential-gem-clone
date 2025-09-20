@@ -35,6 +35,9 @@ interface CMSSection {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  visible_to_partners: boolean;
+  visible_to_clients: boolean;
+  visible_to_everyone: boolean;
 }
 
 interface CMSItem {
@@ -143,6 +146,9 @@ const Admin = () => {
   const [newSection, setNewSection] = useState({
     title: '',
     position: 0,
+    visible_to_partners: false,
+    visible_to_clients: false,
+    visible_to_everyone: true,
   });
   const [newPage, setNewPage] = useState({
     title: '',
@@ -677,6 +683,9 @@ const Admin = () => {
         .insert({
           title: newSection.title,
           position: maxPosition + 1,
+          visible_to_partners: newSection.visible_to_partners,
+          visible_to_clients: newSection.visible_to_clients,
+          visible_to_everyone: newSection.visible_to_everyone,
         })
         .select()
         .single();
@@ -684,7 +693,13 @@ const Admin = () => {
       if (error) throw error;
 
       setSections([...sections, data]);
-      setNewSection({ title: '', position: 0 });
+      setNewSection({ 
+        title: '', 
+        position: 0,
+        visible_to_partners: false,
+        visible_to_clients: false,
+        visible_to_everyone: true,
+      });
       toast({
         title: "Sukces",
         description: "Nowa sekcja została utworzona.",
@@ -1041,6 +1056,35 @@ const Admin = () => {
       toast({
         title: "Błąd",
         description: "Nie udało się zaktualizować widoczności strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateSectionVisibility = async (sectionId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean }) => {
+    try {
+      const { error } = await supabase
+        .from('cms_sections')
+        .update(visibilityUpdates)
+        .eq('id', sectionId);
+
+      if (error) throw error;
+
+      setSections(sections.map(section => 
+        section.id === sectionId 
+          ? { ...section, ...visibilityUpdates }
+          : section
+      ));
+
+      toast({
+        title: "Widoczność zaktualizowana",
+        description: "Ustawienia widoczności sekcji zostały zaktualizowane.",
+      });
+    } catch (error) {
+      console.error('Update section visibility error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zaktualizować widoczności sekcji.",
         variant: "destructive",
       });
     }
@@ -1469,6 +1513,41 @@ const Admin = () => {
                       className="mt-1 h-10"
                     />
                   </div>
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Widoczność sekcji dla ról:</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="new-section-partners"
+                          checked={newSection.visible_to_partners}
+                          onChange={(e) => setNewSection({...newSection, visible_to_partners: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="new-section-partners">Partner</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="new-section-clients"
+                          checked={newSection.visible_to_clients}
+                          onChange={(e) => setNewSection({...newSection, visible_to_clients: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="new-section-clients">Klient</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="new-section-everyone"
+                          checked={newSection.visible_to_everyone}
+                          onChange={(e) => setNewSection({...newSection, visible_to_everyone: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="new-section-everyone">Dla wszystkich</Label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button 
@@ -1495,16 +1574,48 @@ const Admin = () => {
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex-1">
-                          <CardTitle className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 text-base sm:text-lg">
-                            <span className="break-words">{section.title}</span>
-                            <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
-                              {section.is_active ? "Aktywna" : "Nieaktywna"}
-                            </Badge>
-                          </CardTitle>
-                          <CardDescription className="text-xs sm:text-sm mt-1">
-                            Pozycja: {section.position} | Elementów: {sectionItems.length}
-                          </CardDescription>
-                        </div>
+                           <CardTitle className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 text-base sm:text-lg">
+                             <span className="break-words">{section.title}</span>
+                             <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
+                               {section.is_active ? "Aktywna" : "Nieaktywna"}
+                             </Badge>
+                           </CardTitle>
+                           <CardDescription className="text-xs sm:text-sm mt-1">
+                             Pozycja: {section.position} | Elementów: {sectionItems.length}
+                           </CardDescription>
+                           <div className="flex flex-wrap gap-2 mt-2">
+                             <div className="flex items-center space-x-2">
+                               <input
+                                 type="checkbox"
+                                 id={`section-partner-${section.id}`}
+                                 checked={section.visible_to_partners}
+                                 onChange={(e) => updateSectionVisibility(section.id, { visible_to_partners: e.target.checked })}
+                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                               />
+                               <label htmlFor={`section-partner-${section.id}`} className="text-sm">Partner</label>
+                             </div>
+                             <div className="flex items-center space-x-2">
+                               <input
+                                 type="checkbox"
+                                 id={`section-client-${section.id}`}
+                                 checked={section.visible_to_clients}
+                                 onChange={(e) => updateSectionVisibility(section.id, { visible_to_clients: e.target.checked })}
+                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                               />
+                               <label htmlFor={`section-client-${section.id}`} className="text-sm">Klient</label>
+                             </div>
+                             <div className="flex items-center space-x-2">
+                               <input
+                                 type="checkbox"
+                                 id={`section-everyone-${section.id}`}
+                                 checked={section.visible_to_everyone}
+                                 onChange={(e) => updateSectionVisibility(section.id, { visible_to_everyone: e.target.checked })}
+                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                               />
+                               <label htmlFor={`section-everyone-${section.id}`} className="text-sm">Dla wszystkich</label>
+                             </div>
+                           </div>
+                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-3">
                           <div className="flex items-center gap-1">
                             <Button 

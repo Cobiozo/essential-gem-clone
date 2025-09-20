@@ -98,6 +98,9 @@ export type Database = {
           position: number
           title: string
           updated_at: string
+          visible_to_clients: boolean
+          visible_to_everyone: boolean
+          visible_to_partners: boolean
         }
         Insert: {
           created_at?: string
@@ -107,6 +110,9 @@ export type Database = {
           position: number
           title: string
           updated_at?: string
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
         }
         Update: {
           created_at?: string
@@ -116,6 +122,9 @@ export type Database = {
           position?: number
           title?: string
           updated_at?: string
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
         }
         Relationships: [
           {

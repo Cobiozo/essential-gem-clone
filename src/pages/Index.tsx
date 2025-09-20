@@ -16,6 +16,9 @@ interface CMSSection {
   title: string;
   position: number;
   is_active: boolean;
+  visible_to_partners: boolean;
+  visible_to_clients: boolean;
+  visible_to_everyone: boolean;
 }
 
 interface CMSItem {
