@@ -959,42 +959,45 @@ const Admin = () => {
                     </div>
                     
                     <div className="space-y-3">
-                      {users.map((user) => (
-                        <Card key={user.id} className="p-4">
+                      {users.map((userProfile) => (
+                        <Card key={userProfile.id} className="p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">{user.email}</span>
-                                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                                  {user.role === 'admin' ? 'Administrator' : 'Użytkownik'}
+                                <span className="font-medium text-sm">{userProfile.email}</span>
+                                <Badge variant={userProfile.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                                  {userProfile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
                                 </Badge>
                               </div>
                               <p className="text-xs text-muted-foreground">
-                                Utworzono: {new Date(user.created_at).toLocaleDateString('pl-PL')}
+                                Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                ID: {user.user_id.slice(0, 8)}...
+                                ID: {userProfile.user_id.slice(0, 8)}...
                               </p>
                             </div>
                             
                             <div className="flex flex-col sm:flex-row gap-2">
-                              {user.role !== 'admin' ? (
+                              {userProfile.role !== 'admin' ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => updateUserRole(user.user_id, 'admin')}
+                                  onClick={() => updateUserRole(userProfile.user_id, 'admin')}
                                   className="text-xs"
                                 >
                                   <Users className="w-3 h-3 mr-1" />
                                   Awansuj na Admin
                                 </Button>
+                              ) : userProfile.user_id === user?.id ? (
+                                <Badge variant="default" className="text-xs">
+                                  Twoje konto
+                                </Badge>
                               ) : (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => updateUserRole(user.user_id, 'user')}
+                                  onClick={() => updateUserRole(userProfile.user_id, 'user')}
                                   className="text-xs"
-                                  disabled={user.user_id === user?.id} // Prevent self-demotion
                                 >
                                   <Users className="w-3 h-3 mr-1" />
                                   Zmień na Użytkownika
