@@ -1,6 +1,7 @@
 import React from 'react';
 import { CMSButton } from './CMSButton';
 import { SecureMedia } from './SecureMedia';
+import { FormattedText } from './FormattedText';
 
 interface CMSItem {
   id: string;
@@ -12,6 +13,8 @@ interface CMSItem {
   media_url?: string | null;
   media_type?: string | null;
   media_alt_text?: string | null;
+  text_formatting?: any;
+  title_formatting?: any;
 }
 
 interface CMSContentProps {
@@ -44,9 +47,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4">
           {renderMedia()}
-          <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed">
-            {item.description}
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed"
+            as="p"
+          />
         </div>
       );
 
@@ -54,9 +60,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4">
           {renderMedia()}
-          <p className="text-xs sm:text-sm text-gray-500">
-            {item.description}
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm text-gray-500"
+            as="p"
+          />
         </div>
       );
 
@@ -64,9 +73,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
           {renderMedia()}
-          <p className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed">
-            {item.description}
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
+            as="p"
+          />
         </div>
       );
 
@@ -76,7 +88,11 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
           {renderMedia()}
           <p className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed">
             <span className="font-medium">💡 Wskazówka: </span>
-            {item.description}
+            <FormattedText
+              text={item.description || ''}
+              formatting={item.text_formatting}
+              as="span"
+            />
           </p>
         </div>
       );
@@ -84,33 +100,59 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
     case 'description':
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-gray-50 rounded-lg">
-          <h4 className="font-medium text-sm sm:text-base text-gray-800 mb-2">{item.title}</h4>
+          <FormattedText
+            text={item.title || ''}
+            formatting={item.title_formatting}
+            className="font-medium text-sm sm:text-base text-gray-800 mb-2"
+            as="h4"
+          />
           {renderMedia()}
-          <p className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed whitespace-pre-line">
-            {item.description}
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed whitespace-pre-line"
+            as="p"
+          />
         </div>
       );
 
     case 'contact_info':
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
-          <h4 className="font-medium text-sm sm:text-base text-green-800 mb-2">📞 {item.title}</h4>
+          <h4 className="font-medium text-sm sm:text-base text-green-800 mb-2">
+            📞 <FormattedText
+              text={item.title || ''}
+              formatting={item.title_formatting}
+              as="span"
+            />
+          </h4>
           {renderMedia()}
-          <p className="text-xs sm:text-sm lg:text-base text-green-700 leading-relaxed">
-            {item.description}
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm lg:text-base text-green-700 leading-relaxed"
+            as="p"
+          />
         </div>
       );
 
     case 'support_info':
       return (
         <div className="mt-3 sm:mt-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-          <h4 className="font-medium text-sm sm:text-base text-blue-800 mb-2">🛟 {item.title}</h4>
+          <h4 className="font-medium text-sm sm:text-base text-blue-800 mb-2">
+            🛟 <FormattedText
+              text={item.title || ''}
+              formatting={item.title_formatting}
+              as="span"
+            />
+          </h4>
           {renderMedia()}
-          <p className="text-xs sm:text-sm lg:text-base text-blue-700 leading-relaxed">
-            {item.description}
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm lg:text-base text-blue-700 leading-relaxed"
+            as="p"
+          />
         </div>
       );
 

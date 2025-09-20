@@ -26,7 +26,9 @@ export type Database = {
           media_url: string | null
           position: number
           section_id: string
+          text_formatting: Json | null
           title: string | null
+          title_formatting: Json | null
           type: string
           updated_at: string
           url: string | null
@@ -42,7 +44,9 @@ export type Database = {
           media_url?: string | null
           position: number
           section_id: string
+          text_formatting?: Json | null
           title?: string | null
+          title_formatting?: Json | null
           type: string
           updated_at?: string
           url?: string | null
@@ -58,7 +62,9 @@ export type Database = {
           media_url?: string | null
           position?: number
           section_id?: string
+          text_formatting?: Json | null
           title?: string | null
+          title_formatting?: Json | null
           type?: string
           updated_at?: string
           url?: string | null

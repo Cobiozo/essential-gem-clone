@@ -46,6 +46,8 @@ interface CMSItem {
   media_url?: string | null;
   media_type?: string | null;
   media_alt_text?: string | null;
+  text_formatting?: any;
+  title_formatting?: any;
 }
 
 const Admin = () => {
@@ -115,7 +117,7 @@ const Admin = () => {
 
       const { data: itemsData, error: itemsError } = await supabase
         .from('cms_items')
-        .select('*')
+        .select('*, text_formatting, title_formatting')
         .order('position');
 
       if (itemsError) throw itemsError;
@@ -308,6 +310,8 @@ const Admin = () => {
           section_id: sectionId,
           ...newItem,
           position: maxPosition + 1,
+          title_formatting: newItemTitleStyle,
+          text_formatting: newItemTextStyle,
         })
         .select()
         .single();
@@ -325,6 +329,10 @@ const Admin = () => {
         media_type: '' as 'image' | 'video' | '',
         media_alt_text: '',
       });
+      setNewItemTitleStyle(null);
+      setNewItemTextStyle(null);
+      setNewItemTitleMode(false);
+      setNewItemTextMode(false);
       toast({
         title: "Sukces",
         description: "Element został dodany.",
@@ -959,7 +967,11 @@ const Admin = () => {
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
               <Button 
-                onClick={() => updateItem(editingItem.id, editingItem)} 
+                onClick={() => updateItem(editingItem.id, {
+                  ...editingItem,
+                  title_formatting: itemTitleStyle,
+                  text_formatting: itemTextStyle,
+                })} 
                 className="w-full sm:w-auto"
               >
                 <Save className="w-4 h-4 mr-2" />
