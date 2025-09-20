@@ -636,23 +636,50 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <img src={newPureLifeLogo} alt="Pure Life" className="w-6 h-6 sm:w-8 sm:h-8" />
-            <h1 className="text-lg sm:text-2xl font-bold text-foreground">Panel CMS - Pure Life</h1>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto">
-            <Badge variant="secondary" className="text-xs">Administrator</Badge>
-            <div className="flex gap-2 w-full sm:w-auto">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* Mobile layout - stacked */}
+          <div className="flex flex-col gap-4 sm:hidden">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <img src={newPureLifeLogo} alt="Pure Life" className="w-6 h-6" />
+                <h1 className="text-lg font-bold text-foreground">Panel CMS - Pure Life</h1>
+              </div>
               <ThemeSelector />
-              <Button variant="outline" size="sm" onClick={() => navigate('/')} className="flex-1 sm:flex-none">
-                <Home className="w-4 h-4 mr-2" />
-                Strona główna
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="flex-1 sm:flex-none">
-                <LogOut className="w-4 h-4 mr-2" />
-                Wyloguj
-              </Button>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Badge variant="secondary" className="text-xs self-start">Administrator</Badge>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => navigate('/')} className="flex-1">
+                  <Home className="w-4 h-4 mr-2" />
+                  Strona główna
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleSignOut} className="flex-1">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Wyloguj
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Desktop layout - horizontal */}
+          <div className="hidden sm:flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <img src={newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
+              <h1 className="text-2xl font-bold text-foreground">Panel CMS - Pure Life</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="text-xs">Administrator</Badge>
+              <div className="flex gap-2">
+                <ThemeSelector />
+                <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+                  <Home className="w-4 h-4 mr-2" />
+                  Strona główna
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Wyloguj
+                </Button>
+              </div>
             </div>
           </div>
         </div>
