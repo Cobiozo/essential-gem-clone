@@ -9,13 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2 } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
+import { TextEditor } from '@/components/cms/TextEditor';
+import { FontEditor } from '@/components/cms/FontEditor';
+import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
 import pureLifeDroplet from '@/assets/pure-life-droplet.png';
 
 interface CMSSection {
@@ -68,6 +72,15 @@ const Admin = () => {
     title: '',
     position: 0,
   });
+  const [activeTab, setActiveTab] = useState("content");
+  const [editingItemTextMode, setEditingItemTextMode] = useState(false);
+  const [editingItemTitleMode, setEditingItemTitleMode] = useState(false);
+  const [newItemTextMode, setNewItemTextMode] = useState(false);
+  const [newItemTitleMode, setNewItemTitleMode] = useState(false);
+  const [itemTextStyle, setItemTextStyle] = useState<any>(null);
+  const [itemTitleStyle, setItemTitleStyle] = useState<any>(null);
+  const [newItemTextStyle, setNewItemTextStyle] = useState<any>(null);
+  const [newItemTitleStyle, setNewItemTitleStyle] = useState<any>(null);
   
   // Enable security preventions
   useSecurityPreventions();
@@ -417,8 +430,30 @@ const Admin = () => {
       </header>
 
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
-        {/* Section Management */}
-        <div className="mb-6 sm:mb-8">
+        {/* CMS Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="content" className="flex items-center gap-2">
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Zawartość</span>
+            </TabsTrigger>
+            <TabsTrigger value="fonts" className="flex items-center gap-2">
+              <Type className="w-4 h-4" />
+              <span className="hidden sm:inline">Czcionki</span>
+            </TabsTrigger>
+            <TabsTrigger value="colors" className="flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              <span className="hidden sm:inline">Kolory</span>
+            </TabsTrigger>
+            <TabsTrigger value="text-editor" className="flex items-center gap-2">
+              <Type className="w-4 h-4" />
+              <span className="hidden sm:inline">Edytor</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="content">
+            {/* Section Management */}
+            <div className="mb-6 sm:mb-8">
           <div className="flex flex-col gap-4 mb-4">
             <h2 className="text-lg sm:text-xl font-semibold">Zarządzanie sekcjami</h2>
             <Dialog>
@@ -552,27 +587,77 @@ const Admin = () => {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div>
-                                <Label htmlFor="title" className="text-sm font-medium">Tytuł</Label>
-                                <Input
-                                  id="title"
-                                  value={newItem.title}
-                                  onChange={(e) => setNewItem({...newItem, title: e.target.value})}
-                                  placeholder="Nazwa elementu"
-                                  className="mt-1 h-10"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="description" className="text-sm font-medium">Opis</Label>
-                                <Textarea
-                                  id="description"
-                                  value={newItem.description}
-                                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                                  placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
-                                  className="mt-1 min-h-[80px] resize-none"
-                                  rows={3}
-                                />
-                              </div>
+                               <div>
+                                 <div className="flex items-center justify-between mb-2">
+                                   <Label htmlFor="title" className="text-sm font-medium">Tytuł</Label>
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     onClick={() => setNewItemTitleMode(!newItemTitleMode)}
+                                     className="h-7"
+                                   >
+                                     <Type className="w-3 h-3 mr-1" />
+                                     {newItemTitleMode ? 'Prosty' : 'Zaawansowany'}
+                                   </Button>
+                                 </div>
+                                 
+                                 {newItemTitleMode ? (
+                                   <TextEditor
+                                     initialText={newItem.title}
+                                     initialStyle={newItemTitleStyle}
+                                     onSave={(text, style) => {
+                                       setNewItem({...newItem, title: text});
+                                       setNewItemTitleStyle(style);
+                                       setNewItemTitleMode(false);
+                                     }}
+                                     placeholder="Sformatuj tytuł za pomocą edytora..."
+                                   />
+                                 ) : (
+                                   <Input
+                                     id="title"
+                                     value={newItem.title}
+                                     onChange={(e) => setNewItem({...newItem, title: e.target.value})}
+                                     placeholder="Nazwa elementu"
+                                     className="mt-1 h-10"
+                                   />
+                                 )}
+                               </div>
+                               <div>
+                                 <div className="flex items-center justify-between mb-2">
+                                   <Label htmlFor="description" className="text-sm font-medium">Opis</Label>
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     onClick={() => setNewItemTextMode(!newItemTextMode)}
+                                     className="h-7"
+                                   >
+                                     <Type className="w-3 h-3 mr-1" />
+                                     {newItemTextMode ? 'Prosty' : 'Zaawansowany'}
+                                   </Button>
+                                 </div>
+                                 
+                                 {newItemTextMode ? (
+                                   <TextEditor
+                                     initialText={newItem.description}
+                                     initialStyle={newItemTextStyle}
+                                     onSave={(text, style) => {
+                                       setNewItem({...newItem, description: text});
+                                       setNewItemTextStyle(style);
+                                       setNewItemTextMode(false);
+                                     }}
+                                     placeholder="Sformatuj tekst za pomocą edytora..."
+                                   />
+                                 ) : (
+                                   <Textarea
+                                     id="description"
+                                     value={newItem.description}
+                                     onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                                     placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
+                                     className="mt-1 min-h-[80px] resize-none"
+                                     rows={3}
+                                   />
+                                 )}
+                               </div>
                               <div>
                                 <Label htmlFor="url" className="text-sm font-medium">URL</Label>
                                 <Input
@@ -678,7 +763,68 @@ const Admin = () => {
               </Card>
             );
           })}
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="fonts">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Type className="w-5 h-5" />
+                  <span>Zarządzanie czcionkami</span>
+                </CardTitle>
+                <CardDescription>
+                  Dostosuj czcionki używane w aplikacji
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FontEditor />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="colors">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Palette className="w-5 h-5" />
+                  <span>Schemat kolorów</span>
+                </CardTitle>
+                <CardDescription>
+                  Personalizuj kolorystykę aplikacji
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ColorSchemeEditor />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="text-editor">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Type className="w-5 h-5" />
+                  <span>Edytor tekstu</span>
+                </CardTitle>
+                <CardDescription>
+                  Zaawansowany edytor do formatowania treści
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TextEditor 
+                  placeholder="Używaj tego edytora do formatowania zawartości..."
+                  onSave={(text, style) => {
+                    toast({
+                      title: "Tekst sformatowany",
+                      description: "Skopiuj sformatowany tekst do elementów CMS",
+                    });
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Item Dialog */}
@@ -713,27 +859,77 @@ const Admin = () => {
                    </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="edit-title" className="text-sm font-medium">Tytuł</Label>
-                <Input
-                  id="edit-title"
-                  value={editingItem.title || ''}
-                  onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
-                  placeholder="Wskazówka"
-                  className="mt-1 h-10"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-description" className="text-sm font-medium">Opis</Label>
-                <Textarea
-                  id="edit-description"
-                  value={editingItem.description || ''}
-                  onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
-                  placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
-                  className="mt-1 min-h-[80px] resize-none"
-                  rows={3}
-                />
-              </div>
+               <div>
+                 <div className="flex items-center justify-between mb-2">
+                   <Label htmlFor="edit-title" className="text-sm font-medium">Tytuł</Label>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => setEditingItemTitleMode(!editingItemTitleMode)}
+                     className="h-7"
+                   >
+                     <Type className="w-3 h-3 mr-1" />
+                     {editingItemTitleMode ? 'Prosty' : 'Zaawansowany'}
+                   </Button>
+                 </div>
+                 
+                 {editingItemTitleMode ? (
+                   <TextEditor
+                     initialText={editingItem.title || ''}
+                     initialStyle={itemTitleStyle}
+                     onSave={(text, style) => {
+                       setEditingItem({...editingItem, title: text});
+                       setItemTitleStyle(style);
+                       setEditingItemTitleMode(false);
+                     }}
+                     placeholder="Sformatuj tytuł za pomocą edytora..."
+                   />
+                 ) : (
+                   <Input
+                     id="edit-title"
+                     value={editingItem.title || ''}
+                     onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
+                     placeholder="Wskazówka"
+                     className="mt-1 h-10"
+                   />
+                 )}
+               </div>
+               <div>
+                 <div className="flex items-center justify-between mb-2">
+                   <Label htmlFor="edit-description" className="text-sm font-medium">Opis</Label>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => setEditingItemTextMode(!editingItemTextMode)}
+                     className="h-7"
+                   >
+                     <Type className="w-3 h-3 mr-1" />
+                     {editingItemTextMode ? 'Prosty' : 'Zaawansowany'}
+                   </Button>
+                 </div>
+                 
+                 {editingItemTextMode ? (
+                   <TextEditor
+                     initialText={editingItem.description || ''}
+                     initialStyle={itemTextStyle}
+                     onSave={(text, style) => {
+                       setEditingItem({...editingItem, description: text});
+                       setItemTextStyle(style);
+                       setEditingItemTextMode(false);
+                     }}
+                     placeholder="Sformatuj tekst za pomocą edytora..."
+                   />
+                 ) : (
+                   <Textarea
+                     id="edit-description"
+                     value={editingItem.description || ''}
+                     onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
+                     placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
+                     className="mt-1 min-h-[80px] resize-none"
+                     rows={3}
+                   />
+                 )}
+               </div>
               <div>
                 <Label htmlFor="edit-url" className="text-sm font-medium">URL</Label>
                 <Input
