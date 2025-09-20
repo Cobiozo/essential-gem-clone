@@ -49,6 +49,94 @@ const presetSchemes: ColorScheme[] = [
     accent: '45 100% 65%',
     background: '25 40% 96%',
     foreground: '25 20% 20%'
+  },
+  {
+    name: 'Deep Purple',
+    primary: '280 70% 45%',
+    secondary: '280 20% 90%',
+    accent: '320 100% 65%',
+    background: '280 25% 97%',
+    foreground: '280 15% 15%'
+  },
+  {
+    name: 'Rose Gold',
+    primary: '340 50% 50%',
+    secondary: '340 15% 90%',
+    accent: '30 100% 70%',
+    background: '340 20% 96%',
+    foreground: '340 20% 20%'
+  },
+  {
+    name: 'Midnight Dark',
+    primary: '220 100% 65%',
+    secondary: '220 15% 25%',
+    accent: '45 100% 60%',
+    background: '220 20% 8%',
+    foreground: '220 10% 85%'
+  },
+  {
+    name: 'Corporate Blue',
+    primary: '215 85% 40%',
+    secondary: '215 20% 88%',
+    accent: '195 100% 55%',
+    background: '215 25% 95%',
+    foreground: '215 25% 15%'
+  },
+  {
+    name: 'Warm Earth',
+    primary: '30 70% 40%',
+    secondary: '30 20% 88%',
+    accent: '60 80% 55%',
+    background: '30 25% 95%',
+    foreground: '30 25% 15%'
+  },
+  {
+    name: 'Cool Mint',
+    primary: '160 60% 40%',
+    secondary: '160 20% 90%',
+    accent: '180 100% 60%',
+    background: '160 30% 96%',
+    foreground: '160 20% 15%'
+  },
+  {
+    name: 'Vibrant Pink',
+    primary: '315 80% 50%',
+    secondary: '315 25% 90%',
+    accent: '45 100% 65%',
+    background: '315 30% 96%',
+    foreground: '315 20% 20%'
+  },
+  {
+    name: 'Slate Gray',
+    primary: '210 15% 35%',
+    secondary: '210 10% 85%',
+    accent: '195 80% 60%',
+    background: '210 15% 95%',
+    foreground: '210 20% 15%'
+  },
+  {
+    name: 'Crimson Red',
+    primary: '350 80% 45%',
+    secondary: '350 20% 90%',
+    accent: '25 100% 65%',
+    background: '350 25% 96%',
+    foreground: '350 25% 15%'
+  },
+  {
+    name: 'Electric Cyan',
+    primary: '190 100% 45%',
+    secondary: '190 25% 90%',
+    accent: '45 100% 60%',
+    background: '190 30% 96%',
+    foreground: '190 25% 15%'
+  },
+  {
+    name: 'Charcoal Dark',
+    primary: '200 80% 60%',
+    secondary: '200 10% 30%',
+    accent: '60 100% 65%',
+    background: '200 15% 10%',
+    foreground: '200 5% 80%'
   }
 ];
 
@@ -151,7 +239,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
         {/* Preset Schemes */}
         <div>
           <Label className="text-sm font-medium mb-3 block">Gotowe schematy kolorów</Label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
             {presetSchemes.map((scheme) => (
               <Card key={scheme.name} className="cursor-pointer hover:bg-muted/50 transition-colors">
                 <CardContent className="p-4" onClick={() => {

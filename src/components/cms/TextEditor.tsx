@@ -89,22 +89,47 @@ export const TextEditor: React.FC<TextEditorProps> = ({
 
   const colorPresets = [
     { name: 'Czarny', color: '#000000' },
+    { name: 'Ciemnoszary', color: '#333333' },
     { name: 'Szary', color: '#666666' },
+    { name: 'Jasnoszary', color: '#999999' },
+    { name: 'Biały', color: '#FFFFFF' },
+    { name: 'Ciemnozielony', color: '#1B5E20' },
     { name: 'Zielony', color: '#2D6A4F' },
+    { name: 'Jasnozielony', color: '#4CAF50' },
+    { name: 'Ciemnoniebieski', color: '#0D47A1' },
     { name: 'Niebieski', color: '#0066CC' },
+    { name: 'Jasnoniebieski', color: '#2196F3' },
+    { name: 'Cyjan', color: '#00BCD4' },
+    { name: 'Ciemnoczerwony', color: '#B71C1C' },
     { name: 'Czerwony', color: '#CC0000' },
-    { name: 'Pomarańczowy', color: '#FF6600' },
+    { name: 'Różowy', color: '#E91E63' },
     { name: 'Fioletowy', color: '#6600CC' },
-    { name: 'Biały', color: '#FFFFFF' }
+    { name: 'Indygo', color: '#3F51B5' },
+    { name: 'Ciemnopomarańczowy', color: '#E65100' },
+    { name: 'Pomarańczowy', color: '#FF6600' },
+    { name: 'Jasnopomarańczowy', color: '#FF9800' },
+    { name: 'Żółty', color: '#FFC107' },
+    { name: 'Złoty', color: '#FFD700' },
+    { name: 'Brązowy', color: '#795548' },
+    { name: 'Teal', color: '#009688' }
   ];
 
   const backgroundPresets = [
     { name: 'Przezroczysty', color: 'transparent' },
     { name: 'Biały', color: '#FFFFFF' },
-    { name: 'Szary', color: '#F5F5F5' },
-    { name: 'Zielony', color: '#E8F5E8' },
-    { name: 'Niebieski', color: '#E8F4FD' },
-    { name: 'Żółty', color: '#FFF8E1' }
+    { name: 'Jasnoszary', color: '#F5F5F5' },
+    { name: 'Szary', color: '#E0E0E0' },
+    { name: 'Ciemnoszary', color: '#BDBDBD' },
+    { name: 'Jasnozielony', color: '#E8F5E8' },
+    { name: 'Zielony', color: '#C8E6C9' },
+    { name: 'Jasnoniebieski', color: '#E8F4FD' },
+    { name: 'Niebieski', color: '#BBDEFB' },
+    { name: 'Żółty', color: '#FFF8E1' },
+    { name: 'Pomarańczowy', color: '#FFE0B2' },
+    { name: 'Różowy', color: '#FCE4EC' },
+    { name: 'Fioletowy', color: '#F3E5F5' },
+    { name: 'Czerwony', color: '#FFEBEE' },
+    { name: 'Cyjan', color: '#E0F2F1' }
   ];
 
   const insertTextAtCursor = (insertText: string) => {
@@ -273,8 +298,8 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                   <div className="space-y-3">
                     <div>
                       <Label className="text-xs font-medium mb-2 block">Kolor tekstu</Label>
-                      <div className="grid grid-cols-4 gap-1 mb-2">
-                        {colorPresets.map((preset) => (
+                       <div className="grid grid-cols-6 gap-1 mb-2">
+                         {colorPresets.map((preset) => (
                           <button
                             key={preset.name}
                             className="w-6 h-6 rounded border-2 border-border hover:scale-110 transition-transform"
@@ -408,8 +433,8 @@ export const TextEditor: React.FC<TextEditorProps> = ({
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-medium mb-2 block">Kolor tła</Label>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                {backgroundPresets.map((preset) => (
+               <div className="grid grid-cols-3 gap-2 mb-2 max-h-32 overflow-y-auto">
+                 {backgroundPresets.map((preset) => (
                   <Button
                     key={preset.name}
                     variant="outline"

@@ -61,6 +61,41 @@ const googleFonts = [
     url: 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap'
   },
   { 
+    name: 'Work Sans', 
+    family: 'Work Sans, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Raleway', 
+    family: 'Raleway, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Fira Sans', 
+    family: 'Fira Sans, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Ubuntu', 
+    family: 'Ubuntu, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap'
+  },
+  { 
+    name: 'Oswald', 
+    family: 'Oswald, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Rubik', 
+    family: 'Rubik, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'DM Sans', 
+    family: 'DM Sans, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&display=swap'
+  },
+  { 
     name: 'Playfair Display (Serif)', 
     family: 'Playfair Display, serif',
     url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap'
@@ -69,6 +104,81 @@ const googleFonts = [
     name: 'Merriweather (Serif)', 
     family: 'Merriweather, serif',
     url: 'https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap'
+  },
+  { 
+    name: 'Crimson Text (Serif)', 
+    family: 'Crimson Text, serif',
+    url: 'https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&display=swap'
+  },
+  { 
+    name: 'Lora (Serif)', 
+    family: 'Lora, serif',
+    url: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Cormorant Garamond (Serif)', 
+    family: 'Cormorant Garamond, serif',
+    url: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Libre Baskerville (Serif)', 
+    family: 'Libre Baskerville, serif',
+    url: 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap'
+  },
+  { 
+    name: 'Dancing Script (Handwriting)', 
+    family: 'Dancing Script, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Caveat (Handwriting)', 
+    family: 'Caveat, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Pacifico (Handwriting)', 
+    family: 'Pacifico, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap'
+  },
+  { 
+    name: 'Satisfy (Handwriting)', 
+    family: 'Satisfy, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Satisfy&display=swap'
+  },
+  { 
+    name: 'Bebas Neue (Display)', 
+    family: 'Bebas Neue, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap'
+  },
+  { 
+    name: 'Anton (Display)', 
+    family: 'Anton, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Anton&display=swap'
+  },
+  { 
+    name: 'Righteous (Display)', 
+    family: 'Righteous, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Righteous&display=swap'
+  },
+  { 
+    name: 'Bangers (Display)', 
+    family: 'Bangers, cursive',
+    url: 'https://fonts.googleapis.com/css2?family=Bangers&display=swap'
+  },
+  { 
+    name: 'Fira Code (Monospace)', 
+    family: 'Fira Code, monospace',
+    url: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'JetBrains Mono (Monospace)', 
+    family: 'JetBrains Mono, monospace',
+    url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap'
+  },
+  { 
+    name: 'Source Code Pro (Monospace)', 
+    family: 'Source Code Pro, monospace',
+    url: 'https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@300;400;500;600;700&display=swap'
   }
 ];
 
