@@ -106,13 +106,11 @@ const Admin = () => {
     
     setUsersLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('get_user_profiles_with_confirmation');
 
       if (error) throw error;
-      setUsers(data || []);
+      console.log('fetchUsers RPC result:', { count: data?.length, sample: data?.[0] });
+      setUsers((data as UserProfile[]) || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
