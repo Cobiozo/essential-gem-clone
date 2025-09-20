@@ -131,15 +131,13 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         </h3>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           {showShareButton && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <div 
               onClick={handleShare}
               aria-label={t('share.section')}
-              className="p-1 sm:p-2 h-6 w-6 sm:h-8 sm:w-8 text-gray-600 hover:text-gray-800"
+              className="p-1 sm:p-2 h-6 w-6 sm:h-8 sm:w-8 text-gray-600 hover:text-gray-800 cursor-pointer rounded hover:bg-gray-200 transition-colors flex items-center justify-center"
             >
               <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
-            </Button>
+            </div>
           )}
           {isOpen ? (
             <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />

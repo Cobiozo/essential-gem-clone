@@ -2811,12 +2811,24 @@ const Admin = () => {
 
       {/* Edit Section Dialog */}
       {editingSection && (
-        <SectionEditor 
-          section={editingSection}
-          onSave={(updatedSection) => updateSection(editingSection.id, updatedSection)}
-          onCancel={() => setEditingSection(null)}
-          trigger={null}
-        />
+        <Dialog open={!!editingSection} onOpenChange={() => setEditingSection(null)}>
+          <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
+            <DialogHeader className="p-6 pb-2 shrink-0">
+              <DialogTitle>Edytuj sekcję</DialogTitle>
+              <DialogDescription>
+                Skonfiguruj wygląd i zawartość sekcji
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-6">
+              <SectionEditor 
+                section={editingSection}
+                onSave={(updatedSection) => updateSection(editingSection.id, updatedSection)}
+                onCancel={() => setEditingSection(null)}
+                trigger={null}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Edit Page Dialog */}
