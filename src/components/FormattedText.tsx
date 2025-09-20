@@ -39,13 +39,22 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
     lineHeight: formatting.lineHeight,
     letterSpacing: `${formatting.letterSpacing}px`,
     fontFamily: formatting.fontFamily,
+    // Ensure proper text wrapping and responsiveness
+    wordWrap: 'break-word',
+    overflowWrap: 'break-word',
+    hyphens: 'auto',
+    maxWidth: '100%',
+    width: '100%',
   } : {};
 
   const Component = as;
 
+  // Combine base classes with custom classes for proper text handling
+  const combinedClassName = `${className} ${formatting ? 'break-words hyphens-auto' : ''}`.trim();
+
   return (
     <Component 
-      className={className} 
+      className={combinedClassName} 
       style={style}
     >
       {text}

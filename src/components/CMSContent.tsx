@@ -2,6 +2,8 @@ import React from 'react';
 import { CMSButton } from './CMSButton';
 import { SecureMedia } from './SecureMedia';
 import { FormattedText } from './FormattedText';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface CMSItem {
   id: string;
@@ -162,13 +164,41 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div>
           {renderMedia()}
-          <CMSButton
-            title={item.title || ''}
-            description={item.description}
-            url={item.url}
-            type={hasDescription ? 'detailed' : 'simple'}
-            onClick={handleClick}
-          />
+          <div className="w-full">
+            <Button
+              onClick={handleClick}
+              className={cn(
+                hasDescription 
+                  ? "w-full min-h-[70px] sm:min-h-[60px] lg:min-h-[70px] bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-left p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border-0 flex flex-col items-start justify-center space-y-1 sm:space-y-2"
+                  : "w-full min-h-[45px] sm:min-h-[40px] lg:min-h-[45px] bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg shadow-sm border-0 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base",
+                "break-words hyphens-auto overflow-hidden"
+              )}
+            >
+              {hasDescription ? (
+                <>
+                  <FormattedText
+                    text={item.title || ''}
+                    formatting={item.title_formatting}
+                    className="font-semibold text-sm sm:text-base leading-tight break-words w-full text-primary-foreground"
+                    as="span"
+                  />
+                  <FormattedText
+                    text={item.description || ''}
+                    formatting={item.text_formatting}
+                    className="text-xs sm:text-sm text-primary-foreground/80 font-normal leading-tight break-words w-full"
+                    as="span"
+                  />
+                </>
+              ) : (
+                <FormattedText
+                  text={item.title || ''}
+                  formatting={item.title_formatting}
+                  className="break-words w-full text-primary-foreground"
+                  as="span"
+                />
+              )}
+            </Button>
+          </div>
         </div>
       );
   }
