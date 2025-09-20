@@ -24,6 +24,17 @@ const MyAccount = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Helper function to get role display name
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'partner': return 'Partner';
+      case 'user':
+      case 'client':
+      default: return 'Klient';
+    }
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -209,8 +220,8 @@ const MyAccount = () => {
                 <div>
                   <Label className="text-sm font-medium">Rola</Label>
                   <div className="mt-1">
-                    <Badge variant={profile.role === 'admin' ? 'default' : 'secondary'}>
-                      {profile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
+                    <Badge variant={profile.role === 'admin' ? 'default' : profile.role === 'partner' ? 'outline' : 'secondary'}>
+                      {getRoleDisplayName(profile.role)}
                     </Badge>
                   </div>
                 </div>
@@ -249,7 +260,7 @@ const MyAccount = () => {
               </div>
 
               <div>
-                <Label className="text-sm font-medium">ID użytkownika</Label>
+                <Label className="text-sm font-medium">ID klienta</Label>
                 <div className="mt-1 p-3 bg-muted rounded-md font-mono text-xs">
                   {profile.user_id}
                 </div>

@@ -143,7 +143,7 @@ const Admin = () => {
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
-    role: 'user' as 'user' | 'admin'
+    role: 'user' as 'user' | 'client' | 'admin' | 'partner'
   });
   const [creatingUser, setCreatingUser] = useState(false);
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
@@ -170,7 +170,7 @@ const Admin = () => {
       console.error('Error fetching users:', error);
       toast({
         title: "Błąd",
-        description: "Nie udało się załadować użytkowników.",
+        description: "Nie udało się załadować klientów.",
         variant: "destructive",
       });
     } finally {
@@ -178,7 +178,7 @@ const Admin = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
+  const updateUserRole = async (userId: string, newRole: 'user' | 'client' | 'admin' | 'partner') => {
     try {
       const { error } = await supabase
         .from('profiles')
@@ -193,13 +193,13 @@ const Admin = () => {
       
       toast({
         title: "Sukces",
-        description: `Rola użytkownika została zmieniona na ${newRole === 'admin' ? 'Administrator' : 'Użytkownik'}.`,
+        description: `Rola klienta została zmieniona na ${getRoleDisplayName(newRole)}.`,
       });
     } catch (error) {
       console.error('Error updating user role:', error);
       toast({
         title: "Błąd",
-        description: "Nie udało się zmienić roli użytkownika.",
+        description: "Nie udało się zmienić roli klienta.",
         variant: "destructive",
       });
     }
@@ -218,7 +218,7 @@ const Admin = () => {
       if (data) {
         toast({
           title: "Sukces",
-          description: "Email użytkownika został potwierdzony.",
+          description: "Email klienta został potwierdzony.",
         });
         // Refresh users list to show updated status
         fetchUsers();
@@ -233,7 +233,7 @@ const Admin = () => {
       console.error('Error confirming user email:', error);
       toast({
         title: "Błąd",
-        description: "Nie udało się potwierdzić emaila użytkownika.",
+        description: "Nie udało się potwierdzić emaila klienta.",
         variant: "destructive",
       });
     }
@@ -255,14 +255,14 @@ const Admin = () => {
         
         toast({
           title: "Sukces",
-          description: `Użytkownik został ${!currentStatus ? 'aktywowany' : 'dezaktywowany'}.`,
+          description: `Klient został ${!currentStatus ? 'aktywowany' : 'dezaktywowany'}.`,
         });
       }
     } catch (error: any) {
       console.error('Error toggling user status:', error);
       toast({
         title: "Błąd",
-        description: error.message || "Nie udało się zmienić statusu użytkownika.",
+        description: error.message || "Nie udało się zmienić statusu klienta.",
         variant: "destructive",
       });
     }
@@ -367,11 +367,11 @@ const Admin = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Update the user role if admin
-        if (newUser.role === 'admin') {
+        // Update the user role if admin or partner
+        if (newUser.role === 'admin' || newUser.role === 'partner') {
           const { error: roleError } = await supabase
             .from('profiles')
-            .update({ role: 'admin' })
+            .update({ role: newUser.role })
             .eq('user_id', data.user.id);
 
           if (roleError) {
@@ -385,14 +385,14 @@ const Admin = () => {
 
         toast({
           title: "Sukces",
-          description: `Użytkownik ${newUser.email} został utworzony.`,
+          description: `Klient ${newUser.email} został utworzony.`,
         });
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast({
         title: "Błąd",
-        description: error.message || "Nie udało się utworzyć użytkownika.",
+        description: error.message || "Nie udało się utworzyć klienta.",
         variant: "destructive",
       });
     } finally {
@@ -424,10 +424,20 @@ const Admin = () => {
   });
 
   // Export functions
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'partner': return 'Partner';
+      case 'user':
+      case 'client':
+      default: return 'Klient';
+    }
+  };
+
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
-    doc.text('Lista Użytkowników', 20, 20);
+    doc.text('Lista Klientów', 20, 20);
     
     let yPosition = 40;
     doc.setFontSize(12);
@@ -439,20 +449,20 @@ const Admin = () => {
       }
       
       doc.text(`${index + 1}. Email: ${user.email}`, 20, yPosition);
-      doc.text(`   Rola: ${user.role === 'admin' ? 'Administrator' : 'Użytkownik'}`, 20, yPosition + 10);
+      doc.text(`   Rola: ${getRoleDisplayName(user.role)}`, 20, yPosition + 10);
       doc.text(`   Status: ${user.is_active ? 'Aktywny' : 'Nieaktywny'}`, 20, yPosition + 20);
       doc.text(`   Utworzono: ${new Date(user.created_at).toLocaleDateString('pl-PL')}`, 20, yPosition + 30);
       yPosition += 45;
     });
     
-    doc.save('uzytkownicy.pdf');
+    doc.save('klienci.pdf');
   };
 
   const exportToXLSX = () => {
     const worksheet = XLSX.utils.json_to_sheet(
       users.map(user => ({
         Email: user.email,
-        Rola: user.role === 'admin' ? 'Administrator' : 'Użytkownik',
+        Rola: getRoleDisplayName(user.role),
         Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
         'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
         'Email potwierdzony': user.email_confirmed_at ? 'Tak' : 'Nie',
@@ -461,8 +471,8 @@ const Admin = () => {
     );
     
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Użytkownicy');
-    XLSX.writeFile(workbook, 'uzytkownicy.xlsx');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Klienci');
+    XLSX.writeFile(workbook, 'klienci.xlsx');
   };
 
   const exportToXML = () => {
@@ -1754,10 +1764,10 @@ const Admin = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Users className="w-5 h-5" />
-                  <span>Zarządzanie użytkownikami</span>
+                  <span>Zarządzanie klientami</span>
                 </CardTitle>
                 <CardDescription>
-                  Zarządzaj użytkownikami i ich rolami w systemie
+                  Zarządzaj klientami i ich rolami w systemie
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1771,7 +1781,7 @@ const Admin = () => {
                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                       <div className="flex items-center gap-4">
                         <p className="text-sm text-muted-foreground">
-                          Łączna liczba użytkowników: {users.length}
+                          Łączna liczba klientów: {users.length}
                         </p>
                         <Button variant="outline" size="sm" onClick={fetchUsers}>
                           Odśwież listę
@@ -1785,7 +1795,7 @@ const Admin = () => {
                           className="gap-2"
                         >
                           <UserPlus className="w-4 h-4" />
-                          Dodaj użytkownika
+                          Dodaj klienta
                         </Button>
                         
                         <div className="flex gap-1">
@@ -1842,8 +1852,8 @@ const Admin = () => {
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-medium text-sm">{userProfile.email}</span>
-                                  <Badge variant={userProfile.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                                    {userProfile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
+                                  <Badge variant={userProfile.role === 'admin' ? 'default' : userProfile.role === 'partner' ? 'outline' : 'secondary'} className="text-xs">
+                                    {getRoleDisplayName(userProfile.role)}
                                   </Badge>
                                   <Badge variant={userProfile.is_active ? 'default' : 'destructive'} className="text-xs">
                                     {userProfile.is_active ? 'Aktywny' : 'Nieaktywny'}
@@ -1897,21 +1907,28 @@ const Admin = () => {
                                   </Button>
                                 )}
                                 
-                                {userProfile.role !== 'admin' ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => updateUserRole(userProfile.user_id, 'admin')}
-                                    className="text-xs"
-                                  >
-                                    <Users className="w-3 h-3 mr-1" />
-                                    Awansuj na Admin
-                                  </Button>
-                                ) : userProfile.user_id === user?.id ? (
-                                  <Badge variant="default" className="text-xs">
-                                    Twoje konto
-                                  </Badge>
-                                ) : (
+                                {userProfile.role === 'user' || userProfile.role === 'client' ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'admin')}
+                                      className="text-xs"
+                                    >
+                                      <Users className="w-3 h-3 mr-1" />
+                                      Awansuj na Admin
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'partner')}
+                                      className="text-xs"
+                                    >
+                                      <Users className="w-3 h-3 mr-1" />
+                                      Ustaw jako Partner
+                                    </Button>
+                                  </>
+                                ) : userProfile.role === 'partner' ? (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1919,9 +1936,25 @@ const Admin = () => {
                                     className="text-xs"
                                   >
                                     <Users className="w-3 h-3 mr-1" />
-                                    Zmień na Użytkownika
+                                    Zmień na Klienta
                                   </Button>
-                                )}
+                                ) : userProfile.role === 'admin' ? (
+                                  userProfile.user_id === user?.id ? (
+                                    <Badge variant="default" className="text-xs">
+                                      Twoje konto
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'user')}
+                                      className="text-xs"
+                                    >
+                                      <Users className="w-3 h-3 mr-1" />
+                                      Zmień na Klienta
+                                    </Button>
+                                  )
+                                ) : null}
                               </div>
                           </div>
                         </Card>
@@ -1930,7 +1963,7 @@ const Admin = () => {
                       {users.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
                           <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                          <p>Brak użytkowników w systemie</p>
+                          <p>Brak klientów w systemie</p>
                         </div>
                       )}
                     </div>
@@ -1943,9 +1976,9 @@ const Admin = () => {
             <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}>
               <DialogContent className="w-[95vw] max-w-md mx-auto">
                 <DialogHeader>
-                  <DialogTitle>Dodaj nowego użytkownika</DialogTitle>
+                  <DialogTitle>Dodaj nowego klienta</DialogTitle>
                   <DialogDescription>
-                    Utwórz nowe konto użytkownika w systemie
+                    Utwórz nowe konto klienta w systemie
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -1977,10 +2010,11 @@ const Admin = () => {
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Użytkownik</SelectItem>
-                        <SelectItem value="admin">Administrator</SelectItem>
-                      </SelectContent>
+                        <SelectContent>
+                          <SelectItem value="user">Klient</SelectItem>
+                          <SelectItem value="partner">Partner</SelectItem>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                        </SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -1995,7 +2029,7 @@ const Admin = () => {
                     Anuluj
                   </Button>
                   <Button onClick={createUser} disabled={creatingUser}>
-                    {creatingUser ? 'Tworzenie...' : 'Utwórz użytkownika'}
+                    {creatingUser ? 'Tworzenie...' : 'Utwórz klienta'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

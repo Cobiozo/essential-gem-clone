@@ -35,7 +35,7 @@ interface CMSItem {
 }
 
 const Index = () => {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isPartner, signOut } = useAuth();
   const [sections, setSections] = React.useState<CMSSection[]>([]);
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [headerText, setHeaderText] = React.useState<string>('');
@@ -212,17 +212,17 @@ const Index = () => {
                   Panel CMS
                 </Button>
               </Link>
-            ) : (
+             ) : (
               <Link to="/my-account">
                 <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
                   <Settings className="w-3 h-3 mr-1" />
-                  Moje konto
+                  {isPartner ? 'Moje konto partnera' : 'Moje konto'}
                 </Button>
               </Link>
-            )}
+             )}
             <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
               <LogOut className="w-3 h-3 mr-1" />
-              Wyloguj
+              Wyloguj się
             </Button>
           </div>
         )}
