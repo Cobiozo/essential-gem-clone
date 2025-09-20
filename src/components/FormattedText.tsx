@@ -41,11 +41,19 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
     fontFamily: formatting.fontFamily,
     // Ensure proper text wrapping and responsiveness
     wordWrap: 'break-word',
-    overflowWrap: 'break-word',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
     hyphens: 'auto',
+    whiteSpace: 'normal',
     maxWidth: '100%',
     width: '100%',
-  } : {};
+  } : {
+    // Default styles for non-formatted text
+    wordWrap: 'break-word',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
+    whiteSpace: 'normal',
+  };
 
   const Component = as;
 
