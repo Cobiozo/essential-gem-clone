@@ -109,7 +109,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   };
 
   const editorContent = (
-    <div className="space-y-6 max-h-[80vh] overflow-y-auto">
+    <div className="space-y-6">
       {/* Basic Information */}
       <div className="space-y-4">
         <div>
@@ -345,8 +345,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         <DialogTrigger asChild>
           {trigger}
         </DialogTrigger>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle>
               {isNew ? 'Dodaj nową sekcję' : 'Edytuj sekcję'}
             </DialogTitle>
@@ -354,8 +354,10 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
               Skonfiguruj wygląd i zawartość sekcji
             </DialogDescription>
           </DialogHeader>
-          {editorContent}
-          <DialogFooter>
+          <div className="flex-1 overflow-y-auto px-6">
+            {editorContent}
+          </div>
+          <DialogFooter className="p-6 pt-2 shrink-0 border-t bg-background/80 backdrop-blur-sm">
             <Button variant="outline" onClick={handleCancel}>
               <X className="w-4 h-4 mr-2" />
               Anuluj
