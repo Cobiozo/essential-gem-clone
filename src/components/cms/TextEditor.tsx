@@ -619,6 +619,33 @@ export const TextEditor: React.FC<TextEditorProps> = ({
 
           <div className="space-y-4">
             <div>
+              <Label className="text-sm font-medium mb-2 block">Kolor tekstu</Label>
+               <div className="grid grid-cols-3 gap-2 mb-2 max-h-32 overflow-y-auto">
+                 {colorPresets.map((preset) => (
+                  <Button
+                    key={preset.name}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs justify-start"
+                    onClick={() => setTextStyle(prev => ({ ...prev, color: preset.color }))}
+                  >
+                    <div 
+                      className="w-4 h-4 rounded mr-1 border" 
+                      style={{ backgroundColor: preset.color }}
+                    />
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
+              <input
+                type="color"
+                value={textStyle.color}
+                onChange={(e) => setTextStyle(prev => ({ ...prev, color: e.target.value }))}
+                className="w-full h-10 rounded border cursor-pointer"
+              />
+            </div>
+
+            <div>
               <Label className="text-sm font-medium mb-2 block">Kolor tła</Label>
                <div className="grid grid-cols-3 gap-2 mb-2 max-h-32 overflow-y-auto">
                  {backgroundPresets.map((preset) => (
