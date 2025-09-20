@@ -157,7 +157,7 @@ const Page = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-4xl mx-auto">
           <CardContent className="p-8">
-            <article className="prose prose-lg max-w-none dark:prose-invert">
+            <article className={`max-w-none ${!page.content_formatting ? 'prose prose-lg dark:prose-invert' : ''}`}>
               <header className="mb-8">
                 <h1 className="text-3xl font-bold text-foreground mb-4">
                   {page.title}
