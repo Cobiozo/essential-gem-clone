@@ -40,6 +40,34 @@ interface CMSSection {
   visible_to_partners: boolean;
   visible_to_clients: boolean;
   visible_to_everyone: boolean;
+  // Enhanced styling options
+  background_color?: string | null;
+  text_color?: string | null;
+  font_size?: number | null;
+  alignment?: string | null;
+  padding?: number | null;
+  margin?: number | null;
+  border_radius?: number | null;
+  style_class?: string | null;
+  background_gradient?: string | null;
+  border_width?: number | null;
+  border_color?: string | null;
+  border_style?: string | null;
+  box_shadow?: string | null;
+  opacity?: number | null;
+  width_type?: string | null;
+  custom_width?: number | null;
+  height_type?: string | null;
+  custom_height?: number | null;
+  max_width?: number | null;
+  font_weight?: number | null;
+  line_height?: number | null;
+  letter_spacing?: number | null;
+  text_transform?: string | null;
+  display_type?: string | null;
+  justify_content?: string | null;
+  align_items?: string | null;
+  gap?: number | null;
 }
 
 interface CMSItem {
@@ -152,6 +180,34 @@ const Admin = () => {
     visible_to_partners: false,
     visible_to_clients: false,
     visible_to_everyone: true,
+    // Enhanced styling defaults
+    background_color: 'hsl(var(--background))',
+    text_color: 'hsl(var(--foreground))',
+    font_size: 16,
+    alignment: 'left' as const,
+    padding: 16,
+    margin: 8,
+    border_radius: 8,
+    style_class: '',
+    background_gradient: '',
+    border_width: 0,
+    border_color: 'hsl(var(--border))',
+    border_style: 'solid' as const,
+    box_shadow: 'none',
+    opacity: 100,
+    width_type: 'full' as const,
+    custom_width: 600,
+    height_type: 'auto' as const,
+    custom_height: 200,
+    max_width: 1200,
+    font_weight: 400,
+    line_height: 1.5,
+    letter_spacing: 0,
+    text_transform: 'none' as const,
+    display_type: 'block' as const,
+    justify_content: 'start' as const,
+    align_items: 'start' as const,
+    gap: 16,
   });
   const [newPage, setNewPage] = useState({
     title: '',
@@ -689,6 +745,34 @@ const Admin = () => {
           visible_to_partners: newSection.visible_to_partners,
           visible_to_clients: newSection.visible_to_clients,
           visible_to_everyone: newSection.visible_to_everyone,
+          // Enhanced styling fields
+          background_color: newSection.background_color,
+          text_color: newSection.text_color,
+          font_size: newSection.font_size,
+          alignment: newSection.alignment,
+          padding: newSection.padding,
+          margin: newSection.margin,
+          border_radius: newSection.border_radius,
+          style_class: newSection.style_class,
+          background_gradient: newSection.background_gradient,
+          border_width: newSection.border_width,
+          border_color: newSection.border_color,
+          border_style: newSection.border_style,
+          box_shadow: newSection.box_shadow,
+          opacity: newSection.opacity,
+          width_type: newSection.width_type,
+          custom_width: newSection.custom_width,
+          height_type: newSection.height_type,
+          custom_height: newSection.custom_height,
+          max_width: newSection.max_width,
+          font_weight: newSection.font_weight,
+          line_height: newSection.line_height,
+          letter_spacing: newSection.letter_spacing,
+          text_transform: newSection.text_transform,
+          display_type: newSection.display_type,
+          justify_content: newSection.justify_content,
+          align_items: newSection.align_items,
+          gap: newSection.gap,
         })
         .select()
         .single();
@@ -702,6 +786,34 @@ const Admin = () => {
         visible_to_partners: false,
         visible_to_clients: false,
         visible_to_everyone: true,
+        // Reset styling defaults
+        background_color: 'hsl(var(--background))',
+        text_color: 'hsl(var(--foreground))',
+        font_size: 16,
+        alignment: 'left' as const,
+        padding: 16,
+        margin: 8,
+        border_radius: 8,
+        style_class: '',
+        background_gradient: '',
+        border_width: 0,
+        border_color: 'hsl(var(--border))',
+        border_style: 'solid' as const,
+        box_shadow: 'none',
+        opacity: 100,
+        width_type: 'full' as const,
+        custom_width: 600,
+        height_type: 'auto' as const,
+        custom_height: 200,
+        max_width: 1200,
+        font_weight: 400,
+        line_height: 1.5,
+        letter_spacing: 0,
+        text_transform: 'none' as const,
+        display_type: 'block' as const,
+        justify_content: 'start' as const,
+        align_items: 'start' as const,
+        gap: 16,
       });
       toast({
         title: t('toast.success'),
@@ -2699,47 +2811,12 @@ const Admin = () => {
 
       {/* Edit Section Dialog */}
       {editingSection && (
-        <Dialog open={!!editingSection} onOpenChange={() => setEditingSection(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edytuj sekcję</DialogTitle>
-              <DialogDescription>
-                Modyfikuj dane sekcji
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-section-title">Tytuł sekcji</Label>
-                <Input
-                  value={editingSection.title || ''}
-                  onChange={(e) => setEditingSection({...editingSection, title: e.target.value})}
-                  placeholder="Nazwa sekcji"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-section-position">Pozycja</Label>
-                <Input
-                  type="number"
-                  value={editingSection.position}
-                  onChange={(e) => setEditingSection({...editingSection, position: parseInt(e.target.value) || 0})}
-                  placeholder="Pozycja sekcji"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingSection(null)}>
-                Anuluj
-              </Button>
-              <Button onClick={() => updateSection(editingSection.id, {
-                title: editingSection.title,
-                position: editingSection.position,
-              })}>
-                <Save className="w-4 h-4 mr-2" />
-                Zapisz zmiany
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <SectionEditor 
+          section={editingSection}
+          onSave={(updatedSection) => updateSection(editingSection.id, updatedSection)}
+          onCancel={() => setEditingSection(null)}
+          trigger={null}
+        />
       )}
 
       {/* Edit Page Dialog */}

@@ -21,6 +21,34 @@ interface CMSSection {
   visible_to_partners: boolean;
   visible_to_clients: boolean;
   visible_to_everyone: boolean;
+  // Enhanced styling options
+  background_color?: string | null;
+  text_color?: string | null;
+  font_size?: number | null;
+  alignment?: string | null;
+  padding?: number | null;
+  margin?: number | null;
+  border_radius?: number | null;
+  style_class?: string | null;
+  background_gradient?: string | null;
+  border_width?: number | null;
+  border_color?: string | null;
+  border_style?: string | null;
+  box_shadow?: string | null;
+  opacity?: number | null;
+  width_type?: string | null;
+  custom_width?: number | null;
+  height_type?: string | null;
+  custom_height?: number | null;
+  max_width?: number | null;
+  font_weight?: number | null;
+  line_height?: number | null;
+  letter_spacing?: number | null;
+  text_transform?: string | null;
+  display_type?: string | null;
+  justify_content?: string | null;
+  align_items?: string | null;
+  gap?: number | null;
 }
 
 interface CMSItem {
@@ -263,6 +291,7 @@ const Index = () => {
               title={section.title}
               defaultOpen={false}
               showShareButton={shouldShowShare}
+              sectionStyle={section}
             >
               <div className="space-y-3">
                  {sectionItems.map((item) => (

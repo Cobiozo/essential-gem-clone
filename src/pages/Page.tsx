@@ -20,6 +20,34 @@ interface CMSSection {
   created_at: string;
   updated_at: string;
   page_id?: string;
+  // Enhanced styling options
+  background_color?: string | null;
+  text_color?: string | null;
+  font_size?: number | null;
+  alignment?: string | null;
+  padding?: number | null;
+  margin?: number | null;
+  border_radius?: number | null;
+  style_class?: string | null;
+  background_gradient?: string | null;
+  border_width?: number | null;
+  border_color?: string | null;
+  border_style?: string | null;
+  box_shadow?: string | null;
+  opacity?: number | null;
+  width_type?: string | null;
+  custom_width?: number | null;
+  height_type?: string | null;
+  custom_height?: number | null;
+  max_width?: number | null;
+  font_weight?: number | null;
+  line_height?: number | null;
+  letter_spacing?: number | null;
+  text_transform?: string | null;
+  display_type?: string | null;
+  justify_content?: string | null;
+  align_items?: string | null;
+  gap?: number | null;
 }
 
 interface CMSItem {
@@ -257,7 +285,12 @@ const PageComponent = () => {
         {sections.length > 0 && (
           <div className="space-y-6 sm:space-y-8">
             {sections.map((section) => (
-              <CollapsibleSection key={section.id} title={section.title} className="mb-6 sm:mb-8">
+              <CollapsibleSection 
+                key={section.id} 
+                title={section.title} 
+                className="mb-6 sm:mb-8"
+                sectionStyle={section}
+              >
                 <div className="space-y-3 sm:space-y-4">
                   {items
                     .filter(item => item.section_id === section.id)

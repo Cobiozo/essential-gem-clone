@@ -18,37 +18,37 @@ interface Section {
   description?: string;
   position: number;
   is_active: boolean;
-  background_color?: string;
-  text_color?: string;
-  font_size?: number;
-  alignment?: 'left' | 'center' | 'right';
-  padding?: number;
-  margin?: number;
-  border_radius?: number;
-  style_class?: string;
+  background_color?: string | null;
+  text_color?: string | null;
+  font_size?: number | null;
+  alignment?: string | null;
+  padding?: number | null;
+  margin?: number | null;
+  border_radius?: number | null;
+  style_class?: string | null;
   // Enhanced appearance options
-  background_gradient?: string;
-  border_width?: number;
-  border_color?: string;
-  border_style?: 'solid' | 'dashed' | 'dotted' | 'none';
-  box_shadow?: string;
-  opacity?: number;
+  background_gradient?: string | null;
+  border_width?: number | null;
+  border_color?: string | null;
+  border_style?: string | null;
+  box_shadow?: string | null;
+  opacity?: number | null;
   // Size options
-  width_type?: 'full' | 'container' | 'custom';
-  custom_width?: number;
-  height_type?: 'auto' | 'custom';
-  custom_height?: number;
-  max_width?: number;
+  width_type?: string | null;
+  custom_width?: number | null;
+  height_type?: string | null;
+  custom_height?: number | null;
+  max_width?: number | null;
   // Typography options
-  font_weight?: number;
-  line_height?: number;
-  letter_spacing?: number;
-  text_transform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  font_weight?: number | null;
+  line_height?: number | null;
+  letter_spacing?: number | null;
+  text_transform?: string | null;
   // Layout options
-  display_type?: 'block' | 'flex' | 'grid';
-  justify_content?: 'start' | 'center' | 'end' | 'between' | 'around';
-  align_items?: 'start' | 'center' | 'end' | 'stretch';
-  gap?: number;
+  display_type?: string | null;
+  justify_content?: string | null;
+  align_items?: string | null;
+  gap?: number | null;
 }
 
 interface SectionEditorProps {
@@ -821,8 +821,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             fontWeight: editedSection.font_weight,
             lineHeight: editedSection.line_height,
             letterSpacing: `${editedSection.letter_spacing}px`,
-            textAlign: editedSection.alignment,
-            textTransform: editedSection.text_transform,
+            textAlign: (editedSection.alignment || 'left') as React.CSSProperties['textAlign'],
+            textTransform: (editedSection.text_transform || 'none') as React.CSSProperties['textTransform'],
             padding: `${editedSection.padding}px`,
             margin: `${editedSection.margin}px`,
             borderRadius: `${editedSection.border_radius}px`,
