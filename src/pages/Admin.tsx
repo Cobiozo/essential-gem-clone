@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
@@ -50,13 +50,24 @@ interface CMSItem {
   title_formatting?: any;
 }
 
+interface UserProfile {
+  id: string;
+  user_id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const Admin = () => {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [selectedSection, setSelectedSection] = useState<CMSSection | null>(null);
   const [editingItem, setEditingItem] = useState<CMSItem | null>(null);
   const [editingSection, setEditingSection] = useState<CMSSection | null>(null);
@@ -86,6 +97,65 @@ const Admin = () => {
   
   // Enable security preventions
   useSecurityPreventions();
+
+  // User management functions
+  const fetchUsers = async () => {
+    if (activeTab !== 'users') return;
+    
+    setUsersLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się załadować użytkowników.",
+        variant: "destructive",
+      });
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const updateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      setUsers(users.map(user => 
+        user.user_id === userId ? { ...user, role: newRole } : user
+      ));
+      
+      toast({
+        title: "Sukces",
+        description: `Rola użytkownika została zmieniona na ${newRole === 'admin' ? 'Administrator' : 'Użytkownik'}.`,
+      });
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zmienić roli użytkownika.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Load users when switching to users tab
+  useEffect(() => {
+    if (activeTab === 'users' && isAdmin) {
+      fetchUsers();
+    }
+  }, [activeTab, isAdmin]);
 
   useEffect(() => {
     if (!user) {
@@ -448,7 +518,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
               <span className="hidden sm:inline">Zawartość</span>
@@ -464,6 +534,10 @@ const Admin = () => {
             <TabsTrigger value="text-editor" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
               <span className="hidden sm:inline">Edytor</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Użytkownicy</span>
             </TabsTrigger>
           </TabsList>
 
@@ -853,6 +927,93 @@ const Admin = () => {
                     });
                   }}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Users className="w-5 h-5" />
+                  <span>Zarządzanie użytkownikami</span>
+                </CardTitle>
+                <CardDescription>
+                  Zarządzaj użytkownikami i ich rolami w systemie
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {usersLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-muted-foreground">
+                        Łączna liczba użytkowników: {users.length}
+                      </p>
+                      <Button variant="outline" size="sm" onClick={fetchUsers}>
+                        Odśwież listę
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {users.map((user) => (
+                        <Card key={user.id} className="p-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{user.email}</span>
+                                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                                  {user.role === 'admin' ? 'Administrator' : 'Użytkownik'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Utworzono: {new Date(user.created_at).toLocaleDateString('pl-PL')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ID: {user.user_id.slice(0, 8)}...
+                              </p>
+                            </div>
+                            
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              {user.role !== 'admin' ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateUserRole(user.user_id, 'admin')}
+                                  className="text-xs"
+                                >
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Awansuj na Admin
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateUserRole(user.user_id, 'user')}
+                                  className="text-xs"
+                                  disabled={user.user_id === user?.id} // Prevent self-demotion
+                                >
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Zmień na Użytkownika
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                      
+                      {users.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                          <p>Brak użytkowników w systemie</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
