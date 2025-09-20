@@ -110,6 +110,14 @@ export type Database = {
           font_weight: number | null
           gap: number | null
           height_type: string | null
+          hover_background_color: string | null
+          hover_background_gradient: string | null
+          hover_border_color: string | null
+          hover_box_shadow: string | null
+          hover_opacity: number | null
+          hover_scale: number | null
+          hover_text_color: string | null
+          hover_transition_duration: number | null
           icon_color: string | null
           icon_name: string | null
           icon_position: string | null
@@ -156,6 +164,14 @@ export type Database = {
           font_weight?: number | null
           gap?: number | null
           height_type?: string | null
+          hover_background_color?: string | null
+          hover_background_gradient?: string | null
+          hover_border_color?: string | null
+          hover_box_shadow?: string | null
+          hover_opacity?: number | null
+          hover_scale?: number | null
+          hover_text_color?: string | null
+          hover_transition_duration?: number | null
           icon_color?: string | null
           icon_name?: string | null
           icon_position?: string | null
@@ -202,6 +218,14 @@ export type Database = {
           font_weight?: number | null
           gap?: number | null
           height_type?: string | null
+          hover_background_color?: string | null
+          hover_background_gradient?: string | null
+          hover_border_color?: string | null
+          hover_box_shadow?: string | null
+          hover_opacity?: number | null
+          hover_scale?: number | null
+          hover_text_color?: string | null
+          hover_transition_duration?: number | null
           icon_color?: string | null
           icon_name?: string | null
           icon_position?: string | null

@@ -66,6 +66,15 @@ interface Section {
   content_wrap?: string | null;
   min_height?: number | null;
   overflow_behavior?: string | null;
+  // Hover states
+  hover_background_color?: string | null;
+  hover_background_gradient?: string | null;
+  hover_text_color?: string | null;
+  hover_border_color?: string | null;
+  hover_box_shadow?: string | null;
+  hover_opacity?: number | null;
+  hover_scale?: number | null;
+  hover_transition_duration?: number | null;
 }
 
 interface SectionEditorProps {
@@ -135,7 +144,16 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       content_direction: 'column',
       content_wrap: 'nowrap',
       min_height: 0,
-      overflow_behavior: 'visible'
+      overflow_behavior: 'visible',
+      // Hover states defaults
+      hover_background_color: '',
+      hover_background_gradient: '',
+      hover_text_color: '',
+      hover_border_color: '', 
+      hover_box_shadow: '',
+      hover_opacity: 100,
+      hover_scale: 1.0,
+      hover_transition_duration: 300
     }
   );
 
@@ -319,7 +337,32 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       display_type: 'block',
       justify_content: 'start',
       align_items: 'start',
-      gap: 16
+      gap: 16,
+      // New enhanced defaults
+      section_margin_top: 24,
+      section_margin_bottom: 24,
+      background_image: '',
+      background_image_opacity: 100,
+      background_image_position: 'center',
+      background_image_size: 'cover',
+      icon_name: '',
+      icon_position: 'left',
+      icon_size: 24,
+      icon_color: 'hsl(var(--foreground))',
+      show_icon: false,
+      content_direction: 'column',
+      content_wrap: 'nowrap',
+      min_height: 0,
+      overflow_behavior: 'visible',
+      // Hover states defaults
+      hover_background_color: '',
+      hover_background_gradient: '',
+      hover_text_color: '',
+      hover_border_color: '',
+      hover_box_shadow: '',
+      hover_opacity: 100,
+      hover_scale: 1.0,
+      hover_transition_duration: 300
     });
     setIsOpen(false);
     onCancel?.();
@@ -1189,6 +1232,153 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             placeholder="np. shadow-lg border-2"
             className="mt-1"
           />
+        </div>
+      </div>
+
+      {/* Hover States */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Sparkles className="w-4 h-4" />
+          <h4 className="font-medium">Efekty najechania (Hover)</h4>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <Label className="text-sm font-medium">Kolor tła po najechaniu</Label>
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {backgroundPresets.map((preset) => (
+                <Button
+                  key={preset.name}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs justify-start"
+                  onClick={() => setEditedSection({...editedSection, hover_background_color: preset.color})}
+                  style={{ backgroundColor: preset.color !== 'transparent' && preset.color !== 'hsl(var(--background))' ? preset.color : undefined }}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
+            <Input
+              value={editedSection.hover_background_color || ''}
+              onChange={(e) => setEditedSection({...editedSection, hover_background_color: e.target.value})}
+              placeholder="hex, rgb, hsl, lub transparent"
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">Gradient tła po najechaniu</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {gradientPresets.map((preset) => (
+                <Button
+                  key={preset.name}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs justify-start"
+                  onClick={() => setEditedSection({...editedSection, hover_background_gradient: preset.gradient})}
+                  style={{ backgroundImage: preset.gradient || 'none' }}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
+            <Input
+              value={editedSection.hover_background_gradient || ''}
+              onChange={(e) => setEditedSection({...editedSection, hover_background_gradient: e.target.value})}
+              placeholder="linear-gradient(...)"
+              className="mt-2"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium">Kolor tekstu po najechaniu</Label>
+              <Input
+                value={editedSection.hover_text_color || ''}
+                onChange={(e) => setEditedSection({...editedSection, hover_text_color: e.target.value})}
+                placeholder="hex, rgb, hsl"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Kolor obramowania po najechaniu</Label>
+              <Input
+                value={editedSection.hover_border_color || ''}
+                onChange={(e) => setEditedSection({...editedSection, hover_border_color: e.target.value})}
+                placeholder="hex, rgb, hsl"
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">Cień po najechaniu</Label>
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {shadowPresets.map((preset) => (
+                <Button
+                  key={preset.name}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setEditedSection({...editedSection, hover_box_shadow: preset.shadow})}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
+            <Input
+              value={editedSection.hover_box_shadow || ''}
+              onChange={(e) => setEditedSection({...editedSection, hover_box_shadow: e.target.value})}
+              placeholder="0 10px 25px rgba(0,0,0,0.1)"
+              className="mt-2"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">
+                Przezroczystość: {editedSection.hover_opacity}%
+              </Label>
+              <Slider
+                value={[editedSection.hover_opacity || 100]}
+                onValueChange={([value]) => setEditedSection({...editedSection, hover_opacity: value})}
+                min={0}
+                max={100}
+                step={5}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">
+                Powiększenie: {((editedSection.hover_scale || 1) * 100).toFixed(0)}%
+              </Label>
+              <Slider
+                value={[editedSection.hover_scale || 1]}
+                onValueChange={([value]) => setEditedSection({...editedSection, hover_scale: value})}
+                min={0.8}
+                max={1.2}
+                step={0.05}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">
+                Czas tranzycji: {editedSection.hover_transition_duration}ms
+              </Label>
+              <Slider
+                value={[editedSection.hover_transition_duration || 300]}
+                onValueChange={([value]) => setEditedSection({...editedSection, hover_transition_duration: value})}
+                min={100}
+                max={1000}
+                step={50}
+                className="w-full"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
