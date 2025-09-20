@@ -92,6 +92,8 @@ const Admin = () => {
   const [editingItem, setEditingItem] = useState<CMSItem | null>(null);
   const [editingSection, setEditingSection] = useState<CMSSection | null>(null);
   const [editingPage, setEditingPage] = useState<Page | null>(null);
+  const [editingPageRichText, setEditingPageRichText] = useState(false);
+  const [pageContentStyle, setPageContentStyle] = useState<any>(null);
   const [newItem, setNewItem] = useState({
     type: 'button',
     title: '',
@@ -1882,90 +1884,126 @@ const Admin = () => {
                       <div className="p-2 border-b bg-muted/50 flex flex-wrap gap-2">
                         <Button
                           type="button"
-                          variant="outline"
+                          variant={editingPageRichText ? "default" : "outline"}
                           size="sm"
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (e) => {
-                                  const imageUrl = e.target?.result as string;
-                                  const imageTag = `<img src="${imageUrl}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`;
+                          onClick={() => setEditingPageRichText(!editingPageRichText)}
+                        >
+                          ✨ Formatowanie tekstu
+                        </Button>
+                        {!editingPageRichText && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.onchange = (e) => {
+                                  const file = (e.target as HTMLInputElement).files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => {
+                                      const imageUrl = e.target?.result as string;
+                                      const imageTag = `<img src="${imageUrl}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`;
+                                      setEditingPage({
+                                        ...editingPage, 
+                                        content: (editingPage.content || '') + imageTag
+                                      });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                };
+                                input.click();
+                              }}
+                            >
+                              📷 Dodaj obraz
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const videoUrl = prompt('Wprowadź URL wideo (YouTube, Vimeo itp.):');
+                                if (videoUrl) {
+                                  let embedTag = '';
+                                  if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                                    const videoId = videoUrl.includes('youtu.be') 
+                                      ? videoUrl.split('/').pop()?.split('?')[0]
+                                      : videoUrl.split('v=')[1]?.split('&')[0];
+                                    embedTag = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen style="max-width: 100%;"></iframe>`;
+                                  } else if (videoUrl.includes('vimeo.com')) {
+                                    const videoId = videoUrl.split('/').pop();
+                                    embedTag = `<iframe src="https://player.vimeo.com/video/${videoId}" width="560" height="315" frameborder="0" allowfullscreen style="max-width: 100%;"></iframe>`;
+                                  } else {
+                                    embedTag = `<video controls style="max-width: 100%;"><source src="${videoUrl}" type="video/mp4">Twoja przeglądarka nie obsługuje elementu video.</video>`;
+                                  }
                                   setEditingPage({
                                     ...editingPage, 
-                                    content: (editingPage.content || '') + imageTag
+                                    content: (editingPage.content || '') + embedTag
                                   });
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            };
-                            input.click();
-                          }}
-                        >
-                          📷 Dodaj obraz
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const videoUrl = prompt('Wprowadź URL wideo (YouTube, Vimeo itp.):');
-                            if (videoUrl) {
-                              let embedTag = '';
-                              if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
-                                const videoId = videoUrl.includes('youtu.be') 
-                                  ? videoUrl.split('/').pop()?.split('?')[0]
-                                  : videoUrl.split('v=')[1]?.split('&')[0];
-                                embedTag = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen style="max-width: 100%;"></iframe>`;
-                              } else if (videoUrl.includes('vimeo.com')) {
-                                const videoId = videoUrl.split('/').pop();
-                                embedTag = `<iframe src="https://player.vimeo.com/video/${videoId}" width="560" height="315" frameborder="0" allowfullscreen style="max-width: 100%;"></iframe>`;
-                              } else {
-                                embedTag = `<video controls style="max-width: 100%;"><source src="${videoUrl}" type="video/mp4">Twoja przeglądarka nie obsługuje elementu video.</video>`;
-                              }
-                              setEditingPage({
-                                ...editingPage, 
-                                content: (editingPage.content || '') + embedTag
-                              });
-                            }
-                          }}
-                        >
-                          📹 Dodaj wideo
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const linkUrl = prompt('Wprowadź URL:');
-                            const linkText = prompt('Wprowadź tekst linku:');
-                            if (linkUrl && linkText) {
-                              const linkTag = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
-                              setEditingPage({
-                                ...editingPage, 
-                                content: (editingPage.content || '') + linkTag
-                              });
-                            }
-                          }}
-                        >
-                          🔗 Dodaj link
-                        </Button>
+                                }
+                              }}
+                            >
+                              📹 Dodaj wideo
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const linkUrl = prompt('Wprowadź URL:');
+                                const linkText = prompt('Wprowadź tekst linku:');
+                                if (linkUrl && linkText) {
+                                  const linkTag = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+                                  setEditingPage({
+                                    ...editingPage, 
+                                    content: (editingPage.content || '') + linkTag
+                                  });
+                                }
+                              }}
+                            >
+                              🔗 Dodaj link
+                            </Button>
+                          </>
+                        )}
                       </div>
-                      <Textarea
-                        id="edit-page-content"
-                        value={editingPage.content || ''}
-                        onChange={(e) => setEditingPage({...editingPage, content: e.target.value})}
-                        placeholder="Wprowadź treść strony. Możesz używać podstawowych tagów HTML jak <p>, <h1>, <h2>, <strong>, <em>, <ul>, <li> itp."
-                        rows={12}
-                        className="border-0 resize-none focus-visible:ring-0"
-                      />
+                      
+                      {editingPageRichText ? (
+                        <div className="p-4">
+                          <TextEditor
+                            initialText={editingPage.content || ''}
+                            initialStyle={pageContentStyle}
+                            onSave={(text, style) => {
+                              console.log('Page content rich text save:', { text, style });
+                              setEditingPage({...editingPage, content: text});
+                              setPageContentStyle(style);
+                              setEditingPageRichText(false);
+                              toast({
+                                title: "Tekst sformatowany",
+                                description: "Kliknij 'Zapisz zmiany' aby zapisać stronę",
+                              });
+                            }}
+                            placeholder="Sformatuj treść strony za pomocą edytora..."
+                          />
+                        </div>
+                      ) : (
+                        <Textarea
+                          id="edit-page-content"
+                          value={editingPage.content || ''}
+                          onChange={(e) => setEditingPage({...editingPage, content: e.target.value})}
+                          placeholder="Wprowadź treść strony. Możesz używać podstawowych tagów HTML jak <p>, <h1>, <h2>, <strong>, <em>, <ul>, <li> itp."
+                          rows={12}
+                          className="border-0 resize-none focus-visible:ring-0"
+                        />
+                      )}
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground">
-                      Obsługiwane są podstawowe tagi HTML. Użyj przycisków powyżej aby dodać multimedia.
+                      {editingPageRichText 
+                        ? "Użyj edytora tekstu aby sformatować treść z zaawansowanymi opcjami stylowania."
+                        : "Obsługiwane są podstawowe tagi HTML. Użyj przycisków powyżej aby dodać multimedia lub przełącz na edytor tekstu."
+                      }
                     </div>
                   </div>
                 </div>
