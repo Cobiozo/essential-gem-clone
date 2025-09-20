@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 
@@ -106,7 +107,12 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 relative">
+      {/* Theme Selector - positioned in top right */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeSelector />
+      </div>
+      
       {/* Header */}
       <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
         <div className="mb-6">
