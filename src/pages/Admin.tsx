@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
@@ -63,6 +63,20 @@ interface UserProfile {
   confirmation_sent_at?: string | null;
 }
 
+interface Page {
+  id: string;
+  title: string;
+  slug: string;
+  content: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  is_published: boolean;
+  is_active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 const Admin = () => {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
@@ -70,11 +84,14 @@ const Admin = () => {
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [pagesLoading, setPagesLoading] = useState(false);
   const [selectedSection, setSelectedSection] = useState<CMSSection | null>(null);
   const [editingItem, setEditingItem] = useState<CMSItem | null>(null);
   const [editingSection, setEditingSection] = useState<CMSSection | null>(null);
+  const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [newItem, setNewItem] = useState({
     type: 'button',
     title: '',
@@ -87,6 +104,15 @@ const Admin = () => {
   });
   const [newSection, setNewSection] = useState({
     title: '',
+    position: 0,
+  });
+  const [newPage, setNewPage] = useState({
+    title: '',
+    slug: '',
+    content: '',
+    meta_title: '',
+    meta_description: '',
+    is_published: false,
     position: 0,
   });
   const [activeTab, setActiveTab] = useState("content");
@@ -296,6 +322,9 @@ const Admin = () => {
   useEffect(() => {
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
+    }
+    if (activeTab === 'pages' && isAdmin) {
+      fetchPages();
     }
   }, [activeTab, isAdmin]);
 
@@ -616,6 +645,133 @@ const Admin = () => {
     }
   };
 
+  // Pages management functions
+  const fetchPages = async () => {
+    if (activeTab !== 'pages') return;
+    
+    setPagesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('pages')
+        .select('*')
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      setPages(data || []);
+    } catch (error) {
+      console.error('Fetch pages error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać stron.",
+        variant: "destructive",
+      });
+    } finally {
+      setPagesLoading(false);
+    }
+  };
+
+  const createPage = async () => {
+    try {
+      const maxPosition = Math.max(...pages.map(p => p.position), 0);
+      
+      const slug = newPage.slug || newPage.title.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+      const { data, error } = await supabase
+        .from('pages')
+        .insert([{
+          title: newPage.title,
+          slug: slug,
+          content: newPage.content,
+          meta_title: newPage.meta_title,
+          meta_description: newPage.meta_description,
+          is_published: newPage.is_published,
+          position: maxPosition + 1,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPages([...pages, data]);
+      setNewPage({
+        title: '',
+        slug: '',
+        content: '',
+        meta_title: '',
+        meta_description: '',
+        is_published: false,
+        position: 0,
+      });
+      
+      toast({
+        title: "Strona utworzona",
+        description: "Nowa strona została pomyślnie utworzona.",
+      });
+    } catch (error) {
+      console.error('Create page error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się utworzyć strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updatePage = async (pageId: string, updates: Partial<Page>) => {
+    try {
+      const { error } = await supabase
+        .from('pages')
+        .update(updates)
+        .eq('id', pageId);
+
+      if (error) throw error;
+
+      setPages(pages.map(page => 
+        page.id === pageId ? { ...page, ...updates } : page
+      ));
+      setEditingPage(null);
+      
+      toast({
+        title: "Strona zaktualizowana",
+        description: "Strona została pomyślnie zaktualizowana.",
+      });
+    } catch (error) {
+      console.error('Update page error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zaktualizować strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePage = async (pageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('pages')
+        .delete()
+        .eq('id', pageId);
+
+      if (error) throw error;
+
+      setPages(pages.filter(page => page.id !== pageId));
+      
+      toast({
+        title: "Strona usunięta",
+        description: "Strona została pomyślnie usunięta.",
+      });
+    } catch (error) {
+      console.error('Delete page error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
@@ -688,7 +844,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
               <span className="hidden sm:inline">Zawartość</span>
@@ -704,6 +860,10 @@ const Admin = () => {
             <TabsTrigger value="text-editor" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
               <span className="hidden sm:inline">Edytor</span>
+            </TabsTrigger>
+            <TabsTrigger value="pages" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Strony</span>
             </TabsTrigger>
             <TabsTrigger value="account" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
@@ -1176,6 +1336,145 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="pages">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="w-5 h-5" />
+                  <span>Zarządzanie stronami</span>
+                </CardTitle>
+                <CardDescription>
+                  Dodawaj, edytuj i usuwaj strony w systemie
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Add New Page */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Dodaj nową stronę</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="page-title">Tytuł strony</Label>
+                      <Input
+                        id="page-title"
+                        value={newPage.title}
+                        onChange={(e) => setNewPage({...newPage, title: e.target.value})}
+                        placeholder="Wprowadź tytuł strony"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="page-slug">Slug (URL)</Label>
+                      <Input
+                        id="page-slug"
+                        value={newPage.slug}
+                        onChange={(e) => setNewPage({...newPage, slug: e.target.value})}
+                        placeholder="url-strony (zostanie wygenerowany automatycznie)"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="page-meta-title">Meta tytuł (SEO)</Label>
+                      <Input
+                        id="page-meta-title"
+                        value={newPage.meta_title}
+                        onChange={(e) => setNewPage({...newPage, meta_title: e.target.value})}
+                        placeholder="Tytuł SEO"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="page-meta-description">Meta opis (SEO)</Label>
+                      <Input
+                        id="page-meta-description"
+                        value={newPage.meta_description}
+                        onChange={(e) => setNewPage({...newPage, meta_description: e.target.value})}
+                        placeholder="Opis SEO"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="page-content">Treść strony</Label>
+                    <Textarea
+                      id="page-content"
+                      value={newPage.content}
+                      onChange={(e) => setNewPage({...newPage, content: e.target.value})}
+                      placeholder="Wprowadź treść strony"
+                      rows={6}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="page-published"
+                      checked={newPage.is_published}
+                      onCheckedChange={(checked) => setNewPage({...newPage, is_published: checked})}
+                    />
+                    <Label htmlFor="page-published">Opublikuj stronę</Label>
+                  </div>
+                  <Button onClick={createPage} disabled={!newPage.title}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Dodaj stronę
+                  </Button>
+                </div>
+
+                <Separator />
+
+                {/* Pages List */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Istniejące strony</h3>
+                  {pagesLoading ? (
+                    <div className="text-center py-4">Ładowanie stron...</div>
+                  ) : pages.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Brak stron do wyświetlenia
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {pages.map((page) => (
+                        <Card key={page.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <h4 className="font-medium">{page.title}</h4>
+                                  <Badge variant={page.is_published ? "default" : "secondary"}>
+                                    {page.is_published ? "Opublikowana" : "Szkic"}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Slug: /{page.slug}
+                                </p>
+                                {page.meta_description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2">
+                                    {page.meta_description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingPage(page)}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => deletePage(page.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="users">
             <Card>
               <CardHeader>
@@ -1505,6 +1804,118 @@ const Admin = () => {
               <Button onClick={() => updateSection(editingSection.id, {
                 title: editingSection.title,
                 position: editingSection.position,
+              })}>
+                <Save className="w-4 h-4 mr-2" />
+                Zapisz zmiany
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Page Dialog */}
+      {editingPage && (
+        <Dialog open={!!editingPage} onOpenChange={() => setEditingPage(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edytuj stronę</DialogTitle>
+              <DialogDescription>
+                Modyfikuj dane strony
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-page-title">Tytuł strony</Label>
+                  <Input
+                    id="edit-page-title"
+                    value={editingPage.title || ''}
+                    onChange={(e) => setEditingPage({...editingPage, title: e.target.value})}
+                    placeholder="Wprowadź tytuł strony"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-page-slug">Slug (URL)</Label>
+                  <Input
+                    id="edit-page-slug"
+                    value={editingPage.slug || ''}
+                    onChange={(e) => setEditingPage({...editingPage, slug: e.target.value})}
+                    placeholder="url-strony"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-page-meta-title">Meta tytuł (SEO)</Label>
+                  <Input
+                    id="edit-page-meta-title"
+                    value={editingPage.meta_title || ''}
+                    onChange={(e) => setEditingPage({...editingPage, meta_title: e.target.value})}
+                    placeholder="Tytuł SEO"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-page-meta-description">Meta opis (SEO)</Label>
+                  <Input
+                    id="edit-page-meta-description"
+                    value={editingPage.meta_description || ''}
+                    onChange={(e) => setEditingPage({...editingPage, meta_description: e.target.value})}
+                    placeholder="Opis SEO"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-page-content">Treść strony</Label>
+                <Textarea
+                  id="edit-page-content"
+                  value={editingPage.content || ''}
+                  onChange={(e) => setEditingPage({...editingPage, content: e.target.value})}
+                  placeholder="Wprowadź treść strony"
+                  rows={8}
+                />
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="edit-page-published"
+                    checked={editingPage.is_published}
+                    onCheckedChange={(checked) => setEditingPage({...editingPage, is_published: checked})}
+                  />
+                  <Label htmlFor="edit-page-published">Opublikuj stronę</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="edit-page-active"
+                    checked={editingPage.is_active}
+                    onCheckedChange={(checked) => setEditingPage({...editingPage, is_active: checked})}
+                  />
+                  <Label htmlFor="edit-page-active">Aktywna</Label>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-page-position">Pozycja</Label>
+                <Input
+                  id="edit-page-position"
+                  type="number"
+                  value={editingPage.position}
+                  onChange={(e) => setEditingPage({...editingPage, position: parseInt(e.target.value) || 0})}
+                  placeholder="Pozycja strony"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingPage(null)}>
+                Anuluj
+              </Button>
+              <Button onClick={() => updatePage(editingPage.id, {
+                title: editingPage.title,
+                slug: editingPage.slug,
+                content: editingPage.content,
+                meta_title: editingPage.meta_title,
+                meta_description: editingPage.meta_description,
+                is_published: editingPage.is_published,
+                is_active: editingPage.is_active,
+                position: editingPage.position,
               })}>
                 <Save className="w-4 h-4 mr-2" />
                 Zapisz zmiany
