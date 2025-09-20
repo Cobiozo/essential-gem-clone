@@ -138,6 +138,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      email_exists: {
+        Args: { email_param: string }
+        Returns: boolean
+      }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean

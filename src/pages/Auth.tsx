@@ -108,19 +108,17 @@ const Auth = () => {
     }
 
     try {
-      // Check if user already exists in profiles table
-      const { data: existingUser, error: checkError } = await supabase
-        .from('profiles')
-        .select('email, user_id')
-        .eq('email', email)
-        .maybeSingle();
+      // Check if user already exists using RPC (bypasses RLS safely)
+      const { data: emailExists, error: existsError } = await supabase.rpc('email_exists', {
+        email_param: email,
+      });
 
-      if (checkError) {
-        console.error('Error checking existing user:', checkError);
+      if (existsError) {
+        console.error('Error checking existing email via RPC:', existsError);
       }
 
-      if (existingUser) {
-        const errorMessage = 'Użytkownik z tym adresem email już istnieje. Sprawdź swoją skrzynkę email lub zaloguj się.';
+      if (emailExists) {
+        const errorMessage = 'Użytkownik z tym adresem email już istnieje. Zaloguj się lub sprawdź skrzynkę pocztową.';
         setError(errorMessage);
         toast({
           title: "Błąd rejestracji",
