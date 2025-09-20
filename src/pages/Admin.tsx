@@ -304,6 +304,12 @@ const Admin = () => {
     try {
       const maxPosition = Math.max(...items.filter(i => i.section_id === sectionId).map(i => i.position), 0);
       
+      console.log('Creating item with formatting:', {
+        title_formatting: newItemTitleStyle,
+        text_formatting: newItemTextStyle,
+        item: newItem
+      });
+
       const { data, error } = await supabase
         .from('cms_items')
         .insert({
@@ -349,6 +355,8 @@ const Admin = () => {
 
   const updateItem = async (itemId: string, updates: Partial<CMSItem>) => {
     try {
+      console.log('Updating item with data:', updates);
+      
       const { error } = await supabase
         .from('cms_items')
         .update(updates)
@@ -645,16 +653,21 @@ const Admin = () => {
                                  </div>
                                  
                                  {newItemTextMode ? (
-                                   <TextEditor
-                                     initialText={newItem.description}
-                                     initialStyle={newItemTextStyle}
-                                     onSave={(text, style) => {
-                                       setNewItem({...newItem, description: text});
-                                       setNewItemTextStyle(style);
-                                       setNewItemTextMode(false);
-                                     }}
-                                     placeholder="Sformatuj tekst za pomocą edytora..."
-                                   />
+                                    <TextEditor
+                                      initialText={newItem.description}
+                                      initialStyle={newItemTextStyle}
+                                      onSave={(text, style) => {
+                                        console.log('New item text save:', { text, style });
+                                        setNewItem({...newItem, description: text});
+                                        setNewItemTextStyle(style);
+                                        setNewItemTextMode(false);
+                                        toast({
+                                          title: "Tekst sformatowany",
+                                          description: "Kliknij 'Zapisz zmiany' aby zapisać element",
+                                        });
+                                      }}
+                                      placeholder="Sformatuj tekst za pomocą edytora..."
+                                    />
                                  ) : (
                                    <Textarea
                                      id="description"
@@ -743,7 +756,18 @@ const Admin = () => {
                              <Button 
                                variant="outline" 
                                size="sm" 
-                               onClick={() => setEditingItem(item)}
+                onClick={() => {
+                  console.log('Setting editing item:', item);
+                  console.log('Item formatting:', {
+                    text_formatting: item.text_formatting,
+                    title_formatting: item.title_formatting
+                  });
+                  setEditingItem(item);
+                  setItemTextStyle(item.text_formatting);
+                  setItemTitleStyle(item.title_formatting);
+                  setEditingItemTextMode(false);
+                  setEditingItemTitleMode(false);
+                }}
                                className="flex-1 sm:flex-none"
                              >
                                <Pencil className="w-4 h-4 sm:mr-2" />
@@ -837,7 +861,14 @@ const Admin = () => {
 
       {/* Edit Item Dialog */}
       {editingItem && (
-        <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
+        <Dialog open={!!editingItem} onOpenChange={() => {
+          console.log('Closing edit dialog');
+          setEditingItem(null);
+          setItemTextStyle(null);
+          setItemTitleStyle(null);
+          setEditingItemTextMode(false);
+          setEditingItemTitleMode(false);
+        }}>
           <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">Edytuj element</DialogTitle>
@@ -921,9 +952,14 @@ const Admin = () => {
                      initialText={editingItem.description || ''}
                      initialStyle={itemTextStyle}
                      onSave={(text, style) => {
+                       console.log('Edit item text save:', { text, style });
                        setEditingItem({...editingItem, description: text});
                        setItemTextStyle(style);
                        setEditingItemTextMode(false);
+                       toast({
+                         title: "Tekst sformatowany",
+                         description: "Kliknij 'Zapisz zmiany' aby zapisać element",
+                       });
                      }}
                      placeholder="Sformatuj tekst za pomocą edytora..."
                    />

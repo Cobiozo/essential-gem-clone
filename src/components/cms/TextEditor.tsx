@@ -347,11 +347,16 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   };
 
   const handleSave = () => {
-    onSave?.(text, textStyle);
-    toast({
-      title: "Tekst zapisany",
-      description: "Zmiany zostały zastosowane",
-    });
+    if (onSave) {
+      console.log('TextEditor saving:', { text, style: textStyle });
+      onSave(text, textStyle);
+      toast({
+        title: "Tekst zapisany",
+        description: "Zmiany zostały zastosowane",
+      });
+    } else {
+      console.log('No onSave callback provided');
+    }
   };
 
   const previewStyle: React.CSSProperties = {
