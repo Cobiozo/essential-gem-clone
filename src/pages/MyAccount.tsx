@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, Clock } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const MyAccount = () => {
@@ -83,6 +83,54 @@ const MyAccount = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Check if account is deactivated
+  if (profile.is_active === false) {
+    return (
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b bg-card">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
+              <h1 className="text-xl font-bold">PURE LIFE</h1>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+                <Home className="w-4 h-4 mr-2" />
+                Strona główna
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Wyloguj się
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Blocked Account Content */}
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                Konto zablokowane
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-red-700 mb-4">
+                Twoje konto zostało dezaktywowane przez administratora. Nie masz dostępu do funkcji aplikacji.
+              </p>
+              <p className="text-sm text-red-600">
+                Jeśli uważasz, że to pomyłka, skontaktuj się z administratorem systemu.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -165,10 +213,17 @@ const MyAccount = () => {
                 <div>
                   <Label className="text-sm font-medium">Status konta</Label>
                   <div className="mt-1">
-                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Aktywne
-                    </Badge>
+                    {profile.is_active ? (
+                      <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Aktywne
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        Nieaktywne
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
