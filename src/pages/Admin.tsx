@@ -180,9 +180,10 @@ const Admin = () => {
 
   const updateUserRole = async (userId: string, newRole: 'user' | 'client' | 'admin' | 'partner') => {
     try {
+      const normalizedRole = (newRole || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner';
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ role: normalizedRole })
         .eq('user_id', userId);
 
       if (error) throw error;
@@ -369,9 +370,10 @@ const Admin = () => {
       if (data.user) {
         // Update the user role if admin or partner
         if (newUser.role === 'admin' || newUser.role === 'partner') {
+          const normalizedRole = (newUser.role || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner';
           const { error: roleError } = await supabase
             .from('profiles')
-            .update({ role: newUser.role })
+            .update({ role: normalizedRole })
             .eq('user_id', data.user.id);
 
           if (roleError) {
