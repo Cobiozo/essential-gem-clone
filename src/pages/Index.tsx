@@ -168,7 +168,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 relative">
+    <div className="min-h-screen bg-background relative">
       {/* Language & Theme Selector - positioned in top right */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageSelector />
@@ -176,7 +176,7 @@ const Index = () => {
       </div>
       
       {/* Header */}
-      <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
+      <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
           <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
         </div>
@@ -291,8 +291,8 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 max-w-7xl mx-auto">
+      <main className="px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {sections.map((section) => {
           const sectionItems = items.filter(item => 
             item.section_id === section.id && 
