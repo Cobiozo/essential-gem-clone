@@ -1816,94 +1816,193 @@ const Admin = () => {
       {/* Edit Page Dialog */}
       {editingPage && (
         <Dialog open={!!editingPage} onOpenChange={() => setEditingPage(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-2">
               <DialogTitle>Edytuj stronę</DialogTitle>
               <DialogDescription>
                 Modyfikuj dane strony
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <div className="flex-1 overflow-y-auto px-6">
+              <div className="space-y-6 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-page-title">Tytuł strony</Label>
+                    <Input
+                      id="edit-page-title"
+                      value={editingPage.title || ''}
+                      onChange={(e) => setEditingPage({...editingPage, title: e.target.value})}
+                      placeholder="Wprowadź tytuł strony"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-page-slug">Slug (URL)</Label>
+                    <div className="mt-1 p-2 bg-muted rounded-md border font-mono text-sm break-all">
+                      /{editingPage.slug || 'url-strony'}
+                    </div>
+                    <Input
+                      id="edit-page-slug"
+                      value={editingPage.slug || ''}
+                      onChange={(e) => setEditingPage({...editingPage, slug: e.target.value})}
+                      placeholder="url-strony"
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-page-meta-title">Meta tytuł (SEO)</Label>
+                    <Input
+                      id="edit-page-meta-title"
+                      value={editingPage.meta_title || ''}
+                      onChange={(e) => setEditingPage({...editingPage, meta_title: e.target.value})}
+                      placeholder="Tytuł SEO"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-page-meta-description">Meta opis (SEO)</Label>
+                    <Input
+                      id="edit-page-meta-description"
+                      value={editingPage.meta_description || ''}
+                      onChange={(e) => setEditingPage({...editingPage, meta_description: e.target.value})}
+                      placeholder="Opis SEO"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
                 <div>
-                  <Label htmlFor="edit-page-title">Tytuł strony</Label>
-                  <Input
-                    id="edit-page-title"
-                    value={editingPage.title || ''}
-                    onChange={(e) => setEditingPage({...editingPage, title: e.target.value})}
-                    placeholder="Wprowadź tytuł strony"
-                  />
+                  <Label htmlFor="edit-page-content">Treść strony</Label>
+                  <div className="mt-2">
+                    <div className="border rounded-md">
+                      <div className="p-2 border-b bg-muted/50 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                  const imageUrl = e.target?.result as string;
+                                  const imageTag = `<img src="${imageUrl}" alt="Uploaded image" style="max-width: 100%; height: auto;" />`;
+                                  setEditingPage({
+                                    ...editingPage, 
+                                    content: (editingPage.content || '') + imageTag
+                                  });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            };
+                            input.click();
+                          }}
+                        >
+                          📷 Dodaj obraz
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const videoUrl = prompt('Wprowadź URL wideo (YouTube, Vimeo itp.):');
+                            if (videoUrl) {
+                              let embedTag = '';
+                              if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+                                const videoId = videoUrl.includes('youtu.be') 
+                                  ? videoUrl.split('/').pop()?.split('?')[0]
+                                  : videoUrl.split('v=')[1]?.split('&')[0];
+                                embedTag = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen style="max-width: 100%;"></iframe>`;
+                              } else if (videoUrl.includes('vimeo.com')) {
+                                const videoId = videoUrl.split('/').pop();
+                                embedTag = `<iframe src="https://player.vimeo.com/video/${videoId}" width="560" height="315" frameborder="0" allowfullscreen style="max-width: 100%;"></iframe>`;
+                              } else {
+                                embedTag = `<video controls style="max-width: 100%;"><source src="${videoUrl}" type="video/mp4">Twoja przeglądarka nie obsługuje elementu video.</video>`;
+                              }
+                              setEditingPage({
+                                ...editingPage, 
+                                content: (editingPage.content || '') + embedTag
+                              });
+                            }
+                          }}
+                        >
+                          📹 Dodaj wideo
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const linkUrl = prompt('Wprowadź URL:');
+                            const linkText = prompt('Wprowadź tekst linku:');
+                            if (linkUrl && linkText) {
+                              const linkTag = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+                              setEditingPage({
+                                ...editingPage, 
+                                content: (editingPage.content || '') + linkTag
+                              });
+                            }
+                          }}
+                        >
+                          🔗 Dodaj link
+                        </Button>
+                      </div>
+                      <Textarea
+                        id="edit-page-content"
+                        value={editingPage.content || ''}
+                        onChange={(e) => setEditingPage({...editingPage, content: e.target.value})}
+                        placeholder="Wprowadź treść strony. Możesz używać podstawowych tagów HTML jak <p>, <h1>, <h2>, <strong>, <em>, <ul>, <li> itp."
+                        rows={12}
+                        className="border-0 resize-none focus-visible:ring-0"
+                      />
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Obsługiwane są podstawowe tagi HTML. Użyj przycisków powyżej aby dodać multimedia.
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="edit-page-slug">Slug (URL)</Label>
-                  <Input
-                    id="edit-page-slug"
-                    value={editingPage.slug || ''}
-                    onChange={(e) => setEditingPage({...editingPage, slug: e.target.value})}
-                    placeholder="url-strony"
-                  />
+                
+                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-4 sm:space-y-0">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="edit-page-published"
+                      checked={editingPage.is_published}
+                      onCheckedChange={(checked) => setEditingPage({...editingPage, is_published: checked})}
+                    />
+                    <Label htmlFor="edit-page-published">Opublikuj stronę</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="edit-page-active"
+                      checked={editingPage.is_active}
+                      onCheckedChange={(checked) => setEditingPage({...editingPage, is_active: checked})}
+                    />
+                    <Label htmlFor="edit-page-active">Aktywna</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="edit-page-position" className="whitespace-nowrap">Pozycja:</Label>
+                    <Input
+                      id="edit-page-position"
+                      type="number"
+                      value={editingPage.position}
+                      onChange={(e) => setEditingPage({...editingPage, position: parseInt(e.target.value) || 0})}
+                      placeholder="0"
+                      className="w-20"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-page-meta-title">Meta tytuł (SEO)</Label>
-                  <Input
-                    id="edit-page-meta-title"
-                    value={editingPage.meta_title || ''}
-                    onChange={(e) => setEditingPage({...editingPage, meta_title: e.target.value})}
-                    placeholder="Tytuł SEO"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-page-meta-description">Meta opis (SEO)</Label>
-                  <Input
-                    id="edit-page-meta-description"
-                    value={editingPage.meta_description || ''}
-                    onChange={(e) => setEditingPage({...editingPage, meta_description: e.target.value})}
-                    placeholder="Opis SEO"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="edit-page-content">Treść strony</Label>
-                <Textarea
-                  id="edit-page-content"
-                  value={editingPage.content || ''}
-                  onChange={(e) => setEditingPage({...editingPage, content: e.target.value})}
-                  placeholder="Wprowadź treść strony"
-                  rows={8}
-                />
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="edit-page-published"
-                    checked={editingPage.is_published}
-                    onCheckedChange={(checked) => setEditingPage({...editingPage, is_published: checked})}
-                  />
-                  <Label htmlFor="edit-page-published">Opublikuj stronę</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="edit-page-active"
-                    checked={editingPage.is_active}
-                    onCheckedChange={(checked) => setEditingPage({...editingPage, is_active: checked})}
-                  />
-                  <Label htmlFor="edit-page-active">Aktywna</Label>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="edit-page-position">Pozycja</Label>
-                <Input
-                  id="edit-page-position"
-                  type="number"
-                  value={editingPage.position}
-                  onChange={(e) => setEditingPage({...editingPage, position: parseInt(e.target.value) || 0})}
-                  placeholder="Pozycja strony"
-                />
               </div>
             </div>
-            <DialogFooter>
+            
+            <DialogFooter className="flex-shrink-0 px-6 pb-6 pt-4 border-t">
               <Button variant="outline" onClick={() => setEditingPage(null)}>
                 Anuluj
               </Button>
