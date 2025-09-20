@@ -77,11 +77,20 @@ const PageComponent = () => {
           .from('pages')
           .select('*')
           .eq('slug', slug)
-          .eq('is_published', true)
-          .eq('is_active', true)
-          .single();
+          .maybeSingle();
 
-        if (pageError || !pageData) {
+        if (pageError) {
+          console.error('Error fetching page:', pageError);
+          toast({
+            title: "Błąd",
+            description: "Nie udało się załadować strony.",
+            variant: "destructive",
+          });
+          setNotFound(true);
+          return;
+        }
+
+        if (!pageData) {
           setNotFound(true);
           return;
         }
@@ -173,10 +182,11 @@ const PageComponent = () => {
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-2xl mx-auto text-center">
             <div className="mb-8">
-              <h1 className="text-4xl font-bold text-foreground mb-4">404</h1>
-              <h2 className="text-2xl font-semibold text-foreground mb-4">Strona nie została znaleziona</h2>
+              <h1 className="text-4xl font-bold text-foreground mb-4">403</h1>
+              <h2 className="text-2xl font-semibold text-foreground mb-4">Brak dostępu do strony</h2>
               <p className="text-muted-foreground mb-8">
-                Przepraszamy, ale strona której szukasz nie istnieje lub została usunięta.
+                Ta strona jest dostępna tylko dla użytkowników z odpowiednimi uprawnieniami. 
+                Skontaktuj się z administratorem aby uzyskać dostęp.
               </p>
             </div>
             

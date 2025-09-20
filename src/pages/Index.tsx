@@ -77,7 +77,7 @@ const Index = () => {
       // Pobierz opublikowane strony
       const { data: pagesData } = await supabase
         .from('pages')
-        .select('id, title, slug, meta_description, created_at')
+        .select('id, title, slug, meta_description, created_at, visible_to_partners, visible_to_clients, visible_to_everyone')
         .eq('is_published', true)
         .eq('is_active', true)
         .order('position', { ascending: true });
