@@ -111,6 +111,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_active: boolean
           role: string
           updated_at: string
           user_id: string
@@ -119,6 +120,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          is_active?: boolean
           role?: string
           updated_at?: string
           user_id: string
@@ -127,6 +129,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_active?: boolean
           role?: string
           updated_at?: string
           user_id?: string
@@ -142,6 +145,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: boolean
       }
+      admin_toggle_user_status: {
+        Args: { new_status: boolean; target_user_id: string }
+        Returns: boolean
+      }
       email_exists: {
         Args: { email_param: string }
         Returns: boolean
@@ -154,6 +161,7 @@ export type Database = {
           email: string
           email_confirmed_at: string
           id: string
+          is_active: boolean
           role: string
           updated_at: string
           user_id: string

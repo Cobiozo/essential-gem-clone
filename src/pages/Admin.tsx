@@ -55,6 +55,7 @@ interface UserProfile {
   user_id: string;
   email: string;
   role: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
   email_confirmed_at?: string | null;
@@ -96,6 +97,13 @@ const Admin = () => {
   const [itemTitleStyle, setItemTitleStyle] = useState<any>(null);
   const [newItemTextStyle, setNewItemTextStyle] = useState<any>(null);
   const [newItemTitleStyle, setNewItemTitleStyle] = useState<any>(null);
+  
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
   
   // Enable security preventions
   useSecurityPreventions();
@@ -181,6 +189,79 @@ const Admin = () => {
         description: "Nie udało się potwierdzić emaila użytkownika.",
         variant: "destructive",
       });
+    }
+  };
+
+  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { data, error } = await supabase.rpc('admin_toggle_user_status', {
+        target_user_id: userId,
+        new_status: !currentStatus
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setUsers(users.map(user => 
+          user.user_id === userId ? { ...user, is_active: !currentStatus } : user
+        ));
+        
+        toast({
+          title: "Sukces",
+          description: `Użytkownik został ${!currentStatus ? 'aktywowany' : 'dezaktywowany'}.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error toggling user status:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zmienić statusu użytkownika.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Błąd",
+        description: "Hasła nie są identyczne.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Błąd", 
+        description: "Hasło musi mieć co najmniej 6 znaków.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+      toast({
+        title: "Sukces",
+        description: "Hasło zostało zmienione.",
+      });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zmienić hasła.",
+        variant: "destructive",
+      });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -552,7 +633,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
               <span className="hidden sm:inline">Zawartość</span>
@@ -568,6 +649,10 @@ const Admin = () => {
             <TabsTrigger value="text-editor" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
               <span className="hidden sm:inline">Edytor</span>
+            </TabsTrigger>
+            <TabsTrigger value="account" className="flex items-center gap-2">
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Konto</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -965,6 +1050,66 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="account">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Settings2 className="w-5 h-5" />
+                  <span>Ustawienia konta</span>
+                </CardTitle>
+                <CardDescription>
+                  Zarządzaj swoim kontem administratora
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Informacje o koncie</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><strong>Email:</strong> {user?.email}</p>
+                    <p><strong>Rola:</strong> Administrator</p>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Zmiana hasła</h3>
+                  <div className="space-y-4 max-w-md">
+                    <div>
+                      <Label htmlFor="new-password">Nowe hasło</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                        placeholder="Wprowadź nowe hasło"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="confirm-password">Potwierdź hasło</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                        placeholder="Potwierdź nowe hasło"
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button
+                      onClick={handlePasswordChange}
+                      disabled={passwordLoading || !passwordData.newPassword || !passwordData.confirmPassword}
+                      className="w-full"
+                    >
+                      {passwordLoading ? "Zapisywanie..." : "Zmień hasło"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="users">
             <Card>
               <CardHeader>
@@ -996,24 +1141,27 @@ const Admin = () => {
                       {users.map((userProfile) => (
                         <Card key={userProfile.id} className="p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                             <div className="space-y-1">
-                               <div className="flex items-center gap-2 flex-wrap">
-                                 <span className="font-medium text-sm">{userProfile.email}</span>
-                                 <Badge variant={userProfile.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                                   {userProfile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
-                                 </Badge>
-                                 {userProfile.email_confirmed_at ? (
-                                   <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
-                                     <CheckCircle className="w-3 h-3 mr-1" />
-                                     Email potwierdzony
-                                   </Badge>
-                                 ) : (
-                                   <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
-                                     <Clock className="w-3 h-3 mr-1" />
-                                     Oczekuje potwierdzenia
-                                   </Badge>
-                                 )}
-                               </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-sm">{userProfile.email}</span>
+                                  <Badge variant={userProfile.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                                    {userProfile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
+                                  </Badge>
+                                  <Badge variant={userProfile.is_active ? 'default' : 'destructive'} className="text-xs">
+                                    {userProfile.is_active ? 'Aktywny' : 'Nieaktywny'}
+                                  </Badge>
+                                  {userProfile.email_confirmed_at ? (
+                                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Email potwierdzony
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Oczekuje potwierdzenia
+                                    </Badge>
+                                  )}
+                                </div>
                                <p className="text-xs text-muted-foreground">
                                  Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
                                </p>
@@ -1027,45 +1175,56 @@ const Admin = () => {
                                </p>
                              </div>
                             
-                             <div className="flex flex-col sm:flex-row gap-2">
-                               {!userProfile.email_confirmed_at && (
-                                 <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => confirmUserEmail(userProfile.user_id)}
-                                   className="text-xs border-green-200 text-green-700 hover:bg-green-50"
-                                 >
-                                   <Mail className="w-3 h-3 mr-1" />
-                                   Potwierdź email
-                                 </Button>
-                               )}
-                               
-                               {userProfile.role !== 'admin' ? (
-                                 <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => updateUserRole(userProfile.user_id, 'admin')}
-                                   className="text-xs"
-                                 >
-                                   <Users className="w-3 h-3 mr-1" />
-                                   Awansuj na Admin
-                                 </Button>
-                               ) : userProfile.user_id === user?.id ? (
-                                 <Badge variant="default" className="text-xs">
-                                   Twoje konto
-                                 </Badge>
-                               ) : (
-                                 <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => updateUserRole(userProfile.user_id, 'user')}
-                                   className="text-xs"
-                                 >
-                                   <Users className="w-3 h-3 mr-1" />
-                                   Zmień na Użytkownika
-                                 </Button>
-                               )}
-                             </div>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                {!userProfile.email_confirmed_at && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => confirmUserEmail(userProfile.user_id)}
+                                    className="text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                  >
+                                    <Mail className="w-3 h-3 mr-1" />
+                                    Potwierdź email
+                                  </Button>
+                                )}
+                                
+                                {userProfile.user_id !== user?.id && (
+                                  <Button
+                                    variant={userProfile.is_active ? "destructive" : "default"}
+                                    size="sm"
+                                    onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
+                                    className="text-xs"
+                                  >
+                                    {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
+                                  </Button>
+                                )}
+                                
+                                {userProfile.role !== 'admin' ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updateUserRole(userProfile.user_id, 'admin')}
+                                    className="text-xs"
+                                  >
+                                    <Users className="w-3 h-3 mr-1" />
+                                    Awansuj na Admin
+                                  </Button>
+                                ) : userProfile.user_id === user?.id ? (
+                                  <Badge variant="default" className="text-xs">
+                                    Twoje konto
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updateUserRole(userProfile.user_id, 'user')}
+                                    className="text-xs"
+                                  >
+                                    <Users className="w-3 h-3 mr-1" />
+                                    Zmień na Użytkownika
+                                  </Button>
+                                )}
+                              </div>
                           </div>
                         </Card>
                       ))}
