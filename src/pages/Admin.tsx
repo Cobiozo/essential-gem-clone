@@ -687,6 +687,7 @@ const Admin = () => {
           title: newPage.title,
           slug: slug,
           content: newPage.content,
+          content_formatting: pageContentStyle,
           meta_title: newPage.meta_title,
           meta_description: newPage.meta_description,
           is_published: newPage.is_published,
@@ -1482,11 +1483,11 @@ const Admin = () => {
                                 )}
                               </div>
                               <div className="flex items-center space-x-2 ml-4">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setEditingPage(page)}
-                                >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setEditingPage(page); setPageContentStyle((page as any).content_formatting || null); }}
+                >
                                   <Pencil className="w-4 h-4" />
                                 </Button>
                                 <Button

@@ -170,10 +170,28 @@ const Page = () => {
               </header>
               
               {page.content_formatting ? (
-                <FormattedText 
-                  text={page.content || 'Brak treści.'}
-                  formatting={page.content_formatting}
+                <div
                   className="content"
+                  style={{
+                    fontSize: `${page.content_formatting.fontSize}px`,
+                    fontWeight: page.content_formatting.fontWeight,
+                    fontStyle: page.content_formatting.fontStyle,
+                    textDecoration: page.content_formatting.textDecoration,
+                    textAlign: page.content_formatting.textAlign,
+                    color: page.content_formatting.color,
+                    backgroundColor: page.content_formatting.backgroundColor === 'transparent' ? undefined : page.content_formatting.backgroundColor,
+                    lineHeight: page.content_formatting.lineHeight,
+                    letterSpacing: `${page.content_formatting.letterSpacing}px`,
+                    fontFamily: page.content_formatting.fontFamily,
+                    wordWrap: 'break-word',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                    hyphens: 'auto',
+                    whiteSpace: 'normal',
+                    maxWidth: '100%',
+                    width: '100%',
+                  }}
+                  dangerouslySetInnerHTML={{ __html: page.content || '<p>Brak treści.</p>' }}
                 />
               ) : (
                 <div 
