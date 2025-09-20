@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, Home, Key, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const MyAccount = () => {
@@ -117,6 +118,7 @@ const MyAccount = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              <ThemeSelector />
               <Button variant="outline" size="sm" onClick={() => navigate('/')}>
                 <Home className="w-4 h-4 mr-2" />
                 Strona główna
@@ -163,6 +165,7 @@ const MyAccount = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <ThemeSelector />
             <Button variant="outline" size="sm" onClick={() => navigate('/')}>
               <Home className="w-4 h-4 mr-2" />
               Strona główna

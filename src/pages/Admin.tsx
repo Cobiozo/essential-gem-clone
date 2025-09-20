@@ -20,6 +20,7 @@ import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
 import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface CMSSection {
@@ -643,6 +644,7 @@ const Admin = () => {
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <Badge variant="secondary" className="text-xs">Administrator</Badge>
             <div className="flex gap-2 w-full sm:w-auto">
+              <ThemeSelector />
               <Button variant="outline" size="sm" onClick={() => navigate('/')} className="flex-1 sm:flex-none">
                 <Home className="w-4 h-4 mr-2" />
                 Strona główna

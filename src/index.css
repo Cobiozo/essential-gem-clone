@@ -60,34 +60,43 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Keep same colors for dark mode - Pure Life app is light themed */
-    --background: 33 22% 95%;
-    --foreground: 0 0% 20%;
+    /* Dark mode color palette */
+    --background: 224 71% 4%;      /* Very dark blue-gray */
+    --foreground: 213 31% 91%;     /* Light gray text */
 
-    --card: 33 22% 95%;
-    --card-foreground: 0 0% 20%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
 
-    --popover: 33 22% 95%;
-    --popover-foreground: 0 0% 20%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
 
-    --primary: 145 50% 25%;
+    --primary: 145 50% 35%;        /* Slightly lighter green for dark mode */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 33 15% 90%;
-    --secondary-foreground: 0 0% 20%;
+    --secondary: 215 28% 17%;      /* Dark gray */
+    --secondary-foreground: 213 31% 91%;
 
-    --muted: 33 15% 88%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 223 47% 11%;          /* Darker muted */
+    --muted-foreground: 215.4 16.3% 56.9%;
 
-    --accent: 45 100% 55%;
+    --accent: 45 100% 65%;         /* Brighter golden accent for dark mode */
     --accent-foreground: 0 0% 20%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
 
-    --border: 33 15% 85%;
-    --input: 33 15% 85%;
-    --ring: 145 50% 25%;
+    --border: 216 34% 17%;         /* Dark border */
+    --input: 216 34% 17%;          /* Dark input */
+    --ring: 145 50% 35%;
+
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-primary: 213 31% 91%;
+    --sidebar-primary-foreground: 224 71% 4%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 213 31% 91%;
+    --sidebar-border: 216 34% 17%;
+    --sidebar-ring: 145 50% 35%;
   }
 }
 
