@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Home } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { FormattedText } from '@/components/FormattedText';
 import { toast } from 'sonner';
 
 interface Page {
@@ -12,6 +13,7 @@ interface Page {
   title: string;
   slug: string;
   content: string | null;
+  content_formatting: any | null;
   meta_title: string | null;
   meta_description: string | null;
   is_published: boolean;
@@ -38,7 +40,7 @@ const Page = () => {
       try {
         const { data, error } = await supabase
           .from('pages')
-          .select('*')
+          .select('*, content_formatting')
           .eq('slug', slug)
           .eq('is_published', true)
           .eq('is_active', true)
@@ -167,16 +169,24 @@ const Page = () => {
                 )}
               </header>
               
-              <div 
-                className="content"
-                dangerouslySetInnerHTML={{ 
-                  __html: page.content || '<p>Brak treści.</p>' 
-                }}
-                style={{
-                  lineHeight: '1.6',
-                  fontSize: '16px'
-                }}
-              />
+              {page.content_formatting ? (
+                <FormattedText 
+                  text={page.content || 'Brak treści.'}
+                  formatting={page.content_formatting}
+                  className="content"
+                />
+              ) : (
+                <div 
+                  className="content"
+                  dangerouslySetInnerHTML={{ 
+                    __html: page.content || '<p>Brak treści.</p>' 
+                  }}
+                  style={{
+                    lineHeight: '1.6',
+                    fontSize: '16px'
+                  }}
+                />
+              )}
             </article>
           </CardContent>
         </Card>

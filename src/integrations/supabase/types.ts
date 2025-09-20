@@ -109,6 +109,7 @@ export type Database = {
       pages: {
         Row: {
           content: string | null
+          content_formatting: Json | null
           created_at: string
           id: string
           is_active: boolean
@@ -122,6 +123,7 @@ export type Database = {
         }
         Insert: {
           content?: string | null
+          content_formatting?: Json | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -135,6 +137,7 @@ export type Database = {
         }
         Update: {
           content?: string | null
+          content_formatting?: Json | null
           created_at?: string
           id?: string
           is_active?: boolean

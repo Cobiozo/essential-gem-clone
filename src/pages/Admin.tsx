@@ -68,6 +68,7 @@ interface Page {
   title: string;
   slug: string;
   content: string | null;
+  content_formatting: any | null;
   meta_title: string | null;
   meta_description: string | null;
   is_published: boolean;
@@ -2078,6 +2079,7 @@ const Admin = () => {
                 title: editingPage.title,
                 slug: editingPage.slug,
                 content: editingPage.content,
+                content_formatting: pageContentStyle,
                 meta_title: editingPage.meta_title,
                 meta_description: editingPage.meta_description,
                 is_published: editingPage.is_published,
