@@ -8,10 +8,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const getPolishErrorMessage = (error: any): string => {
   const errorMessage = error?.message?.toLowerCase() || '';
+  
+  console.log('Auth error details:', error); // Debug log
   
   if (errorMessage.includes('invalid login credentials') || errorMessage.includes('invalid_credentials')) {
     return 'Nieprawidłowy email lub hasło';
@@ -19,7 +22,12 @@ const getPolishErrorMessage = (error: any): string => {
   if (errorMessage.includes('email not confirmed')) {
     return 'Email nie został potwierdzony. Sprawdź swoją skrzynkę pocztową';
   }
-  if (errorMessage.includes('user already registered') || errorMessage.includes('already_registered')) {
+  if (errorMessage.includes('user already registered') || 
+      errorMessage.includes('already_registered') ||
+      errorMessage.includes('user_already_exists') ||
+      errorMessage.includes('email_address_already_in_use') ||
+      errorMessage.includes('email address not available') ||
+      errorMessage.includes('user with this email already exists')) {
     return 'Użytkownik z tym adresem email już istnieje';
   }
   if (errorMessage.includes('weak password') || errorMessage.includes('password')) {
@@ -28,7 +36,7 @@ const getPolishErrorMessage = (error: any): string => {
   if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
     return 'Nieprawidłowy format adresu email';
   }
-  if (errorMessage.includes('too many requests')) {
+  if (errorMessage.includes('too many requests') || errorMessage.includes('rate limit')) {
     return 'Zbyt wiele prób logowania. Spróbuj ponownie za chwilę';
   }
   if (errorMessage.includes('network') || errorMessage.includes('connection')) {
@@ -98,26 +106,60 @@ const Auth = () => {
       return;
     }
 
-    const { error } = await signUp(email, password);
-    
-    if (error) {
-      const polishErrorMessage = getPolishErrorMessage(error);
-      setError(polishErrorMessage);
+    try {
+      // First check if user already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing user:', checkError);
+      }
+
+      if (existingUser) {
+        const errorMessage = 'Użytkownik z tym adresem email już istnieje';
+        setError(errorMessage);
+        toast({
+          title: "Błąd rejestracji",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Proceed with signup if user doesn't exist
+      const { error } = await signUp(email, password);
+      
+      if (error) {
+        const polishErrorMessage = getPolishErrorMessage(error);
+        setError(polishErrorMessage);
+        toast({
+          title: "Błąd rejestracji",
+          description: polishErrorMessage,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Rejestracja pomyślna",
+          description: "Sprawdź swoją skrzynkę email w celu potwierdzenia konta.",
+        });
+        // Clear form after successful registration
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setError('');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError('Wystąpił nieoczekiwany błąd. Spróbuj ponownie');
       toast({
         title: "Błąd rejestracji",
-        description: polishErrorMessage,
+        description: "Wystąpił nieoczekiwany błąd. Spróbuj ponownie",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Rejestracja pomyślna",
-        description: "Sprawdź swoją skrzynkę email w celu potwierdzenia konta.",
-      });
-      // Clear form after successful registration
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
-      setError('');
     }
     
     setLoading(false);
