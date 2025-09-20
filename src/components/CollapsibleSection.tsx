@@ -110,22 +110,39 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     boxShadow: sectionStyle.box_shadow || '0 1px 3px 0 rgb(0 0 0 / 0.1)',
     opacity: (sectionStyle.opacity || 100) / 100,
     width: sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%',
-    height: sectionStyle.height_type === 'custom' ? `${sectionStyle.custom_height}px` : 'auto',
-    minHeight: `${sectionStyle.min_height || 0}px`,
     maxWidth: `${sectionStyle.max_width || 1200}px`,
     marginTop: `${sectionStyle.section_margin_top || 24}px`,
     marginBottom: `${sectionStyle.section_margin_bottom || 24}px`,
     marginLeft: 'auto',
     marginRight: 'auto',
-    padding: `${sectionStyle.padding || 0}px`,
-    display: sectionStyle.display_type || 'block',
-    flexDirection: sectionStyle.content_direction as any || 'column',
-    flexWrap: sectionStyle.content_wrap as any || 'nowrap',
-    justifyContent: sectionStyle.display_type !== 'block' ? sectionStyle.justify_content : undefined,
-    alignItems: sectionStyle.display_type !== 'block' ? sectionStyle.align_items : undefined,
-    gap: sectionStyle.display_type !== 'block' ? `${sectionStyle.gap || 16}px` : undefined,
     overflow: sectionStyle.overflow_behavior as any || 'visible',
     position: 'relative' as const,
+  } : {};
+
+  // Header styles - height settings apply here when collapsed
+  const customHeaderStyle = sectionStyle ? {
+    backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
+    backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 
+                      sectionStyle.background_image ? `url(${sectionStyle.background_image})` : 'none',
+    backgroundPosition: sectionStyle.background_image_position || 'center',
+    backgroundSize: sectionStyle.background_image_size || 'cover',
+    backgroundRepeat: 'no-repeat',
+    height: !isOpen && sectionStyle.height_type === 'custom' ? `${sectionStyle.custom_height}px` : 'auto',
+    minHeight: !isOpen ? `${sectionStyle.min_height || 0}px` : 'auto',
+    padding: `${sectionStyle.padding || 16}px`,
+    display: sectionStyle.display_type || 'flex',
+    flexDirection: sectionStyle.content_direction as any || 'row',
+    flexWrap: sectionStyle.content_wrap as any || 'nowrap',
+    justifyContent: sectionStyle.justify_content || 'space-between',
+    alignItems: sectionStyle.align_items || 'center',
+    gap: `${sectionStyle.gap || 16}px`,
+    color: sectionStyle.text_color || '#374151',
+    fontSize: `${sectionStyle.font_size || 18}px`,
+    fontWeight: sectionStyle.font_weight || 600,
+    lineHeight: sectionStyle.line_height || 1.5,
+    letterSpacing: `${sectionStyle.letter_spacing || 0}px`,
+    textTransform: (sectionStyle.text_transform || 'none') as React.CSSProperties['textTransform'],
+    textAlign: (sectionStyle.alignment || 'left') as React.CSSProperties['textAlign'],
   } : {};
 
   // Background image overlay for opacity
@@ -139,16 +156,6 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     opacity: (100 - (sectionStyle.background_image_opacity || 100)) / 100,
     pointerEvents: 'none' as const,
   } : undefined;
-
-  const customHeaderStyle = sectionStyle ? {
-    color: sectionStyle.text_color || '#374151',
-    fontSize: `${sectionStyle.font_size || 18}px`,
-    fontWeight: sectionStyle.font_weight || 600,
-    lineHeight: sectionStyle.line_height || 1.5,
-    letterSpacing: `${sectionStyle.letter_spacing || 0}px`,
-    textTransform: (sectionStyle.text_transform || 'none') as React.CSSProperties['textTransform'],
-    textAlign: (sectionStyle.alignment || 'left') as React.CSSProperties['textAlign'],
-  } : {};
 
   const customContentStyle = sectionStyle ? {
     padding: `${sectionStyle.padding || 24}px`,
@@ -166,7 +173,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       {backgroundImageOverlay && <div style={backgroundImageOverlay} />}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 sm:px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center relative z-10"
+        className="w-full text-left hover:bg-gray-100 transition-colors flex justify-between items-center relative z-10"
+        style={customHeaderStyle}
       >
         <div className="flex items-center space-x-2 pr-2">
           {IconComponent && sectionStyle?.icon_position === 'left' && (
@@ -178,7 +186,6 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           )}
           <h3 
             className="text-base sm:text-lg font-semibold text-gray-800"
-            style={customHeaderStyle}
           >
             {title}
           </h3>
