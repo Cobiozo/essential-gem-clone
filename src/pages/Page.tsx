@@ -1,12 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Home, ArrowLeft } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
-import { FormattedText } from '@/components/FormattedText';
-import { toast } from 'sonner';
+import { CMSContent } from '@/components/CMSContent';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
+import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+
+interface CMSSection {
+  id: string;
+  title: string;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  page_id?: string;
+}
+
+interface CMSItem {
+  id: string;
+  section_id: string;
+  type: string;
+  title: string | null;
+  description: string | null;
+  url: string | null;
+  icon: string | null;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  media_url?: string | null;
+  media_type?: string | null;
+  media_alt_text?: string | null;
+  text_formatting?: any;
+  title_formatting?: any;
+  page_id?: string;
+}
 
 interface Page {
   id: string;
@@ -23,61 +55,101 @@ interface Page {
   updated_at: string;
 }
 
-const Page = () => {
+const PageComponent = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { toast } = useToast();
   const [page, setPage] = useState<Page | null>(null);
+  const [sections, setSections] = useState<CMSSection[]>([]);
+  const [items, setItems] = useState<CMSItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const fetchPage = async () => {
-      if (!slug) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-
+    const fetchPageData = async () => {
       try {
-        const { data, error } = await supabase
+        if (!slug) {
+          setNotFound(true);
+          return;
+        }
+
+        // Fetch page data
+        const { data: pageData, error: pageError } = await supabase
           .from('pages')
-          .select('*, content_formatting')
+          .select('*')
           .eq('slug', slug)
           .eq('is_published', true)
           .eq('is_active', true)
           .single();
 
-        if (error) {
-          console.error('Error fetching page:', error);
+        if (pageError || !pageData) {
           setNotFound(true);
-        } else if (data) {
-          setPage(data);
-          // Update page title and meta description if available
-          if (data.meta_title) {
-            document.title = data.meta_title;
-          } else {
-            document.title = data.title;
-          }
-          
-          if (data.meta_description) {
-            const metaDescription = document.querySelector('meta[name="description"]');
-            if (metaDescription) {
-              metaDescription.setAttribute('content', data.meta_description);
-            }
-          }
-        } else {
-          setNotFound(true);
+          return;
         }
+
+        setPage(pageData);
+
+        // Update document title and meta description
+        if (pageData.meta_title) {
+          document.title = pageData.meta_title;
+        } else {
+          document.title = pageData.title;
+        }
+
+        if (pageData.meta_description) {
+          const metaDescription = document.querySelector('meta[name="description"]');
+          if (metaDescription) {
+            metaDescription.setAttribute('content', pageData.meta_description);
+          } else {
+            const meta = document.createElement('meta');
+            meta.name = 'description';
+            meta.content = pageData.meta_description;
+            document.head.appendChild(meta);
+          }
+        }
+
+        // Fetch CMS sections for this page
+        const { data: sectionsData, error: sectionsError } = await supabase
+          .from('cms_sections')
+          .select('*')
+          .eq('page_id', pageData.id)
+          .eq('is_active', true)
+          .order('position', { ascending: true });
+
+        if (sectionsError) {
+          console.error('Error fetching page sections:', sectionsError);
+        } else {
+          setSections(sectionsData || []);
+        }
+
+        // Fetch CMS items for this page
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('cms_items')
+          .select('*')
+          .eq('page_id', pageData.id)
+          .eq('is_active', true)
+          .order('position', { ascending: true });
+
+        if (itemsError) {
+          console.error('Error fetching page items:', itemsError);
+        } else {
+          setItems(itemsData || []);
+        }
+
       } catch (error) {
-        console.error('Error fetching page:', error);
-        toast.error('Wystąpił błąd podczas ładowania strony');
+        console.error('Error fetching page data:', error);
+        toast({
+          title: "Błąd",
+          description: "Nie udało się załadować strony.",
+          variant: "destructive",
+        });
         setNotFound(true);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPage();
-  }, [slug]);
+    fetchPageData();
+  }, [slug, toast]);
 
   if (loading) {
     return (
@@ -153,64 +225,72 @@ const Page = () => {
         </div>
       </nav>
 
-      {/* Page Content */}
-      <main className="container mx-auto px-4 py-8">
-        <Card className="max-w-4xl mx-auto">
-          <CardContent className="p-8">
-            <article className={`max-w-none ${!page.content_formatting ? 'prose prose-lg dark:prose-invert' : ''}`}>
-              <header className="mb-8">
-                <h1 className="text-3xl font-bold text-foreground mb-4">
-                  {page.title}
-                </h1>
-                {page.meta_description && (
-                  <p className="text-lg text-muted-foreground">
-                    {page.meta_description}
-                  </p>
-                )}
-              </header>
-              
-              {page.content_formatting ? (
-                <div
-                  className="content"
-                  style={{
-                    fontSize: `${page.content_formatting.fontSize}px`,
-                    fontWeight: page.content_formatting.fontWeight,
-                    fontStyle: page.content_formatting.fontStyle,
-                    textDecoration: page.content_formatting.textDecoration,
-                    textAlign: page.content_formatting.textAlign,
-                    color: page.content_formatting.color,
-                    backgroundColor: page.content_formatting.backgroundColor === 'transparent' ? undefined : page.content_formatting.backgroundColor,
-                    lineHeight: page.content_formatting.lineHeight,
-                    letterSpacing: `${page.content_formatting.letterSpacing}px`,
-                    fontFamily: page.content_formatting.fontFamily,
-                    wordWrap: 'break-word',
-                    overflowWrap: 'anywhere',
-                    wordBreak: 'break-word',
-                    hyphens: 'auto',
-                    whiteSpace: 'normal',
-                    maxWidth: '100%',
-                    width: '100%',
-                  }}
-                  dangerouslySetInnerHTML={{ __html: page.content || '<p>Brak treści.</p>' }}
-                />
-              ) : (
-                <div 
-                  className="content"
-                  dangerouslySetInnerHTML={{ 
-                    __html: page.content || '<p>Brak treści.</p>' 
-                  }}
-                  style={{
-                    lineHeight: '1.6',
-                    fontSize: '16px'
-                  }}
-                />
-              )}
-            </article>
-          </CardContent>
-        </Card>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+        {/* Page Header */}
+        <div className="text-center mb-8">
+          <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" />
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4">
+            {page.title}
+          </h1>
+          {page.meta_description && (
+            <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-3xl mx-auto">
+              {page.meta_description}
+            </p>
+          )}
+        </div>
+
+        {/* CMS Content */}
+        {sections.length > 0 && (
+          <div className="space-y-6 sm:space-y-8">
+            {sections.map((section) => (
+              <CollapsibleSection key={section.id} title={section.title} className="mb-6 sm:mb-8">
+                <div className="space-y-3 sm:space-y-4">
+                  {items
+                    .filter(item => item.section_id === section.id)
+                    .map((item) => (
+                      <CMSContent key={item.id} item={item} />
+                    ))}
+                  {items.filter(item => item.section_id === section.id).length === 0 && (
+                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                      Brak elementów w tej sekcji
+                    </div>
+                  )}
+                </div>
+              </CollapsibleSection>
+            ))}
+          </div>
+        )}
+
+        {/* Fallback HTML content if no CMS sections */}
+        {sections.length === 0 && page.content && (
+          <Card>
+            <CardContent className="p-6 sm:p-8">
+              <div
+                className={
+                  page.content_formatting ? 
+                  "formatted-content" : 
+                  "prose prose-lg max-w-none text-foreground prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-blockquote:text-muted-foreground prose-blockquote:border-border prose-hr:border-border prose-th:text-foreground prose-td:text-foreground prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+                }
+                style={page.content_formatting || undefined}
+                dangerouslySetInnerHTML={{ __html: page.content }}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty state */}
+        {sections.length === 0 && !page.content && (
+          <div className="text-center py-12">
+            <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg mb-2">Ta strona nie ma jeszcze zawartości</p>
+            <p className="text-muted-foreground">
+              Zawartość zostanie dodana wkrótce.
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );
 };
 
-export default Page;
+export default PageComponent;

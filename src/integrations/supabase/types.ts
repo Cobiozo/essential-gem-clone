@@ -24,6 +24,7 @@ export type Database = {
           media_alt_text: string | null
           media_type: string | null
           media_url: string | null
+          page_id: string | null
           position: number
           section_id: string
           text_formatting: Json | null
@@ -42,6 +43,7 @@ export type Database = {
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          page_id?: string | null
           position: number
           section_id: string
           text_formatting?: Json | null
@@ -60,6 +62,7 @@ export type Database = {
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          page_id?: string | null
           position?: number
           section_id?: string
           text_formatting?: Json | null
@@ -70,6 +73,13 @@ export type Database = {
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cms_items_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cms_items_section_id_fkey"
             columns: ["section_id"]
@@ -84,6 +94,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          page_id: string | null
           position: number
           title: string
           updated_at: string
@@ -92,6 +103,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          page_id?: string | null
           position: number
           title: string
           updated_at?: string
@@ -100,11 +112,20 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          page_id?: string | null
           position?: number
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cms_sections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pages: {
         Row: {

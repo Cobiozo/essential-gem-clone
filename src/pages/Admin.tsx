@@ -20,6 +20,8 @@ import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
 import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
+import { SectionEditor } from '@/components/cms/SectionEditor';
+import { ItemEditor } from '@/components/cms/ItemEditor';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
@@ -98,6 +100,33 @@ const Admin = () => {
   const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [editingPageRichText, setEditingPageRichText] = useState(false);
   const [pageContentStyle, setPageContentStyle] = useState<any>(null);
+  const [pageSections, setPageSections] = useState<CMSSection[]>([]);
+  const [pageItems, setPageItems] = useState<CMSItem[]>([]);
+  const [selectedPageSection, setSelectedPageSection] = useState<CMSSection | null>(null);
+  const [editingPageItem, setEditingPageItem] = useState<CMSItem | null>(null);
+  const [editingPageSection, setEditingPageSection] = useState<CMSSection | null>(null);
+  const [newPageItem, setNewPageItem] = useState({
+    type: 'button',
+    title: '',
+    description: '',
+    url: '',
+    icon: '',
+    media_url: '',
+    media_type: '' as 'image' | 'video' | '',
+    media_alt_text: '',
+  });
+  const [newPageSection, setNewPageSection] = useState({
+    title: '',
+    position: 0,
+  });
+  const [editingPageItemTextMode, setEditingPageItemTextMode] = useState(false);
+  const [editingPageItemTitleMode, setEditingPageItemTitleMode] = useState(false);
+  const [newPageItemTextMode, setNewPageItemTextMode] = useState(false);
+  const [newPageItemTitleMode, setNewPageItemTitleMode] = useState(false);
+  const [pageItemTextStyle, setPageItemTextStyle] = useState<any>(null);
+  const [pageItemTitleStyle, setPageItemTitleStyle] = useState<any>(null);
+  const [newPageItemTextStyle, setNewPageItemTextStyle] = useState<any>(null);
+  const [newPageItemTitleStyle, setNewPageItemTitleStyle] = useState<any>(null);
   const [newItem, setNewItem] = useState({
     type: 'button',
     title: '',
@@ -1029,6 +1058,243 @@ const Admin = () => {
     }
   };
 
+  // Page CMS management functions
+  const fetchPageSections = async (pageId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('cms_sections')
+        .select('*')
+        .eq('page_id', pageId)
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      setPageSections(data || []);
+    } catch (error) {
+      console.error('Fetch page sections error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać sekcji strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchPageItems = async (pageId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('cms_items')
+        .select('*')
+        .eq('page_id', pageId)
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      setPageItems(data || []);
+    } catch (error) {
+      console.error('Fetch page items error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać elementów strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createPageSection = async (pageId: string) => {
+    try {
+      const maxPosition = Math.max(...pageSections.map(s => s.position), 0);
+      
+      const { data, error } = await supabase
+        .from('cms_sections')
+        .insert([{
+          title: newPageSection.title,
+          position: maxPosition + 1,
+          page_id: pageId,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPageSections([...pageSections, data]);
+      setNewPageSection({ title: '', position: 0 });
+      
+      toast({
+        title: "Sekcja dodana",
+        description: "Nowa sekcja została pomyślnie dodana do strony.",
+      });
+    } catch (error) {
+      console.error('Create page section error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się dodać sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createPageItem = async (pageId: string, sectionId: string) => {
+    try {
+      const sectionItems = pageItems.filter(item => item.section_id === sectionId);
+      const maxPosition = Math.max(...sectionItems.map(item => item.position), 0);
+
+      const { data, error } = await supabase
+        .from('cms_items')
+        .insert([{
+          section_id: sectionId,
+          page_id: pageId,
+          type: newPageItem.type,
+          title: newPageItem.title,
+          description: newPageItem.description,
+          url: newPageItem.url,
+          icon: newPageItem.icon,
+          position: maxPosition + 1,
+          media_url: newPageItem.media_url,
+          media_type: newPageItem.media_type || null,
+          media_alt_text: newPageItem.media_alt_text,
+          text_formatting: newPageItemTextStyle,
+          title_formatting: newPageItemTitleStyle,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPageItems([...pageItems, data]);
+      setNewPageItem({
+        type: 'button',
+        title: '',
+        description: '',
+        url: '',
+        icon: '',
+        media_url: '',
+        media_type: '',
+        media_alt_text: '',
+      });
+      setNewPageItemTextStyle(null);
+      setNewPageItemTitleStyle(null);
+      setSelectedPageSection(null);
+      
+      toast({
+        title: "Element dodany",
+        description: "Nowy element został pomyślnie dodany.",
+      });
+    } catch (error) {
+      console.error('Create page item error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się dodać elementu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updatePageSection = async (sectionId: string, updates: Partial<CMSSection>) => {
+    try {
+      const { error } = await supabase
+        .from('cms_sections')
+        .update(updates)
+        .eq('id', sectionId);
+
+      if (error) throw error;
+
+      setPageSections(pageSections.map(section => 
+        section.id === sectionId ? { ...section, ...updates } : section
+      ));
+      setEditingPageSection(null);
+      
+      toast({
+        title: "Sekcja zaktualizowana",
+        description: "Sekcja została pomyślnie zaktualizowana.",
+      });
+    } catch (error) {
+      console.error('Update page section error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zaktualizować sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updatePageItem = async (itemId: string, updates: Partial<CMSItem>) => {
+    try {
+      const { error } = await supabase
+        .from('cms_items')
+        .update(updates)
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      setPageItems(pageItems.map(item => 
+        item.id === itemId ? { ...item, ...updates } : item
+      ));
+      setEditingPageItem(null);
+      
+      toast({
+        title: "Element zaktualizowany",
+        description: "Element został pomyślnie zaktualizowany.",
+      });
+    } catch (error) {
+      console.error('Update page item error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zaktualizować elementu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePageSection = async (sectionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cms_sections')
+        .delete()
+        .eq('id', sectionId);
+
+      if (error) throw error;
+
+      setPageSections(pageSections.filter(section => section.id !== sectionId));
+      setPageItems(pageItems.filter(item => item.section_id !== sectionId));
+      
+      toast({
+        title: "Sekcja usunięta",
+        description: "Sekcja i wszystkie jej elementy zostały usunięte.",
+      });
+    } catch (error) {
+      console.error('Delete page section error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć sekcji.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePageItem = async (itemId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cms_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      setPageItems(pageItems.filter(item => item.id !== itemId));
+      
+      toast({
+        title: "Element usunięty",
+        description: "Element został pomyślnie usunięty.",
+      });
+    } catch (error) {
+      console.error('Delete page item error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć elementu.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
@@ -1739,7 +2005,12 @@ const Admin = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setEditingPage(page); setPageContentStyle((page as any).content_formatting || null); }}
+                  onClick={() => { 
+                    setEditingPage(page); 
+                    setPageContentStyle((page as any).content_formatting || null);
+                    fetchPageSections(page.id);
+                    fetchPageItems(page.id);
+                  }}
                 >
                                   <Pencil className="w-4 h-4" />
                                 </Button>
@@ -2247,17 +2518,30 @@ const Admin = () => {
 
       {/* Edit Page Dialog */}
       {editingPage && (
-        <Dialog open={!!editingPage} onOpenChange={() => setEditingPage(null)}>
-          <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0">
+        <Dialog open={!!editingPage} onOpenChange={() => {
+          setEditingPage(null);
+          setPageSections([]);
+          setPageItems([]);
+          setSelectedPageSection(null);
+          setEditingPageItem(null);
+          setEditingPageSection(null);
+        }}>
+          <DialogContent className="max-w-6xl w-full max-h-[90vh] flex flex-col p-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-2">
               <DialogTitle>Edytuj stronę</DialogTitle>
               <DialogDescription>
-                Modyfikuj dane strony
+                Modyfikuj dane strony i zarządzaj jej zawartością CMS
               </DialogDescription>
             </DialogHeader>
             
             <div className="flex-1 overflow-y-auto px-6">
-              <div className="space-y-6 pb-6">
+              <Tabs defaultValue="basic" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="basic">Podstawowe informacje</TabsTrigger>
+                  <TabsTrigger value="cms">Zawartość CMS</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="basic" className="space-y-6 pb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="edit-page-title">Tytuł strony</Label>
@@ -2467,7 +2751,201 @@ const Admin = () => {
                     />
                   </div>
                 </div>
-              </div>
+                </TabsContent>
+                
+                <TabsContent value="cms" className="space-y-6 pb-6">
+                  {/* CMS Content Management */}
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">Zarządzanie zawartością CMS</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Dodawaj sekcje i elementy do tej strony
+                      </p>
+                    </div>
+
+                    {/* Add New Section */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <Label htmlFor="new-page-section-title">Nazwa sekcji</Label>
+                          <Input
+                            id="new-page-section-title"
+                            value={newPageSection.title}
+                            onChange={(e) => setNewPageSection({...newPageSection, title: e.target.value})}
+                            placeholder="Wprowadź nazwę sekcji"
+                          />
+                        </div>
+                        <Button 
+                          onClick={() => createPageSection(editingPage.id)} 
+                          disabled={!newPageSection.title}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Dodaj sekcję
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Existing Sections */}
+                    <div className="space-y-4">
+                      {pageSections.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>Brak sekcji. Dodaj pierwszą sekcję aby rozpocząć.</p>
+                        </div>
+                      ) : (
+                        pageSections.map((section) => (
+                          <Card key={section.id}>
+                            <CardHeader>
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base">{section.title}</CardTitle>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditingPageSection(section)}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => deletePageSection(section.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              {/* Add Item Form */}
+                              {selectedPageSection?.id === section.id && (
+                                <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+                                  <h4 className="font-medium mb-4">Dodaj element do sekcji</h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="new-page-item-type">Typ elementu</Label>
+                                      <Select value={newPageItem.type} onValueChange={(value) => setNewPageItem({...newPageItem, type: value})}>
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="button">Przycisk</SelectItem>
+                                          <SelectItem value="info_text">Tekst informacyjny</SelectItem>
+                                          <SelectItem value="tip">Wskazówka</SelectItem>
+                                          <SelectItem value="description">Opis</SelectItem>
+                                          <SelectItem value="contact_info">Informacje kontaktowe</SelectItem>
+                                          <SelectItem value="support_info">Informacje o wsparciu</SelectItem>
+                                          <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                                          <SelectItem value="author">Autor</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="new-page-item-title">Tytuł</Label>
+                                      <Input
+                                        id="new-page-item-title"
+                                        value={newPageItem.title}
+                                        onChange={(e) => setNewPageItem({...newPageItem, title: e.target.value})}
+                                        placeholder="Tytuł elementu"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="mt-4">
+                                    <Label htmlFor="new-page-item-description">Opis</Label>
+                                    <Textarea
+                                      id="new-page-item-description"
+                                      value={newPageItem.description}
+                                      onChange={(e) => setNewPageItem({...newPageItem, description: e.target.value})}
+                                      placeholder="Opis elementu"
+                                      rows={3}
+                                    />
+                                  </div>
+                                  {newPageItem.type === 'button' && (
+                                    <div className="mt-4">
+                                      <Label htmlFor="new-page-item-url">URL</Label>
+                                      <Input
+                                        id="new-page-item-url"
+                                        value={newPageItem.url}
+                                        onChange={(e) => setNewPageItem({...newPageItem, url: e.target.value})}
+                                        placeholder="https://example.com"
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="flex gap-2 mt-4">
+                                    <Button
+                                      onClick={() => createPageItem(editingPage.id, section.id)}
+                                      disabled={!newPageItem.title}
+                                    >
+                                      <Plus className="w-4 h-4 mr-2" />
+                                      Dodaj element
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => setSelectedPageSection(null)}
+                                    >
+                                      Anuluj
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Section Items */}
+                              <div className="space-y-3">
+                                {pageItems
+                                  .filter(item => item.section_id === section.id)
+                                  .map((item) => (
+                                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                      <div className="flex-1">
+                                        <div className="flex items-center space-x-2">
+                                          <Badge variant="outline">{item.type}</Badge>
+                                          <h5 className="font-medium">{item.title}</h5>
+                                        </div>
+                                        {item.description && (
+                                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                            {item.description}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setEditingPageItem(item);
+                                            setPageItemTextStyle(item.text_formatting || null);
+                                            setPageItemTitleStyle(item.title_formatting || null);
+                                          }}
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => deletePageItem(item.id)}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
             
             <DialogFooter className="flex-shrink-0 px-6 pb-6 pt-4 border-t">
@@ -2484,6 +2962,140 @@ const Admin = () => {
                 is_published: editingPage.is_published,
                 is_active: editingPage.is_active,
                 position: editingPage.position,
+              })}>
+                <Save className="w-4 h-4 mr-2" />
+                Zapisz zmiany
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Page Section Dialog */}
+      {editingPageSection && (
+        <Dialog open={!!editingPageSection} onOpenChange={() => setEditingPageSection(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edytuj sekcję strony</DialogTitle>
+              <DialogDescription>
+                Modyfikuj dane sekcji strony
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-page-section-title">Tytuł sekcji</Label>
+                <Input
+                  value={editingPageSection.title || ''}
+                  onChange={(e) => setEditingPageSection({...editingPageSection, title: e.target.value})}
+                  placeholder="Nazwa sekcji"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-page-section-position">Pozycja</Label>
+                <Input
+                  type="number"
+                  value={editingPageSection.position}
+                  onChange={(e) => setEditingPageSection({...editingPageSection, position: parseInt(e.target.value) || 0})}
+                  placeholder="Pozycja sekcji"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingPageSection(null)}>
+                Anuluj
+              </Button>
+              <Button onClick={() => updatePageSection(editingPageSection.id, {
+                title: editingPageSection.title,
+                position: editingPageSection.position,
+              })}>
+                <Save className="w-4 h-4 mr-2" />
+                Zapisz zmiany
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Page Item Dialog */}
+      {editingPageItem && (
+        <Dialog open={!!editingPageItem} onOpenChange={() => setEditingPageItem(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edytuj element strony</DialogTitle>
+              <DialogDescription>
+                Modyfikuj dane elementu strony
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-page-item-type">Typ elementu</Label>
+                  <Select value={editingPageItem.type} onValueChange={(value) => setEditingPageItem({...editingPageItem, type: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="button">Przycisk</SelectItem>
+                      <SelectItem value="info_text">Tekst informacyjny</SelectItem>
+                      <SelectItem value="tip">Wskazówka</SelectItem>
+                      <SelectItem value="description">Opis</SelectItem>
+                      <SelectItem value="contact_info">Informacje kontaktowe</SelectItem>
+                      <SelectItem value="support_info">Informacje o wsparciu</SelectItem>
+                      <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                      <SelectItem value="author">Autor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-page-item-title">Tytuł</Label>
+                  <Input
+                    value={editingPageItem.title || ''}
+                    onChange={(e) => setEditingPageItem({...editingPageItem, title: e.target.value})}
+                    placeholder="Tytuł elementu"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-page-item-description">Opis</Label>
+                <Textarea
+                  value={editingPageItem.description || ''}
+                  onChange={(e) => setEditingPageItem({...editingPageItem, description: e.target.value})}
+                  placeholder="Opis elementu"
+                  rows={4}
+                />
+              </div>
+              {editingPageItem.type === 'button' && (
+                <div>
+                  <Label htmlFor="edit-page-item-url">URL</Label>
+                  <Input
+                    value={editingPageItem.url || ''}
+                    onChange={(e) => setEditingPageItem({...editingPageItem, url: e.target.value})}
+                    placeholder="https://example.com"
+                  />
+                </div>
+              )}
+              <div>
+                <Label htmlFor="edit-page-item-position">Pozycja</Label>
+                <Input
+                  type="number"
+                  value={editingPageItem.position}
+                  onChange={(e) => setEditingPageItem({...editingPageItem, position: parseInt(e.target.value) || 0})}
+                  placeholder="Pozycja elementu"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingPageItem(null)}>
+                Anuluj
+              </Button>
+              <Button onClick={() => updatePageItem(editingPageItem.id, {
+                type: editingPageItem.type,
+                title: editingPageItem.title,
+                description: editingPageItem.description,
+                url: editingPageItem.url,
+                position: editingPageItem.position,
+                text_formatting: pageItemTextStyle,
+                title_formatting: pageItemTitleStyle,
               })}>
                 <Save className="w-4 h-4 mr-2" />
                 Zapisz zmiany
