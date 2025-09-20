@@ -2883,12 +2883,12 @@ const Admin = () => {
                 Skonfiguruj wygląd i zawartość sekcji
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6">
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
               <SectionEditor 
                 section={editingSection}
                 onSave={(updatedSection) => updateSection(editingSection.id, updatedSection)}
                 onCancel={() => setEditingSection(null)}
-                trigger={null}
+                isNew={false}
               />
             </div>
           </DialogContent>
