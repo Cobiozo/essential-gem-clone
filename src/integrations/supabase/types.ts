@@ -228,6 +228,14 @@ export type Database = {
         Args: { target_role: string; target_user_id: string }
         Returns: boolean
       }
+      debug_user_access: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          current_user_id: string
+          has_profile: boolean
+          user_role: string
+        }[]
+      }
       email_exists: {
         Args: { email_param: string }
         Returns: boolean
