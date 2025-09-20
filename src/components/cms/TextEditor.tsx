@@ -35,6 +35,7 @@ interface TextStyle {
   backgroundColor: string;
   lineHeight: number;
   letterSpacing: number;
+  fontFamily: string;
 }
 
 interface TextEditorProps {
@@ -61,11 +62,25 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     backgroundColor: 'transparent',
     lineHeight: 1.5,
     letterSpacing: 0,
+    fontFamily: 'system-ui, -apple-system, sans-serif',
     ...initialStyle
   });
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+
+  const loadGoogleFont = (fontFamily: string) => {
+    const font = fontFamilies.find(f => f.family === fontFamily);
+    if (font?.url) {
+      const existingLink = document.querySelector(`link[href="${font.url}"]`);
+      if (!existingLink) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = font.url;
+        document.head.appendChild(link);
+      }
+    }
+  };
 
   const fontSizes = [
     { value: 12, label: '12px (Mały)' },
@@ -85,6 +100,150 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     { value: '600', label: 'Półgruba' },
     { value: '700', label: 'Gruba' },
     { value: '800', label: 'Bardzo gruba' }
+  ];
+
+  const fontFamilies = [
+    { name: 'System', family: 'system-ui, -apple-system, sans-serif', url: null },
+    { 
+      name: 'Inter', 
+      family: 'Inter, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap'
+    },
+    { 
+      name: 'Roboto', 
+      family: 'Roboto, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap'
+    },
+    { 
+      name: 'Open Sans', 
+      family: 'Open Sans, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Lato', 
+      family: 'Lato, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap'
+    },
+    { 
+      name: 'Montserrat', 
+      family: 'Montserrat, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Poppins', 
+      family: 'Poppins, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Source Sans Pro', 
+      family: 'Source Sans Pro, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap'
+    },
+    { 
+      name: 'Nunito', 
+      family: 'Nunito, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Work Sans', 
+      family: 'Work Sans, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Raleway', 
+      family: 'Raleway, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Fira Sans', 
+      family: 'Fira Sans, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Ubuntu', 
+      family: 'Ubuntu, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap'
+    },
+    { 
+      name: 'Oswald', 
+      family: 'Oswald, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Rubik', 
+      family: 'Rubik, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'DM Sans', 
+      family: 'DM Sans, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&display=swap'
+    },
+    { 
+      name: 'Playfair Display', 
+      family: 'Playfair Display, serif',
+      url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Merriweather', 
+      family: 'Merriweather, serif',
+      url: 'https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap'
+    },
+    { 
+      name: 'Crimson Text', 
+      family: 'Crimson Text, serif',
+      url: 'https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&display=swap'
+    },
+    { 
+      name: 'Lora', 
+      family: 'Lora, serif',
+      url: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Libre Baskerville', 
+      family: 'Libre Baskerville, serif',
+      url: 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap'
+    },
+    { 
+      name: 'Dancing Script', 
+      family: 'Dancing Script, cursive',
+      url: 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Caveat', 
+      family: 'Caveat, cursive',
+      url: 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Pacifico', 
+      family: 'Pacifico, cursive',
+      url: 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap'
+    },
+    { 
+      name: 'Bebas Neue', 
+      family: 'Bebas Neue, cursive',
+      url: 'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap'
+    },
+    { 
+      name: 'Anton', 
+      family: 'Anton, sans-serif',
+      url: 'https://fonts.googleapis.com/css2?family=Anton&display=swap'
+    },
+    { 
+      name: 'Fira Code', 
+      family: 'Fira Code, monospace',
+      url: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'JetBrains Mono', 
+      family: 'JetBrains Mono, monospace',
+      url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap'
+    },
+    { 
+      name: 'Source Code Pro', 
+      family: 'Source Code Pro, monospace',
+      url: 'https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@300;400;500;600;700&display=swap'
+    }
   ];
 
   const colorPresets = [
@@ -205,6 +364,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     backgroundColor: textStyle.backgroundColor === 'transparent' ? undefined : textStyle.backgroundColor,
     lineHeight: textStyle.lineHeight,
     letterSpacing: `${textStyle.letterSpacing}px`,
+    fontFamily: textStyle.fontFamily,
     padding: '12px',
     borderRadius: '6px',
     border: '1px solid hsl(var(--border))',
@@ -363,6 +523,28 @@ export const TextEditor: React.FC<TextEditorProps> = ({
         {/* Style Controls */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Czcionka</Label>
+              <Select 
+                value={textStyle.fontFamily} 
+                onValueChange={(value) => {
+                  loadGoogleFont(value);
+                  setTextStyle(prev => ({ ...prev, fontFamily: value }));
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-48 overflow-y-auto">
+                  {fontFamilies.map((font) => (
+                    <SelectItem key={font.family} value={font.family}>
+                      <span style={{ fontFamily: font.family }}>{font.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label className="text-sm font-medium">Rozmiar czcionki</Label>
               <Select 
