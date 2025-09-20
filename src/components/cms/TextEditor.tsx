@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TextStyle {
   fontSize: number;
@@ -68,6 +69,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const loadGoogleFont = (fontFamily: string) => {
     const font = fontFamilies.find(f => f.family === fontFamily);
@@ -381,10 +383,10 @@ export const TextEditor: React.FC<TextEditorProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Type className="w-5 h-5" />
-          <span>Edytor tekstu</span>
+          <span>{t('textEditor.title')}</span>
         </CardTitle>
         <CardDescription>
-          Formatuj tekst z zaawansowanymi opcjami stylowania
+          {t('textEditor.format')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

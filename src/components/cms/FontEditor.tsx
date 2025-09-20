@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Type, Save, RotateCcw, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface FontSettings {
   name: string;
@@ -205,6 +206,7 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
   });
   const [selectedGoogleFont, setSelectedGoogleFont] = useState(googleFonts[0]);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const loadGoogleFont = (font: typeof googleFonts[0]) => {
     // Check if font is already loaded
@@ -259,8 +261,8 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
     setCurrentFont(settings);
     
     toast({
-      title: "Czcionka zastosowana",
-      description: `Aktywna czcionka: ${settings.name}`,
+      title: t('fonts.applied'),
+      description: `${t('fonts.activeFont')}: ${settings.name}`,
     });
 
     onApplyFont?.(settings);
@@ -300,16 +302,16 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Type className="w-5 h-5" />
-          <span>Edytor czcionek</span>
+          <span>{t('fonts.editor')}</span>
         </CardTitle>
         <CardDescription>
-          Zarządzaj typografią aplikacji
+          {t('fonts.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Google Fonts Selection */}
         <div>
-          <Label className="text-sm font-medium mb-3 block">Wybierz czcionkę Google Fonts</Label>
+          <Label className="text-sm font-medium mb-3 block">{t('fonts.selectGoogleFont')}</Label>
           <Select onValueChange={selectGoogleFont} value={selectedGoogleFont.name}>
             <SelectTrigger>
               <SelectValue />
@@ -326,30 +328,29 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
 
         {/* Font Preview */}
         <div>
-          <Label className="text-sm font-medium mb-3 block">Podgląd czcionki</Label>
+          <Label className="text-sm font-medium mb-3 block">{t('fonts.preview')}</Label>
           <Card className="p-4" style={{ fontFamily: currentFont.family }}>
             <h3 className="text-2xl font-semibold mb-2" style={{ fontSize: `${currentFont.headingSize}px` }}>
-              Przykładowy nagłówek
+              {t('fonts.sampleHeading')}
             </h3>
             <p style={{ 
               fontSize: `${currentFont.bodySize}px`, 
               lineHeight: currentFont.lineHeight,
               fontWeight: currentFont.fontWeight 
             }}>
-              To jest przykładowy tekst pokazujący jak wygląda wybrana czcionka w różnych rozmiarach. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+              {t('fonts.sampleText')}
             </p>
           </Card>
         </div>
 
         {/* Font Settings */}
         <div className="space-y-4">
-          <Label className="text-sm font-medium">Ustawienia czcionki</Label>
+          <Label className="text-sm font-medium">{t('fonts.settings')}</Label>
           
           {/* Heading Size */}
           <div>
             <Label htmlFor="heading-size" className="text-xs mb-2 block">
-              Rozmiar nagłówków: {currentFont.headingSize}px
+              {t('fonts.headingSize')}: {currentFont.headingSize}px
             </Label>
             <Slider
               id="heading-size"
@@ -367,7 +368,7 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
           {/* Body Size */}
           <div>
             <Label htmlFor="body-size" className="text-xs mb-2 block">
-              Rozmiar tekstu: {currentFont.bodySize}px
+              {t('fonts.bodySize')}: {currentFont.bodySize}px
             </Label>
             <Slider
               id="body-size"
@@ -385,7 +386,7 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
           {/* Line Height */}
           <div>
             <Label htmlFor="line-height" className="text-xs mb-2 block">
-              Wysokość linii: {currentFont.lineHeight}
+              {t('fonts.lineHeight')}: {currentFont.lineHeight}
             </Label>
             <Slider
               id="line-height"
@@ -402,7 +403,7 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
 
           {/* Font Weight */}
           <div>
-            <Label htmlFor="font-weight" className="text-xs mb-2 block">Grubość czcionki</Label>
+            <Label htmlFor="font-weight" className="text-xs mb-2 block">{t('fonts.fontWeight')}</Label>
             <Select 
               value={currentFont.fontWeight} 
               onValueChange={(value) => setCurrentFont({...currentFont, fontWeight: value})}
@@ -428,7 +429,7 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
             className="flex-1 sm:flex-none"
           >
             <Save className="w-4 h-4 mr-2" />
-            Zastosuj ustawienia
+            {t('fonts.apply')}
           </Button>
           <Button 
             variant="outline"
@@ -436,16 +437,16 @@ export const FontEditor: React.FC<FontEditorProps> = ({ onApplyFont }) => {
             className="flex-1 sm:flex-none"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
-            Przywróć domyślne
+            {t('fonts.reset')}
           </Button>
         </div>
 
         {/* Current Font Info */}
         <div className="mt-4 p-3 bg-muted rounded-lg">
           <div className="text-sm space-y-1">
-            <div><strong>Aktywna czcionka:</strong> {currentFont.name}</div>
-            <div><strong>Rodzina:</strong> <code className="text-xs">{currentFont.family}</code></div>
-            <div><strong>Rozmiary:</strong> Nagłówki {currentFont.headingSize}px, Tekst {currentFont.bodySize}px</div>
+            <div><strong>{t('fonts.activeFont')}:</strong> {currentFont.name}</div>
+            <div><strong>{t('fonts.family')}:</strong> <code className="text-xs">{currentFont.family}</code></div>
+            <div><strong>{t('fonts.sizes')}:</strong> {t('fonts.headingSize')} {currentFont.headingSize}px, {t('fonts.bodySize')} {currentFont.bodySize}px</div>
           </div>
         </div>
       </CardContent>

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Palette, Save, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ColorScheme {
   name: string;
@@ -155,6 +156,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
     foreground: '0 0% 20%'
   });
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const applyColorScheme = (scheme: ColorScheme) => {
     const root = document.documentElement;
@@ -171,8 +173,8 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
     root.style.setProperty('--popover-foreground', scheme.foreground);
 
     toast({
-      title: "Schemat kolorów zastosowany",
-      description: `Aktywny schemat: ${scheme.name}`,
+      title: t('colors.applied'),
+      description: `${t('colors.active')}: ${scheme.name}`,
     });
 
     onApplyScheme?.(scheme);
@@ -229,16 +231,16 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Palette className="w-5 h-5" />
-          <span>Edytor schematów kolorów</span>
+          <span>{t('colors.colorSchemeEditor')}</span>
         </CardTitle>
         <CardDescription>
-          Zarządzaj kolorystyką aplikacji
+          {t('colors.manageColors')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Preset Schemes */}
         <div>
-          <Label className="text-sm font-medium mb-3 block">Gotowe schematy kolorów</Label>
+          <Label className="text-sm font-medium mb-3 block">{t('colors.presetSchemes')}</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
             {presetSchemes.map((scheme) => (
               <Card key={scheme.name} className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -249,7 +251,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">{scheme.name}</span>
                     {selectedScheme.name === scheme.name && (
-                      <Badge variant="default" className="text-xs">Aktywny</Badge>
+                      <Badge variant="default" className="text-xs">{t('colors.active')}</Badge>
                     )}
                   </div>
                   <div className="flex space-x-2">
@@ -266,22 +268,22 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
 
         {/* Current Color Preview */}
         <div>
-          <Label className="text-sm font-medium mb-3 block">Podgląd bieżących kolorów</Label>
+          <Label className="text-sm font-medium mb-3 block">{t('colors.currentPreview')}</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ColorPreview color={selectedScheme.primary} label="Podstawowy" />
-            <ColorPreview color={selectedScheme.secondary} label="Pomocniczy" />
-            <ColorPreview color={selectedScheme.accent} label="Akcent" />
-            <ColorPreview color={selectedScheme.background} label="Tło" />
+            <ColorPreview color={selectedScheme.primary} label={t('colors.primary')} />
+            <ColorPreview color={selectedScheme.secondary} label={t('colors.secondary')} />
+            <ColorPreview color={selectedScheme.accent} label={t('colors.accent')} />
+            <ColorPreview color={selectedScheme.background} label={t('colors.background')} />
           </div>
         </div>
 
         {/* Custom Color Editor */}
         <div>
-          <Label className="text-sm font-medium mb-3 block">Niestandardowy schemat kolorów</Label>
+          <Label className="text-sm font-medium mb-3 block">{t('colors.customScheme')}</Label>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="custom-primary" className="text-xs">Kolor podstawowy (HSL)</Label>
+                <Label htmlFor="custom-primary" className="text-xs">{t('colors.primaryHSL')}</Label>
                 <Input
                   id="custom-primary"
                   value={customColors.primary}
@@ -291,7 +293,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
                 />
               </div>
               <div>
-                <Label htmlFor="custom-secondary" className="text-xs">Kolor pomocniczy (HSL)</Label>
+                <Label htmlFor="custom-secondary" className="text-xs">{t('colors.secondaryHSL')}</Label>
                 <Input
                   id="custom-secondary"
                   value={customColors.secondary}
@@ -301,7 +303,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
                 />
               </div>
               <div>
-                <Label htmlFor="custom-accent" className="text-xs">Kolor akcentu (HSL)</Label>
+                <Label htmlFor="custom-accent" className="text-xs">{t('colors.accentHSL')}</Label>
                 <Input
                   id="custom-accent"
                   value={customColors.accent}
@@ -311,7 +313,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
                 />
               </div>
               <div>
-                <Label htmlFor="custom-background" className="text-xs">Kolor tła (HSL)</Label>
+                <Label htmlFor="custom-background" className="text-xs">{t('colors.backgroundHSL')}</Label>
                 <Input
                   id="custom-background"
                   value={customColors.background}
@@ -326,7 +328,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
               className="w-full sm:w-auto"
             >
               <Save className="w-4 h-4 mr-2" />
-              Zastosuj niestandardowy schemat
+              {t('colors.applyCustom')}
             </Button>
           </div>
         </div>
@@ -339,7 +341,7 @@ export const ColorSchemeEditor: React.FC<ColorSchemeEditorProps> = ({ onApplySch
             className="w-full sm:w-auto"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
-            Przywróć domyślny schemat
+            {t('colors.resetDefault')}
           </Button>
         </div>
       </CardContent>
