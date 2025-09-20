@@ -10,6 +10,35 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
+const getPolishErrorMessage = (error: any): string => {
+  const errorMessage = error?.message?.toLowerCase() || '';
+  
+  if (errorMessage.includes('invalid login credentials') || errorMessage.includes('invalid_credentials')) {
+    return 'Nieprawidłowy email lub hasło';
+  }
+  if (errorMessage.includes('email not confirmed')) {
+    return 'Email nie został potwierdzony. Sprawdź swoją skrzynkę pocztową';
+  }
+  if (errorMessage.includes('user already registered') || errorMessage.includes('already_registered')) {
+    return 'Użytkownik z tym adresem email już istnieje';
+  }
+  if (errorMessage.includes('weak password') || errorMessage.includes('password')) {
+    return 'Hasło jest za słabe. Użyj minimum 6 znaków';
+  }
+  if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
+    return 'Nieprawidłowy format adresu email';
+  }
+  if (errorMessage.includes('too many requests')) {
+    return 'Zbyt wiele prób logowania. Spróbuj ponownie za chwilę';
+  }
+  if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+    return 'Problem z połączeniem internetowym. Sprawdź połączenie i spróbuj ponownie';
+  }
+  
+  // Default fallback
+  return error?.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie';
+};
+
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,10 +63,11 @@ const Auth = () => {
     const { error } = await signIn(email, password);
     
     if (error) {
-      setError(error.message);
+      const polishErrorMessage = getPolishErrorMessage(error);
+      setError(polishErrorMessage);
       toast({
         title: "Błąd logowania",
-        description: error.message,
+        description: polishErrorMessage,
         variant: "destructive",
       });
     } else {
@@ -71,10 +101,11 @@ const Auth = () => {
     const { error } = await signUp(email, password);
     
     if (error) {
-      setError(error.message);
+      const polishErrorMessage = getPolishErrorMessage(error);
+      setError(polishErrorMessage);
       toast({
         title: "Błąd rejestracji",
-        description: error.message,
+        description: polishErrorMessage,
         variant: "destructive",
       });
     } else {
