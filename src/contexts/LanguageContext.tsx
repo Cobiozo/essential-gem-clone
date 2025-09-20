@@ -94,6 +94,14 @@ const translations = {
     'admin.noSections': 'Brak sekcji',
     'admin.noItems': 'Brak elementów w tej sekcji',
     
+    // Registration
+    'auth.eqId': 'EQ ID',
+    'auth.role': 'Wybierz rolę',
+    'auth.roleClient': 'Klient',
+    'auth.rolePartner': 'Partner', 
+    'auth.roleSpecialist': 'Specjalista',
+    'auth.selectRole': 'Wybierz swoją rolę',
+    
     // Common
     'common.loading': 'Ładowanie...',
     'common.error': 'Błąd',
@@ -216,6 +224,14 @@ const translations = {
     'admin.noSections': 'Keine Bereiche',
     'admin.noItems': 'Keine Elemente in diesem Bereich',
     
+    // Registration
+    'auth.eqId': 'EQ ID',
+    'auth.role': 'Rolle wählen',
+    'auth.roleClient': 'Kunde',
+    'auth.rolePartner': 'Partner',
+    'auth.roleSpecialist': 'Spezialist',
+    'auth.selectRole': 'Wählen Sie Ihre Rolle',
+    
     // Common
     'common.loading': 'Laden...',
     'common.error': 'Fehler',
@@ -337,6 +353,14 @@ const translations = {
     'admin.noPages': 'No pages',
     'admin.noSections': 'No sections',
     'admin.noItems': 'No items in this section',
+    
+    // Registration
+    'auth.eqId': 'EQ ID',
+    'auth.role': 'Choose role',
+    'auth.roleClient': 'Client',
+    'auth.rolePartner': 'Partner',
+    'auth.roleSpecialist': 'Specialist',
+    'auth.selectRole': 'Select your role',
     
     // Common
     'common.loading': 'Loading...',

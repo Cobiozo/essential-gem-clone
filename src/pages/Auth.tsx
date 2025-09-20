@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -54,6 +55,8 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [eqId, setEqId] = useState('');
+  const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn, signUp, user } = useAuth();
@@ -110,6 +113,30 @@ const Auth = () => {
       return;
     }
 
+    // Check if EQ ID is provided
+    if (!eqId.trim()) {
+      setError('EQ ID jest wymagane');
+      toast({
+        title: "Błąd rejestracji",
+        description: "EQ ID jest wymagane",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Check if role is selected
+    if (!role) {
+      setError('Wybór roli jest wymagany');
+      toast({
+        title: "Błąd rejestracji", 
+        description: "Wybór roli jest wymagany",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       // Check if user already exists using RPC (bypasses RLS safely)
       const { data: emailExists, error: existsError } = await supabase.rpc('email_exists', {
@@ -132,8 +159,25 @@ const Auth = () => {
         return;
       }
 
+      // Map display roles to database roles
+      const roleMapping = {
+        'client': 'client',
+        'partner': 'partner',
+        'specialist': 'specialist'
+      };
+
       // Proceed with signup if user doesn't exist
-      const { error } = await signUp(email, password);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            eq_id: eqId.trim(),
+            role: roleMapping[role] || 'client'
+          }
+        }
+      });
       
       if (error) {
         const polishErrorMessage = getPolishErrorMessage(error);
@@ -152,6 +196,8 @@ const Auth = () => {
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+        setEqId('');
+        setRole('');
         setError('');
       }
     } catch (error) {
@@ -261,8 +307,42 @@ const Auth = () => {
                       disabled={loading}
                     />
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Hasło</Label>
+                    <Label htmlFor="eq-id">{t('auth.eqId')} *</Label>
+                    <Input
+                      id="eq-id"
+                      type="text"
+                      value={eqId}
+                      onChange={(e) => setEqId(e.target.value)}
+                      placeholder="Wprowadź EQ ID"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="role-select">{t('auth.role')} *</Label>
+                    <Select value={role} onValueChange={setRole} required disabled={loading}>
+                      <SelectTrigger className="w-full bg-background border border-input hover:bg-accent hover:text-accent-foreground z-50">
+                        <SelectValue placeholder={t('auth.selectRole')} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border border-border shadow-md z-50 max-h-96 overflow-y-auto">
+                        <SelectItem value="client" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
+                          {t('auth.roleClient')}
+                        </SelectItem>
+                        <SelectItem value="partner" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
+                          {t('auth.rolePartner')}
+                        </SelectItem>
+                        <SelectItem value="specialist" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
+                          {t('auth.roleSpecialist')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">{t('auth.password')}</Label>
                     <Input
                       id="signup-password"
                       type="password"
