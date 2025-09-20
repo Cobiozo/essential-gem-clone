@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 
 interface CMSSection {
   id: string;
@@ -109,7 +110,7 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
         <div className="mb-6">
-          <img src={newPureLifeLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
+          <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
         </div>
         
         {/* Header text with formatting support */}
