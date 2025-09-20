@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
+import { icons } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
@@ -455,12 +456,18 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Wybierz ikonę" />
                 </SelectTrigger>
-                <SelectContent className="max-h-40">
-                  {popularIcons.map((iconName) => (
-                    <SelectItem key={iconName} value={iconName}>
-                      {iconName}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-60">
+                  {popularIcons.map((iconName) => {
+                    const IconComponent = (icons as any)[iconName];
+                    return (
+                      <SelectItem key={iconName} value={iconName}>
+                        <div className="flex items-center space-x-2">
+                          {IconComponent && <IconComponent size={16} />}
+                          <span>{iconName}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

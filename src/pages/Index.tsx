@@ -291,8 +291,9 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto space-y-3 lg:space-y-4">
-        {sections.map((section) => {
+      <main className="max-w-sm sm:max-w-md lg:max-w-4xl xl:max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+          {sections.map((section) => {
           const sectionItems = items.filter(item => 
             item.section_id === section.id && 
             item.type !== 'header_text' && 
@@ -326,7 +327,7 @@ const Index = () => {
             </CollapsibleSection>
           );
         })}
-        
+        </div>
         
         {sections.length === 0 && (
           <div className="text-center text-muted-foreground py-8 sm:py-12">
