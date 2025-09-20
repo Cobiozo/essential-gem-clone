@@ -199,11 +199,11 @@ const Admin = () => {
     
     if (!isAdmin) {
       toast({
-        title: "Brak uprawnień",
-        description: "Nie masz uprawnień administratora.",
-        variant: "destructive",
+        title: "Przekierowanie",
+        description: "Zostaniesz przekierowany na stronę Moje konto.",
+        variant: "default",
       });
-      navigate('/');
+      navigate('/my-account');
       return;
     }
 

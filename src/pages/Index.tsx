@@ -34,7 +34,7 @@ interface CMSItem {
 }
 
 const Index = () => {
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const [sections, setSections] = React.useState<CMSSection[]>([]);
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [headerText, setHeaderText] = React.useState<string>('');
@@ -185,15 +185,24 @@ const Index = () => {
           </p>
         )}
         
-        {/* Admin Controls */}
+        {/* User Controls */}
         {user && (
           <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
-            <Link to="/admin">
-              <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                <Settings className="w-3 h-3 mr-1" />
-                Panel CMS
-              </Button>
-            </Link>
+            {isAdmin ? (
+              <Link to="/admin">
+                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                  <Settings className="w-3 h-3 mr-1" />
+                  Panel CMS
+                </Button>
+              </Link>
+            ) : (
+              <Link to="/my-account">
+                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                  <Settings className="w-3 h-3 mr-1" />
+                  Moje konto
+                </Button>
+              </Link>
+            )}
             <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
               <LogOut className="w-3 h-3 mr-1" />
               Wyloguj
@@ -255,7 +264,13 @@ const Index = () => {
             <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
             <p className="text-xs sm:text-sm px-4">
               {user ? (
-                <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
+                <>
+                  {isAdmin ? (
+                    <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
+                  ) : (
+                    <>Skontaktuj się z administratorem aby dodać treści.</>
+                  )}
+                </>
               ) : (
                 <>Skontaktuj się z administratorem aby dodać treści.</>
               )}
