@@ -20,7 +20,7 @@ import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
 import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
-import pureLifeDroplet from '@/assets/pure-life-droplet.png';
+import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface CMSSection {
   id: string;
@@ -413,7 +413,7 @@ const Admin = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+          <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
           <p className="text-muted-foreground">Ładowanie panelu administracyjnego...</p>
         </div>
       </div>
@@ -426,7 +426,7 @@ const Admin = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
-            <img src={pureLifeDroplet} alt="Pure Life" className="w-6 h-6 sm:w-8 sm:h-8" />
+            <img src={newPureLifeLogo} alt="Pure Life" className="w-6 h-6 sm:w-8 sm:h-8" />
             <h1 className="text-lg sm:text-2xl font-bold text-foreground">Panel CMS - Pure Life</h1>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto">

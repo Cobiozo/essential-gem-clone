@@ -7,8 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Settings, LogOut } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
-import pureLifeDroplet from '@/assets/pure-life-droplet.png';
-import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
+import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface CMSSection {
   id: string;
@@ -98,7 +97,7 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <img src={pureLifeDroplet} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+          <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
           <p className="text-muted-foreground">Ładowanie...</p>
         </div>
       </div>
@@ -110,7 +109,7 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-8 max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
         <div className="mb-6">
-          <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
+          <img src={newPureLifeLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
         </div>
         
         {/* Header text with formatting support */}
@@ -251,7 +250,7 @@ const Index = () => {
         
         {sections.length === 0 && (
           <div className="text-center text-gray-500 py-8 sm:py-12">
-            <img src={pureLifeDroplet} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50" />
+            <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50" />
             <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
             <p className="text-xs sm:text-sm px-4">
               {user ? (
@@ -265,7 +264,7 @@ const Index = () => {
         
         {/* Footer Logo */}
         <div className="text-center py-6 sm:py-8">
-          <img src={pureLifeDroplet} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" />
+          <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" />
           <div className="text-base sm:text-lg font-bold text-gray-700 mt-2">PURE LIFE</div>
         </div>
       </main>
