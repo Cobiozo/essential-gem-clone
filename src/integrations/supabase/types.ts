@@ -138,9 +138,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_confirm_user_email: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       email_exists: {
         Args: { email_param: string }
         Returns: boolean
+      }
+      get_user_profiles_with_confirmation: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          confirmation_sent_at: string
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }[]
       }
       is_admin: {
         Args: Record<PropertyKey, never>

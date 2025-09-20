@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
@@ -57,6 +57,8 @@ interface UserProfile {
   role: string;
   created_at: string;
   updated_at: string;
+  email_confirmed_at?: string | null;
+  confirmation_sent_at?: string | null;
 }
 
 const Admin = () => {
@@ -145,6 +147,40 @@ const Admin = () => {
       toast({
         title: "Błąd",
         description: "Nie udało się zmienić roli użytkownika.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmUserEmail = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('admin_confirm_user_email', {
+        target_user_id: userId
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        toast({
+          title: "Sukces",
+          description: "Email użytkownika został potwierdzony.",
+        });
+        // Refresh users list to show updated status
+        fetchUsers();
+      } else {
+        toast({
+          title: "Informacja",
+          description: "Email był już wcześniej potwierdzony.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error('Error confirming user email:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się potwierdzić emaila użytkownika.",
         variant: "destructive",
       });
     }
@@ -962,48 +998,76 @@ const Admin = () => {
                       {users.map((userProfile) => (
                         <Card key={userProfile.id} className="p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">{userProfile.email}</span>
-                                <Badge variant={userProfile.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                                  {userProfile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                ID: {userProfile.user_id.slice(0, 8)}...
-                              </p>
-                            </div>
+                             <div className="space-y-1">
+                               <div className="flex items-center gap-2 flex-wrap">
+                                 <span className="font-medium text-sm">{userProfile.email}</span>
+                                 <Badge variant={userProfile.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                                   {userProfile.role === 'admin' ? 'Administrator' : 'Użytkownik'}
+                                 </Badge>
+                                 {userProfile.email_confirmed_at ? (
+                                   <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                     <CheckCircle className="w-3 h-3 mr-1" />
+                                     Email potwierdzony
+                                   </Badge>
+                                 ) : (
+                                   <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
+                                     <Clock className="w-3 h-3 mr-1" />
+                                     Oczekuje potwierdzenia
+                                   </Badge>
+                                 )}
+                               </div>
+                               <p className="text-xs text-muted-foreground">
+                                 Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
+                               </p>
+                               {userProfile.email_confirmed_at && (
+                                 <p className="text-xs text-muted-foreground">
+                                   Email potwierdzony: {new Date(userProfile.email_confirmed_at).toLocaleDateString('pl-PL')}
+                                 </p>
+                               )}
+                               <p className="text-xs text-muted-foreground">
+                                 ID: {userProfile.user_id.slice(0, 8)}...
+                               </p>
+                             </div>
                             
-                            <div className="flex flex-col sm:flex-row gap-2">
-                              {userProfile.role !== 'admin' ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => updateUserRole(userProfile.user_id, 'admin')}
-                                  className="text-xs"
-                                >
-                                  <Users className="w-3 h-3 mr-1" />
-                                  Awansuj na Admin
-                                </Button>
-                              ) : userProfile.user_id === user?.id ? (
-                                <Badge variant="default" className="text-xs">
-                                  Twoje konto
-                                </Badge>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => updateUserRole(userProfile.user_id, 'user')}
-                                  className="text-xs"
-                                >
-                                  <Users className="w-3 h-3 mr-1" />
-                                  Zmień na Użytkownika
-                                </Button>
-                              )}
-                            </div>
+                             <div className="flex flex-col sm:flex-row gap-2">
+                               {!userProfile.email_confirmed_at && (
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => confirmUserEmail(userProfile.user_id)}
+                                   className="text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                 >
+                                   <Mail className="w-3 h-3 mr-1" />
+                                   Potwierdź email
+                                 </Button>
+                               )}
+                               
+                               {userProfile.role !== 'admin' ? (
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => updateUserRole(userProfile.user_id, 'admin')}
+                                   className="text-xs"
+                                 >
+                                   <Users className="w-3 h-3 mr-1" />
+                                   Awansuj na Admin
+                                 </Button>
+                               ) : userProfile.user_id === user?.id ? (
+                                 <Badge variant="default" className="text-xs">
+                                   Twoje konto
+                                 </Badge>
+                               ) : (
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => updateUserRole(userProfile.user_id, 'user')}
+                                   className="text-xs"
+                                 >
+                                   <Users className="w-3 h-3 mr-1" />
+                                   Zmień na Użytkownika
+                                 </Button>
+                               )}
+                             </div>
                           </div>
                         </Card>
                       ))}
