@@ -291,8 +291,8 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-sm sm:max-w-md lg:max-w-4xl xl:max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+      <main className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 max-w-7xl mx-auto">
           {sections.map((section) => {
           const sectionItems = items.filter(item => 
             item.section_id === section.id && 
