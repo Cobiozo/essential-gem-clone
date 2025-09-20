@@ -93,10 +93,16 @@ export type Database = {
         Row: {
           align_items: string | null
           background_gradient: string | null
+          background_image: string | null
+          background_image_opacity: number | null
+          background_image_position: string | null
+          background_image_size: string | null
           border_color: string | null
           border_style: string | null
           border_width: number | null
           box_shadow: string | null
+          content_direction: string | null
+          content_wrap: string | null
           created_at: string
           custom_height: number | null
           custom_width: number | null
@@ -104,15 +110,24 @@ export type Database = {
           font_weight: number | null
           gap: number | null
           height_type: string | null
+          icon_color: string | null
+          icon_name: string | null
+          icon_position: string | null
+          icon_size: number | null
           id: string
           is_active: boolean
           justify_content: string | null
           letter_spacing: number | null
           line_height: number | null
           max_width: number | null
+          min_height: number | null
           opacity: number | null
+          overflow_behavior: string | null
           page_id: string | null
           position: number
+          section_margin_bottom: number | null
+          section_margin_top: number | null
+          show_icon: boolean | null
           text_transform: string | null
           title: string
           updated_at: string
@@ -124,10 +139,16 @@ export type Database = {
         Insert: {
           align_items?: string | null
           background_gradient?: string | null
+          background_image?: string | null
+          background_image_opacity?: number | null
+          background_image_position?: string | null
+          background_image_size?: string | null
           border_color?: string | null
           border_style?: string | null
           border_width?: number | null
           box_shadow?: string | null
+          content_direction?: string | null
+          content_wrap?: string | null
           created_at?: string
           custom_height?: number | null
           custom_width?: number | null
@@ -135,15 +156,24 @@ export type Database = {
           font_weight?: number | null
           gap?: number | null
           height_type?: string | null
+          icon_color?: string | null
+          icon_name?: string | null
+          icon_position?: string | null
+          icon_size?: number | null
           id?: string
           is_active?: boolean
           justify_content?: string | null
           letter_spacing?: number | null
           line_height?: number | null
           max_width?: number | null
+          min_height?: number | null
           opacity?: number | null
+          overflow_behavior?: string | null
           page_id?: string | null
           position: number
+          section_margin_bottom?: number | null
+          section_margin_top?: number | null
+          show_icon?: boolean | null
           text_transform?: string | null
           title: string
           updated_at?: string
@@ -155,10 +185,16 @@ export type Database = {
         Update: {
           align_items?: string | null
           background_gradient?: string | null
+          background_image?: string | null
+          background_image_opacity?: number | null
+          background_image_position?: string | null
+          background_image_size?: string | null
           border_color?: string | null
           border_style?: string | null
           border_width?: number | null
           box_shadow?: string | null
+          content_direction?: string | null
+          content_wrap?: string | null
           created_at?: string
           custom_height?: number | null
           custom_width?: number | null
@@ -166,15 +202,24 @@ export type Database = {
           font_weight?: number | null
           gap?: number | null
           height_type?: string | null
+          icon_color?: string | null
+          icon_name?: string | null
+          icon_position?: string | null
+          icon_size?: number | null
           id?: string
           is_active?: boolean
           justify_content?: string | null
           letter_spacing?: number | null
           line_height?: number | null
           max_width?: number | null
+          min_height?: number | null
           opacity?: number | null
+          overflow_behavior?: string | null
           page_id?: string | null
           position?: number
+          section_margin_bottom?: number | null
+          section_margin_top?: number | null
+          show_icon?: boolean | null
           text_transform?: string | null
           title?: string
           updated_at?: string

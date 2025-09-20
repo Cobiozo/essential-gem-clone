@@ -49,6 +49,22 @@ interface CMSSection {
   justify_content?: string | null;
   align_items?: string | null;
   gap?: number | null;
+  // New enhanced options
+  section_margin_top?: number | null;
+  section_margin_bottom?: number | null;
+  background_image?: string | null;
+  background_image_opacity?: number | null;
+  background_image_position?: string | null;
+  background_image_size?: string | null;
+  icon_name?: string | null;
+  icon_position?: string | null;
+  icon_size?: number | null;
+  icon_color?: string | null;
+  show_icon?: boolean | null;
+  content_direction?: string | null;
+  content_wrap?: string | null;
+  min_height?: number | null;
+  overflow_behavior?: string | null;
 }
 
 interface CMSItem {

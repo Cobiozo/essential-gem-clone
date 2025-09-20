@@ -68,6 +68,22 @@ interface CMSSection {
   justify_content?: string | null;
   align_items?: string | null;
   gap?: number | null;
+  // New enhanced options
+  section_margin_top?: number | null;
+  section_margin_bottom?: number | null;
+  background_image?: string | null;
+  background_image_opacity?: number | null;
+  background_image_position?: string | null;
+  background_image_size?: string | null;
+  icon_name?: string | null;
+  icon_position?: string | null;
+  icon_size?: number | null;
+  icon_color?: string | null;
+  show_icon?: boolean | null;
+  content_direction?: string | null;
+  content_wrap?: string | null;
+  min_height?: number | null;
+  overflow_behavior?: string | null;
 }
 
 interface CMSItem {
@@ -208,6 +224,22 @@ const Admin = () => {
     justify_content: 'start' as const,
     align_items: 'start' as const,
     gap: 16,
+    // New enhanced defaults
+    section_margin_top: 24,
+    section_margin_bottom: 24,
+    background_image: '',
+    background_image_opacity: 100,
+    background_image_position: 'center',
+    background_image_size: 'cover',
+    icon_name: '',
+    icon_position: 'left',
+    icon_size: 24,
+    icon_color: 'hsl(var(--foreground))',
+    show_icon: false,
+    content_direction: 'column',
+    content_wrap: 'nowrap',
+    min_height: 0,
+    overflow_behavior: 'visible',
   });
   const [newPage, setNewPage] = useState({
     title: '',
@@ -773,6 +805,22 @@ const Admin = () => {
           justify_content: newSection.justify_content,
           align_items: newSection.align_items,
           gap: newSection.gap,
+          // New enhanced fields
+          section_margin_top: newSection.section_margin_top,
+          section_margin_bottom: newSection.section_margin_bottom,
+          background_image: newSection.background_image,
+          background_image_opacity: newSection.background_image_opacity,
+          background_image_position: newSection.background_image_position,
+          background_image_size: newSection.background_image_size,
+          icon_name: newSection.icon_name,
+          icon_position: newSection.icon_position,
+          icon_size: newSection.icon_size,
+          icon_color: newSection.icon_color,
+          show_icon: newSection.show_icon,
+          content_direction: newSection.content_direction,
+          content_wrap: newSection.content_wrap,
+          min_height: newSection.min_height,
+          overflow_behavior: newSection.overflow_behavior,
         })
         .select()
         .single();
@@ -814,6 +862,22 @@ const Admin = () => {
         justify_content: 'start' as const,
         align_items: 'start' as const,
         gap: 16,
+        // Reset new enhanced defaults
+        section_margin_top: 24,
+        section_margin_bottom: 24,
+        background_image: '',
+        background_image_opacity: 100,
+        background_image_position: 'center',
+        background_image_size: 'cover',
+        icon_name: '',
+        icon_position: 'left',
+        icon_size: 24,
+        icon_color: 'hsl(var(--foreground))',
+        show_icon: false,
+        content_direction: 'column',
+        content_wrap: 'nowrap',
+        min_height: 0,
+        overflow_behavior: 'visible',
       });
       toast({
         title: t('toast.success'),

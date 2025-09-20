@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Share2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Share2, icons } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,22 @@ interface CollapsibleSectionProps {
     justify_content?: string | null;
     align_items?: string | null;
     gap?: number | null;
+    // New enhanced options
+    section_margin_top?: number | null;
+    section_margin_bottom?: number | null;
+    background_image?: string | null;
+    background_image_opacity?: number | null;
+    background_image_position?: string | null;
+    background_image_size?: string | null;
+    icon_name?: string | null;
+    icon_position?: string | null;
+    icon_size?: number | null;
+    icon_color?: string | null;
+    show_icon?: boolean | null;
+    content_direction?: string | null;
+    content_wrap?: string | null;
+    min_height?: number | null;
+    overflow_behavior?: string | null;
   };
 }
 
@@ -82,7 +98,11 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   // Build custom styles from section properties
   const customContainerStyle = sectionStyle ? {
     backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
-    backgroundImage: sectionStyle.background_gradient || 'none',
+    backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 
+                      sectionStyle.background_image ? `url(${sectionStyle.background_image})` : 'none',
+    backgroundPosition: sectionStyle.background_image_position || 'center',
+    backgroundSize: sectionStyle.background_image_size || 'cover',
+    backgroundRepeat: 'no-repeat',
     borderWidth: `${sectionStyle.border_width || 1}px`,
     borderStyle: sectionStyle.border_style || 'solid',
     borderColor: sectionStyle.border_color || '#e5e7eb',
@@ -91,14 +111,34 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     opacity: (sectionStyle.opacity || 100) / 100,
     width: sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%',
     height: sectionStyle.height_type === 'custom' ? `${sectionStyle.custom_height}px` : 'auto',
+    minHeight: `${sectionStyle.min_height || 0}px`,
     maxWidth: `${sectionStyle.max_width || 1200}px`,
-    margin: `${sectionStyle.margin || 0}px auto`,
+    marginTop: `${sectionStyle.section_margin_top || 24}px`,
+    marginBottom: `${sectionStyle.section_margin_bottom || 24}px`,
+    marginLeft: 'auto',
+    marginRight: 'auto',
     padding: `${sectionStyle.padding || 0}px`,
     display: sectionStyle.display_type || 'block',
+    flexDirection: sectionStyle.content_direction as any || 'column',
+    flexWrap: sectionStyle.content_wrap as any || 'nowrap',
     justifyContent: sectionStyle.display_type !== 'block' ? sectionStyle.justify_content : undefined,
     alignItems: sectionStyle.display_type !== 'block' ? sectionStyle.align_items : undefined,
     gap: sectionStyle.display_type !== 'block' ? `${sectionStyle.gap || 16}px` : undefined,
+    overflow: sectionStyle.overflow_behavior as any || 'visible',
+    position: 'relative' as const,
   } : {};
+
+  // Background image overlay for opacity
+  const backgroundImageOverlay = sectionStyle?.background_image && sectionStyle?.background_image_opacity !== 100 ? {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: sectionStyle.background_color || 'transparent',
+    opacity: (100 - (sectionStyle.background_image_opacity || 100)) / 100,
+    pointerEvents: 'none' as const,
+  } : undefined;
 
   const customHeaderStyle = sectionStyle ? {
     color: sectionStyle.text_color || '#374151',
@@ -114,21 +154,42 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     padding: `${sectionStyle.padding || 24}px`,
   } : {};
 
+  // Get Lucide icon component
+  const IconComponent = sectionStyle?.show_icon && sectionStyle?.icon_name ? 
+    (icons as any)[sectionStyle.icon_name] : null;
+
   return (
     <div 
       className={cn("border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm", className, sectionStyle?.style_class)}
       style={customContainerStyle}
     >
+      {backgroundImageOverlay && <div style={backgroundImageOverlay} />}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 sm:px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
+        className="w-full px-4 sm:px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center relative z-10"
       >
-        <h3 
-          className="text-base sm:text-lg font-semibold text-gray-800 pr-2"
-          style={customHeaderStyle}
-        >
-          {title}
-        </h3>
+        <div className="flex items-center space-x-2 pr-2">
+          {IconComponent && sectionStyle?.icon_position === 'left' && (
+            <IconComponent 
+              className="flex-shrink-0"
+              size={sectionStyle.icon_size || 24}
+              color={sectionStyle.icon_color || 'currentColor'}
+            />
+          )}
+          <h3 
+            className="text-base sm:text-lg font-semibold text-gray-800"
+            style={customHeaderStyle}
+          >
+            {title}
+          </h3>
+          {IconComponent && sectionStyle?.icon_position === 'right' && (
+            <IconComponent 
+              className="flex-shrink-0"
+              size={sectionStyle.icon_size || 24}
+              color={sectionStyle.icon_color || 'currentColor'}
+            />
+          )}
+        </div>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           {showShareButton && (
             <div 
@@ -148,10 +209,26 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       </button>
       {isOpen && (
         <div 
-          className="px-4 sm:px-6 py-4 border-t border-gray-200"
+          className="px-4 sm:px-6 py-4 border-t border-gray-200 relative z-10"
           style={customContentStyle}
         >
+          {IconComponent && sectionStyle?.icon_position === 'top' && (
+            <div className="flex justify-center mb-4">
+              <IconComponent 
+                size={sectionStyle.icon_size || 24}
+                color={sectionStyle.icon_color || 'currentColor'}
+              />
+            </div>
+          )}
           {children}
+          {IconComponent && sectionStyle?.icon_position === 'bottom' && (
+            <div className="flex justify-center mt-4">
+              <IconComponent 
+                size={sectionStyle.icon_size || 24}
+                color={sectionStyle.icon_color || 'currentColor'}
+              />
+            </div>
+          )}
           {showShareButton && (
             <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center">
               <Button

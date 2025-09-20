@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles } from 'lucide-react';
+import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 
 interface Section {
@@ -49,6 +49,22 @@ interface Section {
   justify_content?: string | null;
   align_items?: string | null;
   gap?: number | null;
+  // New enhanced options
+  section_margin_top?: number | null;
+  section_margin_bottom?: number | null;
+  background_image?: string | null;
+  background_image_opacity?: number | null;
+  background_image_position?: string | null;
+  background_image_size?: string | null;
+  icon_name?: string | null;
+  icon_position?: string | null;
+  icon_size?: number | null;
+  icon_color?: string | null;
+  show_icon?: boolean | null;
+  content_direction?: string | null;
+  content_wrap?: string | null;
+  min_height?: number | null;
+  overflow_behavior?: string | null;
 }
 
 interface SectionEditorProps {
@@ -102,7 +118,23 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       display_type: 'block',
       justify_content: 'start',
       align_items: 'start',
-      gap: 16
+      gap: 16,
+      // New enhanced defaults
+      section_margin_top: 24,
+      section_margin_bottom: 24,
+      background_image: '',
+      background_image_opacity: 100,
+      background_image_position: 'center',
+      background_image_size: 'cover',
+      icon_name: '',
+      icon_position: 'left',
+      icon_size: 24,
+      icon_color: 'hsl(var(--foreground))',
+      show_icon: false,
+      content_direction: 'column',
+      content_wrap: 'nowrap',
+      min_height: 0,
+      overflow_behavior: 'visible'
     }
   );
 
@@ -150,7 +182,68 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   const displayOptions = [
     { value: 'block', label: 'Blok' },
     { value: 'flex', label: 'Flex' },
-    { value: 'grid', label: 'Grid' }
+    { value: 'grid', label: 'Grid' },
+    { value: 'inline-block', label: 'Inline Block' },
+    { value: 'inline-flex', label: 'Inline Flex' },
+    { value: 'table', label: 'Tabela' },
+    { value: 'table-cell', label: 'Komórka tabeli' },
+    { value: 'flow-root', label: 'Flow Root' }
+  ];
+
+  const contentDirectionOptions = [
+    { value: 'row', label: 'Poziomo' },
+    { value: 'column', label: 'Pionowo' },
+    { value: 'row-reverse', label: 'Poziomo odwrócone' },
+    { value: 'column-reverse', label: 'Pionowo odwrócone' }
+  ];
+
+  const contentWrapOptions = [
+    { value: 'nowrap', label: 'Bez zawijania' },
+    { value: 'wrap', label: 'Zawijaj' },
+    { value: 'wrap-reverse', label: 'Zawijaj odwrócone' }
+  ];
+
+  const backgroundPositionOptions = [
+    { value: 'center', label: 'Centrum' },
+    { value: 'top', label: 'Góra' },
+    { value: 'bottom', label: 'Dół' },
+    { value: 'left', label: 'Lewo' },
+    { value: 'right', label: 'Prawo' },
+    { value: 'top left', label: 'Góra lewo' },
+    { value: 'top right', label: 'Góra prawo' },
+    { value: 'bottom left', label: 'Dół lewo' },
+    { value: 'bottom right', label: 'Dół prawo' }
+  ];
+
+  const backgroundSizeOptions = [
+    { value: 'cover', label: 'Pokryj' },
+    { value: 'contain', label: 'Zawrzyj' },
+    { value: 'auto', label: 'Auto' },
+    { value: '100%', label: '100%' },
+    { value: '100% 100%', label: 'Rozciągnij' }
+  ];
+
+  const iconPositionOptions = [
+    { value: 'left', label: 'Lewo' },
+    { value: 'right', label: 'Prawo' },
+    { value: 'top', label: 'Góra' },
+    { value: 'bottom', label: 'Dół' }
+  ];
+
+  const overflowOptions = [
+    { value: 'visible', label: 'Widoczny' },
+    { value: 'hidden', label: 'Ukryty' },
+    { value: 'scroll', label: 'Przewijanie' },
+    { value: 'auto', label: 'Auto' }
+  ];
+
+  // Popular Lucide icon names
+  const popularIcons = [
+    'Home', 'User', 'Settings', 'Mail', 'Phone', 'MapPin', 'Calendar', 'Clock',
+    'Heart', 'Star', 'ThumbsUp', 'MessageCircle', 'Share2', 'Download', 'Upload',
+    'Search', 'Filter', 'Edit', 'Trash2', 'Plus', 'Minus', 'Check', 'X',
+    'ChevronLeft', 'ChevronRight', 'ChevronUp', 'ChevronDown', 'ArrowLeft', 'ArrowRight',
+    'Eye', 'EyeOff', 'Lock', 'Unlock', 'Shield', 'AlertCircle', 'Info', 'HelpCircle'
   ];
 
   const justifyOptions = [
@@ -293,6 +386,134 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             <EyeOff className="w-4 h-4 text-muted-foreground" />
           )}
         </div>
+      </div>
+
+      {/* Section Spacing Settings */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Layout className="w-4 h-4" />
+          <h4 className="font-medium">Odstępy między sekcjami</h4>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Odstęp górny: {editedSection.section_margin_top}px
+            </Label>
+            <Slider
+              value={[editedSection.section_margin_top || 24]}
+              onValueChange={([value]) => setEditedSection({...editedSection, section_margin_top: value})}
+              min={0}
+              max={100}
+              step={4}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Odstęp dolny: {editedSection.section_margin_bottom}px
+            </Label>
+            <Slider
+              value={[editedSection.section_margin_bottom || 24]}
+              onValueChange={([value]) => setEditedSection({...editedSection, section_margin_bottom: value})}
+              min={0}
+              max={100}
+              step={4}
+              className="w-full"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Icons Settings */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Star className="w-4 h-4" />
+          <h4 className="font-medium">Ikony</h4>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="show-icon"
+            checked={editedSection.show_icon || false}
+            onCheckedChange={(checked) => setEditedSection({...editedSection, show_icon: checked})}
+          />
+          <Label htmlFor="show-icon" className="text-sm font-medium">
+            Pokaż ikonę
+          </Label>
+        </div>
+
+        {editedSection.show_icon && (
+          <>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Wybierz ikonę</Label>
+              <Select 
+                value={editedSection.icon_name || ''} 
+                onValueChange={(value) => setEditedSection({...editedSection, icon_name: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz ikonę" />
+                </SelectTrigger>
+                <SelectContent className="max-h-40">
+                  {popularIcons.map((iconName) => (
+                    <SelectItem key={iconName} value={iconName}>
+                      {iconName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Pozycja ikony</Label>
+                <Select 
+                  value={editedSection.icon_position || 'left'} 
+                  onValueChange={(value) => setEditedSection({...editedSection, icon_position: value})}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {iconPositionOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium mb-2 block">
+                  Rozmiar: {editedSection.icon_size}px
+                </Label>
+                <Slider
+                  value={[editedSection.icon_size || 24]}
+                  onValueChange={([value]) => setEditedSection({...editedSection, icon_size: value})}
+                  min={12}
+                  max={48}
+                  step={2}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="icon-color" className="text-sm font-medium">
+                  Kolor ikony
+                </Label>
+                <Input
+                  id="icon-color"
+                  type="color"
+                  value={editedSection.icon_color?.includes('hsl') ? '#000000' : editedSection.icon_color}
+                  onChange={(e) => setEditedSection({...editedSection, icon_color: e.target.value})}
+                  className="mt-1 h-10 w-full"
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Size & Layout Settings */}
@@ -600,6 +821,89 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         </div>
       </div>
 
+      {/* Enhanced Layout Settings */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Layout className="w-4 h-4" />
+          <h4 className="font-medium">Zaawansowany układ</h4>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium">Kierunek zawartości</Label>
+            <Select 
+              value={editedSection.content_direction || 'column'} 
+              onValueChange={(value) => setEditedSection({...editedSection, content_direction: value})}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {contentDirectionOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">Zawijanie zawartości</Label>
+            <Select 
+              value={editedSection.content_wrap || 'nowrap'} 
+              onValueChange={(value) => setEditedSection({...editedSection, content_wrap: value})}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {contentWrapOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Minimalna wysokość: {editedSection.min_height}px
+            </Label>
+            <Slider
+              value={[editedSection.min_height || 0]}
+              onValueChange={([value]) => setEditedSection({...editedSection, min_height: value})}
+              min={0}
+              max={500}
+              step={10}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">Zachowanie przepełnienia</Label>
+            <Select 
+              value={editedSection.overflow_behavior || 'visible'} 
+              onValueChange={(value) => setEditedSection({...editedSection, overflow_behavior: value})}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {overflowOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       {/* Enhanced Style Settings */}
       <div className="space-y-4 border-t pt-4">
         <div className="flex items-center space-x-2 mb-3">
@@ -652,6 +956,83 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
                 {preset.name}
               </Button>
             ))}
+          </div>
+        </div>
+
+        {/* Background Image Section */}
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Obraz tła</Label>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="background-image" className="text-sm font-medium">
+                URL obrazu tła
+              </Label>
+              <Input
+                id="background-image"
+                value={editedSection.background_image || ''}
+                onChange={(e) => setEditedSection({...editedSection, background_image: e.target.value})}
+                placeholder="https://example.com/image.jpg"
+                className="mt-1"
+              />
+            </div>
+            
+            {editedSection.background_image && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Pozycja obrazu</Label>
+                    <Select 
+                      value={editedSection.background_image_position || 'center'} 
+                      onValueChange={(value) => setEditedSection({...editedSection, background_image_position: value})}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {backgroundPositionOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium">Rozmiar obrazu</Label>
+                    <Select 
+                      value={editedSection.background_image_size || 'cover'} 
+                      onValueChange={(value) => setEditedSection({...editedSection, background_image_size: value})}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {backgroundSizeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Przezroczystość obrazu: {editedSection.background_image_opacity}%
+                  </Label>
+                  <Slider
+                    value={[editedSection.background_image_opacity || 100]}
+                    onValueChange={([value]) => setEditedSection({...editedSection, background_image_opacity: value})}
+                    min={0}
+                    max={100}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
