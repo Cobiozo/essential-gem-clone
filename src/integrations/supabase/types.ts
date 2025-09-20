@@ -91,40 +91,97 @@ export type Database = {
       }
       cms_sections: {
         Row: {
+          align_items: string | null
+          background_gradient: string | null
+          border_color: string | null
+          border_style: string | null
+          border_width: number | null
+          box_shadow: string | null
           created_at: string
+          custom_height: number | null
+          custom_width: number | null
+          display_type: string | null
+          font_weight: number | null
+          gap: number | null
+          height_type: string | null
           id: string
           is_active: boolean
+          justify_content: string | null
+          letter_spacing: number | null
+          line_height: number | null
+          max_width: number | null
+          opacity: number | null
           page_id: string | null
           position: number
+          text_transform: string | null
           title: string
           updated_at: string
           visible_to_clients: boolean
           visible_to_everyone: boolean
           visible_to_partners: boolean
+          width_type: string | null
         }
         Insert: {
+          align_items?: string | null
+          background_gradient?: string | null
+          border_color?: string | null
+          border_style?: string | null
+          border_width?: number | null
+          box_shadow?: string | null
           created_at?: string
+          custom_height?: number | null
+          custom_width?: number | null
+          display_type?: string | null
+          font_weight?: number | null
+          gap?: number | null
+          height_type?: string | null
           id?: string
           is_active?: boolean
+          justify_content?: string | null
+          letter_spacing?: number | null
+          line_height?: number | null
+          max_width?: number | null
+          opacity?: number | null
           page_id?: string | null
           position: number
+          text_transform?: string | null
           title: string
           updated_at?: string
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
+          width_type?: string | null
         }
         Update: {
+          align_items?: string | null
+          background_gradient?: string | null
+          border_color?: string | null
+          border_style?: string | null
+          border_width?: number | null
+          box_shadow?: string | null
           created_at?: string
+          custom_height?: number | null
+          custom_width?: number | null
+          display_type?: string | null
+          font_weight?: number | null
+          gap?: number | null
+          height_type?: string | null
           id?: string
           is_active?: boolean
+          justify_content?: string | null
+          letter_spacing?: number | null
+          line_height?: number | null
+          max_width?: number | null
+          opacity?: number | null
           page_id?: string | null
           position?: number
+          text_transform?: string | null
           title?: string
           updated_at?: string
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
+          width_type?: string | null
         }
         Relationships: [
           {

@@ -1,0 +1,20 @@
+-- Add new styling columns to cms_sections table for enhanced customization
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS background_gradient TEXT;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS border_width INTEGER DEFAULT 0;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS border_color TEXT DEFAULT 'hsl(var(--border))';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS border_style TEXT DEFAULT 'solid';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS box_shadow TEXT DEFAULT 'none';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS opacity INTEGER DEFAULT 100;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS width_type TEXT DEFAULT 'full';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS custom_width INTEGER DEFAULT 600;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS height_type TEXT DEFAULT 'auto';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS custom_height INTEGER DEFAULT 200;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS max_width INTEGER DEFAULT 1200;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS font_weight INTEGER DEFAULT 400;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS line_height DECIMAL(3,1) DEFAULT 1.5;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS letter_spacing DECIMAL(3,1) DEFAULT 0.0;
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS text_transform TEXT DEFAULT 'none';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS display_type TEXT DEFAULT 'block';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS justify_content TEXT DEFAULT 'start';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS align_items TEXT DEFAULT 'start';
+ALTER TABLE public.cms_sections ADD COLUMN IF NOT EXISTS gap INTEGER DEFAULT 16;
