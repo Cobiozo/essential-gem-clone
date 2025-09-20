@@ -194,6 +194,10 @@ export type Database = {
         Args: { new_status: boolean; target_user_id: string }
         Returns: boolean
       }
+      admin_update_user_role: {
+        Args: { target_role: string; target_user_id: string }
+        Returns: boolean
+      }
       email_exists: {
         Args: { email_param: string }
         Returns: boolean

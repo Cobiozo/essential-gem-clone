@@ -181,26 +181,27 @@ const Admin = () => {
   const updateUserRole = async (userId: string, newRole: 'user' | 'client' | 'admin' | 'partner') => {
     try {
       const normalizedRole = (newRole || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner';
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: normalizedRole })
-        .eq('user_id', userId);
+
+      const { data, error } = await supabase.rpc('admin_update_user_role', {
+        target_user_id: userId,
+        target_role: normalizedRole,
+      });
 
       if (error) throw error;
 
       setUsers(users.map(user => 
-        user.user_id === userId ? { ...user, role: newRole } : user
+        user.user_id === userId ? { ...user, role: normalizedRole } : user
       ));
       
       toast({
         title: "Sukces",
-        description: `Rola klienta została zmieniona na ${getRoleDisplayName(newRole)}.`,
+        description: `Rola klienta została zmieniona na ${getRoleDisplayName(normalizedRole)}.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user role:', error);
       toast({
         title: "Błąd",
-        description: "Nie udało się zmienić roli klienta.",
+        description: error.message || "Nie udało się zmienić roli klienta.",
         variant: "destructive",
       });
     }
@@ -371,10 +372,10 @@ const Admin = () => {
         // Update the user role if admin or partner
         if (newUser.role === 'admin' || newUser.role === 'partner') {
           const normalizedRole = (newUser.role || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner';
-          const { error: roleError } = await supabase
-            .from('profiles')
-            .update({ role: normalizedRole })
-            .eq('user_id', data.user.id);
+          const { data: rpcData, error: roleError } = await supabase.rpc('admin_update_user_role', {
+            target_user_id: data.user.id,
+            target_role: normalizedRole,
+          });
 
           if (roleError) {
             console.error('Error updating role:', roleError);
