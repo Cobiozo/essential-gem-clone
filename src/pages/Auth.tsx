@@ -107,10 +107,10 @@ const Auth = () => {
     }
 
     try {
-      // First check if user already exists
+      // Check if user already exists in profiles table
       const { data: existingUser, error: checkError } = await supabase
         .from('profiles')
-        .select('email')
+        .select('email, user_id')
         .eq('email', email)
         .maybeSingle();
 
@@ -119,7 +119,7 @@ const Auth = () => {
       }
 
       if (existingUser) {
-        const errorMessage = 'Użytkownik z tym adresem email już istnieje';
+        const errorMessage = 'Użytkownik z tym adresem email już istnieje. Sprawdź swoją skrzynkę email lub zaloguj się.';
         setError(errorMessage);
         toast({
           title: "Błąd rejestracji",
