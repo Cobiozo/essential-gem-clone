@@ -118,7 +118,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 relative">
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 relative">
       {/* Theme Selector - positioned in top right */}
       <div className="fixed top-4 right-4 z-50">
         <ThemeSelector />
@@ -132,7 +132,7 @@ const Index = () => {
         
         {/* Header text with formatting support */}
         {headerText && (
-          <div className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
+          <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
             {(() => {
               const headerItem = items.find(item => item.type === 'header_text');
               if (headerItem?.text_formatting) {
@@ -161,14 +161,14 @@ const Index = () => {
         )}
         
         {!headerText && (
-          <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
+          <p className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
             Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
           </p>
         )}
         
         {/* Author text with formatting support */}
         {authorText && (
-          <div className="text-xs sm:text-sm text-gray-500 mb-4">
+          <div className="text-xs sm:text-sm text-muted-foreground mb-4">
             {(() => {
               const authorItem = items.find(item => item.type === 'author');
               if (authorItem?.text_formatting) {
@@ -197,7 +197,7 @@ const Index = () => {
         )}
         
         {!authorText && (
-          <p className="text-xs sm:text-sm text-gray-500 mb-4">
+          <p className="text-xs sm:text-sm text-muted-foreground mb-4">
             Pozostałem - Dawid Kowalczyk
           </p>
         )}
@@ -266,7 +266,7 @@ const Index = () => {
                    />
                  ))}
                  {sectionItems.length === 0 && (
-                   <div className="text-center text-gray-500 py-4 sm:py-6 text-xs sm:text-sm">
+                   <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
                      Brak elementów w tej sekcji
                    </div>
                  )}
@@ -277,7 +277,7 @@ const Index = () => {
         
         
         {sections.length === 0 && (
-          <div className="text-center text-gray-500 py-8 sm:py-12">
+          <div className="text-center text-muted-foreground py-8 sm:py-12">
             <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50" />
             <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
             <p className="text-xs sm:text-sm px-4">
@@ -299,7 +299,7 @@ const Index = () => {
         {/* Footer Logo */}
         <div className="text-center py-6 sm:py-8">
           <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" />
-          <div className="text-base sm:text-lg font-bold text-gray-700 mt-2">PURE LIFE</div>
+          <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
         </div>
       </main>
     </div>
