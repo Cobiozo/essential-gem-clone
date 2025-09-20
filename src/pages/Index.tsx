@@ -29,6 +29,8 @@ interface CMSItem {
   media_url?: string | null;
   media_type?: string | null;
   media_alt_text?: string | null;
+  text_formatting?: any;
+  title_formatting?: any;
 }
 
 const Index = () => {
@@ -56,7 +58,7 @@ const Index = () => {
 
       const { data: itemsData } = await supabase
         .from('cms_items')
-        .select('*')
+        .select('*, text_formatting, title_formatting')
         .eq('is_active', true)
         .order('position');
 
@@ -110,12 +112,78 @@ const Index = () => {
         <div className="mb-6">
           <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
         </div>
-        <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
-          {headerText || "Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem."}
-        </p>
-        <p className="text-xs sm:text-sm text-gray-500 mb-4">
-          {authorText || "Pozostałem - Dawid Kowalczyk"}
-        </p>
+        
+        {/* Header text with formatting support */}
+        {headerText && (
+          <div className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
+            {(() => {
+              const headerItem = items.find(item => item.type === 'header_text');
+              if (headerItem?.text_formatting) {
+                return (
+                  <div
+                    style={{
+                      fontSize: `${headerItem.text_formatting.fontSize || 16}px`,
+                      fontWeight: headerItem.text_formatting.fontWeight || '400',
+                      fontStyle: headerItem.text_formatting.fontStyle || 'normal',
+                      textDecoration: headerItem.text_formatting.textDecoration || 'none',
+                      textAlign: headerItem.text_formatting.textAlign || 'center',
+                      color: headerItem.text_formatting.color || '#666666',
+                      backgroundColor: headerItem.text_formatting.backgroundColor === 'transparent' ? undefined : headerItem.text_formatting.backgroundColor,
+                      lineHeight: headerItem.text_formatting.lineHeight || 1.5,
+                      letterSpacing: `${headerItem.text_formatting.letterSpacing || 0}px`,
+                      fontFamily: headerItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
+                    }}
+                  >
+                    {headerText}
+                  </div>
+                );
+              }
+              return headerText;
+            })()}
+          </div>
+        )}
+        
+        {!headerText && (
+          <p className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed mb-6 px-2">
+            Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
+          </p>
+        )}
+        
+        {/* Author text with formatting support */}
+        {authorText && (
+          <div className="text-xs sm:text-sm text-gray-500 mb-4">
+            {(() => {
+              const authorItem = items.find(item => item.type === 'author');
+              if (authorItem?.text_formatting) {
+                return (
+                  <div
+                    style={{
+                      fontSize: `${authorItem.text_formatting.fontSize || 14}px`,
+                      fontWeight: authorItem.text_formatting.fontWeight || '400',
+                      fontStyle: authorItem.text_formatting.fontStyle || 'normal',
+                      textDecoration: authorItem.text_formatting.textDecoration || 'none',
+                      textAlign: authorItem.text_formatting.textAlign || 'center',
+                      color: authorItem.text_formatting.color || '#666666',
+                      backgroundColor: authorItem.text_formatting.backgroundColor === 'transparent' ? undefined : authorItem.text_formatting.backgroundColor,
+                      lineHeight: authorItem.text_formatting.lineHeight || 1.5,
+                      letterSpacing: `${authorItem.text_formatting.letterSpacing || 0}px`,
+                      fontFamily: authorItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
+                    }}
+                  >
+                    {authorText}
+                  </div>
+                );
+              }
+              return authorText;
+            })()}
+          </div>
+        )}
+        
+        {!authorText && (
+          <p className="text-xs sm:text-sm text-gray-500 mb-4">
+            Pozostałem - Dawid Kowalczyk
+          </p>
+        )}
         
         {/* Admin Controls */}
         {user && (
