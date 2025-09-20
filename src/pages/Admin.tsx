@@ -81,6 +81,9 @@ interface Page {
   position: number;
   created_at: string;
   updated_at: string;
+  visible_to_partners: boolean;
+  visible_to_clients: boolean;
+  visible_to_everyone: boolean;
 }
 
 const Admin = () => {
@@ -149,6 +152,9 @@ const Admin = () => {
     meta_description: '',
     is_published: false,
     position: 0,
+    visible_to_partners: false,
+    visible_to_clients: false,
+    visible_to_everyone: true,
   });
   const [activeTab, setActiveTab] = useState("content");
   const [editingItemTextMode, setEditingItemTextMode] = useState(false);
@@ -974,6 +980,9 @@ const Admin = () => {
           meta_description: newPage.meta_description,
           is_published: newPage.is_published,
           position: maxPosition + 1,
+          visible_to_partners: newPage.visible_to_partners,
+          visible_to_clients: newPage.visible_to_clients,
+          visible_to_everyone: newPage.visible_to_everyone,
         }])
         .select()
         .single();
@@ -989,6 +998,9 @@ const Admin = () => {
         meta_description: '',
         is_published: false,
         position: 0,
+        visible_to_partners: false,
+        visible_to_clients: false,
+        visible_to_everyone: true,
       });
       
       toast({
@@ -1000,6 +1012,35 @@ const Admin = () => {
       toast({
         title: "Błąd",
         description: "Nie udało się utworzyć strony.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updatePageVisibility = async (pageId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean }) => {
+    try {
+      const { error } = await supabase
+        .from('pages')
+        .update(visibilityUpdates)
+        .eq('id', pageId);
+
+      if (error) throw error;
+
+      setPages(pages.map(page => 
+        page.id === pageId 
+          ? { ...page, ...visibilityUpdates }
+          : page
+      ));
+
+      toast({
+        title: "Widoczność zaktualizowana",
+        description: "Ustawienia widoczności strony zostały zaktualizowane.",
+      });
+    } catch (error) {
+      console.error('Update page visibility error:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zaktualizować widoczności strony.",
         variant: "destructive",
       });
     }
@@ -1924,15 +1965,50 @@ const Admin = () => {
                       rows={6}
                     />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="page-published"
-                      checked={newPage.is_published}
-                      onCheckedChange={(checked) => setNewPage({...newPage, is_published: checked})}
-                    />
-                    <Label htmlFor="page-published">Opublikuj stronę</Label>
-                  </div>
-                  <Button onClick={createPage} disabled={!newPage.title}>
+                   <div className="flex items-center space-x-2">
+                     <Switch
+                       id="page-published"
+                       checked={newPage.is_published}
+                       onCheckedChange={(checked) => setNewPage({...newPage, is_published: checked})}
+                     />
+                     <Label htmlFor="page-published">Opublikuj stronę</Label>
+                   </div>
+                   <div className="space-y-3">
+                     <h4 className="text-sm font-medium">Widoczność strony dla ról:</h4>
+                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0">
+                       <div className="flex items-center space-x-2">
+                         <input
+                           type="checkbox"
+                           id="new-page-partners"
+                           checked={newPage.visible_to_partners}
+                           onChange={(e) => setNewPage({...newPage, visible_to_partners: e.target.checked})}
+                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                         />
+                         <Label htmlFor="new-page-partners">Partner</Label>
+                       </div>
+                       <div className="flex items-center space-x-2">
+                         <input
+                           type="checkbox"
+                           id="new-page-clients"
+                           checked={newPage.visible_to_clients}
+                           onChange={(e) => setNewPage({...newPage, visible_to_clients: e.target.checked})}
+                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                         />
+                         <Label htmlFor="new-page-clients">Klient</Label>
+                       </div>
+                       <div className="flex items-center space-x-2">
+                         <input
+                           type="checkbox"
+                           id="new-page-everyone"
+                           checked={newPage.visible_to_everyone}
+                           onChange={(e) => setNewPage({...newPage, visible_to_everyone: e.target.checked})}
+                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                         />
+                         <Label htmlFor="new-page-everyone">Dla wszystkich</Label>
+                       </div>
+                     </div>
+                   </div>
+                   <Button onClick={createPage} disabled={!newPage.title}>
                     <Plus className="w-4 h-4 mr-2" />
                     Dodaj stronę
                   </Button>
@@ -1995,12 +2071,44 @@ const Admin = () => {
                                     </Button>
                                   </div>
                                 )}
-                                {page.meta_description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {page.meta_description}
-                                  </p>
-                                )}
-                              </div>
+                                 {page.meta_description && (
+                                   <p className="text-sm text-muted-foreground line-clamp-2">
+                                     {page.meta_description}
+                                   </p>
+                                 )}
+                                 <div className="flex flex-wrap gap-2 mt-2">
+                                   <div className="flex items-center space-x-2">
+                                     <input
+                                       type="checkbox"
+                                       id={`partner-${page.id}`}
+                                       checked={page.visible_to_partners}
+                                       onChange={(e) => updatePageVisibility(page.id, { visible_to_partners: e.target.checked })}
+                                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                     />
+                                     <label htmlFor={`partner-${page.id}`} className="text-sm">Partner</label>
+                                   </div>
+                                   <div className="flex items-center space-x-2">
+                                     <input
+                                       type="checkbox"
+                                       id={`client-${page.id}`}
+                                       checked={page.visible_to_clients}
+                                       onChange={(e) => updatePageVisibility(page.id, { visible_to_clients: e.target.checked })}
+                                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                     />
+                                     <label htmlFor={`client-${page.id}`} className="text-sm">Klient</label>
+                                   </div>
+                                   <div className="flex items-center space-x-2">
+                                     <input
+                                       type="checkbox"
+                                       id={`everyone-${page.id}`}
+                                       checked={page.visible_to_everyone}
+                                       onChange={(e) => updatePageVisibility(page.id, { visible_to_everyone: e.target.checked })}
+                                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                     />
+                                     <label htmlFor={`everyone-${page.id}`} className="text-sm">Dla wszystkich</label>
+                                   </div>
+                                 </div>
+                               </div>
                               <div className="flex items-center space-x-2 ml-4">
                 <Button
                   variant="outline"
@@ -2722,36 +2830,72 @@ const Admin = () => {
                   </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-4 sm:space-y-0">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="edit-page-published"
-                      checked={editingPage.is_published}
-                      onCheckedChange={(checked) => setEditingPage({...editingPage, is_published: checked})}
-                    />
-                    <Label htmlFor="edit-page-published">Opublikuj stronę</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="edit-page-active"
-                      checked={editingPage.is_active}
-                      onCheckedChange={(checked) => setEditingPage({...editingPage, is_active: checked})}
-                    />
-                    <Label htmlFor="edit-page-active">Aktywna</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="edit-page-position" className="whitespace-nowrap">Pozycja:</Label>
-                    <Input
-                      id="edit-page-position"
-                      type="number"
-                      value={editingPage.position}
-                      onChange={(e) => setEditingPage({...editingPage, position: parseInt(e.target.value) || 0})}
-                      placeholder="0"
-                      className="w-20"
-                    />
-                  </div>
-                </div>
-                </TabsContent>
+                 <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-4 sm:space-y-0">
+                   <div className="flex items-center space-x-2">
+                     <Switch
+                       id="edit-page-published"
+                       checked={editingPage.is_published}
+                       onCheckedChange={(checked) => setEditingPage({...editingPage, is_published: checked})}
+                     />
+                     <Label htmlFor="edit-page-published">Opublikuj stronę</Label>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <Switch
+                       id="edit-page-active"
+                       checked={editingPage.is_active}
+                       onCheckedChange={(checked) => setEditingPage({...editingPage, is_active: checked})}
+                     />
+                     <Label htmlFor="edit-page-active">Aktywna</Label>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <Label htmlFor="edit-page-position" className="whitespace-nowrap">Pozycja:</Label>
+                     <Input
+                       id="edit-page-position"
+                       type="number"
+                       value={editingPage.position}
+                       onChange={(e) => setEditingPage({...editingPage, position: parseInt(e.target.value) || 0})}
+                       placeholder="0"
+                       className="w-20"
+                     />
+                   </div>
+                 </div>
+                 
+                 <div className="space-y-3">
+                   <h4 className="text-sm font-medium">Widoczność strony dla ról:</h4>
+                   <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0">
+                     <div className="flex items-center space-x-2">
+                       <input
+                         type="checkbox"
+                         id="edit-page-partners"
+                         checked={editingPage.visible_to_partners}
+                         onChange={(e) => setEditingPage({...editingPage, visible_to_partners: e.target.checked})}
+                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                       />
+                       <Label htmlFor="edit-page-partners">Partner</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <input
+                         type="checkbox"
+                         id="edit-page-clients"
+                         checked={editingPage.visible_to_clients}
+                         onChange={(e) => setEditingPage({...editingPage, visible_to_clients: e.target.checked})}
+                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                       />
+                       <Label htmlFor="edit-page-clients">Klient</Label>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <input
+                         type="checkbox"
+                         id="edit-page-everyone"
+                         checked={editingPage.visible_to_everyone}
+                         onChange={(e) => setEditingPage({...editingPage, visible_to_everyone: e.target.checked})}
+                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                       />
+                       <Label htmlFor="edit-page-everyone">Dla wszystkich</Label>
+                     </div>
+                   </div>
+                 </div>
+                 </TabsContent>
                 
                 <TabsContent value="cms" className="space-y-6 pb-6">
                   {/* CMS Content Management */}
@@ -2962,6 +3106,9 @@ const Admin = () => {
                 is_published: editingPage.is_published,
                 is_active: editingPage.is_active,
                 position: editingPage.position,
+                visible_to_partners: editingPage.visible_to_partners,
+                visible_to_clients: editingPage.visible_to_clients,
+                visible_to_everyone: editingPage.visible_to_everyone,
               })}>
                 <Save className="w-4 h-4 mr-2" />
                 Zapisz zmiany
