@@ -170,7 +170,7 @@ const Admin = () => {
     url: '',
     icon: '',
     media_url: '',
-    media_type: '' as 'image' | 'video' | '',
+    media_type: '' as 'image' | 'video' | 'document' | 'audio' | 'other' | '',
     media_alt_text: '',
   });
   const [newPageSection, setNewPageSection] = useState({
@@ -192,7 +192,7 @@ const Admin = () => {
     url: '',
     icon: '',
     media_url: '',
-    media_type: '' as 'image' | 'video' | '',
+    media_type: '' as 'image' | 'video' | 'document' | 'audio' | 'other' | '',
     media_alt_text: '',
   });
   const [newSection, setNewSection] = useState({
@@ -1139,7 +1139,7 @@ const Admin = () => {
         url: '', 
         icon: '',
         media_url: '',
-        media_type: '' as 'image' | 'video' | '',
+        media_type: '' as 'image' | 'video' | 'document' | 'audio' | 'other' | '',
         media_alt_text: '',
       });
       setNewItemTitleStyle(null);
@@ -1960,16 +1960,22 @@ const Admin = () => {
                                   <SelectTrigger className="mt-1 h-10">
                                     <SelectValue />
                                   </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="button">Przycisk</SelectItem>
-                                    <SelectItem value="info_text">Informacja</SelectItem>
-                                    <SelectItem value="tip">Wskazówka</SelectItem>
-                                    <SelectItem value="description">Opis</SelectItem>
-                                    <SelectItem value="contact_info">Info kontaktowe</SelectItem>
-                                    <SelectItem value="support_info">Info wsparcia</SelectItem>
-                                    <SelectItem value="header_text">Tekst nagłówka</SelectItem>
-                                    <SelectItem value="author">Autor</SelectItem>
-                                  </SelectContent>
+                                   <SelectContent>
+                                     <SelectItem value="button">Przycisk</SelectItem>
+                                     <SelectItem value="info_text">Informacja</SelectItem>
+                                     <SelectItem value="tip">Wskazówka</SelectItem>
+                                     <SelectItem value="description">Opis</SelectItem>
+                                     <SelectItem value="contact_info">Info kontaktowe</SelectItem>
+                                     <SelectItem value="support_info">Info wsparcia</SelectItem>
+                                     <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                                     <SelectItem value="author">Autor</SelectItem>
+                                     <SelectItem value="image_gallery">Galeria zdjęć</SelectItem>
+                                     <SelectItem value="video_gallery">Galeria wideo</SelectItem>
+                                     <SelectItem value="document">Dokument</SelectItem>
+                                     <SelectItem value="audio">Audio</SelectItem>
+                                     <SelectItem value="file_download">Plik do pobrania</SelectItem>
+                                     <SelectItem value="link_external">Link zewnętrzny</SelectItem>
+                                   </SelectContent>
                                 </Select>
                               </div>
                                <div>
@@ -2069,7 +2075,7 @@ const Admin = () => {
                                       media_alt_text: altText || ''
                                     })}
                                     currentMediaUrl={newItem.media_url}
-                                    currentMediaType={newItem.media_type as 'image' | 'video' | undefined}
+                                    currentMediaType={newItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
                                     currentAltText={newItem.media_alt_text}
                                   />
                                 </div>
@@ -3044,7 +3050,7 @@ const Admin = () => {
                       media_alt_text: altText || ''
                     })}
                     currentMediaUrl={editingItem.media_url || ''}
-                    currentMediaType={editingItem.media_type as 'image' | 'video' | undefined}
+                    currentMediaType={editingItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
                     currentAltText={editingItem.media_alt_text || ''}
                   />
                 </div>

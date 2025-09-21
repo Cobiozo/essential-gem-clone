@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface SecureMediaProps {
   mediaUrl: string;
-  mediaType: 'image' | 'video';
+  mediaType: 'image' | 'video' | 'document' | 'audio' | 'other';
   altText?: string;
   className?: string;
 }
@@ -101,6 +101,47 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       >
         Twoja przeglądarka nie obsługuje odtwarzania wideo.
       </video>
+    );
+  }
+
+  if (mediaType === 'audio') {
+    return (
+      <div className={`w-full p-4 border rounded-lg bg-gray-50 ${className || ''}`}>
+        <audio
+          {...securityProps}
+          src={signedUrl}
+          controls
+          controlsList="nodownload"
+          className="w-full"
+          preload="metadata"
+        >
+          Twoja przeglądarka nie obsługuje odtwarzania audio.
+        </audio>
+        <p className="text-sm text-gray-600 mt-2">{altText || 'Plik audio'}</p>
+      </div>
+    );
+  }
+
+  if (mediaType === 'document' || mediaType === 'other') {
+    const fileName = mediaUrl.split('/').pop() || 'Dokument';
+    const extension = fileName.split('.').pop()?.toUpperCase() || '';
+    
+    return (
+      <div className={`w-full p-4 border rounded-lg bg-gray-50 flex items-center gap-3 ${className || ''}`}>
+        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+          <span className="text-blue-600 font-semibold text-xs">{extension}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">{altText || fileName}</p>
+          <p className="text-xs text-gray-500">Dokument • {extension}</p>
+        </div>
+        <button
+          onClick={() => window.open(signedUrl, '_blank')}
+          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+        >
+          Otwórz
+        </button>
+      </div>
     );
   }
 

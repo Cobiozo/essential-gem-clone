@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Edit3, Save, X, Plus, Palette, Type, Image, Video, Link2, Eye, EyeOff } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
+import { SecureMedia } from '@/components/SecureMedia';
 
 interface Item {
   id?: string;
@@ -24,7 +25,7 @@ interface Item {
   position: number;
   is_active: boolean;
   media_url?: string | null;
-  media_type?: 'image' | 'video' | '' | null;
+  media_type?: 'image' | 'video' | 'document' | 'audio' | 'other' | '' | null;
   media_alt_text?: string | null;
   background_color?: string;
   text_color?: string;
@@ -283,7 +284,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           <MediaUpload
             onMediaUploaded={handleMediaUpload}
             currentMediaUrl={editedItem.media_url || undefined}
-            currentMediaType={(editedItem.media_type === 'image' || editedItem.media_type === 'video') ? editedItem.media_type : undefined}
+            currentMediaType={(editedItem.media_type === 'image' || editedItem.media_type === 'video' || editedItem.media_type === 'document' || editedItem.media_type === 'audio' || editedItem.media_type === 'other') ? editedItem.media_type : undefined}
             currentAltText={editedItem.media_alt_text || undefined}
           />
 
@@ -486,19 +487,12 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
             >
               {editedItem.media_url && (
                 <div className="mb-3">
-                  {editedItem.media_type === 'image' ? (
-                    <img 
-                      src={editedItem.media_url} 
-                      alt={editedItem.media_alt_text || ''} 
-                      className="w-full h-32 object-cover rounded"
-                    />
-                  ) : (
-                    <video 
-                      src={editedItem.media_url} 
-                      className="w-full h-32 object-cover rounded"
-                      controls
-                    />
-                  )}
+                  <SecureMedia
+                    mediaUrl={editedItem.media_url}
+                    mediaType={editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+                    altText={editedItem.media_alt_text || ''}
+                    className="w-full max-h-32 object-cover"
+                  />
                 </div>
               )}
               <h4 className="font-semibold mb-1" style={{ fontSize: `${editedItem.font_size}px` }}>

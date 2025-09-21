@@ -4,15 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, Image, Video, Loader2 } from 'lucide-react';
+import { Upload, X, Image, Video, Loader2, FileText, Music, File } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SecureMedia } from './SecureMedia';
 
 interface MediaUploadProps {
-  onMediaUploaded: (url: string, type: 'image' | 'video', altText?: string) => void;
+  onMediaUploaded: (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string) => void;
   currentMediaUrl?: string;
-  currentMediaType?: 'image' | 'video';
+  currentMediaType?: 'image' | 'video' | 'document' | 'audio' | 'other';
   currentAltText?: string;
 }
 
@@ -31,21 +31,42 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    const isDocument = file.type === 'application/pdf' || 
+                     file.type === 'application/msword' || 
+                     file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                     file.type === 'application/vnd.ms-excel' ||
+                     file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                     file.type === 'application/vnd.ms-powerpoint' ||
+                     file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+                     file.type === 'text/plain';
 
-    if (!isImage && !isVideo) {
-      toast({
-        title: "Nieprawidłowy format",
-        description: "Dozwolone są tylko pliki graficzne i wideo.",
-        variant: "destructive",
-      });
-      return;
+    let mediaType: 'image' | 'video' | 'document' | 'audio' | 'other';
+    let bucket: string;
+
+    if (isImage) {
+      mediaType = 'image';
+      bucket = 'cms-images';
+    } else if (isVideo) {
+      mediaType = 'video';
+      bucket = 'cms-videos';
+    } else if (isAudio) {
+      mediaType = 'audio';
+      bucket = 'cms-files';
+    } else if (isDocument) {
+      mediaType = 'document';
+      bucket = 'cms-files';
+    } else {
+      mediaType = 'other';
+      bucket = 'cms-files';
     }
 
-    // Check file size (max 20MB)
-    if (file.size > 20 * 1024 * 1024) {
+    // Check file size (max 50MB for documents, 20MB for media)
+    const maxSize = (isDocument || mediaType === 'other') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
+    if (file.size > maxSize) {
       toast({
         title: "Plik za duży",
-        description: "Maksymalny rozmiar pliku to 20MB.",
+        description: `Maksymalny rozmiar pliku to ${maxSize / 1024 / 1024}MB.`,
         variant: "destructive",
       });
       return;
@@ -54,7 +75,6 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     setUploading(true);
 
     try {
-      const bucket = isImage ? 'cms-images' : 'cms-videos';
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = fileName;
@@ -71,12 +91,19 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         .from(bucket)
         .getPublicUrl(filePath);
 
-      const mediaType = isImage ? 'image' : 'video';
       onMediaUploaded(data.publicUrl, mediaType, altText);
+
+      const typeNames = {
+        image: 'Zdjęcie',
+        video: 'Film',
+        document: 'Dokument',
+        audio: 'Plik audio',
+        other: 'Plik'
+      };
 
       toast({
         title: "Sukces",
-        description: `${isImage ? 'Zdjęcie' : 'Film'} zostało przesłane.`,
+        description: `${typeNames[mediaType]} zostało przesłane.`,
       });
     } catch (error) {
       console.error('Error uploading media:', error);
@@ -110,13 +137,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           <Input
             id="media-upload"
             type="file"
-            accept="image/*,video/*"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
             onChange={handleFileSelect}
             disabled={uploading}
             className="cursor-pointer"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI (max 20MB)
+            Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max 50MB dla dokumentów, 20MB dla mediów)
           </p>
         </div>
       </div>
@@ -137,10 +164,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               <Badge variant="outline" className="flex items-center gap-1">
                 {currentMediaType === 'image' ? (
                   <Image className="w-3 h-3" />
-                ) : (
+                ) : currentMediaType === 'video' ? (
                   <Video className="w-3 h-3" />
+                ) : currentMediaType === 'audio' ? (
+                  <Music className="w-3 h-3" />
+                ) : (
+                  <FileText className="w-3 h-3" />
                 )}
-                {currentMediaType === 'image' ? 'Zdjęcie' : 'Film'}
+                {currentMediaType === 'image' ? 'Zdjęcie' : 
+                 currentMediaType === 'video' ? 'Film' :
+                 currentMediaType === 'audio' ? 'Audio' :
+                 currentMediaType === 'document' ? 'Dokument' : 'Plik'}
               </Badge>
               <Button
                 variant="ghost"
@@ -162,7 +196,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               
               <div>
                 <Label htmlFor="alt-text" className="text-xs">
-                  {currentMediaType === 'image' ? 'Tekst alternatywny' : 'Opis filmu'}
+                  {currentMediaType === 'image' ? 'Tekst alternatywny' : 
+                   currentMediaType === 'video' ? 'Opis filmu' :
+                   currentMediaType === 'audio' ? 'Opis audio' : 'Opis pliku'}
                 </Label>
                 <Input
                   id="alt-text"
@@ -171,7 +207,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                     setAltText(e.target.value);
                     onMediaUploaded(currentMediaUrl, currentMediaType, e.target.value);
                   }}
-                  placeholder={currentMediaType === 'image' ? 'Opisz zdjęcie...' : 'Opisz film...'}
+                  placeholder={currentMediaType === 'image' ? 'Opisz zdjęcie...' : 
+                              currentMediaType === 'video' ? 'Opisz film...' :
+                              currentMediaType === 'audio' ? 'Opisz plik audio...' : 'Opisz plik...'}
                   className="mt-1"
                 />
               </div>

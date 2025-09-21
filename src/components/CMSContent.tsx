@@ -37,7 +37,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
     return (
       <SecureMedia
         mediaUrl={item.media_url}
-        mediaType={item.media_type as 'image' | 'video'}
+        mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
         altText={item.media_alt_text || item.title || 'Zabezpieczone media'}
         className="w-full max-w-md mx-auto shadow-lg mb-4"
       />
