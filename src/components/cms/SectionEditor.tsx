@@ -297,7 +297,28 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   ];
 
   const handleSave = () => {
-    onSave(editedSection);
+    // Clean up numeric fields to ensure they're valid for database
+    const cleanedSection = {
+      ...editedSection,
+      // Ensure numeric fields are properly converted or set to null
+      hover_opacity: editedSection.hover_opacity !== null && editedSection.hover_opacity !== undefined 
+        ? Math.round(Number(editedSection.hover_opacity)) 
+        : null,
+      hover_scale: editedSection.hover_scale !== null && editedSection.hover_scale !== undefined 
+        ? Number(editedSection.hover_scale) 
+        : null,
+      hover_transition_duration: editedSection.hover_transition_duration !== null && editedSection.hover_transition_duration !== undefined 
+        ? Math.round(Number(editedSection.hover_transition_duration)) 
+        : null,
+      // Clean empty strings to null for text fields
+      hover_background_color: editedSection.hover_background_color?.trim() || null,
+      hover_background_gradient: editedSection.hover_background_gradient?.trim() || null,
+      hover_text_color: editedSection.hover_text_color?.trim() || null,
+      hover_border_color: editedSection.hover_border_color?.trim() || null,
+      hover_box_shadow: editedSection.hover_box_shadow?.trim() || null,
+    };
+    
+    onSave(cleanedSection);
     setIsOpen(false);
   };
 
