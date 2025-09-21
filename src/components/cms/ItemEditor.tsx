@@ -9,10 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Edit3, Save, X, Plus, Palette, Type, Image, Video, Link2, Eye, EyeOff } from 'lucide-react';
+import { Edit3, Save, X, Plus, Palette, Type, Image, Video, Link2, Eye, EyeOff, GripVertical, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
+
+interface ContentCell {
+  id: string;
+  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external';
+  content: string;
+  url?: string;
+  position: number;
+  is_active: boolean;
+  formatting?: any;
+}
 
 interface Item {
   id?: string;
@@ -34,6 +44,7 @@ interface Item {
   border_radius?: number;
   padding?: number;
   style_class?: string;
+  cells?: ContentCell[];
 }
 
 interface ItemEditorProps {
@@ -72,7 +83,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       font_weight: '400',
       border_radius: 8,
       padding: 12,
-      style_class: ''
+      style_class: '',
+      cells: []
     }
   );
 
@@ -84,7 +96,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     { value: 'text', label: 'Tekst', icon: '📝' },
     { value: 'media', label: 'Media', icon: '🖼️' },
     { value: 'card', label: 'Karta', icon: '🃏' },
-    { value: 'badge', label: 'Odznaka', icon: '🏷️' }
+    { value: 'badge', label: 'Odznaka', icon: '🏷️' },
+    { value: 'multi_cell', label: 'Wiele komórek', icon: '📊' }
   ];
 
   const fontWeights = [
@@ -128,10 +141,65 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       font_weight: '400',
       border_radius: 8,
       padding: 12,
-      style_class: ''
+      style_class: '',
+      cells: []
     });
     setIsOpen(false);
     onCancel?.();
+  };
+
+  // Cell management functions
+  const addCell = (type: ContentCell['type']) => {
+    const newCell: ContentCell = {
+      id: crypto.randomUUID(),
+      type,
+      content: '',
+      url: type.includes('button') ? '' : undefined,
+      position: (editedItem.cells?.length || 0) + 1,
+      is_active: true,
+      formatting: null
+    };
+    
+    setEditedItem({
+      ...editedItem,
+      cells: [...(editedItem.cells || []), newCell]
+    });
+  };
+
+  const updateCell = (cellId: string, updates: Partial<ContentCell>) => {
+    setEditedItem({
+      ...editedItem,
+      cells: editedItem.cells?.map(cell => 
+        cell.id === cellId ? { ...cell, ...updates } : cell
+      ) || []
+    });
+  };
+
+  const deleteCell = (cellId: string) => {
+    setEditedItem({
+      ...editedItem,
+      cells: editedItem.cells?.filter(cell => cell.id !== cellId) || []
+    });
+  };
+
+  const moveCellUp = (cellId: string) => {
+    const cells = [...(editedItem.cells || [])];
+    const index = cells.findIndex(cell => cell.id === cellId);
+    if (index > 0) {
+      [cells[index], cells[index - 1]] = [cells[index - 1], cells[index]];
+      cells.forEach((cell, i) => cell.position = i + 1);
+      setEditedItem({ ...editedItem, cells });
+    }
+  };
+
+  const moveCellDown = (cellId: string) => {
+    const cells = [...(editedItem.cells || [])];
+    const index = cells.findIndex(cell => cell.id === cellId);
+    if (index < cells.length - 1) {
+      [cells[index], cells[index + 1]] = [cells[index + 1], cells[index]];
+      cells.forEach((cell, i) => cell.position = i + 1);
+      setEditedItem({ ...editedItem, cells });
+    }
   };
 
   const addEmojiToTitle = (emoji: string) => {
@@ -272,6 +340,114 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Multi-Cell Content Management */}
+      {editedItem.type === 'multi_cell' && (
+        <div className="space-y-4 border-t pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Plus className="w-4 h-4" />
+              <h4 className="font-medium">Komórki treściowe</h4>
+            </div>
+            <div className="flex gap-2">
+              <Select onValueChange={(value) => addCell(value as ContentCell['type'])}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Dodaj komórkę..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="header">📝 Nagłówek</SelectItem>
+                  <SelectItem value="description">📄 Opis</SelectItem>
+                  <SelectItem value="list_item">• Element listy</SelectItem>
+                  <SelectItem value="button_functional">🔘 Przycisk funkcyjny</SelectItem>
+                  <SelectItem value="button_anchor">⚓ Przycisk kotwica</SelectItem>
+                  <SelectItem value="button_external">🔗 Przycisk zewnętrzny</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {editedItem.cells?.map((cell, index) => (
+              <div key={cell.id} className="border rounded-lg p-4 bg-muted/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <GripVertical className="w-4 h-4 text-muted-foreground" />
+                    <Badge variant="outline">
+                      {cell.type === 'header' && '📝 Nagłówek'}
+                      {cell.type === 'description' && '📄 Opis'}
+                      {cell.type === 'list_item' && '• Lista'}
+                      {cell.type === 'button_functional' && '🔘 Funkcyjny'}
+                      {cell.type === 'button_anchor' && '⚓ Kotwica'}
+                      {cell.type === 'button_external' && '🔗 Zewnętrzny'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => moveCellUp(cell.id)}
+                      disabled={index === 0}
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => moveCellDown(cell.id)}
+                      disabled={index === (editedItem.cells?.length || 0) - 1}
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                    </Button>
+                    <Switch
+                      checked={cell.is_active}
+                      onCheckedChange={(checked) => updateCell(cell.id, { is_active: checked })}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteCell(cell.id)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Input
+                    placeholder={
+                      cell.type === 'header' ? 'Tytuł nagłówka...' :
+                      cell.type === 'description' ? 'Tekst opisu...' :
+                      cell.type === 'list_item' ? 'Element listy...' :
+                      'Nazwa przycisku...'
+                    }
+                    value={cell.content}
+                    onChange={(e) => updateCell(cell.id, { content: e.target.value })}
+                  />
+                  
+                  {cell.type.includes('button') && (
+                    <Input
+                      placeholder={
+                        cell.type === 'button_anchor' ? '#sekcja-id lub nazwa sekcji' :
+                        'https://example.com lub link'
+                      }
+                      value={cell.url || ''}
+                      onChange={(e) => updateCell(cell.id, { url: e.target.value })}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {(!editedItem.cells || editedItem.cells.length === 0) && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>Brak komórek. Użyj menu powyżej, aby dodać pierwszą komórkę.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Media Upload */}
       {(editedItem.type === 'media' || editedItem.type === 'card') && (

@@ -88,6 +88,16 @@ interface CMSSection {
   overflow_behavior?: string | null;
 }
 
+interface ContentCell {
+  id: string;
+  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external';
+  content: string;
+  url?: string;
+  position: number;
+  is_active: boolean;
+  formatting?: any;
+}
+
 interface CMSItem {
   id: string;
   section_id: string;
@@ -105,6 +115,7 @@ interface CMSItem {
   media_alt_text?: string | null;
   text_formatting?: any;
   title_formatting?: any;
+  cells?: ContentCell[];
 }
 
 interface UserProfile {
@@ -876,7 +887,10 @@ const Admin = () => {
       if (itemsError) throw itemsError;
 
       setSections(sectionsData || []);
-      setItems(itemsData || []);
+      setItems((itemsData || []).map((item: any) => ({
+        ...item,
+        cells: Array.isArray(item.cells) ? item.cells : (item.cells ? JSON.parse(JSON.stringify(item.cells)) : [])
+      })));
     } catch (error) {
       console.error('Error fetching CMS data:', error);
       toast({
@@ -1167,7 +1181,10 @@ const Admin = () => {
       
       const { error } = await supabase
         .from('cms_items')
-        .update(updates)
+        .update({
+          ...updates,
+          cells: updates.cells ? JSON.stringify(updates.cells) : undefined
+        })
         .eq('id', itemId);
 
       if (error) throw error;

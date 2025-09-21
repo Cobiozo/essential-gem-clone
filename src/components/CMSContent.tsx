@@ -5,6 +5,16 @@ import { FormattedText } from './FormattedText';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+interface ContentCell {
+  id: string;
+  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external';
+  content: string;
+  url?: string;
+  position: number;
+  is_active: boolean;
+  formatting?: any;
+}
+
 interface CMSItem {
   id: string;
   type: string;
@@ -17,6 +27,7 @@ interface CMSItem {
   media_alt_text?: string | null;
   text_formatting?: any;
   title_formatting?: any;
+  cells?: ContentCell[];
 }
 
 interface CMSContentProps {
@@ -155,6 +166,81 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
             className="text-xs sm:text-sm lg:text-base text-blue-700 leading-relaxed"
             as="p"
           />
+        </div>
+      );
+
+    case 'multi_cell':
+      if (!item.cells || item.cells.length === 0) {
+        return <div className="text-muted-foreground text-sm">Brak aktywnych komórek</div>;
+      }
+
+      const activeCells = item.cells
+        .filter(cell => cell.is_active)
+        .sort((a, b) => a.position - b.position);
+
+      const handleCellClick = (cell: ContentCell) => {
+        if (cell.type.includes('button') && cell.url) {
+          if (cell.type === 'button_anchor' && onClick) {
+            // Handle anchor links (internal page sections)
+            onClick(cell.content, cell.url);
+          } else if (cell.type === 'button_external') {
+            // Handle external links
+            window.open(cell.url, '_blank');
+          } else if (cell.type === 'button_functional' && onClick) {
+            // Handle functional buttons
+            onClick(cell.content, cell.url);
+          }
+        }
+      };
+
+      return (
+        <div className="space-y-3">
+          {activeCells.map((cell) => {
+            switch (cell.type) {
+              case 'header':
+                return (
+                  <h3 key={cell.id} className="text-lg font-semibold text-foreground leading-tight">
+                    {cell.content}
+                  </h3>
+                );
+              
+              case 'description':
+                return (
+                  <p key={cell.id} className="text-sm text-muted-foreground leading-relaxed">
+                    {cell.content}
+                  </p>
+                );
+              
+              case 'list_item':
+                return (
+                  <div key={cell.id} className="flex items-start space-x-2">
+                    <span className="text-primary mt-1">•</span>
+                    <span className="text-sm leading-relaxed">{cell.content}</span>
+                  </div>
+                );
+              
+              case 'button_functional':
+              case 'button_anchor':
+              case 'button_external':
+                return (
+                  <Button
+                    key={cell.id}
+                    onClick={() => handleCellClick(cell)}
+                    variant={cell.type === 'button_external' ? 'outline' : 'default'}
+                    size="sm"
+                    className="w-full justify-start"
+                  >
+                    {cell.type === 'button_external' && '🔗 '}
+                    {cell.type === 'button_anchor' && '⚓ '}
+                    {cell.type === 'button_functional' && '🔘 '}
+                    {cell.content}
+                  </Button>
+                );
+              
+              default:
+                return null;
+            }
+          })}
         </div>
       );
 
