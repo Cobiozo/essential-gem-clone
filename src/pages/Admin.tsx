@@ -111,6 +111,8 @@ interface UserProfile {
   user_id: string;
   email: string;
   role: string;
+  first_name?: string;
+  last_name?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -2644,7 +2646,14 @@ const Admin = () => {
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium text-sm">{userProfile.email}</span>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">{userProfile.email}</span>
+                                    {userProfile.first_name && userProfile.last_name && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {userProfile.first_name} {userProfile.last_name}
+                                      </span>
+                                    )}
+                                  </div>
                                   <Badge variant={
                                     userProfile.role === 'admin' ? 'default' : 
                                     userProfile.role === 'partner' ? 'outline' : 

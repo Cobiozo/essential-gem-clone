@@ -354,8 +354,10 @@ export type Database = {
           created_at: string
           email: string
           eq_id: string | null
+          first_name: string | null
           id: string
           is_active: boolean
+          last_name: string | null
           role: string
           updated_at: string
           user_id: string
@@ -364,8 +366,10 @@ export type Database = {
           created_at?: string
           email: string
           eq_id?: string | null
+          first_name?: string | null
           id?: string
           is_active?: boolean
+          last_name?: string | null
           role?: string
           updated_at?: string
           user_id: string
@@ -374,8 +378,10 @@ export type Database = {
           created_at?: string
           email?: string
           eq_id?: string | null
+          first_name?: string | null
           id?: string
           is_active?: boolean
+          last_name?: string | null
           role?: string
           updated_at?: string
           user_id?: string

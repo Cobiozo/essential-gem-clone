@@ -55,6 +55,8 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [eqId, setEqId] = useState('');
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
@@ -174,7 +176,9 @@ const Auth = () => {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             eq_id: eqId.trim(),
-            role: roleMapping[role] || 'client'
+            role: roleMapping[role] || 'client',
+            first_name: firstName.trim(),
+            last_name: lastName.trim()
           }
         }
       });
@@ -196,6 +200,8 @@ const Auth = () => {
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+        setFirstName('');
+        setLastName('');
         setEqId('');
         setRole('');
         setError('');
@@ -354,6 +360,33 @@ const Auth = () => {
                       required
                       disabled={loading}
                     />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="first-name">Imię *</Label>
+                      <Input
+                        id="first-name"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Wprowadź imię"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="last-name">Nazwisko *</Label>
+                      <Input
+                        id="last-name"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Wprowadź nazwisko"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
