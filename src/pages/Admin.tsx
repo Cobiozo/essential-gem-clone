@@ -2687,7 +2687,7 @@ const Admin = () => {
                                    className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
                                  >
                                    <Key className="w-3 h-3 mr-1" />
-                                   {passwordLoading ? 'Generowanie...' : 'Nowe hasło'}
+                                   {passwordLoading ? 'Generowanie...' : 'Resetuj hasło'}
                                  </Button>
                                  
                                  {userProfile.user_id !== user?.id && (
