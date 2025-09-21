@@ -719,6 +719,7 @@ const Admin = () => {
         Email: user.email,
         'Imię': user.first_name || '',
         'Nazwisko': user.last_name || '',
+        'EQ ID': user.eq_id || '',
         Rola: getRoleDisplayName(user.role),
         Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
         'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
@@ -2681,16 +2682,21 @@ const Admin = () => {
                                   )}
                                 </div>
                                <p className="text-xs text-muted-foreground">
-                                 Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
-                               </p>
-                               {userProfile.email_confirmed_at && (
-                                 <p className="text-xs text-muted-foreground">
-                                   Email potwierdzony: {new Date(userProfile.email_confirmed_at).toLocaleDateString('pl-PL')}
-                                 </p>
-                               )}
-                               <p className="text-xs text-muted-foreground">
-                                 ID: {userProfile.user_id.slice(0, 8)}...
-                               </p>
+                                  Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
+                                </p>
+                                {userProfile.eq_id && (
+                                  <p className="text-xs text-muted-foreground">
+                                    EQ ID: {userProfile.eq_id}
+                                  </p>
+                                )}
+                                {userProfile.email_confirmed_at && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Email potwierdzony: {new Date(userProfile.email_confirmed_at).toLocaleDateString('pl-PL')}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  ID: {userProfile.user_id.slice(0, 8)}...
+                                </p>
                              </div>
                             
                               <div className="flex flex-col sm:flex-row gap-2">
