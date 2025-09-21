@@ -428,8 +428,10 @@ export type Database = {
           created_at: string
           email: string
           email_confirmed_at: string
+          first_name: string
           id: string
           is_active: boolean
+          last_name: string
           role: string
           updated_at: string
           user_id: string

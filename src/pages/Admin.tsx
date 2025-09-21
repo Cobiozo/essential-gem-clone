@@ -716,6 +716,8 @@ const Admin = () => {
     const worksheet = XLSX.utils.json_to_sheet(
       users.map(user => ({
         Email: user.email,
+        'Imię': user.first_name || '',
+        'Nazwisko': user.last_name || '',
         Rola: getRoleDisplayName(user.role),
         Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
         'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
