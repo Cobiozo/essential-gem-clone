@@ -1986,157 +1986,61 @@ const Admin = () => {
                           <Trash2 className="w-4 h-4 sm:mr-2" />
                           <span className="hidden sm:inline">Usuń</span>
                         </Button>
-                        <Dialog>
-                          <DialogTrigger asChild>
+                        <ItemEditor
+                          sectionId={section.id}
+                          onSave={async (newItem) => {
+                            try {
+                              const { data, error } = await supabase
+                                .from('cms_items')
+                                .insert([{
+                                  type: newItem.type,
+                                  title: newItem.title,
+                                  description: newItem.description,
+                                  url: newItem.url,
+                                  icon: newItem.icon,
+                                  section_id: section.id,
+                                  position: (items.filter(i => i.section_id === section.id).length || 0) + 1,
+                                  is_active: newItem.is_active,
+                                  media_url: newItem.media_url,
+                                  media_type: newItem.media_type,
+                                  media_alt_text: newItem.media_alt_text,
+                                  cells: convertCellsToDatabase(newItem.cells || [])
+                                }])
+                                .select()
+                                .single();
+
+                              if (error) {
+                                console.error('Error creating item:', error);
+                                toast({
+                                  title: "Błąd",
+                                  description: "Nie udało się dodać elementu",
+                                  variant: "destructive",
+                                });
+                              } else {
+                                setItems([...items, convertDatabaseItemToCMSItem(data)]);
+                                toast({
+                                  title: "Element dodany",
+                                  description: "Element został pomyślnie dodany do sekcji",
+                                });
+                              }
+                            } catch (error) {
+                              console.error('Error creating item:', error);
+                              toast({
+                                title: "Błąd",
+                                description: "Nie udało się dodać elementu",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                          isNew={true}
+                          trigger={
                             <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                               <Plus className="w-4 h-4 sm:mr-2" />
                               <span className="hidden sm:inline">{t('admin.addItem')}</span>
                               <span className="sm:hidden">{t('admin.addItem')}</span>
                             </Button>
-                          </DialogTrigger>
-                          <DialogContent className="w-[95vw] max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                              <DialogTitle className="text-base sm:text-lg">{t('admin.addItem')}</DialogTitle>
-                              <DialogDescription className="text-sm">
-                                Dodaj nowy element do sekcji "{section.title}"
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-2">
-                              <div>
-                                <Label htmlFor="type" className="text-sm font-medium">{t('admin.itemType')}</Label>
-                                <Select value={newItem.type} onValueChange={(value) => setNewItem({...newItem, type: value})}>
-                                  <SelectTrigger className="mt-1 h-10">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                   <SelectContent>
-                                     <SelectItem value="button">Przycisk</SelectItem>
-                                     <SelectItem value="info_text">Informacja</SelectItem>
-                                     <SelectItem value="tip">Wskazówka</SelectItem>
-                                     <SelectItem value="description">Opis</SelectItem>
-                                     <SelectItem value="contact_info">Info kontaktowe</SelectItem>
-                                     <SelectItem value="support_info">Info wsparcia</SelectItem>
-                                     <SelectItem value="header_text">Tekst nagłówka</SelectItem>
-                                     <SelectItem value="author">Autor</SelectItem>
-                                     <SelectItem value="image_gallery">Galeria zdjęć</SelectItem>
-                                     <SelectItem value="video_gallery">Galeria wideo</SelectItem>
-                                     <SelectItem value="document">Dokument</SelectItem>
-                                     <SelectItem value="audio">Audio</SelectItem>
-                                     <SelectItem value="file_download">Plik do pobrania</SelectItem>
-                                     <SelectItem value="link_external">Link zewnętrzny</SelectItem>
-                                   </SelectContent>
-                                </Select>
-                              </div>
-                               <div>
-                                 <div className="flex items-center justify-between mb-2">
-                                   <Label htmlFor="title" className="text-sm font-medium">{t('admin.itemTitle')}</Label>
-                                   <Button
-                                     variant="outline"
-                                     size="sm"
-                                     onClick={() => setNewItemTitleMode(!newItemTitleMode)}
-                                     className="h-7"
-                                   >
-                                     <Type className="w-3 h-3 mr-1" />
-                                     {newItemTitleMode ? 'Prosty' : 'Zaawansowany'}
-                                   </Button>
-                                 </div>
-                                 
-                                 {newItemTitleMode ? (
-                                   <TextEditor
-                                     initialText={newItem.title}
-                                     initialStyle={newItemTitleStyle}
-                                     onSave={(text, style) => {
-                                       setNewItem({...newItem, title: text});
-                                       setNewItemTitleStyle(style);
-                                       setNewItemTitleMode(false);
-                                     }}
-                                     placeholder="Sformatuj tytuł za pomocą edytora..."
-                                   />
-                                 ) : (
-                                   <Input
-                                     id="title"
-                                     value={newItem.title}
-                                     onChange={(e) => setNewItem({...newItem, title: e.target.value})}
-                                     placeholder="Nazwa elementu"
-                                     className="mt-1 h-10"
-                                   />
-                                 )}
-                               </div>
-                               <div>
-                                 <div className="flex items-center justify-between mb-2">
-                                   <Label htmlFor="description" className="text-sm font-medium">{t('admin.description')}</Label>
-                                   <Button
-                                     variant="outline"
-                                     size="sm"
-                                     onClick={() => setNewItemTextMode(!newItemTextMode)}
-                                     className="h-7"
-                                   >
-                                     <Type className="w-3 h-3 mr-1" />
-                                     {newItemTextMode ? 'Prosty' : 'Zaawansowany'}
-                                   </Button>
-                                 </div>
-                                 
-                                 {newItemTextMode ? (
-                                    <TextEditor
-                                      initialText={newItem.description}
-                                      initialStyle={newItemTextStyle}
-                                      onSave={(text, style) => {
-                                        console.log('New item text save:', { text, style });
-                                        setNewItem({...newItem, description: text});
-                                        setNewItemTextStyle(style);
-                                        setNewItemTextMode(false);
-                                        toast({
-                                          title: "Tekst sformatowany",
-                                          description: "Kliknij 'Zapisz zmiany' aby zapisać element",
-                                        });
-                                      }}
-                                      placeholder="Sformatuj tekst za pomocą edytora..."
-                                    />
-                                 ) : (
-                                   <Textarea
-                                     id="description"
-                                     value={newItem.description}
-                                     onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                                     placeholder="Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami."
-                                     className="mt-1 min-h-[80px] resize-none"
-                                     rows={3}
-                                   />
-                                 )}
-                               </div>
-                              <div>
-                                <Label htmlFor="url" className="text-sm font-medium">{t('admin.url')}</Label>
-                                <Input
-                                  id="url"
-                                  value={newItem.url}
-                                  onChange={(e) => setNewItem({...newItem, url: e.target.value})}
-                                  placeholder="https://..."
-                                  className="mt-1 h-10"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-sm font-medium">{t('admin.media')}</Label>
-                                <div className="mt-1">
-                                  <MediaUpload
-                                    onMediaUploaded={(url, type, altText) => setNewItem({
-                                      ...newItem, 
-                                      media_url: url, 
-                                      media_type: type, 
-                                      media_alt_text: altText || ''
-                                    })}
-                                    currentMediaUrl={newItem.media_url}
-                                    currentMediaType={newItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
-                                    currentAltText={newItem.media_alt_text}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                            <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
-                              <Button onClick={() => createItem(section.id)} className="w-full sm:w-auto">
-                                <Save className="w-4 h-4 mr-2" />
-                                Zapisz zmiany
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                          }
+                        />
                       </div>
                     </div>
                 </CardHeader>
@@ -2176,26 +2080,37 @@ const Admin = () => {
                                onCheckedChange={(checked) => updateItem(item.id, { is_active: checked })}
                                className="mr-2"
                              />
-                             <Button 
-                               variant="outline" 
-                               size="sm" 
-                onClick={() => {
-                  console.log('Setting editing item:', item);
-                  console.log('Item formatting:', {
-                    text_formatting: item.text_formatting,
-                    title_formatting: item.title_formatting
-                  });
-                  setEditingItem(item);
-                  setItemTextStyle(item.text_formatting);
-                  setItemTitleStyle(item.title_formatting);
-                  setEditingItemTextMode(false);
-                  setEditingItemTitleMode(false);
-                }}
-                               className="flex-1 sm:flex-none"
-                             >
-                               <Pencil className="w-4 h-4 sm:mr-2" />
-                               <span className="hidden sm:inline">Edytuj</span>
-                             </Button>
+                              <ItemEditor
+                                item={{
+                                  ...item,
+                                  media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
+                                }}
+                                sectionId={item.section_id}
+                                onSave={(updatedItem) => {
+                                  updateItem(updatedItem.id!, {
+                                    type: updatedItem.type,
+                                    title: updatedItem.title,
+                                    description: updatedItem.description,
+                                    url: updatedItem.url,
+                                    position: updatedItem.position,
+                                    is_active: updatedItem.is_active,
+                                    media_url: updatedItem.media_url,
+                                    media_type: updatedItem.media_type as any,
+                                    media_alt_text: updatedItem.media_alt_text,
+                                    cells: updatedItem.cells
+                                  });
+                                }}
+                                trigger={
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="flex-1 sm:flex-none"
+                                  >
+                                    <Pencil className="w-4 h-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">Edytuj</span>
+                                  </Button>
+                                }
+                              />
                              <Button 
                                variant="destructive" 
                                size="sm" 
@@ -3544,13 +3459,61 @@ const Admin = () => {
                                     </div>
                                   )}
                                   <div className="flex gap-2 mt-4">
-                                    <Button
-                                      onClick={() => createPageItem(editingPage.id, section.id)}
-                                      disabled={!newPageItem.title}
-                                    >
-                                      <Plus className="w-4 h-4 mr-2" />
-                                      Dodaj element
-                                    </Button>
+                                    <ItemEditor
+                                      sectionId={section.id}
+                                      onSave={async (newItem) => {
+                                        try {
+                                          const { data, error } = await supabase
+                                            .from('cms_items')
+                                            .insert([{
+                                              type: newItem.type,
+                                              title: newItem.title,
+                                              description: newItem.description,
+                                              url: newItem.url,
+                                              icon: newItem.icon,
+                                              section_id: section.id,
+                                              page_id: editingPage.id,
+                                              position: (pageItems.filter(i => i.section_id === section.id).length || 0) + 1,
+                                              is_active: newItem.is_active,
+                                              media_url: newItem.media_url,
+                                              media_type: newItem.media_type,
+                                              media_alt_text: newItem.media_alt_text,
+                                              cells: convertCellsToDatabase(newItem.cells || [])
+                                            }])
+                                            .select()
+                                            .single();
+
+                                          if (error) {
+                                            console.error('Error creating item:', error);
+                                            toast({
+                                              title: "Błąd",
+                                              description: "Nie udało się dodać elementu",
+                                              variant: "destructive",
+                                            });
+                                          } else {
+                                            setPageItems([...pageItems, convertDatabaseItemToCMSItem(data)]);
+                                            toast({
+                                              title: "Element dodany",
+                                              description: "Element został pomyślnie dodany do sekcji",
+                                            });
+                                          }
+                                        } catch (error) {
+                                          console.error('Error creating item:', error);
+                                          toast({
+                                            title: "Błąd",
+                                            description: "Nie udało się dodać elementu",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }}
+                                      isNew={true}
+                                      trigger={
+                                        <Button disabled={false}>
+                                          <Plus className="w-4 h-4 mr-2" />
+                                          Dodaj element z komórkami
+                                        </Button>
+                                      }
+                                    />
                                     <Button
                                       variant="outline"
                                       onClick={() => setSelectedPageSection(null)}
@@ -3579,17 +3542,32 @@ const Admin = () => {
                                         )}
                                       </div>
                                       <div className="flex items-center space-x-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setEditingPageItem(item);
-                                            setPageItemTextStyle(item.text_formatting || null);
-                                            setPageItemTitleStyle(item.title_formatting || null);
+                                        <ItemEditor
+                                          item={{
+                                            ...item,
+                                            media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
                                           }}
-                                        >
-                                          <Pencil className="w-4 h-4" />
-                                        </Button>
+                                          sectionId={item.section_id}
+                                          onSave={(updatedItem) => {
+                                            updatePageItem(updatedItem.id!, {
+                                              type: updatedItem.type,
+                                              title: updatedItem.title,
+                                              description: updatedItem.description,
+                                              url: updatedItem.url,
+                                              position: updatedItem.position,
+                                              is_active: updatedItem.is_active,
+                                              media_url: updatedItem.media_url,
+                                              media_type: updatedItem.media_type as any,
+                                              media_alt_text: updatedItem.media_alt_text,
+                                              cells: updatedItem.cells
+                                            });
+                                          }}
+                                          trigger={
+                                            <Button variant="outline" size="sm">
+                                              <Pencil className="w-4 h-4" />
+                                            </Button>
+                                          }
+                                        />
                                         <Button
                                           variant="outline"
                                           size="sm"
