@@ -287,6 +287,56 @@ const Admin = () => {
   // Enable security preventions
   useSecurityPreventions();
 
+  // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
+  const SECTION_DB_FIELDS = [
+    'title', 'position', 'is_active', 'page_id',
+    'visible_to_partners', 'visible_to_clients', 'visible_to_everyone',
+    'border_width', 'opacity', 'custom_width', 'custom_height', 'max_width',
+    'font_weight', 'line_height', 'letter_spacing',
+    'overflow_behavior',
+    'hover_background_color', 'background_image', 'hover_background_gradient',
+    'background_image_position', 'background_gradient', 'background_image_size',
+    'border_color', 'border_style', 'box_shadow',
+    'icon_name', 'width_type', 'icon_position', 'height_type',
+    'hover_text_color', 'icon_color', 'hover_border_color',
+    'content_direction', 'content_wrap', 'text_transform', 'display_type',
+    'section_margin_bottom', 'section_margin_top', 'gap',
+    'align_items', 'justify_content', 'hover_box_shadow',
+    'background_image_opacity', 'icon_size', 'show_icon', 'min_height',
+    'hover_opacity', 'hover_scale', 'hover_transition_duration'
+  ] as const;
+  type SectionDbField = typeof SECTION_DB_FIELDS[number];
+
+  const sanitizeSectionPayload = (src: Record<string, any>) => {
+    const payload: Record<string, any> = {};
+
+    const intFields = new Set<SectionDbField>([
+      'position','border_width','opacity','custom_width','custom_height','max_width',
+      'font_weight','gap','section_margin_top','section_margin_bottom','min_height',
+      'hover_transition_duration','background_image_opacity','icon_size','hover_opacity'
+    ]);
+    const numericFields = new Set<SectionDbField>(['line_height','letter_spacing','hover_scale']);
+
+    for (const key of SECTION_DB_FIELDS) {
+      if (src[key] !== undefined) {
+        let v = src[key];
+        if (typeof v === 'string') v = v.trim();
+        if (v === '') v = null;
+        if (v !== null) {
+          if (intFields.has(key)) {
+            const n = Number(v);
+            v = Number.isFinite(n) ? Math.round(n) : null;
+          } else if (numericFields.has(key)) {
+            const n = Number(v);
+            v = Number.isFinite(n) ? n : null;
+          }
+        }
+        payload[key] = v;
+      }
+    }
+    return payload;
+  };
+
   // User management functions
   const fetchUsers = async () => {
     if (activeTab !== 'users') return;
@@ -769,59 +819,15 @@ const Admin = () => {
     try {
       const maxPosition = Math.max(...sections.map(s => s.position), 0);
       
+      const payload = sanitizeSectionPayload({
+        ...newSection,
+        title: newSection.title,
+        position: maxPosition + 1,
+      });
+
       const { data, error } = await supabase
         .from('cms_sections')
-        .insert({
-          title: newSection.title,
-          position: maxPosition + 1,
-          visible_to_partners: newSection.visible_to_partners,
-          visible_to_clients: newSection.visible_to_clients,
-          visible_to_everyone: newSection.visible_to_everyone,
-          // Enhanced styling fields
-          background_color: newSection.background_color,
-          text_color: newSection.text_color,
-          font_size: newSection.font_size,
-          alignment: newSection.alignment,
-          padding: newSection.padding,
-          margin: newSection.margin,
-          border_radius: newSection.border_radius,
-          style_class: newSection.style_class,
-          background_gradient: newSection.background_gradient,
-          border_width: newSection.border_width,
-          border_color: newSection.border_color,
-          border_style: newSection.border_style,
-          box_shadow: newSection.box_shadow,
-          opacity: newSection.opacity,
-          width_type: newSection.width_type,
-          custom_width: newSection.custom_width,
-          height_type: newSection.height_type,
-          custom_height: newSection.custom_height,
-          max_width: newSection.max_width,
-          font_weight: newSection.font_weight,
-          line_height: newSection.line_height,
-          letter_spacing: newSection.letter_spacing,
-          text_transform: newSection.text_transform,
-          display_type: newSection.display_type,
-          justify_content: newSection.justify_content,
-          align_items: newSection.align_items,
-          gap: newSection.gap,
-          // New enhanced fields
-          section_margin_top: newSection.section_margin_top,
-          section_margin_bottom: newSection.section_margin_bottom,
-          background_image: newSection.background_image,
-          background_image_opacity: newSection.background_image_opacity,
-          background_image_position: newSection.background_image_position,
-          background_image_size: newSection.background_image_size,
-          icon_name: newSection.icon_name,
-          icon_position: newSection.icon_position,
-          icon_size: newSection.icon_size,
-          icon_color: newSection.icon_color,
-          show_icon: newSection.show_icon,
-          content_direction: newSection.content_direction,
-          content_wrap: newSection.content_wrap,
-          min_height: newSection.min_height,
-          overflow_behavior: newSection.overflow_behavior,
-        })
+        .insert(payload as any)
         .select()
         .single();
 
@@ -1003,14 +1009,15 @@ const Admin = () => {
 
   const updateSection = async (sectionId: string, updates: Partial<CMSSection>) => {
     try {
+      const payload = sanitizeSectionPayload(updates as Record<string, any>);
       const { error } = await supabase
         .from('cms_sections')
-        .update(updates)
+        .update(payload as any)
         .eq('id', sectionId);
 
       if (error) throw error;
 
-      setSections(sections.map(s => s.id === sectionId ? { ...s, ...updates } : s));
+      setSections(sections.map(s => s.id === sectionId ? { ...s, ...payload } : s));
       setEditingSection(null);
       toast({
         title: t('toast.success'),
