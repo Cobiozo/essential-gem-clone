@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { icons } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 
@@ -158,6 +159,19 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   );
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [originalSection, setOriginalSection] = useState<Section | null>(null);
+
+  // Track changes to detect unsaved changes
+  useEffect(() => {
+    if (!originalSection) {
+      setOriginalSection(section || null);
+    } else {
+      const hasChanges = JSON.stringify(editedSection) !== JSON.stringify(originalSection);
+      setHasUnsavedChanges(hasChanges);
+    }
+  }, [editedSection, originalSection, section]);
 
   const alignmentOptions = [
     { value: 'left', label: 'Do lewej' },
@@ -323,6 +337,14 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   };
 
   const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      setShowConfirmDialog(true);
+    } else {
+      resetAndClose();
+    }
+  };
+
+  const resetAndClose = () => {
     setEditedSection(section || {
       title: '',
       description: '',
@@ -385,6 +407,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       hover_scale: 1.0,
       hover_transition_duration: 300
     });
+    setHasUnsavedChanges(false);
+    setShowConfirmDialog(false);
     setIsOpen(false);
     onCancel?.();
   };
@@ -1455,34 +1479,63 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
 
   if (trigger) {
     return (
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          {trigger}
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
-          <DialogHeader className="p-6 pb-2 shrink-0">
-            <DialogTitle>
-              {isNew ? 'Dodaj nową sekcję' : 'Edytuj sekcję'}
-            </DialogTitle>
-            <DialogDescription>
-              Skonfiguruj wygląd i zawartość sekcji
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6">
-            {editorContent}
-          </div>
-          <DialogFooter className="p-6 pt-2 shrink-0 border-t bg-background/80 backdrop-blur-sm">
-            <Button variant="outline" onClick={handleCancel}>
-              <X className="w-4 h-4 mr-2" />
-              Anuluj
-            </Button>
-            <Button onClick={handleSave} disabled={!editedSection.title.trim()}>
-              <Save className="w-4 h-4 mr-2" />
-              {isNew ? 'Utwórz sekcję' : 'Zapisz zmiany'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+          if (!open && hasUnsavedChanges) {
+            setShowConfirmDialog(true);
+          } else if (!open) {
+            setIsOpen(false);
+          } else {
+            setIsOpen(open);
+          }
+        }}>
+          <DialogTrigger asChild>
+            {trigger}
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
+            <DialogHeader className="p-6 pb-2 shrink-0">
+              <DialogTitle>
+                {isNew ? 'Dodaj nową sekcję' : 'Edytuj sekcję'}
+              </DialogTitle>
+              <DialogDescription>
+                Skonfiguruj wygląd i zawartość sekcji
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-6">
+              {editorContent}
+            </div>
+            <DialogFooter className="p-6 pt-2 shrink-0 border-t bg-background/80 backdrop-blur-sm">
+              <Button variant="outline" onClick={handleCancel}>
+                <X className="w-4 h-4 mr-2" />
+                Anuluj
+              </Button>
+              <Button onClick={handleSave} disabled={!editedSection.title.trim()}>
+                <Save className="w-4 h-4 mr-2" />
+                {isNew ? 'Utwórz sekcję' : 'Zapisz zmiany'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Niezapisane zmiany</AlertDialogTitle>
+              <AlertDialogDescription>
+                Masz niezapisane zmiany. Czy na pewno chcesz zamknąć edytor? Wszystkie zmiany zostaną utracone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowConfirmDialog(false)}>
+                Zostań w edytorze
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={resetAndClose} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Zamknij bez zapisywania
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
   }
 
