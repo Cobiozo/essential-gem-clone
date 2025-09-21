@@ -462,24 +462,44 @@ const Admin = () => {
   };
 
   const resetUserPassword = async (userEmail: string) => {
+    // Generate random password
+    const generatePassword = () => {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+      let password = '';
+      for (let i = 0; i < 12; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return password;
+    };
+
+    const newPassword = generatePassword();
+    
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
-        redirectTo: `${window.location.origin}/auth`
+      setPasswordLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { 
+          user_email: userEmail,
+          new_password: newPassword,
+          admin_name: user?.email || 'Administrator'
+        }
       });
 
       if (error) throw error;
 
       toast({
         title: "Sukces",
-        description: `Link do resetowania hasła został wysłany na adres ${userEmail}`,
+        description: `Nowe hasło zostało wygenerowane i wysłane na adres ${userEmail}`,
       });
     } catch (error: any) {
       console.error('Error resetting user password:', error);
       toast({
         title: t('toast.error'),
-        description: error.message || 'Nie udało się wysłać linku resetowania hasła',
+        description: error.message || 'Nie udało się zresetować hasła',
         variant: "destructive",
       });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -2663,10 +2683,11 @@ const Admin = () => {
                                    variant="outline"
                                    size="sm"
                                    onClick={() => resetUserPassword(userProfile.email)}
+                                   disabled={passwordLoading}
                                    className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
                                  >
                                    <Key className="w-3 h-3 mr-1" />
-                                   Resetuj hasło
+                                   {passwordLoading ? 'Generowanie...' : 'Nowe hasło'}
                                  </Button>
                                  
                                  {userProfile.user_id !== user?.id && (
