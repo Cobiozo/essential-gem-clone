@@ -92,12 +92,15 @@ export type Database = {
       cms_sections: {
         Row: {
           align_items: string | null
+          alignment: string | null
+          background_color: string | null
           background_gradient: string | null
           background_image: string | null
           background_image_opacity: number | null
           background_image_position: string | null
           background_image_size: string | null
           border_color: string | null
+          border_radius: number | null
           border_style: string | null
           border_width: number | null
           box_shadow: string | null
@@ -107,6 +110,7 @@ export type Database = {
           custom_height: number | null
           custom_width: number | null
           display_type: string | null
+          font_size: number | null
           font_weight: number | null
           gap: number | null
           height_type: string | null
@@ -127,15 +131,19 @@ export type Database = {
           justify_content: string | null
           letter_spacing: number | null
           line_height: number | null
+          margin: number | null
           max_width: number | null
           min_height: number | null
           opacity: number | null
           overflow_behavior: string | null
+          padding: number | null
           page_id: string | null
           position: number
           section_margin_bottom: number | null
           section_margin_top: number | null
           show_icon: boolean | null
+          style_class: string | null
+          text_color: string | null
           text_transform: string | null
           title: string
           updated_at: string
@@ -146,12 +154,15 @@ export type Database = {
         }
         Insert: {
           align_items?: string | null
+          alignment?: string | null
+          background_color?: string | null
           background_gradient?: string | null
           background_image?: string | null
           background_image_opacity?: number | null
           background_image_position?: string | null
           background_image_size?: string | null
           border_color?: string | null
+          border_radius?: number | null
           border_style?: string | null
           border_width?: number | null
           box_shadow?: string | null
@@ -161,6 +172,7 @@ export type Database = {
           custom_height?: number | null
           custom_width?: number | null
           display_type?: string | null
+          font_size?: number | null
           font_weight?: number | null
           gap?: number | null
           height_type?: string | null
@@ -181,15 +193,19 @@ export type Database = {
           justify_content?: string | null
           letter_spacing?: number | null
           line_height?: number | null
+          margin?: number | null
           max_width?: number | null
           min_height?: number | null
           opacity?: number | null
           overflow_behavior?: string | null
+          padding?: number | null
           page_id?: string | null
           position: number
           section_margin_bottom?: number | null
           section_margin_top?: number | null
           show_icon?: boolean | null
+          style_class?: string | null
+          text_color?: string | null
           text_transform?: string | null
           title: string
           updated_at?: string
@@ -200,12 +216,15 @@ export type Database = {
         }
         Update: {
           align_items?: string | null
+          alignment?: string | null
+          background_color?: string | null
           background_gradient?: string | null
           background_image?: string | null
           background_image_opacity?: number | null
           background_image_position?: string | null
           background_image_size?: string | null
           border_color?: string | null
+          border_radius?: number | null
           border_style?: string | null
           border_width?: number | null
           box_shadow?: string | null
@@ -215,6 +234,7 @@ export type Database = {
           custom_height?: number | null
           custom_width?: number | null
           display_type?: string | null
+          font_size?: number | null
           font_weight?: number | null
           gap?: number | null
           height_type?: string | null
@@ -235,15 +255,19 @@ export type Database = {
           justify_content?: string | null
           letter_spacing?: number | null
           line_height?: number | null
+          margin?: number | null
           max_width?: number | null
           min_height?: number | null
           opacity?: number | null
           overflow_behavior?: string | null
+          padding?: number | null
           page_id?: string | null
           position?: number
           section_margin_bottom?: number | null
           section_margin_top?: number | null
           show_icon?: boolean | null
+          style_class?: string | null
+          text_color?: string | null
           text_transform?: string | null
           title?: string
           updated_at?: string

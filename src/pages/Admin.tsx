@@ -303,7 +303,10 @@ const Admin = () => {
     'section_margin_bottom', 'section_margin_top', 'gap',
     'align_items', 'justify_content', 'hover_box_shadow',
     'background_image_opacity', 'icon_size', 'show_icon', 'min_height',
-    'hover_opacity', 'hover_scale', 'hover_transition_duration'
+    'hover_opacity', 'hover_scale', 'hover_transition_duration',
+    // Added columns from the migration
+    'background_color', 'text_color', 'font_size', 'alignment', 
+    'padding', 'margin', 'border_radius', 'style_class'
   ] as const;
   type SectionDbField = typeof SECTION_DB_FIELDS[number];
 
@@ -313,7 +316,9 @@ const Admin = () => {
     const intFields = new Set<SectionDbField>([
       'position','border_width','opacity','custom_width','custom_height','max_width',
       'font_weight','gap','section_margin_top','section_margin_bottom','min_height',
-      'hover_transition_duration','background_image_opacity','icon_size','hover_opacity'
+      'hover_transition_duration','background_image_opacity','icon_size','hover_opacity',
+      // Added integer fields from the migration
+      'font_size', 'padding', 'margin', 'border_radius'
     ]);
     const numericFields = new Set<SectionDbField>(['line_height','letter_spacing','hover_scale']);
 
