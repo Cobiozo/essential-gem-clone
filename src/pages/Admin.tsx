@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
@@ -456,6 +456,28 @@ const Admin = () => {
       toast({
         title: t('toast.error'),
         description: error.message || t('error.changeStatus'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetUserPassword = async (userEmail: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+        redirectTo: `${window.location.origin}/auth`
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sukces",
+        description: `Link do resetowania hasła został wysłany na adres ${userEmail}`,
+      });
+    } catch (error: any) {
+      console.error('Error resetting user password:', error);
+      toast({
+        title: t('toast.error'),
+        description: error.message || 'Nie udało się wysłać linku resetowania hasła',
         variant: "destructive",
       });
     }
@@ -2637,16 +2659,26 @@ const Admin = () => {
                                   </Button>
                                 )}
                                 
-                                {userProfile.user_id !== user?.id && (
-                                  <Button
-                                    variant={userProfile.is_active ? "destructive" : "default"}
-                                    size="sm"
-                                    onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
-                                    className="text-xs"
-                                  >
-                                    {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
-                                  </Button>
-                                )}
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => resetUserPassword(userProfile.email)}
+                                   className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                 >
+                                   <Key className="w-3 h-3 mr-1" />
+                                   Resetuj hasło
+                                 </Button>
+                                 
+                                 {userProfile.user_id !== user?.id && (
+                                   <Button
+                                     variant={userProfile.is_active ? "destructive" : "default"}
+                                     size="sm"
+                                     onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
+                                     className="text-xs"
+                                   >
+                                     {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
+                                   </Button>
+                                 )}
                                 
                                 {userProfile.role === 'user' || userProfile.role === 'client' ? (
                                   <>

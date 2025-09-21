@@ -213,6 +213,42 @@ const Auth = () => {
     setLoading(false);
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Wprowadź adres email aby zresetować hasło",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sukces",
+        description: `Link do resetowania hasła został wysłany na adres ${email}`,
+      });
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      const polishErrorMessage = getPolishErrorMessage(error);
+      toast({
+        title: "Błąd",
+        description: polishErrorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-sm sm:max-w-md">
@@ -270,6 +306,18 @@ const Auth = () => {
                       required
                       disabled={loading}
                     />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={handleForgotPassword}
+                      disabled={loading}
+                      className="p-0 h-auto text-xs text-primary hover:underline"
+                    >
+                      Zapomniałem hasła
+                    </Button>
                   </div>
                   {error && (
                     <Alert variant="destructive">

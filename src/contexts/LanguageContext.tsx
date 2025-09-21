@@ -193,6 +193,9 @@ const translations = {
     'auth.rolePartner': 'Partner', 
     'auth.roleSpecialist': 'Specjalista',
     'auth.selectRole': 'Wybierz swoją rolę',
+    'auth.forgotPassword': 'Zapomniałem hasła',
+    'auth.passwordResetSent': 'Link do resetowania hasła został wysłany',
+    'auth.enterEmailForReset': 'Wprowadź adres email aby zresetować hasło',
     
     // Common
     'common.loading': 'Ładowanie...',
@@ -389,6 +392,9 @@ const translations = {
     'auth.rolePartner': 'Partner',
     'auth.roleSpecialist': 'Spezialist',
     'auth.selectRole': 'Wählen Sie Ihre Rolle',
+    'auth.forgotPassword': 'Passwort vergessen',
+    'auth.passwordResetSent': 'Link zum Zurücksetzen des Passworts wurde gesendet',
+    'auth.enterEmailForReset': 'E-Mail-Adresse eingeben, um Passwort zurückzusetzen',
     
     // Common
     'common.loading': 'Laden...',
@@ -586,6 +592,9 @@ const translations = {
     'auth.rolePartner': 'Partner',
     'auth.roleSpecialist': 'Specialist',
     'auth.selectRole': 'Select your role',
+    'auth.forgotPassword': 'Forgot password',
+    'auth.passwordResetSent': 'Password reset link has been sent',
+    'auth.enterEmailForReset': 'Enter email address to reset password',
     
     // Common
     'common.loading': 'Loading...',
