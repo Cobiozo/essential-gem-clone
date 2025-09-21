@@ -275,6 +275,13 @@ const Admin = () => {
   });
   const [passwordLoading, setPasswordLoading] = useState(false);
   
+  // Reset user password state
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [resetPasswordData, setResetPasswordData] = useState({
+    userEmail: '',
+    newPassword: ''
+  });
+  
   // New user creation state
   const [newUser, setNewUser] = useState({
     email: '',
@@ -461,26 +468,31 @@ const Admin = () => {
     }
   };
 
-  const resetUserPassword = async (userEmail: string) => {
-    // Generate random password
-    const generatePassword = () => {
-      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-      let password = '';
-      for (let i = 0; i < 12; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return password;
-    };
+  const resetUserPassword = (userEmail: string) => {
+    setResetPasswordData({
+      userEmail: userEmail,
+      newPassword: ''
+    });
+    setShowResetPasswordDialog(true);
+  };
 
-    const newPassword = generatePassword();
+  const handleResetPassword = async () => {
+    if (!resetPasswordData.newPassword || resetPasswordData.newPassword.length < 8) {
+      toast({
+        title: t('toast.error'),
+        description: 'Hasło musi mieć co najmniej 8 znaków',
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setPasswordLoading(true);
       
       const { data, error } = await supabase.functions.invoke('admin-reset-password', {
         body: { 
-          user_email: userEmail,
-          new_password: newPassword,
+          user_email: resetPasswordData.userEmail,
+          new_password: resetPasswordData.newPassword,
           admin_name: user?.email || 'Administrator'
         }
       });
@@ -489,8 +501,11 @@ const Admin = () => {
 
       toast({
         title: "Sukces",
-        description: `Nowe hasło zostało wygenerowane i wysłane na adres ${userEmail}`,
+        description: `Nowe hasło zostało ustawione i wysłane na adres ${resetPasswordData.userEmail}`,
       });
+      
+      setShowResetPasswordDialog(false);
+      setResetPasswordData({ userEmail: '', newPassword: '' });
     } catch (error: any) {
       console.error('Error resetting user password:', error);
       toast({
@@ -2825,6 +2840,48 @@ const Admin = () => {
                   </Button>
                   <Button onClick={createUser} disabled={creatingUser}>
                     {creatingUser ? 'Tworzenie...' : 'Utwórz klienta'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Reset Password Dialog */}
+            <Dialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
+              <DialogContent className="w-[95vw] max-w-md mx-auto">
+                <DialogHeader>
+                  <DialogTitle>Resetuj hasło użytkownika</DialogTitle>
+                  <DialogDescription>
+                    Ustaw nowe hasło dla użytkownika: {resetPasswordData.userEmail}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label htmlFor="reset-new-password">Nowe hasło</Label>
+                    <Input
+                      id="reset-new-password"
+                      type="password"
+                      value={resetPasswordData.newPassword}
+                      onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
+                      placeholder="Wprowadź bezpieczne hasło (min. 8 znaków)"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Hasło zostanie natychmiast ustawione i wysłane emailem do użytkownika
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowResetPasswordDialog(false);
+                      setResetPasswordData({ userEmail: '', newPassword: '' });
+                    }}
+                  >
+                    Anuluj
+                  </Button>
+                  <Button onClick={handleResetPassword} disabled={passwordLoading}>
+                    {passwordLoading ? 'Resetowanie...' : 'Resetuj hasło'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
