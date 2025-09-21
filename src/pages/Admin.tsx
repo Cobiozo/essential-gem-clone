@@ -293,7 +293,7 @@ const Admin = () => {
 
   // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
   const SECTION_DB_FIELDS = [
-    'title', 'position', 'is_active', 'page_id',
+    'title', 'description', 'position', 'is_active', 'page_id',
     'visible_to_partners', 'visible_to_clients', 'visible_to_everyone', 'visible_to_specjalista',
     'border_width', 'opacity', 'custom_width', 'custom_height', 'max_width',
     'font_weight', 'line_height', 'letter_spacing',
