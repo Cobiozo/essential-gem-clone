@@ -153,6 +153,33 @@ interface Page {
 }
 
 const Admin = () => {
+  // Helper functions for type conversion
+  const convertCellsFromDatabase = (cells: any): ContentCell[] => {
+    if (!cells) return [];
+    if (typeof cells === 'string') {
+      try {
+        return JSON.parse(cells);
+      } catch {
+        return [];
+      }
+    }
+    if (Array.isArray(cells)) {
+      return cells;
+    }
+    return [];
+  };
+
+  const convertCellsToDatabase = (cells: ContentCell[]): any => {
+    return cells && cells.length > 0 ? cells : null;
+  };
+
+  const convertDatabaseItemToCMSItem = (dbItem: any): CMSItem => {
+    return {
+      ...dbItem,
+      cells: convertCellsFromDatabase(dbItem.cells)
+    };
+  };
+
   const { user, isAdmin, signOut } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -1146,7 +1173,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setItems([...items, data]);
+      setItems([...items, convertDatabaseItemToCMSItem(data)]);
       setNewItem({ 
         type: 'button', 
         title: '', 
@@ -1183,7 +1210,7 @@ const Admin = () => {
         .from('cms_items')
         .update({
           ...updates,
-          cells: updates.cells ? JSON.stringify(updates.cells) : undefined
+          cells: updates.cells ? convertCellsToDatabase(updates.cells) : undefined
         })
         .eq('id', itemId);
 
@@ -1453,7 +1480,7 @@ const Admin = () => {
         .order('position', { ascending: true });
 
       if (error) throw error;
-      setPageItems(data || []);
+      setPageItems((data || []).map(convertDatabaseItemToCMSItem));
     } catch (error) {
       console.error('Fetch page items error:', error);
       toast({
@@ -1524,7 +1551,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setPageItems([...pageItems, data]);
+      setPageItems([...pageItems, convertDatabaseItemToCMSItem(data)]);
       setNewPageItem({
         type: 'button',
         title: '',
@@ -1585,7 +1612,10 @@ const Admin = () => {
     try {
       const { error } = await supabase
         .from('cms_items')
-        .update(updates)
+        .update({
+          ...updates,
+          cells: updates.cells ? convertCellsToDatabase(updates.cells) : undefined
+        })
         .eq('id', itemId);
 
       if (error) throw error;
