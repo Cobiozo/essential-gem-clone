@@ -10,6 +10,13 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+// Default context value to prevent undefined errors during hot reload
+const defaultContextValue: LanguageContextType = {
+  language: 'pl' as Language,
+  setLanguage: () => {},
+  t: (key: string) => key
+};
+
 const translations = {
   pl: {
     // Navigation
@@ -705,17 +712,31 @@ const translations = {
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>(() => {
-    const saved = localStorage.getItem('pure-life-language');
-    return (saved as Language) || 'pl';
+    try {
+      const saved = localStorage.getItem('pure-life-language');
+      return (saved as Language) || 'pl';
+    } catch (error) {
+      console.warn('Failed to get language from localStorage, using default');
+      return 'pl';
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('pure-life-language', language);
-    document.documentElement.lang = language;
+    try {
+      localStorage.setItem('pure-life-language', language);
+      document.documentElement.lang = language;
+    } catch (error) {
+      console.warn('Failed to save language to localStorage');
+    }
   }, [language]);
 
   const t = (key: string): string => {
-    return translations[language][key] || key;
+    try {
+      return translations[language]?.[key] || key;
+    } catch (error) {
+      console.warn('Translation error:', error);
+      return key;
+    }
   };
 
   return (
@@ -728,7 +749,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
+    console.warn('useLanguage called outside of LanguageProvider, using default values');
+    return defaultContextValue;
   }
   return context;
 };
