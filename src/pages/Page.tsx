@@ -15,6 +15,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 interface CMSSection {
   id: string;
   title: string;
+  description?: string | null;
   position: number;
   is_active: boolean;
   created_at: string;
@@ -303,7 +304,8 @@ const PageComponent = () => {
             {sections.map((section) => (
               <CollapsibleSection 
                 key={section.id} 
-                title={section.title} 
+                title={section.title}
+                description={section.description}
                 className="mb-6 sm:mb-8"
                 sectionStyle={section}
               >

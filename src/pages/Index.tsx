@@ -16,6 +16,7 @@ import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 interface CMSSection {
   id: string;
   title: string;
+  description?: string | null;
   position: number;
   is_active: boolean;
   visible_to_partners: boolean;
@@ -316,6 +317,7 @@ const Index = () => {
             <CollapsibleSection 
               key={section.id} 
               title={section.title}
+              description={section.description}
               defaultOpen={false}
               showShareButton={shouldShowShare}
               sectionStyle={section}

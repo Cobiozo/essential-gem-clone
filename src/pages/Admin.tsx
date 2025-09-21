@@ -33,6 +33,7 @@ import JSZip from 'jszip';
 interface CMSSection {
   id: string;
   title: string;
+  description?: string | null;
   position: number;
   is_active: boolean;
   created_at: string;

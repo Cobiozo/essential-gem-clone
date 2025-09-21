@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 interface CollapsibleSectionProps {
   title: string;
+  description?: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
   showShareButton?: boolean;
@@ -70,6 +71,7 @@ interface CollapsibleSectionProps {
 
 export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   title,
+  description,
   children,
   defaultOpen = false,
   showShareButton = false,
@@ -306,6 +308,11 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
               />
             )}
           </div>
+          {description && (
+            <p className="text-sm opacity-90 mt-2 leading-relaxed max-w-md">
+              {description}
+            </p>
+          )}
         </div>
 
         {/* Controls at bottom right */}

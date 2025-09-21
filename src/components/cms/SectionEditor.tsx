@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
+import { MediaUpload } from '../MediaUpload';
 
 interface Section {
   id?: string;
@@ -1059,16 +1060,26 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
           <Label className="text-sm font-medium mb-2 block">Obraz tła</Label>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="background-image" className="text-sm font-medium">
-                URL obrazu tła
+              <Label className="text-sm font-medium mb-2 block">
+                Prześlij obraz z dysku lub podaj URL
               </Label>
-              <Input
-                id="background-image"
-                value={editedSection.background_image || ''}
-                onChange={(e) => setEditedSection({...editedSection, background_image: e.target.value})}
-                placeholder="https://example.com/image.jpg"
-                className="mt-1"
-              />
+              <div className="space-y-2">
+                <MediaUpload
+                  onMediaUploaded={(url, type) => {
+                    if (type === 'image') {
+                      setEditedSection({...editedSection, background_image: url});
+                    }
+                  }}
+                  currentMediaUrl={editedSection.background_image}
+                  currentMediaType={editedSection.background_image ? 'image' : undefined}
+                />
+                <Input
+                  placeholder="Lub podaj URL obrazu (https://example.com/image.jpg)"
+                  value={editedSection.background_image || ''}
+                  onChange={(e) => setEditedSection({...editedSection, background_image: e.target.value})}
+                  className="mt-2"
+                />
+              </div>
             </div>
             
             {editedSection.background_image && (
