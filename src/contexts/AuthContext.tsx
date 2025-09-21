@@ -20,6 +20,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isPartner: boolean;
   isClient: boolean;
+  isSpecjalista: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -122,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = profile?.role === 'admin';
   const isPartner = profile?.role === 'partner';
   const isClient = profile?.role === 'client';
+  const isSpecjalista = profile?.role === 'specjalista';
 
   const value: AuthContextType = {
     user,
@@ -131,6 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin,
     isPartner,
     isClient,
+    isSpecjalista,
     signIn,
     signUp,
     signOut,

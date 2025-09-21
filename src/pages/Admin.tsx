@@ -40,6 +40,7 @@ interface CMSSection {
   visible_to_partners: boolean;
   visible_to_clients: boolean;
   visible_to_everyone: boolean;
+  visible_to_specjalista: boolean;
   // Enhanced styling options
   background_color?: string | null;
   text_color?: string | null;
@@ -133,6 +134,7 @@ interface Page {
   visible_to_partners: boolean;
   visible_to_clients: boolean;
   visible_to_everyone: boolean;
+  visible_to_specjalista: boolean;
 }
 
 const Admin = () => {
@@ -196,6 +198,7 @@ const Admin = () => {
     visible_to_partners: false,
     visible_to_clients: false,
     visible_to_everyone: true,
+    visible_to_specjalista: false,
     // Enhanced styling defaults
     background_color: 'hsl(var(--background))',
     text_color: 'hsl(var(--foreground))',
@@ -252,6 +255,7 @@ const Admin = () => {
     visible_to_partners: false,
     visible_to_clients: false,
     visible_to_everyone: true,
+    visible_to_specjalista: false,
   });
   const [activeTab, setActiveTab] = useState("content");
   const [editingItemTextMode, setEditingItemTextMode] = useState(false);
@@ -275,7 +279,7 @@ const Admin = () => {
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
-    role: 'user' as 'user' | 'client' | 'admin' | 'partner'
+    role: 'user' as 'user' | 'client' | 'admin' | 'partner' | 'specjalista'
   });
   const [creatingUser, setCreatingUser] = useState(false);
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
@@ -290,7 +294,7 @@ const Admin = () => {
   // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
   const SECTION_DB_FIELDS = [
     'title', 'position', 'is_active', 'page_id',
-    'visible_to_partners', 'visible_to_clients', 'visible_to_everyone',
+    'visible_to_partners', 'visible_to_clients', 'visible_to_everyone', 'visible_to_specjalista',
     'border_width', 'opacity', 'custom_width', 'custom_height', 'max_width',
     'font_weight', 'line_height', 'letter_spacing',
     'overflow_behavior',
@@ -365,9 +369,9 @@ const Admin = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'user' | 'client' | 'admin' | 'partner') => {
+  const updateUserRole = async (userId: string, newRole: 'user' | 'client' | 'admin' | 'partner' | 'specjalista') => {
     try {
-      const normalizedRole = (newRole || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner';
+      const normalizedRole = (newRole || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner' | 'specjalista';
 
       const { data, error } = await supabase.rpc('admin_update_user_role', {
         target_user_id: userId,
@@ -556,9 +560,9 @@ const Admin = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Update the user role if admin or partner
-        if (newUser.role === 'admin' || newUser.role === 'partner') {
-          const normalizedRole = (newUser.role || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner';
+        // Update the user role if admin, partner, or specjalista
+        if (newUser.role === 'admin' || newUser.role === 'partner' || newUser.role === 'specjalista') {
+          const normalizedRole = (newUser.role || 'user').toLowerCase() as 'user' | 'client' | 'admin' | 'partner' | 'specjalista';
           const { data: rpcData, error: roleError } = await supabase.rpc('admin_update_user_role', {
             target_user_id: data.user.id,
             target_role: normalizedRole,
@@ -618,6 +622,7 @@ const Admin = () => {
     switch (role) {
       case 'admin': return 'Administrator';
       case 'partner': return 'Partner';
+      case 'specjalista': return 'Specjalista';
       case 'user':
       case 'client':
       default: return 'Klient';
@@ -845,6 +850,7 @@ const Admin = () => {
         visible_to_partners: false,
         visible_to_clients: false,
         visible_to_everyone: true,
+        visible_to_specjalista: false,
         // Reset styling defaults
         background_color: 'hsl(var(--background))',
         text_color: 'hsl(var(--foreground))',
@@ -1189,6 +1195,7 @@ const Admin = () => {
           visible_to_partners: newPage.visible_to_partners,
           visible_to_clients: newPage.visible_to_clients,
           visible_to_everyone: newPage.visible_to_everyone,
+          visible_to_specjalista: newPage.visible_to_specjalista,
         }])
         .select()
         .single();
@@ -1207,6 +1214,7 @@ const Admin = () => {
         visible_to_partners: false,
         visible_to_clients: false,
         visible_to_everyone: true,
+        visible_to_specjalista: false,
       });
       
       toast({
@@ -1223,7 +1231,7 @@ const Admin = () => {
     }
   };
 
-  const updatePageVisibility = async (pageId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean }) => {
+  const updatePageVisibility = async (pageId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean; visible_to_specjalista?: boolean }) => {
     try {
       const { error } = await supabase
         .from('pages')
@@ -1252,7 +1260,7 @@ const Admin = () => {
     }
   };
 
-  const updateSectionVisibility = async (sectionId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean }) => {
+  const updateSectionVisibility = async (sectionId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean; visible_to_specjalista?: boolean }) => {
     try {
       const { error } = await supabase
         .from('cms_sections')
@@ -1741,6 +1749,16 @@ const Admin = () => {
                         />
                         <Label htmlFor="new-section-everyone">{t('admin.visibleToEveryone')}</Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="new-section-specjalista"
+                          checked={newSection.visible_to_specjalista}
+                          onChange={(e) => setNewSection({...newSection, visible_to_specjalista: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="new-section-specjalista">Widoczne dla specjalistów</Label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1808,7 +1826,17 @@ const Admin = () => {
                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                 />
                                 <label htmlFor={`section-everyone-${section.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
-                             </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`section-specjalista-${section.id}`}
+                                  checked={section.visible_to_specjalista}
+                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
+                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                />
+                                <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">Widoczne dla specjalistów</label>
+                              </div>
                            </div>
                          </div>
                         <div className="flex items-center justify-between sm:justify-end gap-3">
@@ -2310,8 +2338,18 @@ const Admin = () => {
                            onChange={(e) => setNewPage({...newPage, visible_to_everyone: e.target.checked})}
                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                          />
-                         <Label htmlFor="new-page-everyone">{t('admin.visibleToEveryone')}</Label>
-                       </div>
+                          <Label htmlFor="new-page-everyone">{t('admin.visibleToEveryone')}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="new-page-specjalista"
+                            checked={newPage.visible_to_specjalista}
+                            onChange={(e) => setNewPage({...newPage, visible_to_specjalista: e.target.checked})}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <Label htmlFor="new-page-specjalista">Widoczne dla specjalistów</Label>
+                        </div>
                      </div>
                    </div>
                    <Button onClick={createPage} disabled={!newPage.title}>
@@ -2411,8 +2449,18 @@ const Admin = () => {
                                        onChange={(e) => updatePageVisibility(page.id, { visible_to_everyone: e.target.checked })}
                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                      />
-                                     <label htmlFor={`everyone-${page.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
-                                   </div>
+                                      <label htmlFor={`everyone-${page.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        id={`specjalista-${page.id}`}
+                                        checked={page.visible_to_specjalista}
+                                        onChange={(e) => updatePageVisibility(page.id, { visible_to_specjalista: e.target.checked })}
+                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                      />
+                                      <label htmlFor={`specjalista-${page.id}`} className="text-sm">Widoczne dla specjalistów</label>
+                                    </div>
                                  </div>
                                </div>
                               <div className="flex items-center space-x-2 ml-4">
@@ -2540,7 +2588,12 @@ const Admin = () => {
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-medium text-sm">{userProfile.email}</span>
-                                  <Badge variant={userProfile.role === 'admin' ? 'default' : userProfile.role === 'partner' ? 'outline' : 'secondary'} className="text-xs">
+                                  <Badge variant={
+                                    userProfile.role === 'admin' ? 'default' : 
+                                    userProfile.role === 'partner' ? 'outline' : 
+                                    userProfile.role === 'specjalista' ? 'outline' : 
+                                    'secondary'
+                                  } className="text-xs">
                                     {getRoleDisplayName(userProfile.role)}
                                   </Badge>
                                   <Badge variant={userProfile.is_active ? 'default' : 'destructive'} className="text-xs">
@@ -2701,6 +2754,7 @@ const Admin = () => {
                         <SelectContent>
                           <SelectItem value="user">Klient</SelectItem>
                           <SelectItem value="partner">Partner</SelectItem>
+                          <SelectItem value="specjalista">Specjalista</SelectItem>
                           <SelectItem value="admin">Administrator</SelectItem>
                         </SelectContent>
                     </Select>

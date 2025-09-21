@@ -334,7 +334,7 @@ const Auth = () => {
                         <SelectItem value="partner" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
                           {t('auth.rolePartner')}
                         </SelectItem>
-                        <SelectItem value="specialist" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
+                        <SelectItem value="specjalista" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
                           {t('auth.roleSpecialist')}
                         </SelectItem>
                       </SelectContent>

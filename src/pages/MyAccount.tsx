@@ -32,6 +32,7 @@ const MyAccount = () => {
     switch (role) {
       case 'admin': return 'Administrator';
       case 'partner': return 'Partner';
+      case 'specjalista': return 'Specjalista';
       case 'user':
       case 'client':
       default: return 'Klient';
@@ -225,7 +226,12 @@ const MyAccount = () => {
                 <div>
                   <Label className="text-sm font-medium">{t('admin.userRole')}</Label>
                   <div className="mt-1">
-                    <Badge variant={profile.role === 'admin' ? 'default' : profile.role === 'partner' ? 'outline' : 'secondary'}>
+                    <Badge variant={
+                      profile.role === 'admin' ? 'default' : 
+                      profile.role === 'partner' ? 'outline' : 
+                      profile.role === 'specjalista' ? 'outline' : 
+                      'secondary'
+                    }>
                       {getRoleDisplayName(profile.role)}
                     </Badge>
                   </div>
