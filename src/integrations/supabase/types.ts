@@ -150,6 +150,7 @@ export type Database = {
           visible_to_clients: boolean
           visible_to_everyone: boolean
           visible_to_partners: boolean
+          visible_to_specjalista: boolean
           width_type: string | null
         }
         Insert: {
@@ -212,6 +213,7 @@ export type Database = {
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
           width_type?: string | null
         }
         Update: {
@@ -274,6 +276,7 @@ export type Database = {
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
           width_type?: string | null
         }
         Relationships: [
@@ -303,6 +306,7 @@ export type Database = {
           visible_to_clients: boolean
           visible_to_everyone: boolean
           visible_to_partners: boolean
+          visible_to_specjalista: boolean
         }
         Insert: {
           content?: string | null
@@ -320,6 +324,7 @@ export type Database = {
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
         }
         Update: {
           content?: string | null
@@ -337,6 +342,7 @@ export type Database = {
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
         }
         Relationships: []
       }
