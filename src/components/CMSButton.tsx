@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { isExternalUrl } from '@/lib/urlUtils';
 
 interface CMSButtonProps {
   title: string;
@@ -23,8 +24,8 @@ export const CMSButton: React.FC<CMSButtonProps> = ({
     if (onClick) {
       onClick();
     } else if (url) {
-      if (url.startsWith('http') || url.startsWith('tel:') || url.startsWith('mailto:')) {
-        window.open(url, '_blank');
+      if (url.startsWith('tel:') || url.startsWith('mailto:') || isExternalUrl(url)) {
+        window.open(url, '_blank', 'noopener,noreferrer');
       } else {
         window.location.href = url;
       }

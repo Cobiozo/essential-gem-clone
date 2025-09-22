@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ContentCell, CMSItem } from '@/types/cms';
 import { CollapsibleSection } from './CollapsibleSection';
+import { isExternalUrl } from '@/lib/urlUtils';
 
 interface CMSContentProps {
   item: CMSItem;
@@ -138,12 +139,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
           if (cell.type === 'button_anchor' && onClick) {
             // Handle anchor links (internal page sections)
             onClick(cell.content, cell.url);
-          } else if (cell.type === 'button_external') {
+          } else if (cell.type === 'button_external' || isExternalUrl(cell.url)) {
             // Handle external links
-            window.open(cell.url, '_blank');
+            window.open(cell.url, '_blank', 'noopener,noreferrer');
           } else if (cell.type === 'button_functional' && onClick) {
             // Handle functional buttons
             onClick(cell.content, cell.url);
+          } else {
+            // Handle internal links
+            window.location.href = cell.url;
           }
         }
       };
