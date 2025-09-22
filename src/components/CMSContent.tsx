@@ -4,6 +4,7 @@ import { SecureMedia } from './SecureMedia';
 import { FormattedText } from './FormattedText';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { handleNavigation, isExternalUrl } from '@/lib/linkUtils';
 import { ContentCell, CMSItem } from '@/types/cms';
 import { CollapsibleSection } from './CollapsibleSection';
 
@@ -139,8 +140,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
             // Handle anchor links (internal page sections)
             onClick(cell.content, cell.url);
           } else if (cell.type === 'button_external') {
-            // Handle external links
-            window.open(cell.url, '_blank');
+            // Handle external links - use smart navigation
+            handleNavigation(cell.url);
           } else if (cell.type === 'button_functional' && onClick) {
             // Handle functional buttons
             onClick(cell.content, cell.url);

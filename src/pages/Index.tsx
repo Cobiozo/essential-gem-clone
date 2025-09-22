@@ -10,6 +10,7 @@ import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { handleNavigation } from '@/lib/linkUtils';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 
@@ -154,11 +155,7 @@ const Index = () => {
   const handleButtonClick = (buttonName: string, url?: string) => {
     console.log(`Clicked: ${buttonName}`);
     if (url) {
-      if (url.startsWith('http')) {
-        window.open(url, '_blank');
-      } else {
-        window.location.href = url;
-      }
+      handleNavigation(url);
     }
   };
 

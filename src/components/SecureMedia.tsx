@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
+import { isExternalUrl } from '@/lib/linkUtils';
 
 interface SecureMediaProps {
   mediaUrl: string;
@@ -136,7 +138,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           <p className="text-xs text-gray-500">Dokument • {extension}</p>
         </div>
         <button
-          onClick={() => window.open(signedUrl, '_blank')}
+          onClick={() => {
+            if (isExternalUrl(signedUrl)) {
+              window.open(signedUrl, '_blank', 'noopener,noreferrer');
+            } else {
+              window.location.href = signedUrl;
+            }
+          }}
           className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
         >
           Otwórz

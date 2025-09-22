@@ -31,6 +31,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
+import { handleNavigation } from '@/lib/linkUtils';
 import { ContentCell, CMSItem } from '@/types/cms';
 
 interface CMSSection {
@@ -3205,13 +3206,15 @@ const Admin = () => {
                               onClick={() => {
                                 const linkUrl = prompt('Wprowadź URL:');
                                 const linkText = prompt('Wprowadź tekst linku:');
-                                if (linkUrl && linkText) {
-                                  const linkTag = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
-                                  setEditingPage({
-                                    ...editingPage, 
-                                    content: (editingPage.content || '') + linkTag
-                                  });
-                                }
+                                 if (linkUrl && linkText) {
+                                   const isExternal = linkUrl.startsWith('http') && !linkUrl.includes(window.location.hostname);
+                                   const target = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+                                   const linkTag = `<a href="${linkUrl}"${target}>${linkText}</a>`;
+                                   setEditingPage({
+                                     ...editingPage, 
+                                     content: (editingPage.content || '') + linkTag
+                                   });
+                                 }
                               }}
                             >
                               🔗 Dodaj link
