@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '../MediaUpload';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface Section {
   id?: string;
@@ -50,6 +51,9 @@ interface Section {
   font_family?: string | null;
   font_style?: string | null;
   text_decoration?: string | null;
+  // Separate typography formatting
+  title_formatting?: any | null;
+  description_formatting?: any | null;
   // Layout options
   display_type?: string | null;
   justify_content?: string | null;
@@ -132,6 +136,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       font_family: 'inherit',
       font_style: 'normal',
       text_decoration: 'none',
+      title_formatting: null,
+      description_formatting: null,
       // Layout defaults
       display_type: 'block',
       justify_content: 'start',
@@ -420,6 +426,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       font_family: 'inherit',
       font_style: 'normal',
       text_decoration: 'none',
+      title_formatting: null,
+      description_formatting: null,
       // Layout defaults
       display_type: 'block',
       justify_content: 'start',
@@ -479,7 +487,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
 
   const editorContent = (
     <div className="space-y-6">
-      {/* Basic Information */}
       <div className="space-y-4">
         <div>
           <Label htmlFor="section-title" className="text-sm font-medium">
@@ -503,16 +510,73 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
           </div>
         </div>
 
+        {/* Title Typography Settings */}
+        <div className="border rounded-lg p-4 bg-muted/20">
+          <Label className="text-sm font-medium mb-3 block">Formatowanie tytułu:</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Rozmiar czcionki tytułu</Label>
+              <Select 
+                value={(editedSection.title_formatting?.fontSize || editedSection.font_size || 16).toString()}
+                onValueChange={(value) => setEditedSection({
+                  ...editedSection,
+                  title_formatting: {
+                    ...editedSection.title_formatting,
+                    fontSize: parseInt(value)
+                  }
+                })}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border z-50">
+                  <SelectItem value="14">14px</SelectItem>
+                  <SelectItem value="16">16px</SelectItem>
+                  <SelectItem value="18">18px</SelectItem>
+                  <SelectItem value="20">20px</SelectItem>
+                  <SelectItem value="24">24px</SelectItem>
+                  <SelectItem value="28">28px</SelectItem>
+                  <SelectItem value="32">32px</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Grubość tytułu</Label>
+              <Select 
+                value={(editedSection.title_formatting?.fontWeight || editedSection.font_weight || 400).toString()}
+                onValueChange={(value) => setEditedSection({
+                  ...editedSection,
+                  title_formatting: {
+                    ...editedSection.title_formatting,
+                    fontWeight: parseInt(value)
+                  }
+                })}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border z-50">
+                  {fontWeightOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value.toString()}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
         <div>
           <Label htmlFor="section-description" className="text-sm font-medium">
-            Opis sekcji (opcjonalny)
+            Opis sekcji (Rich Text Editor)
           </Label>
-          <Textarea
-            id="section-description"
+          <RichTextEditor
             value={editedSection.description || ''}
-            onChange={(e) => setEditedSection({...editedSection, description: e.target.value})}
-            placeholder="Krótki opis sekcji"
-            rows={3}
+            onChange={(value) => setEditedSection({...editedSection, description: value})}
+            formatting={editedSection.description_formatting}
+            onFormattingChange={(formatting) => setEditedSection({...editedSection, description_formatting: formatting})}
+            placeholder="Wprowadź szczegółowy opis sekcji..."
             className="mt-1"
           />
         </div>

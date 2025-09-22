@@ -13,6 +13,7 @@ import { Edit3, Save, X, Plus, Palette, Type, Image, Video, Link2, Eye, EyeOff, 
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { ContentCell, CMSItem } from '@/types/cms';
 
 interface ItemEditorProps {
@@ -61,7 +62,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       text_transform: 'none',
       text_align: 'left',
       font_style: 'normal',
-      text_decoration: 'none'
+      text_decoration: 'none',
+      title_formatting: null,
+      description_formatting: null
     }
   );
 
@@ -189,70 +192,12 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       text_transform: 'none',
       text_align: 'left',
       font_style: 'normal',
-      text_decoration: 'none'
+      text_decoration: 'none',
+      title_formatting: null,
+      description_formatting: null
     });
     setIsOpen(false);
     onCancel?.();
-  };
-
-  // Cell management functions
-  const addCell = (type: ContentCell['type']) => {
-    const newCell: ContentCell = {
-      id: crypto.randomUUID(),
-      type,
-      content: '',
-      url: type.includes('button') ? '' : undefined,
-      position: (editedItem.cells?.length || 0) + 1,
-      is_active: true,
-      formatting: null,
-      // Initialize section-specific properties
-      ...(type === 'section' && {
-        section_items: [],
-        section_title: '',
-        section_description: ''
-      })
-    };
-    
-    setEditedItem({
-      ...editedItem,
-      cells: [...(editedItem.cells || []), newCell]
-    });
-  };
-
-  const updateCell = (cellId: string, updates: Partial<ContentCell>) => {
-    setEditedItem({
-      ...editedItem,
-      cells: editedItem.cells?.map(cell => 
-        cell.id === cellId ? { ...cell, ...updates } : cell
-      ) || []
-    });
-  };
-
-  const deleteCell = (cellId: string) => {
-    setEditedItem({
-      ...editedItem,
-      cells: editedItem.cells?.filter(cell => cell.id !== cellId) || []
-    });
-  };
-
-  const moveCellUp = (cellId: string) => {
-    const cells = [...(editedItem.cells || [])];
-    const index = cells.findIndex(cell => cell.id === cellId);
-    if (index > 0) {
-      [cells[index], cells[index - 1]] = [cells[index - 1], cells[index]];
-      cells.forEach((cell, i) => cell.position = i + 1);
-      setEditedItem({ ...editedItem, cells });
-    }
-  };
-
-  const moveCellDown = (cellId: string) => {
-    const cells = [...(editedItem.cells || [])];
-    const index = cells.findIndex(cell => cell.id === cellId);
-    if (index < cells.length - 1) {
-      [cells[index], cells[index + 1]] = [cells[index + 1], cells[index]];
-      cells.forEach((cell, i) => cell.position = i + 1);
-      setEditedItem({ ...editedItem, cells });
-    }
   };
 
   const addEmojiToTitle = (emoji: string) => {
@@ -323,29 +268,73 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="item-description" className="text-sm font-medium">
-            Opis
-          </Label>
-          <div className="space-y-2 mt-1">
-            <Textarea
-              id="item-description"
-              value={editedItem.description || ''}
-              onChange={(e) => setEditedItem({...editedItem, description: e.target.value})}
-              placeholder="Opis elementu"
-              rows={3}
-            />
-            <div className="flex justify-end">
-              <EmojiPicker 
-                onEmojiSelect={addEmojiToDescription}
-                trigger={
-                  <Button variant="outline" size="sm" type="button">
-                    😀 Dodaj emoji do opisu
-                  </Button>
-                }
-              />
+        {/* Title Typography Settings */}
+        <div className="border rounded-lg p-4 bg-muted/20">
+          <Label className="text-sm font-medium mb-3 block">Formatowanie tytułu:</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Rozmiar czcionki tytułu</Label>
+              <Select 
+                value={(editedItem.title_formatting?.fontSize || editedItem.font_size || 16).toString()}
+                onValueChange={(value) => setEditedItem({
+                  ...editedItem,
+                  title_formatting: {
+                    ...editedItem.title_formatting,
+                    fontSize: parseInt(value)
+                  }
+                })}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border z-50">
+                  <SelectItem value="14">14px</SelectItem>
+                  <SelectItem value="16">16px</SelectItem>
+                  <SelectItem value="18">18px</SelectItem>
+                  <SelectItem value="20">20px</SelectItem>
+                  <SelectItem value="24">24px</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Grubość tytułu</Label>
+              <Select 
+                value={editedItem.title_formatting?.fontWeight || editedItem.font_weight || '400'}
+                onValueChange={(value) => setEditedItem({
+                  ...editedItem,
+                  title_formatting: {
+                    ...editedItem.title_formatting,
+                    fontWeight: value
+                  }
+                })}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background border z-50">
+                  {fontWeights.map((weight) => (
+                    <SelectItem key={weight.value} value={weight.value}>
+                      {weight.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor="item-description" className="text-sm font-medium">
+            Opis (Rich Text Editor)
+          </Label>
+          <RichTextEditor
+            value={editedItem.description || ''}
+            onChange={(value) => setEditedItem({...editedItem, description: value})}
+            formatting={editedItem.description_formatting}
+            onFormattingChange={(formatting) => setEditedItem({...editedItem, description_formatting: formatting})}
+            placeholder="Wprowadź szczegółowy opis elementu..."
+            className="mt-1"
+          />
         </div>
 
         {(editedItem.type === 'button' || editedItem.type === 'link') && (
@@ -393,305 +382,6 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           )}
         </div>
       </div>
-
-      {/* Multi-Cell Content Management */}
-      {editedItem.type === 'multi_cell' && (
-        <div className="space-y-4 border-t pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <Plus className="w-4 h-4" />
-              <h4 className="font-medium">Komórki treściowe</h4>
-            </div>
-            <div className="flex gap-2">
-              <Select onValueChange={(value) => addCell(value as ContentCell['type'])}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Dodaj komórkę..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="header">📝 Nagłówek</SelectItem>
-                  <SelectItem value="description">📄 Opis</SelectItem>
-                  <SelectItem value="list_item">• Element listy</SelectItem>
-                  <SelectItem value="button_functional">🔘 Przycisk funkcyjny</SelectItem>
-                  <SelectItem value="button_anchor">⚓ Przycisk kotwica</SelectItem>
-                  <SelectItem value="button_external">🔗 Przycisk zewnętrzny</SelectItem>
-                  <SelectItem value="section">📦 Sekcja zagnieżdżona</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-3 max-h-[40vh] overflow-y-auto border rounded-md bg-muted/10 p-3">
-            {editedItem.cells?.map((cell, index) => (
-              <div key={cell.id} className="border rounded-lg p-3 bg-muted/30 min-w-0">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    <GripVertical className="w-4 h-4 text-muted-foreground" />
-                    <Badge variant="outline">
-                      {cell.type === 'header' && '📝 Nagłówek'}
-                      {cell.type === 'description' && '📄 Opis'}
-                      {cell.type === 'list_item' && '• Lista'}
-                      {cell.type === 'button_functional' && '🔘 Funkcyjny'}
-                      {cell.type === 'button_anchor' && '⚓ Kotwica'}
-                      {cell.type === 'button_external' && '🔗 Zewnętrzny'}
-                      {cell.type === 'section' && '📦 Sekcja'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => moveCellUp(cell.id)}
-                      disabled={index === 0}
-                    >
-                      <ArrowUp className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => moveCellDown(cell.id)}
-                      disabled={index === (editedItem.cells?.length || 0) - 1}
-                    >
-                      <ArrowDown className="w-3 h-3" />
-                    </Button>
-                    <Switch
-                      checked={cell.is_active}
-                      onCheckedChange={(checked) => updateCell(cell.id, { is_active: checked })}
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deleteCell(cell.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Input
-                    placeholder={
-                      cell.type === 'header' ? 'Tytuł nagłówka...' :
-                      cell.type === 'description' ? 'Tekst opisu...' :
-                      cell.type === 'list_item' ? 'Element listy...' :
-                      cell.type === 'section' ? 'Nazwa sekcji zagnieżdżonej...' :
-                      'Nazwa przycisku...'
-                    }
-                    value={cell.content}
-                    onChange={(e) => updateCell(cell.id, { content: e.target.value })}
-                  />
-                  
-                  {/* Typography controls for cells */}
-                  {(cell.type === 'header' || cell.type === 'description' || cell.type === 'list_item') && (
-                    <div className="border-t pt-2 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Formatowanie tekstu:</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={cell.formatting?.font_weight || '400'}
-                          onValueChange={(value) => updateCell(cell.id, {
-                            formatting: { ...cell.formatting, font_weight: value }
-                          })}
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Grubość" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {fontWeights.map((weight) => (
-                              <SelectItem key={weight.value} value={weight.value}>
-                                {weight.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={cell.formatting?.text_align || 'left'}
-                          onValueChange={(value) => updateCell(cell.id, {
-                            formatting: { ...cell.formatting, text_align: value }
-                          })}
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Wyrównanie" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {textAlignOptions.map((align) => (
-                              <SelectItem key={align.value} value={align.value}>
-                                {align.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">Rozmiar: {cell.formatting?.font_size || 16}px</Label>
-                          <Slider
-                            value={[cell.formatting?.font_size || 16]}
-                            onValueChange={([value]) => updateCell(cell.id, {
-                              formatting: { ...cell.formatting, font_size: value }
-                            })}
-                            min={10}
-                            max={24}
-                            step={1}
-                            className="w-full"
-                          />
-                        </div>
-                        <Input
-                          type="color"
-                          value={cell.formatting?.color || '#000000'}
-                          onChange={(e) => updateCell(cell.id, {
-                            formatting: { ...cell.formatting, color: e.target.value }
-                          })}
-                          className="h-8"
-                          title="Kolor tekstu"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {cell.type === 'section' && (
-                    <>
-                      <Input
-                        placeholder="Tytuł sekcji..."
-                        value={cell.section_title || ''}
-                        onChange={(e) => updateCell(cell.id, { section_title: e.target.value })}
-                      />
-                      <Textarea
-                        placeholder="Opis sekcji..."
-                        value={cell.section_description || ''}
-                        onChange={(e) => updateCell(cell.id, { section_description: e.target.value })}
-                        rows={2}
-                      />
-                      <div className="border rounded-lg p-3 bg-background max-h-48 overflow-y-auto">
-                        <Label className="text-sm font-medium mb-2 block">Elementy w sekcji:</Label>
-                        {cell.section_items && cell.section_items.length > 0 ? (
-                          <div className="space-y-2">
-                            {cell.section_items.map((item, itemIndex) => (
-                              <div key={item.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate">{item.title || 'Bez tytułu'}</div>
-                                  <div className="text-xs text-muted-foreground">{item.type}</div>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                  <ItemEditor
-                                    item={item}
-                                    sectionId={cell.id}
-                                    onSave={(updatedItem) => {
-                                      const updatedItems = [...(cell.section_items || [])];
-                                      updatedItems[itemIndex] = updatedItem;
-                                      updateCell(cell.id, { section_items: updatedItems });
-                                    }}
-                                    onCancel={() => {}}
-                                    trigger={
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-6 w-6 p-0"
-                                      >
-                                        <Edit3 className="w-3 h-3" />
-                                      </Button>
-                                    }
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      const updatedItems = cell.section_items?.filter((_, i) => i !== itemIndex) || [];
-                                      updateCell(cell.id, { section_items: updatedItems });
-                                    }}
-                                    className="h-6 w-6 p-0 text-destructive"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">Brak elementów w sekcji</p>
-                        )}
-                        <ItemEditor
-                          sectionId={cell.id}
-                          onSave={(newItem) => {
-                            const itemWithId = {
-                              ...newItem,
-                              id: newItem.id || crypto.randomUUID(),
-                              position: (cell.section_items?.length || 0) + 1,
-                              section_id: cell.id
-                            };
-                            const updatedItems = [...(cell.section_items || []), itemWithId];
-                            updateCell(cell.id, { section_items: updatedItems });
-                          }}
-                          onCancel={() => {}}
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-2 w-full"
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Dodaj element
-                            </Button>
-                          }
-                        />
-                      </div>
-                    </>
-                  )}
-                  
-                  {cell.type.includes('button') && (
-                    <Input
-                      placeholder={
-                        cell.type === 'button_anchor' ? '#sekcja-id lub nazwa sekcji' :
-                        'https://example.com lub link'
-                      }
-                      value={cell.url || ''}
-                      onChange={(e) => updateCell(cell.id, { url: e.target.value })}
-                    />
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            {(!editedItem.cells || editedItem.cells.length === 0) && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>Brak komórek. Użyj menu powyżej, aby dodać pierwszą komórkę.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Media Upload */}
-      {(editedItem.type === 'media' || editedItem.type === 'card') && (
-        <div className="space-y-4 border-t pt-4">
-          <div className="flex items-center space-x-2 mb-3">
-            <Image className="w-4 h-4" />
-            <h4 className="font-medium">Media</h4>
-          </div>
-
-          <MediaUpload
-            onMediaUploaded={handleMediaUpload}
-            currentMediaUrl={editedItem.media_url || undefined}
-            currentMediaType={(editedItem.media_type === 'image' || editedItem.media_type === 'video' || editedItem.media_type === 'document' || editedItem.media_type === 'audio' || editedItem.media_type === 'other') ? editedItem.media_type : undefined}
-            currentAltText={editedItem.media_alt_text || undefined}
-          />
-
-          {editedItem.media_url && (
-            <div>
-              <Label htmlFor="media-alt" className="text-sm font-medium">
-                Tekst alternatywny (ALT)
-              </Label>
-              <Input
-                id="media-alt"
-                value={editedItem.media_alt_text || ''}
-                onChange={(e) => setEditedItem({...editedItem, media_alt_text: e.target.value})}
-                placeholder="Opis obrazu dla czytników ekranu"
-                className="mt-1"
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Typography Settings */}
       <div className="space-y-4 border-t pt-4">
@@ -762,110 +452,6 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
         </div>
 
         <div>
-          <Label className="text-sm font-medium">Styl czcionki</Label>
-          <Select 
-            value={editedItem.font_style || 'normal'} 
-            onValueChange={(value) => setEditedItem({...editedItem, font_style: value})}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fontStyleOptions.map((style) => (
-                <SelectItem key={style.value} value={style.value}>
-                  {style.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium">Dekoracja tekstu</Label>
-          <Select 
-            value={editedItem.text_decoration || 'none'} 
-            onValueChange={(value) => setEditedItem({...editedItem, text_decoration: value})}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {textDecorationOptions.map((decoration) => (
-                <SelectItem key={decoration.value} value={decoration.value}>
-                  {decoration.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium">Transformacja tekstu</Label>
-          <Select 
-            value={editedItem.text_transform || 'none'} 
-            onValueChange={(value) => setEditedItem({...editedItem, text_transform: value})}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {textTransformOptions.map((transform) => (
-                <SelectItem key={transform.value} value={transform.value}>
-                  {transform.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium">Wyrównanie tekstu</Label>
-          <Select 
-            value={editedItem.text_align || 'left'} 
-            onValueChange={(value) => setEditedItem({...editedItem, text_align: value})}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {textAlignOptions.map((align) => (
-                <SelectItem key={align.value} value={align.value}>
-                  {align.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium mb-2 block">
-            Wysokość linii: {editedItem.line_height}
-          </Label>
-          <Slider
-            value={[editedItem.line_height || 1.5]}
-            onValueChange={([value]) => setEditedItem({...editedItem, line_height: value})}
-            min={0.8}
-            max={3}
-            step={0.1}
-            className="w-full"
-          />
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium mb-2 block">
-            Odstęp między literami: {editedItem.letter_spacing}px
-          </Label>
-          <Slider
-            value={[editedItem.letter_spacing || 0]}
-            onValueChange={([value]) => setEditedItem({...editedItem, letter_spacing: value})}
-            min={-2}
-            max={10}
-            step={0.1}
-            className="w-full"
-          />
-        </div>
-
-        <div>
           <Label htmlFor="text-color" className="text-sm font-medium">
             Kolor tekstu
           </Label>
@@ -921,109 +507,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
             value={[editedItem.padding || 12]}
             onValueChange={([value]) => setEditedItem({...editedItem, padding: value})}
             min={0}
-            max={32}
+            max={48}
             step={2}
             className="w-full"
           />
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium mb-2 block">
-            Zaokrąglenie rogów: {editedItem.border_radius}px
-          </Label>
-          <Slider
-            value={[editedItem.border_radius || 8]}
-            onValueChange={([value]) => setEditedItem({...editedItem, border_radius: value})}
-            min={0}
-            max={24}
-            step={2}
-            className="w-full"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="style-class" className="text-sm font-medium">
-            Dodatkowe klasy CSS (opcjonalne)
-          </Label>
-          <Input
-            id="style-class"
-            value={editedItem.style_class || ''}
-            onChange={(e) => setEditedItem({...editedItem, style_class: e.target.value})}
-            placeholder="np. hover:shadow-lg transition-all"
-            className="mt-1"
-          />
-        </div>
-      </div>
-
-      {/* Preview */}
-      <div className="space-y-4 border-t pt-4">
-        <h4 className="font-medium">Podgląd</h4>
-        
-        <div className="p-4 border rounded-lg bg-muted/30">
-          {editedItem.type === 'button' && (
-            <button 
-              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: editedItem.background_color,
-                color: editedItem.text_color,
-                fontSize: `${editedItem.font_size}px`,
-                fontWeight: editedItem.font_weight,
-                borderRadius: `${editedItem.border_radius}px`,
-                padding: `${editedItem.padding}px`
-              }}
-            >
-              {editedItem.icon && <span className="mr-2">{editedItem.icon}</span>}
-              {editedItem.title || 'Przykładowy przycisk'}
-            </button>
-          )}
-
-          {editedItem.type === 'text' && (
-            <div 
-              style={{
-                color: editedItem.text_color,
-                fontSize: `${editedItem.font_size}px`,
-                fontWeight: editedItem.font_weight,
-                padding: `${editedItem.padding}px`
-              }}
-            >
-              <h4 className="font-semibold mb-1">
-                {editedItem.icon && <span className="mr-2">{editedItem.icon}</span>}
-                {editedItem.title || 'Przykładowy tytuł'}
-              </h4>
-              {editedItem.description && (
-                <p className="text-sm opacity-80">{editedItem.description}</p>
-              )}
-            </div>
-          )}
-
-          {editedItem.type === 'card' && (
-            <div 
-              className="p-4 border rounded-lg"
-              style={{
-                backgroundColor: editedItem.background_color,
-                color: editedItem.text_color,
-                borderRadius: `${editedItem.border_radius}px`
-              }}
-            >
-              {editedItem.media_url && (
-                <div className="mb-3">
-                  <SecureMedia
-                    mediaUrl={editedItem.media_url}
-                    mediaType={editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-                    altText={editedItem.media_alt_text || ''}
-                    className="w-full max-h-32 object-cover"
-                  />
-                </div>
-              )}
-              <h4 className="font-semibold mb-1" style={{ fontSize: `${editedItem.font_size}px` }}>
-                {editedItem.icon && <span className="mr-2">{editedItem.icon}</span>}
-                {editedItem.title || 'Przykładowy tytuł karty'}
-              </h4>
-              {editedItem.description && (
-                <p className="text-sm opacity-80">{editedItem.description}</p>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -1035,26 +522,26 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
         <DialogTrigger asChild>
           {trigger}
         </DialogTrigger>
-        <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
             <DialogTitle>
               {isNew ? 'Dodaj nowy element' : 'Edytuj element'}
             </DialogTitle>
             <DialogDescription>
-              Skonfiguruj wygląd i zawartość elementu sekcji
+              {isNew ? 'Skonfiguruj nowy element w sekcji' : 'Modyfikuj ustawienia elementu'}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto min-h-0 pb-4">
-            {editorContent}
-          </div>
-          <DialogFooter className="flex-shrink-0 mt-4">
+          
+          {editorContent}
+
+          <DialogFooter>
             <Button variant="outline" onClick={handleCancel}>
               <X className="w-4 h-4 mr-2" />
               Anuluj
             </Button>
-            <Button onClick={handleSave} disabled={!editedItem.title?.trim()}>
+            <Button onClick={handleSave}>
               <Save className="w-4 h-4 mr-2" />
-              {isNew ? 'Dodaj element' : 'Zapisz zmiany'}
+              Zapisz
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1063,26 +550,26 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   }
 
   return (
-    <Card>
+    <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
+        <CardTitle className="flex items-center gap-2">
           <Edit3 className="w-5 h-5" />
-          <span>{isNew ? 'Nowy element' : 'Edytuj element'}</span>
+          {isNew ? 'Dodaj nowy element' : 'Edytuj element'}
         </CardTitle>
         <CardDescription>
-          Skonfiguruj wygląd i zawartość elementu sekcji
+          {isNew ? 'Skonfiguruj nowy element w sekcji' : 'Modyfikuj ustawienia elementu'}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {editorContent}
-        <div className="flex space-x-3 mt-6">
-          <Button onClick={handleSave} disabled={!editedItem.title?.trim()}>
-            <Save className="w-4 h-4 mr-2" />
-            {isNew ? 'Dodaj element' : 'Zapisz zmiany'}
-          </Button>
+        <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
           <Button variant="outline" onClick={handleCancel}>
             <X className="w-4 h-4 mr-2" />
             Anuluj
+          </Button>
+          <Button onClick={handleSave}>
+            <Save className="w-4 h-4 mr-2" />
+            Zapisz
           </Button>
         </div>
       </CardContent>
