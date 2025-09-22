@@ -113,15 +113,19 @@ const Index = () => {
 
   const fetchCMSData = async () => {
     try {
+      // Pobierz tylko sekcje należące do strony głównej (page_id = null)
       const { data: sectionsData } = await supabase
         .from('cms_sections')
         .select('*')
+        .is('page_id', null)  // Tylko sekcje strony głównej
         .eq('is_active', true)
         .order('position');
 
+      // Pobierz tylko elementy należące do strony głównej (page_id = null)
       const { data: itemsData } = await supabase
         .from('cms_items')
         .select('*, text_formatting, title_formatting')
+        .is('page_id', null)  // Tylko elementy strony głównej
         .eq('is_active', true)
         .order('position');
 
