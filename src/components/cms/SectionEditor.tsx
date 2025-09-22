@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '../MediaUpload';
+import { RichTextEditor } from '../RichTextEditor';
 
 interface Section {
   id?: string;
@@ -451,10 +452,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
           <Label htmlFor="section-description" className="text-sm font-medium">
             Opis sekcji (opcjonalny)
           </Label>
-          <Textarea
-            id="section-description"
+          <RichTextEditor
             value={editedSection.description || ''}
-            onChange={(e) => setEditedSection({...editedSection, description: e.target.value})}
+            onChange={(value) => setEditedSection({...editedSection, description: value})}
             placeholder="Krótki opis sekcji"
             rows={3}
             className="mt-1"

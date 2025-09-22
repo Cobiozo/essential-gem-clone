@@ -14,6 +14,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { ContentCell, CMSItem } from '@/types/cms';
+import { RichTextEditor } from '../RichTextEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -247,13 +248,12 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
 
         <div>
           <Label htmlFor="item-description" className="text-sm font-medium">
-            Opis
+            Opis Elementu
           </Label>
           <div className="space-y-2 mt-1">
-            <Textarea
-              id="item-description"
+            <RichTextEditor
               value={editedItem.description || ''}
-              onChange={(e) => setEditedItem({...editedItem, description: e.target.value})}
+              onChange={(value) => setEditedItem({...editedItem, description: value})}
               placeholder="Opis elementu"
               rows={3}
             />
@@ -410,10 +410,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                         value={cell.section_title || ''}
                         onChange={(e) => updateCell(cell.id, { section_title: e.target.value })}
                       />
-                      <Textarea
-                        placeholder="Opis sekcji..."
+                      <RichTextEditor
                         value={cell.section_description || ''}
-                        onChange={(e) => updateCell(cell.id, { section_description: e.target.value })}
+                        onChange={(value) => updateCell(cell.id, { section_description: value })}
+                        placeholder="Opis sekcji..."
                         rows={2}
                       />
                       <div className="border rounded-lg p-3 bg-background max-h-48 overflow-y-auto">
