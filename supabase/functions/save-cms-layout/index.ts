@@ -71,31 +71,54 @@ serve(async (req) => {
     // Service role client to bypass RLS for the actual updates
     const sr = createClient(supabaseUrl, serviceRoleKey);
 
-    // Update sections positions
-    const sectionPromises = sections.map((s) =>
-      sr.from("cms_sections").update({ position: s.position }).eq("id", s.id)
+    // Update sections positions with explicit error handling
+    const sectionResults = await Promise.all(
+      sections.map(async (s) => {
+        const res = await sr
+          .from("cms_sections")
+          .update({ position: s.position })
+          .eq("id", s.id);
+        if (res.error) {
+          console.error("Section update error", { id: s.id, error: res.error });
+        }
+        return { type: "section" as const, id: s.id, error: res.error };
+      })
     );
 
-    // Update items (position + section_id)
-    const itemPromises = items.map((it) =>
-      sr.from("cms_items").update({ position: it.position, section_id: it.section_id }).eq("id", it.id)
+    // Update items (position + section_id) with explicit error handling
+    const itemResults = await Promise.all(
+      items.map(async (it) => {
+        const res = await sr
+          .from("cms_items")
+          .update({ position: it.position, section_id: it.section_id })
+          .eq("id", it.id);
+        if (res.error) {
+          console.error("Item update error", { id: it.id, error: res.error });
+        }
+        return { type: "item" as const, id: it.id, error: res.error };
+      })
     );
 
-    const results = await Promise.allSettled([...sectionPromises, ...itemPromises]);
-    const failed = results.filter((r) => r.status === "rejected");
+    const failures = [...sectionResults, ...itemResults].filter((r) => r.error);
 
-    if (failed.length > 0) {
-      console.error("Some updates failed", failed);
-      return new Response(JSON.stringify({ error: "Partial failure", failed: failed.length }), {
-        status: 207,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (failures.length > 0) {
+      console.error("Some updates failed", failures);
+      return new Response(
+        JSON.stringify({ error: "Partial failure", failed: failures.length, details: failures }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, updated_sections: sectionResults.length, updated_items: itemResults.length }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (e) {
     console.error("save-cms-layout error:", e);
     return new Response(JSON.stringify({ error: "Unexpected error" }), {

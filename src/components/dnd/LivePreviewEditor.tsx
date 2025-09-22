@@ -370,16 +370,23 @@ export const LivePreviewEditor: React.FC = () => {
         });
       });
 
-      const { error } = await supabase.functions.invoke('save-cms-layout', {
+      const { data, error } = await supabase.functions.invoke('save-cms-layout', {
         body: { sections: sectionsPayload, items: itemsPayload },
       });
       if (error) throw error;
+      if (!data?.ok) {
+        console.error('Save returned non-ok response:', data);
+        throw new Error('Save did not complete successfully');
+      }
+
+      // Reload from DB to ensure persisted order/state
+      await fetchData();
 
       setHasUnsavedChanges(false);
       setAutoSaveStatus('saved');
       toast({
-        title: 'Success',
-        description: 'Layout saved successfully',
+        title: 'Sukces',
+        description: 'Układ został zapisany poprawnie',
       });
     } catch (error) {
       console.error('Save failed:', error);
