@@ -1833,7 +1833,7 @@ const Admin = () => {
                           onChange={(e) => setNewSection({...newSection, visible_to_specjalista: e.target.checked})}
                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                         />
-                        <Label htmlFor="new-section-specjalista">Widoczne dla specjalistów</Label>
+                        <Label htmlFor="new-section-specjalista">{t('admin.visibleToSpecjalista')}</Label>
                       </div>
                     </div>
                   </div>
@@ -1911,7 +1911,7 @@ const Admin = () => {
                                   onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                 />
-                                <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">Widoczne dla specjalistów</label>
+                                <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecjalista')}</label>
                               </div>
                            </div>
                          </div>
@@ -1945,11 +1945,11 @@ const Admin = () => {
                       <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         <Button variant="outline" size="sm" onClick={() => setEditingSection(section)} className="flex-1 sm:flex-none">
                           <Pencil className="w-4 h-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Edytuj</span>
+                          <span className="hidden sm:inline">{t('admin.edit')}</span>
                         </Button>
                         <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)} className="flex-1 sm:flex-none">
                           <Trash2 className="w-4 h-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Usuń</span>
+                          <span className="hidden sm:inline">{t('admin.delete')}</span>
                         </Button>
                         <ItemEditor
                           sectionId={section.id}
@@ -2355,7 +2355,7 @@ const Admin = () => {
                             onChange={(e) => setNewPage({...newPage, visible_to_specjalista: e.target.checked})}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                           />
-                          <Label htmlFor="new-page-specjalista">Widoczne dla specjalistów</Label>
+                          <Label htmlFor="new-page-specjalista">{t('admin.visibleToSpecjalista')}</Label>
                         </div>
                      </div>
                    </div>
@@ -2466,7 +2466,7 @@ const Admin = () => {
                                         onChange={(e) => updatePageVisibility(page.id, { visible_to_specjalista: e.target.checked })}
                                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                       />
-                                      <label htmlFor={`specjalista-${page.id}`} className="text-sm">Widoczne dla specjalistów</label>
+                                      <label htmlFor={`specjalista-${page.id}`} className="text-sm">{t('admin.visibleToSpecjalista')}</label>
                                     </div>
                                  </div>
                                </div>

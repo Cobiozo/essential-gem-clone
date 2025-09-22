@@ -212,6 +212,9 @@ const translations = {
     'admin.elementDescription': 'Opis Elementu',
     'admin.elementCreated': 'Element został pomyślnie dodany do sekcji',
     'admin.noElementsInSection': 'Brak elementów w tej sekcji',
+    'admin.editPage': 'Edytuj stronę',
+    'admin.editPageSection': 'Edytuj sekcję strony',
+    'admin.editPageElement': 'Edytuj element strony',
     
     // Registration
     'auth.eqId': 'EQ ID',
@@ -431,6 +434,9 @@ const translations = {
     'admin.elementDescription': 'Elementbeschreibung',
     'admin.elementCreated': 'Element wurde erfolgreich zum Bereich hinzugefügt',
     'admin.noElementsInSection': 'Keine Elemente in diesem Bereich',
+    'admin.editPage': 'Seite bearbeiten',
+    'admin.editPageSection': 'Seitenbereich bearbeiten',
+    'admin.editPageElement': 'Seitenelement bearbeiten',
     
     // Registration
     'auth.eqId': 'EQ ID',
@@ -651,6 +657,9 @@ const translations = {
     'admin.elementDescription': 'Element description',
     'admin.elementCreated': 'Element has been successfully added to section',
     'admin.noElementsInSection': 'No elements in this section',
+    'admin.editPage': 'Edit page',
+    'admin.editPageSection': 'Edit page section',
+    'admin.editPageElement': 'Edit page element',
     
     // Registration
     'auth.eqId': 'EQ ID',
