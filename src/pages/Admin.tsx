@@ -1734,7 +1734,7 @@ const Admin = () => {
           <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.contentManagement')}</span>
+              <span className="hidden sm:inline text-xs sm:text-sm">Główna</span>
             </TabsTrigger>
             <TabsTrigger value="fonts" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
