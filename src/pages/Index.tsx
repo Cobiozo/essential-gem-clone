@@ -212,12 +212,11 @@ const Index = () => {
                       letterSpacing: `${headerItem.text_formatting.letterSpacing || 0}px`,
                       fontFamily: headerItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
                     }}
-                  >
-                    {headerText}
-                  </div>
+                    dangerouslySetInnerHTML={{ __html: headerText }}
+                  />
                 );
               }
-              return headerText;
+              return <span dangerouslySetInnerHTML={{ __html: headerText }} />;
             })()}
           </div>
         )}
@@ -248,12 +247,11 @@ const Index = () => {
                       letterSpacing: `${authorItem.text_formatting.letterSpacing || 0}px`,
                       fontFamily: authorItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
                     }}
-                  >
-                    {authorText}
-                  </div>
+                    dangerouslySetInnerHTML={{ __html: authorText }}
+                  />
                 );
               }
-              return authorText;
+              return <span dangerouslySetInnerHTML={{ __html: authorText }} />;
             })()}
           </div>
         )}
