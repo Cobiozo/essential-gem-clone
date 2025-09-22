@@ -74,6 +74,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       textTransform: 'none'
     }
   );
+  const [isFocused, setIsFocused] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const updateFormatting = (updates: Partial<TextFormatting>) => {
     const newFormatting = { ...currentFormatting, ...updates };
@@ -82,47 +84,90 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const handleCommand = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
     if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+      editorRef.current.focus();
+      document.execCommand(command, false, value);
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        handleContentChange();
+      }, 0);
     }
   };
 
   const handleContentChange = () => {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+    if (editorRef.current && !isUpdating) {
+      const content = editorRef.current.innerHTML;
+      onChange(content);
     }
   };
 
-  const applyFormatting = () => {
-    if (editorRef.current) {
-      Object.assign(editorRef.current.style, {
-        fontSize: `${currentFormatting.fontSize}px`,
-        fontWeight: currentFormatting.fontWeight,
-        fontStyle: currentFormatting.fontStyle,
-        textDecoration: currentFormatting.textDecoration,
-        textAlign: currentFormatting.textAlign,
-        color: currentFormatting.color,
-        fontFamily: currentFormatting.fontFamily,
-        lineHeight: currentFormatting.lineHeight.toString(),
-        letterSpacing: `${currentFormatting.letterSpacing}px`,
-        textTransform: currentFormatting.textTransform
-      });
+  const handleInput = () => {
+    handleContentChange();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Handle keyboard shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          handleCommand('bold');
+          break;
+        case 'i':
+          e.preventDefault();
+          handleCommand('italic');
+          break;
+        case 'u':
+          e.preventDefault();
+          handleCommand('underline');
+          break;
+      }
     }
   };
 
-  useEffect(() => {
-    applyFormatting();
-  }, [currentFormatting]);
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+    setTimeout(() => {
+      handleContentChange();
+    }, 0);
+  };
 
+  // Sync content when value prop changes (avoid infinite loops)
   useEffect(() => {
     if (editorRef.current && value !== editorRef.current.innerHTML) {
-      editorRef.current.innerHTML = value;
+      setIsUpdating(true);
+      const selection = window.getSelection();
+      const range = selection?.getRangeAt(0);
+      
+      editorRef.current.innerHTML = value || '';
+      
+      // Try to restore cursor position
+      if (range && editorRef.current.contains(range.startContainer)) {
+        try {
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        } catch (e) {
+          // Ignore errors - cursor will be at default position
+        }
+      }
+      
+      setIsUpdating(false);
     }
   }, [value]);
 
+  // Update formatting when formatting prop changes
+  useEffect(() => {
+    if (formatting) {
+      setCurrentFormatting(formatting);
+    }
+  }, [formatting]);
+
+  const isEmpty = !value || value.trim() === '' || value === '<br>' || value === '<div><br></div>';
+
   return (
-    <div className={cn("border rounded-lg", className)}>
+    <div className={cn("border rounded-lg relative", className)}>
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b bg-muted/30 flex-wrap">
         {/* Font Family */}
@@ -163,40 +208,43 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         {/* Text Style Buttons */}
         <Button
-          variant={currentFormatting.fontWeight === 'bold' ? 'default' : 'ghost'}
+          type="button"
+          variant="ghost"
           size="sm"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             handleCommand('bold');
-            updateFormatting({ 
-              fontWeight: currentFormatting.fontWeight === 'bold' ? '400' : 'bold' 
-            });
           }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Pogrub (Ctrl+B)"
         >
           <Bold className="h-4 w-4" />
         </Button>
 
         <Button
-          variant={currentFormatting.fontStyle === 'italic' ? 'default' : 'ghost'}
+          type="button"
+          variant="ghost"
           size="sm"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             handleCommand('italic');
-            updateFormatting({ 
-              fontStyle: currentFormatting.fontStyle === 'italic' ? 'normal' : 'italic' 
-            });
           }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Kursywa (Ctrl+I)"
         >
           <Italic className="h-4 w-4" />
         </Button>
 
         <Button
-          variant={currentFormatting.textDecoration.includes('underline') ? 'default' : 'ghost'}
+          type="button"
+          variant="ghost"
           size="sm"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             handleCommand('underline');
-            updateFormatting({ 
-              textDecoration: currentFormatting.textDecoration.includes('underline') ? 'none' : 'underline' 
-            });
           }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Podkreśl (Ctrl+U)"
         >
           <Underline className="h-4 w-4" />
         </Button>
@@ -205,34 +253,43 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         {/* Alignment Buttons */}
         <Button
-          variant={currentFormatting.textAlign === 'left' ? 'default' : 'ghost'}
+          type="button"
+          variant="ghost"
           size="sm"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             handleCommand('justifyLeft');
-            updateFormatting({ textAlign: 'left' });
           }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Wyrównaj do lewej"
         >
           <AlignLeft className="h-4 w-4" />
         </Button>
 
         <Button
-          variant={currentFormatting.textAlign === 'center' ? 'default' : 'ghost'}
+          type="button"
+          variant="ghost"
           size="sm"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             handleCommand('justifyCenter');
-            updateFormatting({ textAlign: 'center' });
           }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Wyśrodkuj"
         >
           <AlignCenter className="h-4 w-4" />
         </Button>
 
         <Button
-          variant={currentFormatting.textAlign === 'right' ? 'default' : 'ghost'}
+          type="button"
+          variant="ghost"
           size="sm"
-          onClick={() => {
+          onMouseDown={(e) => {
+            e.preventDefault();
             handleCommand('justifyRight');
-            updateFormatting({ textAlign: 'right' });
           }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Wyrównaj do prawej"
         >
           <AlignRight className="h-4 w-4" />
         </Button>
@@ -241,17 +298,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         {/* Lists */}
         <Button
+          type="button"
           variant="ghost"
           size="sm"
-          onClick={() => handleCommand('insertUnorderedList')}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            handleCommand('insertUnorderedList');
+          }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Lista punktowana"
         >
           <List className="h-4 w-4" />
         </Button>
 
         <Button
+          type="button"
           variant="ghost"
           size="sm"
-          onClick={() => handleCommand('insertOrderedList')}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            handleCommand('insertOrderedList');
+          }}
+          className="h-8 w-8 p-0 hover:bg-accent"
+          title="Lista numerowana"
         >
           <ListOrdered className="h-4 w-4" />
         </Button>
@@ -275,33 +344,53 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       </div>
 
       {/* Editor Content */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleContentChange}
-        onBlur={handleContentChange}
-        className="min-h-[120px] p-4 outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-b-lg"
-        style={{
-          fontSize: `${currentFormatting.fontSize}px`,
-          fontWeight: currentFormatting.fontWeight,
-          fontStyle: currentFormatting.fontStyle,
-          textDecoration: currentFormatting.textDecoration,
-          textAlign: currentFormatting.textAlign as any,
-          color: currentFormatting.color,
-          fontFamily: currentFormatting.fontFamily,
-          lineHeight: currentFormatting.lineHeight.toString(),
-          letterSpacing: `${currentFormatting.letterSpacing}px`,
-          textTransform: currentFormatting.textTransform as any
-        }}
-        dangerouslySetInnerHTML={{ __html: value }}
-      />
-      
-      {!value && (
-        <div className="absolute top-[52px] left-4 text-muted-foreground pointer-events-none">
-          {placeholder}
-        </div>
-      )}
+      <div className="relative">
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning={true}
+          onInput={handleInput}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          className={cn(
+            "min-h-[120px] p-4 outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-b-lg bg-background",
+            "prose prose-sm max-w-none [&>*]:mb-2 [&>*:last-child]:mb-0",
+            "focus:bg-background selection:bg-primary/20",
+            "whitespace-pre-wrap"
+          )}
+          style={{
+            fontSize: `${currentFormatting.fontSize}px`,
+            fontWeight: currentFormatting.fontWeight,
+            fontStyle: currentFormatting.fontStyle,
+            textDecoration: currentFormatting.textDecoration,
+            textAlign: currentFormatting.textAlign as any,
+            color: currentFormatting.color,
+            fontFamily: currentFormatting.fontFamily,
+            lineHeight: currentFormatting.lineHeight.toString(),
+            letterSpacing: `${currentFormatting.letterSpacing}px`,
+            textTransform: currentFormatting.textTransform as any,
+            wordBreak: 'break-word',
+            overflowWrap: 'anywhere',
+            userSelect: 'text',
+            cursor: 'text'
+          }}
+        />
+        
+        {/* Placeholder */}
+        {isEmpty && !isFocused && (
+          <div 
+            className="absolute top-4 left-4 text-muted-foreground pointer-events-none select-none"
+            style={{
+              fontSize: `${currentFormatting.fontSize}px`,
+              fontFamily: currentFormatting.fontFamily
+            }}
+          >
+            {placeholder}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
