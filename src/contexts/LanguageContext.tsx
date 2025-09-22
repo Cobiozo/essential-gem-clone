@@ -213,8 +213,177 @@ const translations = {
     'admin.elementCreated': 'Element został pomyślnie dodany do sekcji',
     'admin.noElementsInSection': 'Brak elementów w tej sekcji',
     'admin.editPage': 'Edytuj stronę',
-    'admin.editPageSection': 'Edytuj sekcję strony',
+    'admin.editPageSection': 'Edytuj sekcję strony',  
     'admin.editPageElement': 'Edytuj element strony',
+    'placeholder.elementTitle': 'Tytuł elementu',
+    'placeholder.sectionDescription': 'Krótki opis sekcji',
+    'placeholder.addCell': 'Dodaj komórkę...',
+    'placeholder.sectionTitle': 'Tytuł sekcji...',
+    'placeholder.imageDescription': 'Opis obrazu dla czytników ekranu',
+    'placeholder.selectIcon': 'Wybierz ikonę',
+    'placeholder.videoUrl': 'URL wideo (YouTube, Vimeo lub bezpośredni link)',
+    'placeholder.videoTitle': 'Tytuł wideo (opcjonalny)',
+    'placeholder.currentPassword': 'Wprowadź aktualne hasło',
+    'placeholder.newPassword': 'Wprowadź nowe hasło',
+    'placeholder.confirmPassword': 'Potwierdź nowe hasło',
+    'placeholder.pageTitle': 'Wprowadź tytuł strony',
+    'placeholder.seoTitle': 'Tytuł SEO',
+    'placeholder.pageContent': 'Wprowadź treść strony',
+    'placeholder.minSixChars': 'Minimum 6 znaków',
+    'placeholder.securePassword': 'Wprowadź bezpieczne hasło (min. 8 znaków)',
+    'placeholder.formatTitle': 'Sformatuj tytuł za pomocą edytora...',
+    'placeholder.hint': 'Wskazówka',
+    'placeholder.formatText': 'Sformatuj tekst za pomocą edytora...',
+    'placeholder.inviteText': 'Aby zaprosić nową osobę, kliknij przycisk udostępnij i podziel się materiałami.',
+    'placeholder.formatPageContent': 'Sformatuj treść strony za pomocą edytora...',
+    'placeholder.pageContentHtml': 'Wprowadź treść strony. Możesz używać podstawowych tagów HTML jak <p>, <h1>, <h2>, <strong>, <em>, <ul>, <li> itp.',
+    'placeholder.firstName': 'Wprowadź imię',
+    'placeholder.lastName': 'Wprowadź nazwisko', 
+    'placeholder.eqId': 'Wprowadź EQ ID',
+    'placeholder.repeatPassword': 'Powtórz nowe hasło',
+    'placeholder.editorContent': 'Używaj tego edytora do formatowania zawartości...',
+    
+    // Tooltips
+    'tooltip.underline': 'Podkreślenie',
+    'tooltip.strikethrough': 'Przekreślenie',
+    'tooltip.superscript': 'Indeks górny',
+    'tooltip.alignLeft': 'Wyrównaj do lewej',
+    'tooltip.alignCenter': 'Wyśrodkuj',
+    'tooltip.alignRight': 'Wyrównaj do prawej',
+    'tooltip.highlight': 'Podświetlenie',
+    'tooltip.clearFormatting': 'Usuń formatowanie',
+    'tooltip.recentEmojis': 'Ostatnio używane',
+    'tooltip.editSection': 'Edytuj sekcję',
+    'tooltip.deleteSection': 'Usuń sekcję',
+    'tooltip.addNestedSection': 'Dodaj sekcję zagnieżdżoną',
+    
+    // Media
+    'media.image': 'Zdjęcie',
+    'media.photo': 'Zdjęcie',
+    'media.preview': 'Podgląd',
+    'media.securedImage': 'Zabezpieczone zdjęcie',
+    'media.describeImage': 'Opisz zdjęcie...',
+    'media.fileTooLarge': 'Plik za duży',
+    'media.uploadFailed': 'Nie udało się przesłać pliku.',
+    
+    // Common actions
+    'action.copyToClipboard': 'Tekst został skopiowany do schowka',
+    'action.changesApplied': 'Zmiany zostały zastosowane',
+    'action.linkCopied': 'Link do strony został skopiowany do schowka',
+    'action.saveElement': 'Kliknij \'Zapisz zmiany\' aby zapisać element',
+    'action.copyFormattedText': 'Skopiuj sformatowany tekst do elementów CMS',
+    
+    // Status messages
+    'status.loading': 'Ładowanie...',
+    'status.noTitle': 'Bez tytułu',
+    'status.passwordsNotMatch': 'Hasła nie są identyczne',
+    'status.roleRequired': 'Wybór roli jest wymagany',
+    'status.checkEmail': 'Sprawdź swoją skrzynkę email w celu potwierdzenia konta.',
+    'status.unexpectedError': 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie',
+    'status.enterEmailReset': 'Wprowadź adres email aby zresetować hasło',
+    'status.passwordChanged': 'Hasło zostało pomyślnie zmienione.',
+    'status.passwordChangeFailed': 'Nie udało się zmienić hasła.',
+    'status.pageLoadFailed': 'Nie udało się załadować strony.',
+    
+    // Success messages
+    'success.sectionAdded': 'Nowa sekcja została pomyślnie dodana do strony.',
+    'success.elementAdded': 'Nowy element został pomyślnie dodany.',
+    'success.sectionUpdated': 'Sekcja została pomyślnie zaktualizowana.',
+    'success.elementUpdated': 'Element został pomyślnie zaktualizowany.',
+    'success.sectionDeleted': 'Sekcja i wszystkie jej elementy zostały usunięte.',
+    'success.elementDeleted': 'Element został pomyślnie usunięty.',
+    'success.visibilityUpdated': 'Ustawienia widoczności sekcji zostały zaktualizowane.',
+    'success.nestedSectionAdded': 'Sekcja została pomyślnie dodana jako zagnieżdżona w obecnej sekcji',
+    
+    // Error messages  
+    'error.loadPages': 'Nie udało się pobrać stron.',
+    'error.addSection': 'Nie udało się dodać sekcji.',
+    'error.addElement': 'Nie udało się dodać elementu.',
+    'error.updateSection': 'Nie udało się zaktualizować sekcji.',
+    'error.updateElement': 'Nie udało się zaktualizować elementu.',
+    'error.deleteSection': 'Nie udało się usunąć sekcji.',
+    'error.deleteElement': 'Nie udało się usunąć elementu.',
+    'error.updateVisibility': 'Nie udało się zaktualizować widoczności sekcji.',
+    'error.loadPageSections': 'Nie udało się pobrać sekcji strony.',
+    'error.loadPageElements': 'Nie udało się pobrać elementów strony.',
+    'error.addNestedSection': 'Nie udało się dodać sekcji zagnieżdżonej',
+    
+    // Color scheme
+    'colorScheme.pureLife': 'Pure Life (Domyślna)',
+    
+    // Emoji categories
+    'emoji.smiles': 'Uśmiechy',
+    'emoji.hands': 'Ręce',
+    'emoji.animals': 'Zwierzęta',
+    
+    // Font weights
+    'fontWeight.medium': 'Średnia (500)',
+    'fontWeight.semiBold': 'Półgruba (600)',
+    
+    // Fonts
+    'font.inter': 'Inter (Domyślny)',
+    
+    // Colors
+    'color.white': 'Biały',
+    
+    // Cell types
+    'cellType.multiCell': 'Wiele komórek',
+    'cellType.header': 'Nagłówek',
+    'cellType.external': 'Zewnętrzny',
+    
+    // Alignments
+    'alignment.center': 'Do środka',
+    
+    // Background colors
+    'backgroundColor.default': 'Domyślne',
+    'backgroundColor.white': 'Białe',
+    
+    // Gradients
+    'gradient.sunset': 'Zachód słońca',
+    
+    // Shadows
+    'shadow.medium': 'Średni',
+    'shadow.large': 'Duży',
+    'shadow.glowing': 'Świecący',
+    
+    // Border styles
+    'borderStyle.solid': 'Pełna',
+    
+    // Display types
+    'displayType.tableCell': 'Komórka tabeli',
+    
+    // Direction options
+    'direction.rowReverse': 'Poziomo odwrócone',
+    'direction.columnReverse': 'Pionowo odwrócone',
+    
+    // Wrap options
+    'wrap.wrapReverse': 'Zawijaj odwrócone',
+    
+    // Position options
+    'position.top': 'Góra',
+    'position.bottom': 'Dół',
+    'position.topLeft': 'Góra lewo',
+    'position.topRight': 'Góra prawo',
+    'position.bottomLeft': 'Dół lewo',
+    'position.bottomRight': 'Dół prawo',
+    
+    // Size options
+    'size.stretch': 'Rozciągnij',
+    
+    // Justify options
+    'justify.between': 'Rozłożone',
+    'justify.around': 'Wokół',
+    
+    // Text transform
+    'textTransform.lowercase': 'małe litery',
+    
+    // Example texts
+    'example.button': 'Przykładowy przycisk',
+    'example.title': 'Przykładowy tytuł',
+    'example.cardTitle': 'Przykładowy tytuł karty',
+    'example.sectionTitle': 'Przykładowa sekcja',
+    'example.headerTitle': 'Przykładowy nagłówek',
+    'example.nestedSectionName': 'Nazwa sekcji zagnieżdżonej...',
     
     // Registration
     'auth.eqId': 'EQ ID',
