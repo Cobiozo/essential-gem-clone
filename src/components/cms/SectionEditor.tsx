@@ -1476,7 +1476,10 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         >
           <h3 className="font-semibold mb-2">{editedSection.title || 'Przykładowy tytuł'}</h3>
           {editedSection.description && (
-            <p className="text-sm opacity-80">{editedSection.description}</p>
+            <p 
+              className="text-sm opacity-80"
+              dangerouslySetInnerHTML={{ __html: editedSection.description }}
+            />
           )}
           {editedSection.display_type !== 'block' && (
             <div className="mt-2 text-xs opacity-60">

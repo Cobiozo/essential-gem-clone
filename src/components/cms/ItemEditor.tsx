@@ -714,7 +714,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                 {editedItem.title || 'Przykładowy tytuł'}
               </h4>
               {editedItem.description && (
-                <p className="text-sm opacity-80">{editedItem.description}</p>
+                <p 
+                  className="text-sm opacity-80"
+                  dangerouslySetInnerHTML={{ __html: editedItem.description }}
+                />
               )}
             </div>
           )}
@@ -743,7 +746,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                 {editedItem.title || 'Przykładowy tytuł karty'}
               </h4>
               {editedItem.description && (
-                <p className="text-sm opacity-80">{editedItem.description}</p>
+                <p 
+                  className="text-sm opacity-80"
+                  dangerouslySetInnerHTML={{ __html: editedItem.description }}
+                />
               )}
             </div>
           )}
