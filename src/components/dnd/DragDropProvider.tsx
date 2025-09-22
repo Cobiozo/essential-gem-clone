@@ -26,6 +26,7 @@ interface DragDropProviderProps {
   items: string[];
   activeId?: string | null;
   dragOverlay?: React.ReactNode;
+  disabled?: boolean;
 }
 
 export const DragDropProvider: React.FC<DragDropProviderProps> = ({
@@ -35,6 +36,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   items,
   activeId,
   dragOverlay,
+  disabled = false,
 }) => {
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
@@ -42,14 +44,19 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
     },
   });
   
+  // Improved touch sensor for mobile devices
   const touchSensor = useSensor(TouchSensor, {
     activationConstraint: {
-      delay: 200,
+      delay: 150,
       tolerance: 8,
     },
   });
 
   const sensors = useSensors(pointerSensor, touchSensor);
+
+  if (disabled) {
+    return <>{children}</>;
+  }
 
   return (
     <DndContext

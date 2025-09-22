@@ -4,6 +4,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Edit3, Loader2, Layout, Columns } from 'lucide-react';
@@ -14,6 +15,8 @@ import { ResizableElement } from './ResizableElement';
 import { ColumnLayout } from './ColumnLayout';
 import { EditingToolbar } from './EditingToolbar';
 import { LayoutControls } from './LayoutControls';
+import { DevicePreview, DeviceFrame, DeviceType } from './DevicePreview';
+import { ResponsiveControls, defaultResponsiveSettings } from './ResponsiveControls';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
@@ -27,6 +30,7 @@ interface Column {
 export const LivePreviewEditor: React.FC = () => {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
@@ -39,6 +43,9 @@ export const LivePreviewEditor: React.FC = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [layoutMode, setLayoutMode] = useState<'single' | 'columns' | 'grid'>('single');
   const [columnCount, setColumnCount] = useState(2);
+  const [currentDevice, setCurrentDevice] = useState<DeviceType>('desktop');
+  const [responsiveSettings, setResponsiveSettings] = useState(defaultResponsiveSettings);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   
   // Column layout state
   const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
@@ -405,18 +412,38 @@ export const LivePreviewEditor: React.FC = () => {
         </CardHeader>
       </Card>
 
-      <EditingToolbar
-        isVisible={editMode}
-        onSave={handleSave}
-        onCancel={handleCancel}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        canUndo={historyIndex > 0}
-        canRedo={historyIndex < history.length - 1}
-        isSaving={isSaving}
-        hasUnsavedChanges={hasUnsavedChanges}
-        autoSaveStatus={autoSaveStatus}
-      />
+      {editMode && (
+        <>
+          <EditingToolbar
+            isVisible={editMode}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={historyIndex > 0}
+            canRedo={historyIndex < history.length - 1}
+            isSaving={isSaving}
+            hasUnsavedChanges={hasUnsavedChanges}
+            autoSaveStatus={autoSaveStatus}
+          />
+          
+          <div className="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-background border rounded-lg">
+            <DevicePreview
+              currentDevice={currentDevice}
+              onDeviceChange={setCurrentDevice}
+            />
+            
+            {selectedElement && (
+              <ResponsiveControls
+                settings={responsiveSettings}
+                currentDevice={currentDevice}
+                onSettingsChange={setResponsiveSettings}
+                className="w-full sm:w-auto"
+              />
+            )}
+          </div>
+        </>
+      )}
 
       <LayoutControls
         isVisible={editMode}
@@ -444,12 +471,14 @@ export const LivePreviewEditor: React.FC = () => {
       />
 
       <div className={`space-y-6 ${editMode ? 'pb-32' : ''}`}>
-        <DragDropProvider
-          items={[...sections.map(s => s.id), ...items.map(i => i.id || '')]}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          activeId={activeId}
-        >
+        <DeviceFrame device={currentDevice} className="mx-auto">
+          <DragDropProvider
+            items={[...sections.map(s => s.id), ...items.map(i => i.id || '')]}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            activeId={activeId}
+            disabled={!editMode}
+          >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {sections.map((section) => {
               const columns = sectionColumns[section.id] || [{
@@ -541,6 +570,7 @@ export const LivePreviewEditor: React.FC = () => {
             })}
           </div>
         </DragDropProvider>
+        </DeviceFrame>
       </div>
     </div>
   );

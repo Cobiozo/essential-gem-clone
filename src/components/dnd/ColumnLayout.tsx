@@ -105,8 +105,8 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
       {/* Column controls in edit mode */}
       {isEditMode && (
         <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">Columns:</span>
               <Button
                 variant={columns.length === 1 ? "default" : "outline"}
@@ -115,6 +115,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
                 className="p-2"
               >
                 <Columns className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">1</span>
               </Button>
               <Button
                 variant={columns.length === 2 ? "default" : "outline"}
@@ -123,6 +124,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
                 className="p-2"
               >
                 <Columns2 className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">2</span>
               </Button>
               <Button
                 variant={columns.length === 3 ? "default" : "outline"}
@@ -131,6 +133,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
                 className="p-2"
               >
                 <Columns3 className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">3</span>
               </Button>
             </div>
             
@@ -139,10 +142,11 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={addColumn}
-                className="gap-1"
+                className="gap-1 w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4" />
-                Add Column
+                <span className="hidden sm:inline">Add Column</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             )}
           </div>
@@ -153,9 +157,9 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
       <div className={cn(
         "grid gap-4",
         columns.length === 1 && "grid-cols-1",
-        columns.length === 2 && "grid-cols-1 md:grid-cols-2",
-        columns.length === 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-        columns.length >= 4 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        columns.length === 2 && "grid-cols-1 sm:grid-cols-2",
+        columns.length === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+        columns.length >= 4 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
       )}>
         {columns.map((column, index) => (
           <ColumnDropZone
