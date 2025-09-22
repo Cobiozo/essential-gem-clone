@@ -3444,6 +3444,28 @@ const Admin = () => {
                                       placeholder="Wprowadź szczegółowy opis elementu strony..."
                                       className="mt-1"
                                     />
+
+                                    {/* Podgląd edycji */}
+                                    <div className="mt-3 border rounded-lg p-3 bg-muted/20">
+                                      <Label className="text-sm font-medium mb-2 block">Podgląd</Label>
+                                      <article
+                                        className="prose prose-sm max-w-none"
+                                        style={{
+                                          fontSize: `${newPageItem.description_formatting?.fontSize || 16}px`,
+                                          fontWeight: newPageItem.description_formatting?.fontWeight || '400',
+                                          fontStyle: newPageItem.description_formatting?.fontStyle || 'normal',
+                                          textDecoration: newPageItem.description_formatting?.textDecoration || 'none',
+                                          textAlign: (newPageItem.description_formatting?.textAlign || 'left') as any,
+                                          color: newPageItem.description_formatting?.color || 'inherit',
+                                          fontFamily: newPageItem.description_formatting?.fontFamily || 'inherit',
+                                          lineHeight: (newPageItem.description_formatting?.lineHeight || 1.5).toString(),
+                                          letterSpacing: `${newPageItem.description_formatting?.letterSpacing || 0}px`,
+                                          textTransform: (newPageItem.description_formatting?.textTransform || 'none') as any,
+                                          wordBreak: 'break-word'
+                                        }}
+                                        dangerouslySetInnerHTML={{ __html: newPageItem.description || '' }}
+                                      />
+                                    </div>
                                   </div>
                                   {newPageItem.type === 'button' && (
                                     <div className="mt-4">
