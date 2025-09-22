@@ -3324,42 +3324,203 @@ const Admin = () => {
                  </TabsContent>
                 
                 <TabsContent value="cms" className="space-y-6 pb-6">
-                  {/* CMS Content Management */}
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">Zarządzanie zawartością CMS</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Dodawaj sekcje i elementy do tej strony
-                      </p>
-                    </div>
+                   {/* CMS Content Management */}
+                   <div className="space-y-6">
+                     <div className="flex items-center justify-between">
+                       <h3 className="text-lg font-medium">Zarządzanie zawartością CMS</h3>
+                       <p className="text-sm text-muted-foreground">
+                         Dodawaj sekcje i elementy do tej strony
+                       </p>
+                     </div>
 
-                     {/* Add New Section */}
-                     <Card>
-                       <CardHeader>
-                         <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
-                         <CardDescription>
-                           Utwórz nową sekcję z pełnym edytorem stylów i opcji
-                         </CardDescription>
-                       </CardHeader>
-                       <CardContent>
-                         <Button 
-                           onClick={() => setShowAddPageSectionEditor(true)}
-                           className="w-full"
-                         >
-                           <Plus className="w-4 h-4 mr-2" />
-                           Dodaj sekcję
-                         </Button>
-                       </CardContent>
-                     </Card>
+                     {/* Add New Section and Element */}
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <Card>
+                         <CardHeader>
+                           <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
+                           <CardDescription>
+                             Utwórz nową sekcję z pełnym edytorem stylów i opcji
+                           </CardDescription>
+                         </CardHeader>
+                         <CardContent>
+                           <Button 
+                             onClick={() => setShowAddPageSectionEditor(true)}
+                             className="w-full"
+                           >
+                             <Plus className="w-4 h-4 mr-2" />
+                             Dodaj sekcję
+                           </Button>
+                         </CardContent>
+                       </Card>
 
-                    {/* Existing Sections */}
-                    <div className="space-y-4">
-                      {pageSections.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>Brak sekcji. Dodaj pierwszą sekcję aby rozpocząć.</p>
-                        </div>
-                      ) : (
-                        pageSections.map((section) => (
+                       <Card>
+                         <CardHeader>
+                           <CardTitle className="text-base">Dodaj nowy element</CardTitle>
+                           <CardDescription>
+                             Dodaj element bezpośrednio do strony (bez sekcji)
+                           </CardDescription>
+                         </CardHeader>
+                         <CardContent>
+                           <ItemEditor
+                             sectionId="" // Empty for page-level items
+                             onSave={async (newItem) => {
+                               try {
+                                 const { data, error } = await supabase
+                                   .from('cms_items')
+                                   .insert([{
+                                     type: newItem.type,
+                                     title: newItem.title,
+                                     description: newItem.description,
+                                     url: newItem.url,
+                                     icon: newItem.icon,
+                                     section_id: null, // No section, directly to page
+                                     page_id: editingPage.id,
+                                     position: (pageItems.filter(i => !i.section_id).length || 0) + 1,
+                                     is_active: newItem.is_active,
+                                     media_url: newItem.media_url,
+                                     media_type: newItem.media_type,
+                                     media_alt_text: newItem.media_alt_text,
+                                     background_color: newItem.background_color,
+                                     text_color: newItem.text_color,
+                                     font_size: newItem.font_size,
+                                     font_weight: newItem.font_weight,
+                                     border_radius: newItem.border_radius,
+                                     padding: newItem.padding,
+                                     style_class: newItem.style_class,
+                                     cells: convertCellsToDatabase(newItem.cells || [])
+                                   }])
+                                   .select()
+                                   .single();
+
+                                 if (error) {
+                                   console.error('Error creating page item:', error);
+                                   toast({
+                                     title: "Błąd",
+                                     description: "Nie udało się dodać elementu",
+                                     variant: "destructive",
+                                   });
+                                 } else {
+                                   setPageItems([...pageItems, convertDatabaseItemToCMSItem(data)]);
+                                   toast({
+                                     title: "Element dodany",
+                                     description: "Element został pomyślnie dodany do strony",
+                                   });
+                                 }
+                               } catch (error) {
+                                 console.error('Error creating page item:', error);
+                                 toast({
+                                   title: "Błąd",
+                                   description: "Nie udało się dodać elementu",
+                                   variant: "destructive",
+                                 });
+                               }
+                             }}
+                             isNew={true}
+                             trigger={
+                               <Button className="w-full">
+                                 <Plus className="w-4 h-4 mr-2" />
+                                 Dodaj element
+                               </Button>
+                             }
+                           />
+                         </CardContent>
+                       </Card>
+                     </div>
+
+                     {/* Page-level Items (without sections) */}
+                     {pageItems.filter(item => !item.section_id).length > 0 && (
+                       <Card>
+                         <CardHeader>
+                           <CardTitle className="text-base">Elementy strony</CardTitle>
+                           <CardDescription>
+                             Elementy dodane bezpośrednio do strony (bez sekcji)
+                           </CardDescription>
+                         </CardHeader>
+                         <CardContent>
+                           <div className="space-y-3">
+                             {pageItems
+                               .filter(item => !item.section_id)
+                               .map((item) => (
+                                 <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                                   <div className="flex-1">
+                                     <div className="flex items-center space-x-2">
+                                       <Badge variant="outline">{item.type}</Badge>
+                                       <h5 className="font-medium">{item.title}</h5>
+                                     </div>
+                                     {item.media_url && (
+                                       <div className="mt-2 mb-2">
+                                         <SecureMedia
+                                           mediaUrl={item.media_url}
+                                           mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+                                           altText={item.media_alt_text || ''}
+                                           className="w-16 h-16 object-cover rounded border"
+                                         />
+                                       </div>
+                                     )}
+                                     {item.description && (
+                                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                         <span dangerouslySetInnerHTML={{ __html: item.description }} />
+                                       </p>
+                                     )}
+                                   </div>
+                                   <div className="flex items-center space-x-2">
+                                     <ItemEditor
+                                       item={{
+                                         ...item,
+                                         media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
+                                       }}
+                                       sectionId="" // Empty for page-level items
+                                       onSave={(updatedItem) => {
+                                         updatePageItem(updatedItem.id!, {
+                                           type: updatedItem.type,
+                                           title: updatedItem.title,
+                                           description: updatedItem.description,
+                                           url: updatedItem.url,
+                                           position: updatedItem.position,
+                                           is_active: updatedItem.is_active,
+                                           media_url: updatedItem.media_url,
+                                           media_type: updatedItem.media_type as any,
+                                           media_alt_text: updatedItem.media_alt_text,
+                                           background_color: updatedItem.background_color,
+                                           text_color: updatedItem.text_color,
+                                           font_size: updatedItem.font_size,
+                                           font_weight: updatedItem.font_weight,
+                                           border_radius: updatedItem.border_radius,
+                                           padding: updatedItem.padding,
+                                           style_class: updatedItem.style_class,
+                                           cells: updatedItem.cells
+                                         });
+                                       }}
+                                       trigger={
+                                         <Button variant="outline" size="sm">
+                                           <Pencil className="w-4 h-4" />
+                                         </Button>
+                                       }
+                                     />
+                                     <Button
+                                       variant="outline"
+                                       size="sm"
+                                       onClick={() => deletePageItem(item.id)}
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                     </Button>
+                                   </div>
+                                 </div>
+                               ))}
+                           </div>
+                         </CardContent>
+                       </Card>
+                     )}
+
+                     {/* Existing Sections */}
+                     <div className="space-y-4">
+                       <h4 className="text-lg font-medium">Sekcje ze strukturą</h4>
+                       {pageSections.length === 0 ? (
+                         <div className="text-center py-8 text-muted-foreground">
+                           <p>Brak sekcji. Dodaj pierwszą sekcję aby rozpocząć.</p>
+                         </div>
+                       ) : (
+                         pageSections.map((section) => (
                           <Card key={section.id}>
                             <CardHeader>
                               <div className="flex items-center justify-between">
@@ -3578,9 +3739,9 @@ const Admin = () => {
                             </CardContent>
                           </Card>
                         ))
-                      )}
-                    </div>
-                  </div>
+                       )}
+                     </div>
+                   </div>
                 </TabsContent>
               </Tabs>
             </div>
