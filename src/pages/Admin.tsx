@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
+import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { TextEditor } from '@/components/cms/TextEditor';
 import { FontEditor } from '@/components/cms/FontEditor';
@@ -2029,17 +2030,27 @@ const Admin = () => {
                                    {item.is_active ? "Aktywny" : "Nieaktywny"}
                                  </Badge>
                                </div>
-                               <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
-                                 {item.title || 'Bez tytułu'}
-                               </h4>
-                               {item.description && (
-                                 <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
-                                   {item.description.length > 100 
-                                     ? `${item.description.substring(0, 100)}...` 
-                                     : item.description
-                                   }
-                                 </p>
-                               )}
+                                <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
+                                  {item.title || 'Bez tytułu'}
+                                </h4>
+                                {item.media_url && (
+                                  <div className="mt-2 mb-2">
+                                    <SecureMedia
+                                      mediaUrl={item.media_url}
+                                      mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+                                      altText={item.media_alt_text || ''}
+                                      className="w-20 h-20 object-cover rounded border"
+                                    />
+                                  </div>
+                                )}
+                                {item.description && (
+                                  <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
+                                    {item.description.length > 100 
+                                      ? `${item.description.substring(0, 100)}...` 
+                                      : item.description
+                                    }
+                                  </p>
+                                )}
                                {item.url && (
                                  <p className="text-xs text-blue-600 mt-1 break-all">
                                    {item.url.length > 50 ? `${item.url.substring(0, 50)}...` : item.url}
@@ -3503,17 +3514,27 @@ const Admin = () => {
                                   .filter(item => item.section_id === section.id)
                                   .map((item) => (
                                     <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                      <div className="flex-1">
-                                        <div className="flex items-center space-x-2">
-                                          <Badge variant="outline">{item.type}</Badge>
-                                          <h5 className="font-medium">{item.title}</h5>
-                                        </div>
-                                        {item.description && (
-                                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                            {item.description}
-                                          </p>
-                                        )}
-                                      </div>
+                                       <div className="flex-1">
+                                         <div className="flex items-center space-x-2">
+                                           <Badge variant="outline">{item.type}</Badge>
+                                           <h5 className="font-medium">{item.title}</h5>
+                                         </div>
+                                         {item.media_url && (
+                                           <div className="mt-2 mb-2">
+                                             <SecureMedia
+                                               mediaUrl={item.media_url}
+                                               mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+                                               altText={item.media_alt_text || ''}
+                                               className="w-16 h-16 object-cover rounded border"
+                                             />
+                                           </div>
+                                         )}
+                                         {item.description && (
+                                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                             {item.description}
+                                           </p>
+                                         )}
+                                       </div>
                                       <div className="flex items-center space-x-2">
                                         <ItemEditor
                                           item={{
