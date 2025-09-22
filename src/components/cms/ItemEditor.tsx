@@ -15,33 +15,10 @@ import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { ContentCell, CMSItem } from '@/types/cms';
 
-interface Item {
-  id?: string;
-  section_id?: string;
-  type: string;
-  title?: string | null;
-  description?: string | null;
-  url?: string | null;
-  icon?: string | null;
-  position: number;
-  is_active?: boolean;  // Make optional to match database response
-  media_url?: string | null;
-  media_type?: 'image' | 'video' | 'document' | 'audio' | 'other' | '' | null;
-  media_alt_text?: string | null;
-  background_color?: string;
-  text_color?: string;
-  font_size?: number;
-  font_weight?: string;
-  border_radius?: number;
-  padding?: number;
-  style_class?: string;
-  cells?: ContentCell[];
-}
-
 interface ItemEditorProps {
-  item?: Item;
+  item?: CMSItem;
   sectionId: string;
-  onSave: (item: Item) => void;
+  onSave: (item: CMSItem) => void;
   onCancel?: () => void;
   isNew?: boolean;
   trigger?: React.ReactNode;
@@ -55,8 +32,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   isNew = false,
   trigger
 }) => {
-  const [editedItem, setEditedItem] = useState<Item>(
+  const [editedItem, setEditedItem] = useState<CMSItem>(
     item || {
+      id: '',
       section_id: sectionId,
       type: 'button',
       title: '',

@@ -1,5 +1,5 @@
 export interface ContentCell {
-  id: string;
+  id?: string;
   type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external' | 'section';
   content: string;
   url?: string;
@@ -13,7 +13,7 @@ export interface ContentCell {
 }
 
 export interface CMSItem {
-  id: string;
+  id?: string;
   type: string;
   title: string | null;
   description: string | null;

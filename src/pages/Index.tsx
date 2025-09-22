@@ -305,40 +305,40 @@ const Index = () => {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
             {sections.map((section) => {
-          const sectionItems = items.filter(item => 
-            item.section_id === section.id && 
-            item.type !== 'header_text' && 
-            item.type !== 'author'
-          ).sort((a, b) => a.position - b.position);
-          
-          const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
-          
-          return (
-            <CollapsibleSection 
-              key={section.id} 
-              title={section.title}
-              description={section.description}
-              defaultOpen={false}
-              showShareButton={shouldShowShare}
-              sectionStyle={section}
-            >
-              <div className="space-y-3">
-                 {sectionItems.map((item) => (
-                   <CMSContent
-                     key={item.id}
-                     item={item}
-                     onClick={handleButtonClick}
-                   />
-                 ))}
-                  {sectionItems.length === 0 && (
-                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                      {t('common.noContent')}
-                    </div>
-                  )}
-              </div>
-            </CollapsibleSection>
-          );
-        })}
+              const sectionItems = items.filter(item => 
+                item.section_id === section.id && 
+                item.type !== 'header_text' && 
+                item.type !== 'author'
+              ).sort((a, b) => a.position - b.position);
+              
+              const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
+              
+              return (
+                <CollapsibleSection 
+                  key={`section-${section.id}-${section.title}`} // Unique key to prevent state sharing
+                  title={section.title}
+                  description={section.description}
+                  defaultOpen={false}
+                  showShareButton={shouldShowShare}
+                  sectionStyle={section}
+                >
+                  <div className="space-y-3">
+                     {sectionItems.map((item) => (
+                       <CMSContent
+                         key={`item-${item.id || Math.random()}`}
+                         item={item}
+                         onClick={handleButtonClick}
+                       />
+                     ))}
+                      {sectionItems.length === 0 && (
+                        <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                          {t('common.noContent')}
+                        </div>
+                      )}
+                  </div>
+                </CollapsibleSection>
+              );
+            })}
           </div>
         </div>
         
