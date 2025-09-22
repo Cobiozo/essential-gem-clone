@@ -14,6 +14,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { ContentCell, CMSItem } from '@/types/cms';
+import { TextEditor } from './TextEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -250,12 +251,15 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
             Opis
           </Label>
           <div className="space-y-2 mt-1">
-            <Textarea
-              id="item-description"
-              value={editedItem.description || ''}
-              onChange={(e) => setEditedItem({...editedItem, description: e.target.value})}
+            <TextEditor
+              initialText={editedItem.description || ''}
               placeholder="Opis elementu"
-              rows={3}
+              onSave={(text, style) => {
+                setEditedItem({
+                  ...editedItem, 
+                  description: text
+                });
+              }}
             />
             <div className="flex justify-end">
               <EmojiPicker 
@@ -410,11 +414,12 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                         value={cell.section_title || ''}
                         onChange={(e) => updateCell(cell.id, { section_title: e.target.value })}
                       />
-                      <Textarea
+                      <TextEditor
+                        initialText={cell.section_description || ''}
                         placeholder="Opis sekcji..."
-                        value={cell.section_description || ''}
-                        onChange={(e) => updateCell(cell.id, { section_description: e.target.value })}
-                        rows={2}
+                        onSave={(text, style) => {
+                          updateCell(cell.id, { section_description: text });
+                        }}
                       />
                       <div className="border rounded-lg p-3 bg-background max-h-48 overflow-y-auto">
                         <Label className="text-sm font-medium mb-2 block">Elementy w sekcji:</Label>
