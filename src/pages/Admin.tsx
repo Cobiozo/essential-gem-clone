@@ -23,6 +23,7 @@ import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
 import { SectionEditor } from '@/components/cms/SectionEditor';
 import { ItemEditor } from '@/components/cms/ItemEditor';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -186,6 +187,7 @@ const Admin = () => {
     media_url: '',
     media_type: '' as 'image' | 'video' | 'document' | 'audio' | 'other' | '',
     media_alt_text: '',
+    description_formatting: null as any
   });
   const [newPageSection, setNewPageSection] = useState({
     title: '',
@@ -1541,6 +1543,7 @@ const Admin = () => {
         media_url: '',
         media_type: '',
         media_alt_text: '',
+        description_formatting: null
       });
       setNewPageItemTextStyle(null);
       setNewPageItemTitleStyle(null);
@@ -3421,13 +3424,14 @@ const Admin = () => {
                                     </div>
                                   </div>
                                   <div className="mt-4">
-                                    <Label htmlFor="new-page-item-description">Opis</Label>
-                                    <Textarea
-                                      id="new-page-item-description"
+                                    <Label htmlFor="new-page-item-description">Opis (Rich Text Editor)</Label>
+                                    <RichTextEditor
                                       value={newPageItem.description}
-                                      onChange={(e) => setNewPageItem({...newPageItem, description: e.target.value})}
-                                      placeholder="Opis elementu"
-                                      rows={3}
+                                      onChange={(value) => setNewPageItem({...newPageItem, description: value})}
+                                      formatting={newPageItem.description_formatting}
+                                      onFormattingChange={(formatting) => setNewPageItem({...newPageItem, description_formatting: formatting})}
+                                      placeholder="Wprowadź szczegółowy opis elementu strony..."
+                                      className="mt-1"
                                     />
                                   </div>
                                   {newPageItem.type === 'button' && (
