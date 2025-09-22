@@ -579,6 +579,28 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             placeholder="Wprowadź szczegółowy opis sekcji..."
             className="mt-1"
           />
+
+          {/* Podgląd edycji - renderuje końcowy efekt */}
+          <div className="mt-3 border rounded-lg p-3 bg-muted/20">
+            <Label className="text-sm font-medium mb-2 block">Podgląd</Label>
+            <article
+              className="prose prose-sm max-w-none"
+              style={{
+                fontSize: `${editedSection.description_formatting?.fontSize || editedSection.font_size || 16}px`,
+                fontWeight: (editedSection.description_formatting?.fontWeight || editedSection.font_weight || 400) as any,
+                fontStyle: (editedSection.description_formatting?.fontStyle || editedSection.font_style || 'normal') as any,
+                textDecoration: (editedSection.description_formatting?.textDecoration || editedSection.text_decoration || 'none') as any,
+                textAlign: (editedSection.description_formatting?.textAlign || editedSection.alignment || 'left') as any,
+                color: editedSection.description_formatting?.color || editedSection.text_color || 'inherit',
+                fontFamily: editedSection.description_formatting?.fontFamily || editedSection.font_family || 'inherit',
+                lineHeight: (editedSection.description_formatting?.lineHeight || editedSection.line_height || 1.5) as any,
+                letterSpacing: `${editedSection.description_formatting?.letterSpacing || editedSection.letter_spacing || 0}px`,
+                textTransform: (editedSection.description_formatting?.textTransform || editedSection.text_transform || 'none') as any,
+                wordBreak: 'break-word'
+              }}
+              dangerouslySetInnerHTML={{ __html: editedSection.description || '' }}
+            />
+          </div>
         </div>
 
         <div className="flex items-center space-x-2">

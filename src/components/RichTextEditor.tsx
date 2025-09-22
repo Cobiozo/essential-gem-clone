@@ -137,7 +137,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // Sync content when value prop changes (avoid infinite loops)
   useEffect(() => {
-    if (editorRef.current && value !== editorRef.current.innerHTML) {
+    if (!editorRef.current) return;
+    // Do not re-sync content while user is actively interacting to preserve selection
+    if (isFocused) return;
+
+    if (value !== editorRef.current.innerHTML) {
       setIsUpdating(true);
 
       const selection = window.getSelection();
@@ -176,7 +180,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
       setIsUpdating(false);
     }
-  }, [value]);
+  }, [value, isFocused]);
 
   // Update formatting when formatting prop changes
   useEffect(() => {
