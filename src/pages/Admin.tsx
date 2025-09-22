@@ -3565,11 +3565,11 @@ const Admin = () => {
                                              />
                                            </div>
                                          )}
-                                         {item.description && (
-                                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                             {item.description}
-                                           </p>
-                                         )}
+                                          {item.description && (
+                                            <div className="text-sm text-muted-foreground mt-1 line-clamp-2"
+                                              dangerouslySetInnerHTML={{ __html: item.description }}
+                                            />
+                                          )}
                                        </div>
                                       <div className="flex items-center space-x-2">
                                         <ItemEditor

@@ -2,6 +2,7 @@ import React from 'react';
 import { CMSButton } from './CMSButton';
 import { SecureMedia } from './SecureMedia';
 import { FormattedText } from './FormattedText';
+import { FormattedHTML } from './FormattedHTML';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { handleNavigation, isExternalUrl } from '@/lib/linkUtils';
@@ -38,9 +39,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed"
             as="p"
           />
@@ -51,9 +52,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm text-gray-500"
             as="p"
           />
@@ -64,9 +65,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
             as="p"
           />
@@ -77,9 +78,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
             as="p"
           />
@@ -90,9 +91,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed"
             as="p"
           />
@@ -103,9 +104,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
             as="p"
           />
@@ -116,9 +117,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-400">
           {renderMedia()}
-          <FormattedText
-            text={item.description || ''}
-            formatting={item.text_formatting}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
             className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
             as="p"
           />
@@ -155,23 +156,23 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
             switch (cell.type) {
               case 'header':
                 return (
-                  <h3 key={cell.id} className="text-lg font-semibold text-foreground leading-tight">
-                    {cell.content}
-                  </h3>
+                  <h3 key={cell.id} className="text-lg font-semibold text-foreground leading-tight"
+                    dangerouslySetInnerHTML={{ __html: cell.content }}
+                  />
                 );
               
               case 'description':
                 return (
-                  <p key={cell.id} className="text-sm text-muted-foreground leading-relaxed">
-                    {cell.content}
-                  </p>
+                  <p key={cell.id} className="text-sm text-muted-foreground leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: cell.content }}
+                  />
                 );
               
               case 'list_item':
                 return (
                   <div key={cell.id} className="flex items-start space-x-2">
                     <span className="text-primary mt-1">•</span>
-                    <span className="text-sm leading-relaxed">{cell.content}</span>
+                    <span className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: cell.content }} />
                   </div>
                 );
 
@@ -257,23 +258,23 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
             >
               {hasDescription ? (
                 <>
-                  <FormattedText
-                    text={item.title || ''}
-                    formatting={item.title_formatting}
+                  <FormattedHTML
+                    html={item.title || ''}
+                    formatting={item.title_formatting as any}
                     className="break-words w-full text-primary-foreground whitespace-normal font-semibold leading-snug"
                     as="span"
                   />
-                  <FormattedText
-                    text={item.description || ''}
-                    formatting={item.text_formatting}
+                  <FormattedHTML
+                    html={item.description || ''}
+                    formatting={item.text_formatting as any}
                     className="break-words w-full text-primary-foreground/90 whitespace-normal text-xs sm:text-sm leading-relaxed mt-1"
                     as="span"
                   />
                 </>
               ) : (
-                <FormattedText
-                  text={item.title || ''}
-                  formatting={item.title_formatting}
+                <FormattedHTML
+                  html={item.title || ''}
+                  formatting={item.title_formatting as any}
                   className="break-words w-full text-primary-foreground whitespace-normal text-center leading-snug"
                   as="span"
                 />

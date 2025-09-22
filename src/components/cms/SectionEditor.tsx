@@ -1687,9 +1687,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             maxWidth: `${editedSection.max_width}px`,
           }}
         >
-          <h3 className="font-semibold mb-2">{editedSection.title || 'Przykładowy tytuł'}</h3>
+          <h3 className="font-semibold mb-2" dangerouslySetInnerHTML={{ __html: editedSection.title || 'Przykładowy tytuł' }} />
           {editedSection.description && (
-            <p className="text-sm opacity-80">{editedSection.description}</p>
+            <div className="text-sm opacity-80" dangerouslySetInnerHTML={{ __html: editedSection.description }} />
           )}
           {editedSection.display_type !== 'block' && (
             <div className="mt-2 text-xs opacity-60">
