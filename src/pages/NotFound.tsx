@@ -2,10 +2,14 @@ import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 
 const NotFound = () => {
   const location = useLocation();
   const { t } = useLanguage();
+
+  // Enable security preventions for public pages
+  useSecurityPreventions();
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);

@@ -312,8 +312,8 @@ const Admin = () => {
   const [userSortBy, setUserSortBy] = useState<'email' | 'role' | 'created_at' | 'is_active'>('created_at');
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   
-  // Enable security preventions
-  useSecurityPreventions();
+  // Enable security preventions but allow text selection for CMS editing
+  useSecurityPreventions(false);
 
   // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
   const SECTION_DB_FIELDS = [

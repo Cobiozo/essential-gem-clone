@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export const useSecurityPreventions = () => {
+export const useSecurityPreventions = (enableTextSelectionPrevention = true) => {
   useEffect(() => {
     // Disable right-click context menu
     const handleContextMenu = (e: MouseEvent) => {
@@ -58,9 +58,11 @@ export const useSecurityPreventions = () => {
       }
     };
 
-    // Disable text selection
+    // Disable text selection (only if enabled)
     const handleSelectStart = (e: Event) => {
-      e.preventDefault();
+      if (enableTextSelectionPrevention) {
+        e.preventDefault();
+      }
     };
 
     // Disable drag and drop
@@ -71,14 +73,18 @@ export const useSecurityPreventions = () => {
     // Add event listeners
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('selectstart', handleSelectStart);
+    if (enableTextSelectionPrevention) {
+      document.addEventListener('selectstart', handleSelectStart);
+    }
     document.addEventListener('dragstart', handleDragStart);
 
     // Cleanup function
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('selectstart', handleSelectStart);
+      if (enableTextSelectionPrevention) {
+        document.removeEventListener('selectstart', handleSelectStart);
+      }
       document.removeEventListener('dragstart', handleDragStart);
     };
   }, []);

@@ -10,6 +10,7 @@ import { CMSContent } from '@/components/CMSContent';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface CMSSection {
@@ -111,6 +112,9 @@ const PageComponent = () => {
   const [items, setItems] = useState<CMSItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Enable security preventions for public pages
+  useSecurityPreventions();
 
   useEffect(() => {
     const fetchPageData = async () => {
