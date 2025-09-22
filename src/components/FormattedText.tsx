@@ -64,8 +64,7 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
     <Component 
       className={combinedClassName} 
       style={style}
-    >
-      {text}
-    </Component>
+      dangerouslySetInnerHTML={{ __html: text }}
+    />
   );
 };

@@ -156,38 +156,51 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
         <div className="space-y-3">
           {activeCells.map((cell) => {
             switch (cell.type) {
-              case 'header':
-                return (
-                  <h3 key={cell.id} className="text-lg font-semibold text-foreground leading-tight">
-                    {cell.content}
-                  </h3>
-                );
+               case 'header':
+                 return (
+                   <h3 
+                     key={cell.id} 
+                     className="text-lg font-semibold text-foreground leading-tight"
+                     dangerouslySetInnerHTML={{ __html: cell.content }}
+                   />
+                 );
               
-              case 'description':
-                return (
-                  <p key={cell.id} className="text-sm text-muted-foreground leading-relaxed">
-                    {cell.content}
-                  </p>
-                );
+               case 'description':
+                 return (
+                   <p 
+                     key={cell.id} 
+                     className="text-sm text-muted-foreground leading-relaxed"
+                     dangerouslySetInnerHTML={{ __html: cell.content }}
+                   />
+                 );
               
-              case 'list_item':
-                return (
-                  <div key={cell.id} className="flex items-start space-x-2">
-                    <span className="text-primary mt-1">•</span>
-                    <span className="text-sm leading-relaxed">{cell.content}</span>
-                  </div>
-                );
+               case 'list_item':
+                 return (
+                   <div key={cell.id} className="flex items-start space-x-2">
+                     <span className="text-primary mt-1">•</span>
+                     <span 
+                       className="text-sm leading-relaxed"
+                       dangerouslySetInnerHTML={{ __html: cell.content }}
+                     />
+                   </div>
+                 );
 
               case 'section':
                 if (!cell.section_items || cell.section_items.length === 0) {
                   return (
-                    <div key={cell.id} className="border rounded-lg p-4 my-4 bg-muted/30">
-                      <h4 className="font-semibold mb-2">{cell.section_title || cell.content}</h4>
-                      {cell.section_description && (
-                        <p className="text-sm text-muted-foreground mb-2">{cell.section_description}</p>
-                      )}
-                      <p className="text-sm text-muted-foreground">Brak elementów w tej sekcji</p>
-                    </div>
+                     <div key={cell.id} className="border rounded-lg p-4 my-4 bg-muted/30">
+                       <h4 
+                         className="font-semibold mb-2"
+                         dangerouslySetInnerHTML={{ __html: cell.section_title || cell.content }}
+                       />
+                       {cell.section_description && (
+                         <p 
+                           className="text-sm text-muted-foreground mb-2"
+                           dangerouslySetInnerHTML={{ __html: cell.section_description }}
+                         />
+                       )}
+                       <p className="text-sm text-muted-foreground">Brak elementów w tej sekcji</p>
+                     </div>
                   );
                 }
                 
