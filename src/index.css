@@ -105,29 +105,33 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-body {
-  @apply bg-background text-foreground;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
+  html {
+    overflow-y: scroll; /* Prevent layout shift when modals open */
+  }
 
-/* Disable image dragging and context menu globally */
-img, video {
-  -webkit-user-drag: none;
-  -khtml-user-drag: none;
-  -moz-user-drag: none;
-  -o-user-drag: none;
-  user-drag: none;
-  pointer-events: auto;
-}
+  body {
+    @apply bg-background text-foreground;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
 
-/* Disable text selection for media elements */
-img, video, canvas {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
+  /* Disable image dragging and context menu globally */
+  img, video {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+    pointer-events: auto;
+  }
+
+  /* Disable text selection for media elements */
+  img, video, canvas {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
 }

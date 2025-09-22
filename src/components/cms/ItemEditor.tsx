@@ -758,7 +758,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
         <DialogTrigger asChild>
           {trigger}
         </DialogTrigger>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh]">
+        <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>
               {isNew ? 'Dodaj nowy element' : 'Edytuj element'}
