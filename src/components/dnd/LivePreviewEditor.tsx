@@ -153,11 +153,14 @@ export const LivePreviewEditor: React.FC = () => {
             .eq('id', section.id)
         );
 
-        // Update item positions
+        // Update item positions and section_ids
         const itemUpdates = newItems.map((item, index) =>
           supabase
             .from('cms_items')
-            .update({ position: index })
+            .update({ 
+              position: index,
+              section_id: item.section_id 
+            })
             .eq('id', item.id)
         );
 
@@ -202,6 +205,8 @@ export const LivePreviewEditor: React.FC = () => {
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    console.log('Drag end:', { activeId, overId, overData: (over as any).data?.current });
+
     // If dragging a section, reorder sections
     const isSectionDrag = sections.some(s => s.id === activeId);
     if (isSectionDrag) {
@@ -217,90 +222,107 @@ export const LivePreviewEditor: React.FC = () => {
       return;
     }
 
-    // Helper: locate item within sectionColumns
-    const findItemLocation = (itemId: string) => {
+    // Find item in current column structure
+    const findItemInColumns = (itemId: string) => {
       for (const [sectionId, cols] of Object.entries(sectionColumns)) {
-        for (let c = 0; c < cols.length; c++) {
-          const idx = cols[c].items.findIndex(it => it.id === itemId);
-          if (idx !== -1) return { sectionId, colIndex: c, itemIndex: idx };
+        for (let colIndex = 0; colIndex < cols.length; colIndex++) {
+          const itemIndex = cols[colIndex].items.findIndex(item => item.id === itemId);
+          if (itemIndex !== -1) {
+            return { sectionId, colIndex, itemIndex, item: cols[colIndex].items[itemIndex] };
+          }
         }
       }
       return null;
     };
 
-    const sourceLoc = findItemLocation(activeId);
-    if (!sourceLoc) return; // Not an item we manage
+    const activeItemLocation = findItemInColumns(activeId);
+    if (!activeItemLocation) {
+      console.log('Active item not found in columns');
+      return;
+    }
 
-    // Determine target column and index
-    let targetSectionId: string | null = null;
-    let targetColIndex: number | null = null;
+    let targetSectionId: string;
+    let targetColIndex: number;
     let targetItemIndex: number | null = null;
 
+    // Check if dropping on a column
     const overData = (over as any).data?.current;
     if (overData?.type === 'column') {
       targetSectionId = overData.sectionId;
       targetColIndex = overData.columnIndex;
-      targetItemIndex = null; // append to end
+      console.log('Dropping on column:', { targetSectionId, targetColIndex });
     } else {
-      // over is likely an item id
-      const targetLoc = findItemLocation(overId);
-      if (targetLoc) {
-        targetSectionId = targetLoc.sectionId;
-        targetColIndex = targetLoc.colIndex;
-        targetItemIndex = targetLoc.itemIndex; // insert before this item
+      // Dropping on another item
+      const targetItemLocation = findItemInColumns(overId);
+      if (!targetItemLocation) {
+        console.log('Target item not found');
+        return;
       }
+      targetSectionId = targetItemLocation.sectionId;
+      targetColIndex = targetItemLocation.colIndex;
+      targetItemIndex = targetItemLocation.itemIndex;
+      console.log('Dropping on item:', { targetSectionId, targetColIndex, targetItemIndex });
     }
 
-    if (targetSectionId == null || targetColIndex == null) {
-      return; // No valid drop target
-    }
+    // Create new column structure
+    const newSectionColumns = { ...sectionColumns };
+    Object.keys(newSectionColumns).forEach(sectionId => {
+      newSectionColumns[sectionId] = newSectionColumns[sectionId].map(col => ({
+        ...col,
+        items: [...col.items]
+      }));
+    });
 
-    // Build a deep-ish copy of sectionColumns to mutate
-    const newSectionColumns = Object.fromEntries(
-      Object.entries(sectionColumns).map(([sid, cols]) => [
-        sid,
-        cols.map(col => ({ ...col, items: [...col.items] })),
-      ])
-    );
+    // Remove item from source
+    const sourceCol = newSectionColumns[activeItemLocation.sectionId][activeItemLocation.colIndex];
+    const [movedItem] = sourceCol.items.splice(activeItemLocation.itemIndex, 1);
 
-    const sourceItems = newSectionColumns[sourceLoc.sectionId][sourceLoc.colIndex].items;
-    const [movedItem] = sourceItems.splice(sourceLoc.itemIndex, 1);
-
-    const updatedItem: CMSItem = {
+    // Update item's section_id
+    const updatedItem = {
       ...movedItem,
       section_id: targetSectionId,
     };
 
-    const destItems = newSectionColumns[targetSectionId][targetColIndex].items;
-    let insertIndex = destItems.length;
+    // Add to target
+    const targetCol = newSectionColumns[targetSectionId]?.[targetColIndex];
+    if (!targetCol) {
+      console.log('Target column not found');
+      return;
+    }
+
     if (targetItemIndex !== null) {
-      insertIndex = targetItemIndex;
-      // If moving within same list and removing earlier index, adjust
-      if (
-        sourceLoc.sectionId === targetSectionId &&
-        sourceLoc.colIndex === targetColIndex &&
-        sourceLoc.itemIndex < targetItemIndex
-      ) {
+      // Insert at specific position
+      let insertIndex = targetItemIndex;
+      // Adjust if moving within same column and from earlier position
+      if (activeItemLocation.sectionId === targetSectionId && 
+          activeItemLocation.colIndex === targetColIndex && 
+          activeItemLocation.itemIndex < targetItemIndex) {
         insertIndex = targetItemIndex - 1;
       }
+      targetCol.items.splice(insertIndex, 0, updatedItem);
+    } else {
+      // Add to end of column
+      targetCol.items.push(updatedItem);
     }
-    destItems.splice(insertIndex, 0, updatedItem);
 
-    // Update state: sectionColumns and flattened items order
+    // Update state
     setSectionColumns(newSectionColumns);
 
-    const flattenedItems: CMSItem[] = [];
-    sections.forEach(sec => {
-      const cols = newSectionColumns[sec.id] || [{ id: `${sec.id}-col-0`, items: [], width: 100 }];
+    // Rebuild items array maintaining order
+    const newItems = [];
+    sections.forEach(section => {
+      const cols = newSectionColumns[section.id] || [];
       cols.forEach(col => {
-        col.items.forEach(it => flattenedItems.push(it));
+        newItems.push(...col.items);
       });
     });
 
-    saveToHistory(sections, flattenedItems);
-    setItems(flattenedItems);
+    saveToHistory(sections, newItems);
+    setItems(newItems);
     setHasUnsavedChanges(true);
-    autoSave(sections, flattenedItems);
+    
+    console.log('Updated items:', newItems.map(i => ({ id: i.id, section_id: i.section_id })));
+    autoSave(sections, newItems);
   };
 
   const handleUndo = () => {
@@ -339,7 +361,10 @@ export const LivePreviewEditor: React.FC = () => {
       const itemUpdates = items.map((item, index) =>
         supabase
           .from('cms_items')
-          .update({ position: index })
+          .update({ 
+            position: index,
+            section_id: item.section_id 
+          })
           .eq('id', item.id)
       );
 
@@ -527,6 +552,24 @@ export const LivePreviewEditor: React.FC = () => {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             activeId={activeId}
+            dragOverlay={
+              activeId ? (
+                items.find(i => i.id === activeId) ? (
+                  <div className="bg-white border-2 border-blue-400 rounded p-2 shadow-lg opacity-80">
+                    <CMSContent 
+                      item={items.find(i => i.id === activeId)!} 
+                      onClick={() => {}} 
+                    />
+                  </div>
+                ) : (
+                  sections.find(s => s.id === activeId) ? (
+                    <div className="bg-white border-2 border-green-400 rounded p-2 shadow-lg opacity-80">
+                      Section: {sections.find(s => s.id === activeId)?.title}
+                    </div>
+                  ) : null
+                )
+              ) : null
+            }
             disabled={!editMode}
           >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

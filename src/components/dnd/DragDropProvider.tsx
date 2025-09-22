@@ -70,9 +70,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragEnd={onDragEnd}
       modifiers={[restrictToWindowEdges]}
     >
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        {children}
-      </SortableContext>
+      {children}
       <DragOverlay>
         {activeId ? dragOverlay : null}
       </DragOverlay>
