@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Bold, 
   Italic, 
@@ -11,7 +12,9 @@ import {
   AlignCenter, 
   AlignRight,
   Palette,
-  Type
+  Type,
+  Eye,
+  Code
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -32,6 +35,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [activeTab, setActiveTab] = useState('edit');
 
   const colors = [
     '#000000', '#333333', '#666666', '#999999', '#cccccc', '#ffffff',
@@ -102,134 +106,161 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div className={`border rounded-md ${className}`}>
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-muted/20">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('bold')}
-          className="h-8 w-8 p-0"
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('italic')}
-          className="h-8 w-8 p-0"
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('underline')}
-          className="h-8 w-8 p-0"
-        >
-          <Underline className="h-4 w-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('strikethrough')}
-          className="h-8 w-8 p-0"
-        >
-          <Strikethrough className="h-4 w-4" />
-        </Button>
-
-        <Separator orientation="vertical" className="h-6 mx-1" />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('left')}
-          className="h-8 w-8 p-0"
-        >
-          <AlignLeft className="h-4 w-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('center')}
-          className="h-8 w-8 p-0"
-        >
-          <AlignCenter className="h-4 w-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => applyFormatting('right')}
-          className="h-8 w-8 p-0"
-        >
-          <AlignRight className="h-4 w-4" />
-        </Button>
-
-        <Separator orientation="vertical" className="h-6 mx-1" />
-
-        <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
-          <PopoverTrigger asChild>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="flex items-center justify-between border-b bg-muted/20">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-1 p-2">
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => applyFormatting('bold')}
               className="h-8 w-8 p-0"
             >
-              <Palette className="h-4 w-4" />
+              <Bold className="h-4 w-4" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48">
-            <div className="grid grid-cols-8 gap-1">
-              {colors.map((color) => (
-                <button
-                  key={color}
-                  className="w-6 h-6 rounded border hover:scale-110 transition-transform"
-                  style={{ backgroundColor: color }}
-                  onClick={() => applyColor(color)}
-                />
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        <Popover>
-          <PopoverTrigger asChild>
+            
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => applyFormatting('italic')}
               className="h-8 w-8 p-0"
             >
-              <Type className="h-4 w-4" />
+              <Italic className="h-4 w-4" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-32">
-            <div className="space-y-1">
-              {['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'].map((size) => (
-                <button
-                  key={size}
-                  className="block w-full text-left px-2 py-1 hover:bg-accent rounded text-sm"
-                  onClick={() => applyFontSize(size)}
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => applyFormatting('underline')}
+              className="h-8 w-8 p-0"
+            >
+              <Underline className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => applyFormatting('strikethrough')}
+              className="h-8 w-8 p-0"
+            >
+              <Strikethrough className="h-4 w-4" />
+            </Button>
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => applyFormatting('left')}
+              className="h-8 w-8 p-0"
+            >
+              <AlignLeft className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => applyFormatting('center')}
+              className="h-8 w-8 p-0"
+            >
+              <AlignCenter className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => applyFormatting('right')}
+              className="h-8 w-8 p-0"
+            >
+              <AlignRight className="h-4 w-4" />
+            </Button>
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
                 >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48">
+                <div className="grid grid-cols-8 gap-1">
+                  {colors.map((color) => (
+                    <button
+                      key={color}
+                      className="w-6 h-6 rounded border hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                      onClick={() => applyColor(color)}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
 
-      {/* Text Area */}
-      <Textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        className="border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
-      />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                >
+                  <Type className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-32">
+                <div className="space-y-1">
+                  {['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'].map((size) => (
+                    <button
+                      key={size}
+                      className="block w-full text-left px-2 py-1 hover:bg-accent rounded text-sm"
+                      onClick={() => applyFontSize(size)}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Tab Triggers */}
+          <TabsList className="grid w-32 grid-cols-2 mr-2">
+            <TabsTrigger value="edit" className="text-xs">
+              <Code className="h-3 w-3 mr-1" />
+              Edytuj
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="text-xs">
+              <Eye className="h-3 w-3 mr-1" />
+              Podgląd
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="edit" className="m-0">
+          <Textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={rows}
+            className="border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
+        </TabsContent>
+
+        <TabsContent value="preview" className="m-0">
+          <div 
+            className="p-3 min-h-[80px] prose prose-sm max-w-none"
+            style={{ minHeight: `${rows * 1.5}rem` }}
+            dangerouslySetInnerHTML={{ 
+              __html: value || `<span class="text-muted-foreground">${placeholder}</span>` 
+            }}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
