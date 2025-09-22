@@ -45,6 +45,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   className = ""
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
@@ -82,6 +83,36 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   ];
 
   const wrapSelectedText = useCallback((startTag: string, endTag: string = '') => {
+    if (activeTab === 'preview') {
+      // Handle contentEditable preview mode
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      
+      const range = selection.getRangeAt(0);
+      const selectedText = range.toString();
+      
+      if (selectedText.length === 0) return;
+
+      // Create new elements
+      const wrapper = document.createElement('span');
+      wrapper.innerHTML = startTag + selectedText + endTag;
+      
+      // Replace selection with wrapped content
+      range.deleteContents();
+      range.insertNode(wrapper);
+      
+      // Update the HTML value
+      if (previewRef.current) {
+        onChange(previewRef.current.innerHTML);
+      }
+      
+      // Clear selection
+      selection.removeAllRanges();
+      
+      return;
+    }
+
+    // Handle textarea edit mode
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -105,9 +136,51 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       );
       textarea.focus();
     }, 0);
-  }, [value, onChange]);
+  }, [value, onChange, activeTab]);
 
   const applyFormatting = useCallback((format: string) => {
+    if (activeTab === 'preview') {
+      // Use document.execCommand for contentEditable
+      document.execCommand('styleWithCSS', false, 'true');
+      
+      switch (format) {
+        case 'bold':
+          document.execCommand('bold', false, '');
+          break;
+        case 'italic':
+          document.execCommand('italic', false, '');
+          break;
+        case 'underline':
+          document.execCommand('underline', false, '');
+          break;
+        case 'strikethrough':
+          document.execCommand('strikethrough', false, '');
+          break;
+        case 'left':
+          document.execCommand('justifyLeft', false, '');
+          break;
+        case 'center':
+          document.execCommand('justifyCenter', false, '');
+          break;
+        case 'right':
+          document.execCommand('justifyRight', false, '');
+          break;
+        case 'ul':
+          document.execCommand('insertUnorderedList', false, '');
+          break;
+        case 'ol':
+          document.execCommand('insertOrderedList', false, '');
+          break;
+      }
+      
+      // Update value
+      if (previewRef.current) {
+        onChange(previewRef.current.innerHTML);
+      }
+      return;
+    }
+
+    // Handle textarea mode
     switch (format) {
       case 'bold':
         wrapSelectedText('<b>', '</b>');
@@ -146,52 +219,129 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         wrapSelectedText('<ol><li>', '</li></ol>');
         break;
     }
-  }, [wrapSelectedText]);
+  }, [wrapSelectedText, activeTab]);
 
   const applyColor = useCallback((color: string) => {
-    wrapSelectedText(`<span style="color: ${color};">`, '</span>');
+    if (activeTab === 'preview') {
+      document.execCommand('foreColor', false, color);
+      if (previewRef.current) {
+        onChange(previewRef.current.innerHTML);
+      }
+    } else {
+      wrapSelectedText(`<span style="color: ${color};">`, '</span>');
+    }
     setShowColorPicker(false);
-  }, [wrapSelectedText]);
+  }, [wrapSelectedText, activeTab, onChange]);
 
   const applyHighlight = useCallback((color: string) => {
-    wrapSelectedText(`<span style="background-color: ${color};">`, '</span>');
+    if (activeTab === 'preview') {
+      document.execCommand('backColor', false, color);
+      if (previewRef.current) {
+        onChange(previewRef.current.innerHTML);
+      }
+    } else {
+      wrapSelectedText(`<span style="background-color: ${color};">`, '</span>');
+    }
     setShowHighlightPicker(false);
-  }, [wrapSelectedText]);
+  }, [wrapSelectedText, activeTab, onChange]);
 
   const applyFontSize = useCallback((size: string) => {
-    wrapSelectedText(`<span style="font-size: ${size};">`, '</span>');
-  }, [wrapSelectedText]);
+    if (activeTab === 'preview') {
+      document.execCommand('fontSize', false, '1');
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const span = document.createElement('span');
+        span.style.fontSize = size;
+        try {
+          range.surroundContents(span);
+          if (previewRef.current) {
+            onChange(previewRef.current.innerHTML);
+          }
+        } catch (e) {
+          // Fallback if surroundContents fails
+          wrapSelectedText(`<span style="font-size: ${size};">`, '</span>');
+        }
+      }
+    } else {
+      wrapSelectedText(`<span style="font-size: ${size};">`, '</span>');
+    }
+  }, [wrapSelectedText, activeTab, onChange]);
 
   const applyFontFamily = useCallback((family: string) => {
-    wrapSelectedText(`<span style="font-family: ${family};">`, '</span>');
-  }, [wrapSelectedText]);
+    if (activeTab === 'preview') {
+      document.execCommand('fontName', false, family);
+      if (previewRef.current) {
+        onChange(previewRef.current.innerHTML);
+      }
+    } else {
+      wrapSelectedText(`<span style="font-family: ${family};">`, '</span>');
+    }
+  }, [wrapSelectedText, activeTab, onChange]);
 
   const insertLink = useCallback(() => {
     if (linkUrl && linkText) {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
+      if (activeTab === 'preview') {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          
+          const link = document.createElement('a');
+          link.href = linkUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = linkText;
+          
+          range.insertNode(link);
+          if (previewRef.current) {
+            onChange(previewRef.current.innerHTML);
+          }
+        }
+      } else {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
 
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const beforeText = value.substring(0, start);
-      const afterText = value.substring(end);
-      
-      const linkHtml = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
-      const newValue = beforeText + linkHtml + afterText;
-      onChange(newValue);
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const beforeText = value.substring(0, start);
+        const afterText = value.substring(end);
+        
+        const linkHtml = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+        const newValue = beforeText + linkHtml + afterText;
+        onChange(newValue);
+
+        setTimeout(() => {
+          textarea.setSelectionRange(start + linkHtml.length, start + linkHtml.length);
+          textarea.focus();
+        }, 0);
+      }
 
       setLinkUrl('');
       setLinkText('');
       setShowLinkDialog(false);
-
-      setTimeout(() => {
-        textarea.setSelectionRange(start + linkHtml.length, start + linkHtml.length);
-        textarea.focus();
-      }, 0);
     }
-  }, [value, onChange, linkUrl, linkText]);
+  }, [value, onChange, linkUrl, linkText, activeTab]);
 
   const clearFormatting = useCallback(() => {
+    if (activeTab === 'preview') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+        
+        if (selectedText.length === 0) return;
+
+        range.deleteContents();
+        range.insertNode(document.createTextNode(selectedText));
+        
+        if (previewRef.current) {
+          onChange(previewRef.current.innerHTML);
+        }
+      }
+      return;
+    }
+
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -213,7 +363,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       textarea.setSelectionRange(start, start + cleanText.length);
       textarea.focus();
     }, 0);
-  }, [value, onChange]);
+  }, [value, onChange, activeTab]);
+
+  const handlePreviewChange = useCallback(() => {
+    if (previewRef.current) {
+      onChange(previewRef.current.innerHTML);
+    }
+  }, [onChange]);
 
   return (
     <div className={`border rounded-md ${className}`}>
@@ -510,7 +666,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         <TabsContent value="preview" className="m-0">
           <div 
-            className="p-3 min-h-[80px] prose prose-sm max-w-none"
+            ref={previewRef}
+            contentEditable
+            suppressContentEditableWarning={true}
+            onInput={handlePreviewChange}
+            onBlur={handlePreviewChange}
+            className="p-3 min-h-[80px] prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
             style={{ minHeight: `${rows * 1.5}rem` }}
             dangerouslySetInnerHTML={{ 
               __html: value || `<span class="text-muted-foreground">${placeholder}</span>` 
