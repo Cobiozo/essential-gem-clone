@@ -6,14 +6,23 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2 } from 'lucide-react';
+import { Edit3, Loader2, Layout, Columns } from 'lucide-react';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
 import { DraggableItem } from './DraggableItem';
+import { ResizableElement } from './ResizableElement';
+import { ColumnLayout } from './ColumnLayout';
 import { EditingToolbar } from './EditingToolbar';
+import { LayoutControls } from './LayoutControls';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
+
+interface Column {
+  id: string;
+  items: CMSItem[];
+  width?: number;
+}
 
 export const LivePreviewEditor: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -24,9 +33,15 @@ export const LivePreviewEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [layoutMode, setLayoutMode] = useState<'single' | 'columns' | 'grid'>('single');
+  const [columnCount, setColumnCount] = useState(2);
+  
+  // Column layout state
+  const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
   
   // History for undo/redo
   const [history, setHistory] = useState<{ sections: CMSSection[], items: CMSItem[] }[]>([]);
@@ -43,6 +58,22 @@ export const LivePreviewEditor: React.FC = () => {
     });
     setHistoryIndex(prev => Math.min(prev + 1, 19));
   }, [historyIndex]);
+
+  // Initialize columns for sections
+  const initializeColumns = (sections: CMSSection[], items: CMSItem[]) => {
+    const columnData: { [sectionId: string]: Column[] } = {};
+    
+    sections.forEach(section => {
+      const sectionItems = items.filter(item => item.section_id === section.id);
+      columnData[section.id] = [{
+        id: `${section.id}-col-0`,
+        items: sectionItems,
+        width: 100,
+      }];
+    });
+    
+    setSectionColumns(columnData);
+  };
 
   const fetchData = async () => {
     try {
@@ -81,6 +112,7 @@ export const LivePreviewEditor: React.FC = () => {
       if (convertedSections && convertedItems) {
         setHistory([{ sections: convertedSections, items: convertedItems }]);
         setHistoryIndex(0);
+        initializeColumns(convertedSections, convertedItems);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -148,6 +180,47 @@ export const LivePreviewEditor: React.FC = () => {
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // Check if we're dropping into a column
+    if (overId.includes('-col-')) {
+      const [sectionId] = overId.split('-col-');
+      const columnIndex = parseInt(overId.split('-col-')[1]);
+      
+      // Handle moving item to a column
+      const sourceItem = items.find(item => item.id === activeId);
+      if (sourceItem) {
+        // Remove from source
+        const updatedItems = items.filter(item => item.id !== activeId);
+        
+        // Update section_id if moving to different section
+        const updatedItem = {
+          ...sourceItem,
+          section_id: sectionId,
+        };
+        
+        // Add to target column
+        const newColumns = { ...sectionColumns };
+        if (!newColumns[sectionId]) {
+          newColumns[sectionId] = [{
+            id: `${sectionId}-col-0`,
+            items: [],
+            width: 100,
+          }];
+        }
+        
+        if (newColumns[sectionId][columnIndex]) {
+          newColumns[sectionId][columnIndex].items.push(updatedItem);
+        }
+        
+        // Update both items and columns
+        const finalItems = [...updatedItems, updatedItem];
+        setSectionColumns(newColumns);
+        setItems(finalItems);
+        setHasUnsavedChanges(true);
+        autoSave(sections, finalItems);
+        return;
+      }
+    }
+
     // Check if dragging sections
     const isSection = sections.some(s => s.id === activeId);
     
@@ -163,7 +236,7 @@ export const LivePreviewEditor: React.FC = () => {
         autoSave(newSections, items);
       }
     } else {
-      // Dragging items
+      // Dragging items within same section
       const oldIndex = items.findIndex(i => i.id === activeId);
       const newIndex = items.findIndex(i => i.id === overId);
       
@@ -243,10 +316,44 @@ export const LivePreviewEditor: React.FC = () => {
         fetchData(); // Reload original data
         setEditMode(false);
         setHasUnsavedChanges(false);
+        setSelectedElement(null);
       }
     } else {
       setEditMode(false);
+      setSelectedElement(null);
     }
+  };
+
+  const handleElementResize = (elementId: string, width: number, height: number) => {
+    // Here you would save the resize data to the database
+    console.log(`Element ${elementId} resized to ${width}x${height}`);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleLayoutModeChange = (mode: 'single' | 'columns' | 'grid') => {
+    setLayoutMode(mode);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleColumnCountChange = (count: number) => {
+    setColumnCount(count);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleColumnsChange = (sectionId: string, columns: Column[]) => {
+    setSectionColumns(prev => ({
+      ...prev,
+      [sectionId]: columns,
+    }));
+    
+    // Flatten columns back to items array
+    const allItemsFromColumns = Object.values(columns).flatMap(col => col.items);
+    const otherSectionItems = items.filter(item => item.section_id !== sectionId);
+    const newItems = [...otherSectionItems, ...allItemsFromColumns];
+    
+    setItems(newItems);
+    setHasUnsavedChanges(true);
+    autoSave(sections, newItems);
   };
 
   if (!isAdmin) {
@@ -273,14 +380,15 @@ export const LivePreviewEditor: React.FC = () => {
     );
   }
 
-  const sectionIds = sections.map(s => s.id);
-
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Layout Editor
+            <div className="flex items-center gap-2">
+              <Layout className="w-5 h-5" />
+              Layout Editor
+            </div>
             {!editMode && (
               <Button onClick={() => setEditMode(true)} className="gap-2">
                 <Edit3 className="w-4 h-4" />
@@ -290,8 +398,8 @@ export const LivePreviewEditor: React.FC = () => {
           </CardTitle>
           <CardDescription>
             {editMode 
-              ? "Drag and drop sections and items to reorder them. Changes are auto-saved."
-              : "Click 'Enable Edit Mode' to start rearranging your page layout."
+              ? "Drag and drop sections and items to reorder them. Resize elements and create column layouts. Changes are auto-saved."
+              : "Click 'Enable Edit Mode' to start rearranging your page layout with advanced controls."
             }
           </CardDescription>
         </CardHeader>
@@ -310,16 +418,45 @@ export const LivePreviewEditor: React.FC = () => {
         autoSaveStatus={autoSaveStatus}
       />
 
-      <div className={`space-y-6 ${editMode ? 'pb-20' : ''}`}>
+      <LayoutControls
+        isVisible={editMode}
+        selectedElement={selectedElement}
+        layoutMode={layoutMode}
+        columnCount={columnCount}
+        onLayoutModeChange={handleLayoutModeChange}
+        onColumnCountChange={handleColumnCountChange}
+        onDuplicateElement={() => {
+          // Handle duplication
+          console.log('Duplicate element:', selectedElement);
+        }}
+        onDeleteElement={() => {
+          // Handle deletion
+          console.log('Delete element:', selectedElement);
+        }}
+        onResetElement={() => {
+          // Handle reset
+          console.log('Reset element:', selectedElement);
+        }}
+        onElementSettings={() => {
+          // Handle settings
+          console.log('Element settings:', selectedElement);
+        }}
+      />
+
+      <div className={`space-y-6 ${editMode ? 'pb-32' : ''}`}>
         <DragDropProvider
-          items={sectionIds}
+          items={[...sections.map(s => s.id), ...items.map(i => i.id || '')]}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           activeId={activeId}
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {sections.map((section) => {
-              const sectionItems = items.filter(item => item.section_id === section.id);
+              const columns = sectionColumns[section.id] || [{
+                id: `${section.id}-col-0`,
+                items: items.filter(item => item.section_id === section.id),
+                width: 100,
+              }];
               
               return (
                 <DraggableSection
@@ -328,79 +465,77 @@ export const LivePreviewEditor: React.FC = () => {
                   isEditMode={editMode}
                   className="h-fit"
                 >
-                  <CollapsibleSection
-                    title={section.title}
-                    description={section.description}
-                    sectionStyle={{
-                      background_color: section.background_color,
-                      text_color: section.text_color,
-                      font_size: section.font_size,
-                      alignment: section.alignment,
-                      padding: section.padding,
-                      margin: section.margin,
-                      border_radius: section.border_radius,
-                      style_class: section.style_class,
-                      background_gradient: section.background_gradient,
-                      border_width: section.border_width,
-                      border_color: section.border_color,
-                      border_style: section.border_style,
-                      box_shadow: section.box_shadow,
-                      opacity: section.opacity,
-                      width_type: section.width_type,
-                      custom_width: section.custom_width,
-                      height_type: section.height_type,
-                      custom_height: section.custom_height,
-                      max_width: section.max_width,
-                      font_weight: section.font_weight,
-                      line_height: section.line_height,
-                      letter_spacing: section.letter_spacing,
-                      text_transform: section.text_transform,
-                      display_type: section.display_type,
-                      justify_content: section.justify_content,
-                      align_items: section.align_items,
-                      gap: section.gap,
-                      section_margin_top: section.section_margin_top,
-                      section_margin_bottom: section.section_margin_bottom,
-                      background_image: section.background_image,
-                      background_image_opacity: section.background_image_opacity,
-                      background_image_position: section.background_image_position,
-                      background_image_size: section.background_image_size,
-                      icon_name: section.icon_name,
-                      icon_position: section.icon_position,
-                      icon_size: section.icon_size,
-                      icon_color: section.icon_color,
-                      show_icon: section.show_icon,
-                      min_height: section.min_height,
-                      hover_opacity: section.hover_opacity,
-                      hover_scale: section.hover_scale,
-                      hover_transition_duration: section.hover_transition_duration,
-                      hover_background_color: section.hover_background_color,
-                      hover_background_gradient: section.hover_background_gradient,
-                      hover_text_color: section.hover_text_color,
-                      hover_border_color: section.hover_border_color,
-                      hover_box_shadow: section.hover_box_shadow,
-                      content_direction: section.content_direction,
-                      content_wrap: section.content_wrap,
-                      overflow_behavior: section.overflow_behavior
-                    }}
-                    nestedItems={sectionItems}
-                    defaultOpen={true}
+                  <ResizableElement
+                    isEditMode={editMode}
+                    onResize={(width, height) => handleElementResize(section.id, width, height)}
+                    className="w-full"
                   >
-                    <div className="space-y-4">
-                      {sectionItems.map((item) => (
-                        <DraggableItem
-                          key={item.id}
-                          id={item.id || ''}
-                          isEditMode={editMode}
-                        >
-                          <CMSContent
-                            item={item}
-                            onClick={() => {}}
-                          />
-                        </DraggableItem>
-                      ))}
-                    </div>
-                  </CollapsibleSection>
+                    <CollapsibleSection
+                      title={section.title}
+                      description={section.description}
+                      sectionStyle={{
+                        background_color: section.background_color,
+                        text_color: section.text_color,
+                        font_size: section.font_size,
+                        alignment: section.alignment,
+                        padding: section.padding,
+                        margin: section.margin,
+                        border_radius: section.border_radius,
+                        style_class: section.style_class,
+                        background_gradient: section.background_gradient,
+                        border_width: section.border_width,
+                        border_color: section.border_color,
+                        border_style: section.border_style,
+                        box_shadow: section.box_shadow,
+                        opacity: section.opacity,
+                        width_type: section.width_type,
+                        custom_width: section.custom_width,
+                        height_type: section.height_type,
+                        custom_height: section.custom_height,
+                        max_width: section.max_width,
+                        font_weight: section.font_weight,
+                        line_height: section.line_height,
+                        letter_spacing: section.letter_spacing,
+                        text_transform: section.text_transform,
+                        display_type: section.display_type,
+                        justify_content: section.justify_content,
+                        align_items: section.align_items,
+                        gap: section.gap,
+                        section_margin_top: section.section_margin_top,
+                        section_margin_bottom: section.section_margin_bottom,
+                        background_image: section.background_image,
+                        background_image_opacity: section.background_image_opacity,
+                        background_image_position: section.background_image_position,
+                        background_image_size: section.background_image_size,
+                        icon_name: section.icon_name,
+                        icon_position: section.icon_position,
+                        icon_size: section.icon_size,
+                        icon_color: section.icon_color,
+                        show_icon: section.show_icon,
+                        min_height: section.min_height,
+                        hover_opacity: section.hover_opacity,
+                        hover_scale: section.hover_scale,
+                        hover_transition_duration: section.hover_transition_duration,
+                        hover_background_color: section.hover_background_color,
+                        hover_background_gradient: section.hover_background_gradient,
+                        hover_text_color: section.hover_text_color,
+                        hover_border_color: section.hover_border_color,
+                        hover_box_shadow: section.hover_box_shadow,
+                        content_direction: section.content_direction,
+                        content_wrap: section.content_wrap,
+                        overflow_behavior: section.overflow_behavior
+                      }}
+                      nestedItems={[]}
+                      defaultOpen={true}
+                    >
+                      <ColumnLayout
+                        columns={columns}
+                        isEditMode={editMode}
+                        onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
+                        onItemClick={() => {}}
+                      />
+                    </CollapsibleSection>
+                  </ResizableElement>
                 </DraggableSection>
               );
             })}
