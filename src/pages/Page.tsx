@@ -12,81 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
-
-interface CMSSection {
-  id: string;
-  title: string;
-  description?: string | null;
-  position: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  page_id?: string;
-  // Enhanced styling options
-  background_color?: string | null;
-  text_color?: string | null;
-  font_size?: number | null;
-  alignment?: string | null;
-  padding?: number | null;
-  margin?: number | null;
-  border_radius?: number | null;
-  style_class?: string | null;
-  background_gradient?: string | null;
-  border_width?: number | null;
-  border_color?: string | null;
-  border_style?: string | null;
-  box_shadow?: string | null;
-  opacity?: number | null;
-  width_type?: string | null;
-  custom_width?: number | null;
-  height_type?: string | null;
-  custom_height?: number | null;
-  max_width?: number | null;
-  font_weight?: number | null;
-  line_height?: number | null;
-  letter_spacing?: number | null;
-  text_transform?: string | null;
-  display_type?: string | null;
-  justify_content?: string | null;
-  align_items?: string | null;
-  gap?: number | null;
-  // New enhanced options
-  section_margin_top?: number | null;
-  section_margin_bottom?: number | null;
-  background_image?: string | null;
-  background_image_opacity?: number | null;
-  background_image_position?: string | null;
-  background_image_size?: string | null;
-  icon_name?: string | null;
-  icon_position?: string | null;
-  icon_size?: number | null;
-  icon_color?: string | null;
-  show_icon?: boolean | null;
-  content_direction?: string | null;
-  content_wrap?: string | null;
-  min_height?: number | null;
-  overflow_behavior?: string | null;
-}
-
-interface CMSItem {
-  id: string;
-  section_id: string;
-  type: string;
-  title: string | null;
-  description: string | null;
-  url: string | null;
-  icon: string | null;
-  position: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  media_url?: string | null;
-  media_type?: string | null;
-  media_alt_text?: string | null;
-  text_formatting?: any;
-  title_formatting?: any;
-  page_id?: string;
-}
+import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 
 interface Page {
   id: string;
@@ -109,12 +35,39 @@ const PageComponent = () => {
   const { t } = useLanguage();
   const [page, setPage] = useState<Page | null>(null);
   const [sections, setSections] = useState<CMSSection[]>([]);
+  const [nestedSections, setNestedSections] = useState<{[key: string]: CMSSection[]}>({});
   const [items, setItems] = useState<CMSItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   // Enable security preventions for public pages
   useSecurityPreventions();
+
+  // Funkcje konwersji danych
+  const convertCellsFromDatabase = (cells: any): ContentCell[] => {
+    if (!cells) return [];
+    if (typeof cells === 'string') {
+      try {
+        const parsed = JSON.parse(cells);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch (e) {
+        return [];
+      }
+    }
+    if (Array.isArray(cells)) {
+      return cells;
+    }
+    return [];
+  };
+
+  const convertDatabaseItemToCMSItem = (dbItem: any): CMSItem => {
+    return {
+      ...dbItem,
+      cells: convertCellsFromDatabase(dbItem.cells)
+    };
+  };
 
   useEffect(() => {
     const fetchPageData = async () => {
@@ -168,11 +121,12 @@ const PageComponent = () => {
           }
         }
 
-        // Fetch CMS sections for this page
+        // Fetch CMS sections for this page (tylko sekcje główne)
         const { data: sectionsData, error: sectionsError } = await supabase
           .from('cms_sections')
           .select('*')
           .eq('page_id', pageData.id)
+          .is('parent_id', null) // Tylko sekcje główne
           .eq('is_active', true)
           .order('position', { ascending: true });
 
@@ -180,6 +134,22 @@ const PageComponent = () => {
           console.error('Error fetching page sections:', sectionsError);
         } else {
           setSections(sectionsData || []);
+
+          // Pobierz sekcje zagnieżdżone dla każdej sekcji głównej
+          const nestedSectionsData: {[key: string]: CMSSection[]} = {};
+          for (const section of sectionsData || []) {
+            const { data: nestedData, error: nestedError } = await supabase
+              .from('cms_sections')
+              .select('*')
+              .eq('parent_id', section.id)
+              .eq('is_active', true)
+              .order('position', { ascending: true });
+            
+            if (!nestedError && nestedData && nestedData.length > 0) {
+              nestedSectionsData[section.id] = nestedData;
+            }
+          }
+          setNestedSections(nestedSectionsData);
         }
 
         // Fetch CMS items for this page
@@ -193,7 +163,7 @@ const PageComponent = () => {
         if (itemsError) {
           console.error('Error fetching page items:', itemsError);
         } else {
-          setItems(itemsData || []);
+          setItems((itemsData || []).map(convertDatabaseItemToCMSItem));
         }
 
       } catch (error) {
@@ -310,8 +280,10 @@ const PageComponent = () => {
                 key={section.id} 
                 title={section.title}
                 description={section.description}
-                className="mb-6 sm:mb-8"
-                sectionStyle={section}
+                 className="mb-6 sm:mb-8"
+                 sectionStyle={section}
+                 nestedSections={nestedSections[section.id] || []}
+                 nestedItems={items}
               >
                 <div className="space-y-3 sm:space-y-4">
                   {items

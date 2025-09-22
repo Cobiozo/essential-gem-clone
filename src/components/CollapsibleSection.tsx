@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { CMSContent } from '@/components/CMSContent';
+import { CMSSection, CMSItem } from '@/types/cms';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -12,6 +14,8 @@ interface CollapsibleSectionProps {
   defaultOpen?: boolean;
   showShareButton?: boolean;
   className?: string;
+  nestedSections?: CMSSection[]; // Sekcje zagnieżdżone
+  nestedItems?: CMSItem[]; // Elementy do sekcji zagnieżdżonych
   // Styling props from CMS Section
   sectionStyle?: {
     background_color?: string | null;
@@ -76,7 +80,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   defaultOpen = false,
   showShareButton = false,
   className,
-  sectionStyle
+  sectionStyle,
+  nestedSections = [],
+  nestedItems = []
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { toast } = useToast();
@@ -355,6 +361,39 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           style={customContentStyle}
         >
           {children}
+          
+          {/* Sekcje zagnieżdżone */}
+          {nestedSections && nestedSections.length > 0 && (
+            <div className="mt-6 space-y-4">
+              <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                Sekcje zagnieżdżone
+              </h4>
+              {nestedSections.map((nestedSection) => (
+                <div key={nestedSection.id} className="bg-gray-50 rounded-lg">
+                  <CollapsibleSection
+                    title={nestedSection.title}
+                    description={nestedSection.description || undefined}
+                    sectionStyle={nestedSection}
+                    className="border border-gray-200"
+                  >
+                    <div className="space-y-3">
+                      {nestedItems
+                        .filter(item => item.section_id === nestedSection.id)
+                        .map((item) => (
+                          <CMSContent key={item.id} item={item} />
+                        ))}
+                      {nestedItems.filter(item => item.section_id === nestedSection.id).length === 0 && (
+                        <div className="text-center text-muted-foreground py-4 text-sm">
+                          Brak zawartości w tej sekcji
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleSection>
+                </div>
+              ))}
+            </div>
+          )}
+          
           {showShareButton && (
             <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center">
               <Button
