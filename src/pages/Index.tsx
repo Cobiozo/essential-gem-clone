@@ -195,25 +195,24 @@ const Index = () => {
               const headerItem = items.find(item => item.type === 'header_text');
               if (headerItem?.text_formatting) {
                 return (
-                  <div
-                    style={{
-                      fontSize: `${headerItem.text_formatting.fontSize || 16}px`,
-                      fontWeight: headerItem.text_formatting.fontWeight || '400',
-                      fontStyle: headerItem.text_formatting.fontStyle || 'normal',
-                      textDecoration: headerItem.text_formatting.textDecoration || 'none',
-                      textAlign: headerItem.text_formatting.textAlign || 'center',
-                      color: headerItem.text_formatting.color || '#666666',
-                      backgroundColor: headerItem.text_formatting.backgroundColor === 'transparent' ? undefined : headerItem.text_formatting.backgroundColor,
-                      lineHeight: headerItem.text_formatting.lineHeight || 1.5,
-                      letterSpacing: `${headerItem.text_formatting.letterSpacing || 0}px`,
-                      fontFamily: headerItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
-                    }}
-                  >
-                    {headerText}
-                  </div>
+                    <div
+                      style={{
+                        fontSize: `${headerItem.text_formatting.fontSize || 16}px`,
+                        fontWeight: headerItem.text_formatting.fontWeight || '400',
+                        fontStyle: headerItem.text_formatting.fontStyle || 'normal',
+                        textDecoration: headerItem.text_formatting.textDecoration || 'none',
+                        textAlign: headerItem.text_formatting.textAlign || 'center',
+                        color: headerItem.text_formatting.color || '#666666',
+                        backgroundColor: headerItem.text_formatting.backgroundColor === 'transparent' ? undefined : headerItem.text_formatting.backgroundColor,
+                        lineHeight: headerItem.text_formatting.lineHeight || 1.5,
+                        letterSpacing: `${headerItem.text_formatting.letterSpacing || 0}px`,
+                        fontFamily: headerItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: headerText }}
+                    />
                 );
               }
-              return headerText;
+              return <div dangerouslySetInnerHTML={{ __html: headerText }} />;
             })()}
           </div>
         )}
@@ -231,25 +230,24 @@ const Index = () => {
               const authorItem = items.find(item => item.type === 'author');
               if (authorItem?.text_formatting) {
                 return (
-                  <div
-                    style={{
-                      fontSize: `${authorItem.text_formatting.fontSize || 14}px`,
-                      fontWeight: authorItem.text_formatting.fontWeight || '400',
-                      fontStyle: authorItem.text_formatting.fontStyle || 'normal',
-                      textDecoration: authorItem.text_formatting.textDecoration || 'none',
-                      textAlign: authorItem.text_formatting.textAlign || 'center',
-                      color: authorItem.text_formatting.color || '#666666',
-                      backgroundColor: authorItem.text_formatting.backgroundColor === 'transparent' ? undefined : authorItem.text_formatting.backgroundColor,
-                      lineHeight: authorItem.text_formatting.lineHeight || 1.5,
-                      letterSpacing: `${authorItem.text_formatting.letterSpacing || 0}px`,
-                      fontFamily: authorItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
-                    }}
-                  >
-                    {authorText}
-                  </div>
+                    <div
+                      style={{
+                        fontSize: `${authorItem.text_formatting.fontSize || 14}px`,
+                        fontWeight: authorItem.text_formatting.fontWeight || '400',
+                        fontStyle: authorItem.text_formatting.fontStyle || 'normal',
+                        textDecoration: authorItem.text_formatting.textDecoration || 'none',
+                        textAlign: authorItem.text_formatting.textAlign || 'center',
+                        color: authorItem.text_formatting.color || '#666666',
+                        backgroundColor: authorItem.text_formatting.backgroundColor === 'transparent' ? undefined : authorItem.text_formatting.backgroundColor,
+                        lineHeight: authorItem.text_formatting.lineHeight || 1.5,
+                        letterSpacing: `${authorItem.text_formatting.letterSpacing || 0}px`,
+                        fontFamily: authorItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: authorText }}
+                    />
                 );
               }
-              return authorText;
+              return <div dangerouslySetInnerHTML={{ __html: authorText }} />;
             })()}
           </div>
         )}

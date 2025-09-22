@@ -2063,12 +2063,13 @@ const Admin = () => {
                                   </div>
                                 )}
                                 {item.description && (
-                                  <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
-                                    {item.description.length > 100 
-                                      ? `${item.description.substring(0, 100)}...` 
-                                      : item.description
-                                    }
-                                  </p>
+                                  <div className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3"
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: item.description.length > 100 
+                                        ? `${item.description.substring(0, 100)}...` 
+                                        : item.description
+                                    }}
+                                  />
                                 )}
                                {item.url && (
                                  <p className="text-xs text-blue-600 mt-1 break-all">

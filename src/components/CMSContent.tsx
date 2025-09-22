@@ -180,9 +180,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
                 if (!cell.section_items || cell.section_items.length === 0) {
                   return (
                     <div key={cell.id} className="border rounded-lg p-4 my-4 bg-muted/30">
-                      <h4 className="font-semibold mb-2">{cell.section_title || cell.content}</h4>
+                      <h4 className="font-semibold mb-2" dangerouslySetInnerHTML={{ __html: cell.section_title || cell.content }} />
                       {cell.section_description && (
-                        <p className="text-sm text-muted-foreground mb-2">{cell.section_description}</p>
+                        <div className="text-sm text-muted-foreground mb-2" dangerouslySetInnerHTML={{ __html: cell.section_description }} />
                       )}
                       <p className="text-sm text-muted-foreground">Brak elementów w tej sekcji</p>
                     </div>
@@ -223,7 +223,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
                     {cell.type === 'button_external' && '🔗 '}
                     {cell.type === 'button_anchor' && '⚓ '}
                     {cell.type === 'button_functional' && '🔘 '}
-                    {cell.content}
+                    <span dangerouslySetInnerHTML={{ __html: cell.content }} />
                   </Button>
                 );
               

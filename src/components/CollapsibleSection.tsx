@@ -308,9 +308,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             )}
           </div>
           {description && (
-            <p className="text-sm opacity-90 mt-2 leading-relaxed max-w-md">
-              {description}
-            </p>
+            <div className="text-sm opacity-90 mt-2 leading-relaxed max-w-md"
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
           )}
         </div>
 
