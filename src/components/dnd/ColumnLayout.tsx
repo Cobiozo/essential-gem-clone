@@ -15,6 +15,7 @@ interface Column {
 }
 
 interface ColumnLayoutProps {
+  sectionId: string;
   columns: Column[];
   isEditMode: boolean;
   onColumnsChange: (columns: Column[]) => void;
@@ -23,6 +24,7 @@ interface ColumnLayoutProps {
 }
 
 export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
+  sectionId,
   columns,
   isEditMode,
   onColumnsChange,
@@ -33,11 +35,10 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
 
   const addColumn = () => {
     const newColumn: Column = {
-      id: `column-${Date.now()}`,
+      id: `${sectionId}-col-${columns.length}`,
       items: [],
       width: 100 / (columns.length + 1),
     };
-    
     // Redistribute width equally among all columns
     const updatedColumns = columns.map(col => ({
       ...col,
@@ -75,7 +76,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
     const newColumns: Column[] = [];
     for (let i = 0; i < count; i++) {
       newColumns.push({
-        id: `column-${i}`,
+        id: `${sectionId}-col-${i}`,
         items: i === 0 ? allItems : [], // Put all items in first column
         width: 100 / count,
       });
@@ -164,6 +165,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
         {columns.map((column, index) => (
           <ColumnDropZone
             key={column.id}
+            sectionId={sectionId}
             column={column}
             isEditMode={isEditMode}
             canRemove={columns.length > 1}
@@ -181,6 +183,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
 };
 
 interface ColumnDropZoneProps {
+  sectionId: string;
   column: Column;
   isEditMode: boolean;
   canRemove: boolean;
@@ -191,6 +194,7 @@ interface ColumnDropZoneProps {
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
+  sectionId,
   column,
   isEditMode,
   canRemove,
@@ -203,7 +207,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     id: column.id,
     data: {
       type: 'column',
-      sectionId: column.id.split('-col-')[0],
+      sectionId,
       columnIndex: parseInt(column.id.split('-col-')[1]),
     },
   });

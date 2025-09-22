@@ -202,76 +202,11 @@ export const LivePreviewEditor: React.FC = () => {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Check if we're dropping into a column
-    if (overId.includes('-col-')) {
-      // Handle moving item to a column
-      const activeItem = items.find(item => item.id === activeId);
-      const targetSectionId = overId.split('-col-')[0];
-      const targetColumnIndex = parseInt(overId.split('-col-')[1]);
-      
-      if (activeItem) {
-        // Update item's section_id
-        const updatedItem = {
-          ...activeItem,
-          section_id: targetSectionId,
-        };
-        
-        // Update items array
-        const updatedItems = items.map(item => 
-          item.id === activeId ? updatedItem : item
-        );
-        
-        // Update column structure
-        const newSectionColumns = { ...sectionColumns };
-        
-        // Remove item from source column
-        Object.keys(newSectionColumns).forEach(sectionId => {
-          newSectionColumns[sectionId] = newSectionColumns[sectionId].map(column => ({
-            ...column,
-            items: column.items.filter(item => item.id !== activeId)
-          }));
-        });
-        
-        // Add item to target column
-        if (!newSectionColumns[targetSectionId]) {
-          newSectionColumns[targetSectionId] = [{
-            id: `${targetSectionId}-col-0`,
-            items: [],
-            width: 100,
-          }];
-        }
-        
-        // Ensure target column exists
-        if (!newSectionColumns[targetSectionId][targetColumnIndex]) {
-          // Create missing columns up to target index
-          while (newSectionColumns[targetSectionId].length <= targetColumnIndex) {
-            const newColIndex = newSectionColumns[targetSectionId].length;
-            newSectionColumns[targetSectionId].push({
-              id: `${targetSectionId}-col-${newColIndex}`,
-              items: [],
-              width: 100 / (newColIndex + 1),
-            });
-          }
-        }
-        
-        // Add item to target column
-        newSectionColumns[targetSectionId][targetColumnIndex].items.push(updatedItem);
-        
-        setSectionColumns(newSectionColumns);
-        setItems(updatedItems);
-        setHasUnsavedChanges(true);
-        autoSave(sections, updatedItems);
-        return;
-      }
-    }
-
-    // Check if dragging sections
-    const isSection = sections.some(s => s.id === activeId);
-    
-    if (isSection) {
+    // If dragging a section, reorder sections
+    const isSectionDrag = sections.some(s => s.id === activeId);
+    if (isSectionDrag) {
       const oldIndex = sections.findIndex(s => s.id === activeId);
       const newIndex = sections.findIndex(s => s.id === overId);
-      
       if (oldIndex !== -1 && newIndex !== -1) {
         const newSections = arrayMove(sections, oldIndex, newIndex);
         saveToHistory(newSections, items);
@@ -279,19 +214,93 @@ export const LivePreviewEditor: React.FC = () => {
         setHasUnsavedChanges(true);
         autoSave(newSections, items);
       }
+      return;
+    }
+
+    // Helper: locate item within sectionColumns
+    const findItemLocation = (itemId: string) => {
+      for (const [sectionId, cols] of Object.entries(sectionColumns)) {
+        for (let c = 0; c < cols.length; c++) {
+          const idx = cols[c].items.findIndex(it => it.id === itemId);
+          if (idx !== -1) return { sectionId, colIndex: c, itemIndex: idx };
+        }
+      }
+      return null;
+    };
+
+    const sourceLoc = findItemLocation(activeId);
+    if (!sourceLoc) return; // Not an item we manage
+
+    // Determine target column and index
+    let targetSectionId: string | null = null;
+    let targetColIndex: number | null = null;
+    let targetItemIndex: number | null = null;
+
+    const overData = (over as any).data?.current;
+    if (overData?.type === 'column') {
+      targetSectionId = overData.sectionId;
+      targetColIndex = overData.columnIndex;
+      targetItemIndex = null; // append to end
     } else {
-      // Dragging items within same section/column
-      const oldIndex = items.findIndex(i => i.id === activeId);
-      const newIndex = items.findIndex(i => i.id === overId);
-      
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newItems = arrayMove(items, oldIndex, newIndex);
-        saveToHistory(sections, newItems);
-        setItems(newItems);
-        setHasUnsavedChanges(true);
-        autoSave(sections, newItems);
+      // over is likely an item id
+      const targetLoc = findItemLocation(overId);
+      if (targetLoc) {
+        targetSectionId = targetLoc.sectionId;
+        targetColIndex = targetLoc.colIndex;
+        targetItemIndex = targetLoc.itemIndex; // insert before this item
       }
     }
+
+    if (targetSectionId == null || targetColIndex == null) {
+      return; // No valid drop target
+    }
+
+    // Build a deep-ish copy of sectionColumns to mutate
+    const newSectionColumns = Object.fromEntries(
+      Object.entries(sectionColumns).map(([sid, cols]) => [
+        sid,
+        cols.map(col => ({ ...col, items: [...col.items] })),
+      ])
+    );
+
+    const sourceItems = newSectionColumns[sourceLoc.sectionId][sourceLoc.colIndex].items;
+    const [movedItem] = sourceItems.splice(sourceLoc.itemIndex, 1);
+
+    const updatedItem: CMSItem = {
+      ...movedItem,
+      section_id: targetSectionId,
+    };
+
+    const destItems = newSectionColumns[targetSectionId][targetColIndex].items;
+    let insertIndex = destItems.length;
+    if (targetItemIndex !== null) {
+      insertIndex = targetItemIndex;
+      // If moving within same list and removing earlier index, adjust
+      if (
+        sourceLoc.sectionId === targetSectionId &&
+        sourceLoc.colIndex === targetColIndex &&
+        sourceLoc.itemIndex < targetItemIndex
+      ) {
+        insertIndex = targetItemIndex - 1;
+      }
+    }
+    destItems.splice(insertIndex, 0, updatedItem);
+
+    // Update state: sectionColumns and flattened items order
+    setSectionColumns(newSectionColumns);
+
+    const flattenedItems: CMSItem[] = [];
+    sections.forEach(sec => {
+      const cols = newSectionColumns[sec.id] || [{ id: `${sec.id}-col-0`, items: [], width: 100 }];
+      cols.forEach(col => {
+        col.items.forEach(it => flattenedItems.push(it));
+      });
+    });
+
+    saveToHistory(sections, flattenedItems);
+    setItems(flattenedItems);
+    setHasUnsavedChanges(true);
+    autoSave(sections, flattenedItems);
   };
 
   const handleUndo = () => {
@@ -510,7 +519,10 @@ export const LivePreviewEditor: React.FC = () => {
       <div className={`space-y-6 ${editMode ? 'pb-32' : ''}`}>
         <DeviceFrame device={currentDevice} className="mx-auto">
           <DragDropProvider
-            items={[...sections.map(s => s.id), ...items.map(i => i.id || '')]}
+            items={[
+              ...sections.map(s => s.id),
+              ...items.filter(i => i.id).map(i => i.id as string)
+            ]}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
@@ -596,6 +608,7 @@ export const LivePreviewEditor: React.FC = () => {
                       defaultOpen={true}
                     >
                       <ColumnLayout
+                        sectionId={section.id}
                         columns={columns}
                         isEditMode={editMode}
                         onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
