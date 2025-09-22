@@ -4,31 +4,8 @@ import { SecureMedia } from './SecureMedia';
 import { FormattedText } from './FormattedText';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-interface ContentCell {
-  id: string;
-  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external';
-  content: string;
-  url?: string;
-  position: number;
-  is_active: boolean;
-  formatting?: any;
-}
-
-interface CMSItem {
-  id: string;
-  type: string;
-  title: string | null;
-  description: string | null;
-  url: string | null;
-  position: number;
-  media_url?: string | null;
-  media_type?: string | null;
-  media_alt_text?: string | null;
-  text_formatting?: any;
-  title_formatting?: any;
-  cells?: ContentCell[];
-}
+import { ContentCell, CMSItem } from '@/types/cms';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface CMSContentProps {
   item: CMSItem;
@@ -99,31 +76,23 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       return (
         <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
           {renderMedia()}
-          <p className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed">
-            <span className="font-medium">💡 Wskazówka: </span>
-            <FormattedText
-              text={item.description || ''}
-              formatting={item.text_formatting}
-              as="span"
-            />
-          </p>
+          <FormattedText
+            text={item.description || ''}
+            formatting={item.text_formatting}
+            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
+            as="p"
+          />
         </div>
       );
 
     case 'description':
       return (
-        <div className="mb-3 sm:mb-4 p-3 bg-gray-50 rounded-lg">
-          <FormattedText
-            text={item.title || ''}
-            formatting={item.title_formatting}
-            className="font-medium text-sm sm:text-base text-gray-800 mb-2"
-            as="h4"
-          />
+        <div className="mb-3 sm:mb-4">
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed whitespace-pre-line"
+            className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed"
             as="p"
           />
         </div>
@@ -132,18 +101,11 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
     case 'contact_info':
       return (
         <div className="mb-3 sm:mb-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
-          <h4 className="font-medium text-sm sm:text-base text-green-800 mb-2">
-            📞 <FormattedText
-              text={item.title || ''}
-              formatting={item.title_formatting}
-              as="span"
-            />
-          </h4>
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-green-700 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
             as="p"
           />
         </div>
@@ -151,19 +113,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'support_info':
       return (
-        <div className="mt-3 sm:mt-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-          <h4 className="font-medium text-sm sm:text-base text-blue-800 mb-2">
-            🛟 <FormattedText
-              text={item.title || ''}
-              formatting={item.title_formatting}
-              as="span"
-            />
-          </h4>
+        <div className="mb-3 sm:mb-4 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-400">
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-blue-700 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
             as="p"
           />
         </div>
@@ -218,6 +173,39 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
                     <span className="text-sm leading-relaxed">{cell.content}</span>
                   </div>
                 );
+
+              case 'section':
+                if (!cell.section_items || cell.section_items.length === 0) {
+                  return (
+                    <div key={cell.id} className="border rounded-lg p-4 my-4 bg-muted/30">
+                      <h4 className="font-semibold mb-2">{cell.section_title || cell.content}</h4>
+                      {cell.section_description && (
+                        <p className="text-sm text-muted-foreground mb-2">{cell.section_description}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">Brak elementów w tej sekcji</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <CollapsibleSection
+                    key={cell.id}
+                    title={cell.section_title || cell.content}
+                    description={cell.section_description}
+                    defaultOpen={true}
+                    className="border rounded-lg p-4 my-4 bg-muted/30"
+                  >
+                    <div className="space-y-2">
+                      {cell.section_items.filter(sectionItem => sectionItem.is_active !== false).map((sectionItem) => (
+                        <CMSContent 
+                          key={sectionItem.id} 
+                          item={sectionItem} 
+                          onClick={onClick}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                );
               
               case 'button_functional':
               case 'button_anchor':
@@ -271,13 +259,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
                   <FormattedText
                     text={item.title || ''}
                     formatting={item.title_formatting}
-                    className="font-semibold text-sm sm:text-base leading-snug break-words w-full text-primary-foreground whitespace-normal"
+                    className="break-words w-full text-primary-foreground whitespace-normal font-semibold leading-snug"
                     as="span"
                   />
                   <FormattedText
                     text={item.description || ''}
                     formatting={item.text_formatting}
-                    className="text-xs sm:text-sm text-primary-foreground/90 font-normal leading-snug break-words w-full whitespace-normal mt-1"
+                    className="break-words w-full text-primary-foreground/90 whitespace-normal text-xs sm:text-sm leading-relaxed mt-1"
                     as="span"
                   />
                 </>

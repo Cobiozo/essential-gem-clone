@@ -29,6 +29,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
+import { ContentCell, CMSItem } from '@/types/cms';
 
 interface CMSSection {
   id: string;
@@ -88,35 +89,7 @@ interface CMSSection {
   overflow_behavior?: string | null;
 }
 
-interface ContentCell {
-  id: string;
-  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external';
-  content: string;
-  url?: string;
-  position: number;
-  is_active: boolean;
-  formatting?: any;
-}
-
-interface CMSItem {
-  id: string;
-  section_id: string;
-  type: string;
-  title: string | null;
-  description: string | null;
-  url: string | null;
-  icon: string | null;
-  position: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  media_url?: string | null;
-  media_type?: string | null;
-  media_alt_text?: string | null;
-  text_formatting?: any;
-  title_formatting?: any;
-  cells?: ContentCell[];
-}
+// Remove duplicate interfaces - using shared types from @/types/cms
 
 interface UserProfile {
   id: string;

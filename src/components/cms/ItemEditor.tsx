@@ -13,27 +13,18 @@ import { Edit3, Save, X, Plus, Palette, Type, Image, Video, Link2, Eye, EyeOff, 
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
-
-interface ContentCell {
-  id: string;
-  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external';
-  content: string;
-  url?: string;
-  position: number;
-  is_active: boolean;
-  formatting?: any;
-}
+import { ContentCell, CMSItem } from '@/types/cms';
 
 interface Item {
   id?: string;
-  section_id: string;
+  section_id?: string;
   type: string;
   title?: string | null;
   description?: string | null;
   url?: string | null;
   icon?: string | null;
   position: number;
-  is_active: boolean;
+  is_active?: boolean;  // Make optional to match database response
   media_url?: string | null;
   media_type?: 'image' | 'video' | 'document' | 'audio' | 'other' | '' | null;
   media_alt_text?: string | null;
@@ -157,7 +148,13 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       url: type.includes('button') ? '' : undefined,
       position: (editedItem.cells?.length || 0) + 1,
       is_active: true,
-      formatting: null
+      formatting: null,
+      // Initialize section-specific properties
+      ...(type === 'section' && {
+        section_items: [],
+        section_title: '',
+        section_description: ''
+      })
     };
     
     setEditedItem({
@@ -361,6 +358,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                   <SelectItem value="button_functional">🔘 Przycisk funkcyjny</SelectItem>
                   <SelectItem value="button_anchor">⚓ Przycisk kotwica</SelectItem>
                   <SelectItem value="button_external">🔗 Przycisk zewnętrzny</SelectItem>
+                  <SelectItem value="section">📦 Sekcja zagnieżdżona</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -379,6 +377,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                       {cell.type === 'button_functional' && '🔘 Funkcyjny'}
                       {cell.type === 'button_anchor' && '⚓ Kotwica'}
                       {cell.type === 'button_external' && '🔗 Zewnętrzny'}
+                      {cell.type === 'section' && '📦 Sekcja'}
                     </Badge>
                   </div>
                   <div className="flex items-center space-x-1">
@@ -419,11 +418,74 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                       cell.type === 'header' ? 'Tytuł nagłówka...' :
                       cell.type === 'description' ? 'Tekst opisu...' :
                       cell.type === 'list_item' ? 'Element listy...' :
+                      cell.type === 'section' ? 'Nazwa sekcji zagnieżdżonej...' :
                       'Nazwa przycisku...'
                     }
                     value={cell.content}
                     onChange={(e) => updateCell(cell.id, { content: e.target.value })}
                   />
+                  
+                  {cell.type === 'section' && (
+                    <>
+                      <Input
+                        placeholder="Tytuł sekcji..."
+                        value={cell.section_title || ''}
+                        onChange={(e) => updateCell(cell.id, { section_title: e.target.value })}
+                      />
+                      <Textarea
+                        placeholder="Opis sekcji..."
+                        value={cell.section_description || ''}
+                        onChange={(e) => updateCell(cell.id, { section_description: e.target.value })}
+                        rows={2}
+                      />
+                      <div className="border rounded-lg p-3 bg-background">
+                        <Label className="text-sm font-medium mb-2 block">Elementy w sekcji:</Label>
+                        {cell.section_items && cell.section_items.length > 0 ? (
+                          <div className="space-y-2">
+                            {cell.section_items.map((item, itemIndex) => (
+                              <div key={item.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                                <span className="text-sm">{item.title || item.type}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    const updatedItems = cell.section_items?.filter((_, i) => i !== itemIndex) || [];
+                                    updateCell(cell.id, { section_items: updatedItems });
+                                  }}
+                                  className="h-6 w-6 p-0 text-destructive"
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Brak elementów w sekcji</p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const newItem: CMSItem = {
+                              id: crypto.randomUUID(),
+                              type: 'button',
+                              title: 'Nowy element',
+                              description: '',
+                              url: '',
+                              position: (cell.section_items?.length || 0) + 1,
+                              section_id: cell.id
+                            };
+                            const updatedItems = [...(cell.section_items || []), newItem];
+                            updateCell(cell.id, { section_items: updatedItems });
+                          }}
+                          className="mt-2 w-full"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Dodaj element
+                        </Button>
+                      </div>
+                    </>
+                  )}
                   
                   {cell.type.includes('button') && (
                     <Input
