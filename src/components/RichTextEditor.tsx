@@ -23,7 +23,9 @@ import {
   Superscript,
   Highlighter,
   RotateCcw,
-  Quote
+  Quote,
+  Image,
+  Video
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
@@ -49,8 +51,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageAlt, setImageAlt] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoTitle, setVideoTitle] = useState('');
   const [activeTab, setActiveTab] = useState('edit');
 
   const colors = [
@@ -322,6 +330,118 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       setShowLinkDialog(false);
     }
   }, [value, onChange, linkUrl, linkText, activeTab]);
+
+  const insertImage = useCallback(() => {
+    if (imageUrl) {
+      const altText = imageAlt || 'Image';
+      const imageHtml = `<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`;
+      
+      if (activeTab === 'preview') {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          
+          const div = document.createElement('div');
+          div.innerHTML = imageHtml;
+          const img = div.firstChild as HTMLElement;
+          
+          range.insertNode(img);
+          if (previewRef.current) {
+            onChange(previewRef.current.innerHTML);
+          }
+        }
+      } else {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const beforeText = value.substring(0, start);
+        const afterText = value.substring(end);
+        
+        const newValue = beforeText + imageHtml + afterText;
+        onChange(newValue);
+
+        setTimeout(() => {
+          textarea.setSelectionRange(start + imageHtml.length, start + imageHtml.length);
+          textarea.focus();
+        }, 0);
+      }
+
+      setImageUrl('');
+      setImageAlt('');
+      setShowImageDialog(false);
+    }
+  }, [value, onChange, imageUrl, imageAlt, activeTab]);
+
+  const insertVideo = useCallback(() => {
+    if (videoUrl) {
+      let embedHtml = '';
+      const title = videoTitle || 'Video';
+      
+      // YouTube URL detection and conversion
+      if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+        let videoId = '';
+        if (videoUrl.includes('youtube.com/watch?v=')) {
+          videoId = videoUrl.split('watch?v=')[1].split('&')[0];
+        } else if (videoUrl.includes('youtu.be/')) {
+          videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+        }
+        
+        if (videoId) {
+          embedHtml = `<div style="position: relative; width: 100%; height: 0; padding-bottom: 56.25%; margin: 16px 0;"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px;" allowfullscreen title="${title}"></iframe></div>`;
+        }
+      } else if (videoUrl.includes('vimeo.com')) {
+        const videoId = videoUrl.split('vimeo.com/')[1]?.split('/')[0];
+        if (videoId) {
+          embedHtml = `<div style="position: relative; width: 100%; height: 0; padding-bottom: 56.25%; margin: 16px 0;"><iframe src="https://player.vimeo.com/video/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px;" allowfullscreen title="${title}"></iframe></div>`;
+        }
+      } else {
+        // Direct video file
+        embedHtml = `<video controls style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"><source src="${videoUrl}" type="video/mp4">Twoja przeglądarka nie obsługuje odtwarzacza wideo.</video>`;
+      }
+
+      if (embedHtml) {
+        if (activeTab === 'preview') {
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            
+            const div = document.createElement('div');
+            div.innerHTML = embedHtml;
+            const videoElement = div.firstChild as HTMLElement;
+            
+            range.insertNode(videoElement);
+            if (previewRef.current) {
+              onChange(previewRef.current.innerHTML);
+            }
+          }
+        } else {
+          const textarea = textareaRef.current;
+          if (!textarea) return;
+
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const beforeText = value.substring(0, start);
+          const afterText = value.substring(end);
+          
+          const newValue = beforeText + embedHtml + afterText;
+          onChange(newValue);
+
+          setTimeout(() => {
+            textarea.setSelectionRange(start + embedHtml.length, start + embedHtml.length);
+            textarea.focus();
+          }, 0);
+        }
+      }
+
+      setVideoUrl('');
+      setVideoTitle('');
+      setShowVideoDialog(false);
+    }
+  }, [value, onChange, videoUrl, videoTitle, activeTab]);
 
   const clearFormatting = useCallback(() => {
     if (activeTab === 'preview') {
@@ -628,6 +748,76 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               </PopoverContent>
             </Popover>
 
+            {/* Image */}
+            <Popover open={showImageDialog} onOpenChange={setShowImageDialog}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  title="Wstaw obraz"
+                >
+                  <Image className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Dodaj obraz</Label>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="URL obrazu"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Opis obrazu (opcjonalny)"
+                      value={imageAlt}
+                      onChange={(e) => setImageAlt(e.target.value)}
+                    />
+                    <Button onClick={insertImage} className="w-full">
+                      Wstaw obraz
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Video */}
+            <Popover open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  title="Wstaw wideo"
+                >
+                  <Video className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Dodaj wideo</Label>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="URL wideo (YouTube, Vimeo lub bezpośredni link)"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Tytuł wideo (opcjonalny)"
+                      value={videoTitle}
+                      onChange={(e) => setVideoTitle(e.target.value)}
+                    />
+                    <Button onClick={insertVideo} className="w-full">
+                      Wstaw wideo
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
             {/* Clear Formatting */}
             <Button
               variant="ghost"
@@ -672,7 +862,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             onInput={handlePreviewChange}
             onBlur={handlePreviewChange}
             className="p-3 min-h-[80px] prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
-            style={{ minHeight: `${rows * 1.5}rem` }}
+            style={{ 
+              minHeight: `${rows * 1.5}rem`,
+              direction: 'ltr',
+              textAlign: 'left',
+              unicodeBidi: 'normal'
+            }}
             dangerouslySetInnerHTML={{ 
               __html: value || `<span class="text-muted-foreground">${placeholder}</span>` 
             }}
