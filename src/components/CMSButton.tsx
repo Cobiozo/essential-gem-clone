@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { handleNavigation } from '@/lib/linkUtils';
 
 interface CMSButtonProps {
   title: string;
@@ -21,10 +20,14 @@ export const CMSButton: React.FC<CMSButtonProps> = ({
   className
 }) => {
   const handleClick = () => {
-    if (url) {
-      handleNavigation(url, onClick);
-    } else if (onClick) {
+    if (onClick) {
       onClick();
+    } else if (url) {
+      if (url.startsWith('http') || url.startsWith('tel:') || url.startsWith('mailto:')) {
+        window.open(url, '_blank');
+      } else {
+        window.location.href = url;
+      }
     }
   };
 

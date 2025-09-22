@@ -298,7 +298,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 className="drop-shadow-sm"
               />
             )}
-            <h3 className="font-semibold leading-tight" dangerouslySetInnerHTML={{ __html: title }} />
+            <h3 className="font-semibold leading-tight">
+              {title}
+            </h3>
             {IconComponent && sectionStyle?.icon_position === 'right' && (
               <IconComponent 
                 size={sectionStyle.icon_size || 24}
@@ -308,9 +310,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             )}
           </div>
           {description && (
-            <div className="text-sm opacity-90 mt-2 leading-relaxed max-w-md"
-              dangerouslySetInnerHTML={{ __html: description }}
-            />
+            <p className="text-sm opacity-90 mt-2 leading-relaxed max-w-md">
+              {description}
+            </p>
           )}
         </div>
 

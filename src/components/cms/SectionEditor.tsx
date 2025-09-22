@@ -14,7 +14,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '../MediaUpload';
-import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface Section {
   id?: string;
@@ -48,12 +47,6 @@ interface Section {
   line_height?: number | null;
   letter_spacing?: number | null;
   text_transform?: string | null;
-  font_family?: string | null;
-  font_style?: string | null;
-  text_decoration?: string | null;
-  // Separate typography formatting
-  title_formatting?: any | null;
-  description_formatting?: any | null;
   // Layout options
   display_type?: string | null;
   justify_content?: string | null;
@@ -133,11 +126,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       line_height: 1.5,
       letter_spacing: 0,
       text_transform: 'none',
-      font_family: 'inherit',
-      font_style: 'normal',
-      text_decoration: 'none',
-      title_formatting: null,
-      description_formatting: null,
       // Layout defaults
       display_type: 'block',
       justify_content: 'start',
@@ -323,40 +311,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
     { value: 'capitalize', label: 'Pierwsza Wielka' }
   ];
 
-  const fontFamilies = [
-    { value: 'inherit', label: 'Domyślna (dziedziczona)' },
-    { value: 'Inter, system-ui, sans-serif', label: 'Inter' },
-    { value: 'Roboto, sans-serif', label: 'Roboto', url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' },
-    { value: 'Open Sans, sans-serif', label: 'Open Sans', url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap' },
-    { value: 'Lato, sans-serif', label: 'Lato', url: 'https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap' },
-    { value: 'Poppins, sans-serif', label: 'Poppins', url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap' },
-    { value: 'Montserrat, sans-serif', label: 'Montserrat', url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap' },
-    { value: 'Nunito, sans-serif', label: 'Nunito', url: 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap' },
-    { value: 'Source Sans Pro, sans-serif', label: 'Source Sans Pro', url: 'https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap' },
-    { value: 'Playfair Display, serif', label: 'Playfair Display', url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap' },
-    { value: 'Merriweather, serif', label: 'Merriweather', url: 'https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap' },
-    { value: 'Lora, serif', label: 'Lora', url: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap' },
-    { value: 'Georgia, serif', label: 'Georgia (systemowa)' },
-    { value: 'Times New Roman, serif', label: 'Times New Roman (systemowa)' },
-    { value: 'Arial, sans-serif', label: 'Arial (systemowa)' },
-    { value: 'Helvetica, sans-serif', label: 'Helvetica (systemowa)' },
-    { value: 'JetBrains Mono, monospace', label: 'JetBrains Mono', url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap' },
-    { value: 'Fira Code, monospace', label: 'Fira Code', url: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap' },
-    { value: 'Courier New, monospace', label: 'Courier New (systemowa)' }
-  ];
-
-  const fontStyleOptions = [
-    { value: 'normal', label: 'Normalna' },
-    { value: 'italic', label: 'Kursywa' }
-  ];
-
-  const textDecorationOptions = [
-    { value: 'none', label: 'Brak' },
-    { value: 'underline', label: 'Podkreślenie' },
-    { value: 'line-through', label: 'Przekreślenie' },
-    { value: 'overline', label: 'Nadkreślenie' }
-  ];
-
   const handleSave = () => {
     // Clean up numeric fields to ensure they're valid for database
     const cleanedSection = {
@@ -423,11 +377,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       line_height: 1.5,
       letter_spacing: 0,
       text_transform: 'none',
-      font_family: 'inherit',
-      font_style: 'normal',
-      text_decoration: 'none',
-      title_formatting: null,
-      description_formatting: null,
       // Layout defaults
       display_type: 'block',
       justify_content: 'start',
@@ -465,19 +414,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
     onCancel?.();
   };
 
-  const loadGoogleFont = (fontFamily: string) => {
-    const selectedFont = fontFamilies.find(f => f.value === fontFamily);
-    if (selectedFont?.url) {
-      const existingLink = document.head.querySelector(`link[href="${selectedFont.url}"]`);
-      if (!existingLink) {
-        const link = document.createElement('link');
-        link.href = selectedFont.url;
-        link.rel = 'stylesheet';
-        document.head.appendChild(link);
-      }
-    }
-  };
-
   const addEmoji = (emoji: string) => {
     setEditedSection({
       ...editedSection,
@@ -487,6 +423,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
 
   const editorContent = (
     <div className="space-y-6">
+      {/* Basic Information */}
       <div className="space-y-4">
         <div>
           <Label htmlFor="section-title" className="text-sm font-medium">
@@ -510,97 +447,18 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
           </div>
         </div>
 
-        {/* Title Typography Settings */}
-        <div className="border rounded-lg p-4 bg-muted/20">
-          <Label className="text-sm font-medium mb-3 block">Formatowanie tytułu:</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Rozmiar czcionki tytułu</Label>
-              <Select 
-                value={(editedSection.title_formatting?.fontSize || editedSection.font_size || 16).toString()}
-                onValueChange={(value) => setEditedSection({
-                  ...editedSection,
-                  title_formatting: {
-                    ...editedSection.title_formatting,
-                    fontSize: parseInt(value)
-                  }
-                })}
-              >
-                <SelectTrigger className="h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border z-50">
-                  <SelectItem value="14">14px</SelectItem>
-                  <SelectItem value="16">16px</SelectItem>
-                  <SelectItem value="18">18px</SelectItem>
-                  <SelectItem value="20">20px</SelectItem>
-                  <SelectItem value="24">24px</SelectItem>
-                  <SelectItem value="28">28px</SelectItem>
-                  <SelectItem value="32">32px</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Grubość tytułu</Label>
-              <Select 
-                value={(editedSection.title_formatting?.fontWeight || editedSection.font_weight || 400).toString()}
-                onValueChange={(value) => setEditedSection({
-                  ...editedSection,
-                  title_formatting: {
-                    ...editedSection.title_formatting,
-                    fontWeight: parseInt(value)
-                  }
-                })}
-              >
-                <SelectTrigger className="h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border z-50">
-                  {fontWeightOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value.toString()}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
         <div>
           <Label htmlFor="section-description" className="text-sm font-medium">
-            Opis sekcji (Rich Text Editor)
+            Opis sekcji (opcjonalny)
           </Label>
-          <RichTextEditor
+          <Textarea
+            id="section-description"
             value={editedSection.description || ''}
-            onChange={(value) => setEditedSection({...editedSection, description: value})}
-            formatting={editedSection.description_formatting}
-            onFormattingChange={(formatting) => setEditedSection({...editedSection, description_formatting: formatting})}
-            placeholder="Wprowadź szczegółowy opis sekcji..."
+            onChange={(e) => setEditedSection({...editedSection, description: e.target.value})}
+            placeholder="Krótki opis sekcji"
+            rows={3}
             className="mt-1"
           />
-
-          {/* Podgląd edycji - renderuje końcowy efekt */}
-          <div className="mt-3 border rounded-lg p-3 bg-muted/20">
-            <Label className="text-sm font-medium mb-2 block">Podgląd</Label>
-            <article
-              className="prose prose-sm max-w-none"
-              style={{
-                fontSize: `${editedSection.description_formatting?.fontSize || editedSection.font_size || 16}px`,
-                fontWeight: (editedSection.description_formatting?.fontWeight || editedSection.font_weight || 400) as any,
-                fontStyle: (editedSection.description_formatting?.fontStyle || editedSection.font_style || 'normal') as any,
-                textDecoration: (editedSection.description_formatting?.textDecoration || editedSection.text_decoration || 'none') as any,
-                textAlign: (editedSection.description_formatting?.textAlign || editedSection.alignment || 'left') as any,
-                color: editedSection.description_formatting?.color || editedSection.text_color || 'inherit',
-                fontFamily: editedSection.description_formatting?.fontFamily || editedSection.font_family || 'inherit',
-                lineHeight: (editedSection.description_formatting?.lineHeight || editedSection.line_height || 1.5) as any,
-                letterSpacing: `${editedSection.description_formatting?.letterSpacing || editedSection.letter_spacing || 0}px`,
-                textTransform: (editedSection.description_formatting?.textTransform || editedSection.text_transform || 'none') as any,
-                wordBreak: 'break-word'
-              }}
-              dangerouslySetInnerHTML={{ __html: editedSection.description || '' }}
-            />
-          </div>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -1043,74 +901,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label className="text-sm font-medium">Rodzina czcionki</Label>
-            <Select 
-              value={editedSection.font_family || 'inherit'} 
-              onValueChange={(value) => {
-                setEditedSection({...editedSection, font_family: value});
-                loadGoogleFont(value);
-              }}
-            >
-              <SelectTrigger className="mt-1 bg-background border">
-                <SelectValue placeholder="Wybierz czcionkę" />
-              </SelectTrigger>
-              <SelectContent className="bg-background border z-50 max-h-60 overflow-y-auto">
-                {fontFamilies.map((font) => (
-                  <SelectItem 
-                    key={font.value} 
-                    value={font.value}
-                    className="hover:bg-accent hover:text-accent-foreground"
-                    style={{ fontFamily: font.value !== 'inherit' ? font.value : undefined }}
-                  >
-                    {font.label}
-                    {font.url && <span className="text-xs text-muted-foreground ml-2">(Google Fonts)</span>}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Styl czcionki</Label>
-            <Select 
-              value={editedSection.font_style || 'normal'} 
-              onValueChange={(value) => setEditedSection({...editedSection, font_style: value})}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {fontStyleOptions.map((style) => (
-                  <SelectItem key={style.value} value={style.value}>
-                    {style.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium">Dekoracja tekstu</Label>
-          <Select 
-            value={editedSection.text_decoration || 'none'} 
-            onValueChange={(value) => setEditedSection({...editedSection, text_decoration: value})}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {textDecorationOptions.map((decoration) => (
-                <SelectItem key={decoration.value} value={decoration.value}>
-                  {decoration.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div>
@@ -1663,9 +1453,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             color: editedSection.text_color,
             fontSize: `${editedSection.font_size}px`,
             fontWeight: editedSection.font_weight,
-            fontFamily: editedSection.font_family || 'inherit',
-            fontStyle: editedSection.font_style || 'normal',
-            textDecoration: editedSection.text_decoration || 'none',
             lineHeight: editedSection.line_height,
             letterSpacing: `${editedSection.letter_spacing}px`,
             textAlign: (editedSection.alignment || 'left') as React.CSSProperties['textAlign'],
@@ -1687,9 +1474,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             maxWidth: `${editedSection.max_width}px`,
           }}
         >
-          <h3 className="font-semibold mb-2" dangerouslySetInnerHTML={{ __html: editedSection.title || 'Przykładowy tytuł' }} />
+          <h3 className="font-semibold mb-2">{editedSection.title || 'Przykładowy tytuł'}</h3>
           {editedSection.description && (
-            <div className="text-sm opacity-80" dangerouslySetInnerHTML={{ __html: editedSection.description }} />
+            <p className="text-sm opacity-80">{editedSection.description}</p>
           )}
           {editedSection.display_type !== 'block' && (
             <div className="mt-2 text-xs opacity-60">

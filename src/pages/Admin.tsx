@@ -23,7 +23,6 @@ import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
 import { SectionEditor } from '@/components/cms/SectionEditor';
 import { ItemEditor } from '@/components/cms/ItemEditor';
-import { RichTextEditor } from '@/components/RichTextEditor';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -31,7 +30,6 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { handleNavigation } from '@/lib/linkUtils';
 import { ContentCell, CMSItem } from '@/types/cms';
 
 interface CMSSection {
@@ -160,14 +158,6 @@ const Admin = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Allow text selection in Admin panel
-  useEffect(() => {
-    document.body.classList.add('is-admin');
-    return () => {
-      document.body.classList.remove('is-admin');
-    };
-  }, []);
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -196,7 +186,6 @@ const Admin = () => {
     media_url: '',
     media_type: '' as 'image' | 'video' | 'document' | 'audio' | 'other' | '',
     media_alt_text: '',
-    description_formatting: null as any
   });
   const [newPageSection, setNewPageSection] = useState({
     title: '',
@@ -323,8 +312,8 @@ const Admin = () => {
   const [userSortBy, setUserSortBy] = useState<'email' | 'role' | 'created_at' | 'is_active'>('created_at');
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   
-  // Security preventions disabled in Admin to allow text selection
-  // useSecurityPreventions();
+  // Enable security preventions
+  useSecurityPreventions();
 
   // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
   const SECTION_DB_FIELDS = [
@@ -1552,7 +1541,6 @@ const Admin = () => {
         media_url: '',
         media_type: '',
         media_alt_text: '',
-        description_formatting: null
       });
       setNewPageItemTextStyle(null);
       setNewPageItemTitleStyle(null);
@@ -2063,13 +2051,12 @@ const Admin = () => {
                                   </div>
                                 )}
                                 {item.description && (
-                                  <div className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3"
-                                    dangerouslySetInnerHTML={{ 
-                                      __html: item.description.length > 100 
-                                        ? `${item.description.substring(0, 100)}...` 
-                                        : item.description
-                                    }}
-                                  />
+                                  <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
+                                    {item.description.length > 100 
+                                      ? `${item.description.substring(0, 100)}...` 
+                                      : item.description
+                                    }
+                                  </p>
                                 )}
                                {item.url && (
                                  <p className="text-xs text-blue-600 mt-1 break-all">
@@ -3215,15 +3202,13 @@ const Admin = () => {
                               onClick={() => {
                                 const linkUrl = prompt('Wprowadź URL:');
                                 const linkText = prompt('Wprowadź tekst linku:');
-                                 if (linkUrl && linkText) {
-                                   const isExternal = linkUrl.startsWith('http') && !linkUrl.includes(window.location.hostname);
-                                   const target = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
-                                   const linkTag = `<a href="${linkUrl}"${target}>${linkText}</a>`;
-                                   setEditingPage({
-                                     ...editingPage, 
-                                     content: (editingPage.content || '') + linkTag
-                                   });
-                                 }
+                                if (linkUrl && linkText) {
+                                  const linkTag = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+                                  setEditingPage({
+                                    ...editingPage, 
+                                    content: (editingPage.content || '') + linkTag
+                                  });
+                                }
                               }}
                             >
                               🔗 Dodaj link
@@ -3436,37 +3421,14 @@ const Admin = () => {
                                     </div>
                                   </div>
                                   <div className="mt-4">
-                                    <Label htmlFor="new-page-item-description">Opis (Rich Text Editor)</Label>
-                                    <RichTextEditor
+                                    <Label htmlFor="new-page-item-description">Opis</Label>
+                                    <Textarea
+                                      id="new-page-item-description"
                                       value={newPageItem.description}
-                                      onChange={(value) => setNewPageItem({...newPageItem, description: value})}
-                                      formatting={newPageItem.description_formatting}
-                                      onFormattingChange={(formatting) => setNewPageItem({...newPageItem, description_formatting: formatting})}
-                                      placeholder="Wprowadź szczegółowy opis elementu strony..."
-                                      className="mt-1"
+                                      onChange={(e) => setNewPageItem({...newPageItem, description: e.target.value})}
+                                      placeholder="Opis elementu"
+                                      rows={3}
                                     />
-
-                                    {/* Podgląd edycji */}
-                                    <div className="mt-3 border rounded-lg p-3 bg-muted/20">
-                                      <Label className="text-sm font-medium mb-2 block">Podgląd</Label>
-                                      <article
-                                        className="prose prose-sm max-w-none"
-                                        style={{
-                                          fontSize: `${newPageItem.description_formatting?.fontSize || 16}px`,
-                                          fontWeight: newPageItem.description_formatting?.fontWeight || '400',
-                                          fontStyle: newPageItem.description_formatting?.fontStyle || 'normal',
-                                          textDecoration: newPageItem.description_formatting?.textDecoration || 'none',
-                                          textAlign: (newPageItem.description_formatting?.textAlign || 'left') as any,
-                                          color: newPageItem.description_formatting?.color || 'inherit',
-                                          fontFamily: newPageItem.description_formatting?.fontFamily || 'inherit',
-                                          lineHeight: (newPageItem.description_formatting?.lineHeight || 1.5).toString(),
-                                          letterSpacing: `${newPageItem.description_formatting?.letterSpacing || 0}px`,
-                                          textTransform: (newPageItem.description_formatting?.textTransform || 'none') as any,
-                                          wordBreak: 'break-word'
-                                        }}
-                                        dangerouslySetInnerHTML={{ __html: newPageItem.description || '' }}
-                                      />
-                                    </div>
                                   </div>
                                   {newPageItem.type === 'button' && (
                                     <div className="mt-4">
@@ -3566,11 +3528,11 @@ const Admin = () => {
                                              />
                                            </div>
                                          )}
-                                          {item.description && (
-                                            <div className="text-sm text-muted-foreground mt-1 line-clamp-2"
-                                              dangerouslySetInnerHTML={{ __html: item.description }}
-                                            />
-                                          )}
+                                         {item.description && (
+                                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                             {item.description}
+                                           </p>
+                                         )}
                                        </div>
                                       <div className="flex items-center space-x-2">
                                         <ItemEditor

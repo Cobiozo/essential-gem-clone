@@ -6,17 +6,6 @@ export interface ContentCell {
   position: number;
   is_active: boolean;
   formatting?: any;
-  // Separate formatting for different text elements
-  title_formatting?: any;
-  description_formatting?: any;
-  // Extended typography
-  font_family?: string;
-  line_height?: number;
-  letter_spacing?: number;
-  text_transform?: string;
-  text_align?: string;
-  font_style?: string;
-  text_decoration?: string;
   // For nested sections
   section_items?: CMSItem[];
   section_title?: string;
@@ -35,7 +24,6 @@ export interface CMSItem {
   media_alt_text?: string | null;
   text_formatting?: any;
   title_formatting?: any;
-  description_formatting?: any;
   cells?: ContentCell[];
   created_at?: string;
   updated_at?: string;
@@ -49,14 +37,6 @@ export interface CMSItem {
   padding?: number;
   style_class?: string;
   icon?: string | null;
-  // Extended typography
-  font_family?: string;
-  line_height?: number;
-  letter_spacing?: number;
-  text_transform?: string;
-  text_align?: string;
-  font_style?: string;
-  text_decoration?: string;
 }
 
 export interface CMSSection {
@@ -125,10 +105,4 @@ export interface CMSSection {
   content_wrap?: string;
   height_type_?: string;
   overflow_behavior?: string;
-  // Separate typography formatting
-  title_formatting?: any;
-  description_formatting?: any;
-  font_family?: string;
-  font_style?: string;
-  text_decoration?: string;
 }
