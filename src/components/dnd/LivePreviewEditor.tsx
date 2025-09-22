@@ -164,10 +164,14 @@ export const LivePreviewEditor: React.FC = () => {
           });
         });
 
-        const { error } = await supabase.functions.invoke('save-cms-layout', {
+        const { data, error } = await supabase.functions.invoke('save-cms-layout', {
           body: { sections: sectionsPayload, items: itemsPayload },
         });
         if (error) throw error;
+        if (!data?.ok) {
+          console.error('Auto-save returned non-ok response:', data);
+          throw new Error('Auto-save did not complete successfully');
+        }
 
         setAutoSaveStatus('saved');
         setHasUnsavedChanges(false);
