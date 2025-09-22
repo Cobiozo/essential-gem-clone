@@ -1833,7 +1833,7 @@ const Admin = () => {
                           onChange={(e) => setNewSection({...newSection, visible_to_specjalista: e.target.checked})}
                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                         />
-                        <Label htmlFor="new-section-specjalista">{t('admin.visibleToSpecjalista')}</Label>
+                        <Label htmlFor="new-section-specjalista">{t('admin.visibleToSpecialists')}</Label>
                       </div>
                     </div>
                   </div>
@@ -1911,7 +1911,7 @@ const Admin = () => {
                                   onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                 />
-                                <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecjalista')}</label>
+                                <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
                               </div>
                            </div>
                          </div>
@@ -2355,7 +2355,7 @@ const Admin = () => {
                             onChange={(e) => setNewPage({...newPage, visible_to_specjalista: e.target.checked})}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                           />
-                          <Label htmlFor="new-page-specjalista">{t('admin.visibleToSpecjalista')}</Label>
+                          <Label htmlFor="new-page-specjalista">{t('admin.visibleToSpecialists')}</Label>
                         </div>
                      </div>
                    </div>
@@ -2466,7 +2466,7 @@ const Admin = () => {
                                         onChange={(e) => updatePageVisibility(page.id, { visible_to_specjalista: e.target.checked })}
                                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                       />
-                                      <label htmlFor={`specjalista-${page.id}`} className="text-sm">{t('admin.visibleToSpecjalista')}</label>
+                                      <label htmlFor={`specjalista-${page.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
                                     </div>
                                  </div>
                                </div>
