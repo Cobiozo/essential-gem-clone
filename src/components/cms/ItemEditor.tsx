@@ -405,6 +405,199 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
         </div>
       </div>
 
+      {/* Cells Editor for multi_cell type */}
+      {editedItem.type === 'multi_cell' && (
+        <div className="space-y-4 border-t pt-4">
+          <div className="flex items-center space-x-2 mb-3">
+            <Plus className="w-4 h-4" />
+            <h4 className="font-medium">Komórki</h4>
+          </div>
+          
+          {/* Existing cells */}
+          <div className="space-y-3">
+            {(editedItem.cells || []).map((cell, index) => (
+              <div key={cell.id || index} className="border rounded-lg p-3 bg-muted/20">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="outline">{cell.type}</Badge>
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newCells = [...(editedItem.cells || [])];
+                        if (index > 0) {
+                          [newCells[index], newCells[index - 1]] = [newCells[index - 1], newCells[index]];
+                          newCells[index].position = index + 1;
+                          newCells[index - 1].position = index;
+                          setEditedItem({...editedItem, cells: newCells});
+                        }
+                      }}
+                      disabled={index === 0}
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newCells = [...(editedItem.cells || [])];
+                        if (index < newCells.length - 1) {
+                          [newCells[index], newCells[index + 1]] = [newCells[index + 1], newCells[index]];
+                          newCells[index].position = index + 1;
+                          newCells[index + 1].position = index + 2;
+                          setEditedItem({...editedItem, cells: newCells});
+                        }
+                      }}
+                      disabled={index === (editedItem.cells || []).length - 1}
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newCells = (editedItem.cells || []).filter((_, i) => i !== index);
+                        setEditedItem({...editedItem, cells: newCells});
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Typ komórki</Label>
+                    <Select 
+                      value={cell.type} 
+                      onValueChange={(value: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external' | 'section') => {
+                        const newCells = [...(editedItem.cells || [])];
+                        newCells[index] = {...cell, type: value};
+                        setEditedItem({...editedItem, cells: newCells});
+                      }}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="header">Nagłówek</SelectItem>
+                        <SelectItem value="description">Opis</SelectItem>
+                        <SelectItem value="list_item">Element listy</SelectItem>
+                        <SelectItem value="button_functional">Przycisk funkcjonalny</SelectItem>
+                        <SelectItem value="button_external">Link zewnętrzny</SelectItem>
+                        <SelectItem value="button_anchor">Link kotwica</SelectItem>
+                        <SelectItem value="section">Sekcja zagnieżdżona</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={cell.is_active !== false}
+                      onCheckedChange={(checked) => {
+                        const newCells = [...(editedItem.cells || [])];
+                        newCells[index] = {...cell, is_active: checked};
+                        setEditedItem({...editedItem, cells: newCells});
+                      }}
+                    />
+                    <Label className="text-xs">Aktywna</Label>
+                  </div>
+                </div>
+                
+                <div className="mt-3">
+                  <Label className="text-xs">Zawartość</Label>
+                  <Textarea
+                    value={cell.content || ''}
+                    onChange={(e) => {
+                      const newCells = [...(editedItem.cells || [])];
+                      newCells[index] = {...cell, content: e.target.value};
+                      setEditedItem({...editedItem, cells: newCells});
+                    }}
+                    placeholder="Wprowadź zawartość komórki..."
+                    className="mt-1 min-h-[60px]"
+                    rows={2}
+                  />
+                </div>
+                
+                {cell.type.includes('button') && (
+                  <div className="mt-3">
+                    <Label className="text-xs">URL</Label>
+                    <Input
+                      type="url"
+                      value={cell.url || ''}
+                      onChange={(e) => {
+                        const newCells = [...(editedItem.cells || [])];
+                        newCells[index] = {...cell, url: e.target.value};
+                        setEditedItem({...editedItem, cells: newCells});
+                      }}
+                      placeholder="https://example.com"
+                      className="mt-1 h-8"
+                    />
+                  </div>
+                )}
+                
+                {cell.type === 'section' && (
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      <Label className="text-xs">Tytuł sekcji</Label>
+                      <Input
+                        value={cell.section_title || ''}
+                        onChange={(e) => {
+                          const newCells = [...(editedItem.cells || [])];
+                          newCells[index] = {...cell, section_title: e.target.value};
+                          setEditedItem({...editedItem, cells: newCells});
+                        }}
+                        placeholder="Tytuł sekcji zagnieżdżonej"
+                        className="mt-1 h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Opis sekcji</Label>
+                      <Input
+                        value={cell.section_description || ''}
+                        onChange={(e) => {
+                          const newCells = [...(editedItem.cells || [])];
+                          newCells[index] = {...cell, section_description: e.target.value};
+                          setEditedItem({...editedItem, cells: newCells});
+                        }}
+                        placeholder="Opis sekcji zagnieżdżonej"
+                        className="mt-1 h-8"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {/* Add new cell button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const newCell: ContentCell = {
+                id: `cell-${Date.now()}`,
+                type: 'description',
+                content: '',
+                position: (editedItem.cells || []).length + 1,
+                is_active: true
+              };
+              setEditedItem({
+                ...editedItem,
+                cells: [...(editedItem.cells || []), newCell]
+              });
+            }}
+            className="w-full"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Dodaj komórkę
+          </Button>
+        </div>
+      )}
+
       {/* Typography Settings */}
       <div className="space-y-4 border-t pt-4">
         <div className="flex items-center space-x-2 mb-3">

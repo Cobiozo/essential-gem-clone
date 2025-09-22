@@ -234,6 +234,96 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
         </div>
       );
 
+    case 'text':
+      return (
+        <div className="mb-3 sm:mb-4">
+          {renderMedia()}
+          <FormattedHTML
+            html={item.description || ''}
+            formatting={item.text_formatting as any}
+            className="text-xs sm:text-sm lg:text-base text-foreground leading-relaxed"
+            as="div"
+          />
+        </div>
+      );
+
+    case 'media':
+      return (
+        <div className="mb-3 sm:mb-4">
+          {renderMedia()}
+          {item.description && (
+            <FormattedHTML
+              html={item.description}
+              formatting={item.text_formatting as any}
+              className="text-xs sm:text-sm text-muted-foreground mt-2"
+              as="p"
+            />
+          )}
+        </div>
+      );
+
+    case 'card':
+      return (
+        <div className="mb-3 sm:mb-4 p-4 border rounded-lg bg-card shadow-sm">
+          {renderMedia()}
+          {item.title && (
+            <FormattedHTML
+              html={item.title}
+              formatting={item.title_formatting as any}
+              className="text-lg font-semibold text-card-foreground mb-2"
+              as="h3"
+            />
+          )}
+          {item.description && (
+            <FormattedHTML
+              html={item.description}
+              formatting={item.text_formatting as any}
+              className="text-sm text-muted-foreground leading-relaxed"
+              as="p"
+            />
+          )}
+        </div>
+      );
+
+    case 'badge':
+      return (
+        <div className="mb-3 sm:mb-4">
+          {renderMedia()}
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-primary-foreground">
+            <FormattedHTML
+              html={item.title || item.description || ''}
+              formatting={item.title_formatting || item.text_formatting as any}
+              className="text-xs"
+              as="span"
+            />
+          </span>
+        </div>
+      );
+
+    case 'link':
+      return (
+        <div className="mb-3 sm:mb-4">
+          {renderMedia()}
+          <a
+            href={item.url || '#'}
+            onClick={(e) => {
+              if (item.url) {
+                handleNavigation(item.url);
+                e.preventDefault();
+              }
+            }}
+            className="text-primary hover:text-primary/80 underline text-sm"
+          >
+            <FormattedHTML
+              html={item.title || item.description || ''}
+              formatting={item.title_formatting || item.text_formatting as any}
+              className="text-sm"
+              as="span"
+            />
+          </a>
+        </div>
+      );
+
     case 'button':
     default:
       const hasDescription = item.description && item.description.length > 50;
