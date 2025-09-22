@@ -87,14 +87,25 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   ];
 
   const fontFamilies = [
-    { value: 'inherit', label: 'Domyślna' },
+    { value: 'inherit', label: 'Domyślna (dziedziczona)' },
     { value: 'Inter, system-ui, sans-serif', label: 'Inter' },
-    { value: 'Georgia, serif', label: 'Georgia' },
-    { value: 'Times New Roman, serif', label: 'Times New Roman' },
-    { value: 'Arial, sans-serif', label: 'Arial' },
-    { value: 'Helvetica, sans-serif', label: 'Helvetica' },
-    { value: 'Courier New, monospace', label: 'Courier New' },
-    { value: 'Verdana, sans-serif', label: 'Verdana' }
+    { value: 'Roboto, sans-serif', label: 'Roboto', url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' },
+    { value: 'Open Sans, sans-serif', label: 'Open Sans', url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap' },
+    { value: 'Lato, sans-serif', label: 'Lato', url: 'https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap' },
+    { value: 'Poppins, sans-serif', label: 'Poppins', url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap' },
+    { value: 'Montserrat, sans-serif', label: 'Montserrat', url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap' },
+    { value: 'Nunito, sans-serif', label: 'Nunito', url: 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap' },
+    { value: 'Source Sans Pro, sans-serif', label: 'Source Sans Pro', url: 'https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap' },
+    { value: 'Playfair Display, serif', label: 'Playfair Display', url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap' },
+    { value: 'Merriweather, serif', label: 'Merriweather', url: 'https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap' },
+    { value: 'Lora, serif', label: 'Lora', url: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap' },
+    { value: 'Georgia, serif', label: 'Georgia (systemowa)' },
+    { value: 'Times New Roman, serif', label: 'Times New Roman (systemowa)' },
+    { value: 'Arial, sans-serif', label: 'Arial (systemowa)' },
+    { value: 'Helvetica, sans-serif', label: 'Helvetica (systemowa)' },
+    { value: 'JetBrains Mono, monospace', label: 'JetBrains Mono', url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap' },
+    { value: 'Fira Code, monospace', label: 'Fira Code', url: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;700&display=swap' },
+    { value: 'Courier New, monospace', label: 'Courier New (systemowa)' }
   ];
 
   const textTransformOptions = [
@@ -131,6 +142,19 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     { name: 'Biały', color: 'hsl(0 0% 100%)' },
     { name: 'Szary', color: 'hsl(0 0% 90%)' }
   ];
+
+  const loadGoogleFont = (fontFamily: string) => {
+    const selectedFont = fontFamilies.find(f => f.value === fontFamily);
+    if (selectedFont?.url) {
+      const existingLink = document.head.querySelector(`link[href="${selectedFont.url}"]`);
+      if (!existingLink) {
+        const link = document.createElement('link');
+        link.href = selectedFont.url;
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+      }
+    }
+  };
 
   const handleSave = () => {
     onSave(editedItem);
@@ -713,15 +737,24 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           <Label className="text-sm font-medium">Rodzina czcionki</Label>
           <Select 
             value={editedItem.font_family || 'inherit'} 
-            onValueChange={(value) => setEditedItem({...editedItem, font_family: value})}
+            onValueChange={(value) => {
+              setEditedItem({...editedItem, font_family: value});
+              loadGoogleFont(value);
+            }}
           >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
+            <SelectTrigger className="mt-1 bg-background border">
+              <SelectValue placeholder="Wybierz czcionkę" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background border z-50 max-h-60 overflow-y-auto">
               {fontFamilies.map((font) => (
-                <SelectItem key={font.value} value={font.value}>
+                <SelectItem 
+                  key={font.value} 
+                  value={font.value}
+                  className="hover:bg-accent hover:text-accent-foreground"
+                  style={{ fontFamily: font.value !== 'inherit' ? font.value : undefined }}
+                >
                   {font.label}
+                  {font.url && <span className="text-xs text-muted-foreground ml-2">(Google Fonts)</span>}
                 </SelectItem>
               ))}
             </SelectContent>
