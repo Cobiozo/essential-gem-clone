@@ -1734,7 +1734,7 @@ const Admin = () => {
           <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline text-xs sm:text-sm">Główna</span>
+              <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
             </TabsTrigger>
             <TabsTrigger value="fonts" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
@@ -1999,11 +1999,11 @@ const Admin = () => {
                           }}
                           isNew={true}
                           trigger={
-                            <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                              <Plus className="w-4 h-4 sm:mr-2" />
-                              <span className="hidden sm:inline">{t('admin.addItem')}</span>
-                              <span className="sm:hidden">{t('admin.addItem')}</span>
-                            </Button>
+                              <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                                <Plus className="w-4 h-4 sm:mr-2" />
+                                <span className="hidden sm:inline">{t('admin.addItem')}</span>
+                                <span className="sm:hidden">{t('admin.addItem')}</span>
+                              </Button>
                           }
                         />
                       </div>
@@ -2015,15 +2015,15 @@ const Admin = () => {
                        <div key={item.id} className="flex flex-col gap-3 p-3 sm:p-4 border rounded-lg bg-gray-50/50">
                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                              <div className="flex-1 min-w-0">
-                               <div className="flex flex-wrap items-center gap-2 mb-2">
-                                 <Badge variant="outline" className="text-xs">{item.type}</Badge>
-                                 <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
-                                   {item.is_active ? "Aktywny" : "Nieaktywny"}
-                                 </Badge>
-                               </div>
-                                <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
-                                  {item.title || 'Bez tytułu'}
-                                </h4>
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <Badge variant="outline" className="text-xs">{item.type}</Badge>
+                              <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
+                                {item.is_active ? t('admin.active') : t('admin.inactive')}
+                              </Badge>
+                            </div>
+                           <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
+                             {item.title || 'Bez tytułu'}
+                           </h4>
                                 {item.media_url && (
                                   <div className="mt-2 mb-2">
                                     <SecureMedia
@@ -2076,33 +2076,33 @@ const Admin = () => {
                                   });
                                 }}
                                 trigger={
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="flex-1 sm:flex-none"
-                                  >
-                                    <Pencil className="w-4 h-4 sm:mr-2" />
-                                    <span className="hidden sm:inline">Edytuj</span>
-                                  </Button>
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm" 
+                                   className="flex-1 sm:flex-none"
+                                 >
+                                   <Pencil className="w-4 h-4 sm:mr-2" />
+                                   <span className="hidden sm:inline">{t('admin.edit')}</span>
+                                 </Button>
                                 }
                               />
-                             <Button 
-                               variant="destructive" 
-                               size="sm" 
-                               onClick={() => deleteItem(item.id)}
-                               className="flex-1 sm:flex-none"
-                             >
-                               <Trash2 className="w-4 h-4 sm:mr-2" />
-                               <span className="hidden sm:inline">Usuń</span>
-                             </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => deleteItem(item.id)}
+                              className="flex-1 sm:flex-none"
+                            >
+                              <Trash2 className="w-4 h-4 sm:mr-2" />
+                              <span className="hidden sm:inline">{t('admin.delete')}</span>
+                            </Button>
                            </div>
                        </div>
                      ))}
-                     {sectionItems.length === 0 && (
-                       <p className="text-center text-muted-foreground py-8">
-                         Brak elementów w tej sekcji
-                       </p>
-                     )}
+                      {sectionItems.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8">
+                          {t('admin.noElementsInSection')}
+                        </p>
+                      )}
                    </div>
                 </CardContent>
               </Card>
@@ -3261,9 +3261,9 @@ const Admin = () => {
                        <Card>
                          <CardHeader>
                            <CardTitle className="text-base">Dodaj nowy element</CardTitle>
-                           <CardDescription>
-                             Dodaj element bezpośrednio do strony (bez sekcji)
-                           </CardDescription>
+                         <CardDescription>
+                           Dodaj element bezpośrednio do strony (bez sekcji)
+                         </CardDescription>
                          </CardHeader>
                          <CardContent>
                            <ItemEditor
@@ -3501,23 +3501,23 @@ const Admin = () => {
                                     </Button>
                                   }
                                 />
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
-                                  title="Dodaj element do sekcji"
-                                >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Element
-                                </Button>
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
+                                   title={t('admin.addElementToSection')}
+                                 >
+                                   <Plus className="w-4 h-4 mr-1" />
+                                   {t('admin.addElement')}
+                                 </Button>
                               </div>
                               </div>
                             </CardHeader>
                             <CardContent>
                               {/* Add Item Form */}
                               {selectedPageSection?.id === section.id && (
-                                <div className="mb-6 p-4 border rounded-lg bg-muted/50">
-                                  <h4 className="font-medium mb-4">Dodaj element do sekcji</h4>
+                                 <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+                                   <h4 className="font-medium mb-4">{t('admin.addElementToSection')}</h4>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                       <Label htmlFor="new-page-item-type">Typ elementu</Label>
@@ -3617,12 +3617,12 @@ const Admin = () => {
                                         }
                                       }}
                                       isNew={true}
-                                      trigger={
-                                        <Button disabled={false}>
-                                          <Plus className="w-4 h-4 mr-2" />
-                                          Dodaj element z komórkami
-                                        </Button>
-                                      }
+                                       trigger={
+                                         <Button disabled={false}>
+                                           <Plus className="w-4 h-4 mr-2" />
+                                           {t('admin.addElementWithCells')}
+                                         </Button>
+                                       }
                                     />
                                     <Button
                                       variant="outline"
@@ -3700,10 +3700,10 @@ const Admin = () => {
                                   ))}
                                </div>
                                
-                               {/* Sekcje zagnieżdżone */}
-                               {nestedSections[section.id] && nestedSections[section.id].length > 0 && (
-                                 <div className="mt-6 pl-4 border-l-2 border-muted">
-                                   <h5 className="font-medium mb-3 text-sm text-muted-foreground">Sekcje zagnieżdżone:</h5>
+                                {/* Sekcje zagnieżdżone */}
+                                {nestedSections[section.id] && nestedSections[section.id].length > 0 && (
+                                  <div className="mt-6 pl-4 border-l-2 border-muted">
+                                    <h5 className="font-medium mb-3 text-sm text-muted-foreground">{t('admin.nestedSections')}:</h5>
                                    <div className="space-y-2">
                                      {nestedSections[section.id].map((nestedSection) => (
                                        <div key={nestedSection.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
@@ -3714,22 +3714,22 @@ const Admin = () => {
                                            )}
                                          </div>
                                          <div className="flex items-center space-x-1">
-                                           <Button
-                                             variant="ghost"
-                                             size="sm"
-                                             onClick={() => setEditingPageSection(nestedSection)}
-                                             title="Edytuj sekcję zagnieżdżoną"
-                                           >
-                                             <Pencil className="w-3 h-3" />
-                                           </Button>
-                                           <Button
-                                             variant="ghost"
-                                             size="sm"
-                                             onClick={() => deletePageSection(nestedSection.id)}
-                                             title="Usuń sekcję zagnieżdżoną"
-                                           >
-                                             <Trash2 className="w-3 h-3" />
-                                           </Button>
+                                             <Button
+                                               variant="ghost"
+                                               size="sm"
+                                               onClick={() => setEditingPageSection(nestedSection)}
+                                               title={t('admin.editNestedSection')}
+                                             >
+                                               <Pencil className="w-3 h-3" />
+                                             </Button>
+                                             <Button
+                                               variant="ghost"
+                                               size="sm"
+                                               onClick={() => deletePageSection(nestedSection.id)}
+                                               title={t('admin.deleteNestedSection')}
+                                             >
+                                               <Trash2 className="w-3 h-3" />
+                                             </Button>
                                          </div>
                                        </div>
                                      ))}
@@ -3750,23 +3750,23 @@ const Admin = () => {
               <Button variant="outline" onClick={() => setEditingPage(null)}>
                 Anuluj
               </Button>
-              <Button onClick={() => updatePage(editingPage.id, {
-                title: editingPage.title,
-                slug: editingPage.slug,
-                content: editingPage.content,
-                content_formatting: pageContentStyle,
-                meta_title: editingPage.meta_title,
-                meta_description: editingPage.meta_description,
-                is_published: editingPage.is_published,
-                is_active: editingPage.is_active,
-                position: editingPage.position,
-                visible_to_partners: editingPage.visible_to_partners,
-                visible_to_clients: editingPage.visible_to_clients,
-                visible_to_everyone: editingPage.visible_to_everyone,
-              })}>
-                <Save className="w-4 h-4 mr-2" />
-                Zapisz zmiany
-              </Button>
+               <Button onClick={() => updatePage(editingPage.id, {
+                 title: editingPage.title,
+                 slug: editingPage.slug,
+                 content: editingPage.content,
+                 content_formatting: pageContentStyle,
+                 meta_title: editingPage.meta_title,
+                 meta_description: editingPage.meta_description,
+                 is_published: editingPage.is_published,
+                 is_active: editingPage.is_active,
+                 position: editingPage.position,
+                 visible_to_partners: editingPage.visible_to_partners,
+                 visible_to_clients: editingPage.visible_to_clients,
+                 visible_to_everyone: editingPage.visible_to_everyone,
+               })}>
+                 <Save className="w-4 h-4 mr-2" />
+                 {t('admin.saveChanges')}
+               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
