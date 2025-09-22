@@ -176,6 +176,7 @@ const Admin = () => {
   const [selectedPageSection, setSelectedPageSection] = useState<CMSSection | null>(null);
   const [editingPageItem, setEditingPageItem] = useState<CMSItem | null>(null);
   const [editingPageSection, setEditingPageSection] = useState<CMSSection | null>(null);
+  const [showAddPageSectionEditor, setShowAddPageSectionEditor] = useState(false);
   const [newPageItem, setNewPageItem] = useState({
     type: 'button',
     title: '',
@@ -1465,17 +1466,21 @@ const Admin = () => {
     }
   };
 
-  const createPageSection = async (pageId: string) => {
+  const createPageSection = async (pageId: string, sectionData?: Partial<CMSSection>) => {
     try {
       const maxPosition = Math.max(...pageSections.map(s => s.position), 0);
-      
+      const payload = {
+        ...(sanitizeSectionPayload({
+          ...(sectionData || {}),
+          title: sectionData?.title || newPageSection.title,
+          position: maxPosition + 1,
+        } as any)),
+        page_id: pageId,
+      } as any;
+
       const { data, error } = await supabase
         .from('cms_sections')
-        .insert([{
-          title: newPageSection.title,
-          position: maxPosition + 1,
-          page_id: pageId,
-        }])
+        .insert(payload)
         .select()
         .single();
 
@@ -1483,6 +1488,7 @@ const Admin = () => {
 
       setPageSections([...pageSections, data]);
       setNewPageSection({ title: '', position: 0 });
+      setShowAddPageSectionEditor(false);
       
       toast({
         title: "Sekcja dodana",
@@ -1556,15 +1562,16 @@ const Admin = () => {
 
   const updatePageSection = async (sectionId: string, updates: Partial<CMSSection>) => {
     try {
+      const payload = sanitizeSectionPayload(updates as Record<string, any>);
       const { error } = await supabase
         .from('cms_sections')
-        .update(updates)
+        .update(payload as any)
         .eq('id', sectionId);
 
       if (error) throw error;
 
       setPageSections(pageSections.map(section => 
-        section.id === sectionId ? { ...section, ...updates } : section
+        section.id === sectionId ? { ...section, ...payload } : section
       ));
       setEditingPageSection(null);
       
@@ -3331,22 +3338,14 @@ const Admin = () => {
                         <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div>
-                          <Label htmlFor="new-page-section-title">Nazwa sekcji</Label>
-                          <Input
-                            id="new-page-section-title"
-                            value={newPageSection.title}
-                            onChange={(e) => setNewPageSection({...newPageSection, title: e.target.value})}
-                            placeholder="Wprowadź nazwę sekcji"
-                          />
-                        </div>
-                        <Button 
-                          onClick={() => createPageSection(editingPage.id)} 
-                          disabled={!newPageSection.title}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Dodaj sekcję
-                        </Button>
+                        <CardContent className="space-y-4">
+                          <Button 
+                            onClick={() => setShowAddPageSectionEditor(true)}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Dodaj sekcję
+                          </Button>
+                        </CardContent>
                       </CardContent>
                     </Card>
 
