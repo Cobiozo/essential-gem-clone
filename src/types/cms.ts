@@ -48,6 +48,7 @@ export interface CMSSection {
   created_at: string;
   updated_at: string;
   page_id?: string;
+  parent_id?: string; // Pole dla sekcji zagnieżdżonych
   visible_to_everyone: boolean;
   visible_to_clients: boolean;
   visible_to_partners: boolean;

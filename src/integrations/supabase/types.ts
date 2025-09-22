@@ -142,6 +142,7 @@ export type Database = {
           overflow_behavior: string | null
           padding: number | null
           page_id: string | null
+          parent_id: string | null
           position: number
           section_margin_bottom: number | null
           section_margin_top: number | null
@@ -206,6 +207,7 @@ export type Database = {
           overflow_behavior?: string | null
           padding?: number | null
           page_id?: string | null
+          parent_id?: string | null
           position: number
           section_margin_bottom?: number | null
           section_margin_top?: number | null
@@ -270,6 +272,7 @@ export type Database = {
           overflow_behavior?: string | null
           padding?: number | null
           page_id?: string | null
+          parent_id?: string | null
           position?: number
           section_margin_bottom?: number | null
           section_margin_top?: number | null
@@ -291,6 +294,13 @@ export type Database = {
             columns: ["page_id"]
             isOneToOne: false
             referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cms_sections_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cms_sections"
             referencedColumns: ["id"]
           },
         ]

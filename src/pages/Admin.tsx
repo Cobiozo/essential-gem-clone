@@ -31,65 +31,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { ContentCell, CMSItem } from '@/types/cms';
-
-interface CMSSection {
-  id: string;
-  title: string;
-  description?: string | null;
-  position: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  visible_to_partners: boolean;
-  visible_to_clients: boolean;
-  visible_to_everyone: boolean;
-  visible_to_specjalista: boolean;
-  // Enhanced styling options
-  background_color?: string | null;
-  text_color?: string | null;
-  font_size?: number | null;
-  alignment?: string | null;
-  padding?: number | null;
-  margin?: number | null;
-  border_radius?: number | null;
-  style_class?: string | null;
-  background_gradient?: string | null;
-  border_width?: number | null;
-  border_color?: string | null;
-  border_style?: string | null;
-  box_shadow?: string | null;
-  opacity?: number | null;
-  width_type?: string | null;
-  custom_width?: number | null;
-  height_type?: string | null;
-  custom_height?: number | null;
-  max_width?: number | null;
-  font_weight?: number | null;
-  line_height?: number | null;
-  letter_spacing?: number | null;
-  text_transform?: string | null;
-  display_type?: string | null;
-  justify_content?: string | null;
-  align_items?: string | null;
-  gap?: number | null;
-  // New enhanced options
-  section_margin_top?: number | null;
-  section_margin_bottom?: number | null;
-  background_image?: string | null;
-  background_image_opacity?: number | null;
-  background_image_position?: string | null;
-  background_image_size?: string | null;
-  icon_name?: string | null;
-  icon_position?: string | null;
-  icon_size?: number | null;
-  icon_color?: string | null;
-  show_icon?: boolean | null;
-  content_direction?: string | null;
-  content_wrap?: string | null;
-  min_height?: number | null;
-  overflow_behavior?: string | null;
-}
+import { ContentCell, CMSItem, CMSSection } from '@/types/cms';
 
 // Remove duplicate interfaces - using shared types from @/types/cms
 
@@ -173,6 +115,7 @@ const Admin = () => {
   const [editingPageRichText, setEditingPageRichText] = useState(false);
   const [pageContentStyle, setPageContentStyle] = useState<any>(null);
   const [pageSections, setPageSections] = useState<CMSSection[]>([]);
+  const [nestedSections, setNestedSections] = useState<{[key: string]: CMSSection[]}>({});
   const [pageItems, setPageItems] = useState<CMSItem[]>([]);
   const [selectedPageSection, setSelectedPageSection] = useState<CMSSection | null>(null);
   const [editingPageItem, setEditingPageItem] = useState<CMSItem | null>(null);
@@ -1433,10 +1376,21 @@ const Admin = () => {
         .from('cms_sections')
         .select('*')
         .eq('page_id', pageId)
+        .is('parent_id', null) // Pobiera tylko sekcje główne (nie zagnieżdżone)
         .order('position', { ascending: true });
 
       if (error) throw error;
       setPageSections(data || []);
+
+      // Pobierz sekcje zagnieżdżone dla każdej sekcji głównej
+      const nestedSectionsData: {[key: string]: CMSSection[]} = {};
+      for (const section of data || []) {
+        const nestedSects = await fetchNestedSections(section.id);
+        if (nestedSects.length > 0) {
+          nestedSectionsData[section.id] = nestedSects;
+        }
+      }
+      setNestedSections(nestedSectionsData);
     } catch (error) {
       console.error('Fetch page sections error:', error);
       toast({
@@ -1444,6 +1398,23 @@ const Admin = () => {
         description: "Nie udało się pobrać sekcji strony.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Funkcja do pobierania sekcji zagnieżdżonych
+  const fetchNestedSections = async (parentId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('cms_sections')
+        .select('*')
+        .eq('parent_id', parentId)
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Fetch nested sections error:', error);
+      return [];
     }
   };
 
@@ -1632,6 +1603,18 @@ const Admin = () => {
 
       setPageSections(pageSections.filter(section => section.id !== sectionId));
       setPageItems(pageItems.filter(item => item.section_id !== sectionId));
+      
+      // Usuń sekcję zagnieżdżoną ze stanu jeśli była zagnieżdżona
+      const updatedNestedSections = { ...nestedSections };
+      Object.keys(updatedNestedSections).forEach(parentId => {
+        updatedNestedSections[parentId] = updatedNestedSections[parentId].filter(
+          nested => nested.id !== sectionId
+        );
+        if (updatedNestedSections[parentId].length === 0) {
+          delete updatedNestedSections[parentId];
+        }
+      });
+      setNestedSections(updatedNestedSections);
       
       toast({
         title: "Sekcja usunięta",
@@ -3550,7 +3533,8 @@ const Admin = () => {
                                         .insert([{
                                           ...newSection,
                                           page_id: editingPage.id,
-                                          position: (pageSections.length || 0) + 1
+                                          parent_id: section.id, // Ustawia sekcję jako zagnieżdżoną w obecnej sekcji
+                                          position: (pageSections.filter(s => s.parent_id === section.id).length || 0) + 1
                                         }])
                                         .select()
                                         .single();
@@ -3562,13 +3546,18 @@ const Admin = () => {
                                           description: "Nie udało się dodać sekcji zagnieżdżonej",
                                           variant: "destructive",
                                         });
-                                      } else {
-                                        setPageSections([...pageSections, data]);
-                                        toast({
-                                          title: "Sekcja dodana",
-                                          description: "Sekcja zagnieżdżona została pomyślnie dodana",
-                                        });
-                                      }
+                                       } else {
+                                         // Aktualizuj sekcje zagnieżdżone w stanie
+                                         const currentNested = nestedSections[section.id] || [];
+                                         setNestedSections({
+                                           ...nestedSections,
+                                           [section.id]: [...currentNested, data]
+                                         });
+                                         toast({
+                                           title: "Sekcja zagnieżdżona dodana",
+                                           description: "Sekcja została pomyślnie dodana jako zagnieżdżona w obecnej sekcji",
+                                         });
+                                       }
                                     } catch (error) {
                                       console.error('Error creating nested section:', error);
                                       toast({
@@ -3787,8 +3776,45 @@ const Admin = () => {
                                       </div>
                                     </div>
                                   ))}
-                              </div>
-                            </CardContent>
+                               </div>
+                               
+                               {/* Sekcje zagnieżdżone */}
+                               {nestedSections[section.id] && nestedSections[section.id].length > 0 && (
+                                 <div className="mt-6 pl-4 border-l-2 border-muted">
+                                   <h5 className="font-medium mb-3 text-sm text-muted-foreground">Sekcje zagnieżdżone:</h5>
+                                   <div className="space-y-2">
+                                     {nestedSections[section.id].map((nestedSection) => (
+                                       <div key={nestedSection.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+                                         <div className="flex-1">
+                                           <h6 className="font-medium text-sm">{nestedSection.title}</h6>
+                                           {nestedSection.description && (
+                                             <p className="text-xs text-muted-foreground">{nestedSection.description}</p>
+                                           )}
+                                         </div>
+                                         <div className="flex items-center space-x-1">
+                                           <Button
+                                             variant="ghost"
+                                             size="sm"
+                                             onClick={() => setEditingPageSection(nestedSection)}
+                                             title="Edytuj sekcję zagnieżdżoną"
+                                           >
+                                             <Pencil className="w-3 h-3" />
+                                           </Button>
+                                           <Button
+                                             variant="ghost"
+                                             size="sm"
+                                             onClick={() => deletePageSection(nestedSection.id)}
+                                             title="Usuń sekcję zagnieżdżoną"
+                                           >
+                                             <Trash2 className="w-3 h-3" />
+                                           </Button>
+                                         </div>
+                                       </div>
+                                     ))}
+                                   </div>
+                                 </div>
+                               )}
+                             </CardContent>
                           </Card>
                         ))
                        )}
