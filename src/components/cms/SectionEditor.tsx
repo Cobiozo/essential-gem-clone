@@ -47,6 +47,9 @@ interface Section {
   line_height?: number | null;
   letter_spacing?: number | null;
   text_transform?: string | null;
+  font_family?: string | null;
+  font_style?: string | null;
+  text_decoration?: string | null;
   // Layout options
   display_type?: string | null;
   justify_content?: string | null;
@@ -126,6 +129,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       line_height: 1.5,
       letter_spacing: 0,
       text_transform: 'none',
+      font_family: 'inherit',
+      font_style: 'normal',
+      text_decoration: 'none',
       // Layout defaults
       display_type: 'block',
       justify_content: 'start',
@@ -311,6 +317,29 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
     { value: 'capitalize', label: 'Pierwsza Wielka' }
   ];
 
+  const fontFamilies = [
+    { value: 'inherit', label: 'Domyślna' },
+    { value: 'Inter, system-ui, sans-serif', label: 'Inter' },
+    { value: 'Georgia, serif', label: 'Georgia' },
+    { value: 'Times New Roman, serif', label: 'Times New Roman' },
+    { value: 'Arial, sans-serif', label: 'Arial' },
+    { value: 'Helvetica, sans-serif', label: 'Helvetica' },
+    { value: 'Courier New, monospace', label: 'Courier New' },
+    { value: 'Verdana, sans-serif', label: 'Verdana' }
+  ];
+
+  const fontStyleOptions = [
+    { value: 'normal', label: 'Normalna' },
+    { value: 'italic', label: 'Kursywa' }
+  ];
+
+  const textDecorationOptions = [
+    { value: 'none', label: 'Brak' },
+    { value: 'underline', label: 'Podkreślenie' },
+    { value: 'line-through', label: 'Przekreślenie' },
+    { value: 'overline', label: 'Nadkreślenie' }
+  ];
+
   const handleSave = () => {
     // Clean up numeric fields to ensure they're valid for database
     const cleanedSection = {
@@ -377,6 +406,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       line_height: 1.5,
       letter_spacing: 0,
       text_transform: 'none',
+      font_family: 'inherit',
+      font_style: 'normal',
+      text_decoration: 'none',
       // Layout defaults
       display_type: 'block',
       justify_content: 'start',
@@ -901,6 +933,65 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-sm font-medium">Rodzina czcionki</Label>
+            <Select 
+              value={editedSection.font_family || 'inherit'} 
+              onValueChange={(value) => setEditedSection({...editedSection, font_family: value})}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fontFamilies.map((font) => (
+                  <SelectItem key={font.value} value={font.value}>
+                    {font.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium">Styl czcionki</Label>
+            <Select 
+              value={editedSection.font_style || 'normal'} 
+              onValueChange={(value) => setEditedSection({...editedSection, font_style: value})}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fontStyleOptions.map((style) => (
+                  <SelectItem key={style.value} value={style.value}>
+                    {style.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Dekoracja tekstu</Label>
+          <Select 
+            value={editedSection.text_decoration || 'none'} 
+            onValueChange={(value) => setEditedSection({...editedSection, text_decoration: value})}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {textDecorationOptions.map((decoration) => (
+                <SelectItem key={decoration.value} value={decoration.value}>
+                  {decoration.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -1453,6 +1544,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             color: editedSection.text_color,
             fontSize: `${editedSection.font_size}px`,
             fontWeight: editedSection.font_weight,
+            fontFamily: editedSection.font_family || 'inherit',
+            fontStyle: editedSection.font_style || 'normal',
+            textDecoration: editedSection.text_decoration || 'none',
             lineHeight: editedSection.line_height,
             letterSpacing: `${editedSection.letter_spacing}px`,
             textAlign: (editedSection.alignment || 'left') as React.CSSProperties['textAlign'],

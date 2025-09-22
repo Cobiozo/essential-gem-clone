@@ -5,6 +5,14 @@ export interface ContentCell {
   url?: string;
   position: number;
   is_active: boolean;
+  // Extended typography
+  font_family?: string;
+  line_height?: number;
+  letter_spacing?: number;
+  text_transform?: string;
+  text_align?: string;
+  font_style?: string;
+  text_decoration?: string;
   formatting?: any;
   // For nested sections
   section_items?: CMSItem[];
@@ -37,6 +45,14 @@ export interface CMSItem {
   padding?: number;
   style_class?: string;
   icon?: string | null;
+  // Extended typography
+  font_family?: string;
+  line_height?: number;
+  letter_spacing?: number;
+  text_transform?: string;
+  text_align?: string;
+  font_style?: string;
+  text_decoration?: string;
 }
 
 export interface CMSSection {

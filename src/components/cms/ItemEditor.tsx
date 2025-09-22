@@ -53,7 +53,15 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       border_radius: 8,
       padding: 12,
       style_class: '',
-      cells: []
+      cells: [],
+      // Extended typography
+      font_family: 'inherit',
+      line_height: 1.5,
+      letter_spacing: 0,
+      text_transform: 'none',
+      text_align: 'left',
+      font_style: 'normal',
+      text_decoration: 'none'
     }
   );
 
@@ -74,7 +82,45 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     { value: '400', label: 'Normalna (400)' },
     { value: '500', label: 'Średnia (500)' },
     { value: '600', label: 'Półgruba (600)' },
-    { value: '700', label: 'Gruba (700)' }
+    { value: '700', label: 'Gruba (700)' },
+    { value: '800', label: 'Bardzo gruba (800)' }
+  ];
+
+  const fontFamilies = [
+    { value: 'inherit', label: 'Domyślna' },
+    { value: 'Inter, system-ui, sans-serif', label: 'Inter' },
+    { value: 'Georgia, serif', label: 'Georgia' },
+    { value: 'Times New Roman, serif', label: 'Times New Roman' },
+    { value: 'Arial, sans-serif', label: 'Arial' },
+    { value: 'Helvetica, sans-serif', label: 'Helvetica' },
+    { value: 'Courier New, monospace', label: 'Courier New' },
+    { value: 'Verdana, sans-serif', label: 'Verdana' }
+  ];
+
+  const textTransformOptions = [
+    { value: 'none', label: 'Bez zmian' },
+    { value: 'uppercase', label: 'WIELKIE LITERY' },
+    { value: 'lowercase', label: 'małe litery' },
+    { value: 'capitalize', label: 'Pierwsza Wielka' }
+  ];
+
+  const textAlignOptions = [
+    { value: 'left', label: 'Do lewej' },
+    { value: 'center', label: 'Do środka' },
+    { value: 'right', label: 'Do prawej' },
+    { value: 'justify', label: 'Justuj' }
+  ];
+
+  const fontStyleOptions = [
+    { value: 'normal', label: 'Normalna' },
+    { value: 'italic', label: 'Kursywa' }
+  ];
+
+  const textDecorationOptions = [
+    { value: 'none', label: 'Brak' },
+    { value: 'underline', label: 'Podkreślenie' },
+    { value: 'line-through', label: 'Przekreślenie' },
+    { value: 'overline', label: 'Nadkreślenie' }
   ];
 
   const backgroundPresets = [
@@ -111,7 +157,15 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       border_radius: 8,
       padding: 12,
       style_class: '',
-      cells: []
+      cells: [],
+      // Extended typography
+      font_family: 'inherit',
+      line_height: 1.5,
+      letter_spacing: 0,
+      text_transform: 'none',
+      text_align: 'left',
+      font_style: 'normal',
+      text_decoration: 'none'
     });
     setIsOpen(false);
     onCancel?.();
@@ -403,6 +457,73 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                     onChange={(e) => updateCell(cell.id, { content: e.target.value })}
                   />
                   
+                  {/* Typography controls for cells */}
+                  {(cell.type === 'header' || cell.type === 'description' || cell.type === 'list_item') && (
+                    <div className="border-t pt-2 space-y-2">
+                      <Label className="text-xs text-muted-foreground">Formatowanie tekstu:</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={cell.formatting?.font_weight || '400'}
+                          onValueChange={(value) => updateCell(cell.id, {
+                            formatting: { ...cell.formatting, font_weight: value }
+                          })}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Grubość" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fontWeights.map((weight) => (
+                              <SelectItem key={weight.value} value={weight.value}>
+                                {weight.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={cell.formatting?.text_align || 'left'}
+                          onValueChange={(value) => updateCell(cell.id, {
+                            formatting: { ...cell.formatting, text_align: value }
+                          })}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Wyrównanie" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {textAlignOptions.map((align) => (
+                              <SelectItem key={align.value} value={align.value}>
+                                {align.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Rozmiar: {cell.formatting?.font_size || 16}px</Label>
+                          <Slider
+                            value={[cell.formatting?.font_size || 16]}
+                            onValueChange={([value]) => updateCell(cell.id, {
+                              formatting: { ...cell.formatting, font_size: value }
+                            })}
+                            min={10}
+                            max={24}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+                        <Input
+                          type="color"
+                          value={cell.formatting?.color || '#000000'}
+                          onChange={(e) => updateCell(cell.id, {
+                            formatting: { ...cell.formatting, color: e.target.value }
+                          })}
+                          className="h-8"
+                          title="Kolor tekstu"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
                   {cell.type === 'section' && (
                     <>
                       <Input
@@ -586,6 +707,129 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Rodzina czcionki</Label>
+          <Select 
+            value={editedItem.font_family || 'inherit'} 
+            onValueChange={(value) => setEditedItem({...editedItem, font_family: value})}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {fontFamilies.map((font) => (
+                <SelectItem key={font.value} value={font.value}>
+                  {font.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Styl czcionki</Label>
+          <Select 
+            value={editedItem.font_style || 'normal'} 
+            onValueChange={(value) => setEditedItem({...editedItem, font_style: value})}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {fontStyleOptions.map((style) => (
+                <SelectItem key={style.value} value={style.value}>
+                  {style.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Dekoracja tekstu</Label>
+          <Select 
+            value={editedItem.text_decoration || 'none'} 
+            onValueChange={(value) => setEditedItem({...editedItem, text_decoration: value})}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {textDecorationOptions.map((decoration) => (
+                <SelectItem key={decoration.value} value={decoration.value}>
+                  {decoration.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Transformacja tekstu</Label>
+          <Select 
+            value={editedItem.text_transform || 'none'} 
+            onValueChange={(value) => setEditedItem({...editedItem, text_transform: value})}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {textTransformOptions.map((transform) => (
+                <SelectItem key={transform.value} value={transform.value}>
+                  {transform.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Wyrównanie tekstu</Label>
+          <Select 
+            value={editedItem.text_align || 'left'} 
+            onValueChange={(value) => setEditedItem({...editedItem, text_align: value})}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {textAlignOptions.map((align) => (
+                <SelectItem key={align.value} value={align.value}>
+                  {align.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Wysokość linii: {editedItem.line_height}
+          </Label>
+          <Slider
+            value={[editedItem.line_height || 1.5]}
+            onValueChange={([value]) => setEditedItem({...editedItem, line_height: value})}
+            min={0.8}
+            max={3}
+            step={0.1}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Odstęp między literami: {editedItem.letter_spacing}px
+          </Label>
+          <Slider
+            value={[editedItem.letter_spacing || 0]}
+            onValueChange={([value]) => setEditedItem({...editedItem, letter_spacing: value})}
+            min={-2}
+            max={10}
+            step={0.1}
+            className="w-full"
+          />
         </div>
 
         <div>
