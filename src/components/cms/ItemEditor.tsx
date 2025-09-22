@@ -767,7 +767,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
               Skonfiguruj wygląd i zawartość elementu sekcji
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0 pb-4">
             {editorContent}
           </div>
           <DialogFooter className="flex-shrink-0 mt-4">
