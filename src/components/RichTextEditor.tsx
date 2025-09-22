@@ -139,7 +139,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (editorRef.current && value !== editorRef.current.innerHTML) {
       setIsUpdating(true);
       const selection = window.getSelection();
-      const range = selection?.getRangeAt(0);
+      let range = null;
+      
+      // Safely get the range only if selection has ranges
+      if (selection && selection.rangeCount > 0) {
+        try {
+          range = selection.getRangeAt(0);
+        } catch (e) {
+          // Ignore errors if range is invalid
+          range = null;
+        }
+      }
       
       editorRef.current.innerHTML = value || '';
       
