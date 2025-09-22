@@ -330,6 +330,10 @@ const translations = {
     'ui.textColor': 'Kolor tekstu',
     'ui.backgroundColor': 'Kolor tła',
     'ui.alignment': 'Wyrównanie',
+    
+    // Common
+    'common.loading': 'Ładowanie...',
+    'common.noContent': 'Brak zawartości',
   },
   de: {
     // Navigation
@@ -643,6 +647,10 @@ const translations = {
     'ui.textColor': 'Textfarbe',
     'ui.backgroundColor': 'Hintergrundfarbe',
     'ui.alignment': 'Ausrichtung',
+    
+    // Common
+    'common.loading': 'Lade...',
+    'common.noContent': 'Kein Inhalt',
   },
   en: {
     // Navigation
@@ -956,6 +964,10 @@ const translations = {
     'ui.textColor': 'Text color',
     'ui.backgroundColor': 'Background color',
     'ui.alignment': 'Alignment',
+    
+    // Common
+    'common.loading': 'Loading...',
+    'common.noContent': 'No content',
   }
 };
 
