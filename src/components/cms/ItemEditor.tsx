@@ -335,6 +335,28 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
             placeholder="Wprowadź szczegółowy opis elementu..."
             className="mt-1"
           />
+
+          {/* Podgląd edycji */}
+          <div className="mt-3 border rounded-lg p-3 bg-muted/20">
+            <Label className="text-sm font-medium mb-2 block">Podgląd</Label>
+            <article
+              className="prose prose-sm max-w-none"
+              style={{
+                fontSize: `${editedItem.description_formatting?.fontSize || editedItem.font_size || 16}px`,
+                fontWeight: editedItem.description_formatting?.fontWeight || editedItem.font_weight || '400',
+                fontStyle: editedItem.description_formatting?.fontStyle || 'normal',
+                textDecoration: editedItem.description_formatting?.textDecoration || 'none',
+                textAlign: (editedItem.description_formatting?.textAlign || editedItem.text_align || 'left') as any,
+                color: editedItem.description_formatting?.color || editedItem.text_color || 'inherit',
+                fontFamily: editedItem.description_formatting?.fontFamily || editedItem.font_family || 'inherit',
+                lineHeight: (editedItem.description_formatting?.lineHeight || editedItem.line_height || 1.5).toString(),
+                letterSpacing: `${editedItem.description_formatting?.letterSpacing || editedItem.letter_spacing || 0}px`,
+                textTransform: (editedItem.description_formatting?.textTransform || editedItem.text_transform || 'none') as any,
+                wordBreak: 'break-word'
+              }}
+              dangerouslySetInnerHTML={{ __html: editedItem.description || '' }}
+            />
+          </div>
         </div>
 
         {(editedItem.type === 'button' || editedItem.type === 'link') && (

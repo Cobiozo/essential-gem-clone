@@ -60,6 +60,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   className
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const savedRangeRef = useRef<Range | null>(null);
   const [currentFormatting, setCurrentFormatting] = useState<TextFormatting>(
     formatting || {
       fontSize: 16,
@@ -138,31 +139,41 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   useEffect(() => {
     if (editorRef.current && value !== editorRef.current.innerHTML) {
       setIsUpdating(true);
+
       const selection = window.getSelection();
-      let range = null;
-      
-      // Safely get the range only if selection has ranges
-      if (selection && selection.rangeCount > 0) {
+      let range: Range | null = null;
+
+      // Prefer saved range if available
+      if (savedRangeRef.current) {
+        range = savedRangeRef.current.cloneRange();
+      } else if (selection && selection.rangeCount > 0) {
         try {
-          range = selection.getRangeAt(0);
-        } catch (e) {
-          // Ignore errors if range is invalid
+          range = selection.getRangeAt(0).cloneRange();
+        } catch {
           range = null;
         }
       }
-      
+
       editorRef.current.innerHTML = value || '';
-      
+
       // Try to restore cursor position
+      const sel = window.getSelection();
       if (range && editorRef.current.contains(range.startContainer)) {
         try {
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-        } catch (e) {
-          // Ignore errors - cursor will be at default position
-        }
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        } catch {}
+      } else {
+        // Fallback: place caret at end to keep editing fluid
+        try {
+          const endRange = document.createRange();
+          endRange.selectNodeContents(editorRef.current);
+          endRange.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(endRange);
+        } catch {}
       }
-      
+
       setIsUpdating(false);
     }
   }, [value]);
@@ -173,6 +184,21 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       setCurrentFormatting(formatting);
     }
   }, [formatting]);
+
+  // Track selection inside editor to preserve it across updates
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!editorRef.current || !sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (editorRef.current.contains(range.startContainer)) {
+        // store clone to avoid live range issues
+        savedRangeRef.current = range.cloneRange();
+      }
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   const isEmpty = !value || value.trim() === '' || value === '<br>' || value === '<div><br></div>';
 
@@ -358,6 +384,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div
           ref={editorRef}
           contentEditable
+          role="textbox"
+          aria-multiline="true"
+          spellCheck={true}
           suppressContentEditableWarning={true}
           onInput={handleInput}
           onFocus={() => setIsFocused(true)}
