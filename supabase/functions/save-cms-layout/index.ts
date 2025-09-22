@@ -86,11 +86,31 @@ serve(async (req) => {
     );
 
     // Update items (position + section_id) with explicit error handling
+    // Also ensure page_id matches the target section's page_id (null for homepage)
+    const targetSectionIds = Array.from(new Set(items.map((it) => it.section_id)));
+    const { data: sectionRows, error: sectionLookupErr } = await sr
+      .from("cms_sections")
+      .select("id, page_id")
+      .in("id", targetSectionIds);
+
+    if (sectionLookupErr) {
+      console.error("Section lookup error", sectionLookupErr);
+      return new Response(
+        JSON.stringify({ error: "Section lookup failed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const sectionPageMap = new Map<string, string | null>(
+      (sectionRows || []).map((r: any) => [r.id as string, (r.page_id as string) ?? null])
+    );
+
     const itemResults = await Promise.all(
       items.map(async (it) => {
+        const page_id = sectionPageMap.get(it.section_id) ?? null;
         const res = await sr
           .from("cms_items")
-          .update({ position: it.position, section_id: it.section_id })
+          .update({ position: it.position, section_id: it.section_id, page_id })
           .eq("id", it.id);
         if (res.error) {
           console.error("Item update error", { id: it.id, error: res.error });

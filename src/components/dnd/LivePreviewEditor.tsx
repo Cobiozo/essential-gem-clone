@@ -101,6 +101,7 @@ export const LivePreviewEditor: React.FC = () => {
       const { data: itemsData, error: itemsError } = await supabase
         .from('cms_items')
         .select('*')
+        .is('page_id', null)
         .eq('is_active', true)
         .order('position');
       
@@ -386,6 +387,19 @@ export const LivePreviewEditor: React.FC = () => {
 
       // Reload from DB to ensure persisted order/state
       await fetchData();
+
+      // Notify all clients (including homepage) to refresh layout
+      const channel = supabase.channel('cms-live');
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.send({
+            type: 'broadcast',
+            event: 'layout-updated',
+            payload: { at: Date.now() },
+          });
+          supabase.removeChannel(channel);
+        }
+      });
 
       setHasUnsavedChanges(false);
       setAutoSaveStatus('saved');

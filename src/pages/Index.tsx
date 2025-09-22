@@ -122,6 +122,9 @@ const Index = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_sections' }, () => {
         fetchCMSData();
       })
+      .on('broadcast', { event: 'layout-updated' }, () => {
+        fetchCMSData();
+      })
       .subscribe();
 
     return () => {
