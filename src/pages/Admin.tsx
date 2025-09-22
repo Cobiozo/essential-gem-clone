@@ -3525,29 +3525,81 @@ const Admin = () => {
                             <CardHeader>
                               <div className="flex items-center justify-between">
                                 <CardTitle className="text-base">{section.title}</CardTitle>
-                                <div className="flex items-center space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setEditingPageSection(section)}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => deletePageSection(section.id)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </Button>
-                                </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingPageSection(section)}
+                                  title="Edytuj sekcję"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => deletePageSection(section.id)}
+                                  title="Usuń sekcję"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                                <SectionEditor
+                                  onSave={async (newSection) => {
+                                    try {
+                                      const { data, error } = await supabase
+                                        .from('cms_sections')
+                                        .insert([{
+                                          ...newSection,
+                                          page_id: editingPage.id,
+                                          position: (pageSections.length || 0) + 1
+                                        }])
+                                        .select()
+                                        .single();
+
+                                      if (error) {
+                                        console.error('Error creating nested section:', error);
+                                        toast({
+                                          title: "Błąd",
+                                          description: "Nie udało się dodać sekcji zagnieżdżonej",
+                                          variant: "destructive",
+                                        });
+                                      } else {
+                                        setPageSections([...pageSections, data]);
+                                        toast({
+                                          title: "Sekcja dodana",
+                                          description: "Sekcja zagnieżdżona została pomyślnie dodana",
+                                        });
+                                      }
+                                    } catch (error) {
+                                      console.error('Error creating nested section:', error);
+                                      toast({
+                                        title: "Błąd",
+                                        description: "Nie udało się dodać sekcji zagnieżdżonej",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}
+                                  isNew={true}
+                                  trigger={
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      title="Dodaj sekcję zagnieżdżoną"
+                                    >
+                                      <Plus className="w-4 h-4 mr-1" />
+                                      Sekcja
+                                    </Button>
+                                  }
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
+                                  title="Dodaj element do sekcji"
+                                >
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Element
+                                </Button>
+                              </div>
                               </div>
                             </CardHeader>
                             <CardContent>
