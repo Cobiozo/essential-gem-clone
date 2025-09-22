@@ -201,7 +201,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   };
 
   const editorContent = (
-    <div className="space-y-6 max-h-[80vh] overflow-y-auto">
+    <div className="space-y-6 max-h-[calc(100vh-120px)] overflow-y-auto p-1">
       {/* Type Selection */}
       <div>
         <Label className="text-sm font-medium mb-3 block">Typ elementu</Label>
@@ -342,9 +342,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
             </div>
           </div>
 
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-3 max-h-[40vh] overflow-y-auto border rounded-md bg-muted/10 p-3">
             {editedItem.cells?.map((cell, index) => (
-              <div key={cell.id} className="border rounded-lg p-4 bg-muted/30">
+              <div key={cell.id} className="border rounded-lg p-3 bg-muted/30 min-w-0">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
                     <GripVertical className="w-4 h-4 text-muted-foreground" />
@@ -416,7 +416,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                         onChange={(e) => updateCell(cell.id, { section_description: e.target.value })}
                         rows={2}
                       />
-                      <div className="border rounded-lg p-3 bg-background">
+                      <div className="border rounded-lg p-3 bg-background max-h-48 overflow-y-auto">
                         <Label className="text-sm font-medium mb-2 block">Elementy w sekcji:</Label>
                         {cell.section_items && cell.section_items.length > 0 ? (
                           <div className="space-y-2">
