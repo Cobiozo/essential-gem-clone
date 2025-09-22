@@ -112,6 +112,23 @@ const Index = () => {
     fetchCMSData();
   }, [user, isAdmin, isPartner, isClient, isSpecjalista]);
 
+  // Realtime updates: odśwież widok strony głównej po zmianach w CMS
+  React.useEffect(() => {
+    const channel = supabase
+      .channel('cms-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_items' }, () => {
+        fetchCMSData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_sections' }, () => {
+        fetchCMSData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const fetchCMSData = async () => {
     try {
       // Build sections query with visibility for anonymous users

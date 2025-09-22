@@ -153,16 +153,28 @@ export const LivePreviewEditor: React.FC = () => {
             .eq('id', section.id)
         );
 
-        // Update item positions and section_ids
-        const itemUpdates = newItems.map((item, index) =>
-          supabase
-            .from('cms_items')
-            .update({ 
-              position: index,
-              section_id: item.section_id 
-            })
-            .eq('id', item.id)
-        );
+        // Update item positions per section and section_ids
+        const itemsBySection: { [key: string]: CMSItem[] } = {};
+        newItems.forEach((it) => {
+          const sid = (it.section_id as string) || '';
+          if (!itemsBySection[sid]) itemsBySection[sid] = [];
+          itemsBySection[sid].push(it);
+        });
+
+        const itemUpdates: any[] = [];
+        Object.entries(itemsBySection).forEach(([sid, arr]) => {
+          arr.forEach((it, idx) => {
+            itemUpdates.push(
+              supabase
+                .from('cms_items')
+                .update({ 
+                  position: idx,
+                  section_id: sid 
+                })
+                .eq('id', it.id)
+            );
+          });
+        });
 
         await Promise.all([...sectionUpdates, ...itemUpdates]);
         
@@ -358,15 +370,27 @@ export const LivePreviewEditor: React.FC = () => {
           .eq('id', section.id)
       );
 
-      const itemUpdates = items.map((item, index) =>
-        supabase
-          .from('cms_items')
-          .update({ 
-            position: index,
-            section_id: item.section_id 
-          })
-          .eq('id', item.id)
-      );
+      const itemsBySection: { [key: string]: CMSItem[] } = {};
+      items.forEach((it) => {
+        const sid = (it.section_id as string) || '';
+        if (!itemsBySection[sid]) itemsBySection[sid] = [];
+        itemsBySection[sid].push(it);
+      });
+
+      const itemUpdates: any[] = [];
+      Object.entries(itemsBySection).forEach(([sid, arr]) => {
+        arr.forEach((it, idx) => {
+          itemUpdates.push(
+            supabase
+              .from('cms_items')
+              .update({ 
+                position: idx,
+                section_id: sid 
+              })
+              .eq('id', it.id)
+          );
+        });
+      });
 
       await Promise.all([...sectionUpdates, ...itemUpdates]);
       
