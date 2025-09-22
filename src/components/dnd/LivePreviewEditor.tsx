@@ -145,39 +145,29 @@ export const LivePreviewEditor: React.FC = () => {
     autoSaveTimeoutRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving');
       try {
-        // Update section positions
-        const sectionUpdates = newSections.map((section, index) => 
-          supabase
-            .from('cms_sections')
-            .update({ position: index })
-            .eq('id', section.id)
-        );
+        // Build payload for edge function
+        const sectionsPayload = newSections.map((s, index) => ({ id: s.id, position: index }));
 
-        // Update item positions per section and section_ids
         const itemsBySection: { [key: string]: CMSItem[] } = {};
         newItems.forEach((it) => {
           const sid = (it.section_id as string) || '';
+          if (!sid) return; // skip invalid
           if (!itemsBySection[sid]) itemsBySection[sid] = [];
           itemsBySection[sid].push(it);
         });
 
-        const itemUpdates: any[] = [];
+        const itemsPayload: { id: string; section_id: string; position: number }[] = [];
         Object.entries(itemsBySection).forEach(([sid, arr]) => {
           arr.forEach((it, idx) => {
-            itemUpdates.push(
-              supabase
-                .from('cms_items')
-                .update({ 
-                  position: idx,
-                  section_id: sid 
-                })
-                .eq('id', it.id)
-            );
+            itemsPayload.push({ id: it.id as string, section_id: sid, position: idx });
           });
         });
 
-        await Promise.all([...sectionUpdates, ...itemUpdates]);
-        
+        const { error } = await supabase.functions.invoke('save-cms-layout', {
+          body: { sections: sectionsPayload, items: itemsPayload },
+        });
+        if (error) throw error;
+
         setAutoSaveStatus('saved');
         setHasUnsavedChanges(false);
       } catch (error) {
@@ -362,38 +352,29 @@ export const LivePreviewEditor: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Force save current state
-      const sectionUpdates = sections.map((section, index) => 
-        supabase
-          .from('cms_sections')
-          .update({ position: index })
-          .eq('id', section.id)
-      );
+      // Build payload for edge function
+      const sectionsPayload = sections.map((s, index) => ({ id: s.id, position: index }));
 
       const itemsBySection: { [key: string]: CMSItem[] } = {};
       items.forEach((it) => {
         const sid = (it.section_id as string) || '';
+        if (!sid) return;
         if (!itemsBySection[sid]) itemsBySection[sid] = [];
         itemsBySection[sid].push(it);
       });
 
-      const itemUpdates: any[] = [];
+      const itemsPayload: { id: string; section_id: string; position: number }[] = [];
       Object.entries(itemsBySection).forEach(([sid, arr]) => {
         arr.forEach((it, idx) => {
-          itemUpdates.push(
-            supabase
-              .from('cms_items')
-              .update({ 
-                position: idx,
-                section_id: sid 
-              })
-              .eq('id', it.id)
-          );
+          itemsPayload.push({ id: it.id as string, section_id: sid, position: idx });
         });
       });
 
-      await Promise.all([...sectionUpdates, ...itemUpdates]);
-      
+      const { error } = await supabase.functions.invoke('save-cms-layout', {
+        body: { sections: sectionsPayload, items: itemsPayload },
+      });
+      if (error) throw error;
+
       setHasUnsavedChanges(false);
       setAutoSaveStatus('saved');
       toast({
