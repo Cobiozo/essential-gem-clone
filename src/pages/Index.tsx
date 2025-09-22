@@ -320,22 +320,7 @@ const Index = () => {
       <main className="px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 items-start gap-4 lg:gap-6">
-            {sections.filter((section) => {
-              // Filter sections based on user authentication and role
-              if (!user) {
-                // Non-authenticated users can only see sections marked as visible to everyone
-                return section.visible_to_everyone;
-              }
-              
-              // Authenticated users see sections based on their role
-              if (isAdmin) return true; // Admins see everything
-              if (isPartner) return section.visible_to_partners || section.visible_to_everyone;
-              if (isClient) return section.visible_to_clients || section.visible_to_everyone;
-              if (isSpecjalista) return section.visible_to_specjalista || section.visible_to_everyone;
-              
-              // Default to visible to everyone for other roles
-              return section.visible_to_everyone;
-            }).map((section) => {
+            {sections.map((section) => {
               const sectionItems = items.filter(item => 
                 item.section_id === section.id && 
                 item.type !== 'header_text' && 
