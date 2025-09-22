@@ -4,11 +4,13 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragOverEvent,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
+  closestCorners,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -16,13 +18,13 @@ import {
 } from '@dnd-kit/sortable';
 import {
   restrictToWindowEdges,
-  restrictToParentElement,
 } from '@dnd-kit/modifiers';
 
 interface DragDropProviderProps {
   children: React.ReactNode;
   onDragStart?: (event: DragStartEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
+  onDragOver?: (event: DragOverEvent) => void;
   items: string[];
   activeId?: string | null;
   dragOverlay?: React.ReactNode;
@@ -33,6 +35,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   children,
   onDragStart,
   onDragEnd,
+  onDragOver,
   items,
   activeId,
   dragOverlay,
@@ -61,10 +64,11 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={closestCorners}
       onDragStart={onDragStart}
+      onDragOver={onDragOver}
       onDragEnd={onDragEnd}
-      modifiers={[restrictToWindowEdges, restrictToParentElement]}
+      modifiers={[restrictToWindowEdges]}
     >
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {children}

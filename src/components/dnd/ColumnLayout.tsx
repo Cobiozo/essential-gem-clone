@@ -201,6 +201,11 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
+    data: {
+      type: 'column',
+      sectionId: column.id.split('-col-')[0],
+      columnIndex: parseInt(column.id.split('-col-')[1]),
+    },
   });
 
   React.useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -176,6 +176,21 @@ export const LivePreviewEditor: React.FC = () => {
     setActiveId(event.active.id as string);
   };
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+    
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    
+    // Enable dropping into columns
+    if (overId.includes('-col-')) {
+      // This helps with visual feedback during drag
+      console.log(`Dragging ${activeId} over column ${overId}`);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
@@ -189,41 +204,63 @@ export const LivePreviewEditor: React.FC = () => {
 
     // Check if we're dropping into a column
     if (overId.includes('-col-')) {
-      const [sectionId] = overId.split('-col-');
-      const columnIndex = parseInt(overId.split('-col-')[1]);
-      
       // Handle moving item to a column
-      const sourceItem = items.find(item => item.id === activeId);
-      if (sourceItem) {
-        // Remove from source
-        const updatedItems = items.filter(item => item.id !== activeId);
-        
-        // Update section_id if moving to different section
+      const activeItem = items.find(item => item.id === activeId);
+      const targetSectionId = overId.split('-col-')[0];
+      const targetColumnIndex = parseInt(overId.split('-col-')[1]);
+      
+      if (activeItem) {
+        // Update item's section_id
         const updatedItem = {
-          ...sourceItem,
-          section_id: sectionId,
+          ...activeItem,
+          section_id: targetSectionId,
         };
         
-        // Add to target column
-        const newColumns = { ...sectionColumns };
-        if (!newColumns[sectionId]) {
-          newColumns[sectionId] = [{
-            id: `${sectionId}-col-0`,
+        // Update items array
+        const updatedItems = items.map(item => 
+          item.id === activeId ? updatedItem : item
+        );
+        
+        // Update column structure
+        const newSectionColumns = { ...sectionColumns };
+        
+        // Remove item from source column
+        Object.keys(newSectionColumns).forEach(sectionId => {
+          newSectionColumns[sectionId] = newSectionColumns[sectionId].map(column => ({
+            ...column,
+            items: column.items.filter(item => item.id !== activeId)
+          }));
+        });
+        
+        // Add item to target column
+        if (!newSectionColumns[targetSectionId]) {
+          newSectionColumns[targetSectionId] = [{
+            id: `${targetSectionId}-col-0`,
             items: [],
             width: 100,
           }];
         }
         
-        if (newColumns[sectionId][columnIndex]) {
-          newColumns[sectionId][columnIndex].items.push(updatedItem);
+        // Ensure target column exists
+        if (!newSectionColumns[targetSectionId][targetColumnIndex]) {
+          // Create missing columns up to target index
+          while (newSectionColumns[targetSectionId].length <= targetColumnIndex) {
+            const newColIndex = newSectionColumns[targetSectionId].length;
+            newSectionColumns[targetSectionId].push({
+              id: `${targetSectionId}-col-${newColIndex}`,
+              items: [],
+              width: 100 / (newColIndex + 1),
+            });
+          }
         }
         
-        // Update both items and columns
-        const finalItems = [...updatedItems, updatedItem];
-        setSectionColumns(newColumns);
-        setItems(finalItems);
+        // Add item to target column
+        newSectionColumns[targetSectionId][targetColumnIndex].items.push(updatedItem);
+        
+        setSectionColumns(newSectionColumns);
+        setItems(updatedItems);
         setHasUnsavedChanges(true);
-        autoSave(sections, finalItems);
+        autoSave(sections, updatedItems);
         return;
       }
     }
@@ -243,7 +280,7 @@ export const LivePreviewEditor: React.FC = () => {
         autoSave(newSections, items);
       }
     } else {
-      // Dragging items within same section
+      // Dragging items within same section/column
       const oldIndex = items.findIndex(i => i.id === activeId);
       const newIndex = items.findIndex(i => i.id === overId);
       
@@ -475,6 +512,7 @@ export const LivePreviewEditor: React.FC = () => {
           <DragDropProvider
             items={[...sections.map(s => s.id), ...items.map(i => i.id || '')]}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             activeId={activeId}
             disabled={!editMode}
