@@ -30,6 +30,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MediaUpload } from '@/components/MediaUpload';
 
 interface RichTextEditorProps {
   value: string;
@@ -59,6 +60,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [imageAlt, setImageAlt] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [videoTitle, setVideoTitle] = useState('');
+  const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
+  const [uploadedImageUrl, setUploadedImageUrl] = useState('');
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState('');
   const [activeTab, setActiveTab] = useState('edit');
 
   const colors = [
@@ -332,9 +336,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }, [value, onChange, linkUrl, linkText, activeTab]);
 
   const insertImage = useCallback(() => {
-    if (imageUrl) {
+    const finalImageUrl = uploadMode === 'file' ? uploadedImageUrl : imageUrl;
+    if (finalImageUrl) {
       const altText = imageAlt || 'Image';
-      const imageHtml = `<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`;
+      const imageHtml = `<img src="${finalImageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />`;
       
       if (activeTab === 'preview') {
         const selection = window.getSelection();
@@ -371,35 +376,38 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
       setImageUrl('');
       setImageAlt('');
+      setUploadedImageUrl('');
+      setUploadMode('url');
       setShowImageDialog(false);
     }
-  }, [value, onChange, imageUrl, imageAlt, activeTab]);
+  }, [value, onChange, imageUrl, imageAlt, activeTab, uploadMode, uploadedImageUrl]);
 
   const insertVideo = useCallback(() => {
-    if (videoUrl) {
+    const finalVideoUrl = uploadMode === 'file' ? uploadedVideoUrl : videoUrl;
+    if (finalVideoUrl) {
       let embedHtml = '';
       const title = videoTitle || 'Video';
       
       // YouTube URL detection and conversion
-      if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+      if (finalVideoUrl.includes('youtube.com') || finalVideoUrl.includes('youtu.be')) {
         let videoId = '';
-        if (videoUrl.includes('youtube.com/watch?v=')) {
-          videoId = videoUrl.split('watch?v=')[1].split('&')[0];
-        } else if (videoUrl.includes('youtu.be/')) {
-          videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+        if (finalVideoUrl.includes('youtube.com/watch?v=')) {
+          videoId = finalVideoUrl.split('watch?v=')[1].split('&')[0];
+        } else if (finalVideoUrl.includes('youtu.be/')) {
+          videoId = finalVideoUrl.split('youtu.be/')[1].split('?')[0];
         }
         
         if (videoId) {
           embedHtml = `<div style="position: relative; width: 100%; height: 0; padding-bottom: 56.25%; margin: 16px 0;"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px;" allowfullscreen title="${title}"></iframe></div>`;
         }
-      } else if (videoUrl.includes('vimeo.com')) {
-        const videoId = videoUrl.split('vimeo.com/')[1]?.split('/')[0];
+      } else if (finalVideoUrl.includes('vimeo.com')) {
+        const videoId = finalVideoUrl.split('vimeo.com/')[1]?.split('/')[0];
         if (videoId) {
           embedHtml = `<div style="position: relative; width: 100%; height: 0; padding-bottom: 56.25%; margin: 16px 0;"><iframe src="https://player.vimeo.com/video/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px;" allowfullscreen title="${title}"></iframe></div>`;
         }
       } else {
         // Direct video file
-        embedHtml = `<video controls style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"><source src="${videoUrl}" type="video/mp4">Twoja przeglądarka nie obsługuje odtwarzacza wideo.</video>`;
+        embedHtml = `<video controls style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;"><source src="${finalVideoUrl}" type="video/mp4">Twoja przeglądarka nie obsługuje odtwarzacza wideo.</video>`;
       }
 
       if (embedHtml) {
@@ -439,9 +447,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
       setVideoUrl('');
       setVideoTitle('');
+      setUploadedVideoUrl('');
+      setUploadMode('url');
       setShowVideoDialog(false);
     }
-  }, [value, onChange, videoUrl, videoTitle, activeTab]);
+  }, [value, onChange, videoUrl, videoTitle, activeTab, uploadMode, uploadedVideoUrl]);
 
   const clearFormatting = useCallback(() => {
     if (activeTab === 'preview') {
@@ -760,24 +770,53 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   <Image className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-3">
+              <PopoverContent className="w-96">
+                <div className="space-y-4">
                   <Label className="text-sm font-medium">Dodaj obraz</Label>
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="URL obrazu"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                    />
-                    <Input
-                      placeholder="Opis obrazu (opcjonalny)"
-                      value={imageAlt}
-                      onChange={(e) => setImageAlt(e.target.value)}
-                    />
-                    <Button onClick={insertImage} className="w-full">
-                      Wstaw obraz
-                    </Button>
-                  </div>
+                  
+                  <Tabs value={uploadMode} onValueChange={(value) => setUploadMode(value as 'url' | 'file')}>
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="url">Z URL</TabsTrigger>
+                      <TabsTrigger value="file">Z urządzenia</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="url" className="space-y-3 mt-3">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="URL obrazu"
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
+                        />
+                        <Input
+                          placeholder="Opis obrazu (opcjonalny)"
+                          value={imageAlt}
+                          onChange={(e) => setImageAlt(e.target.value)}
+                        />
+                        <Button onClick={insertImage} className="w-full" disabled={!imageUrl}>
+                          Wstaw obraz
+                        </Button>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="file" className="mt-3">
+                      <MediaUpload
+                        onMediaUploaded={(url, type, altText) => {
+                          if (type === 'image') {
+                            setUploadedImageUrl(url);
+                            setImageAlt(altText || '');
+                          }
+                        }}
+                        currentMediaUrl={uploadedImageUrl}
+                        currentMediaType="image"
+                        currentAltText={imageAlt}
+                      />
+                      {uploadedImageUrl && (
+                        <Button onClick={insertImage} className="w-full mt-3">
+                          Wstaw przesłany obraz
+                        </Button>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </PopoverContent>
             </Popover>
@@ -794,24 +833,53 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   <Video className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-3">
+              <PopoverContent className="w-96">
+                <div className="space-y-4">
                   <Label className="text-sm font-medium">Dodaj wideo</Label>
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="URL wideo (YouTube, Vimeo lub bezpośredni link)"
-                      value={videoUrl}
-                      onChange={(e) => setVideoUrl(e.target.value)}
-                    />
-                    <Input
-                      placeholder="Tytuł wideo (opcjonalny)"
-                      value={videoTitle}
-                      onChange={(e) => setVideoTitle(e.target.value)}
-                    />
-                    <Button onClick={insertVideo} className="w-full">
-                      Wstaw wideo
-                    </Button>
-                  </div>
+                  
+                  <Tabs value={uploadMode} onValueChange={(value) => setUploadMode(value as 'url' | 'file')}>
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="url">Z URL</TabsTrigger>
+                      <TabsTrigger value="file">Z urządzenia</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="url" className="space-y-3 mt-3">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="URL wideo (YouTube, Vimeo lub bezpośredni link)"
+                          value={videoUrl}
+                          onChange={(e) => setVideoUrl(e.target.value)}
+                        />
+                        <Input
+                          placeholder="Tytuł wideo (opcjonalny)"
+                          value={videoTitle}
+                          onChange={(e) => setVideoTitle(e.target.value)}
+                        />
+                        <Button onClick={insertVideo} className="w-full" disabled={!videoUrl}>
+                          Wstaw wideo
+                        </Button>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="file" className="mt-3">
+                      <MediaUpload
+                        onMediaUploaded={(url, type, altText) => {
+                          if (type === 'video') {
+                            setUploadedVideoUrl(url);
+                            setVideoTitle(altText || '');
+                          }
+                        }}
+                        currentMediaUrl={uploadedVideoUrl}
+                        currentMediaType="video"
+                        currentAltText={videoTitle}
+                      />
+                      {uploadedVideoUrl && (
+                        <Button onClick={insertVideo} className="w-full mt-3">
+                          Wstaw przesłane wideo
+                        </Button>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </PopoverContent>
             </Popover>
