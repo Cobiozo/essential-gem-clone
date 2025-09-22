@@ -18,6 +18,7 @@ import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palet
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { TextEditor } from '@/components/cms/TextEditor';
 import { FontEditor } from '@/components/cms/FontEditor';
 import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
@@ -3332,22 +3333,24 @@ const Admin = () => {
                       </p>
                     </div>
 
-                    {/* Add New Section */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <CardContent className="space-y-4">
-                          <Button 
-                            onClick={() => setShowAddPageSectionEditor(true)}
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Dodaj sekcję
-                          </Button>
-                        </CardContent>
-                      </CardContent>
-                    </Card>
+                     {/* Add New Section */}
+                     <Card>
+                       <CardHeader>
+                         <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
+                         <CardDescription>
+                           Utwórz nową sekcję z pełnym edytorem stylów i opcji
+                         </CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                         <Button 
+                           onClick={() => setShowAddPageSectionEditor(true)}
+                           className="w-full"
+                         >
+                           <Plus className="w-4 h-4 mr-2" />
+                           Dodaj sekcję
+                         </Button>
+                       </CardContent>
+                     </Card>
 
                     {/* Existing Sections */}
                     <div className="space-y-4">
@@ -3420,16 +3423,16 @@ const Admin = () => {
                                       />
                                     </div>
                                   </div>
-                                  <div className="mt-4">
-                                    <Label htmlFor="new-page-item-description">Opis</Label>
-                                    <Textarea
-                                      id="new-page-item-description"
-                                      value={newPageItem.description}
-                                      onChange={(e) => setNewPageItem({...newPageItem, description: e.target.value})}
-                                      placeholder="Opis elementu"
-                                      rows={3}
-                                    />
-                                  </div>
+                                   <div className="mt-4">
+                                     <Label htmlFor="new-page-item-description">Opis Elementu</Label>
+                                     <RichTextEditor
+                                       value={newPageItem.description}
+                                       onChange={(value) => setNewPageItem({...newPageItem, description: value})}
+                                       placeholder="Opis elementu"
+                                       rows={3}
+                                       className="mt-1"
+                                     />
+                                   </div>
                                   {newPageItem.type === 'button' && (
                                     <div className="mt-4">
                                       <Label htmlFor="new-page-item-url">URL</Label>
@@ -3608,47 +3611,45 @@ const Admin = () => {
         </Dialog>
       )}
 
+      {/* Add Page Section Dialog */}
+      {showAddPageSectionEditor && editingPage && (
+        <Dialog open={showAddPageSectionEditor} onOpenChange={() => setShowAddPageSectionEditor(false)}>
+          <DialogContent className="max-w-2xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
+            <DialogHeader className="p-6 pb-2 shrink-0">
+              <DialogTitle>Dodaj nową sekcję do strony</DialogTitle>
+              <DialogDescription>
+                Skonfiguruj wygląd i zawartość nowej sekcji dla strony "{editingPage.title}"
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-6">
+              <SectionEditor 
+                onSave={(newSection) => createPageSection(editingPage.id, newSection)}
+                onCancel={() => setShowAddPageSectionEditor(false)}
+                isNew={true}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Edit Page Section Dialog */}
       {editingPageSection && (
         <Dialog open={!!editingPageSection} onOpenChange={() => setEditingPageSection(null)}>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-w-2xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
+            <DialogHeader className="p-6 pb-2 shrink-0">
               <DialogTitle>Edytuj sekcję strony</DialogTitle>
               <DialogDescription>
-                Modyfikuj dane sekcji strony
+                Skonfiguruj wygląd i zawartość sekcji
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-page-section-title">Tytuł sekcji</Label>
-                <Input
-                  value={editingPageSection.title || ''}
-                  onChange={(e) => setEditingPageSection({...editingPageSection, title: e.target.value})}
-                  placeholder="Nazwa sekcji"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-page-section-position">Pozycja</Label>
-                <Input
-                  type="number"
-                  value={editingPageSection.position}
-                  onChange={(e) => setEditingPageSection({...editingPageSection, position: parseInt(e.target.value) || 0})}
-                  placeholder="Pozycja sekcji"
-                />
-              </div>
+            <div className="flex-1 overflow-y-auto px-6">
+              <SectionEditor 
+                section={editingPageSection}
+                onSave={(updatedSection) => updatePageSection(editingPageSection.id, updatedSection)}
+                onCancel={() => setEditingPageSection(null)}
+                isNew={false}
+              />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingPageSection(null)}>
-                Anuluj
-              </Button>
-              <Button onClick={() => updatePageSection(editingPageSection.id, {
-                title: editingPageSection.title,
-                position: editingPageSection.position,
-              })}>
-                <Save className="w-4 h-4 mr-2" />
-                Zapisz zmiany
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
@@ -3692,15 +3693,16 @@ const Admin = () => {
                   />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="edit-page-item-description">Opis</Label>
-                <Textarea
-                  value={editingPageItem.description || ''}
-                  onChange={(e) => setEditingPageItem({...editingPageItem, description: e.target.value})}
-                  placeholder="Opis elementu"
-                  rows={4}
-                />
-              </div>
+               <div>
+                 <Label htmlFor="edit-page-item-description">Opis Elementu</Label>
+                 <RichTextEditor
+                   value={editingPageItem.description || ''}
+                   onChange={(value) => setEditingPageItem({...editingPageItem, description: value})}
+                   placeholder="Opis elementu"
+                   rows={4}
+                   className="mt-1"
+                 />
+               </div>
               {editingPageItem.type === 'button' && (
                 <div>
                   <Label htmlFor="edit-page-item-url">URL</Label>
