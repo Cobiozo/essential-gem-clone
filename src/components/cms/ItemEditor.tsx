@@ -201,7 +201,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   };
 
   const editorContent = (
-    <div className="space-y-6 max-h-[calc(100vh-120px)] overflow-y-auto p-1">
+    <div className="space-y-6 p-1">
       {/* Type Selection */}
       <div>
         <Label className="text-sm font-medium mb-3 block">Typ elementu</Label>
@@ -758,8 +758,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
         <DialogTrigger asChild>
           {trigger}
         </DialogTrigger>
-        <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="w-[90vw] max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>
               {isNew ? 'Dodaj nowy element' : 'Edytuj element'}
             </DialogTitle>
@@ -767,8 +767,10 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
               Skonfiguruj wygląd i zawartość elementu sekcji
             </DialogDescription>
           </DialogHeader>
-          {editorContent}
-          <DialogFooter>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {editorContent}
+          </div>
+          <DialogFooter className="flex-shrink-0 mt-4">
             <Button variant="outline" onClick={handleCancel}>
               <X className="w-4 h-4 mr-2" />
               Anuluj
