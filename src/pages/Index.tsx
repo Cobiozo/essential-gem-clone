@@ -110,17 +110,23 @@ const Index = () => {
 
   React.useEffect(() => {
     fetchCMSData();
-  }, []);
+  }, [user, isAdmin, isPartner, isClient, isSpecjalista]);
 
   const fetchCMSData = async () => {
     try {
-      // Pobierz tylko sekcje należące do strony głównej (page_id = null)
-      const { data: sectionsData } = await supabase
+      // Build sections query with visibility for anonymous users
+      let sectionsQuery = supabase
         .from('cms_sections')
         .select('*')
         .is('page_id', null)  // Tylko sekcje strony głównej
         .eq('is_active', true)
         .order('position');
+
+      if (!user) {
+        sectionsQuery = sectionsQuery.eq('visible_to_everyone', true);
+      }
+
+      const { data: sectionsData } = await sectionsQuery;
 
       // Pobierz tylko elementy należące do strony głównej (page_id = null)
       const { data: itemsData } = await supabase
@@ -141,12 +147,18 @@ const Index = () => {
       if (authorItem?.description) setAuthorText(authorItem.description);
       
       // Pobierz opublikowane strony
-      const { data: pagesData } = await supabase
+      let pagesQuery = supabase
         .from('pages')
         .select('id, title, slug, meta_description, created_at, visible_to_partners, visible_to_clients, visible_to_everyone')
         .eq('is_published', true)
         .eq('is_active', true)
         .order('position', { ascending: true });
+
+      if (!user) {
+        pagesQuery = pagesQuery.eq('visible_to_everyone', true);
+      }
+
+      const { data: pagesData } = await pagesQuery;
       
       setPublishedPages(pagesData || []);
       
