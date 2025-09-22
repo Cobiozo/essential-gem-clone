@@ -160,6 +160,14 @@ const Admin = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Allow text selection in Admin panel
+  useEffect(() => {
+    document.body.classList.add('is-admin');
+    return () => {
+      document.body.classList.remove('is-admin');
+    };
+  }, []);
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -315,8 +323,8 @@ const Admin = () => {
   const [userSortBy, setUserSortBy] = useState<'email' | 'role' | 'created_at' | 'is_active'>('created_at');
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   
-  // Enable security preventions
-  useSecurityPreventions();
+  // Security preventions disabled in Admin to allow text selection
+  // useSecurityPreventions();
 
   // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
   const SECTION_DB_FIELDS = [
