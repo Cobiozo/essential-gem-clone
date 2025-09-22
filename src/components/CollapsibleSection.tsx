@@ -126,7 +126,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     marginBottom: `${sectionStyle.section_margin_bottom || 16}px`,
     marginLeft: 'auto',
     marginRight: 'auto',
-    overflow: sectionStyle.overflow_behavior as any || 'hidden', // Hidden for clean card look
+    overflow: 'hidden', // Ensure rounded corners clip backgrounds and overlays
     position: 'relative' as const,
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
@@ -204,6 +204,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     bottom: 0,
     backgroundColor: sectionStyle.background_color || 'transparent',
     opacity: (100 - (sectionStyle.background_image_opacity || 100)) / 100,
+    borderRadius: `${sectionStyle?.border_radius || 16}px`,
     pointerEvents: 'none' as const,
   } : undefined;
 
