@@ -1465,32 +1465,17 @@ const Admin = () => {
     }
   };
 
-  const createPageSection = async (pageId: string, sectionData?: any) => {
+  const createPageSection = async (pageId: string) => {
     try {
       const maxPosition = Math.max(...pageSections.map(s => s.position), 0);
       
-      let sectionPayload;
-      if (sectionData) {
-        // Ensure required fields are present
-        const fullSectionData = {
-          ...sectionData,
-          page_id: pageId,
-          position: maxPosition + 1,
-          title: sectionData.title || 'Nowa sekcja'
-        };
-        sectionPayload = sanitizeSectionPayload(fullSectionData);
-      } else {
-        sectionPayload = {
+      const { data, error } = await supabase
+        .from('cms_sections')
+        .insert([{
           title: newPageSection.title,
           position: maxPosition + 1,
           page_id: pageId,
-          is_active: true
-        };
-      }
-      
-      const { data, error } = await supabase
-        .from('cms_sections')
-        .insert([sectionPayload])
+        }])
         .select()
         .single();
 
@@ -1569,18 +1554,17 @@ const Admin = () => {
     }
   };
 
-  const updatePageSection = async (sectionId: string, updates: any) => {
+  const updatePageSection = async (sectionId: string, updates: Partial<CMSSection>) => {
     try {
-      const sanitizedUpdates = sanitizeSectionPayload(updates);
       const { error } = await supabase
         .from('cms_sections')
-        .update(sanitizedUpdates)
+        .update(updates)
         .eq('id', sectionId);
 
       if (error) throw error;
 
       setPageSections(pageSections.map(section => 
-        section.id === sectionId ? { ...section, ...sanitizedUpdates } : section
+        section.id === sectionId ? { ...section, ...updates } : section
       ));
       setEditingPageSection(null);
       
@@ -1759,7 +1743,7 @@ const Admin = () => {
           <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Zarządzanie treścią</span>
+              <span className="hidden sm:inline">{t('admin.contentManagement')}</span>
             </TabsTrigger>
             <TabsTrigger value="fonts" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
@@ -3341,36 +3325,30 @@ const Admin = () => {
                       </p>
                     </div>
 
-                     {/* Add New Section */}
-                     <div className="mb-6">
-                       <div className="flex items-center justify-between mb-4">
-                         <h3 className="text-lg font-medium">Sekcje strony</h3>
-                         <Dialog>
-                           <DialogTrigger asChild>
-                             <Button>
-                               <Plus className="w-4 h-4 mr-2" />
-                               Dodaj sekcję
-                             </Button>
-                           </DialogTrigger>
-                           <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
-                             <DialogHeader className="p-6 pb-2 shrink-0">
-                               <DialogTitle>Dodaj nową sekcję do strony</DialogTitle>
-                               <DialogDescription>
-                                 Skonfiguruj wygląd i zawartość sekcji
-                               </DialogDescription>
-                             </DialogHeader>
-                             <div className="flex-1 overflow-y-auto px-6 pb-6">
-                               <SectionEditor 
-                                 section={null}
-                                 onSave={(newSectionData) => createPageSection(editingPage.id, newSectionData)}
-                                 onCancel={() => {}}
-                                 isNew={true}
-                               />
-                             </div>
-                           </DialogContent>
-                         </Dialog>
-                       </div>
-                     </div>
+                    {/* Add New Section */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <Label htmlFor="new-page-section-title">Nazwa sekcji</Label>
+                          <Input
+                            id="new-page-section-title"
+                            value={newPageSection.title}
+                            onChange={(e) => setNewPageSection({...newPageSection, title: e.target.value})}
+                            placeholder="Wprowadź nazwę sekcji"
+                          />
+                        </div>
+                        <Button 
+                          onClick={() => createPageSection(editingPage.id)} 
+                          disabled={!newPageSection.title}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Dodaj sekcję
+                        </Button>
+                      </CardContent>
+                    </Card>
 
                     {/* Existing Sections */}
                     <div className="space-y-4">
@@ -3379,315 +3357,70 @@ const Admin = () => {
                           <p>Brak sekcji. Dodaj pierwszą sekcję aby rozpocząć.</p>
                         </div>
                       ) : (
-                         pageSections.map((section) => (
-                           <Card key={section.id}>
-                             <CardHeader className="p-4 sm:p-6">
-                               <div className="flex flex-col gap-4">
-                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                   <div className="flex-1">
-                                     <CardTitle className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 text-base sm:text-lg">
-                                       <span className="break-words">{section.title}</span>
-                                       <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
-                                         {section.is_active ? 'Aktywny' : 'Nieaktywny'}
-                                       </Badge>
-                                     </CardTitle>
-                                     <CardDescription className="text-xs sm:text-sm mt-1">
-                                       Pozycja: {section.position} | Elementów: {pageItems.filter(item => item.section_id === section.id).length}
-                                     </CardDescription>
-                                     <div className="flex flex-wrap gap-2 mt-2">
-                                       <div className="flex items-center space-x-2">
-                                         <input
-                                           type="checkbox"
-                                           id={`page-section-partner-${section.id}`}
-                                           checked={section.visible_to_partners}
-                                           onChange={(e) => updatePageSection(section.id, { visible_to_partners: e.target.checked })}
-                                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                         />
-                                         <label htmlFor={`page-section-partner-${section.id}`} className="text-sm">Partner</label>
-                                       </div>
-                                       <div className="flex items-center space-x-2">
-                                         <input
-                                           type="checkbox"
-                                           id={`page-section-client-${section.id}`}
-                                           checked={section.visible_to_clients}
-                                           onChange={(e) => updatePageSection(section.id, { visible_to_clients: e.target.checked })}
-                                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                         />
-                                         <label htmlFor={`page-section-client-${section.id}`} className="text-sm">Klient</label>
-                                       </div>
-                                       <div className="flex items-center space-x-2">
-                                         <input
-                                           type="checkbox"
-                                           id={`page-section-everyone-${section.id}`}
-                                           checked={section.visible_to_everyone}
-                                           onChange={(e) => updatePageSection(section.id, { visible_to_everyone: e.target.checked })}
-                                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                         />
-                                         <label htmlFor={`page-section-everyone-${section.id}`} className="text-sm">Dla wszystkich</label>
-                                       </div>
-                                       <div className="flex items-center space-x-2">
-                                         <input
-                                           type="checkbox"
-                                           id={`page-section-specjalista-${section.id}`}
-                                           checked={section.visible_to_specjalista}
-                                           onChange={(e) => updatePageSection(section.id, { visible_to_specjalista: e.target.checked })}
-                                           className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                         />
-                                         <label htmlFor={`page-section-specjalista-${section.id}`} className="text-sm">Specjalista</label>
-                                       </div>
-                                     </div>
-                                   </div>
-                                   <div className="flex items-center justify-between sm:justify-end gap-3">
-                                     <div className="flex items-center gap-1">
-                                       <Button 
-                                         variant="outline" 
-                                         size="sm" 
-                                         onClick={() => {/* TODO: Move section up */}}
-                                         disabled={pageSections.findIndex(s => s.id === section.id) === 0}
-                                         className="h-8 w-8 p-0"
-                                       >
-                                         <ChevronUp className="w-4 h-4" />
-                                       </Button>
-                                       <Button 
-                                         variant="outline" 
-                                         size="sm" 
-                                         onClick={() => {/* TODO: Move section down */}}
-                                         disabled={pageSections.findIndex(s => s.id === section.id) === pageSections.length - 1}
-                                         className="h-8 w-8 p-0"
-                                       >
-                                         <ChevronDown className="w-4 h-4" />
-                                       </Button>
-                                     </div>
-                                     <Switch
-                                       checked={section.is_active}
-                                       onCheckedChange={(checked) => updatePageSection(section.id, { is_active: checked })}
-                                     />
-                                   </div>
-                                 </div>
-                                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                                   <Button variant="outline" size="sm" onClick={() => setEditingPageSection(section)} className="flex-1 sm:flex-none">
-                                     <Pencil className="w-4 h-4 sm:mr-2" />
-                                     <span className="hidden sm:inline">Edytuj</span>
-                                   </Button>
-                                   <Button variant="destructive" size="sm" onClick={() => deletePageSection(section.id)} className="flex-1 sm:flex-none">
-                                     <Trash2 className="w-4 h-4 sm:mr-2" />
-                                     <span className="hidden sm:inline">Usuń</span>
-                                   </Button>
-                                   <ItemEditor
-                                     sectionId={section.id}
-                                     onSave={async (newItem) => {
-                                       try {
-                                         const { data, error } = await supabase
-                                           .from('cms_items')
-                                           .insert([{
-                                             type: newItem.type,
-                                             title: newItem.title,
-                                             description: newItem.description,
-                                             url: newItem.url,
-                                             icon: newItem.icon,
-                                             section_id: section.id,
-                                             page_id: editingPage.id,
-                                             position: (pageItems.filter(i => i.section_id === section.id).length || 0) + 1,
-                                             is_active: newItem.is_active,
-                                             media_url: newItem.media_url,
-                                             media_type: newItem.media_type,
-                                             media_alt_text: newItem.media_alt_text,
-                                             cells: convertCellsToDatabase(newItem.cells || [])
-                                           }])
-                                           .select()
-                                           .single();
-
-                                         if (error) {
-                                           console.error('Error creating item:', error);
-                                           toast({
-                                             title: "Błąd",
-                                             description: "Nie udało się dodać elementu",
-                                             variant: "destructive",
-                                           });
-                                         } else {
-                                           setPageItems([...pageItems, convertDatabaseItemToCMSItem(data)]);
-                                           toast({
-                                             title: "Element dodany",
-                                             description: "Element został pomyślnie dodany do sekcji",
-                                           });
-                                         }
-                                       } catch (error) {
-                                         console.error('Error creating item:', error);
-                                         toast({
-                                           title: "Błąd",
-                                           description: "Nie udało się dodać elementu",
-                                           variant: "destructive",
-                                         });
-                                       }
-                                     }}
-                                     isNew={true}
-                                     trigger={
-                                       <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                                         <Plus className="w-4 h-4 sm:mr-2" />
-                                         <span className="hidden sm:inline">Dodaj element</span>
-                                         <span className="sm:hidden">Dodaj element</span>
-                                       </Button>
-                                     }
-                                   />
-                                 </div>
-                               </div>
-                             </CardHeader>
-                             <CardContent className="p-4 sm:p-6">
-                               <div className="space-y-3 sm:space-y-4">
-                                 {pageItems
-                                   .filter(item => item.section_id === section.id)
-                                   .map((item) => (
-                                     <div key={item.id} className="flex flex-col gap-3 p-3 sm:p-4 border rounded-lg bg-gray-50/50">
-                                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                                         <div className="flex-1 min-w-0">
-                                           <div className="flex flex-wrap items-center gap-2 mb-2">
-                                             <Badge variant="outline" className="text-xs">{item.type}</Badge>
-                                             <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
-                                               {item.is_active ? "Aktywny" : "Nieaktywny"}
-                                             </Badge>
-                                           </div>
-                                           <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
-                                             {item.title || 'Bez tytułu'}
-                                           </h4>
-                                           {item.media_url && (
-                                             <div className="mt-2 mb-2">
-                                               <SecureMedia
-                                                 mediaUrl={item.media_url}
-                                                 mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-                                                 altText={item.media_alt_text || ''}
-                                                 className="w-20 h-20 object-cover rounded border"
-                                               />
-                                             </div>
-                                           )}
-                                           {item.description && (
-                                             <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
-                                               {item.description.length > 100 
-                                                 ? `${item.description.substring(0, 100)}...` 
-                                                 : item.description
-                                               }
-                                             </p>
-                                           )}
-                                           {item.url && (
-                                             <p className="text-xs text-blue-600 mt-1 break-all">
-                                               {item.url.length > 50 ? `${item.url.substring(0, 50)}...` : item.url}
-                                             </p>
-                                           )}
-                                         </div>
-                                       </div>
-                                       <div className="flex flex-wrap gap-2">
-                                         <Switch
-                                           checked={item.is_active}
-                                           onCheckedChange={(checked) => updatePageItem(item.id, { is_active: checked })}
-                                           className="mr-2"
-                                         />
-                                         <ItemEditor
-                                           item={{
-                                             ...item,
-                                             media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
-                                           }}
-                                           sectionId={item.section_id}
-                                           onSave={(updatedItem) => {
-                                             updatePageItem(updatedItem.id!, {
-                                               type: updatedItem.type,
-                                               title: updatedItem.title,
-                                               description: updatedItem.description,
-                                               url: updatedItem.url,
-                                               position: updatedItem.position,
-                                               is_active: updatedItem.is_active,
-                                               media_url: updatedItem.media_url,
-                                               media_type: updatedItem.media_type as any,
-                                               media_alt_text: updatedItem.media_alt_text,
-                                               cells: updatedItem.cells
-                                             });
-                                           }}
-                                           trigger={
-                                             <Button variant="outline" size="sm">
-                                               <Pencil className="w-4 h-4 mr-1" />
-                                               Edytuj
-                                             </Button>
-                                           }
-                                         />
-                                         <Button
-                                           variant="destructive"
-                                           size="sm"
-                                           onClick={() => deletePageItem(item.id)}
-                                         >
-                                           <Trash2 className="w-4 h-4 mr-1" />
-                                           Usuń
-                                         </Button>
-                                       </div>
-                                     </div>
-                                   ))}
-                                 {pageItems.filter(item => item.section_id === section.id).length === 0 && (
-                                   <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                                     Brak elementów w sekcji
-                                   </div>
-                                 )}
-                               </div>
-                             </CardContent>
-                           </Card>
-                         ))
-                       )}
-                     </div>
-                   </div>
-                 </TabsContent>
-               </Tabs>
-             </div>
-             
-             <DialogFooter className="flex-shrink-0 px-6 pb-6 pt-4 border-t">
-               <Button variant="outline" onClick={() => setEditingPage(null)}>
-                 Anuluj
-               </Button>
-               <Button onClick={() => updatePage(editingPage.id, {
-                 title: editingPage.title,
-                 slug: editingPage.slug,
-                 content: editingPage.content,
-                 content_formatting: pageContentStyle,
-                 meta_title: editingPage.meta_title,
-                 meta_description: editingPage.meta_description,
-                 is_published: editingPage.is_published,
-                 is_active: editingPage.is_active,
-                 position: editingPage.position,
-                 visible_to_partners: editingPage.visible_to_partners,
-                 visible_to_clients: editingPage.visible_to_clients,
-                 visible_to_everyone: editingPage.visible_to_everyone,
-                 visible_to_specjalista: editingPage.visible_to_specjalista,
-               })}>
-                 <Save className="w-4 h-4 mr-2" />
-                 Zapisz zmiany
-               </Button>
-             </DialogFooter>
-           </DialogContent>
-         </Dialog>
-       )}
-
-       {/* Edit Page Section Dialog */}
-       {editingPageSection && (
-         <Dialog open={!!editingPageSection} onOpenChange={() => setEditingPageSection(null)}>
-           <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
-             <DialogHeader className="p-6 pb-2 shrink-0">
-               <DialogTitle>Edytuj sekcję strony</DialogTitle>
-               <DialogDescription>
-                 Skonfiguruj wygląd i zawartość sekcji
-               </DialogDescription>
-             </DialogHeader>
-             <div className="flex-1 overflow-y-auto px-6 pb-6">
-               <SectionEditor 
-                 section={editingPageSection}
-                 onSave={(updatedSection) => updatePageSection(editingPageSection.id, updatedSection)}
-                 onCancel={() => setEditingPageSection(null)}
-                 isNew={false}
-               />
-             </div>
-           </DialogContent>
-         </Dialog>
-       )}
-                       )}
-                     </div>
-                   </div>
-                 </TabsContent>
-               </Tabs>
-             </div>
+                        pageSections.map((section) => (
+                          <Card key={section.id}>
+                            <CardHeader>
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base">{section.title}</CardTitle>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setEditingPageSection(section)}
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => deletePageSection(section.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              {/* Add Item Form */}
+                              {selectedPageSection?.id === section.id && (
+                                <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+                                  <h4 className="font-medium mb-4">Dodaj element do sekcji</h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="new-page-item-type">Typ elementu</Label>
+                                      <Select value={newPageItem.type} onValueChange={(value) => setNewPageItem({...newPageItem, type: value})}>
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="button">Przycisk</SelectItem>
+                                          <SelectItem value="info_text">Tekst informacyjny</SelectItem>
+                                          <SelectItem value="tip">Wskazówka</SelectItem>
+                                          <SelectItem value="description">Opis</SelectItem>
+                                          <SelectItem value="contact_info">Informacje kontaktowe</SelectItem>
+                                          <SelectItem value="support_info">Informacje o wsparciu</SelectItem>
+                                          <SelectItem value="header_text">Tekst nagłówka</SelectItem>
+                                          <SelectItem value="author">Autor</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div>
+                                      <Label htmlFor="new-page-item-title">Tytuł</Label>
+                                      <Input
+                                        id="new-page-item-title"
+                                        value={newPageItem.title}
+                                        onChange={(e) => setNewPageItem({...newPageItem, title: e.target.value})}
+                                        placeholder="Tytuł elementu"
+                                      />
+                                    </div>
+                                  </div>
                                   <div className="mt-4">
                                     <Label htmlFor="new-page-item-description">Opis</Label>
                                     <Textarea
@@ -3879,21 +3612,44 @@ const Admin = () => {
       {/* Edit Page Section Dialog */}
       {editingPageSection && (
         <Dialog open={!!editingPageSection} onOpenChange={() => setEditingPageSection(null)}>
-          <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] flex flex-col gap-0 p-0">
-            <DialogHeader className="p-6 pb-2 shrink-0">
+          <DialogContent>
+            <DialogHeader>
               <DialogTitle>Edytuj sekcję strony</DialogTitle>
               <DialogDescription>
-                Skonfiguruj wygląd i zawartość sekcji
+                Modyfikuj dane sekcji strony
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6 pb-6">
-              <SectionEditor 
-                section={editingPageSection}
-                onSave={(updatedSection) => updatePageSection(editingPageSection.id, updatedSection)}
-                onCancel={() => setEditingPageSection(null)}
-                isNew={false}
-              />
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-page-section-title">Tytuł sekcji</Label>
+                <Input
+                  value={editingPageSection.title || ''}
+                  onChange={(e) => setEditingPageSection({...editingPageSection, title: e.target.value})}
+                  placeholder="Nazwa sekcji"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-page-section-position">Pozycja</Label>
+                <Input
+                  type="number"
+                  value={editingPageSection.position}
+                  onChange={(e) => setEditingPageSection({...editingPageSection, position: parseInt(e.target.value) || 0})}
+                  placeholder="Pozycja sekcji"
+                />
+              </div>
             </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingPageSection(null)}>
+                Anuluj
+              </Button>
+              <Button onClick={() => updatePageSection(editingPageSection.id, {
+                title: editingPageSection.title,
+                position: editingPageSection.position,
+              })}>
+                <Save className="w-4 h-4 mr-2" />
+                Zapisz zmiany
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
