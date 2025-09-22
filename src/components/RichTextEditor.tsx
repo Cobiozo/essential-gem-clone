@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
@@ -500,6 +500,187 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       onChange(previewRef.current.innerHTML);
     }
   }, [onChange]);
+
+  const makeImageResizable = useCallback((img: HTMLImageElement) => {
+    // Remove existing resize wrapper if any
+    const existingWrapper = img.parentElement;
+    if (existingWrapper?.classList.contains('resizable-image-wrapper')) {
+      return;
+    }
+
+    // Create wrapper for resizable image
+    const wrapper = document.createElement('div');
+    wrapper.className = 'resizable-image-wrapper';
+    wrapper.style.cssText = `
+      position: relative;
+      display: inline-block;
+      border: 2px dashed transparent;
+      transition: border-color 0.2s ease;
+    `;
+
+    // Insert wrapper before image and move image inside
+    img.parentNode?.insertBefore(wrapper, img);
+    wrapper.appendChild(img);
+
+    // Create resize handles
+    const corners = ['nw', 'ne', 'sw', 'se'];
+    const handles: HTMLDivElement[] = [];
+
+    corners.forEach(corner => {
+      const handle = document.createElement('div');
+      handle.className = `resize-handle resize-${corner}`;
+      handle.style.cssText = `
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: #2563eb;
+        border: 2px solid white;
+        border-radius: 50%;
+        cursor: ${corner.includes('n') && corner.includes('w') || corner.includes('s') && corner.includes('e') ? 'nw-resize' : 'ne-resize'};
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        z-index: 10;
+      `;
+
+      // Position handles
+      if (corner.includes('n')) handle.style.top = '-6px';
+      if (corner.includes('s')) handle.style.bottom = '-6px';
+      if (corner.includes('w')) handle.style.left = '-6px';
+      if (corner.includes('e')) handle.style.right = '-6px';
+
+      wrapper.appendChild(handle);
+      handles.push(handle);
+    });
+
+    // Show/hide handles on hover
+    wrapper.addEventListener('mouseenter', () => {
+      wrapper.style.borderColor = '#2563eb';
+      handles.forEach(handle => {
+        handle.style.opacity = '1';
+      });
+    });
+
+    wrapper.addEventListener('mouseleave', () => {
+      wrapper.style.borderColor = 'transparent';
+      handles.forEach(handle => {
+        handle.style.opacity = '0';
+      });
+    });
+
+    // Add resize functionality
+    handles.forEach((handle, index) => {
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startWidth = img.offsetWidth;
+        const startHeight = img.offsetHeight;
+        const aspectRatio = startWidth / startHeight;
+
+        const corner = corners[index];
+        
+        const handleMouseMove = (e: MouseEvent) => {
+          let deltaX = e.clientX - startX;
+          let deltaY = e.clientY - startY;
+
+          // Calculate new dimensions based on corner
+          let newWidth = startWidth;
+          let newHeight = startHeight;
+
+          if (corner.includes('e')) {
+            newWidth = startWidth + deltaX;
+          } else if (corner.includes('w')) {
+            newWidth = startWidth - deltaX;
+          }
+
+          if (corner.includes('s')) {
+            newHeight = startHeight + deltaY;
+          } else if (corner.includes('n')) {
+            newHeight = startHeight - deltaY;
+          }
+
+          // Maintain aspect ratio by using the larger dimension change
+          const widthChange = Math.abs(newWidth - startWidth);
+          const heightChange = Math.abs(newHeight - startHeight);
+
+          if (widthChange > heightChange) {
+            newHeight = newWidth / aspectRatio;
+          } else {
+            newWidth = newHeight * aspectRatio;
+          }
+
+          // Set minimum size
+          newWidth = Math.max(50, newWidth);
+          newHeight = Math.max(50, newHeight);
+
+          // Update image size
+          img.style.width = `${newWidth}px`;
+          img.style.height = `${newHeight}px`;
+          img.style.maxWidth = 'none';
+
+          // Update the actual img attributes for HTML consistency
+          img.setAttribute('width', newWidth.toString());
+          img.setAttribute('height', newHeight.toString());
+        };
+
+        const handleMouseUp = () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+          
+          // Update the HTML content
+          if (previewRef.current) {
+            onChange(previewRef.current.innerHTML);
+          }
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+      });
+    });
+  }, [onChange]);
+
+  // Add effect to make existing images resizable when in preview mode
+  useEffect(() => {
+    if (activeTab === 'preview' && previewRef.current) {
+      const images = previewRef.current.querySelectorAll('img');
+      images.forEach((img) => {
+        if (!img.parentElement?.classList.contains('resizable-image-wrapper')) {
+          makeImageResizable(img as HTMLImageElement);
+        }
+      });
+
+      // Observer to make new images resizable
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const element = node as Element;
+              const images = element.querySelectorAll ? element.querySelectorAll('img') : [];
+              images.forEach((img) => {
+                if (!img.parentElement?.classList.contains('resizable-image-wrapper')) {
+                  makeImageResizable(img as HTMLImageElement);
+                }
+              });
+              
+              // Check if the node itself is an image
+              if (element.tagName === 'IMG' && !element.parentElement?.classList.contains('resizable-image-wrapper')) {
+                makeImageResizable(element as HTMLImageElement);
+              }
+            }
+          });
+        });
+      });
+
+      observer.observe(previewRef.current, {
+        childList: true,
+        subtree: true
+      });
+
+      return () => observer.disconnect();
+    }
+  }, [activeTab, makeImageResizable]);
 
   return (
     <div className={`border rounded-md ${className}`}>
