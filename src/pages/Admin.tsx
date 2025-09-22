@@ -27,6 +27,7 @@ import { ItemEditor } from '@/components/cms/ItemEditor';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -1731,10 +1732,14 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="layout" className="flex items-center gap-2">
+              <Type className="w-4 h-4" />
+              <span className="hidden sm:inline">Layout</span>
             </TabsTrigger>
             <TabsTrigger value="fonts" className="flex items-center gap-2">
               <Type className="w-4 h-4" />
@@ -2109,6 +2114,10 @@ const Admin = () => {
             );
           })}
             </div>
+          </TabsContent>
+
+          <TabsContent value="layout">
+            <LivePreviewEditor />
           </TabsContent>
 
           <TabsContent value="fonts">
