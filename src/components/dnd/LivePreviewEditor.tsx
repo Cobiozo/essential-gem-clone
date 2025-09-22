@@ -17,6 +17,7 @@ import { EditingToolbar } from './EditingToolbar';
 import { LayoutControls } from './LayoutControls';
 import { DevicePreview, DeviceFrame, DeviceType } from './DevicePreview';
 import { ResponsiveControls, defaultResponsiveSettings } from './ResponsiveControls';
+import { InactiveElementsManager } from './InactiveElementsManager';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
@@ -446,6 +447,61 @@ export const LivePreviewEditor: React.FC = () => {
     autoSave(sections, newItems);
   };
 
+  const handleDeactivateElement = async (elementId: string) => {
+    try {
+      // Check if it's a section or item
+      const isSection = sections.find(s => s.id === elementId);
+      const isItem = items.find(i => i.id === elementId);
+      
+      if (!isSection && !isItem) {
+        toast({
+          title: 'Błąd',
+          description: 'Element nie został znaleziony',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const elementType = isSection ? 'section' : 'item';
+      const elementName = isSection ? isSection.title : (isItem?.title || isItem?.type);
+
+      if (!confirm(`Czy na pewno chcesz ukryć "${elementName}"? Możesz go aktywować ponownie w zarządzaniu nieaktywnymi elementami.`)) {
+        return;
+      }
+
+      const table = elementType === 'section' ? 'cms_sections' : 'cms_items';
+      const { error } = await supabase
+        .from(table)
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', elementId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      if (elementType === 'section') {
+        setSections(prev => prev.filter(s => s.id !== elementId));
+      } else {
+        setItems(prev => prev.filter(i => i.id !== elementId));
+      }
+
+      setSelectedElement(null);
+      setHasUnsavedChanges(false); // Element was removed, no need to save
+
+      toast({
+        title: 'Sukces',
+        description: `${elementType === 'section' ? 'Sekcja' : 'Element'} został ukryty`,
+      });
+
+    } catch (error) {
+      console.error('Error deactivating element:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można ukryć elementu',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (!isAdmin) {
     return (
       <Card>
@@ -528,6 +584,11 @@ export const LivePreviewEditor: React.FC = () => {
         </>
       )}
 
+      <InactiveElementsManager
+        onElementActivated={fetchData}
+        onElementDeleted={fetchData}
+      />
+
       <LayoutControls
         isVisible={editMode}
         selectedElement={selectedElement}
@@ -540,8 +601,9 @@ export const LivePreviewEditor: React.FC = () => {
           console.log('Duplicate element:', selectedElement);
         }}
         onDeleteElement={() => {
-          // Handle deletion
-          console.log('Delete element:', selectedElement);
+          if (selectedElement) {
+            handleDeactivateElement(selectedElement);
+          }
         }}
         onResetElement={() => {
           // Handle reset
