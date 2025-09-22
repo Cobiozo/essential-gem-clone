@@ -422,45 +422,72 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
                           <div className="space-y-2">
                             {cell.section_items.map((item, itemIndex) => (
                               <div key={item.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                                <span className="text-sm">{item.title || item.type}</span>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    const updatedItems = cell.section_items?.filter((_, i) => i !== itemIndex) || [];
-                                    updateCell(cell.id, { section_items: updatedItems });
-                                  }}
-                                  className="h-6 w-6 p-0 text-destructive"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{item.title || 'Bez tytułu'}</div>
+                                  <div className="text-xs text-muted-foreground">{item.type}</div>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <ItemEditor
+                                    item={item}
+                                    sectionId={cell.id}
+                                    onSave={(updatedItem) => {
+                                      const updatedItems = [...(cell.section_items || [])];
+                                      updatedItems[itemIndex] = updatedItem;
+                                      updateCell(cell.id, { section_items: updatedItems });
+                                    }}
+                                    onCancel={() => {}}
+                                    trigger={
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0"
+                                      >
+                                        <Edit3 className="w-3 h-3" />
+                                      </Button>
+                                    }
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      const updatedItems = cell.section_items?.filter((_, i) => i !== itemIndex) || [];
+                                      updateCell(cell.id, { section_items: updatedItems });
+                                    }}
+                                    className="h-6 w-6 p-0 text-destructive"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">Brak elementów w sekcji</p>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const newItem: CMSItem = {
-                              id: crypto.randomUUID(),
-                              type: 'button',
-                              title: 'Nowy element',
-                              description: '',
-                              url: '',
+                        <ItemEditor
+                          sectionId={cell.id}
+                          onSave={(newItem) => {
+                            const itemWithId = {
+                              ...newItem,
+                              id: newItem.id || crypto.randomUUID(),
                               position: (cell.section_items?.length || 0) + 1,
                               section_id: cell.id
                             };
-                            const updatedItems = [...(cell.section_items || []), newItem];
+                            const updatedItems = [...(cell.section_items || []), itemWithId];
                             updateCell(cell.id, { section_items: updatedItems });
                           }}
-                          className="mt-2 w-full"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Dodaj element
-                        </Button>
+                          onCancel={() => {}}
+                          trigger={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mt-2 w-full"
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Dodaj element
+                            </Button>
+                          }
+                        />
                       </div>
                     </>
                   )}
