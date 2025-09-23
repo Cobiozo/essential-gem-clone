@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Edit3, Loader2, Layout, Columns } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
 import { DraggableItem } from './DraggableItem';
@@ -73,11 +74,30 @@ export const LivePreviewEditor: React.FC = () => {
     
     sections.forEach(section => {
       const sectionItems = items.filter(item => item.section_id === section.id);
-      columnData[section.id] = [{
-        id: `${section.id}-col-0`,
-        items: sectionItems,
-        width: 100,
-      }];
+      
+      // Check if section has saved column count from style_class
+      const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
+      const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : 1;
+      
+      if (columnCount > 1) {
+        // Create multiple columns
+        const columns: Column[] = [];
+        for (let i = 0; i < columnCount; i++) {
+          columns.push({
+            id: `${section.id}-col-${i}`,
+            items: i === 0 ? sectionItems : [], // Put all items in first column initially
+            width: 100 / columnCount,
+          });
+        }
+        columnData[section.id] = columns;
+      } else {
+        // Single column (default)
+        columnData[section.id] = [{
+          id: `${section.id}-col-0`,
+          items: sectionItems,
+          width: 100,
+        }];
+      }
     });
     
     setSectionColumns(columnData);
@@ -433,10 +453,47 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
-  const handleElementResize = (elementId: string, width: number, height: number) => {
-    // Here you would save the resize data to the database
+  const handleElementResize = async (elementId: string, width: number, height: number) => {
     console.log(`Element ${elementId} resized to ${width}x${height}`);
     setHasUnsavedChanges(true);
+    
+    try {
+      // Check if it's a section or item
+      const isSection = sections.find(s => s.id === elementId);
+      
+      if (isSection) {
+        // Update section size in database
+        const { error } = await supabase
+          .from('cms_sections')
+          .update({ 
+            custom_width: width > 0 ? width : null, 
+            custom_height: height > 0 ? height : null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', elementId);
+        
+        if (error) throw error;
+        
+        // Update local state
+        setSections(prev => prev.map(s => 
+          s.id === elementId 
+            ? { ...s, custom_width: width > 0 ? width : null, custom_height: height > 0 ? height : null }
+            : s
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: 'Rozmiar sekcji został zapisany',
+        });
+      }
+    } catch (error) {
+      console.error('Error saving element resize:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zapisać rozmiaru elementu',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleLayoutModeChange = (mode: 'single' | 'columns' | 'grid') => {
@@ -449,7 +506,7 @@ export const LivePreviewEditor: React.FC = () => {
     setHasUnsavedChanges(true);
   };
 
-  const handleColumnsChange = (sectionId: string, columns: Column[]) => {
+  const handleColumnsChange = async (sectionId: string, columns: Column[]) => {
     setSectionColumns(prev => ({
       ...prev,
       [sectionId]: columns,
@@ -462,6 +519,43 @@ export const LivePreviewEditor: React.FC = () => {
     
     setItems(newItems);
     setHasUnsavedChanges(true);
+    
+    try {
+      // Save column count in section's style_class (temporary solution)
+      const columnCount = columns.length;
+      const currentSection = sections.find(s => s.id === sectionId);
+      const updatedStyleClass = `columns-${columnCount}`;
+      
+      const { error } = await supabase
+        .from('cms_sections')
+        .update({ 
+          style_class: updatedStyleClass,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sectionId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setSections(prev => prev.map(s => 
+        s.id === sectionId 
+          ? { ...s, style_class: updatedStyleClass }
+          : s
+      ));
+      
+      toast({
+        title: 'Sukces',
+        description: `Liczba kolumn (${columnCount}) została zapisana`,
+      });
+    } catch (error) {
+      console.error('Error saving column count:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zapisać liczby kolumn',
+        variant: 'destructive',
+      });
+    }
+    
     autoSave(sections, newItems);
   };
 
@@ -679,11 +773,20 @@ export const LivePreviewEditor: React.FC = () => {
                   isEditMode={editMode}
                   className="h-fit"
                 >
-                  <ResizableElement
-                    isEditMode={editMode}
-                    onResize={(width, height) => handleElementResize(section.id, width, height)}
-                    className="w-full"
+                  <div 
+                    onClick={() => setSelectedElement(section.id)}
+                    className={cn(
+                      "cursor-pointer transition-all duration-200",
+                      selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
+                    )}
                   >
+                    <ResizableElement
+                      isEditMode={editMode}
+                      onResize={(width, height) => handleElementResize(section.id, width, height)}
+                      initialWidth={section.custom_width || undefined}
+                      initialHeight={section.custom_height || undefined}
+                      className="w-full"
+                    >
                     <CollapsibleSection
                       title={section.title}
                       description={section.description}
@@ -748,9 +851,11 @@ export const LivePreviewEditor: React.FC = () => {
                         isEditMode={editMode}
                         onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
                         onItemClick={() => {}}
+                        onSelectItem={(itemId) => setSelectedElement(itemId)}
                       />
                     </CollapsibleSection>
                   </ResizableElement>
+                  </div>
                 </DraggableSection>
               );
             })}

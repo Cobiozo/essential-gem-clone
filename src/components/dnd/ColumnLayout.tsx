@@ -173,6 +173,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             canRemove={columns.length > 1}
             onRemove={() => removeColumn(column.id)}
             onItemClick={onItemClick}
+            onSelectItem={onSelectItem}
             isDragOver={dragOverColumn === column.id}
             onDragOver={(isDragging) => {
               setDragOverColumn(isDragging ? column.id : null);
@@ -191,6 +192,7 @@ interface ColumnDropZoneProps {
   canRemove: boolean;
   onRemove: () => void;
   onItemClick?: (title: string, url?: string) => void;
+  onSelectItem?: (itemId: string) => void;
   isDragOver: boolean;
   onDragOver: (isDragging: boolean) => void;
 }
@@ -202,6 +204,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   canRemove,
   onRemove,
   onItemClick,
+  onSelectItem,
   isDragOver,
   onDragOver,
 }) => {
