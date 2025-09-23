@@ -20,6 +20,7 @@ interface ColumnLayoutProps {
   isEditMode: boolean;
   onColumnsChange: (columns: Column[]) => void;
   onItemClick?: (title: string, url?: string) => void;
+  onSelectItem?: (itemId: string) => void;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   isEditMode,
   onColumnsChange,
   onItemClick,
+  onSelectItem,
   className,
 }) => {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -258,18 +260,19 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
             </div>
           )}
           
-          {column.items.map((item) => (
-            <DraggableItem
-              key={item.id}
-              id={item.id || ''}
-              isEditMode={isEditMode}
-            >
-              <CMSContent
-                item={item}
-                onClick={onItemClick || (() => {})}
-              />
-            </DraggableItem>
-          ))}
+{column.items.map((item) => (
+  <div key={item.id} onClick={() => onSelectItem?.(item.id || '')}>
+    <DraggableItem
+      id={item.id || ''}
+      isEditMode={isEditMode}
+    >
+      <CMSContent
+        item={item}
+        onClick={onItemClick || (() => {})}
+      />
+    </DraggableItem>
+  </div>
+))}
         </div>
       </SortableContext>
     </div>
