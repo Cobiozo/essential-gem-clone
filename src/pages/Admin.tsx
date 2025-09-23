@@ -29,6 +29,7 @@ import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
+import { GroupEmailSender } from '@/components/GroupEmailSender';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -2515,13 +2516,18 @@ const Admin = () => {
           <TabsContent value="users">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="w-5 h-5" />
-                  <span>{t('admin.userManagement')}</span>
-                </CardTitle>
-                <CardDescription>
-                  Zarządzaj klientami i ich rolami w systemie
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Users className="w-5 h-5" />
+                      <span>{t('admin.userManagement')}</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Zarządzaj klientami i ich rolami w systemie
+                    </CardDescription>
+                  </div>
+                  <GroupEmailSender />
+                </div>
               </CardHeader>
               <CardContent>
                 {usersLoading ? (
