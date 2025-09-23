@@ -16,6 +16,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { CMSSection, CMSItem } from '@/types/cms';
+import { convertSupabaseSections } from '@/lib/typeUtils';
 
 interface InactiveElementsManagerProps {
   onElementActivated: () => void;
@@ -62,7 +63,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         cells: Array.isArray(item.cells) ? item.cells as any[] : []
       }));
 
-      setInactiveSections(sectionsData || []);
+      setInactiveSections(convertSupabaseSections(sectionsData || []));
       setInactiveItems(convertedItems);
     } catch (error) {
       console.error('Error fetching inactive elements:', error);

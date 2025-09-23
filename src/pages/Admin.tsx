@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { convertSupabaseSections } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
@@ -833,7 +834,7 @@ const Admin = () => {
 
       if (itemsError) throw itemsError;
 
-      setSections(sectionsData || []);
+      setSections(convertSupabaseSections(sectionsData || []));
       setItems((itemsData || []).map((item: any) => ({
         ...item,
         cells: Array.isArray(item.cells) ? item.cells : (item.cells ? JSON.parse(JSON.stringify(item.cells)) : [])

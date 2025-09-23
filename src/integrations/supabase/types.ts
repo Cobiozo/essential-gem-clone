@@ -147,8 +147,11 @@ export type Database = {
           page_id: string | null
           parent_id: string | null
           position: number
+          row_column_count: number | null
+          row_layout_type: string | null
           section_margin_bottom: number | null
           section_margin_top: number | null
+          section_type: string | null
           show_icon: boolean | null
           style_class: string | null
           text_color: string | null
@@ -212,8 +215,11 @@ export type Database = {
           page_id?: string | null
           parent_id?: string | null
           position: number
+          row_column_count?: number | null
+          row_layout_type?: string | null
           section_margin_bottom?: number | null
           section_margin_top?: number | null
+          section_type?: string | null
           show_icon?: boolean | null
           style_class?: string | null
           text_color?: string | null
@@ -277,8 +283,11 @@ export type Database = {
           page_id?: string | null
           parent_id?: string | null
           position?: number
+          row_column_count?: number | null
+          row_layout_type?: string | null
           section_margin_bottom?: number | null
           section_margin_top?: number | null
+          section_type?: string | null
           show_icon?: boolean | null
           style_class?: string | null
           text_color?: string | null

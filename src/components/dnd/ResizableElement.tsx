@@ -5,6 +5,7 @@ import { RotateCcw, Move, MoreHorizontal, MoreVertical } from 'lucide-react';
 interface ResizableElementProps {
   children: React.ReactNode;
   isEditMode: boolean;
+  isSelected?: boolean;
   onResize?: (width: number, height: number) => void;
   initialWidth?: number;
   initialHeight?: number;

@@ -11,6 +11,8 @@ import { Edit3, Loader2, Layout, Columns } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
+import { convertSupabaseSections } from '@/lib/typeUtils';
+import { SimpleRowDemo } from './SimpleRowDemo';
 import { DraggableItem } from './DraggableItem';
 import { ResizableElement } from './ResizableElement';
 import { ColumnLayout } from './ColumnLayout';
@@ -127,7 +129,7 @@ export const LivePreviewEditor: React.FC = () => {
       if (itemsError) throw itemsError;
       
       // Convert database data to proper types
-      const convertedSections = sectionsData || [];
+      const convertedSections = convertSupabaseSections(sectionsData || []);
       const convertedItems = (itemsData || []).map((item: any) => ({
         ...item,
         cells: item.cells ? (Array.isArray(item.cells) ? item.cells : JSON.parse(item.cells)) : []

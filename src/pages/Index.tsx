@@ -13,6 +13,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { isExternalUrl } from '@/lib/urlUtils';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
+import { convertSupabaseSections } from '@/lib/typeUtils';
 import { ColumnLayout } from '@/components/dnd/ColumnLayout';
 
 interface CMSSection {
@@ -169,7 +170,7 @@ const Index = () => {
         .eq('is_active', true)
         .order('position');
 
-      setSections(sectionsData || []);
+      setSections(convertSupabaseSections(sectionsData || []));
       setItems(itemsData || []);
 
       // Pobierz ustawienia układu strony głównej (sekcje w gridzie)

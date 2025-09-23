@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { convertSupabaseSections } from '@/lib/typeUtils';
 import { Home, ArrowLeft } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { CMSContent } from '@/components/CMSContent';
@@ -133,7 +134,7 @@ const PageComponent = () => {
         if (sectionsError) {
           console.error('Error fetching page sections:', sectionsError);
         } else {
-          setSections(sectionsData || []);
+          setSections(convertSupabaseSections(sectionsData || []));
 
           // Pobierz sekcje zagnieżdżone dla każdej sekcji głównej
           const nestedSectionsData: {[key: string]: CMSSection[]} = {};
