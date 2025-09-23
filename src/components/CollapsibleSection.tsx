@@ -294,7 +294,14 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         )}
         
         {/* Main content area */}
-        <div className="flex-1 flex flex-col justify-center items-center text-center space-y-2">
+        <div
+          className="flex-1 flex flex-col space-y-2"
+          style={{
+            justifyContent: sectionStyle?.justify_content || 'center',
+            alignItems: sectionStyle?.align_items || 'center',
+            textAlign: (sectionStyle?.alignment as React.CSSProperties['textAlign']) || 'center',
+          }}
+        >
           <div className="flex items-center space-x-2">
             {IconComponent && sectionStyle?.icon_position === 'left' && (
               <IconComponent 
