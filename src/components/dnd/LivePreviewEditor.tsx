@@ -758,7 +758,13 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-          <div className="flex flex-col gap-6">
+          <div
+            className={cn(
+              layoutMode === 'single' && 'flex flex-col gap-6',
+              layoutMode !== 'single' && 'grid gap-6'
+            )}
+            style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, columnCount)}, minmax(0, 1fr))` } : undefined}
+          >
             {sections.map((section) => {
               const columns = sectionColumns[section.id] || [{
                 id: `${section.id}-col-0`,
@@ -771,7 +777,7 @@ export const LivePreviewEditor: React.FC = () => {
                   key={section.id}
                   id={section.id}
                   isEditMode={editMode}
-                  className="w-full mb-6"
+                  className="w-full"
                 >
                   <div 
                     onClick={() => setSelectedElement(section.id)}
@@ -783,78 +789,78 @@ export const LivePreviewEditor: React.FC = () => {
                     <ResizableElement
                       isEditMode={editMode}
                       onResize={(width, height) => handleElementResize(section.id, width, height)}
-                      initialWidth={section.custom_width || undefined}
-                      initialHeight={section.custom_height || undefined}
+                      initialWidth={section.width_type === 'custom' ? section.custom_width || undefined : undefined}
+                      initialHeight={section.height_type === 'custom' ? section.custom_height || undefined : undefined}
                       className="w-full"
                     >
-                    <CollapsibleSection
-                      title={section.title}
-                      description={section.description}
-                      sectionStyle={{
-                        background_color: section.background_color,
-                        text_color: section.text_color,
-                        font_size: section.font_size,
-                        alignment: section.alignment,
-                        padding: section.padding,
-                        margin: section.margin,
-                        border_radius: section.border_radius,
-                        style_class: section.style_class,
-                        background_gradient: section.background_gradient,
-                        border_width: section.border_width,
-                        border_color: section.border_color,
-                        border_style: section.border_style,
-                        box_shadow: section.box_shadow,
-                        opacity: section.opacity,
-                        width_type: section.width_type,
-                        custom_width: section.custom_width,
-                        height_type: section.height_type,
-                        custom_height: section.custom_height,
-                        max_width: section.max_width,
-                        font_weight: section.font_weight,
-                        line_height: section.line_height,
-                        letter_spacing: section.letter_spacing,
-                        text_transform: section.text_transform,
-                        display_type: section.display_type,
-                        justify_content: section.justify_content,
-                        align_items: section.align_items,
-                        gap: section.gap,
-                        section_margin_top: section.section_margin_top,
-                        section_margin_bottom: section.section_margin_bottom,
-                        background_image: section.background_image,
-                        background_image_opacity: section.background_image_opacity,
-                        background_image_position: section.background_image_position,
-                        background_image_size: section.background_image_size,
-                        icon_name: section.icon_name,
-                        icon_position: section.icon_position,
-                        icon_size: section.icon_size,
-                        icon_color: section.icon_color,
-                        show_icon: section.show_icon,
-                        min_height: section.min_height,
-                        hover_opacity: section.hover_opacity,
-                        hover_scale: section.hover_scale,
-                        hover_transition_duration: section.hover_transition_duration,
-                        hover_background_color: section.hover_background_color,
-                        hover_background_gradient: section.hover_background_gradient,
-                        hover_text_color: section.hover_text_color,
-                        hover_border_color: section.hover_border_color,
-                        hover_box_shadow: section.hover_box_shadow,
-                        content_direction: section.content_direction,
-                        content_wrap: section.content_wrap,
-                        overflow_behavior: section.overflow_behavior
-                      }}
-                      nestedItems={[]}
-                      defaultOpen={true}
-                    >
-                      <ColumnLayout
-                        sectionId={section.id}
-                        columns={columns}
-                        isEditMode={editMode}
-                        onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
-                        onItemClick={() => {}}
-                        onSelectItem={(itemId) => setSelectedElement(itemId)}
-                      />
-                    </CollapsibleSection>
-                  </ResizableElement>
+                      <CollapsibleSection
+                        title={section.title}
+                        description={section.description}
+                        sectionStyle={{
+                          background_color: section.background_color,
+                          text_color: section.text_color,
+                          font_size: section.font_size,
+                          alignment: section.alignment,
+                          padding: section.padding,
+                          margin: section.margin,
+                          border_radius: section.border_radius,
+                          style_class: section.style_class,
+                          background_gradient: section.background_gradient,
+                          border_width: section.border_width,
+                          border_color: section.border_color,
+                          border_style: section.border_style,
+                          box_shadow: section.box_shadow,
+                          opacity: section.opacity,
+                          width_type: section.width_type,
+                          custom_width: section.custom_width,
+                          height_type: section.height_type,
+                          custom_height: section.custom_height,
+                          max_width: section.max_width,
+                          font_weight: section.font_weight,
+                          line_height: section.line_height,
+                          letter_spacing: section.letter_spacing,
+                          text_transform: section.text_transform,
+                          display_type: section.display_type,
+                          justify_content: section.justify_content,
+                          align_items: section.align_items,
+                          gap: section.gap,
+                          section_margin_top: section.section_margin_top,
+                          section_margin_bottom: section.section_margin_bottom,
+                          background_image: section.background_image,
+                          background_image_opacity: section.background_image_opacity,
+                          background_image_position: section.background_image_position,
+                          background_image_size: section.background_image_size,
+                          icon_name: section.icon_name,
+                          icon_position: section.icon_position,
+                          icon_size: section.icon_size,
+                          icon_color: section.icon_color,
+                          show_icon: section.show_icon,
+                          min_height: section.min_height,
+                          hover_opacity: section.hover_opacity,
+                          hover_scale: section.hover_scale,
+                          hover_transition_duration: section.hover_transition_duration,
+                          hover_background_color: section.hover_background_color,
+                          hover_background_gradient: section.hover_background_gradient,
+                          hover_text_color: section.hover_text_color,
+                          hover_border_color: section.hover_border_color,
+                          hover_box_shadow: section.hover_box_shadow,
+                          content_direction: section.content_direction,
+                          content_wrap: section.content_wrap,
+                          overflow_behavior: section.overflow_behavior
+                        }}
+                        nestedItems={[]}
+                        defaultOpen={true}
+                      >
+                        <ColumnLayout
+                          sectionId={section.id}
+                          columns={columns}
+                          isEditMode={editMode}
+                          onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
+                          onItemClick={() => {}}
+                          onSelectItem={(itemId) => setSelectedElement(itemId)}
+                        />
+                      </CollapsibleSection>
+                    </ResizableElement>
                   </div>
                 </DraggableSection>
               );
