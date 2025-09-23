@@ -308,6 +308,33 @@ export type Database = {
           },
         ]
       }
+      page_settings: {
+        Row: {
+          column_count: number
+          created_at: string
+          id: string
+          layout_mode: string
+          page_type: string
+          updated_at: string
+        }
+        Insert: {
+          column_count?: number
+          created_at?: string
+          id?: string
+          layout_mode?: string
+          page_type?: string
+          updated_at?: string
+        }
+        Update: {
+          column_count?: number
+          created_at?: string
+          id?: string
+          layout_mode?: string
+          page_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pages: {
         Row: {
           content: string | null

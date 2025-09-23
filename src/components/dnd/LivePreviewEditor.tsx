@@ -202,6 +202,32 @@ export const LivePreviewEditor: React.FC = () => {
     }, 2000);
   }, []);
 
+  // Save page-level layout settings (sections grid)
+  const savePageSettings = useCallback(async (mode: 'single' | 'columns' | 'grid', count: number) => {
+    try {
+      const { error } = await supabase
+        .from('page_settings')
+        .upsert(
+          { page_type: 'homepage', layout_mode: mode, column_count: count, updated_at: new Date().toISOString() },
+          { onConflict: 'page_type' }
+        );
+      if (error) throw error;
+
+      // Broadcast so homepage refreshes
+      const channel = supabase.channel('cms-live');
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.send({ type: 'broadcast', event: 'layout-updated', payload: { at: Date.now() } });
+          supabase.removeChannel(channel);
+        }
+      });
+
+      toast({ title: 'Zapisano', description: 'Ustawienia układu strony zapisane' });
+    } catch (e) {
+      console.error('savePageSettings error', e);
+      toast({ title: 'Błąd', description: 'Nie udało się zapisać ustawień układu', variant: 'destructive' });
+    }
+  }, [toast]);
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -513,13 +539,16 @@ export const LivePreviewEditor: React.FC = () => {
   const handleLayoutModeChange = (mode: 'single' | 'columns' | 'grid') => {
     setLayoutMode(mode);
     setHasUnsavedChanges(true);
+    // Persist page-level sections grid layout
+    savePageSettings(mode, columnCount);
   };
 
   const handleColumnCountChange = (count: number) => {
     setColumnCount(count);
     setHasUnsavedChanges(true);
+    // Persist page-level sections grid layout
+    savePageSettings(layoutMode, count);
   };
-
   const handleColumnsChange = async (sectionId: string, columns: Column[]) => {
     setSectionColumns(prev => ({
       ...prev,

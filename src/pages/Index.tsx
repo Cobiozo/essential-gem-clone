@@ -112,6 +112,8 @@ const Index = () => {
   const [authorText, setAuthorText] = React.useState<string>('');
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
+  const [sectionColumnCount, setSectionColumnCount] = React.useState<number>(1);
   
   // Enable security preventions
   useSecurityPreventions();
@@ -128,6 +130,9 @@ const Index = () => {
         fetchCMSData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cms_sections' }, () => {
+        fetchCMSData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'page_settings' }, () => {
         fetchCMSData();
       })
       .on('broadcast', { event: 'layout-updated' }, () => {
@@ -166,6 +171,17 @@ const Index = () => {
 
       setSections(sectionsData || []);
       setItems(itemsData || []);
+
+      // Pobierz ustawienia układu strony głównej (sekcje w gridzie)
+      const { data: settings } = await supabase
+        .from('page_settings')
+        .select('layout_mode, column_count')
+        .eq('page_type', 'homepage')
+        .maybeSingle();
+      if (settings) {
+        setSectionLayoutMode((settings.layout_mode as any) || 'single');
+        setSectionColumnCount(settings.column_count || 1);
+      }
       
       // Pobierz teksty nagłówka
       const headerItem = itemsData?.find(item => item.type === 'header_text');
@@ -347,14 +363,16 @@ const Index = () => {
       {/* Main Content */}
       <main className="px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20">
         <div className="max-w-7xl mx-auto">
-          <div className="space-y-4 lg:space-y-6">
+          <div
+            className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
+            style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, sectionColumnCount)}, minmax(0, 1fr))` }}
+          >
             {sections.map((section) => {
               const sectionItems = items.filter(item => 
                 item.section_id === section.id && 
                 item.type !== 'header_text' && 
                 item.type !== 'author'
               ).sort((a, b) => a.position - b.position);
-              
               // Derive column count from items' column_index to reflect saved layout
               const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
               const columnCount = Math.max(1, maxColIndex + 1);
