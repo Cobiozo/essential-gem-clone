@@ -872,10 +872,19 @@ export const LivePreviewEditor: React.FC = () => {
     
     if (isSection) {
       try {
+        const map: Record<string, { justify_content: string; align_items: string }> = {
+          left: { justify_content: 'flex-start', align_items: 'flex-start' },
+          center: { justify_content: 'center', align_items: 'center' },
+          right: { justify_content: 'flex-end', align_items: 'flex-end' },
+          justify: { justify_content: 'space-between', align_items: 'center' },
+        };
+        const mapped = map[alignment];
         const { error } = await supabase
           .from('cms_sections')
           .update({ 
             alignment,
+            justify_content: mapped.justify_content,
+            align_items: mapped.align_items,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedElement);
@@ -884,7 +893,7 @@ export const LivePreviewEditor: React.FC = () => {
         
         setSections(prev => prev.map(s => 
           s.id === selectedElement 
-            ? { ...s, alignment }
+            ? { ...s, alignment, justify_content: mapped.justify_content, align_items: mapped.align_items }
             : s
         ));
         
