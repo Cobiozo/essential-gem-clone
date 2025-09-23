@@ -1,8 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+// SMTP configuration
+const smtpConfig = {
+  hostname: Deno.env.get("SMTP_HOST") || "s108.cyber-folks.pl",
+  port: parseInt(Deno.env.get("SMTP_PORT") || "465"),
+  username: Deno.env.get("SMTP_USERNAME") || "support@purelife.info.pl",
+  password: Deno.env.get("SMTP_PASSWORD") || "",
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,78 +92,113 @@ const handler = async (req: Request): Promise<Response> => {
     // Prepare email recipients
     const emailRecipients = profiles.map(profile => profile.email);
 
-    // Send group email using BCC to protect privacy
-    const emailResponse = await resend.emails.send({
-      from: senderEmail || "System <onboarding@resend.dev>",
-      to: [senderEmail || "admin@example.com"], // Main recipient (sender)
-      bcc: emailRecipients, // BCC all other recipients for privacy
-      subject: subject,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${subject}</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-              }
-              .header {
-                border-bottom: 2px solid #eee;
-                padding-bottom: 20px;
-                margin-bottom: 30px;
-              }
-              .content {
-                margin-bottom: 30px;
-              }
-              .footer {
-                border-top: 1px solid #eee;
-                padding-top: 20px;
-                font-size: 12px;
-                color: #666;
-                text-align: center;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>${subject}</h1>
-            </div>
-            <div class="content">
-              ${content}
-            </div>
-            <div class="footer">
-              <p>Ta wiadomość została wysłana do grupy użytkowników systemu.</p>
-              <p>Nadawca: ${senderName || 'Administrator systemu'}</p>
-            </div>
-          </body>
-        </html>
-      `,
+    // Initialize SMTP client
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpConfig.hostname,
+        port: smtpConfig.port,
+        tls: true,
+        auth: {
+          username: smtpConfig.username,
+          password: smtpConfig.password,
+        },
+      },
     });
 
-    if (emailResponse.error) {
-      console.error("Resend API error:", emailResponse.error);
+    console.log("Connecting to SMTP server...");
+
+    // Create HTML email content
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header {
+              border-bottom: 2px solid #eee;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .content {
+              margin-bottom: 30px;
+            }
+            .footer {
+              border-top: 1px solid #eee;
+              padding-top: 20px;
+              font-size: 12px;
+              color: #666;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${subject}</h1>
+          </div>
+          <div class="content">
+            ${content}
+          </div>
+          <div class="footer">
+            <p>Ta wiadomość została wysłana do grupy użytkowników systemu.</p>
+            <p>Nadawca: ${senderName || 'Administrator systemu'}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Send email to each recipient individually to ensure privacy
+    let successfulSends = 0;
+    const errors: string[] = [];
+
+    for (const profile of profiles) {
+      try {
+        await client.send({
+          from: `${senderName || 'Administrator systemu'} <${smtpConfig.username}>`,
+          to: profile.email,
+          subject: subject,
+          content: htmlContent,
+          html: htmlContent,
+        });
+        successfulSends++;
+        console.log(`Email sent successfully to ${profile.email}`);
+      } catch (sendError: any) {
+        console.error(`Failed to send email to ${profile.email}:`, sendError);
+        errors.push(`${profile.email}: ${sendError.message}`);
+      }
+    }
+
+    await client.close();
+
+    if (successfulSends === 0) {
       return new Response(
-        JSON.stringify({ error: "Failed to send email", details: emailResponse.error }),
+        JSON.stringify({ 
+          error: "Failed to send any emails", 
+          details: errors 
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Group email sent successfully:", emailResponse);
+    console.log("Group email sending completed");
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Email sent successfully to ${profiles.length} recipients`,
-        emailId: emailResponse.data?.id,
-        recipientCount: profiles.length,
-        recipients: profiles.map(p => ({ email: p.email, role: p.role }))
+        message: `Email sent successfully to ${successfulSends} of ${profiles.length} recipients`,
+        recipientCount: successfulSends,
+        totalRecipients: profiles.length,
+        recipients: profiles.map(p => ({ email: p.email, role: p.role })),
+        errors: errors.length > 0 ? errors : undefined
       }),
       {
         status: 200,
