@@ -670,6 +670,211 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
+  const handleDuplicateElement = async () => {
+    if (!selectedElement) return;
+    
+    const isSection = sections.find(s => s.id === selectedElement);
+    const isItem = items.find(i => i.id === selectedElement);
+    
+    if (isSection) {
+      try {
+        const { data, error } = await supabase
+          .from('cms_sections')
+          .insert({
+            title: `${isSection.title} (kopia)`,
+            description: isSection.description,
+            position: sections.length,
+            visible_to_everyone: isSection.visible_to_everyone,
+            visible_to_clients: isSection.visible_to_clients,
+            visible_to_partners: isSection.visible_to_partners,
+            visible_to_specjalista: isSection.visible_to_specjalista,
+            background_color: isSection.background_color,
+            text_color: isSection.text_color,
+            style_class: isSection.style_class
+          })
+          .select()
+          .single();
+          
+        if (error) throw error;
+        
+        setSections(prev => [...prev, data]);
+        toast({
+          title: 'Sukces',
+          description: 'Sekcja została zduplikowana',
+        });
+      } catch (error) {
+        console.error('Error duplicating section:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zduplikować sekcji',
+          variant: 'destructive',
+        });
+      }
+    } else if (isItem) {
+      try {
+        const { data, error } = await supabase
+          .from('cms_items')
+          .insert({
+            section_id: isItem.section_id,
+            type: isItem.type,
+            title: isItem.title ? `${isItem.title} (kopia)` : null,
+            description: isItem.description,
+            url: isItem.url,
+            position: items.filter(i => i.section_id === isItem.section_id).length,
+            column_index: 0
+          })
+          .select()
+          .single();
+          
+        if (error) throw error;
+        
+        setItems(prev => [...prev, data as unknown as CMSItem]);
+        toast({
+          title: 'Sukces',
+          description: 'Element został zduplikowany',
+        });
+      } catch (error) {
+        console.error('Error duplicating item:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zduplikować elementu',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleResetElement = async () => {
+    if (!selectedElement) return;
+    
+    const isSection = sections.find(s => s.id === selectedElement);
+    
+    if (isSection) {
+      try {
+        const { error } = await supabase
+          .from('cms_sections')
+          .update({ 
+            custom_width: null,
+            custom_height: null,
+            width_type: 'full',
+            height_type: 'auto',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedElement);
+        
+        if (error) throw error;
+        
+        setSections(prev => prev.map(s => 
+          s.id === selectedElement 
+            ? { ...s, custom_width: null, custom_height: null, width_type: 'full', height_type: 'auto' }
+            : s
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: 'Rozmiar elementu został zresetowany',
+        });
+      } catch (error) {
+        console.error('Error resetting element:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zresetować rozmiaru elementu',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleElementSettings = () => {
+    if (!selectedElement) return;
+    
+    // TODO: Otworzyć modal z ustawieniami elementu
+    toast({
+      title: 'Ustawienia elementu',
+      description: 'Funkcja będzie dostępna wkrótce',
+    });
+  };
+
+  const handleAlignElement = async (alignment: 'left' | 'center' | 'right' | 'justify') => {
+    if (!selectedElement) return;
+    
+    const isSection = sections.find(s => s.id === selectedElement);
+    
+    if (isSection) {
+      try {
+        const { error } = await supabase
+          .from('cms_sections')
+          .update({ 
+            alignment,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedElement);
+        
+        if (error) throw error;
+        
+        setSections(prev => prev.map(s => 
+          s.id === selectedElement 
+            ? { ...s, alignment }
+            : s
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: `Wyrównanie ustawione na ${alignment}`,
+        });
+      } catch (error) {
+        console.error('Error aligning element:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zmienić wyrównania elementu',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleSizeElement = async (sizeType: 'fit' | 'full') => {
+    if (!selectedElement) return;
+    
+    const isSection = sections.find(s => s.id === selectedElement);
+    
+    if (isSection) {
+      try {
+        const width_type = sizeType === 'fit' ? 'custom' : 'full';
+        const custom_width = sizeType === 'fit' ? 400 : null;
+        
+        const { error } = await supabase
+          .from('cms_sections')
+          .update({ 
+            width_type,
+            custom_width,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedElement);
+        
+        if (error) throw error;
+        
+        setSections(prev => prev.map(s => 
+          s.id === selectedElement 
+            ? { ...s, width_type, custom_width }
+            : s
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: `Rozmiar ustawiony na ${sizeType === 'fit' ? 'dopasowany' : 'pełna szerokość'}`,
+        });
+      } catch (error) {
+        console.error('Error sizing element:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zmienić rozmiaru elementu',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   if (!isAdmin) {
     return (
       <Card>
@@ -764,23 +969,16 @@ export const LivePreviewEditor: React.FC = () => {
         columnCount={columnCount}
         onLayoutModeChange={handleLayoutModeChange}
         onColumnCountChange={handleColumnCountChange}
-        onDuplicateElement={() => {
-          // Handle duplication
-          console.log('Duplicate element:', selectedElement);
-        }}
+        onDuplicateElement={handleDuplicateElement}
         onDeleteElement={() => {
           if (selectedElement) {
             handleDeactivateElement(selectedElement);
           }
         }}
-        onResetElement={() => {
-          // Handle reset
-          console.log('Reset element:', selectedElement);
-        }}
-        onElementSettings={() => {
-          // Handle settings
-          console.log('Element settings:', selectedElement);
-        }}
+        onResetElement={handleResetElement}
+        onElementSettings={handleElementSettings}
+        onAlignElement={handleAlignElement}
+        onSizeElement={handleSizeElement}
       />
 
       <div className={`space-y-6 ${editMode ? 'pb-32' : ''}`}>

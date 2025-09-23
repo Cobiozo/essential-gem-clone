@@ -32,6 +32,8 @@ interface LayoutControlsProps {
   onDeleteElement?: () => void;
   onResetElement?: () => void;
   onElementSettings?: () => void;
+  onAlignElement?: (alignment: 'left' | 'center' | 'right' | 'justify') => void;
+  onSizeElement?: (sizeType: 'fit' | 'full') => void;
   className?: string;
 }
 
@@ -46,6 +48,8 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
   onDeleteElement,
   onResetElement,
   onElementSettings,
+  onAlignElement,
+  onSizeElement,
   className,
 }) => {
   if (!isVisible) return null;
@@ -200,6 +204,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
           size="sm"
           className="px-2"
           title="Align Left"
+          onClick={() => onAlignElement?.('left')}
         >
           <AlignLeft className="w-4 h-4" />
         </Button>
@@ -207,7 +212,8 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
           variant="ghost"
           size="sm"
           className="px-2"
-          title="Align Center"
+          title="Align Center" 
+          onClick={() => onAlignElement?.('center')}
         >
           <AlignCenter className="w-4 h-4" />
         </Button>
@@ -216,6 +222,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
           size="sm"
           className="px-2"
           title="Align Right"
+          onClick={() => onAlignElement?.('right')}
         >
           <AlignRight className="w-4 h-4" />
         </Button>
@@ -224,6 +231,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
           size="sm"
           className="px-2"
           title="Justify"
+          onClick={() => onAlignElement?.('justify')}
         >
           <AlignJustify className="w-4 h-4" />
         </Button>
@@ -241,6 +249,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
           size="sm"
           className="px-2"
           title="Fit Content"
+          onClick={() => onSizeElement?.('fit')}
         >
           <Minimize2 className="w-4 h-4" />
         </Button>
@@ -249,6 +258,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
           size="sm"
           className="px-2"
           title="Full Width"
+          onClick={() => onSizeElement?.('full')}
         >
           <Maximize2 className="w-4 h-4" />
         </Button>
