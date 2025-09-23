@@ -136,9 +136,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     position: 'relative' as const,
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
-    // Base card styles
-    display: 'flex',
-    flexDirection: 'column' as const,
+    display: 'block',
   } : {
     // Default modern card styles when no custom styles
     borderRadius: '16px',
@@ -146,13 +144,12 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     overflow: 'hidden',
     cursor: 'pointer',
     transition: 'all 300ms ease-in-out',
-    display: 'flex',
-    flexDirection: 'column' as const,
+    display: 'block',
   };
 
   // Header styles - modern card header design
   const customHeaderStyle = sectionStyle ? {
-    flex: 1,
+    flex: 'none',
     backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
     backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 
                       sectionStyle.background_image ? `url(${sectionStyle.background_image})` : 'none',
@@ -182,7 +179,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     position: 'relative' as const,
   } : {
     // Default modern card header
-    flex: 1,
+    flex: 'none',
     minHeight: '200px',
     padding: '32px',
     display: 'flex',
@@ -261,7 +258,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       {backgroundImageOverlay && <div style={backgroundImageOverlay} />}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative z-10 group-hover:scale-[1.02] transition-all duration-300"
+        className="relative z-10 transition-all duration-300"
         style={{
           ...customHeaderStyle,
           background: !isOpen && sectionStyle?.background_gradient ? sectionStyle.background_gradient : customHeaderStyle.backgroundColor,
