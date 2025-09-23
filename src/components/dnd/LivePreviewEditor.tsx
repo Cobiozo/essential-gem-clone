@@ -142,6 +142,17 @@ export const LivePreviewEditor: React.FC = () => {
         setHistoryIndex(0);
         initializeColumns(convertedSections, convertedItems);
       }
+
+      // Load page layout settings (sections grid)
+      const { data: settings } = await supabase
+        .from('page_settings')
+        .select('layout_mode, column_count')
+        .eq('page_type', 'homepage')
+        .maybeSingle();
+      if (settings) {
+        setLayoutMode((settings.layout_mode as any) || 'single');
+        setColumnCount(settings.column_count || 1);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -812,7 +823,7 @@ export const LivePreviewEditor: React.FC = () => {
                 layoutMode === 'single' && 'flex flex-col gap-6',
                 layoutMode !== 'single' && 'grid gap-6'
               )}
-              style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, columnCount)}, minmax(0, 1fr))` } : undefined}
+              style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
             >
               {sections.map((section) => {
               const columns = sectionColumns[section.id] || [{
