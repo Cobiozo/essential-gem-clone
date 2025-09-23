@@ -1,7 +1,1 @@
-project_id = "xzlhssqqbajqhnsmbucf"
-
-[functions.admin-reset-password]
-verify_jwt = true
-
-[functions.save-cms-layout]
-verify_jwt = true
+project_id = "fbpylimrjoigipvyrrdu"
