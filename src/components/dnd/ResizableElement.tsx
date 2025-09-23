@@ -35,13 +35,16 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   const [resizeDirection, setResizeDirection] = useState<string>('');
   const elementRef = useRef<HTMLDivElement>(null);
   const startPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
-
+  const isResizingRef = useRef(false);
+  const resizeDirectionRef = useRef<string>('');
   const handleMouseDown = useCallback((e: React.MouseEvent, direction: string) => {
     if (!isEditMode) return;
     
     e.preventDefault();
     e.stopPropagation();
     
+    isResizingRef.current = true;
+    resizeDirectionRef.current = direction;
     setIsResizing(true);
     setResizeDirection(direction);
     
@@ -57,10 +60,11 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    console.info('Resize start', { direction });
   }, [isEditMode]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing) return;
+    if (!isResizingRef.current) return;
     
     const deltaX = e.clientX - startPos.current.x;
     const deltaY = e.clientY - startPos.current.y;
@@ -68,16 +72,18 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     let newWidth = startPos.current.width;
     let newHeight = startPos.current.height;
     
-    if (resizeDirection.includes('right')) {
+    const dir = resizeDirectionRef.current;
+    
+    if (dir.includes('right')) {
       newWidth = Math.max(minWidth, Math.min(maxWidth, startPos.current.width + deltaX));
     }
-    if (resizeDirection.includes('left')) {
+    if (dir.includes('left')) {
       newWidth = Math.max(minWidth, Math.min(maxWidth, startPos.current.width - deltaX));
     }
-    if (resizeDirection.includes('bottom')) {
+    if (dir.includes('bottom')) {
       newHeight = Math.max(minHeight, Math.min(maxHeight, startPos.current.height + deltaY));
     }
-    if (resizeDirection.includes('top')) {
+    if (dir.includes('top')) {
       newHeight = Math.max(minHeight, Math.min(maxHeight, startPos.current.height - deltaY));
     }
     
@@ -85,20 +91,87 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       width: newWidth,
       height: newHeight,
     });
-  }, [isResizing, resizeDirection, minWidth, minHeight, maxWidth, maxHeight]);
+    // console.info('Resizing', { newWidth, newHeight, dir });
+  }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (isResizing && onResize) {
+    if (isResizingRef.current && onResize) {
       const width = typeof dimensions.width === 'number' ? dimensions.width : 0;
       const height = typeof dimensions.height === 'number' ? dimensions.height : 0;
       onResize(width, height);
     }
     
+    isResizingRef.current = false;
+    resizeDirectionRef.current = '';
     setIsResizing(false);
     setResizeDirection('');
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-  }, [isResizing, onResize, dimensions, handleMouseMove]);
+    document.removeEventListener('touchmove', handleTouchMove as any);
+    document.removeEventListener('touchend', handleTouchEnd as any);
+    console.info('Resize end');
+  }, [onResize, dimensions]);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!isResizingRef.current) return;
+    if (e.touches.length === 0) return;
+    const t = e.touches[0];
+
+    const deltaX = t.clientX - startPos.current.x;
+    const deltaY = t.clientY - startPos.current.y;
+
+    let newWidth = startPos.current.width;
+    let newHeight = startPos.current.height;
+
+    const dir = resizeDirectionRef.current;
+
+    if (dir.includes('right')) {
+      newWidth = Math.max(minWidth, Math.min(maxWidth, startPos.current.width + deltaX));
+    }
+    if (dir.includes('left')) {
+      newWidth = Math.max(minWidth, Math.min(maxWidth, startPos.current.width - deltaX));
+    }
+    if (dir.includes('bottom')) {
+      newHeight = Math.max(minHeight, Math.min(maxHeight, startPos.current.height + deltaY));
+    }
+    if (dir.includes('top')) {
+      newHeight = Math.max(minHeight, Math.min(maxHeight, startPos.current.height - deltaY));
+    }
+
+    setDimensions({ width: newWidth, height: newHeight });
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    handleMouseUp();
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, direction: string) => {
+    if (!isEditMode) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+
+    const t = e.touches[0];
+
+    isResizingRef.current = true;
+    resizeDirectionRef.current = direction;
+    setIsResizing(true);
+    setResizeDirection(direction);
+    
+    const rect = elementRef.current?.getBoundingClientRect();
+    if (rect) {
+      startPos.current = {
+        x: t.clientX,
+        y: t.clientY,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    document.addEventListener('touchmove', handleTouchMove as any, { passive: false } as any);
+    document.addEventListener('touchend', handleTouchEnd as any);
+    console.info('Resize start (touch)', { direction });
+  }, [isEditMode]);
 
   const resetSize = () => {
     setDimensions({
@@ -140,42 +213,50 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
         <div
           className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-nw-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'top-left')}
+          onTouchStart={(e) => handleTouchStart(e, 'top-left')}
         />
         <div
           className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-ne-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'top-right')}
+          onTouchStart={(e) => handleTouchStart(e, 'top-right')}
         />
         <div
           className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-sw-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'bottom-left')}
+          onTouchStart={(e) => handleTouchStart(e, 'bottom-left')}
         />
         <div
           className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-se-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'bottom-right')}
+          onTouchStart={(e) => handleTouchStart(e, 'bottom-right')}
         />
         
         {/* Edge handles */}
         <div
           className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-6 h-2 bg-blue-500 border border-white rounded-sm cursor-n-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'top')}
+          onTouchStart={(e) => handleTouchStart(e, 'top')}
         >
           <MoreHorizontal className="w-3 h-3 text-white" />
         </div>
         <div
           className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-2 bg-blue-500 border border-white rounded-sm cursor-s-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'bottom')}
+          onTouchStart={(e) => handleTouchStart(e, 'bottom')}
         >
           <MoreHorizontal className="w-3 h-3 text-white" />
         </div>
         <div
           className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-6 bg-blue-500 border border-white rounded-sm cursor-w-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'left')}
+          onTouchStart={(e) => handleTouchStart(e, 'left')}
         >
           <MoreVertical className="w-3 h-3 text-white" />
         </div>
         <div
           className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-6 bg-blue-500 border border-white rounded-sm cursor-e-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'right')}
+          onTouchStart={(e) => handleTouchStart(e, 'right')}
         >
           <MoreVertical className="w-3 h-3 text-white" />
         </div>
