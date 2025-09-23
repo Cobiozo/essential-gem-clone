@@ -235,13 +235,15 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   return (
     <div 
       className={cn(
-        "group transition-all duration-300 ease-in-out hover:shadow-lg",
+        "group transition-all duration-300 ease-in-out hover:shadow-lg w-full mb-6 block",
         className, 
         sectionStyle?.style_class
       )}
       style={{
         ...customContainerStyle,
         ...hoverStyles,
+        position: 'static',
+        transform: 'none',
       }}
       onMouseEnter={(e) => {
         if (sectionStyle?.hover_scale && sectionStyle.hover_scale !== 1) {

@@ -758,7 +758,7 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-max">
+          <div className="flex flex-col gap-6">
             {sections.map((section) => {
               const columns = sectionColumns[section.id] || [{
                 id: `${section.id}-col-0`,
@@ -771,12 +771,12 @@ export const LivePreviewEditor: React.FC = () => {
                   key={section.id}
                   id={section.id}
                   isEditMode={editMode}
-                  className="h-fit"
+                  className="w-full mb-6"
                 >
                   <div 
                     onClick={() => setSelectedElement(section.id)}
                     className={cn(
-                      "cursor-pointer transition-all duration-200",
+                      "cursor-pointer transition-all duration-200 w-full",
                       selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
                     )}
                   >
