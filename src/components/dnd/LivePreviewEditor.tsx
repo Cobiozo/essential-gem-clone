@@ -11,7 +11,7 @@ import { Edit3, Loader2, Layout, Columns } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
-import { convertSupabaseSections } from '@/lib/typeUtils';
+import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { SimpleRowDemo } from './SimpleRowDemo';
 import { DraggableItem } from './DraggableItem';
 import { ResizableElement } from './ResizableElement';
@@ -702,7 +702,7 @@ export const LivePreviewEditor: React.FC = () => {
           
         if (error) throw error;
         
-        setSections(prev => [...prev, data]);
+        setSections(prev => [...prev, convertSupabaseSection(data)]);
         toast({
           title: 'Sukces',
           description: 'Sekcja została zduplikowana',

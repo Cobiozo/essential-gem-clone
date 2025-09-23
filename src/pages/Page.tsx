@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { convertSupabaseSections } from '@/lib/typeUtils';
+import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { Home, ArrowLeft } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { CMSContent } from '@/components/CMSContent';
@@ -147,7 +147,7 @@ const PageComponent = () => {
               .order('position', { ascending: true });
             
             if (!nestedError && nestedData && nestedData.length > 0) {
-              nestedSectionsData[section.id] = nestedData;
+              nestedSectionsData[section.id] = convertSupabaseSections(nestedData);
             }
           }
           setNestedSections(nestedSectionsData);

@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { convertSupabaseSections } from '@/lib/typeUtils';
+import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
@@ -869,7 +869,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setSections([...sections, data]);
+      setSections([...sections, convertSupabaseSection(data)]);
       setNewSection({ 
         title: '', 
         position: 0,
@@ -1382,14 +1382,14 @@ const Admin = () => {
         .order('position', { ascending: true });
 
       if (error) throw error;
-      setPageSections(data || []);
+      setPageSections(convertSupabaseSections(data || []));
 
       // Pobierz sekcje zagnieżdżone dla każdej sekcji głównej
       const nestedSectionsData: {[key: string]: CMSSection[]} = {};
       for (const section of data || []) {
         const nestedSects = await fetchNestedSections(section.id);
         if (nestedSects.length > 0) {
-          nestedSectionsData[section.id] = nestedSects;
+          nestedSectionsData[section.id] = convertSupabaseSections(nestedSects);
         }
       }
       setNestedSections(nestedSectionsData);
@@ -1460,7 +1460,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setPageSections([...pageSections, data]);
+      setPageSections([...pageSections, convertSupabaseSection(data)]);
       setNewPageSection({ title: '', position: 0 });
       setShowAddPageSectionEditor(false);
       
@@ -3481,10 +3481,10 @@ const Admin = () => {
                                        } else {
                                          // Aktualizuj sekcje zagnieżdżone w stanie
                                          const currentNested = nestedSections[section.id] || [];
-                                         setNestedSections({
-                                           ...nestedSections,
-                                           [section.id]: [...currentNested, data]
-                                         });
+                                          setNestedSections({
+                                            ...nestedSections,
+                                            [section.id]: [...currentNested, convertSupabaseSection(data)]
+                                          });
                                          toast({
                                            title: "Sekcja zagnieżdżona dodana",
                                            description: "Sekcja została pomyślnie dodana jako zagnieżdżona w obecnej sekcji",
