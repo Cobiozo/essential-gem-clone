@@ -355,9 +355,9 @@ const Index = () => {
                 item.type !== 'author'
               ).sort((a, b) => a.position - b.position);
               
-              // Extract column count from section style_class
-              const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
-              const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : 1;
+              // Derive column count from items' column_index to reflect saved layout
+              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+              const columnCount = Math.max(1, maxColIndex + 1);
               
               // Group items by column_index
               const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({

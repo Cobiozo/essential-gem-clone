@@ -75,9 +75,13 @@ export const LivePreviewEditor: React.FC = () => {
     sections.forEach(section => {
       const sectionItems = items.filter(item => item.section_id === section.id);
       
-      // Check if section has saved column count from style_class
+      // Check if section has saved column count from style_class or derive from items
       const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
-      const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : 1;
+      const derivedFromItems = sectionItems.reduce((max, it: any) => {
+        const ci = typeof it.column_index === 'number' ? it.column_index : 0;
+        return Math.max(max, ci);
+      }, 0) + 1;
+      const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : Math.max(1, derivedFromItems);
       
       // Prepare columns
       const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
