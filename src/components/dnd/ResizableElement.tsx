@@ -123,7 +123,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     <div
       ref={elementRef}
       className={cn(
-        "relative group",
+        "relative group overflow-hidden",
         isResizing && "select-none",
         className
       )}
