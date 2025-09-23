@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -460,12 +460,18 @@ export const LivePreviewEditor: React.FC = () => {
       const isSection = sections.find(s => s.id === elementId);
       
       if (isSection) {
+        // Determine width_type and height_type based on values
+        const width_type = width > 0 ? 'custom' : 'full';
+        const height_type = height > 0 ? 'custom' : 'auto';
+        
         // Update section size in database
         const { error } = await supabase
           .from('cms_sections')
           .update({ 
             custom_width: width > 0 ? width : null, 
             custom_height: height > 0 ? height : null,
+            width_type,
+            height_type,
             updated_at: new Date().toISOString()
           })
           .eq('id', elementId);
@@ -475,7 +481,13 @@ export const LivePreviewEditor: React.FC = () => {
         // Update local state
         setSections(prev => prev.map(s => 
           s.id === elementId 
-            ? { ...s, custom_width: width > 0 ? width : null, custom_height: height > 0 ? height : null }
+            ? { 
+                ...s, 
+                custom_width: width > 0 ? width : null, 
+                custom_height: height > 0 ? height : null,
+                width_type,
+                height_type
+              }
             : s
         ));
         
@@ -758,14 +770,18 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-          <div
-            className={cn(
-              layoutMode === 'single' && 'flex flex-col gap-6',
-              layoutMode !== 'single' && 'grid gap-6'
-            )}
-            style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, columnCount)}, minmax(0, 1fr))` } : undefined}
+          <SortableContext 
+            items={sections.map(s => s.id)} 
+            strategy={verticalListSortingStrategy}
           >
-            {sections.map((section) => {
+            <div
+              className={cn(
+                layoutMode === 'single' && 'flex flex-col gap-6',
+                layoutMode !== 'single' && 'grid gap-6'
+              )}
+              style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, columnCount)}, minmax(0, 1fr))` } : undefined}
+            >
+              {sections.map((section) => {
               const columns = sectionColumns[section.id] || [{
                 id: `${section.id}-col-0`,
                 items: items.filter(item => item.section_id === section.id),
@@ -865,7 +881,8 @@ export const LivePreviewEditor: React.FC = () => {
                 </DraggableSection>
               );
             })}
-          </div>
+            </div>
+          </SortableContext>
         </DragDropProvider>
         </DeviceFrame>
       </div>

@@ -13,6 +13,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { isExternalUrl } from '@/lib/urlUtils';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
+import { ColumnLayout } from '@/components/dnd/ColumnLayout';
 
 interface CMSSection {
   id: string;
@@ -93,6 +94,13 @@ interface CMSItem {
   media_alt_text?: string | null;
   text_formatting?: any;
   title_formatting?: any;
+  column_index?: number;
+}
+
+interface Column {
+  id: string;
+  items: CMSItem[];
+  width?: number;
 }
 
 const Index = () => {
@@ -339,7 +347,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 items-start gap-4 lg:gap-6">
+          <div className="space-y-4 lg:space-y-6">
             {sections.map((section) => {
               const sectionItems = items.filter(item => 
                 item.section_id === section.id && 
@@ -347,31 +355,46 @@ const Index = () => {
                 item.type !== 'author'
               ).sort((a, b) => a.position - b.position);
               
+              // Extract column count from section style_class
+              const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
+              const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : 1;
+              
+              // Group items by column_index
+              const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
+                id: `${section.id}-col-${i}`,
+                items: [],
+                width: 100 / Math.max(1, columnCount),
+              }));
+              
+              sectionItems.forEach((item) => {
+                const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                columns[colIndex].items.push(item);
+              });
+              
               const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
               
               return (
                 <CollapsibleSection 
-                  key={`section-${section.id}-${section.title}`} // Unique key to prevent state sharing
+                  key={`section-${section.id}-${section.title}`}
                   title={section.title}
                   description={section.description}
                   defaultOpen={false}
                   showShareButton={shouldShowShare}
                   sectionStyle={section}
                 >
-                  <div className="space-y-3">
-                     {sectionItems.map((item) => (
-                       <CMSContent
-                         key={`item-${item.id || Math.random()}`}
-                         item={item}
-                         onClick={handleButtonClick}
-                       />
-                     ))}
-                      {sectionItems.length === 0 && (
-                        <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                          {t('common.noContent')}
-                        </div>
-                      )}
-                  </div>
+                  <ColumnLayout
+                    sectionId={section.id}
+                    columns={columns}
+                    isEditMode={false}
+                    onColumnsChange={() => {}}
+                    onItemClick={handleButtonClick}
+                    onSelectItem={() => {}}
+                  />
+                  {sectionItems.length === 0 && (
+                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                      {t('common.noContent')}
+                    </div>
+                  )}
                 </CollapsibleSection>
               );
             })}
