@@ -66,7 +66,7 @@ serve(async (req) => {
     }
 
     const sections: Array<{ id: string; position: number }> = body.sections;
-    const items: Array<{ id: string; section_id: string; position: number }> = body.items;
+    const items: Array<{ id: string; section_id: string; position: number; column_index?: number }> = body.items;
 
     // Service role client to bypass RLS for the actual updates
     const sr = createClient(supabaseUrl, serviceRoleKey);
@@ -110,7 +110,7 @@ serve(async (req) => {
         const page_id = sectionPageMap.get(it.section_id) ?? null;
         const res = await sr
           .from("cms_items")
-          .update({ position: it.position, section_id: it.section_id, page_id })
+          .update({ position: it.position, section_id: it.section_id, page_id, column_index: typeof it.column_index === 'number' ? it.column_index : 0 })
           .eq("id", it.id);
         if (res.error) {
           console.error("Item update error", { id: it.id, error: res.error });

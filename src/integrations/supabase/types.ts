@@ -17,6 +17,7 @@ export type Database = {
       cms_items: {
         Row: {
           cells: Json | null
+          column_index: number
           created_at: string
           description: string | null
           icon: string | null
@@ -37,6 +38,7 @@ export type Database = {
         }
         Insert: {
           cells?: Json | null
+          column_index?: number
           created_at?: string
           description?: string | null
           icon?: string | null
@@ -57,6 +59,7 @@ export type Database = {
         }
         Update: {
           cells?: Json | null
+          column_index?: number
           created_at?: string
           description?: string | null
           icon?: string | null

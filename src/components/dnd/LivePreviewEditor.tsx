@@ -79,25 +79,20 @@ export const LivePreviewEditor: React.FC = () => {
       const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
       const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : 1;
       
-      if (columnCount > 1) {
-        // Create multiple columns
-        const columns: Column[] = [];
-        for (let i = 0; i < columnCount; i++) {
-          columns.push({
-            id: `${section.id}-col-${i}`,
-            items: i === 0 ? sectionItems : [], // Put all items in first column initially
-            width: 100 / columnCount,
-          });
-        }
-        columnData[section.id] = columns;
-      } else {
-        // Single column (default)
-        columnData[section.id] = [{
-          id: `${section.id}-col-0`,
-          items: sectionItems,
-          width: 100,
-        }];
-      }
+      // Prepare columns
+      const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
+        id: `${section.id}-col-${i}`,
+        items: [],
+        width: 100 / Math.max(1, columnCount),
+      }));
+      
+      // Distribute items by stored column_index
+      sectionItems.forEach((it: any) => {
+        const idx = Math.min(columns.length - 1, Math.max(0, typeof it.column_index === 'number' ? it.column_index : 0));
+        columns[idx].items.push(it);
+      });
+      
+      columnData[section.id] = columns;
     });
     
     setSectionColumns(columnData);
@@ -178,10 +173,10 @@ export const LivePreviewEditor: React.FC = () => {
           itemsBySection[sid].push(it);
         });
 
-        const itemsPayload: { id: string; section_id: string; position: number }[] = [];
+        const itemsPayload: { id: string; section_id: string; position: number; column_index?: number }[] = [];
         Object.entries(itemsBySection).forEach(([sid, arr]) => {
-          arr.forEach((it, idx) => {
-            itemsPayload.push({ id: it.id as string, section_id: sid, position: idx });
+          arr.forEach((it: any, idx) => {
+            itemsPayload.push({ id: it.id as string, section_id: sid, position: idx, column_index: typeof it.column_index === 'number' ? it.column_index : 0 });
           });
         });
 
@@ -305,10 +300,11 @@ export const LivePreviewEditor: React.FC = () => {
     const sourceCol = newSectionColumns[activeItemLocation.sectionId][activeItemLocation.colIndex];
     const [movedItem] = sourceCol.items.splice(activeItemLocation.itemIndex, 1);
 
-    // Update item's section_id
-    const updatedItem = {
+    // Update item's section_id and column_index
+    const updatedItem: any = {
       ...movedItem,
       section_id: targetSectionId,
+      column_index: targetColIndex,
     };
 
     // Add to target
@@ -340,8 +336,10 @@ export const LivePreviewEditor: React.FC = () => {
     const newItems = [];
     sections.forEach(section => {
       const cols = newSectionColumns[section.id] || [];
-      cols.forEach(col => {
-        newItems.push(...col.items);
+      cols.forEach((col, colIdx) => {
+        col.items.forEach((it: any) => {
+          newItems.push({ ...it, column_index: colIdx });
+        });
       });
     });
 
@@ -389,10 +387,10 @@ export const LivePreviewEditor: React.FC = () => {
         itemsBySection[sid].push(it);
       });
 
-      const itemsPayload: { id: string; section_id: string; position: number }[] = [];
+      const itemsPayload: { id: string; section_id: string; position: number; column_index?: number }[] = [];
       Object.entries(itemsBySection).forEach(([sid, arr]) => {
-        arr.forEach((it, idx) => {
-          itemsPayload.push({ id: it.id as string, section_id: sid, position: idx });
+        arr.forEach((it: any, idx) => {
+          itemsPayload.push({ id: it.id as string, section_id: sid, position: idx, column_index: typeof it.column_index === 'number' ? it.column_index : 0 });
         });
       });
 
@@ -512,8 +510,10 @@ export const LivePreviewEditor: React.FC = () => {
       [sectionId]: columns,
     }));
     
-    // Flatten columns back to items array
-    const allItemsFromColumns = Object.values(columns).flatMap(col => col.items);
+    const allItemsFromColumns: any[] = [];
+    columns.forEach((col, colIdx) => {
+      col.items.forEach((it: any) => allItemsFromColumns.push({ ...it, column_index: colIdx }));
+    });
     const otherSectionItems = items.filter(item => item.section_id !== sectionId);
     const newItems = [...otherSectionItems, ...allItemsFromColumns];
     
