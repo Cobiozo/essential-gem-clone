@@ -639,13 +639,14 @@ export const LivePreviewEditor: React.FC = () => {
         return;
       }
 
-      const table = elementType === 'section' ? 'cms_sections' : 'cms_items';
-      const { error } = await supabase
-        .from(table)
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', elementId);
+      // Use edge function with service role to avoid RLS issues
+      const { data, error } = await supabase.functions.invoke('hide-cms-element', {
+        body: { id: elementId, elementType, isActive: false },
+      });
 
-      if (error) throw error;
+      if (error || data?.ok === false) {
+        throw new Error(error?.message || data?.error || 'Unknown error');
+      }
 
       // Remove from local state
       if (elementType === 'section') {
