@@ -2,13 +2,49 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Grid3X3, Plus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-export const SimpleRowDemo: React.FC = () => {
-  const handleAddRow = (columns: number) => {
-    toast({
-      title: "Dodano wiersz",
-      description: `Utworzono wiersz z ${columns} kolumnami. Funkcjonalność w trakcie implementacji.`,
-    });
+interface SimpleRowDemoProps {
+  onRowCreated?: () => void;
+}
+
+export const SimpleRowDemo: React.FC<SimpleRowDemoProps> = ({
+  onRowCreated
+}) => {
+  const handleAddRow = async (columns: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('cms_sections')
+        .insert({
+          title: `Wiersz ${columns}-kolumnowy`,
+          description: `Wiersz z ${columns} kolumnami`,
+          position: 999, // Will be reordered later
+          is_active: true,
+          visible_to_everyone: true,
+          section_type: 'row',
+          row_column_count: columns,
+          row_layout_type: 'equal'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Wiersz utworzony!",
+        description: `Utworzono wiersz z ${columns} kolumnami. Możesz teraz przeciągać do niego sekcje.`,
+      });
+
+      // Callback to refresh data
+      onRowCreated?.();
+    } catch (error) {
+      console.error('Error creating row:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się utworzyć wiersza. Spróbuj ponownie.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

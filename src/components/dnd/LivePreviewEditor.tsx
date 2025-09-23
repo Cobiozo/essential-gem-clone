@@ -1097,6 +1097,9 @@ export const LivePreviewEditor: React.FC = () => {
             items={sections.map(s => s.id)} 
             strategy={verticalListSortingStrategy}
           >
+            {/* Row Containers Demo - visible only in edit mode */}
+            {editMode && <SimpleRowDemo onRowCreated={fetchData} />}
+            
             <div
               className={cn(
                 layoutMode === 'single' && 'flex flex-col gap-6',
