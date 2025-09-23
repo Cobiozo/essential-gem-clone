@@ -88,8 +88,10 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   }, [isResizing, resizeDirection, minWidth, minHeight, maxWidth, maxHeight]);
 
   const handleMouseUp = useCallback(() => {
-    if (isResizing && onResize && typeof dimensions.width === 'number' && typeof dimensions.height === 'number') {
-      onResize(dimensions.width, dimensions.height);
+    if (isResizing && onResize) {
+      const width = typeof dimensions.width === 'number' ? dimensions.width : 0;
+      const height = typeof dimensions.height === 'number' ? dimensions.height : 0;
+      onResize(width, height);
     }
     
     setIsResizing(false);
@@ -104,7 +106,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       height: 'auto',
     });
     if (onResize) {
-      onResize(0, 0); // Reset to auto
+      onResize(0, 0); // Reset to auto - 0 means auto in our system
     }
   };
 

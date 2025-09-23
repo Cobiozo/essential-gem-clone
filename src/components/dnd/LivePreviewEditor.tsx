@@ -505,6 +505,8 @@ export const LivePreviewEditor: React.FC = () => {
         const width_type = width > 0 ? 'custom' : 'full';
         const height_type = height > 0 ? 'custom' : 'auto';
         
+        console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${width > 0 ? width : null}, custom_height: ${height > 0 ? height : null}`);
+        
         // Update section size in database
         const { error } = await supabase
           .from('cms_sections')
@@ -785,14 +787,81 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
-  const handleElementSettings = () => {
+  const handleElementSettings = async () => {
     if (!selectedElement) return;
     
-    // TODO: Otworzyć modal z ustawieniami elementu
-    toast({
-      title: 'Ustawienia elementu',
-      description: 'Funkcja będzie dostępna wkrótce',
-    });
+    const isSection = sections.find(s => s.id === selectedElement);
+    const isItem = items.find(i => i.id === selectedElement);
+    
+    if (isSection) {
+      // For now, show a simple prompt to change section title
+      const newTitle = prompt('Zmień tytuł sekcji:', isSection.title);
+      if (newTitle && newTitle !== isSection.title) {
+        try {
+          const { error } = await supabase
+            .from('cms_sections')
+            .update({ 
+              title: newTitle,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', selectedElement);
+          
+          if (error) throw error;
+          
+          setSections(prev => prev.map(s => 
+            s.id === selectedElement 
+              ? { ...s, title: newTitle }
+              : s
+          ));
+          
+          toast({
+            title: 'Sukces',
+            description: 'Tytuł sekcji został zmieniony',
+          });
+        } catch (error) {
+          console.error('Error updating section title:', error);
+          toast({
+            title: 'Błąd',
+            description: 'Nie można zmienić tytułu sekcji',
+            variant: 'destructive',
+          });
+        }
+      }
+    } else if (isItem) {
+      // For items, show a simple prompt to change item title
+      const newTitle = prompt('Zmień tytuł elementu:', isItem.title || '');
+      if (newTitle && newTitle !== isItem.title) {
+        try {
+          const { error } = await supabase
+            .from('cms_items')
+            .update({ 
+              title: newTitle,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', selectedElement);
+          
+          if (error) throw error;
+          
+          setItems(prev => prev.map(i => 
+            i.id === selectedElement 
+              ? { ...i, title: newTitle }
+              : i
+          ));
+          
+          toast({
+            title: 'Sukces',
+            description: 'Tytuł elementu został zmieniony',
+          });
+        } catch (error) {
+          console.error('Error updating item title:', error);
+          toast({
+            title: 'Błąd',
+            description: 'Nie można zmienić tytułu elementu',
+            variant: 'destructive',
+          });
+        }
+      }
+    }
   };
 
   const handleAlignElement = async (alignment: 'left' | 'center' | 'right' | 'justify') => {
