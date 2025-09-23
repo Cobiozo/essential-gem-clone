@@ -758,7 +758,7 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-max">
             {sections.map((section) => {
               const columns = sectionColumns[section.id] || [{
                 id: `${section.id}-col-0`,
