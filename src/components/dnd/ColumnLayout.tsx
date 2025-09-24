@@ -212,6 +212,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       sectionId,
       columnIndex: parseInt(column.id.split('-col-')[1]),
     },
+    disabled: !isEditMode,
   });
   const itemIds = column.items
     .map((item) => item.id)

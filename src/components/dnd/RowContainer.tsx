@@ -49,6 +49,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       type: 'row-container',
       rowId: row.id,
     },
+    disabled: !isEditMode,
   });
 
   const rawChildSections = sections.filter(s => s.parent_id === row.id);
@@ -96,6 +97,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         rowId: row.id,
         columnIndex,
       },
+      disabled: !isEditMode,
     });
 
     return (

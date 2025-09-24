@@ -20,6 +20,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
 }) => {
   const { isOver, setNodeRef } = useDroppable({
     id,
+    disabled: !isEditMode,
   });
 
   if (!isEditMode) {
