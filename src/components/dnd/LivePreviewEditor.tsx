@@ -1248,96 +1248,11 @@ export const LivePreviewEditor: React.FC = () => {
                         }}
                         onSelectSection={setSelectedElement}
                         selectedElement={selectedElement}
-                      >
-                        {/* Render child sections within row columns */}
-                        {sections.filter(s => s.parent_id === section.id).map(childSection => {
-                          const columns = sectionColumns[childSection.id] || [{
-                            id: `${childSection.id}-col-0`,
-                            items: items.filter(item => item.section_id === childSection.id),
-                            width: 100,
-                          }];
-                          
-                          return (
-                            <div key={childSection.id}>
-                              <ResizableElement
-                                isEditMode={editMode}
-                                onResize={(width, height) => handleElementResize(childSection.id, width, height)}
-                                initialWidth={childSection.width_type === 'custom' ? childSection.custom_width || undefined : undefined}
-                                initialHeight={childSection.height_type === 'custom' ? childSection.custom_height || undefined : undefined}
-                                className="w-full"
-                              >
-                                <CollapsibleSection
-                                  title={childSection.title}
-                                  description={childSection.description}
-                                  sectionStyle={{
-                                    background_color: childSection.background_color,
-                                    text_color: childSection.text_color,
-                                    font_size: childSection.font_size,
-                                    alignment: childSection.alignment,
-                                    padding: childSection.padding,
-                                    margin: childSection.margin,
-                                    border_radius: childSection.border_radius,
-                                    style_class: childSection.style_class,
-                                    background_gradient: childSection.background_gradient,
-                                    border_width: childSection.border_width,
-                                    border_color: childSection.border_color,
-                                    border_style: childSection.border_style,
-                                    box_shadow: childSection.box_shadow,
-                                    opacity: childSection.opacity,
-                                    width_type: childSection.width_type,
-                                    custom_width: childSection.custom_width,
-                                    height_type: childSection.height_type,
-                                    custom_height: childSection.custom_height,
-                                    max_width: childSection.max_width,
-                                    font_weight: childSection.font_weight,
-                                    line_height: childSection.line_height,
-                                    letter_spacing: childSection.letter_spacing,
-                                    text_transform: childSection.text_transform,
-                                    display_type: childSection.display_type,
-                                    justify_content: childSection.justify_content,
-                                    align_items: childSection.align_items,
-                                    gap: childSection.gap,
-                                    section_margin_top: childSection.section_margin_top,
-                                    section_margin_bottom: childSection.section_margin_bottom,
-                                    background_image: childSection.background_image,
-                                    background_image_opacity: childSection.background_image_opacity,
-                                    background_image_position: childSection.background_image_position,
-                                    background_image_size: childSection.background_image_size,
-                                    icon_name: childSection.icon_name,
-                                    icon_position: childSection.icon_position,
-                                    icon_size: childSection.icon_size,
-                                    icon_color: childSection.icon_color,
-                                    show_icon: childSection.show_icon,
-                                    min_height: childSection.min_height,
-                                    hover_opacity: childSection.hover_opacity,
-                                    hover_scale: childSection.hover_scale,
-                                    hover_transition_duration: childSection.hover_transition_duration,
-                                    hover_background_color: childSection.hover_background_color,
-                                    hover_background_gradient: childSection.hover_background_gradient,
-                                    hover_text_color: childSection.hover_text_color,
-                                    hover_border_color: childSection.hover_border_color,
-                                    hover_box_shadow: childSection.hover_box_shadow,
-                                    content_direction: childSection.content_direction,
-                                    content_wrap: childSection.content_wrap,
-                                    overflow_behavior: childSection.overflow_behavior
-                                  }}
-                                  nestedItems={[]}
-                                  defaultOpen={true}
-                                >
-                                  <ColumnLayout
-                                    sectionId={childSection.id}
-                                    columns={columns}
-                                    isEditMode={editMode}
-                                    onColumnsChange={(newColumns) => handleColumnsChange(childSection.id, newColumns)}
-                                    onItemClick={() => {}}
-                                    onSelectItem={(itemId) => setSelectedElement(itemId)}
-                                  />
-                                </CollapsibleSection>
-                              </ResizableElement>
-                            </div>
-                          );
-                        })}
-                      </RowContainer>
+                        items={items}
+                        sectionColumns={sectionColumns}
+                        onColumnsChange={handleColumnsChange}
+                        onElementResize={handleElementResize}
+                      />
                     </DraggableSection>
                   );
                 }
