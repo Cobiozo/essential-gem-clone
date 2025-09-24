@@ -22,6 +22,7 @@ interface ColumnLayoutProps {
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
   className?: string;
+  activeId?: string | null;
 }
 
 export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
@@ -32,6 +33,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   onItemClick,
   onSelectItem,
   className,
+  activeId,
 }) => {
   
 
@@ -174,6 +176,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             onRemove={() => removeColumn(column.id)}
             onItemClick={onItemClick}
             onSelectItem={onSelectItem}
+            activeId={activeId}
           />
         ))}
       </div>
@@ -189,6 +192,7 @@ interface ColumnDropZoneProps {
   onRemove: () => void;
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
+  activeId?: string | null;
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
@@ -199,6 +203,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onRemove,
   onItemClick,
   onSelectItem,
+  activeId,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -253,7 +258,15 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           )}
           
 {column.items.filter((item) => !!item.id).map((item) => (
-  <div key={item.id} onClick={() => onSelectItem?.(item.id || '')}>
+  <div key={item.id} onClick={(e) => {
+    // Ignore clicks during drag operations
+    if (activeId) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onSelectItem?.(item.id || '');
+  }}>
     <DraggableItem
       id={item.id as string}
       isEditMode={isEditMode}

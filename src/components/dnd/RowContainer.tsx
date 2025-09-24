@@ -22,6 +22,7 @@ interface RowContainerProps {
   sectionColumns: { [sectionId: string]: any[] };
   onColumnsChange: (sectionId: string, columns: any[]) => void;
   onElementResize: (sectionId: string, width: number, height: number) => void;
+  activeId?: string | null;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -36,6 +37,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   sectionColumns,
   onColumnsChange,
   onElementResize,
+  activeId,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
@@ -106,7 +108,15 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         }}
       >
         {slotSections[columnIndex] ? (
-          <div onClick={() => onSelectSection?.(slotSections[columnIndex]!.id)}>
+          <div onClick={(e) => {
+            // Ignore clicks during drag operations  
+            if (activeId) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            onSelectSection?.(slotSections[columnIndex]!.id);
+          }}>
             {isEditMode ? (
               <ResizableElement
                 isSelected={selectedElement === slotSections[columnIndex]!.id}
@@ -187,6 +197,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                       onColumnsChange={(newColumns) => onColumnsChange(slotSections[columnIndex]!.id, newColumns)}
                       onItemClick={() => {}}
                       onSelectItem={(itemId) => onSelectSection?.(itemId)}
+                      activeId={activeId}
                     />
                   </CollapsibleSection>
                 </DraggableSection>
@@ -261,6 +272,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                   onColumnsChange={(newColumns) => onColumnsChange(slotSections[columnIndex]!.id, newColumns)}
                   onItemClick={() => {}}
                   onSelectItem={(itemId) => onSelectSection?.(itemId)}
+                  activeId={activeId}
                 />
               </CollapsibleSection>
             )}

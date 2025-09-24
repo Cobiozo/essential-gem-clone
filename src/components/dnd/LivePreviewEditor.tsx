@@ -1314,6 +1314,7 @@ export const LivePreviewEditor: React.FC = () => {
                         sectionColumns={sectionColumns}
                         onColumnsChange={handleColumnsChange}
                         onElementResize={handleElementResize}
+                        activeId={activeId}
                       />
                     </DraggableSection>
                   );
@@ -1334,7 +1335,15 @@ export const LivePreviewEditor: React.FC = () => {
                     className="w-full"
                   >
                     <div 
-                      onClick={() => setSelectedElement(section.id)}
+                      onClick={(e) => {
+                        // Ignore clicks during drag operations
+                        if (activeId) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          return;
+                        }
+                        setSelectedElement(section.id);
+                      }}
                       className={cn(
                         "cursor-pointer transition-all duration-200 w-full",
                         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
@@ -1412,6 +1421,7 @@ export const LivePreviewEditor: React.FC = () => {
                             onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
                             onItemClick={() => {}}
                             onSelectItem={(itemId) => setSelectedElement(itemId)}
+                            activeId={activeId}
                           />
                         </CollapsibleSection>
                       </ResizableElement>
