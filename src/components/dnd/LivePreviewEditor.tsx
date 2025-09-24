@@ -105,6 +105,24 @@ export const LivePreviewEditor: React.FC = () => {
     setSectionColumns(columnData);
   };
 
+  // Safety: bring any rows that accidentally got nested back to top-level
+  const fixNestedRows = async (sectionsList: CMSSection[]) => {
+    const nested = sectionsList.filter(s => s.section_type === 'row' && s.parent_id);
+    if (nested.length === 0) return;
+    try {
+      const ids = nested.map(s => s.id);
+      const { error } = await supabase
+        .from('cms_sections')
+        .update({ parent_id: null, updated_at: new Date().toISOString() })
+        .in('id', ids);
+      if (error) throw error;
+      toast({ title: 'Naprawiono układ', description: 'Zagnieżdżone wiersze przeniesiono na poziom główny' });
+      await fetchData();
+    } catch (e) {
+      console.error('fixNestedRows error', e);
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -145,6 +163,9 @@ export const LivePreviewEditor: React.FC = () => {
         setHistoryIndex(0);
         initializeColumns(convertedSections, convertedItems);
       }
+
+      // Safety: ensure no rows are nested inside rows
+      await fixNestedRows(convertedSections);
 
       // Load page layout settings (sections grid)
       const { data: settings } = await supabase
@@ -279,11 +300,19 @@ export const LivePreviewEditor: React.FC = () => {
     if (draggedSection) {
       const overData = (over as any).data?.current;
       
-      // Dropping section into a row (specific column or anywhere on row)
-      if (overData?.type === 'row-column' || overData?.type === 'row-container') {
-        const targetRowId: string = overData.rowId;
-        // If a specific column is targeted, use it; otherwise find first free slot
-        let targetColumnIndex: number | null = typeof overData.columnIndex === 'number' ? overData.columnIndex : null;
+        // Dropping section into a row (specific column or anywhere on row)
+        if (overData?.type === 'row-column' || overData?.type === 'row-container') {
+          // Prevent nesting rows inside rows
+          if (draggedSection.section_type === 'row') {
+            toast({ title: 'Nie można zagnieżdżać wierszy', description: 'Przenoś wiersze tylko między sekcjami głównymi' });
+            return;
+          }
+          if (overData?.rowId === draggedSection.id) {
+            return;
+          }
+          const targetRowId: string = overData.rowId;
+          // If a specific column is targeted, use it; otherwise find first free slot
+          let targetColumnIndex: number | null = typeof overData.columnIndex === 'number' ? overData.columnIndex : null;
 
         if (targetColumnIndex === null) {
           const rowSection = sections.find(s => s.id === targetRowId);
