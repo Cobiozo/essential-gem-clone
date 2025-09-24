@@ -174,7 +174,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                       overflow_behavior: slotSections[columnIndex]!.overflow_behavior
                     }}
                     nestedItems={[]}
-                    defaultOpen={true}
+                     defaultOpen={false}
                   >
                     <ColumnLayout
                       sectionId={slotSections[columnIndex]!.id}
@@ -248,7 +248,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                   overflow_behavior: slotSections[columnIndex]!.overflow_behavior
                 }}
                 nestedItems={[]}
-                defaultOpen={true}
+                defaultOpen={false}
               >
                 <ColumnLayout
                   sectionId={slotSections[columnIndex]!.id}
