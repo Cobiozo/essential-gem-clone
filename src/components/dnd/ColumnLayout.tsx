@@ -266,7 +266,12 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     id={item.id as string}
     isEditMode={isEditMode}
   >
-    <div>
+    <div onClick={() => {
+      // Simple selection without complex event handling
+      if (!activeId) {
+        onSelectItem?.(item.id || '');
+      }
+    }}>
       <CMSContent
         item={item}
         onClick={onItemClick || (() => {})}

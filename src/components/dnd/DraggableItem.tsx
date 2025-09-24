@@ -49,16 +49,18 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
     >
       {/* Hover overlay with drag handle */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-        <div className="absolute top-1 right-1 bg-orange-500 text-white p-0.5 rounded shadow pointer-events-auto">
-          <div
-            className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="w-3 h-3" />
-          </div>
-        </div>
         <div className="absolute inset-0 border border-orange-400 border-dashed rounded"></div>
+      </div>
+      
+      {/* Drag handle - always visible when edit mode, separate from overlay */}
+      <div className="absolute top-1 right-1 bg-orange-500 text-white p-0.5 rounded shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div
+          className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="w-3 h-3" />
+        </div>
       </div>
       
       {/* Content */}
