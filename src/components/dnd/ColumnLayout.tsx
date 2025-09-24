@@ -262,7 +262,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           
 {column.items.filter((item) => !!item.id).map((item) => (
   <DraggableItem
-    key={item.id}
+    key={`${item.id}-${(item as any).section_id || ''}`}
     id={item.id as string}
     isEditMode={isEditMode}
   >
