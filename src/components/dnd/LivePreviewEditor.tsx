@@ -311,88 +311,101 @@ export const LivePreviewEditor: React.FC = () => {
       
         // Dropping section into a row (specific column or anywhere on row)
         if (overData?.type === 'row-column' || overData?.type === 'row-container') {
-          // Prevent nesting rows inside rows - only block when dropping INTO a row
-          if (draggedSection.section_type === 'row') {
+          // Check if this is actually row reordering (both dragged and target are rows at top level)
+          const targetSection = sections.find(s => s.id === overData.rowId);
+          const isDraggedRowTopLevel = draggedSection.section_type === 'row' && !draggedSection.parent_id;
+          const isTargetRowTopLevel = targetSection?.section_type === 'row' && !targetSection.parent_id;
+          
+          if (isDraggedRowTopLevel && isTargetRowTopLevel) {
+            // This is row reordering at top level, allow it to continue to regular reordering logic
+          } else if (draggedSection.section_type === 'row') {
+            // This is trying to nest a row inside another container, block it
             toast({ title: 'Nie można zagnieżdżać wierszy', description: 'Wiersze mogą być tylko na poziomie głównym' });
             return;
           }
-          if (overData?.rowId === draggedSection.id) {
+          
+          if (isDraggedRowTopLevel && isTargetRowTopLevel) {
+            // Skip to regular reordering logic for row-to-row reordering
+          } else {
+            // Regular section-to-row logic
+            if (overData?.rowId === draggedSection.id) {
+              return;
+            }
+            const targetRowId: string = overData.rowId;
+            // If a specific column is targeted, use it; otherwise find first free slot
+            let targetColumnIndex: number | null = typeof overData.columnIndex === 'number' ? overData.columnIndex : null;
+
+            if (targetColumnIndex === null) {
+              const rowSection = sections.find(s => s.id === targetRowId);
+              const cols = rowSection?.row_column_count || 1;
+              const siblings = sections.filter(s => s.parent_id === targetRowId);
+              const taken = new Set(siblings.map(s => (typeof s.position === 'number' ? s.position : 0)));
+              let found: number | null = null;
+              for (let i = 0; i < cols; i++) {
+                if (!taken.has(i)) { found = i; break; }
+              }
+              targetColumnIndex = found !== null ? found : Math.min(cols - 1, siblings.length);
+            }
+
+            console.log(`Moving section ${activeId} to row ${targetRowId}, column ${targetColumnIndex}`);
+            
+            try {
+              const { error } = await supabase
+                .from('cms_sections')
+                .update({ 
+                  parent_id: targetRowId,
+                  position: targetColumnIndex,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', activeId);
+              if (error) throw error;
+
+              // Normalize sibling positions within the row in the database
+              const siblings = sections
+                .filter(s => s.parent_id === targetRowId && s.id !== activeId)
+                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+              
+              for (let idx = 0; idx < siblings.length; idx++) {
+                const newPosition = idx >= (targetColumnIndex as number) ? idx + 1 : idx;
+                if (siblings[idx].position !== newPosition) {
+                  const { error: updErr } = await supabase
+                    .from('cms_sections')
+                    .update({ position: newPosition, updated_at: new Date().toISOString() })
+                    .eq('id', siblings[idx].id);
+                  if (updErr) console.warn('Position update warning:', updErr);
+                }
+              }
+
+              // Update local state instead of refetching everything
+              setSections(prev => {
+                let updated = prev.map(s => 
+                  s.id === activeId 
+                    ? { ...s, parent_id: targetRowId, position: targetColumnIndex as number } 
+                    : s
+                );
+                
+                const sibs = updated
+                  .filter(s => s.parent_id === targetRowId && s.id !== activeId)
+                  .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+                sibs.forEach((s, idx) => {
+                  const newPos = idx >= (targetColumnIndex as number) ? idx + 1 : idx;
+                  if (s.position !== newPos) {
+                    updated = updated.map(u => u.id === s.id ? { ...u, position: newPos } : u);
+                  }
+                });
+
+                return updated;
+              });
+
+              toast({ title: 'Sekcja przeniesiona', description: 'Sekcja została umieszczona w wierszu' });
+            } catch (error) {
+              console.error('Error moving section to row:', error);
+              toast({ title: 'Błąd', description: 'Nie udało się przenieść sekcji do wiersza', variant: 'destructive' });
+            }
             return;
           }
-          const targetRowId: string = overData.rowId;
-          // If a specific column is targeted, use it; otherwise find first free slot
-          let targetColumnIndex: number | null = typeof overData.columnIndex === 'number' ? overData.columnIndex : null;
-
-        if (targetColumnIndex === null) {
-          const rowSection = sections.find(s => s.id === targetRowId);
-          const cols = rowSection?.row_column_count || 1;
-          const siblings = sections.filter(s => s.parent_id === targetRowId);
-          const taken = new Set(siblings.map(s => (typeof s.position === 'number' ? s.position : 0)));
-          let found: number | null = null;
-          for (let i = 0; i < cols; i++) {
-            if (!taken.has(i)) { found = i; break; }
-          }
-          targetColumnIndex = found !== null ? found : Math.min(cols - 1, siblings.length);
         }
-
-        console.log(`Moving section ${activeId} to row ${targetRowId}, column ${targetColumnIndex}`);
-        
-        try {
-          const { error } = await supabase
-            .from('cms_sections')
-            .update({ 
-              parent_id: targetRowId,
-              position: targetColumnIndex,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', activeId);
-          if (error) throw error;
-
-          // Normalize sibling positions within the row in the database
-          const siblings = sections
-            .filter(s => s.parent_id === targetRowId && s.id !== activeId)
-            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-          
-          for (let idx = 0; idx < siblings.length; idx++) {
-            const newPosition = idx >= (targetColumnIndex as number) ? idx + 1 : idx;
-            if (siblings[idx].position !== newPosition) {
-              const { error: updErr } = await supabase
-                .from('cms_sections')
-                .update({ position: newPosition, updated_at: new Date().toISOString() })
-                .eq('id', siblings[idx].id);
-              if (updErr) console.warn('Position update warning:', updErr);
-            }
-          }
-
-          // Update local state instead of refetching everything
-          setSections(prev => {
-            let updated = prev.map(s => 
-              s.id === activeId 
-                ? { ...s, parent_id: targetRowId, position: targetColumnIndex as number } 
-                : s
-            );
-            
-            const sibs = updated
-              .filter(s => s.parent_id === targetRowId && s.id !== activeId)
-              .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-
-            sibs.forEach((s, idx) => {
-              const newPos = idx >= (targetColumnIndex as number) ? idx + 1 : idx;
-              if (s.position !== newPos) {
-                updated = updated.map(u => u.id === s.id ? { ...u, position: newPos } : u);
-              }
-            });
-
-            return updated;
-          });
-
-          toast({ title: 'Sekcja przeniesiona', description: 'Sekcja została umieszczona w wierszu' });
-        } catch (error) {
-          console.error('Error moving section to row:', error);
-          toast({ title: 'Błąd', description: 'Nie udało się przenieść sekcji do wiersza', variant: 'destructive' });
-        }
-        return;
-      }
 
       // Regular section reordering (top-level sections only)
       const topLevelSections = sections.filter(s => !s.parent_id);
