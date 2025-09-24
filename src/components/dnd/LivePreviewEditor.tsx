@@ -24,6 +24,7 @@ import { InactiveElementsManager } from './InactiveElementsManager';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
+import { RowContainer } from './RowContainer';
 
 interface Column {
   id: string;
@@ -108,7 +109,7 @@ export const LivePreviewEditor: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch sections
+      // Fetch all sections (including rows and their children)
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('cms_sections')
         .select('*')
@@ -260,7 +261,7 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
@@ -273,17 +274,89 @@ export const LivePreviewEditor: React.FC = () => {
 
     console.log('Drag end:', { activeId, overId, overData: (over as any).data?.current });
 
-    // If dragging a section, reorder sections
-    const isSectionDrag = sections.some(s => s.id === activeId);
-    if (isSectionDrag) {
-      const oldIndex = sections.findIndex(s => s.id === activeId);
-      const newIndex = sections.findIndex(s => s.id === overId);
+    // Check if dragging a section
+    const draggedSection = sections.find(s => s.id === activeId);
+    if (draggedSection) {
+      const overData = (over as any).data?.current;
+      
+      // Dropping section into a row column
+      if (overData?.type === 'row-column') {
+        const { rowId, columnIndex } = overData;
+        console.log(`Moving section ${activeId} to row ${rowId}, column ${columnIndex}`);
+        
+        try {
+          // Update section's parent_id and position in database
+          const { error } = await supabase
+            .from('cms_sections')
+            .update({ 
+              parent_id: rowId,
+              position: columnIndex,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', activeId);
+            
+          if (error) throw error;
+          
+          // Refresh data to reflect changes
+          await fetchData();
+          
+          toast({
+            title: 'Sekcja przeniesiona',
+            description: 'Sekcja została pomyślnie przeniesiona do wiersza',
+          });
+        } catch (error) {
+          console.error('Error moving section to row:', error);
+          toast({
+            title: 'Błąd',
+            description: 'Nie udało się przenieść sekcji do wiersza',
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
+
+      // Regular section reordering (top-level sections only)
+      const topLevelSections = sections.filter(s => !s.parent_id);
+      const oldIndex = topLevelSections.findIndex(s => s.id === activeId);
+      const newIndex = topLevelSections.findIndex(s => s.id === overId);
+      
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newSections = arrayMove(sections, oldIndex, newIndex);
-        saveToHistory(newSections, items);
-        setSections(newSections);
-        setHasUnsavedChanges(true);
-        autoSave(newSections, items);
+        // Move section from row to top-level or reorder top-level
+        if (draggedSection.parent_id) {
+          // Moving from row to top-level
+          try {
+            const { error } = await supabase
+              .from('cms_sections')
+              .update({ 
+                parent_id: null,
+                position: newIndex,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', activeId);
+              
+            if (error) throw error;
+            await fetchData();
+            
+            toast({
+              title: 'Sekcja przeniesiona',
+              description: 'Sekcja została przeniesiona na poziom główny',
+            });
+          } catch (error) {
+            console.error('Error moving section to top-level:', error);
+            toast({
+              title: 'Błąd',
+              description: 'Nie udało się przenieść sekcji',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          // Regular reordering of top-level sections
+          const newSections = arrayMove(sections, sections.findIndex(s => s.id === activeId), sections.findIndex(s => s.id === overId));
+          saveToHistory(newSections, items);
+          setSections(newSections);
+          setHasUnsavedChanges(true);
+          autoSave(newSections, items);
+        }
       }
       return;
     }
@@ -1094,7 +1167,7 @@ export const LivePreviewEditor: React.FC = () => {
             disabled={!editMode}
           >
           <SortableContext 
-            items={sections.map(s => s.id)} 
+            items={sections.filter(s => !s.parent_id).map(s => s.id)} 
             strategy={verticalListSortingStrategy}
           >
             {/* Row Containers Demo - visible only in edit mode */}
@@ -1107,106 +1180,242 @@ export const LivePreviewEditor: React.FC = () => {
               )}
               style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
             >
-              {sections.map((section) => {
-              const columns = sectionColumns[section.id] || [{
-                id: `${section.id}-col-0`,
-                items: items.filter(item => item.section_id === section.id),
-                width: 100,
-              }];
-              
-              return (
-                <DraggableSection
-                  key={section.id}
-                  id={section.id}
-                  isEditMode={editMode}
-                  className="w-full"
-                >
-                  <div 
-                    onClick={() => setSelectedElement(section.id)}
-                    className={cn(
-                      "cursor-pointer transition-all duration-200 w-full",
-                      selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
-                    )}
-                  >
-                    <ResizableElement
+              {sections.filter(s => !s.parent_id).map((section) => {
+                // Render row containers
+                if (section.section_type === 'row') {
+                  return (
+                    <DraggableSection
+                      key={section.id}
+                      id={section.id}
                       isEditMode={editMode}
-                      onResize={(width, height) => handleElementResize(section.id, width, height)}
-                      initialWidth={section.width_type === 'custom' ? section.custom_width || undefined : undefined}
-                      initialHeight={section.height_type === 'custom' ? section.custom_height || undefined : undefined}
                       className="w-full"
                     >
-                      <CollapsibleSection
-                        title={section.title}
-                        description={section.description}
-                        sectionStyle={{
-                          background_color: section.background_color,
-                          text_color: section.text_color,
-                          font_size: section.font_size,
-                          alignment: section.alignment,
-                          padding: section.padding,
-                          margin: section.margin,
-                          border_radius: section.border_radius,
-                          style_class: section.style_class,
-                          background_gradient: section.background_gradient,
-                          border_width: section.border_width,
-                          border_color: section.border_color,
-                          border_style: section.border_style,
-                          box_shadow: section.box_shadow,
-                          opacity: section.opacity,
-                          width_type: section.width_type,
-                          custom_width: section.custom_width,
-                          height_type: section.height_type,
-                          custom_height: section.custom_height,
-                          max_width: section.max_width,
-                          font_weight: section.font_weight,
-                          line_height: section.line_height,
-                          letter_spacing: section.letter_spacing,
-                          text_transform: section.text_transform,
-                          display_type: section.display_type,
-                          justify_content: section.justify_content,
-                          align_items: section.align_items,
-                          gap: section.gap,
-                          section_margin_top: section.section_margin_top,
-                          section_margin_bottom: section.section_margin_bottom,
-                          background_image: section.background_image,
-                          background_image_opacity: section.background_image_opacity,
-                          background_image_position: section.background_image_position,
-                          background_image_size: section.background_image_size,
-                          icon_name: section.icon_name,
-                          icon_position: section.icon_position,
-                          icon_size: section.icon_size,
-                          icon_color: section.icon_color,
-                          show_icon: section.show_icon,
-                          min_height: section.min_height,
-                          hover_opacity: section.hover_opacity,
-                          hover_scale: section.hover_scale,
-                          hover_transition_duration: section.hover_transition_duration,
-                          hover_background_color: section.hover_background_color,
-                          hover_background_gradient: section.hover_background_gradient,
-                          hover_text_color: section.hover_text_color,
-                          hover_border_color: section.hover_border_color,
-                          hover_box_shadow: section.hover_box_shadow,
-                          content_direction: section.content_direction,
-                          content_wrap: section.content_wrap,
-                          overflow_behavior: section.overflow_behavior
+                      <RowContainer
+                        row={section}
+                        sections={sections}
+                        isEditMode={editMode}
+                        onUpdateRow={async (rowId, updates) => {
+                          try {
+                            const { error } = await supabase
+                              .from('cms_sections')
+                              .update({ ...updates, updated_at: new Date().toISOString() })
+                              .eq('id', rowId);
+                            if (error) throw error;
+                            await fetchData();
+                          } catch (error) {
+                            console.error('Error updating row:', error);
+                          }
                         }}
-                        nestedItems={[]}
-                        defaultOpen={true}
+                        onRemoveRow={async (rowId) => {
+                          try {
+                            const { error } = await supabase
+                              .from('cms_sections')
+                              .update({ is_active: false, updated_at: new Date().toISOString() })
+                              .eq('id', rowId);
+                            if (error) throw error;
+                            await fetchData();
+                            toast({ title: 'Wiersz usunięty', description: 'Wiersz został dezaktywowany' });
+                          } catch (error) {
+                            console.error('Error removing row:', error);
+                            toast({ title: 'Błąd', description: 'Nie udało się usunąć wiersza', variant: 'destructive' });
+                          }
+                        }}
+                        onSelectSection={setSelectedElement}
+                        selectedElement={selectedElement}
                       >
-                        <ColumnLayout
-                          sectionId={section.id}
-                          columns={columns}
-                          isEditMode={editMode}
-                          onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
-                          onItemClick={() => {}}
-                          onSelectItem={(itemId) => setSelectedElement(itemId)}
-                        />
-                      </CollapsibleSection>
-                    </ResizableElement>
-                  </div>
-                </DraggableSection>
-              );
-            })}
+                        {/* Render child sections within row columns */}
+                        {sections.filter(s => s.parent_id === section.id).map(childSection => {
+                          const columns = sectionColumns[childSection.id] || [{
+                            id: `${childSection.id}-col-0`,
+                            items: items.filter(item => item.section_id === childSection.id),
+                            width: 100,
+                          }];
+                          
+                          return (
+                            <div key={childSection.id}>
+                              <ResizableElement
+                                isEditMode={editMode}
+                                onResize={(width, height) => handleElementResize(childSection.id, width, height)}
+                                initialWidth={childSection.width_type === 'custom' ? childSection.custom_width || undefined : undefined}
+                                initialHeight={childSection.height_type === 'custom' ? childSection.custom_height || undefined : undefined}
+                                className="w-full"
+                              >
+                                <CollapsibleSection
+                                  title={childSection.title}
+                                  description={childSection.description}
+                                  sectionStyle={{
+                                    background_color: childSection.background_color,
+                                    text_color: childSection.text_color,
+                                    font_size: childSection.font_size,
+                                    alignment: childSection.alignment,
+                                    padding: childSection.padding,
+                                    margin: childSection.margin,
+                                    border_radius: childSection.border_radius,
+                                    style_class: childSection.style_class,
+                                    background_gradient: childSection.background_gradient,
+                                    border_width: childSection.border_width,
+                                    border_color: childSection.border_color,
+                                    border_style: childSection.border_style,
+                                    box_shadow: childSection.box_shadow,
+                                    opacity: childSection.opacity,
+                                    width_type: childSection.width_type,
+                                    custom_width: childSection.custom_width,
+                                    height_type: childSection.height_type,
+                                    custom_height: childSection.custom_height,
+                                    max_width: childSection.max_width,
+                                    font_weight: childSection.font_weight,
+                                    line_height: childSection.line_height,
+                                    letter_spacing: childSection.letter_spacing,
+                                    text_transform: childSection.text_transform,
+                                    display_type: childSection.display_type,
+                                    justify_content: childSection.justify_content,
+                                    align_items: childSection.align_items,
+                                    gap: childSection.gap,
+                                    section_margin_top: childSection.section_margin_top,
+                                    section_margin_bottom: childSection.section_margin_bottom,
+                                    background_image: childSection.background_image,
+                                    background_image_opacity: childSection.background_image_opacity,
+                                    background_image_position: childSection.background_image_position,
+                                    background_image_size: childSection.background_image_size,
+                                    icon_name: childSection.icon_name,
+                                    icon_position: childSection.icon_position,
+                                    icon_size: childSection.icon_size,
+                                    icon_color: childSection.icon_color,
+                                    show_icon: childSection.show_icon,
+                                    min_height: childSection.min_height,
+                                    hover_opacity: childSection.hover_opacity,
+                                    hover_scale: childSection.hover_scale,
+                                    hover_transition_duration: childSection.hover_transition_duration,
+                                    hover_background_color: childSection.hover_background_color,
+                                    hover_background_gradient: childSection.hover_background_gradient,
+                                    hover_text_color: childSection.hover_text_color,
+                                    hover_border_color: childSection.hover_border_color,
+                                    hover_box_shadow: childSection.hover_box_shadow,
+                                    content_direction: childSection.content_direction,
+                                    content_wrap: childSection.content_wrap,
+                                    overflow_behavior: childSection.overflow_behavior
+                                  }}
+                                  nestedItems={[]}
+                                  defaultOpen={true}
+                                >
+                                  <ColumnLayout
+                                    sectionId={childSection.id}
+                                    columns={columns}
+                                    isEditMode={editMode}
+                                    onColumnsChange={(newColumns) => handleColumnsChange(childSection.id, newColumns)}
+                                    onItemClick={() => {}}
+                                    onSelectItem={(itemId) => setSelectedElement(itemId)}
+                                  />
+                                </CollapsibleSection>
+                              </ResizableElement>
+                            </div>
+                          );
+                        })}
+                      </RowContainer>
+                    </DraggableSection>
+                  );
+                }
+
+                // Render regular sections
+                const columns = sectionColumns[section.id] || [{
+                  id: `${section.id}-col-0`,
+                  items: items.filter(item => item.section_id === section.id),
+                  width: 100,
+                }];
+                
+                return (
+                  <DraggableSection
+                    key={section.id}
+                    id={section.id}
+                    isEditMode={editMode}
+                    className="w-full"
+                  >
+                    <div 
+                      onClick={() => setSelectedElement(section.id)}
+                      className={cn(
+                        "cursor-pointer transition-all duration-200 w-full",
+                        selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
+                      )}
+                    >
+                      <ResizableElement
+                        isEditMode={editMode}
+                        onResize={(width, height) => handleElementResize(section.id, width, height)}
+                        initialWidth={section.width_type === 'custom' ? section.custom_width || undefined : undefined}
+                        initialHeight={section.height_type === 'custom' ? section.custom_height || undefined : undefined}
+                        className="w-full"
+                      >
+                        <CollapsibleSection
+                          title={section.title}
+                          description={section.description}
+                          sectionStyle={{
+                            background_color: section.background_color,
+                            text_color: section.text_color,
+                            font_size: section.font_size,
+                            alignment: section.alignment,
+                            padding: section.padding,
+                            margin: section.margin,
+                            border_radius: section.border_radius,
+                            style_class: section.style_class,
+                            background_gradient: section.background_gradient,
+                            border_width: section.border_width,
+                            border_color: section.border_color,
+                            border_style: section.border_style,
+                            box_shadow: section.box_shadow,
+                            opacity: section.opacity,
+                            width_type: section.width_type,
+                            custom_width: section.custom_width,
+                            height_type: section.height_type,
+                            custom_height: section.custom_height,
+                            max_width: section.max_width,
+                            font_weight: section.font_weight,
+                            line_height: section.line_height,
+                            letter_spacing: section.letter_spacing,
+                            text_transform: section.text_transform,
+                            display_type: section.display_type,
+                            justify_content: section.justify_content,
+                            align_items: section.align_items,
+                            gap: section.gap,
+                            section_margin_top: section.section_margin_top,
+                            section_margin_bottom: section.section_margin_bottom,
+                            background_image: section.background_image,
+                            background_image_opacity: section.background_image_opacity,
+                            background_image_position: section.background_image_position,
+                            background_image_size: section.background_image_size,
+                            icon_name: section.icon_name,
+                            icon_position: section.icon_position,
+                            icon_size: section.icon_size,
+                            icon_color: section.icon_color,
+                            show_icon: section.show_icon,
+                            min_height: section.min_height,
+                            hover_opacity: section.hover_opacity,
+                            hover_scale: section.hover_scale,
+                            hover_transition_duration: section.hover_transition_duration,
+                            hover_background_color: section.hover_background_color,
+                            hover_background_gradient: section.hover_background_gradient,
+                            hover_text_color: section.hover_text_color,
+                            hover_border_color: section.hover_border_color,
+                            hover_box_shadow: section.hover_box_shadow,
+                            content_direction: section.content_direction,
+                            content_wrap: section.content_wrap,
+                            overflow_behavior: section.overflow_behavior
+                          }}
+                          nestedItems={[]}
+                          defaultOpen={true}
+                        >
+                          <ColumnLayout
+                            sectionId={section.id}
+                            columns={columns}
+                            isEditMode={editMode}
+                            onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
+                            onItemClick={() => {}}
+                            onSelectItem={(itemId) => setSelectedElement(itemId)}
+                          />
+                        </CollapsibleSection>
+                      </ResizableElement>
+                    </div>
+                  </DraggableSection>
+                );
+              })}
             </div>
           </SortableContext>
         </DragDropProvider>

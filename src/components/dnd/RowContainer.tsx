@@ -61,6 +61,69 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     return 'auto';
   };
 
+  const DropZone = ({ columnIndex }: { columnIndex: number }) => {
+    const { setNodeRef: setDropRef, isOver: isColumnOver } = useDroppable({
+      id: `${row.id}-col-${columnIndex}`,
+      data: {
+        type: 'row-column',
+        rowId: row.id,
+        columnIndex,
+      },
+    });
+
+    return (
+      <div
+        ref={setDropRef}
+        className={cn(
+          "min-h-[120px] transition-all duration-200",
+          isEditMode && "border border-dashed border-border/30 rounded p-2",
+          isEditMode && isColumnOver && "bg-primary/10 border-primary border-2",
+          isEditMode && childSections[columnIndex] && "border-transparent"
+        )}
+        style={{
+          width: row.row_layout_type === 'custom' ? getColumnWidth(columnIndex) : undefined,
+        }}
+      >
+        {childSections[columnIndex] ? (
+          <div onClick={() => onSelectSection?.(childSections[columnIndex].id)}>
+            {isEditMode ? (
+              <ResizableElement
+                isSelected={selectedElement === childSections[columnIndex].id}
+                isEditMode={isEditMode}
+                onResize={(width, height) => {
+                  onUpdateRow(childSections[columnIndex].id, {
+                    custom_width: width,
+                    custom_height: height,
+                    row_layout_type: 'custom'
+                  });
+                }}
+              >
+                <DraggableSection
+                  id={childSections[columnIndex].id}
+                  isEditMode={isEditMode}
+                  className="h-full"
+                >
+                  {children}
+                </DraggableSection>
+              </ResizableElement>
+            ) : (
+              children
+            )}
+          </div>
+        ) : (
+          isEditMode && (
+            <div className="flex items-center justify-center h-full text-muted-foreground/60">
+              <div className="text-center">
+                <Plus className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                <p className="text-xs">Drop section here</p>
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -129,60 +192,9 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       {/* Grid layout for sections */}
       <div className={cn("grid gap-4", getGridClass())}>
         <SortableContext items={childSections.map(s => s.id)} strategy={horizontalListSortingStrategy}>
-          {Array.from({ length: columnCount }, (_, index) => {
-            const section = childSections[index];
-            
-            return (
-              <div
-                key={`col-${index}`}
-                className={cn(
-                  "min-h-[120px] transition-all duration-200",
-                  isEditMode && "border border-dashed border-border/30 rounded p-2",
-                  isEditMode && section && "border-transparent"
-                )}
-                style={{
-                  width: row.row_layout_type === 'custom' ? getColumnWidth(index) : undefined,
-                }}
-              >
-                {section ? (
-                  <div onClick={() => onSelectSection?.(section.id)}>
-                    {isEditMode ? (
-                    <ResizableElement
-                      isSelected={selectedElement === section.id}
-                      isEditMode={isEditMode}
-                      onResize={(width, height) => {
-                        onUpdateRow(section.id, {
-                          custom_width: width,
-                          custom_height: height,
-                          row_layout_type: 'custom'
-                        });
-                      }}
-                    >
-                        <DraggableSection
-                          id={section.id}
-                          isEditMode={isEditMode}
-                          className="h-full"
-                        >
-                          {children}
-                        </DraggableSection>
-                      </ResizableElement>
-                    ) : (
-                      children
-                    )}
-                  </div>
-                ) : (
-                  isEditMode && (
-                    <div className="flex items-center justify-center h-full text-muted-foreground/60">
-                      <div className="text-center">
-                        <Plus className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                        <p className="text-xs">Drop section here</p>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            );
-          })}
+          {Array.from({ length: columnCount }, (_, index) => (
+            <DropZone key={`col-${index}`} columnIndex={index} />
+          ))}
         </SortableContext>
       </div>
     </div>
