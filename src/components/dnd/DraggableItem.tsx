@@ -47,12 +47,12 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
         className
       )}
       {...attributes}
-      {...listeners}
     >
       {/* Hover overlay with drag handle */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
         <div className="absolute top-1 right-1 bg-orange-500 text-white p-0.5 rounded shadow pointer-events-auto">
           <div
+            {...listeners}
             className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors"
           >
             <GripVertical className="w-3 h-3" />
