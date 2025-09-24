@@ -457,7 +457,6 @@ export const LivePreviewEditor: React.FC = () => {
           saveToHistory(newSections, items);
           setSections(newSections);
           setHasUnsavedChanges(true);
-          autoSave(newSections, items);
         }
       }
       return;
@@ -570,7 +569,6 @@ export const LivePreviewEditor: React.FC = () => {
     setHasUnsavedChanges(true);
     
     console.log('Updated items:', newItems.map(i => ({ id: i.id, section_id: i.section_id })));
-    autoSave(sections, newItems);
     setDragVersion((v) => v + 1);
   };
 
@@ -581,7 +579,6 @@ export const LivePreviewEditor: React.FC = () => {
       setItems(prevState.items);
       setHistoryIndex(historyIndex - 1);
       setHasUnsavedChanges(true);
-      autoSave(prevState.sections, prevState.items);
     }
   };
 
@@ -592,7 +589,6 @@ export const LivePreviewEditor: React.FC = () => {
       setItems(nextState.items);
       setHistoryIndex(historyIndex + 1);
       setHasUnsavedChanges(true);
-      autoSave(nextState.sections, nextState.items);
     }
   };
 
@@ -796,7 +792,7 @@ export const LivePreviewEditor: React.FC = () => {
       });
     }
     
-    autoSave(sections, newItems);
+    // No more auto-save, only manual save
   };
 
   const handleDeactivateElement = async (elementId: string) => {
