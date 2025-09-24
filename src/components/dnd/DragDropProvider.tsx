@@ -69,10 +69,10 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragEnd={onDragEnd}
       modifiers={[restrictToWindowEdges]}
     >
-      {children}
-      <DragOverlay>
+      {/* Overlay disabled to prevent measurement loops */}
+      {/* <DragOverlay>
         {activeId ? dragOverlay : null}
-      </DragOverlay>
+      </DragOverlay> */}
     </DndContext>
   );
 };
