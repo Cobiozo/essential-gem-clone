@@ -80,7 +80,9 @@ interface CMSSection {
   hover_box_shadow?: string | null;
   hover_opacity?: number | null;
   hover_scale?: number | null;
-  hover_transition_duration?: number | null;
+  section_type?: string | null;
+  row_column_count?: number | null;
+  row_layout_type?: string | null;
 }
 
 interface CMSItem {
@@ -371,6 +373,83 @@ const Index = () => {
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
           >
             {sections.filter(s => (s as any).parent_id == null).map((section) => {
+              
+              // Jeśli to wiersz (row), wyświetl go z kolumnami
+              if (section.section_type === 'row') {
+                const rowColumnCount = section.row_column_count || 1;
+                const childSections = sections.filter(s => s.parent_id === section.id)
+                  .sort((a, b) => a.position - b.position);
+                
+                return (
+                  <div key={`row-${section.id}`} className="w-full">
+                    <div 
+                      className="grid gap-4 lg:gap-6 w-full"
+                      style={{ 
+                        gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` 
+                      }}
+                    >
+                      {Array.from({ length: rowColumnCount }, (_, colIndex) => {
+                        const columnsections = childSections.filter(s => s.position === colIndex);
+                        
+                        return (
+                          <div key={`row-${section.id}-col-${colIndex}`} className="space-y-4">
+                            {columnsections.map((childSection) => {
+                              const sectionItems = items.filter(item => 
+                                item.section_id === childSection.id && 
+                                item.type !== 'header_text' && 
+                                item.type !== 'author'
+                              ).sort((a, b) => a.position - b.position);
+                              
+                              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+                              const columnCount = Math.max(1, maxColIndex + 1);
+                              
+                              const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({
+                                id: `${childSection.id}-col-${i}`,
+                                items: [],
+                                width: 100 / columnCount,
+                              }));
+                              
+                              sectionItems.forEach((item) => {
+                                const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                                columns[colIndex].items.push(item);
+                              });
+                              
+                              const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(childSection.title);
+                              
+                              return (
+                                <CollapsibleSection 
+                                  key={`section-${childSection.id}-${childSection.title}`}
+                                  title={childSection.title}
+                                  description={childSection.description}
+                                  defaultOpen={false}
+                                  showShareButton={shouldShowShare}
+                                  sectionStyle={childSection}
+                                >
+                                  <ColumnLayout
+                                    sectionId={childSection.id}
+                                    columns={columns}
+                                    isEditMode={false}
+                                    onColumnsChange={() => {}}
+                                    onItemClick={handleButtonClick}
+                                    onSelectItem={() => {}}
+                                  />
+                                  {sectionItems.length === 0 && (
+                                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                                      {t('common.noContent')}
+                                    </div>
+                                  )}
+                                </CollapsibleSection>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Zwykłe sekcje (nie-row)
               const sectionItems = items.filter(item => 
                 item.section_id === section.id && 
                 item.type !== 'header_text' && 
