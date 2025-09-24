@@ -273,9 +273,11 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     const target = e.target as HTMLElement | null;
     if (
       target &&
-      target.closest(
+      (target.closest(
         'button, a, input, textarea, select, label, [role="button"], [data-interactive], [data-no-select], summary, [aria-expanded], [data-radix-accordion], [data-accordion-trigger], [data-collapsible-trigger]'
-      )
+      ) ||
+      target.tagName === 'BUTTON' ||
+      target.closest('.group')?.querySelector('button')?.contains(target))
     ) {
       e.stopPropagation();
       return; // allow inner component (e.g., accordion/collapsible) to handle
