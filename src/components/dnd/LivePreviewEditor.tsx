@@ -110,8 +110,9 @@ export const LivePreviewEditor: React.FC = () => {
   };
 
   // Safety: bring any rows that accidentally got nested back to top-level
-  const fixNestedRows = async (sectionsList: CMSSection[]) => {
-    if (hasFixedNestedRowsRef.current) return;
+   const fixNestedRows = async (sectionsList: CMSSection[]) => {
+     if (hasFixedNestedRowsRef.current) return;
+     if (!isAdmin) return;
     const nested = sectionsList.filter(s => s.section_type === 'row' && s.parent_id);
     if (nested.length === 0) return;
     try {
@@ -290,6 +291,11 @@ export const LivePreviewEditor: React.FC = () => {
     setActiveId(null);
 
     if (!over || active.id === over.id) {
+      return;
+    }
+
+    if (!isAdmin) {
+      toast({ title: 'Brak uprawnień', description: 'Tylko administrator może przenosić/usuwać sekcje', variant: 'destructive' });
       return;
     }
 
@@ -1293,6 +1299,10 @@ export const LivePreviewEditor: React.FC = () => {
                           }
                         }}
                          onRemoveRow={async (rowId) => {
+                          if (!isAdmin) {
+                            toast({ title: 'Brak uprawnień', description: 'Tylko administrator może usuwać wiersze', variant: 'destructive' });
+                            return;
+                          }
                           console.log('Attempting to remove row:', rowId);
                           try {
                             // First, check if row has children and move them to top level
