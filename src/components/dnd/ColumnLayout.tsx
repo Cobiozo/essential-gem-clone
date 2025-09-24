@@ -208,9 +208,9 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       columnIndex: parseInt(column.id.split('-col-')[1]),
     },
   });
-
-
-  const itemIds = column.items.map(item => item.id || '');
+  const itemIds = column.items
+    .map((item) => item.id)
+    .filter(Boolean) as string[];
 
   return (
     <div
@@ -252,10 +252,10 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
             </div>
           )}
           
-{column.items.map((item) => (
+{column.items.filter((item) => !!item.id).map((item) => (
   <div key={item.id} onClick={() => onSelectItem?.(item.id || '')}>
     <DraggableItem
-      id={item.id || ''}
+      id={item.id as string}
       isEditMode={isEditMode}
     >
       <CMSContent

@@ -55,7 +55,9 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   });
 
   const sensors = useSensors(pointerSensor, touchSensor);
-
+ 
+  const modifiers = React.useMemo(() => [restrictToWindowEdges], []);
+ 
   if (disabled) {
     return <>{children}</>;
   }
@@ -67,7 +69,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
-      modifiers={[restrictToWindowEdges]}
+      modifiers={modifiers}
       measuring={{
         droppable: {
           strategy: MeasuringStrategy.WhileDragging,
