@@ -314,10 +314,17 @@ export const LivePreviewEditor: React.FC = () => {
           const siblings = sections
             .filter(s => s.parent_id === targetRowId && s.id !== activeId)
             .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-          const updates = siblings.map((s, idx) => ({ id: s.id, position: idx >= targetColumnIndex! ? idx + 1 : idx }));
-          if (updates.length) {
-            const { error: updErr } = await supabase.from('cms_sections').upsert(updates);
-            if (updErr) console.warn('Position normalization warning:', updErr);
+          
+          // Update positions individually for each sibling
+          for (let idx = 0; idx < siblings.length; idx++) {
+            const newPosition = idx >= targetColumnIndex! ? idx + 1 : idx;
+            if (siblings[idx].position !== newPosition) {
+              const { error: updErr } = await supabase
+                .from('cms_sections')
+                .update({ position: newPosition, updated_at: new Date().toISOString() })
+                .eq('id', siblings[idx].id);
+              if (updErr) console.warn('Position update warning:', updErr);
+            }
           }
 
           await fetchData();
