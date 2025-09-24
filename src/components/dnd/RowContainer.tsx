@@ -67,13 +67,13 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       className={cn(
         "w-full transition-all duration-200",
         isEditMode && "p-2",
-        isEditMode && isOver && "bg-blue-50/20 rounded-lg",
+        isEditMode && isOver && "bg-primary/5 rounded-lg",
         !isEditMode && "border-0"
       )}
     >
       {/* Row controls in edit mode */}
       {isEditMode && (
-        <div className="mb-2 p-2 bg-background/90 backdrop-blur-sm rounded border border-border/50 shadow-sm">
+        <div className="mb-2 p-2 bg-background/80 backdrop-blur-sm rounded border border-border/30 shadow-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
               <Grid3X3 className="w-3 h-3 text-muted-foreground" />
