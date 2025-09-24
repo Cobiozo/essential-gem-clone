@@ -217,9 +217,9 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       ref={setNodeRef}
       className={cn(
         "min-h-[100px] p-3 rounded-lg transition-all duration-200",
-        isEditMode && "border-2 border-dashed",
+        isEditMode && "border border-dashed",
         isEditMode && !isOver && "border-gray-300 bg-gray-50/50 dark:bg-gray-800/50",
-        isEditMode && isOver && "border-blue-400 bg-blue-50 dark:bg-blue-950/20",
+        isEditMode && isOver && "border-gray-300 bg-blue-50 dark:bg-blue-950/20 ring-2 ring-blue-400",
         !isEditMode && "bg-background"
       )}
     >

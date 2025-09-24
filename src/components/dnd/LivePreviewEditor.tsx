@@ -25,6 +25,7 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
+import { DndDiagnostics } from './DndDiagnostics';
 
 interface Column {
   id: string;
@@ -1232,7 +1233,8 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-          <SortableContext 
+            {editMode && <DndDiagnostics />}
+          <SortableContext
             items={sections.filter(s => !s.parent_id).map(s => s.id)} 
             strategy={verticalListSortingStrategy}
           >

@@ -98,7 +98,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         className={cn(
           "min-h-[120px] transition-all duration-200",
           isEditMode && "border border-dashed border-border/30 rounded p-2",
-          isEditMode && isColumnOver && "bg-primary/10 border-primary border-2",
+          isEditMode && isColumnOver && "bg-primary/10 ring-2 ring-primary",
           isEditMode && slotSections[columnIndex] && "border-transparent"
         )}
         style={{
@@ -284,7 +284,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       ref={setNodeRef}
       className={cn(
         "w-full transition-all duration-200",
-        isEditMode && isOver && "bg-primary/5 rounded-lg"
+        isEditMode && isOver && "bg-primary/5 ring-2 ring-primary rounded-lg"
       )}
     >
       {/* Row controls in edit mode */}

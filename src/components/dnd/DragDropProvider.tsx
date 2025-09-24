@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  MeasuringStrategy,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -68,10 +69,15 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
       modifiers={[restrictToWindowEdges]}
+      measuring={{
+        droppable: {
+          strategy: MeasuringStrategy.WhileDragging,
+        },
+      }}
     >
       {children}
-      <DragOverlay>
-        {activeId ? dragOverlay : null}
+      <DragOverlay dropAnimation={null}>
+        {activeId ? null : null}
       </DragOverlay>
     </DndContext>
   );
