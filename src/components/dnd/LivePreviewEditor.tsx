@@ -1205,20 +1205,25 @@ export const LivePreviewEditor: React.FC = () => {
             activeId={activeId}
             dragOverlay={
               activeId ? (
-                items.find(i => i.id === activeId) ? (
-                  <div className="bg-white border-2 border-blue-400 rounded p-2 shadow-lg opacity-80">
-                    <CMSContent 
-                      item={items.find(i => i.id === activeId)!} 
-                      onClick={() => {}} 
-                    />
-                  </div>
-                ) : (
-                  sections.find(s => s.id === activeId) ? (
-                    <div className="bg-white border-2 border-green-400 rounded p-2 shadow-lg opacity-80">
-                      Section: {sections.find(s => s.id === activeId)?.title}
-                    </div>
-                  ) : null
-                )
+                (() => {
+                  const activeItem = items.find(i => i.id === activeId);
+                  if (activeItem) {
+                    return (
+                      <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
+                        {activeItem.title || activeItem.type}
+                      </div>
+                    );
+                  }
+                  const activeSection = sections.find(s => s.id === activeId);
+                  if (activeSection) {
+                    return (
+                      <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
+                        Sekcja: {activeSection.title}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
               ) : null
             }
             disabled={!editMode}
