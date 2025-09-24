@@ -1411,8 +1411,9 @@ export const LivePreviewEditor: React.FC = () => {
                             content_wrap: section.content_wrap,
                             overflow_behavior: section.overflow_behavior
                           }}
-                    nestedItems={[]}
-                    defaultOpen={false}
+                          nestedItems={[]}
+                          defaultOpen={false}
+                          disableToggle={!!activeId}
                         >
                           <ColumnLayout
                             sectionId={section.id}

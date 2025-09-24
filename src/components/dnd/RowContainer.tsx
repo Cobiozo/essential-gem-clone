@@ -185,6 +185,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                     }}
                     nestedItems={[]}
                      defaultOpen={false}
+                     disableToggle={!!activeId}
                   >
                     <ColumnLayout
                       sectionId={slotSections[columnIndex]!.id}
@@ -260,6 +261,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 }}
                 nestedItems={[]}
                 defaultOpen={false}
+                disableToggle={!!activeId}
               >
                 <ColumnLayout
                   sectionId={slotSections[columnIndex]!.id}
