@@ -27,6 +27,7 @@ interface CMSSection {
   visible_to_everyone: boolean;
   visible_to_specjalista: boolean;
   visible_to_anonymous: boolean;
+  parent_id?: string | null;
   // Enhanced styling options
   background_color?: string | null;
   text_color?: string | null;
@@ -369,7 +370,7 @@ const Index = () => {
             className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
           >
-            {sections.map((section) => {
+            {sections.filter(s => (s as any).parent_id == null).map((section) => {
               const sectionItems = items.filter(item => 
                 item.section_id === section.id && 
                 item.type !== 'header_text' && 
