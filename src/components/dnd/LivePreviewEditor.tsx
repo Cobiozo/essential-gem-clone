@@ -788,9 +788,10 @@ export const LivePreviewEditor: React.FC = () => {
             description: isSection.description,
             position: sections.length,
             visible_to_everyone: isSection.visible_to_everyone,
-            visible_to_clients: isSection.visible_to_clients,
-            visible_to_partners: isSection.visible_to_partners,
-            visible_to_specjalista: isSection.visible_to_specjalista,
+             visible_to_clients: isSection.visible_to_clients,
+             visible_to_partners: isSection.visible_to_partners,
+             visible_to_specjalista: isSection.visible_to_specjalista,
+             visible_to_anonymous: isSection.visible_to_anonymous,
             background_color: isSection.background_color,
             text_color: isSection.text_color,
             style_class: isSection.style_class

@@ -70,6 +70,7 @@ interface Page {
   visible_to_clients: boolean;
   visible_to_everyone: boolean;
   visible_to_specjalista: boolean;
+  visible_to_anonymous: boolean;
 }
 
 const Admin = () => {
@@ -163,6 +164,7 @@ const Admin = () => {
     visible_to_clients: false,
     visible_to_everyone: true,
     visible_to_specjalista: false,
+    visible_to_anonymous: false,
     // Enhanced styling defaults
     background_color: 'hsl(var(--background))',
     text_color: 'hsl(var(--foreground))',
@@ -220,6 +222,7 @@ const Admin = () => {
     visible_to_clients: false,
     visible_to_everyone: true,
     visible_to_specjalista: false,
+    visible_to_anonymous: false,
   });
   const [activeTab, setActiveTab] = useState("content");
   const [editingItemTextMode, setEditingItemTextMode] = useState(false);
@@ -265,7 +268,7 @@ const Admin = () => {
   // Whitelist of allowed cms_sections columns and sanitizer to prevent DB errors
   const SECTION_DB_FIELDS = [
     'title', 'description', 'position', 'is_active', 'page_id',
-    'visible_to_partners', 'visible_to_clients', 'visible_to_everyone', 'visible_to_specjalista',
+    'visible_to_partners', 'visible_to_clients', 'visible_to_everyone', 'visible_to_specjalista', 'visible_to_anonymous',
     'border_width', 'opacity', 'custom_width', 'custom_height', 'max_width',
     'font_weight', 'line_height', 'letter_spacing',
     'overflow_behavior',
@@ -878,6 +881,7 @@ const Admin = () => {
         visible_to_clients: false,
         visible_to_everyone: true,
         visible_to_specjalista: false,
+        visible_to_anonymous: false,
         // Reset styling defaults
         background_color: 'hsl(var(--background))',
         text_color: 'hsl(var(--foreground))',
@@ -1226,6 +1230,7 @@ const Admin = () => {
           visible_to_clients: newPage.visible_to_clients,
           visible_to_everyone: newPage.visible_to_everyone,
           visible_to_specjalista: newPage.visible_to_specjalista,
+          visible_to_anonymous: newPage.visible_to_anonymous,
         }])
         .select()
         .single();
@@ -1245,6 +1250,7 @@ const Admin = () => {
         visible_to_clients: false,
         visible_to_everyone: true,
         visible_to_specjalista: false,
+        visible_to_anonymous: false,
       });
       
       toast({
@@ -1261,7 +1267,7 @@ const Admin = () => {
     }
   };
 
-  const updatePageVisibility = async (pageId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean; visible_to_specjalista?: boolean }) => {
+  const updatePageVisibility = async (pageId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean; visible_to_specjalista?: boolean; visible_to_anonymous?: boolean }) => {
     try {
       const { error } = await supabase
         .from('pages')
@@ -1290,7 +1296,7 @@ const Admin = () => {
     }
   };
 
-  const updateSectionVisibility = async (sectionId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean; visible_to_specjalista?: boolean }) => {
+  const updateSectionVisibility = async (sectionId: string, visibilityUpdates: { visible_to_partners?: boolean; visible_to_clients?: boolean; visible_to_everyone?: boolean; visible_to_specjalista?: boolean; visible_to_anonymous?: boolean }) => {
     try {
       const { error } = await supabase
         .from('cms_sections')
@@ -1842,6 +1848,16 @@ const Admin = () => {
                         />
                         <Label htmlFor="new-section-specjalista">{t('admin.visibleToSpecialists')}</Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="new-section-anonymous"
+                          checked={newSection.visible_to_anonymous}
+                          onChange={(e) => setNewSection({...newSection, visible_to_anonymous: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="new-section-anonymous">Widoczny dla niezalogowanych</Label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1910,16 +1926,26 @@ const Admin = () => {
                                 />
                                 <label htmlFor={`section-everyone-${section.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`section-specjalista-${section.id}`}
-                                  checked={section.visible_to_specjalista}
-                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
-                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                />
-                                <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
-                              </div>
+                               <div className="flex items-center space-x-2">
+                                 <input
+                                   type="checkbox"
+                                   id={`section-specjalista-${section.id}`}
+                                   checked={section.visible_to_specjalista}
+                                   onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
+                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                 />
+                                 <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
+                               </div>
+                               <div className="flex items-center space-x-2">
+                                 <input
+                                   type="checkbox"
+                                   id={`section-anonymous-${section.id}`}
+                                   checked={section.visible_to_anonymous}
+                                   onChange={(e) => updateSectionVisibility(section.id, { visible_to_anonymous: e.target.checked })}
+                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                 />
+                                 <label htmlFor={`section-anonymous-${section.id}`} className="text-sm">Widoczny dla niezalogowanych</label>
+                               </div>
                            </div>
                          </div>
                         <div className="flex items-center justify-between sm:justify-end gap-3">
@@ -2357,17 +2383,27 @@ const Admin = () => {
                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                          />
                           <Label htmlFor="new-page-everyone">{t('admin.visibleToEveryone')}</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="new-page-specjalista"
-                            checked={newPage.visible_to_specjalista}
-                            onChange={(e) => setNewPage({...newPage, visible_to_specjalista: e.target.checked})}
-                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                          />
-                          <Label htmlFor="new-page-specjalista">{t('admin.visibleToSpecialists')}</Label>
-                        </div>
+                         </div>
+                         <div className="flex items-center space-x-2">
+                           <input
+                             type="checkbox"
+                             id="new-page-specjalista"
+                             checked={newPage.visible_to_specjalista}
+                             onChange={(e) => setNewPage({...newPage, visible_to_specjalista: e.target.checked})}
+                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                           />
+                           <Label htmlFor="new-page-specjalista">{t('admin.visibleToSpecialists')}</Label>
+                         </div>
+                         <div className="flex items-center space-x-2">
+                           <input
+                             type="checkbox"
+                             id="new-page-anonymous"
+                             checked={newPage.visible_to_anonymous}
+                             onChange={(e) => setNewPage({...newPage, visible_to_anonymous: e.target.checked})}
+                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                           />
+                           <Label htmlFor="new-page-anonymous">Widoczny dla niezalogowanych</Label>
+                         </div>
                      </div>
                    </div>
                    <Button onClick={createPage} disabled={!newPage.title}>
@@ -2468,17 +2504,27 @@ const Admin = () => {
                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                                      />
                                       <label htmlFor={`everyone-${page.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <input
-                                        type="checkbox"
-                                        id={`specjalista-${page.id}`}
-                                        checked={page.visible_to_specjalista}
-                                        onChange={(e) => updatePageVisibility(page.id, { visible_to_specjalista: e.target.checked })}
-                                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                      />
-                                      <label htmlFor={`specjalista-${page.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
-                                    </div>
+                                     </div>
+                                     <div className="flex items-center space-x-2">
+                                       <input
+                                         type="checkbox"
+                                         id={`specjalista-${page.id}`}
+                                         checked={page.visible_to_specjalista}
+                                         onChange={(e) => updatePageVisibility(page.id, { visible_to_specjalista: e.target.checked })}
+                                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                       />
+                                       <label htmlFor={`specjalista-${page.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
+                                     </div>
+                                     <div className="flex items-center space-x-2">
+                                       <input
+                                         type="checkbox"
+                                         id={`anonymous-${page.id}`}
+                                         checked={page.visible_to_anonymous}
+                                         onChange={(e) => updatePageVisibility(page.id, { visible_to_anonymous: e.target.checked })}
+                                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                                       />
+                                       <label htmlFor={`anonymous-${page.id}`} className="text-sm">Widoczny dla niezalogowanych</label>
+                                     </div>
                                  </div>
                                </div>
                               <div className="flex items-center space-x-2 ml-4">
@@ -3229,17 +3275,37 @@ const Admin = () => {
                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                        />
                        <Label htmlFor="edit-page-clients">Klient</Label>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <input
-                         type="checkbox"
-                         id="edit-page-everyone"
-                         checked={editingPage.visible_to_everyone}
-                         onChange={(e) => setEditingPage({...editingPage, visible_to_everyone: e.target.checked})}
-                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                       />
-                       <Label htmlFor="edit-page-everyone">Dla wszystkich</Label>
-                     </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="edit-page-everyone"
+                          checked={editingPage.visible_to_everyone}
+                          onChange={(e) => setEditingPage({...editingPage, visible_to_everyone: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="edit-page-everyone">Dla wszystkich</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="edit-page-specjalista"
+                          checked={editingPage.visible_to_specjalista}
+                          onChange={(e) => setEditingPage({...editingPage, visible_to_specjalista: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="edit-page-specjalista">Specjalista</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="edit-page-anonymous"
+                          checked={editingPage.visible_to_anonymous}
+                          onChange={(e) => setEditingPage({...editingPage, visible_to_anonymous: e.target.checked})}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor="edit-page-anonymous">Dla niezalogowanych</Label>
+                      </div>
                    </div>
                  </div>
                  </TabsContent>

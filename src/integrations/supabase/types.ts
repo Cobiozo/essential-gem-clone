@@ -158,6 +158,7 @@ export type Database = {
           text_transform: string | null
           title: string
           updated_at: string
+          visible_to_anonymous: boolean
           visible_to_clients: boolean
           visible_to_everyone: boolean
           visible_to_partners: boolean
@@ -226,6 +227,7 @@ export type Database = {
           text_transform?: string | null
           title: string
           updated_at?: string
+          visible_to_anonymous?: boolean
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
@@ -294,6 +296,7 @@ export type Database = {
           text_transform?: string | null
           title?: string
           updated_at?: string
+          visible_to_anonymous?: boolean
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
@@ -358,6 +361,7 @@ export type Database = {
           slug: string
           title: string
           updated_at: string
+          visible_to_anonymous: boolean
           visible_to_clients: boolean
           visible_to_everyone: boolean
           visible_to_partners: boolean
@@ -376,6 +380,7 @@ export type Database = {
           slug: string
           title: string
           updated_at?: string
+          visible_to_anonymous?: boolean
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean
@@ -394,6 +399,7 @@ export type Database = {
           slug?: string
           title?: string
           updated_at?: string
+          visible_to_anonymous?: boolean
           visible_to_clients?: boolean
           visible_to_everyone?: boolean
           visible_to_partners?: boolean

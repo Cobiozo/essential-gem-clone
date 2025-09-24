@@ -26,6 +26,7 @@ interface CMSSection {
   visible_to_clients: boolean;
   visible_to_everyone: boolean;
   visible_to_specjalista: boolean;
+  visible_to_anonymous: boolean;
   // Enhanced styling options
   background_color?: string | null;
   text_color?: string | null;

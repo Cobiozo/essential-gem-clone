@@ -53,6 +53,7 @@ export interface CMSSection {
   visible_to_clients: boolean;
   visible_to_partners: boolean;
   visible_to_specjalista: boolean;
+  visible_to_anonymous: boolean;
   // Row container fields
   section_type?: 'section' | 'row';
   row_column_count?: number;
