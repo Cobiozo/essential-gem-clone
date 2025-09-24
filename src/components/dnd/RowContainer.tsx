@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Plus, X, Columns, Columns2, Columns3, Grid3X3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -112,77 +113,83 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 isEditMode={isEditMode}
                 onResize={(width, height) => onElementResize(slotSections[columnIndex]!.id, width, height)}
               >
-                <CollapsibleSection
-                  title={slotSections[columnIndex]!.title}
-                  description={slotSections[columnIndex]!.description}
-                  sectionStyle={{
-                    background_color: slotSections[columnIndex]!.background_color,
-                    text_color: slotSections[columnIndex]!.text_color,
-                    font_size: slotSections[columnIndex]!.font_size,
-                    alignment: slotSections[columnIndex]!.alignment,
-                    padding: slotSections[columnIndex]!.padding,
-                    margin: slotSections[columnIndex]!.margin,
-                    border_radius: slotSections[columnIndex]!.border_radius,
-                    style_class: slotSections[columnIndex]!.style_class,
-                    background_gradient: slotSections[columnIndex]!.background_gradient,
-                    border_width: slotSections[columnIndex]!.border_width,
-                    border_color: slotSections[columnIndex]!.border_color,
-                    border_style: slotSections[columnIndex]!.border_style,
-                    box_shadow: slotSections[columnIndex]!.box_shadow,
-                    opacity: slotSections[columnIndex]!.opacity,
-                    width_type: slotSections[columnIndex]!.width_type,
-                    custom_width: slotSections[columnIndex]!.custom_width,
-                    height_type: slotSections[columnIndex]!.height_type,
-                    custom_height: slotSections[columnIndex]!.custom_height,
-                    max_width: slotSections[columnIndex]!.max_width,
-                    font_weight: slotSections[columnIndex]!.font_weight,
-                    line_height: slotSections[columnIndex]!.line_height,
-                    letter_spacing: slotSections[columnIndex]!.letter_spacing,
-                    text_transform: slotSections[columnIndex]!.text_transform,
-                    display_type: slotSections[columnIndex]!.display_type,
-                    justify_content: slotSections[columnIndex]!.justify_content,
-                    align_items: slotSections[columnIndex]!.align_items,
-                    gap: slotSections[columnIndex]!.gap,
-                    section_margin_top: slotSections[columnIndex]!.section_margin_top,
-                    section_margin_bottom: slotSections[columnIndex]!.section_margin_bottom,
-                    background_image: slotSections[columnIndex]!.background_image,
-                    background_image_opacity: slotSections[columnIndex]!.background_image_opacity,
-                    background_image_position: slotSections[columnIndex]!.background_image_position,
-                    background_image_size: slotSections[columnIndex]!.background_image_size,
-                    icon_name: slotSections[columnIndex]!.icon_name,
-                    icon_position: slotSections[columnIndex]!.icon_position,
-                    icon_size: slotSections[columnIndex]!.icon_size,
-                    icon_color: slotSections[columnIndex]!.icon_color,
-                    show_icon: slotSections[columnIndex]!.show_icon,
-                    min_height: slotSections[columnIndex]!.min_height,
-                    hover_opacity: slotSections[columnIndex]!.hover_opacity,
-                    hover_scale: slotSections[columnIndex]!.hover_scale,
-                    hover_transition_duration: slotSections[columnIndex]!.hover_transition_duration,
-                    hover_background_color: slotSections[columnIndex]!.hover_background_color,
-                    hover_background_gradient: slotSections[columnIndex]!.hover_background_gradient,
-                    hover_text_color: slotSections[columnIndex]!.hover_text_color,
-                    hover_border_color: slotSections[columnIndex]!.hover_border_color,
-                    hover_box_shadow: slotSections[columnIndex]!.hover_box_shadow,
-                    content_direction: slotSections[columnIndex]!.content_direction,
-                    content_wrap: slotSections[columnIndex]!.content_wrap,
-                    overflow_behavior: slotSections[columnIndex]!.overflow_behavior
-                  }}
-                  nestedItems={[]}
-                  defaultOpen={true}
+                <DraggableSection
+                  id={slotSections[columnIndex]!.id}
+                  isEditMode={isEditMode}
+                  className="h-full"
                 >
-                  <ColumnLayout
-                    sectionId={slotSections[columnIndex]!.id}
-                    columns={sectionColumns[slotSections[columnIndex]!.id] || [{
-                      id: `${slotSections[columnIndex]!.id}-col-0`,
-                      items: items.filter(item => item.section_id === slotSections[columnIndex]!.id),
-                      width: 100,
-                    }]}
-                    isEditMode={isEditMode}
-                    onColumnsChange={(newColumns) => onColumnsChange(slotSections[columnIndex]!.id, newColumns)}
-                    onItemClick={() => {}}
-                    onSelectItem={(itemId) => onSelectSection?.(itemId)}
-                  />
-                </CollapsibleSection>
+                  <CollapsibleSection
+                    title={slotSections[columnIndex]!.title}
+                    description={slotSections[columnIndex]!.description}
+                    sectionStyle={{
+                      background_color: slotSections[columnIndex]!.background_color,
+                      text_color: slotSections[columnIndex]!.text_color,
+                      font_size: slotSections[columnIndex]!.font_size,
+                      alignment: slotSections[columnIndex]!.alignment,
+                      padding: slotSections[columnIndex]!.padding,
+                      margin: slotSections[columnIndex]!.margin,
+                      border_radius: slotSections[columnIndex]!.border_radius,
+                      style_class: slotSections[columnIndex]!.style_class,
+                      background_gradient: slotSections[columnIndex]!.background_gradient,
+                      border_width: slotSections[columnIndex]!.border_width,
+                      border_color: slotSections[columnIndex]!.border_color,
+                      border_style: slotSections[columnIndex]!.border_style,
+                      box_shadow: slotSections[columnIndex]!.box_shadow,
+                      opacity: slotSections[columnIndex]!.opacity,
+                      width_type: slotSections[columnIndex]!.width_type,
+                      custom_width: slotSections[columnIndex]!.custom_width,
+                      height_type: slotSections[columnIndex]!.height_type,
+                      custom_height: slotSections[columnIndex]!.custom_height,
+                      max_width: slotSections[columnIndex]!.max_width,
+                      font_weight: slotSections[columnIndex]!.font_weight,
+                      line_height: slotSections[columnIndex]!.line_height,
+                      letter_spacing: slotSections[columnIndex]!.letter_spacing,
+                      text_transform: slotSections[columnIndex]!.text_transform,
+                      display_type: slotSections[columnIndex]!.display_type,
+                      justify_content: slotSections[columnIndex]!.justify_content,
+                      align_items: slotSections[columnIndex]!.align_items,
+                      gap: slotSections[columnIndex]!.gap,
+                      section_margin_top: slotSections[columnIndex]!.section_margin_top,
+                      section_margin_bottom: slotSections[columnIndex]!.section_margin_bottom,
+                      background_image: slotSections[columnIndex]!.background_image,
+                      background_image_opacity: slotSections[columnIndex]!.background_image_opacity,
+                      background_image_position: slotSections[columnIndex]!.background_image_position,
+                      background_image_size: slotSections[columnIndex]!.background_image_size,
+                      icon_name: slotSections[columnIndex]!.icon_name,
+                      icon_position: slotSections[columnIndex]!.icon_position,
+                      icon_size: slotSections[columnIndex]!.icon_size,
+                      icon_color: slotSections[columnIndex]!.icon_color,
+                      show_icon: slotSections[columnIndex]!.show_icon,
+                      min_height: slotSections[columnIndex]!.min_height,
+                      hover_opacity: slotSections[columnIndex]!.hover_opacity,
+                      hover_scale: slotSections[columnIndex]!.hover_scale,
+                      hover_transition_duration: slotSections[columnIndex]!.hover_transition_duration,
+                      hover_background_color: slotSections[columnIndex]!.hover_background_color,
+                      hover_background_gradient: slotSections[columnIndex]!.hover_background_gradient,
+                      hover_text_color: slotSections[columnIndex]!.hover_text_color,
+                      hover_border_color: slotSections[columnIndex]!.hover_border_color,
+                      hover_box_shadow: slotSections[columnIndex]!.hover_box_shadow,
+                      content_direction: slotSections[columnIndex]!.content_direction,
+                      content_wrap: slotSections[columnIndex]!.content_wrap,
+                      overflow_behavior: slotSections[columnIndex]!.overflow_behavior
+                    }}
+                    nestedItems={[]}
+                    defaultOpen={true}
+                  >
+                    <ColumnLayout
+                      sectionId={slotSections[columnIndex]!.id}
+                      columns={sectionColumns[slotSections[columnIndex]!.id] || [{
+                        id: `${slotSections[columnIndex]!.id}-col-0`,
+                        items: items.filter(item => item.section_id === slotSections[columnIndex]!.id),
+                        width: 100,
+                      }]}
+                      isEditMode={isEditMode}
+                      onColumnsChange={(newColumns) => onColumnsChange(slotSections[columnIndex]!.id, newColumns)}
+                      onItemClick={() => {}}
+                      onSelectItem={(itemId) => onSelectSection?.(itemId)}
+                    />
+                  </CollapsibleSection>
+                </DraggableSection>
               </ResizableElement>
             ) : (
               <CollapsibleSection
@@ -339,9 +346,11 @@ export const RowContainer: React.FC<RowContainerProps> = ({
 
       {/* Grid layout for sections */}
       <div className={cn("grid gap-4", getGridClass())}>
-        {Array.from({ length: columnCount }, (_, index) => (
-          <DropZone key={`col-${index}`} columnIndex={index} />
-        ))}
+        <SortableContext items={childSections.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+          {Array.from({ length: columnCount }, (_, index) => (
+            <DropZone key={`col-${index}`} columnIndex={index} />
+          ))}
+        </SortableContext>
       </div>
     </div>
   );
