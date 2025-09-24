@@ -21,9 +21,10 @@ interface ColumnLayoutProps {
   onColumnsChange: (columns: Column[]) => void;
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
-  className?: string;
-  activeId?: string | null;
-}
+   className?: string;
+   activeId?: string | null;
+   renderVersion?: number;
+ }
 
 export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   sectionId,
@@ -34,6 +35,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   onSelectItem,
   className,
   activeId,
+  renderVersion,
 }) => {
   
 
@@ -177,6 +179,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             onItemClick={onItemClick}
             onSelectItem={onSelectItem}
             activeId={activeId}
+            renderVersion={renderVersion}
           />
         ))}
       </div>
@@ -193,6 +196,7 @@ interface ColumnDropZoneProps {
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
   activeId?: string | null;
+  renderVersion?: number;
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
@@ -204,6 +208,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onItemClick,
   onSelectItem,
   activeId,
+  renderVersion,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -262,7 +267,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           
 {column.items.filter((item) => !!item.id).map((item) => (
   <DraggableItem
-    key={item.id}
+    key={`${item.id}-${renderVersion || 0}`}
     id={item.id as string}
     isEditMode={isEditMode}
   >

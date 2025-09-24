@@ -57,6 +57,7 @@ export const LivePreviewEditor: React.FC = () => {
   const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
   // Controlled open states for sections (persist during re-renders)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [dragVersion, setDragVersion] = useState(0);
   
   // History for undo/redo
   const [history, setHistory] = useState<{ sections: CMSSection[], items: CMSItem[] }[]>([]);
@@ -570,6 +571,7 @@ export const LivePreviewEditor: React.FC = () => {
     
     console.log('Updated items:', newItems.map(i => ({ id: i.id, section_id: i.section_id })));
     autoSave(sections, newItems);
+    setDragVersion((v) => v + 1);
   };
 
   const handleUndo = () => {
@@ -1463,6 +1465,7 @@ export const LivePreviewEditor: React.FC = () => {
                             onItemClick={() => {}}
                             onSelectItem={(itemId) => setSelectedElement(itemId)}
                             activeId={activeId}
+                            renderVersion={dragVersion}
                           />
                         </CollapsibleSection>
                       </ResizableElement>
