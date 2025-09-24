@@ -17,6 +17,8 @@ interface CollapsibleSectionProps {
   nestedSections?: CMSSection[]; // Sekcje zagnieżdżone
   nestedItems?: CMSItem[]; // Elementy do sekcji zagnieżdżonych
   disableToggle?: boolean; // Gdy true, ignoruje kliknięcia nagłówka (np. podczas drag)
+  isOpen?: boolean; // sterowane z zewnątrz
+  onOpenChange?: (open: boolean) => void; // callback
   // Styling props from CMS Section
   sectionStyle?: {
     background_color?: string | null;
@@ -85,8 +87,18 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   nestedSections = [],
   nestedItems = [],
   disableToggle = false,
+  isOpen: controlledOpen,
+  onOpenChange,
 }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isOpen = typeof controlledOpen === 'boolean' ? controlledOpen : internalOpen;
+  const setOpen = (open: boolean) => {
+    if (typeof controlledOpen === 'boolean') {
+      onOpenChange?.(open);
+    } else {
+      setInternalOpen(open);
+    }
+  };
   const { toast } = useToast();
   const { t } = useLanguage();
 
@@ -266,7 +278,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             e.stopPropagation();
             return;
           }
-          setIsOpen(!isOpen);
+          setOpen(!isOpen);
         }}
         className="relative z-10 transition-all duration-300"
         style={{

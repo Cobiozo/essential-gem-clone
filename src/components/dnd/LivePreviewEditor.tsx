@@ -55,6 +55,8 @@ export const LivePreviewEditor: React.FC = () => {
   
   // Column layout state
   const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
+  // Controlled open states for sections (persist during re-renders)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   
   // History for undo/redo
   const [history, setHistory] = useState<{ sections: CMSSection[], items: CMSItem[] }[]>([]);
@@ -1315,6 +1317,8 @@ export const LivePreviewEditor: React.FC = () => {
                         onColumnsChange={handleColumnsChange}
                         onElementResize={handleElementResize}
                         activeId={activeId}
+                        openStates={openSections}
+                        onOpenChange={(id, open) => setOpenSections((prev) => ({ ...prev, [id]: open }))}
                       />
                     </DraggableSection>
                   );
@@ -1414,6 +1418,8 @@ export const LivePreviewEditor: React.FC = () => {
                           nestedItems={[]}
                           defaultOpen={false}
                           disableToggle={!!activeId}
+                          isOpen={!!openSections[section.id]}
+                          onOpenChange={(o) => setOpenSections((prev) => ({ ...prev, [section.id]: o }))}
                         >
                           <ColumnLayout
                             sectionId={section.id}

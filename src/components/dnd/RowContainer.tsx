@@ -23,6 +23,8 @@ interface RowContainerProps {
   onColumnsChange: (sectionId: string, columns: any[]) => void;
   onElementResize: (sectionId: string, width: number, height: number) => void;
   activeId?: string | null;
+  openStates?: Record<string, boolean>;
+  onOpenChange?: (id: string, open: boolean) => void;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -38,6 +40,8 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   onColumnsChange,
   onElementResize,
   activeId,
+  openStates,
+  onOpenChange,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
@@ -186,6 +190,8 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                     nestedItems={[]}
                      defaultOpen={false}
                      disableToggle={!!activeId}
+                     isOpen={!!openStates?.[slotSections[columnIndex]!.id]}
+                     onOpenChange={(o) => onOpenChange?.(slotSections[columnIndex]!.id, o)}
                   >
                     <ColumnLayout
                       sectionId={slotSections[columnIndex]!.id}
@@ -262,6 +268,8 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 nestedItems={[]}
                 defaultOpen={false}
                 disableToggle={!!activeId}
+                isOpen={!!openStates?.[slotSections[columnIndex]!.id]}
+                onOpenChange={(o) => onOpenChange?.(slotSections[columnIndex]!.id, o)}
               >
                 <ColumnLayout
                   sectionId={slotSections[columnIndex]!.id}
