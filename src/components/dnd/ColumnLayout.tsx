@@ -269,18 +269,21 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       return;
     }
 
-    // Skip selection when clicking on interactive controls inside the item
+    // Skip selection when clicking on CollapsibleSection toggle buttons or other interactive elements
     const target = e.target as HTMLElement | null;
     if (
-      target &&
-      (target.closest(
-        'button, a, input, textarea, select, label, [role="button"], [data-interactive], [data-no-select], summary, [aria-expanded], [data-radix-accordion], [data-accordion-trigger], [data-collapsible-trigger]'
-      ) ||
-      target.tagName === 'BUTTON' ||
-      target.closest('.group')?.querySelector('button')?.contains(target))
+      target && (
+        // CollapsibleSection toggle buttons and content
+        target.closest('.relative.z-10.transition-all.duration-300') ||
+        target.closest('button[style*="background"]') ||
+        // Generic interactive elements but NOT row controls
+        (target.closest('a, input, textarea, select, label, [role="button"], summary') && 
+         !target.closest('.mb-2.p-2.bg-transparent')) || // Allow row controls (they have this specific class)
+        target.closest('[data-interactive], [data-no-select], [aria-expanded], [data-radix-accordion], [data-accordion-trigger], [data-collapsible-trigger]')
+      )
     ) {
       e.stopPropagation();
-      return; // allow inner component (e.g., accordion/collapsible) to handle
+      return; // allow inner component to handle
     }
 
     onSelectItem?.(item.id || '');
