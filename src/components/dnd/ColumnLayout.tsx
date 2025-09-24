@@ -219,7 +219,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
 
   React.useEffect(() => {
     onDragOver(isOver);
-  }, [isOver, onDragOver]);
+  }, [isOver]);
 
   const itemIds = column.items.map(item => item.id || '');
 
