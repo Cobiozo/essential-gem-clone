@@ -1355,6 +1355,7 @@ export const LivePreviewEditor: React.FC = () => {
                         activeId={activeId}
                         openStates={openSections}
                         onOpenChange={(id, open) => setOpenSections((prev) => ({ ...prev, [id]: open }))}
+                        renderVersion={dragVersion}
                       />
                     </DraggableSection>
                   );

@@ -27,6 +27,7 @@ interface RowColumnDropZoneProps {
   onOpenChange?: (id: string, open: boolean) => void;
   rowLayoutType?: string | null;
   columnWidth?: string | undefined;
+  renderVersion?: number;
 }
 
 const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
@@ -45,6 +46,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   onOpenChange,
   rowLayoutType,
   columnWidth,
+  renderVersion,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `${rowId}-col-${columnIndex}`,
@@ -159,6 +161,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                     onItemClick={() => {}}
                     onSelectItem={(itemId) => onSelectSection?.(itemId)}
                     activeId={activeId}
+                    renderVersion={renderVersion}
                   />
                 </CollapsibleSection>
               </DraggableSection>
@@ -233,6 +236,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                 onItemClick={() => {}}
                 onSelectItem={(itemId) => onSelectSection?.(itemId)}
                 activeId={activeId}
+                renderVersion={renderVersion}
               />
             </CollapsibleSection>
           )}
@@ -266,6 +270,7 @@ interface RowContainerProps {
   activeId?: string | null;
   openStates?: Record<string, boolean>;
   onOpenChange?: (id: string, open: boolean) => void;
+  renderVersion?: number;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -283,6 +288,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   activeId,
   openStates,
   onOpenChange,
+  renderVersion,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
@@ -450,6 +456,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                       onItemClick={() => {}}
                       onSelectItem={(itemId) => onSelectSection?.(itemId)}
                       activeId={activeId}
+                      renderVersion={renderVersion}
                     />
                   </CollapsibleSection>
                 </DraggableSection>
@@ -528,6 +535,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                   onItemClick={() => {}}
                   onSelectItem={(itemId) => onSelectSection?.(itemId)}
                   activeId={activeId}
+                  renderVersion={renderVersion}
                 />
               </CollapsibleSection>
             )}
