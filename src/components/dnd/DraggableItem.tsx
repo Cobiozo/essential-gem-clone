@@ -62,6 +62,7 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
         <div
           ref={setActivatorNodeRef}
           className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors touch-none"
+          {...attributes}
           {...listeners}
         >
           <GripVertical className="w-3 h-3" />
