@@ -310,7 +310,12 @@ export const LivePreviewEditor: React.FC = () => {
       const overData = (over as any).data?.current;
       
       // Check if this is row reordering vs regular section nesting
-      const targetSection = sections.find(s => s.id === (overData?.rowId || overId));
+      let targetSectionId = overData?.rowId || overId;
+      // Handle "row-{id}" format in overId
+      if (targetSectionId.startsWith('row-')) {
+        targetSectionId = targetSectionId.replace('row-', '');
+      }
+      const targetSection = sections.find(s => s.id === targetSectionId);
       const isDraggedRowTopLevel = draggedSection.section_type === 'row' && !draggedSection.parent_id;
       const isTargetRowTopLevel = targetSection?.section_type === 'row' && !targetSection.parent_id;
       
@@ -406,7 +411,13 @@ export const LivePreviewEditor: React.FC = () => {
       // Regular section reordering (top-level sections only)
       const topLevelSections = sections.filter(s => !s.parent_id);
       const oldIndex = topLevelSections.findIndex(s => s.id === activeId);
-      const newIndex = topLevelSections.findIndex(s => s.id === overId);
+      
+      // For row containers, extract real ID from "row-{id}" format
+      let realOverId = overId;
+      if (overId.startsWith('row-')) {
+        realOverId = overId.replace('row-', '');
+      }
+      const newIndex = topLevelSections.findIndex(s => s.id === realOverId);
       
       if (oldIndex !== -1 && newIndex !== -1) {
         // Move section from row to top-level or reorder top-level
