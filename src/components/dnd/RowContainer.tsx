@@ -10,6 +10,246 @@ import { ResizableElement } from './ResizableElement';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ColumnLayout } from './ColumnLayout';
 
+// Extracted to avoid re-mount loops of inline components causing DnD measuring cascades
+interface RowColumnDropZoneProps {
+  rowId: string;
+  columnIndex: number;
+  isEditMode: boolean;
+  slotSection?: CMSSection;
+  selectedElement?: string;
+  onSelectSection?: (sectionId: string) => void;
+  onElementResize: (sectionId: string, width: number, height: number) => void;
+  sectionColumns: { [sectionId: string]: any[] };
+  onColumnsChange: (sectionId: string, columns: any[]) => void;
+  items: CMSItem[];
+  activeId?: string | null;
+  openStates?: Record<string, boolean>;
+  onOpenChange?: (id: string, open: boolean) => void;
+  rowLayoutType?: string | null;
+  columnWidth?: string | undefined;
+}
+
+const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
+  rowId,
+  columnIndex,
+  isEditMode,
+  slotSection,
+  selectedElement,
+  onSelectSection,
+  onElementResize,
+  sectionColumns,
+  onColumnsChange,
+  items,
+  activeId,
+  openStates,
+  onOpenChange,
+  rowLayoutType,
+  columnWidth,
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${rowId}-col-${columnIndex}`,
+    data: { type: 'row-column', rowId, columnIndex },
+    disabled: !isEditMode,
+  });
+
+  const columnsForSection = slotSection
+    ? (sectionColumns[slotSection.id] || [{
+        id: `${slotSection.id}-col-0`,
+        items: items.filter(item => item.section_id === slotSection.id),
+        width: 100,
+      }])
+    : [];
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'min-h-[120px] transition-all duration-200',
+        isEditMode && 'border border-dashed border-border/30 rounded p-2',
+        isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary',
+        isEditMode && slotSection && 'border-transparent'
+      )}
+      style={{ width: rowLayoutType === 'custom' ? columnWidth : undefined }}
+    >
+      {slotSection ? (
+        <div
+          onClick={(e) => {
+            if (activeId) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            onSelectSection?.(slotSection.id);
+          }}
+        >
+          {isEditMode ? (
+            <ResizableElement
+              isSelected={selectedElement === slotSection.id}
+              isEditMode={isEditMode}
+              onResize={(width, height) => onElementResize(slotSection.id, width, height)}
+            >
+              <DraggableSection id={slotSection.id} isEditMode={isEditMode} className="h-full">
+                <CollapsibleSection
+                  title={slotSection.title}
+                  description={slotSection.description}
+                  sectionStyle={{
+                    background_color: slotSection.background_color,
+                    text_color: slotSection.text_color,
+                    font_size: slotSection.font_size,
+                    alignment: slotSection.alignment,
+                    padding: slotSection.padding,
+                    margin: slotSection.margin,
+                    border_radius: slotSection.border_radius,
+                    style_class: slotSection.style_class,
+                    background_gradient: slotSection.background_gradient,
+                    border_width: slotSection.border_width,
+                    border_color: slotSection.border_color,
+                    border_style: slotSection.border_style,
+                    box_shadow: slotSection.box_shadow,
+                    opacity: slotSection.opacity,
+                    width_type: slotSection.width_type,
+                    custom_width: slotSection.custom_width,
+                    height_type: slotSection.height_type,
+                    custom_height: slotSection.custom_height,
+                    max_width: slotSection.max_width,
+                    font_weight: slotSection.font_weight,
+                    line_height: slotSection.line_height,
+                    letter_spacing: slotSection.letter_spacing,
+                    text_transform: slotSection.text_transform,
+                    display_type: slotSection.display_type,
+                    justify_content: slotSection.justify_content,
+                    align_items: slotSection.align_items,
+                    gap: slotSection.gap,
+                    section_margin_top: slotSection.section_margin_top,
+                    section_margin_bottom: slotSection.section_margin_bottom,
+                    background_image: slotSection.background_image,
+                    background_image_opacity: slotSection.background_image_opacity,
+                    background_image_position: slotSection.background_image_position,
+                    background_image_size: slotSection.background_image_size,
+                    icon_name: slotSection.icon_name,
+                    icon_position: slotSection.icon_position,
+                    icon_size: slotSection.icon_size,
+                    icon_color: slotSection.icon_color,
+                    show_icon: slotSection.show_icon,
+                    min_height: slotSection.min_height,
+                    hover_opacity: slotSection.hover_opacity,
+                    hover_scale: slotSection.hover_scale,
+                    hover_transition_duration: slotSection.hover_transition_duration,
+                    hover_background_color: slotSection.hover_background_color,
+                    hover_background_gradient: slotSection.hover_background_gradient,
+                    hover_text_color: slotSection.hover_text_color,
+                    hover_border_color: slotSection.hover_border_color,
+                    hover_box_shadow: slotSection.hover_box_shadow,
+                    content_direction: slotSection.content_direction,
+                    content_wrap: slotSection.content_wrap,
+                    overflow_behavior: slotSection.overflow_behavior,
+                  }}
+                  nestedItems={[]}
+                  defaultOpen={false}
+                  disableToggle={!!activeId}
+                  isOpen={!!openStates?.[slotSection.id]}
+                  onOpenChange={(o) => onOpenChange?.(slotSection.id, o)}
+                >
+                  <ColumnLayout
+                    sectionId={slotSection.id}
+                    columns={columnsForSection}
+                    isEditMode={isEditMode}
+                    onColumnsChange={(newColumns) => onColumnsChange(slotSection.id, newColumns)}
+                    onItemClick={() => {}}
+                    onSelectItem={(itemId) => onSelectSection?.(itemId)}
+                    activeId={activeId}
+                  />
+                </CollapsibleSection>
+              </DraggableSection>
+            </ResizableElement>
+          ) : (
+            <CollapsibleSection
+              title={slotSection.title}
+              description={slotSection.description}
+              sectionStyle={{
+                background_color: slotSection.background_color,
+                text_color: slotSection.text_color,
+                font_size: slotSection.font_size,
+                alignment: slotSection.alignment,
+                padding: slotSection.padding,
+                margin: slotSection.margin,
+                border_radius: slotSection.border_radius,
+                style_class: slotSection.style_class,
+                background_gradient: slotSection.background_gradient,
+                border_width: slotSection.border_width,
+                border_color: slotSection.border_color,
+                border_style: slotSection.border_style,
+                box_shadow: slotSection.box_shadow,
+                opacity: slotSection.opacity,
+                width_type: slotSection.width_type,
+                custom_width: slotSection.custom_width,
+                height_type: slotSection.height_type,
+                custom_height: slotSection.custom_height,
+                max_width: slotSection.max_width,
+                font_weight: slotSection.font_weight,
+                line_height: slotSection.line_height,
+                letter_spacing: slotSection.letter_spacing,
+                text_transform: slotSection.text_transform,
+                display_type: slotSection.display_type,
+                justify_content: slotSection.justify_content,
+                align_items: slotSection.align_items,
+                gap: slotSection.gap,
+                section_margin_top: slotSection.section_margin_top,
+                section_margin_bottom: slotSection.section_margin_bottom,
+                background_image: slotSection.background_image,
+                background_image_opacity: slotSection.background_image_opacity,
+                background_image_position: slotSection.background_image_position,
+                background_image_size: slotSection.background_image_size,
+                icon_name: slotSection.icon_name,
+                icon_position: slotSection.icon_position,
+                icon_size: slotSection.icon_size,
+                icon_color: slotSection.icon_color,
+                show_icon: slotSection.show_icon,
+                min_height: slotSection.min_height,
+                hover_opacity: slotSection.hover_opacity,
+                hover_scale: slotSection.hover_scale,
+                hover_transition_duration: slotSection.hover_transition_duration,
+                hover_background_color: slotSection.hover_background_color,
+                hover_background_gradient: slotSection.hover_background_gradient,
+                hover_text_color: slotSection.hover_text_color,
+                hover_border_color: slotSection.hover_border_color,
+                hover_box_shadow: slotSection.hover_box_shadow,
+                content_direction: slotSection.content_direction,
+                content_wrap: slotSection.content_wrap,
+                overflow_behavior: slotSection.overflow_behavior,
+              }}
+              nestedItems={[]}
+              defaultOpen={false}
+              disableToggle={!!activeId}
+              isOpen={!!openStates?.[slotSection.id]}
+              onOpenChange={(o) => onOpenChange?.(slotSection.id, o)}
+            >
+              <ColumnLayout
+                sectionId={slotSection.id}
+                columns={columnsForSection}
+                isEditMode={isEditMode}
+                onColumnsChange={(newColumns) => onColumnsChange(slotSection.id, newColumns)}
+                onItemClick={() => {}}
+                onSelectItem={(itemId) => onSelectSection?.(itemId)}
+                activeId={activeId}
+              />
+            </CollapsibleSection>
+          )}
+        </div>
+      ) : (
+        isEditMode && (
+          <div className="flex items-center justify-center h-full text-muted-foreground/60">
+            <div className="text-center">
+              <Plus className="w-6 h-6 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">Drop section here</p>
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+};
+
 interface RowContainerProps {
   row: CMSSection;
   sections: CMSSection[];
