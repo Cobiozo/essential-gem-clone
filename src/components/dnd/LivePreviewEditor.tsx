@@ -344,14 +344,13 @@ export const LivePreviewEditor: React.FC = () => {
             .eq('id', activeId);
           if (error) throw error;
 
-          // Normalize sibling positions within the row
+          // Normalize sibling positions within the row in the database
           const siblings = sections
             .filter(s => s.parent_id === targetRowId && s.id !== activeId)
             .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
           
-          // Update positions individually for each sibling
           for (let idx = 0; idx < siblings.length; idx++) {
-            const newPosition = idx >= targetColumnIndex! ? idx + 1 : idx;
+            const newPosition = idx >= (targetColumnIndex as number) ? idx + 1 : idx;
             if (siblings[idx].position !== newPosition) {
               const { error: updErr } = await supabase
                 .from('cms_sections')
@@ -361,7 +360,28 @@ export const LivePreviewEditor: React.FC = () => {
             }
           }
 
-          await fetchData();
+          // Update local state instead of refetching everything
+          setSections(prev => {
+            let updated = prev.map(s => 
+              s.id === activeId 
+                ? { ...s, parent_id: targetRowId, position: targetColumnIndex as number } 
+                : s
+            );
+            
+            const sibs = updated
+              .filter(s => s.parent_id === targetRowId && s.id !== activeId)
+              .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+            sibs.forEach((s, idx) => {
+              const newPos = idx >= (targetColumnIndex as number) ? idx + 1 : idx;
+              if (s.position !== newPos) {
+                updated = updated.map(u => u.id === s.id ? { ...u, position: newPos } : u);
+              }
+            });
+
+            return updated;
+          });
+
           toast({ title: 'Sekcja przeniesiona', description: 'Sekcja została umieszczona w wierszu' });
         } catch (error) {
           console.error('Error moving section to row:', error);

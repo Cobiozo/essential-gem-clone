@@ -2,7 +2,6 @@ import React from 'react';
 import {
   DndContext,
   DragEndEvent,
-  DragOverlay,
   DragStartEvent,
   DragOverEvent,
   PointerSensor,
@@ -76,9 +75,6 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       }}
     >
       {children}
-      <DragOverlay dropAnimation={null}>
-        {activeId ? null : null}
-      </DragOverlay>
     </DndContext>
   );
 };
