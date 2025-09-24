@@ -58,6 +58,7 @@ export const LivePreviewEditor: React.FC = () => {
   // Controlled open states for sections (persist during re-renders)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [dragVersion, setDragVersion] = useState(0);
+  const [inactiveRefresh, setInactiveRefresh] = useState(0);
   
   // History for undo/redo
   const [history, setHistory] = useState<{ sections: CMSSection[], items: CMSItem[] }[]>([]);
@@ -1216,6 +1217,7 @@ export const LivePreviewEditor: React.FC = () => {
       <InactiveElementsManager
         onElementActivated={fetchData}
         onElementDeleted={fetchData}
+        refreshKey={inactiveRefresh}
       />
 
       <LayoutControls
@@ -1330,7 +1332,8 @@ export const LivePreviewEditor: React.FC = () => {
                             }
                             
                             await fetchData();
-                            toast({ title: 'Wiersz usunięty', description: 'Wiersz został usunięty, a sekcje przeniesione na główny poziom' });
+                            setInactiveRefresh((v) => v + 1);
+                            toast({ title: 'Wiersz usunięty', description: 'Wiersz został usunięty, a sekcje przeniesione na główny poziom oraz przeniesiony do "Główna" jako nieaktywny' });
                           } catch (error) {
                             console.error('Error removing row:', error);
                             toast({ 

@@ -21,11 +21,13 @@ import { convertSupabaseSections } from '@/lib/typeUtils';
 interface InactiveElementsManagerProps {
   onElementActivated: () => void;
   onElementDeleted: () => void;
+  refreshKey?: number;
 }
 
 export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = ({
   onElementActivated,
   onElementDeleted,
+  refreshKey,
 }) => {
   const { toast } = useToast();
   const [inactiveSections, setInactiveSections] = useState<CMSSection[]>([]);
@@ -157,7 +159,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
 
   useEffect(() => {
     fetchInactiveElements();
-  }, []);
+  }, [refreshKey]);
 
   return (
     <Card>
