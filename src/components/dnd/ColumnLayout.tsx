@@ -33,7 +33,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   onSelectItem,
   className,
 }) => {
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  // Removed local dragOver state to avoid render loops
 
   const addColumn = () => {
     const newColumn: Column = {
@@ -174,10 +174,6 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             onRemove={() => removeColumn(column.id)}
             onItemClick={onItemClick}
             onSelectItem={onSelectItem}
-            isDragOver={dragOverColumn === column.id}
-            onDragOver={(isDragging) => {
-              setDragOverColumn(isDragging ? column.id : null);
-            }}
           />
         ))}
       </div>
@@ -193,8 +189,6 @@ interface ColumnDropZoneProps {
   onRemove: () => void;
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
-  isDragOver: boolean;
-  onDragOver: (isDragging: boolean) => void;
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
@@ -205,8 +199,6 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onRemove,
   onItemClick,
   onSelectItem,
-  isDragOver,
-  onDragOver,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -217,9 +209,6 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     },
   });
 
-  React.useEffect(() => {
-    onDragOver(isOver);
-  }, [isOver]);
 
   const itemIds = column.items.map(item => item.id || '');
 
@@ -229,8 +218,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       className={cn(
         "min-h-[100px] p-3 rounded-lg transition-all duration-200",
         isEditMode && "border-2 border-dashed",
-        isEditMode && !isDragOver && "border-gray-300 bg-gray-50/50 dark:bg-gray-800/50",
-        isEditMode && isDragOver && "border-blue-400 bg-blue-50 dark:bg-blue-950/20",
+        isEditMode && (isOver ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20" : "border-gray-300 bg-gray-50/50 dark:bg-gray-800/50"),
         !isEditMode && "bg-background"
       )}
     >
