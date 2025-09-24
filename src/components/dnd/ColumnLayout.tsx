@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   onSelectItem,
   className,
 }) => {
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  
 
   const addColumn = () => {
     const newColumn: Column = {
@@ -164,7 +164,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
         columns.length === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
         columns.length >= 4 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
       )}>
-        {columns.map((column, index) => (
+        {columns.map((column) => (
           <ColumnDropZone
             key={column.id}
             sectionId={sectionId}
@@ -174,10 +174,6 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             onRemove={() => removeColumn(column.id)}
             onItemClick={onItemClick}
             onSelectItem={onSelectItem}
-            isDragOver={dragOverColumn === column.id}
-            onDragOver={(isDragging) => {
-              setDragOverColumn(isDragging ? column.id : null);
-            }}
           />
         ))}
       </div>
@@ -193,8 +189,6 @@ interface ColumnDropZoneProps {
   onRemove: () => void;
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
-  isDragOver: boolean;
-  onDragOver: (isDragging: boolean) => void;
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
@@ -205,8 +199,6 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onRemove,
   onItemClick,
   onSelectItem,
-  isDragOver,
-  onDragOver,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -217,9 +209,6 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     },
   });
 
-  React.useEffect(() => {
-    onDragOver(isOver);
-  }, [isOver, onDragOver]);
 
   const itemIds = column.items.map(item => item.id || '');
 
@@ -229,8 +218,8 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       className={cn(
         "min-h-[100px] p-3 rounded-lg transition-all duration-200",
         isEditMode && "border-2 border-dashed",
-        isEditMode && !isDragOver && "border-gray-300 bg-gray-50/50 dark:bg-gray-800/50",
-        isEditMode && isDragOver && "border-blue-400 bg-blue-50 dark:bg-blue-950/20",
+        isEditMode && !isOver && "border-gray-300 bg-gray-50/50 dark:bg-gray-800/50",
+        isEditMode && isOver && "border-blue-400 bg-blue-50 dark:bg-blue-950/20",
         !isEditMode && "bg-background"
       )}
     >

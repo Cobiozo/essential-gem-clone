@@ -9,7 +9,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  pointerWithin,
+  closestCorners,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -63,7 +63,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={pointerWithin}
+      collisionDetection={closestCorners}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
