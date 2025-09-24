@@ -268,6 +268,19 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       e.stopPropagation();
       return;
     }
+
+    // Skip selection when clicking on interactive controls inside the item
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      target.closest(
+        'button, a, input, textarea, select, label, [role="button"], [data-interactive], [data-no-select], summary, [aria-expanded], [data-radix-accordion], [data-accordion-trigger], [data-collapsible-trigger]'
+      )
+    ) {
+      e.stopPropagation();
+      return; // allow inner component (e.g., accordion/collapsible) to handle
+    }
+
     onSelectItem?.(item.id || '');
   }}>
     <DraggableItem
