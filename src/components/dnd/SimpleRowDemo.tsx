@@ -19,7 +19,7 @@ export const SimpleRowDemo: React.FC<SimpleRowDemoProps> = ({
           title: `Wiersz ${columns}-kolumnowy`,
           description: `Wiersz z ${columns} kolumnami`,
           position: 999, // Will be reordered later
-          is_active: false, // Nieaktywny domyślnie - admin musi go aktywować
+          is_active: true,
           visible_to_everyone: true,
           section_type: 'row',
           row_column_count: columns,
@@ -32,7 +32,7 @@ export const SimpleRowDemo: React.FC<SimpleRowDemoProps> = ({
 
       toast({
         title: "Wiersz utworzony!",
-        description: `Utworzono nieaktywny wiersz z ${columns} kolumnami. Aktywuj go w edytorze, aby pojawił się na stronie głównej.`,
+        description: `Utworzono wiersz z ${columns} kolumnami. Możesz teraz przeciągać do niego sekcje.`,
       });
 
       // Callback to refresh data
