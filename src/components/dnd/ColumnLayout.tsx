@@ -262,31 +262,30 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           
 {column.items.filter((item) => !!item.id).map((item) => (
   <div key={item.id} onClick={(e) => {
-    // Ignore clicks during drag operations
-    if (activeId) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-
-    // Skip selection when clicking on CollapsibleSection toggle buttons or other interactive elements
+    // Skip selection when clicking on CollapsibleSection toggle buttons or drag handles
     const target = e.target as HTMLElement | null;
     if (
       target && (
-        // CollapsibleSection toggle buttons and content
-        target.closest('.relative.z-10.transition-all.duration-300') ||
-        target.closest('button[style*="background"]') ||
-        // Generic interactive elements but NOT row controls
-        (target.closest('a, input, textarea, select, label, [role="button"], summary') && 
-         !target.closest('.mb-2.p-2.bg-transparent')) || // Allow row controls (they have this specific class)
-        target.closest('[data-interactive], [data-no-select], [aria-expanded], [data-radix-accordion], [data-accordion-trigger], [data-collapsible-trigger]')
+        // CollapsibleSection toggle buttons (be more specific)
+        target.closest('button.relative.z-10.transition-all.duration-300') ||
+        target.closest('[data-collapsible-trigger]') ||
+        // Drag handles and interactive elements in DraggableItem
+        target.closest('[data-cypress="draggable-handle"]') ||
+        target.closest('.cursor-grab') ||
+        target.closest('.cursor-grabbing') ||
+        // Other interactive elements
+        target.closest('a, input, textarea, select, label[for], [role="button"][tabindex]') ||
+        target.closest('[data-interactive], [data-no-select], [aria-expanded]')
       )
     ) {
-      e.stopPropagation();
-      return; // allow inner component to handle
+      // Don't call onSelectItem, but don't prevent the event entirely
+      return;
     }
 
-    onSelectItem?.(item.id || '');
+    // Only select if not during active drag
+    if (!activeId) {
+      onSelectItem?.(item.id || '');
+    }
   }}>
     <DraggableItem
       id={item.id as string}
