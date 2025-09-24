@@ -46,6 +46,8 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
         isDragging && "opacity-50 scale-105 z-40",
         className
       )}
+      {...attributes}
+      {...listeners}
     >
       {/* Hover overlay with drag handle */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
