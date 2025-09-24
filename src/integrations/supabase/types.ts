@@ -455,6 +455,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: boolean
       }
+      admin_remove_row: {
+        Args: { row_id: string }
+        Returns: boolean
+      }
       admin_toggle_user_status: {
         Args: { new_status: boolean; target_user_id: string }
         Returns: boolean

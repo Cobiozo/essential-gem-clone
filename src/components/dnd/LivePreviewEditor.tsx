@@ -1305,31 +1305,9 @@ export const LivePreviewEditor: React.FC = () => {
                           }
                           console.log('Attempting to remove row:', rowId);
                           try {
-                            // First, check if row has children and move them to top level
-                            const childSections = sections.filter(s => s.parent_id === rowId);
+                            // Call the server function to safely remove the row
+                            const { error } = await supabase.rpc('admin_remove_row', { row_id: rowId });
                             
-                            // Move children to top level first
-                            for (const child of childSections) {
-                              const { error: childError } = await supabase
-                                .from('cms_sections')
-                                .update({ 
-                                  parent_id: null, 
-                                  position: sections.filter(s => !s.parent_id).length,
-                                  updated_at: new Date().toISOString()
-                                })
-                                .eq('id', child.id);
-                              if (childError) {
-                                console.error('Error moving child section:', childError);
-                                throw childError;
-                              }
-                            }
-                            
-                            // Then remove the row
-                            const { error } = await supabase
-                              .from('cms_sections')
-                              .update({ is_active: false, updated_at: new Date().toISOString() })
-                              .eq('id', rowId);
-                              
                             if (error) {
                               console.error('Database error:', error);
                               throw error;
