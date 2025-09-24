@@ -25,7 +25,10 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
     transition,
     isDragging,
     isOver,
-  } = useSortable({ id });
+  } = useSortable({ 
+    id,
+    disabled: !isEditMode
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -55,9 +58,13 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
       {/* Drag handle - always visible when edit mode, separate from overlay */}
       <div className="absolute top-1 right-1 bg-orange-500 text-white p-0.5 rounded shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <div
-          className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors"
+          className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors touch-none"
           {...attributes}
           {...listeners}
+          onPointerDown={(e) => {
+            // Ensure drag starts properly
+            e.stopPropagation();
+          }}
         >
           <GripVertical className="w-3 h-3" />
         </div>
