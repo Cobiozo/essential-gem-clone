@@ -40,23 +40,27 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   dragOverlay,
   disabled = false,
 }) => {
-  const pointerSensor = useSensor(PointerSensor, {
+  const pointerOptions = React.useMemo(() => ({
     activationConstraint: {
-      distance: 4, // Require 4px movement before drag starts
+      distance: 4,
     },
-  });
-  
+  }), []);
+  const pointerSensor = useSensor(PointerSensor, pointerOptions);
   // Improved touch sensor for mobile devices
-  const touchSensor = useSensor(TouchSensor, {
+  const touchOptions = React.useMemo(() => ({
     activationConstraint: {
       delay: 80,
       tolerance: 6,
     },
-  });
+  }), []);
+  const touchSensor = useSensor(TouchSensor, touchOptions);
 
   const sensors = useSensors(pointerSensor, touchSensor);
  
   const modifiers = React.useMemo(() => [restrictToWindowEdges], []);
+  const measuringConfig = React.useMemo(() => ({
+    droppable: { strategy: MeasuringStrategy.WhileDragging },
+  }), []);
  
   if (disabled) {
     return <>{children}</>;
@@ -70,11 +74,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
       modifiers={modifiers}
-      measuring={{
-        droppable: {
-          strategy: MeasuringStrategy.WhileDragging,
-        },
-      }}
+      measuring={measuringConfig}
     >
       {children}
     </DndContext>
