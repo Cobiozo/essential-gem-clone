@@ -55,7 +55,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   }), []);
   const touchSensor = useSensor(TouchSensor, touchOptions);
 
-  const sensors = useSensors(pointerSensor, touchSensor);
+  const sensors = useSensors(pointerSensor);
  
   const modifiers = React.useMemo(() => [restrictToWindowEdges], []);
   const measuringConfig = React.useMemo(() => ({
@@ -75,6 +75,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragEnd={onDragEnd}
       modifiers={modifiers}
       measuring={measuringConfig}
+      autoScroll={false}
     >
       {children}
     </DndContext>
