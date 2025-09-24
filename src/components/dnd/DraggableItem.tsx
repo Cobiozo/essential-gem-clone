@@ -28,13 +28,13 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
     isOver,
   } = useSortable({ 
     id,
-    disabled: !isEditMode
+    disabled: !isEditMode,
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  };
+  } as React.CSSProperties;
 
   if (!isEditMode) {
     return <div className={className}>{children}</div>;
@@ -44,10 +44,11 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
       className={cn(
-        "relative group",
-        isOver && "ring-2 ring-orange-400 ring-offset-1",
-        isDragging && "opacity-50 scale-105 z-40",
+        'relative group',
+        isOver && 'ring-2 ring-orange-400 ring-offset-1',
+        isDragging && 'opacity-50 scale-105 z-40',
         className
       )}
     >
@@ -61,7 +62,6 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
         <div
           ref={setActivatorNodeRef}
           className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-orange-600 rounded transition-colors touch-none"
-          {...attributes}
           {...listeners}
         >
           <GripVertical className="w-3 h-3" />
@@ -69,10 +69,12 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
       </div>
       
       {/* Content */}
-      <div className={cn(
-        "relative",
-        isEditMode && "hover:shadow transition-shadow duration-200"
-      )}>
+      <div
+        className={cn(
+          'relative',
+          isEditMode && 'hover:shadow transition-shadow duration-200'
+        )}
+      >
         {children}
       </div>
     </div>
