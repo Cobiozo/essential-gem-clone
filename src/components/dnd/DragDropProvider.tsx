@@ -59,7 +59,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
  
   const modifiers = React.useMemo(() => [restrictToWindowEdges], []);
   const measuringConfig = React.useMemo(() => ({
-    droppable: { strategy: MeasuringStrategy.WhileDragging },
+    droppable: { strategy: MeasuringStrategy.BeforeDragging },
   }), []);
  
   if (disabled) {
