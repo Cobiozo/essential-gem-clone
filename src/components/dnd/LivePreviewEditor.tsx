@@ -305,9 +305,9 @@ export const LivePreviewEditor: React.FC = () => {
       
         // Dropping section into a row (specific column or anywhere on row)
         if (overData?.type === 'row-column' || overData?.type === 'row-container') {
-          // Prevent nesting rows inside rows
+          // Prevent nesting rows inside rows - only block when dropping INTO a row
           if (draggedSection.section_type === 'row') {
-            toast({ title: 'Nie można zagnieżdżać wierszy', description: 'Przenoś wiersze tylko między sekcjami głównymi' });
+            toast({ title: 'Nie można zagnieżdżać wierszy', description: 'Wiersze mogą być tylko na poziomie głównym' });
             return;
           }
           if (overData?.rowId === draggedSection.id) {
@@ -1292,18 +1292,48 @@ export const LivePreviewEditor: React.FC = () => {
                             console.error('Error updating row:', error);
                           }
                         }}
-                        onRemoveRow={async (rowId) => {
+                         onRemoveRow={async (rowId) => {
+                          console.log('Attempting to remove row:', rowId);
                           try {
+                            // First, check if row has children and move them to top level
+                            const childSections = sections.filter(s => s.parent_id === rowId);
+                            
+                            // Move children to top level first
+                            for (const child of childSections) {
+                              const { error: childError } = await supabase
+                                .from('cms_sections')
+                                .update({ 
+                                  parent_id: null, 
+                                  position: sections.filter(s => !s.parent_id).length,
+                                  updated_at: new Date().toISOString()
+                                })
+                                .eq('id', child.id);
+                              if (childError) {
+                                console.error('Error moving child section:', childError);
+                                throw childError;
+                              }
+                            }
+                            
+                            // Then remove the row
                             const { error } = await supabase
                               .from('cms_sections')
                               .update({ is_active: false, updated_at: new Date().toISOString() })
                               .eq('id', rowId);
-                            if (error) throw error;
+                              
+                            if (error) {
+                              console.error('Database error:', error);
+                              throw error;
+                            }
+                            
                             await fetchData();
-                            toast({ title: 'Wiersz usunięty', description: 'Wiersz został dezaktywowany' });
+                            toast({ title: 'Wiersz usunięty', description: 'Wiersz został usunięty, a sekcje przeniesione na główny poziom' });
                           } catch (error) {
                             console.error('Error removing row:', error);
-                            toast({ title: 'Błąd', description: 'Nie udało się usunąć wiersza', variant: 'destructive' });
+                            toast({ 
+                              title: 'Błąd', 
+                              description: `Nie udało się usunąć wiersza: ${error.message || 'Nieznany błąd'}`, 
+                              variant: 'destructive' 
+                            });
                           }
                         }}
                         onSelectSection={setSelectedElement}
