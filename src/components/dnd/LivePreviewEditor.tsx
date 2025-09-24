@@ -61,6 +61,7 @@ export const LivePreviewEditor: React.FC = () => {
 
   // Auto-save functionality
   const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const hasFixedNestedRowsRef = React.useRef(false);
   
   const saveToHistory = useCallback((newSections: CMSSection[], newItems: CMSItem[]) => {
     setHistory(prev => {
@@ -107,6 +108,7 @@ export const LivePreviewEditor: React.FC = () => {
 
   // Safety: bring any rows that accidentally got nested back to top-level
   const fixNestedRows = async (sectionsList: CMSSection[]) => {
+    if (hasFixedNestedRowsRef.current) return;
     const nested = sectionsList.filter(s => s.section_type === 'row' && s.parent_id);
     if (nested.length === 0) return;
     try {
@@ -116,8 +118,10 @@ export const LivePreviewEditor: React.FC = () => {
         .update({ parent_id: null, updated_at: new Date().toISOString() })
         .in('id', ids);
       if (error) throw error;
+      hasFixedNestedRowsRef.current = true;
+      // Update local state without triggering a refetch loop
+      setSections(prev => prev.map(s => ids.includes(s.id) ? { ...s, parent_id: null } : s));
       toast({ title: 'Naprawiono układ', description: 'Zagnieżdżone wiersze przeniesiono na poziom główny' });
-      await fetchData();
     } catch (e) {
       console.error('fixNestedRows error', e);
     }
