@@ -52,14 +52,14 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
     disabled: !isEditMode,
   });
 
-  const columnsForSection = slotSection
-    ? (sectionColumns[slotSection.id] || [{
-        id: `${slotSection.id}-col-0`,
-        items: items.filter(item => item.section_id === slotSection.id),
-        width: 100,
-      }])
-    : [];
-
+  const columnsForSection = React.useMemo(() => {
+    if (!slotSection) return [] as any[];
+    return sectionColumns[slotSection.id] || [{
+      id: `${slotSection.id}-col-0`,
+      items: items.filter(item => item.section_id === slotSection.id),
+      width: 100,
+    }];
+  }, [slotSection, sectionColumns, items]);
   return (
     <div
       ref={setNodeRef}
@@ -321,6 +321,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     }
   };
 
+
   const getColumnWidth = (index: number) => {
     const sec = slotSections[index];
     if (row.row_layout_type === 'custom' && sec?.custom_width) {
@@ -329,6 +330,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     return 'auto';
   };
 
+  const childSectionIds = React.useMemo(() => childSections.map(s => s.id), [childSections]);
   const DropZone = ({ columnIndex }: { columnIndex: number }) => {
     const { setNodeRef: setDropRef, isOver: isColumnOver } = useDroppable({
       id: `${row.id}-col-${columnIndex}`,
@@ -610,9 +612,26 @@ export const RowContainer: React.FC<RowContainerProps> = ({
 
       {/* Grid layout for sections */}
       <div className={cn("grid gap-4", getGridClass())}>
-        <SortableContext items={childSections.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+        <SortableContext items={childSectionIds} strategy={horizontalListSortingStrategy}>
           {Array.from({ length: columnCount }, (_, index) => (
-            <DropZone key={`col-${index}`} columnIndex={index} />
+            <RowColumnDropZone
+              key={`${row.id}-col-${index}`}
+              rowId={row.id}
+              columnIndex={index}
+              isEditMode={isEditMode}
+              slotSection={slotSections[index]}
+              selectedElement={selectedElement}
+              onSelectSection={onSelectSection}
+              onElementResize={onElementResize}
+              sectionColumns={sectionColumns}
+              onColumnsChange={onColumnsChange}
+              items={items}
+              activeId={activeId}
+              openStates={openStates}
+              onOpenChange={onOpenChange}
+              rowLayoutType={row.row_layout_type}
+              columnWidth={getColumnWidth(index)}
+            />
           ))}
         </SortableContext>
       </div>

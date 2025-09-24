@@ -270,24 +270,20 @@ export const LivePreviewEditor: React.FC = () => {
       toast({ title: 'Błąd', description: 'Nie udało się zapisać ustawień układu', variant: 'destructive' });
     }
   }, [toast]);
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-  };
+  }, []);
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
-    
     if (!over) return;
-    
     const activeId = active.id as string;
     const overId = over.id as string;
-    
-    // Enable dropping into columns
     if (overId.includes('-col-')) {
-      // This helps with visual feedback during drag
-      console.log(`Dragging ${activeId} over column ${overId}`);
+      // Lightweight feedback only
+      // console.info(`Dragging ${activeId} over column ${overId}`);
     }
-  };
+  }, []);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;

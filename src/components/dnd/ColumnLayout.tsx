@@ -214,9 +214,11 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     },
     disabled: !isEditMode,
   });
-  const itemIds = column.items
-    .map((item) => item.id)
-    .filter(Boolean) as string[];
+  const itemIds = React.useMemo(() => (
+    column.items
+      .map((item) => item.id)
+      .filter(Boolean) as string[]
+  ), [column.items]);
 
   return (
     <div
