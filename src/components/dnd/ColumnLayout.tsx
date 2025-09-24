@@ -261,42 +261,18 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           )}
           
 {column.items.filter((item) => !!item.id).map((item) => (
-  <div key={item.id} onClick={(e) => {
-    // Skip selection when clicking on CollapsibleSection toggle buttons or drag handles
-    const target = e.target as HTMLElement | null;
-    if (
-      target && (
-        // CollapsibleSection toggle buttons (be more specific)
-        target.closest('button.relative.z-10.transition-all.duration-300') ||
-        target.closest('[data-collapsible-trigger]') ||
-        // Drag handles and interactive elements in DraggableItem
-        target.closest('[data-cypress="draggable-handle"]') ||
-        target.closest('.cursor-grab') ||
-        target.closest('.cursor-grabbing') ||
-        // Other interactive elements
-        target.closest('a, input, textarea, select, label[for], [role="button"][tabindex]') ||
-        target.closest('[data-interactive], [data-no-select], [aria-expanded]')
-      )
-    ) {
-      // Don't call onSelectItem, but don't prevent the event entirely
-      return;
-    }
-
-    // Only select if not during active drag
-    if (!activeId) {
-      onSelectItem?.(item.id || '');
-    }
-  }}>
-    <DraggableItem
-      id={item.id as string}
-      isEditMode={isEditMode}
-    >
+  <DraggableItem
+    key={item.id}
+    id={item.id as string}
+    isEditMode={isEditMode}
+  >
+    <div>
       <CMSContent
         item={item}
         onClick={onItemClick || (() => {})}
       />
-    </DraggableItem>
-  </div>
+    </div>
+  </DraggableItem>
 ))}
         </div>
       </SortableContext>
