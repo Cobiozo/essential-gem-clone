@@ -9,8 +9,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
-  closestCorners,
+  pointerWithin,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -43,15 +42,15 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
 }) => {
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
-      distance: 8, // Require 8px movement before drag starts
+      distance: 4, // Require 4px movement before drag starts
     },
   });
   
   // Improved touch sensor for mobile devices
   const touchSensor = useSensor(TouchSensor, {
     activationConstraint: {
-      delay: 150,
-      tolerance: 8,
+      delay: 80,
+      tolerance: 6,
     },
   });
 
@@ -64,7 +63,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={pointerWithin}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}

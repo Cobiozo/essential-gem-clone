@@ -279,38 +279,52 @@ export const LivePreviewEditor: React.FC = () => {
     if (draggedSection) {
       const overData = (over as any).data?.current;
       
-      // Dropping section into a row column
-      if (overData?.type === 'row-column') {
-        const { rowId, columnIndex } = overData;
-        console.log(`Moving section ${activeId} to row ${rowId}, column ${columnIndex}`);
+      // Dropping section into a row (specific column or anywhere on row)
+      if (overData?.type === 'row-column' || overData?.type === 'row-container') {
+        const targetRowId: string = overData.rowId;
+        // If a specific column is targeted, use it; otherwise find first free slot
+        let targetColumnIndex: number | null = typeof overData.columnIndex === 'number' ? overData.columnIndex : null;
+
+        if (targetColumnIndex === null) {
+          const rowSection = sections.find(s => s.id === targetRowId);
+          const cols = rowSection?.row_column_count || 1;
+          const siblings = sections.filter(s => s.parent_id === targetRowId);
+          const taken = new Set(siblings.map(s => (typeof s.position === 'number' ? s.position : 0)));
+          let found: number | null = null;
+          for (let i = 0; i < cols; i++) {
+            if (!taken.has(i)) { found = i; break; }
+          }
+          targetColumnIndex = found !== null ? found : Math.min(cols - 1, siblings.length);
+        }
+
+        console.log(`Moving section ${activeId} to row ${targetRowId}, column ${targetColumnIndex}`);
         
         try {
-          // Update section's parent_id and position in database
           const { error } = await supabase
             .from('cms_sections')
             .update({ 
-              parent_id: rowId,
-              position: columnIndex,
+              parent_id: targetRowId,
+              position: targetColumnIndex,
               updated_at: new Date().toISOString()
             })
             .eq('id', activeId);
-            
           if (error) throw error;
-          
-          // Refresh data to reflect changes
+
+          // Normalize sibling positions within the row
+          const siblings = sections
+            .filter(s => s.parent_id === targetRowId && s.id !== activeId)
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+          const updates = siblings.map((s, idx) => ({ id: s.id, position: idx >= targetColumnIndex! ? idx + 1 : idx }));
+          if (updates.length) {
+            const { error: updErr } = await supabase.from('cms_sections').upsert(updates);
+            if (updErr) console.warn('Position normalization warning:', updErr);
+          }
+
           await fetchData();
-          
-          toast({
-            title: 'Sekcja przeniesiona',
-            description: 'Sekcja została pomyślnie przeniesiona do wiersza',
-          });
+          toast({ title: 'Sekcja przeniesiona', description: 'Sekcja została umieszczona w wierszu' });
         } catch (error) {
           console.error('Error moving section to row:', error);
-          toast({
-            title: 'Błąd',
-            description: 'Nie udało się przenieść sekcji do wiersza',
-            variant: 'destructive',
-          });
+          toast({ title: 'Błąd', description: 'Nie udało się przenieść sekcji do wiersza', variant: 'destructive' });
         }
         return;
       }
@@ -386,6 +400,10 @@ export const LivePreviewEditor: React.FC = () => {
 
     // Check if dropping on a column
     const overData = (over as any).data?.current;
+    // Ignore dropping items on row droppables
+    if (overData?.type === 'row-column' || overData?.type === 'row-container') {
+      return;
+    }
     if (overData?.type === 'column') {
       targetSectionId = overData.sectionId;
       targetColIndex = overData.columnIndex;

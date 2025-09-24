@@ -37,9 +37,21 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     },
   });
 
-  const childSections = sections.filter(s => s.parent_id === row.id);
+  const rawChildSections = sections.filter(s => s.parent_id === row.id);
   const columnCount = row.row_column_count || 1;
 
+  // Sort children by position and assign to fixed column slots
+  const childSections = [...rawChildSections].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const slotSections: (CMSSection | undefined)[] = Array.from({ length: columnCount }, () => undefined);
+  childSections.forEach((child) => {
+    const pos = typeof child.position === 'number' ? child.position : 0;
+    if (pos >= 0 && pos < columnCount && !slotSections[pos]) {
+      slotSections[pos] = child;
+    } else {
+      const freeIndex = slotSections.findIndex((s) => !s);
+      if (freeIndex !== -1) slotSections[freeIndex] = child;
+    }
+  });
   const setColumnCount = (count: 1 | 2 | 3 | 4) => {
     onUpdateRow(row.id, { row_column_count: count });
   };
@@ -55,8 +67,9 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   };
 
   const getColumnWidth = (index: number) => {
-    if (row.row_layout_type === 'custom' && childSections[index]?.custom_width) {
-      return `${childSections[index].custom_width}px`;
+    const sec = slotSections[index];
+    if (row.row_layout_type === 'custom' && sec?.custom_width) {
+      return `${sec.custom_width}px`;
     }
     return 'auto';
   };
@@ -78,20 +91,20 @@ export const RowContainer: React.FC<RowContainerProps> = ({
           "min-h-[120px] transition-all duration-200",
           isEditMode && "border border-dashed border-border/30 rounded p-2",
           isEditMode && isColumnOver && "bg-primary/10 border-primary border-2",
-          isEditMode && childSections[columnIndex] && "border-transparent"
+          isEditMode && slotSections[columnIndex] && "border-transparent"
         )}
         style={{
           width: row.row_layout_type === 'custom' ? getColumnWidth(columnIndex) : undefined,
         }}
       >
-        {childSections[columnIndex] ? (
-          <div onClick={() => onSelectSection?.(childSections[columnIndex].id)}>
+        {slotSections[columnIndex] ? (
+          <div onClick={() => onSelectSection?.(slotSections[columnIndex]!.id)}>
             {isEditMode ? (
               <ResizableElement
-                isSelected={selectedElement === childSections[columnIndex].id}
+                isSelected={selectedElement === slotSections[columnIndex]!.id}
                 isEditMode={isEditMode}
                 onResize={(width, height) => {
-                  onUpdateRow(childSections[columnIndex].id, {
+                  onUpdateRow(slotSections[columnIndex]!.id, {
                     custom_width: width,
                     custom_height: height,
                     row_layout_type: 'custom'
@@ -99,7 +112,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 }}
               >
                 <DraggableSection
-                  id={childSections[columnIndex].id}
+                  id={slotSections[columnIndex]!.id}
                   isEditMode={isEditMode}
                   className="h-full"
                 >
