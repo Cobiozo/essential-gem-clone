@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Plus, X, Columns, Columns2, Columns3, Grid3X3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -67,7 +67,8 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
         'min-h-[120px] transition-all duration-200',
         isEditMode && 'border border-dashed border-border/30 rounded p-2',
         isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary',
-        isEditMode && slotSection && 'border-transparent'
+        // Only hide border when slot has content AND we're not hovering
+        isEditMode && slotSection && !isOver && 'border-transparent'
       )}
       style={{ width: rowLayoutType === 'custom' ? columnWidth : undefined }}
     >
@@ -612,7 +613,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
 
       {/* Grid layout for sections */}
       <div className={cn("grid gap-4", getGridClass())}>
-        <SortableContext items={childSectionIds} strategy={horizontalListSortingStrategy}>
+        <SortableContext items={childSectionIds} strategy={columnCount > 1 ? horizontalListSortingStrategy : verticalListSortingStrategy}>
           {Array.from({ length: columnCount }, (_, index) => (
             <RowColumnDropZone
               key={`${row.id}-col-${index}`}
