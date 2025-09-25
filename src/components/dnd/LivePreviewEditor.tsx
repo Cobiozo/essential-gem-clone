@@ -1215,7 +1215,10 @@ export const LivePreviewEditor: React.FC = () => {
       )}
 
       <InactiveElementsManager
-        onElementActivated={fetchData}
+        onElementActivated={() => {
+          console.log('Element activated, refreshing layout...');
+          fetchData();
+        }}
         onElementDeleted={fetchData}
         refreshKey={inactiveRefresh}
       />

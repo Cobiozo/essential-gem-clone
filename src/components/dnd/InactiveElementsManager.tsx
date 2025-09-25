@@ -85,7 +85,11 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       const table = type === 'section' ? 'cms_sections' : 'cms_items';
       
       // For sections, we need to set a proper position when activating
-      let updateData: any = { is_active: true, updated_at: new Date().toISOString() };
+      let updateData: any = { 
+        is_active: true, 
+        updated_at: new Date().toISOString(),
+        page_id: null  // Ensure it's on the main page
+      };
       
       if (type === 'section') {
         // Get the highest position for top-level sections to append at the end
@@ -101,6 +105,27 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         const maxPosition = maxPositionData && maxPositionData[0] ? maxPositionData[0].position : -1;
         updateData.position = maxPosition + 1;
         updateData.parent_id = null; // Ensure it's a top-level section
+        console.log(`Activating section ${id} with position ${updateData.position}`);
+      } else {
+        // For items, ensure page_id is null and get proper position within section
+        const { data: itemData } = await supabase
+          .from('cms_items')
+          .select('section_id')
+          .eq('id', id)
+          .single();
+          
+        if (itemData) {
+          const { data: maxItemPositionData } = await supabase
+            .from('cms_items')
+            .select('position')
+            .eq('section_id', itemData.section_id)
+            .eq('is_active', true)
+            .order('position', { ascending: false })
+            .limit(1);
+            
+          const maxItemPosition = maxItemPositionData && maxItemPositionData[0] ? maxItemPositionData[0].position : -1;
+          updateData.position = maxItemPosition + 1;
+        }
       }
 
       const { error } = await supabase
