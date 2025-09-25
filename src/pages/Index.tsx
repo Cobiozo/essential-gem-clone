@@ -383,56 +383,57 @@ const Index = () => {
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
           >
             {sections.filter(s => (s as any).parent_id == null).map((section) => {
-              
-              // Jeśli to wiersz (row), wyświetl go z kolumnami
               if (section.section_type === 'row') {
                 const rowColumnCount = section.row_column_count || 1;
                 const childSections = sections.filter(s => s.parent_id === section.id)
                   .sort((a, b) => a.position - b.position);
+
+                // Map children to fixed column slots based on their position (like in editor)
+                const slotSections: (CMSSection | undefined)[] = Array.from({ length: rowColumnCount }, () => undefined);
+                childSections.forEach((child) => {
+                  const pos = typeof child.position === 'number' ? child.position : 0;
+                  if (pos >= 0 && pos < rowColumnCount && !slotSections[pos]) {
+                    slotSections[pos] = child;
+                  } else {
+                    const freeIndex = slotSections.findIndex((s) => !s);
+                    if (freeIndex !== -1) slotSections[freeIndex] = child;
+                  }
+                });
+
+                const isCustomRow = section.row_layout_type === 'custom';
                 
                 return (
                   <div key={`row-${section.id}`} className="w-full">
-                    <div 
-                      className="grid gap-4 lg:gap-6 w-full"
-                      style={{ 
-                        gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` 
-                      }}
+                    <div
+                      className={isCustomRow ? 'flex flex-row flex-wrap gap-4 w-full' : 'grid gap-4 lg:gap-6 w-full'}
+                      style={isCustomRow ? undefined : { gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}
                     >
                       {Array.from({ length: rowColumnCount }, (_, colIndex) => {
-                        // Rozdziel sekcje potomne równomiernie po kolumnach wg kolejności, aby nic nie zniknęło
-                        const columnSections = childSections.filter((_, idx) => idx % rowColumnCount === colIndex);
-                        
+                        const childSection = slotSections[colIndex];
                         return (
-                          <div key={`row-${section.id}-col-${colIndex}`} className="space-y-4">
-                            {columnSections.map((childSection) => {
-                              const sectionItems = items.filter(item => 
-                                item.section_id === childSection.id && 
-                                item.type !== 'header_text' && 
-                                item.type !== 'author'
-                              ).sort((a, b) => a.position - b.position);
-                              
+                          <div
+                            key={`row-${section.id}-col-${colIndex}`}
+                            className={isCustomRow ? 'space-y-4 shrink-0' : 'space-y-4'}
+                            style={isCustomRow && childSection?.width_type === 'custom' && childSection?.custom_width ? { width: `${childSection.custom_width}px` } : undefined}
+                          >
+                            {childSection && (() => {
+                              const sectionItems = items
+                                .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
+                                .sort((a, b) => a.position - b.position);
                               const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
                               const columnCount = Math.max(1, maxColIndex + 1);
-                              
-                              const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({
-                                id: `${childSection.id}-col-${i}`,
-                                items: [],
-                                width: 100 / columnCount,
-                              }));
-                              
+                              const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({ id: `${childSection.id}-col-${i}`, items: [], width: 100 / columnCount }));
                               sectionItems.forEach((item) => {
-                                const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                                columns[colIndex].items.push(item);
+                                const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                                columns[ci].items.push(item);
                               });
-                              
                               const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(childSection.title);
-                              
                               return (
                                 <CollapsibleSection 
                                   key={`section-${childSection.id}-${childSection.title}`}
                                   title={childSection.title}
                                   description={childSection.description}
-                                   defaultOpen={childSection.default_expanded || false}
+                                  defaultOpen={childSection.default_expanded || false}
                                   showShareButton={shouldShowShare}
                                   sectionStyle={childSection}
                                 >
@@ -451,7 +452,7 @@ const Index = () => {
                                   )}
                                 </CollapsibleSection>
                               );
-                            })}
+                            })()}
                           </div>
                         );
                       })}
