@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown, Share2, icons } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -91,6 +91,12 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   onOpenChange,
 }) => {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  
+  // Synchronize internal state with defaultOpen prop changes
+  useEffect(() => {
+    setInternalOpen(defaultOpen);
+  }, [defaultOpen]);
+  
   const isOpen = typeof controlledOpen === 'boolean' ? controlledOpen : internalOpen;
   const setOpen = (open: boolean) => {
     if (typeof controlledOpen === 'boolean') {
