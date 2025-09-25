@@ -92,6 +92,40 @@ serve(async (req) => {
       })
     );
 
+    // If any section now has a custom width, enforce parent row to 'custom' layout
+    try {
+      const customChildIds = sections
+        .filter((s) => s.width_type === 'custom' || (typeof s.custom_width === 'number' && (s.custom_width ?? 0) > 0))
+        .map((s) => s.id);
+
+      if (customChildIds.length > 0) {
+        const { data: childParentRows, error: parentLookupErr } = await sr
+          .from('cms_sections')
+          .select('id, parent_id')
+          .in('id', customChildIds);
+
+        if (!parentLookupErr) {
+          const parentIds = Array.from(new Set((childParentRows || [])
+            .map((r: any) => r.parent_id)
+            .filter((pid: string | null) => !!pid)));
+
+          if (parentIds.length > 0) {
+            const { error: parentUpdateErr } = await sr
+              .from('cms_sections')
+              .update({ row_layout_type: 'custom', updated_at: new Date().toISOString() })
+              .in('id', parentIds);
+            if (parentUpdateErr) {
+              console.error('Failed to enforce parent row custom layout', parentUpdateErr);
+            }
+          }
+        } else {
+          console.error('Parent row lookup error', parentLookupErr);
+        }
+      }
+    } catch (e) {
+      console.error('Failed enforcing parent row layout', e);
+    }
+
     // Update items (position + section_id) with explicit error handling
     // Also ensure page_id matches the target section's page_id (null for homepage)
     const targetSectionIds = Array.from(new Set(items.map((it) => it.section_id)));
