@@ -804,32 +804,24 @@ export const LivePreviewEditor: React.FC = () => {
         
         console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${width > 0 ? width : null}, custom_height: ${height > 0 ? height : null}`);
         
-        // Update section size in database
-        const { error } = await supabase
-          .from('cms_sections')
-          .update({ 
-            custom_width: width > 0 ? width : null, 
-            custom_height: height > 0 ? height : null,
-            width_type,
-            height_type,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', elementId);
-        
-        if (error) throw error;
-        
-        // Update local state
-        setSections(prev => prev.map(s => 
-          s.id === elementId 
-            ? { 
-                ...s, 
-                custom_width: width > 0 ? width : null, 
-                custom_height: height > 0 ? height : null,
-                width_type,
-                height_type
-              }
-            : s
-        ));
+        // Update local state and persist via Edge Function autosave (service role)
+        setSections(prev => {
+          const updated = prev.map(s => 
+            s.id === elementId 
+              ? { 
+                  ...s, 
+                  custom_width: width > 0 ? width : null, 
+                  custom_height: height > 0 ? height : null,
+                  width_type,
+                  height_type
+                }
+              : s
+          );
+
+          // Schedule autosave to persist sizes and ordering reliably
+          autoSave(updated, items);
+          return updated;
+        });
         
         toast({
           title: 'Sukces',
