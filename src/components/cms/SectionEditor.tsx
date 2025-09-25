@@ -87,6 +87,7 @@ interface SectionEditorProps {
   onCancel?: () => void;
   isNew?: boolean;
   trigger?: React.ReactNode;
+  allowSizeEditing?: boolean;
 }
 
 export const SectionEditor: React.FC<SectionEditorProps> = ({
@@ -94,7 +95,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   onSave,
   onCancel,
   isNew = false,
-  trigger
+  trigger,
+  allowSizeEditing = true,
 }) => {
   const [editedSection, setEditedSection] = useState<Section>(
     section || {
@@ -335,8 +337,19 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       hover_border_color: editedSection.hover_border_color?.trim() || null,
       hover_box_shadow: editedSection.hover_box_shadow?.trim() || null,
     };
+
+    const finalSection = (!allowSizeEditing && section)
+      ? {
+        ...cleanedSection,
+        width_type: section.width_type,
+        custom_width: section.custom_width,
+        height_type: section.height_type,
+        custom_height: section.custom_height,
+        max_width: section.max_width,
+      }
+      : cleanedSection;
     
-    onSave(cleanedSection);
+    onSave(finalSection);
     setIsOpen(false);
   };
 
@@ -639,6 +652,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-4">
+          {allowSizeEditing && (
           <div>
             <Label className="text-sm font-medium">Szerokość</Label>
             <Select 
@@ -672,7 +686,9 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
               </div>
             )}
           </div>
+          )}
 
+          {allowSizeEditing && (
           <div>
             <Label className="text-sm font-medium">Wysokość</Label>
             <Select 
@@ -705,8 +721,10 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
               </div>
             )}
           </div>
+          )}
         </div>
 
+        {allowSizeEditing && (
         <div>
           <Label className="text-sm font-medium mb-2 block">
             Maksymalna szerokość: {editedSection.max_width}px
@@ -720,6 +738,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             className="w-full"
           />
         </div>
+        )}
 
         <div>
           <Label className="text-sm font-medium">Typ wyświetlania</Label>

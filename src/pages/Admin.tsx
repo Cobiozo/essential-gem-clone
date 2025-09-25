@@ -3092,6 +3092,7 @@ const Admin = () => {
                 onSave={(updatedSection) => updateSection(editingSection.id, updatedSection)}
                 onCancel={() => setEditingSection(null)}
                 isNew={false}
+                allowSizeEditing={false}
               />
             </div>
           </DialogContent>
@@ -3575,6 +3576,7 @@ const Admin = () => {
                                     }
                                   }}
                                   isNew={true}
+                                  allowSizeEditing={false}
                                   trigger={
                                     <Button
                                       variant="outline"
@@ -3872,6 +3874,7 @@ const Admin = () => {
                 onSave={(newSection) => createPageSection(editingPage.id, newSection)}
                 onCancel={() => setShowAddPageSectionEditor(false)}
                 isNew={true}
+                allowSizeEditing={false}
               />
             </div>
           </DialogContent>
@@ -3894,6 +3897,7 @@ const Admin = () => {
                 onSave={(updatedSection) => updatePageSection(editingPageSection.id, updatedSection)}
                 onCancel={() => setEditingPageSection(null)}
                 isNew={false}
+                allowSizeEditing={false}
               />
             </div>
           </DialogContent>
