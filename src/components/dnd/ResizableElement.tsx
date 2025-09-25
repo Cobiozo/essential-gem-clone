@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { RotateCcw, Move, MoreHorizontal, MoreVertical } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ResizableElementProps {
   children: React.ReactNode;
@@ -194,8 +195,12 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     return <div className={className}>{children}</div>;
   }
 
+  const isMobile = useIsMobile();
+
   const style = {
-    width: typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width,
+    width: isMobile
+      ? '100%'
+      : (typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width),
     height: typeof dimensions.height === 'number' ? `${dimensions.height}px` : dimensions.height,
   };
 

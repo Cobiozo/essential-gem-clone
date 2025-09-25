@@ -798,20 +798,21 @@ export const LivePreviewEditor: React.FC = () => {
       const isSection = sections.find(s => s.id === elementId);
       
       if (isSection) {
-        // Determine width_type and height_type based on values
+        // Determine width_type based on width; always keep height auto for responsiveness
         const width_type = width > 0 ? 'custom' : 'full';
-        const height_type = height > 0 ? 'custom' : 'auto';
-        
-        console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${width > 0 ? width : null}, custom_height: ${height > 0 ? height : null}`);
-        
+        const height_type = 'auto';
+        const newCustomWidth = width > 0 ? width : null;
+
+        console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${newCustomWidth}, custom_height: null`);
+
         // Update local state and persist via Edge Function autosave (service role)
         setSections(prev => {
           const updated = prev.map(s => 
             s.id === elementId 
               ? { 
                   ...s, 
-                  custom_width: width > 0 ? width : null, 
-                  custom_height: height > 0 ? height : null,
+                  custom_width: newCustomWidth, 
+                  custom_height: null,
                   width_type,
                   height_type
                 }
@@ -822,7 +823,7 @@ export const LivePreviewEditor: React.FC = () => {
           autoSave(updated, items);
           return updated;
         });
-        
+
         toast({
           title: 'Sukces',
           description: 'Rozmiar sekcji został zapisany',
