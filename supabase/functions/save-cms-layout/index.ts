@@ -65,18 +65,24 @@ serve(async (req) => {
       });
     }
 
-    const sections: Array<{ id: string; position: number }> = body.sections;
+    const sections: Array<{ id: string; position: number; width_type?: string | null; height_type?: string | null; custom_width?: number | null; custom_height?: number | null }> = body.sections;
     const items: Array<{ id: string; section_id: string; position: number; column_index?: number }> = body.items;
 
     // Service role client to bypass RLS for the actual updates
     const sr = createClient(supabaseUrl, serviceRoleKey);
 
-    // Update sections positions with explicit error handling
+    // Update sections positions and optional size fields
     const sectionResults = await Promise.all(
       sections.map(async (s) => {
+        const update: Record<string, any> = { position: s.position, updated_at: new Date().toISOString() };
+        if (s.width_type !== undefined) update.width_type = s.width_type;
+        if (s.height_type !== undefined) update.height_type = s.height_type;
+        if (Object.prototype.hasOwnProperty.call(s, 'custom_width')) update.custom_width = s.custom_width ?? null;
+        if (Object.prototype.hasOwnProperty.call(s, 'custom_height')) update.custom_height = s.custom_height ?? null;
+
         const res = await sr
           .from("cms_sections")
-          .update({ position: s.position })
+          .update(update)
           .eq("id", s.id);
         if (res.error) {
           console.error("Section update error", { id: s.id, error: res.error });
