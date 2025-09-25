@@ -1470,7 +1470,7 @@ export const LivePreviewEditor: React.FC = () => {
                     key={section.id}
                     id={section.id}
                     isEditMode={editMode}
-                    className="w-full"
+                    className="justify-self-center w-auto"
                   >
                     <div 
                       onClick={(e) => {
@@ -1483,7 +1483,7 @@ export const LivePreviewEditor: React.FC = () => {
                         setSelectedElement(section.id);
                       }}
                       className={cn(
-                        "cursor-pointer transition-all duration-200 w-full",
+                        "cursor-pointer transition-all duration-200",
                         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
                       )}
                     >
@@ -1493,7 +1493,7 @@ export const LivePreviewEditor: React.FC = () => {
                         initialWidth={section.width_type === 'custom' ? section.custom_width || undefined : undefined}
                         initialHeight={section.height_type === 'custom' ? section.custom_height || undefined : undefined}
                         currentDevice={currentDevice}
-                        className="w-full"
+                        className="w-auto"
                       >
                         <CollapsibleSection
                           title={section.title}
