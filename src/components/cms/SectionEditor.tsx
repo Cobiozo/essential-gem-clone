@@ -1523,7 +1523,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
                 <X className="w-4 h-4 mr-2" />
                 Anuluj
               </Button>
-              <Button onClick={handleSave} disabled={!editedSection.title.trim()}>
+              <Button onClick={handleSave}>
                 <Save className="w-4 h-4 mr-2" />
                 {isNew ? 'Utwórz sekcję' : 'Zapisz zmiany'}
               </Button>
@@ -1567,7 +1567,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       <CardContent>
         {editorContent}
         <div className="flex space-x-3 mt-6">
-          <Button onClick={handleSave} disabled={!editedSection.title.trim()}>
+          <Button onClick={handleSave}>
             <Save className="w-4 h-4 mr-2" />
             {isNew ? 'Utwórz sekcję' : 'Zapisz zmiany'}
           </Button>
