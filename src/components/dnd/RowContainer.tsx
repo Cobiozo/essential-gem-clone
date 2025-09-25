@@ -386,6 +386,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
           }}>
             {isEditMode ? (
               <ResizableElement
+                key={`${slotSections[columnIndex]!.id}-${slotSections[columnIndex]!.custom_width ?? 'auto'}`}
                 isSelected={selectedElement === slotSections[columnIndex]!.id}
                 isEditMode={isEditMode}
                 onResize={(width, height) => onElementResize(slotSections[columnIndex]!.id, width, height)}

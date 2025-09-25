@@ -1534,6 +1534,7 @@ export const LivePreviewEditor: React.FC = () => {
                       )}
                     >
                       <ResizableElement
+                        key={`${section.id}-${section.custom_width ?? 'auto'}`}
                         isEditMode={editMode}
                         onResize={(width, height) => handleElementResize(section.id, width, height)}
                         initialWidth={section.width_type === 'custom' ? section.custom_width || undefined : undefined}
