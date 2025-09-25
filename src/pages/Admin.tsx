@@ -943,18 +943,18 @@ const Admin = () => {
 
   const deleteSection = async (sectionId: string) => {
     try {
-      // First delete all items in the section
+      // Mark items in the section as inactive instead of deleting
       const { error: itemsError } = await supabase
         .from('cms_items')
-        .delete()
+        .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('section_id', sectionId);
 
       if (itemsError) throw itemsError;
 
-      // Then delete the section
+      // Mark the section as inactive instead of deleting
       const { error: sectionError } = await supabase
         .from('cms_sections')
-        .delete()
+        .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', sectionId);
 
       if (sectionError) throw sectionError;
@@ -963,10 +963,10 @@ const Admin = () => {
       setItems(items.filter(i => i.section_id !== sectionId));
       toast({
         title: t('toast.success'),
-        description: t('success.sectionDeleted'),
+        description: 'Sekcja została oznaczona jako nieaktywna',
       });
     } catch (error) {
-      console.error('Error deleting section:', error);
+      console.error('Error deactivating section:', error);
       toast({
         title: t('toast.error'),
         description: t('error.deleteSection'),
@@ -1160,9 +1160,10 @@ const Admin = () => {
 
   const deleteItem = async (itemId: string) => {
     try {
+      // Mark item as inactive instead of deleting
       const { error } = await supabase
         .from('cms_items')
-        .delete()
+        .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', itemId);
 
       if (error) throw error;
@@ -1170,10 +1171,10 @@ const Admin = () => {
       setItems(items.filter(i => i.id !== itemId));
       toast({
         title: t('toast.success'),
-        description: t('success.elementDeleted'),
+        description: 'Element został oznaczony jako nieaktywny',
       });
     } catch (error) {
-      console.error('Error deleting item:', error);
+      console.error('Error deactivating item:', error);
       toast({
         title: t('toast.error'),
         description: t('error.deleteElement'),
