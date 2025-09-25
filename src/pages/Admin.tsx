@@ -3089,11 +3089,7 @@ const Admin = () => {
             <div className="flex-1 overflow-y-auto px-6 pb-6">
               <SectionEditor 
                 section={editingSection}
-                onSave={(updatedSection) => {
-                  const { width_type, custom_width, height_type, custom_height, max_width, ...rest } = (updatedSection as any) || {};
-                  // In zakładce "Główna" nie zapisujemy pól rozmiaru, aby nie nadpisywać ustawień z edytora Layoutu
-                  updateSection(editingSection.id, rest as any);
-                }}
+                onSave={(updatedSection) => updateSection(editingSection.id, updatedSection)}
                 onCancel={() => setEditingSection(null)}
                 isNew={false}
                 allowSizeEditing={false}
