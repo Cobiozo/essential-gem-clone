@@ -802,10 +802,15 @@ export const LivePreviewEditor: React.FC = () => {
       const section = sections.find(s => s.id === elementId);
       
       if (section) {
-        // Determine width_type based on width; always keep height auto for responsiveness
-        const width_type = width > 0 ? 'custom' : 'full';
-        const height_type = 'auto';
-        const newCustomWidth = width > 0 ? width : null;
+        // Ignore invalid measurements to avoid overwriting saved sizes
+        if (!Number.isFinite(width) || width <= 0) {
+          console.warn(`Ignored resize for ${elementId}: non-positive width (${width}). Keeping previous width settings.`);
+          return;
+        }
+
+        const width_type = 'custom' as const;
+        const height_type = section.height_type ?? 'auto';
+        const newCustomWidth = Math.round(width);
 
         console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${newCustomWidth}, custom_height: null`);
 
@@ -815,10 +820,10 @@ export const LivePreviewEditor: React.FC = () => {
             s.id === elementId 
               ? { 
                   ...s, 
+                  width_type,
+                  height_type,
                   custom_width: newCustomWidth, 
                   custom_height: null,
-                  width_type,
-                  height_type
                 }
               : s
           ).map(s => {
@@ -836,7 +841,7 @@ export const LivePreviewEditor: React.FC = () => {
 
         // Persist immediately to DB to avoid debounce race conditions
         try {
-          const updates: any = { custom_width: newCustomWidth, custom_height: null, width_type, height_type, updated_at: new Date().toISOString() };
+          const updates: any = { width_type, height_type, custom_width: newCustomWidth, custom_height: null, updated_at: new Date().toISOString() };
           const { error: immediateErr } = await supabase
             .from('cms_sections')
             .update(updates)
@@ -858,10 +863,13 @@ export const LivePreviewEditor: React.FC = () => {
                 .update({ row_layout_type: 'custom', updated_at: new Date().toISOString() })
                 .eq('id', parentRow.id);
             } catch (e) {
-              console.error('Failed to switch row to custom layout', e);
+              console.error('Parent row layout switch failed', e);
             }
           }
         }
+      } else {
+        // TODO: Add item resize handling if needed
+      }
 
         toast({
           title: 'Sukces',
