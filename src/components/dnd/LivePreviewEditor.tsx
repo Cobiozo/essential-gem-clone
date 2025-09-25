@@ -269,8 +269,8 @@ export const LivePreviewEditor: React.FC = () => {
     autoSaveTimeoutRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving');
       try {
-        // Build payload for edge function
-        const sectionsPayload = newSections.map((s, index) => ({ id: s.id, position: index }));
+        // Build payload for edge function - use actual position values, not array indices
+        const sectionsPayload = newSections.map((s) => ({ id: s.id, position: s.position }));
 
         const itemsBySection: { [key: string]: CMSItem[] } = {};
         newItems.forEach((it) => {
@@ -494,6 +494,9 @@ export const LivePreviewEditor: React.FC = () => {
             return s;
           }));
           
+          // Refresh data to ensure consistency
+          await fetchData();
+          
           toast({ title: 'Sekcje zamienione', description: 'Pozycje sekcji zostały zamienione' });
         } catch (error) {
           console.error('Error swapping sections:', error);
@@ -688,8 +691,8 @@ export const LivePreviewEditor: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Build payload for edge function
-      const sectionsPayload = sections.map((s, index) => ({ id: s.id, position: index }));
+        // Build payload for edge function - use actual position values, not array indices
+        const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position }));
 
       const itemsBySection: { [key: string]: CMSItem[] } = {};
       items.forEach((it) => {
