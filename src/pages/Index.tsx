@@ -83,6 +83,7 @@ interface CMSSection {
   section_type?: string | null;
   row_column_count?: number | null;
   row_layout_type?: string | null;
+  default_expanded?: boolean | null;
 }
 
 interface CMSItem {
@@ -421,7 +422,7 @@ const Index = () => {
                                   key={`section-${childSection.id}-${childSection.title}`}
                                   title={childSection.title}
                                   description={childSection.description}
-                                  defaultOpen={false}
+                                   defaultOpen={childSection.default_expanded || false}
                                   showShareButton={shouldShowShare}
                                   sectionStyle={childSection}
                                 >
@@ -478,7 +479,7 @@ const Index = () => {
                   key={`section-${section.id}-${section.title}`}
                   title={section.title}
                   description={section.description}
-                  defaultOpen={false}
+                  defaultOpen={section.default_expanded || false}
                   showShareButton={shouldShowShare}
                   sectionStyle={section}
                 >

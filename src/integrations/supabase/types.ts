@@ -115,6 +115,7 @@ export type Database = {
           created_at: string
           custom_height: number | null
           custom_width: number | null
+          default_expanded: boolean | null
           description: string | null
           display_type: string | null
           font_size: number | null
@@ -184,6 +185,7 @@ export type Database = {
           created_at?: string
           custom_height?: number | null
           custom_width?: number | null
+          default_expanded?: boolean | null
           description?: string | null
           display_type?: string | null
           font_size?: number | null
@@ -253,6 +255,7 @@ export type Database = {
           created_at?: string
           custom_height?: number | null
           custom_width?: number | null
+          default_expanded?: boolean | null
           description?: string | null
           display_type?: string | null
           font_size?: number | null

@@ -41,7 +41,7 @@ export interface CMSItem {
 
 export interface CMSSection {
   id: string;
-  title: string;
+  title: string | null;
   description?: string;
   position: number;
   is_active: boolean;
@@ -111,4 +111,5 @@ export interface CMSSection {
   content_wrap?: string;
   height_type_?: string;
   overflow_behavior?: string;
+  default_expanded?: boolean;
 }

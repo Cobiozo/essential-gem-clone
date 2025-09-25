@@ -11,7 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { icons } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star } from 'lucide-react';
+import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '../MediaUpload';
 import { RichTextEditor } from '../RichTextEditor';
@@ -78,6 +78,7 @@ interface Section {
   hover_opacity?: number | null;
   hover_scale?: number | null;
   hover_transition_duration?: number | null;
+  default_expanded?: boolean | null;
 }
 
 interface SectionEditorProps {
@@ -156,7 +157,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       hover_box_shadow: '',
       hover_opacity: 100,
       hover_scale: 1.0,
-      hover_transition_duration: 300
+      hover_transition_duration: 300,
+      default_expanded: false
     }
   );
 
@@ -407,7 +409,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       hover_box_shadow: '',
       hover_opacity: 100,
       hover_scale: 1.0,
-      hover_transition_duration: 300
+      hover_transition_duration: 300,
+      default_expanded: false
     });
     setHasUnsavedChanges(false);
     setShowConfirmDialog(false);
@@ -474,6 +477,22 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             <Eye className="w-4 h-4 text-green-600" />
           ) : (
             <EyeOff className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="section-default-expanded"
+            checked={editedSection.default_expanded || false}
+            onCheckedChange={(checked) => setEditedSection({...editedSection, default_expanded: checked})}
+          />
+          <Label htmlFor="section-default-expanded" className="text-sm font-medium">
+            Domyślnie rozwinięta
+          </Label>
+          {editedSection.default_expanded ? (
+            <ChevronDown className="w-4 h-4 text-blue-600" />
+          ) : (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
           )}
         </div>
       </div>
