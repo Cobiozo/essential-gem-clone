@@ -9,7 +9,6 @@ import { DraggableSection } from './DraggableSection';
 import { ResizableElement } from './ResizableElement';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ColumnLayout } from './ColumnLayout';
-import type { DeviceType } from './DevicePreview';
 
 // Extracted to avoid re-mount loops of inline components causing DnD measuring cascades
 interface RowColumnDropZoneProps {
@@ -29,7 +28,6 @@ interface RowColumnDropZoneProps {
   rowLayoutType?: string | null;
   columnWidth?: string | undefined;
   renderVersion?: number;
-  currentDevice?: DeviceType;
 }
 
 const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
@@ -49,7 +47,6 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   rowLayoutType,
   columnWidth,
   renderVersion,
-  currentDevice,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `${rowId}-col-${columnIndex}`,
@@ -95,7 +92,6 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
               onResize={(width, height) => onElementResize(slotSection.id, width, height)}
               initialWidth={slotSection.width_type === 'custom' ? slotSection.custom_width || undefined : undefined}
               initialHeight={slotSection.height_type === 'custom' ? slotSection.custom_height || undefined : undefined}
-              currentDevice={currentDevice}
             >
               <DraggableSection id={slotSection.id} isEditMode={isEditMode} className="h-full">
                 <CollapsibleSection
@@ -277,7 +273,6 @@ interface RowContainerProps {
   openStates?: Record<string, boolean>;
   onOpenChange?: (id: string, open: boolean) => void;
   renderVersion?: number;
-  currentDevice?: DeviceType;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -296,7 +291,6 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   openStates,
   onOpenChange,
   renderVersion,
-  currentDevice,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
