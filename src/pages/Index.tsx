@@ -399,11 +399,12 @@ const Index = () => {
                       }}
                     >
                       {Array.from({ length: rowColumnCount }, (_, colIndex) => {
-                        const columnsections = childSections.filter(s => s.position === colIndex);
+                        // Rozdziel sekcje potomne równomiernie po kolumnach wg kolejności, aby nic nie zniknęło
+                        const columnSections = childSections.filter((_, idx) => idx % rowColumnCount === colIndex);
                         
                         return (
                           <div key={`row-${section.id}-col-${colIndex}`} className="space-y-4">
-                            {columnsections.map((childSection) => {
+                            {columnSections.map((childSection) => {
                               const sectionItems = items.filter(item => 
                                 item.section_id === childSection.id && 
                                 item.type !== 'header_text' && 
