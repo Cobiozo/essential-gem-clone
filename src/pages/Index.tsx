@@ -161,8 +161,13 @@ const Index = () => {
         .eq('is_active', true)
         .order('position');
 
+      // Dla adminów - pokaż wszystkie aktywne sekcje
+      // Dla pozostałych użytkowników - zastosuj filtry widoczności
       if (!user) {
         sectionsQuery = sectionsQuery.eq('visible_to_everyone', true);
+      } else if (!isAdmin) {
+        // Dla zalogowanych użytkowników (nie adminów) - polegaj na RLS policies
+        // RLS policies już obsługują widoczność bazując na rolach
       }
 
       const { data: sectionsData } = await sectionsQuery;
@@ -204,8 +209,12 @@ const Index = () => {
         .eq('is_active', true)
         .order('position', { ascending: true });
 
+      // Dla adminów - pokaż wszystkie opublikowane strony
+      // Dla pozostałych użytkowników - zastosuj filtry widoczności
       if (!user) {
         pagesQuery = pagesQuery.eq('visible_to_everyone', true);
+      } else if (!isAdmin) {
+        // Dla zalogowanych użytkowników (nie adminów) - polegaj na RLS policies
       }
 
       const { data: pagesData } = await pagesQuery;
