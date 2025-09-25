@@ -80,15 +80,53 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
 
   const activateAllItemsInSections = async () => {
     try {
+      console.log('Starting to activate all items in sections...');
+      
       // Get all active sections
-      const { data: activeSections } = await supabase
+      const { data: activeSections, error: sectionsError } = await supabase
         .from('cms_sections')
-        .select('id')
+        .select('id, title')
         .eq('is_active', true);
 
-      if (!activeSections || activeSections.length === 0) return;
+      console.log('Active sections found:', activeSections);
+
+      if (sectionsError) {
+        console.error('Error fetching active sections:', sectionsError);
+        throw sectionsError;
+      }
+
+      if (!activeSections || activeSections.length === 0) {
+        toast({
+          title: 'Info',
+          description: 'Brak aktywnych sekcji do przetworzenia',
+        });
+        return;
+      }
 
       const sectionIds = activeSections.map(s => s.id);
+      console.log('Section IDs to process:', sectionIds);
+
+      // Check how many inactive items exist in these sections
+      const { data: inactiveItemsCheck, error: checkError } = await supabase
+        .from('cms_items')
+        .select('id, title, section_id')
+        .in('section_id', sectionIds)
+        .eq('is_active', false);
+
+      console.log('Inactive items found:', inactiveItemsCheck);
+
+      if (checkError) {
+        console.error('Error checking inactive items:', checkError);
+        throw checkError;
+      }
+
+      if (!inactiveItemsCheck || inactiveItemsCheck.length === 0) {
+        toast({
+          title: 'Info',
+          description: 'Wszystkie elementy w aktywnych sekcjach są już aktywne',
+        });
+        return;
+      }
 
       // Activate all inactive items in these sections
       const { data: updatedItems, error } = await supabase
@@ -101,7 +139,12 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         .eq('is_active', false)
         .select();
 
-      if (error) throw error;
+      console.log('Updated items:', updatedItems);
+
+      if (error) {
+        console.error('Error updating items:', error);
+        throw error;
+      }
 
       // Remove activated items from local state
       if (updatedItems && updatedItems.length > 0) {
@@ -117,14 +160,14 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       } else {
         toast({
           title: 'Info',
-          description: 'Wszystkie elementy w sekcjach są już aktywne',
+          description: 'Brak elementów do aktywacji',
         });
       }
     } catch (error) {
       console.error('Error activating all items:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie można aktywować elementów',
+        description: 'Nie można aktywować elementów: ' + (error as Error).message,
         variant: 'destructive',
       });
     }
