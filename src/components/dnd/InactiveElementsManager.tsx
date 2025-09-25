@@ -78,6 +78,58 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
     }
   };
 
+  const activateAllItemsInSections = async () => {
+    try {
+      // Get all active sections
+      const { data: activeSections } = await supabase
+        .from('cms_sections')
+        .select('id')
+        .eq('is_active', true);
+
+      if (!activeSections || activeSections.length === 0) return;
+
+      const sectionIds = activeSections.map(s => s.id);
+
+      // Activate all inactive items in these sections
+      const { data: updatedItems, error } = await supabase
+        .from('cms_items')
+        .update({ 
+          is_active: true, 
+          updated_at: new Date().toISOString() 
+        })
+        .in('section_id', sectionIds)
+        .eq('is_active', false)
+        .select();
+
+      if (error) throw error;
+
+      // Remove activated items from local state
+      if (updatedItems && updatedItems.length > 0) {
+        const activatedItemIds = updatedItems.map(item => item.id);
+        setInactiveItems(prev => prev.filter(item => !activatedItemIds.includes(item.id)));
+        
+        toast({
+          title: 'Sukces',
+          description: `Aktywowano ${updatedItems.length} elementów w przywróconych sekcjach`,
+        });
+        
+        onElementActivated();
+      } else {
+        toast({
+          title: 'Info',
+          description: 'Wszystkie elementy w sekcjach są już aktywne',
+        });
+      }
+    } catch (error) {
+      console.error('Error activating all items:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można aktywować elementów',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const activateElement = async (type: 'section' | 'item', id: string) => {
     try {
       setActivating(id);
@@ -241,6 +293,20 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         <CardDescription>
           Zarządzaj nieaktywnymi sekcjami i elementami. Możesz je aktywować ponownie lub usunąć trwale.
         </CardDescription>
+        
+        {/* Action buttons */}
+        <div className="mt-4 flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={activateAllItemsInSections}
+            disabled={loading}
+            className="text-xs"
+          >
+            <Eye className="w-3 h-3 mr-1" />
+            Aktywuj wszystkie elementy w sekcjach
+          </Button>
+        </div>
       </CardHeader>
       
       <CardContent>
