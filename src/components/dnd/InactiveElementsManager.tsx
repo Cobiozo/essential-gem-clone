@@ -135,6 +135,22 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
 
       if (error) throw error;
 
+      // If we're activating a section, also activate all its inactive items
+      if (type === 'section') {
+        const { error: itemsError } = await supabase
+          .from('cms_items')
+          .update({ 
+            is_active: true, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq('section_id', id)
+          .eq('is_active', false);
+
+        if (itemsError) {
+          console.error('Error activating section items:', itemsError);
+        }
+      }
+
       // Remove from local state
       if (type === 'section') {
         setInactiveSections(prev => prev.filter(s => s.id !== id));
