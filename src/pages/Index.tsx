@@ -15,6 +15,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { convertSupabaseSections } from '@/lib/typeUtils';
 import { ColumnLayout } from '@/components/dnd/ColumnLayout';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CMSSection {
   id: string;
@@ -123,6 +124,7 @@ const Index = () => {
   
   // Enable security preventions
   useSecurityPreventions();
+  const isMobile = useIsMobile();
 
   React.useEffect(() => {
     fetchCMSData();
@@ -414,7 +416,15 @@ const Index = () => {
                           <div
                             key={`row-${section.id}-col-${colIndex}`}
                             className={isCustomRow ? 'space-y-4 shrink-0' : 'space-y-4'}
-                            style={isCustomRow && childSection?.width_type === 'custom' && childSection?.custom_width ? { width: `${childSection.custom_width}px` } : undefined}
+                            style={
+                              isCustomRow
+                                ? (isMobile
+                                    ? { width: '100%' }
+                                    : (childSection?.width_type === 'custom' && childSection?.custom_width
+                                        ? { width: `${childSection.custom_width}px` }
+                                        : undefined))
+                                : undefined
+                            }
                           >
                             {childSection && (() => {
                               const sectionItems = items

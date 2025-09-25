@@ -134,4 +134,11 @@ All colors MUST be HSL.
     -ms-user-select: none;
     user-select: none;
   }
+
+  /* Ensure embedded media scales responsively */
+  img, video, canvas, iframe {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
 }
