@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { useIsMobile } from '@/hooks/use-mobile';
-
+import type { DeviceType } from '@/components/dnd/DevicePreview';
 interface CollapsibleSectionProps {
   title: string;
   description?: string;
@@ -20,6 +20,7 @@ interface CollapsibleSectionProps {
   disableToggle?: boolean; // Gdy true, ignoruje kliknięcia nagłówka (np. podczas drag)
   isOpen?: boolean; // sterowane z zewnątrz
   onOpenChange?: (open: boolean) => void; // callback
+  currentDevice?: DeviceType;
   // Styling props from CMS Section
   sectionStyle?: {
     background_color?: string | null;
@@ -90,6 +91,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   disableToggle = false,
   isOpen: controlledOpen,
   onOpenChange,
+  currentDevice,
 }) => {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   
@@ -134,7 +136,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   };
 
   // Build custom styles from section properties - Modern card design
-  const isMobile = useIsMobile();
+  const effectiveDevice: DeviceType = (currentDevice as DeviceType) ?? (useIsMobile() ? 'mobile' : 'desktop');
+  const isMobile = effectiveDevice !== 'desktop';
   const customContainerStyle = sectionStyle ? {
     backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
     backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 

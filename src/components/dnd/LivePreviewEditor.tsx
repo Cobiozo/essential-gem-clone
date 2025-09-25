@@ -1492,11 +1492,13 @@ export const LivePreviewEditor: React.FC = () => {
                         onResize={(width, height) => handleElementResize(section.id, width, height)}
                         initialWidth={section.width_type === 'custom' ? section.custom_width || undefined : undefined}
                         initialHeight={section.height_type === 'custom' ? section.custom_height || undefined : undefined}
+                        currentDevice={currentDevice}
                         className="w-full"
                       >
                         <CollapsibleSection
                           title={section.title}
                           description={section.description}
+                          currentDevice={currentDevice}
                           defaultOpen={section.default_expanded || false}
                           sectionStyle={{
                             background_color: section.background_color,

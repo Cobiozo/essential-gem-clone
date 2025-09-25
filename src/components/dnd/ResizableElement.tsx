@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { RotateCcw, Move, MoreHorizontal, MoreVertical } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { DeviceType } from './DevicePreview';
 
 interface ResizableElementProps {
   children: React.ReactNode;
@@ -15,6 +16,7 @@ interface ResizableElementProps {
   maxWidth?: number;
   maxHeight?: number;
   className?: string;
+  currentDevice?: DeviceType;
 }
 
 export const ResizableElement: React.FC<ResizableElementProps> = ({
@@ -28,6 +30,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   maxWidth = 1200,
   maxHeight = 800,
   className,
+  currentDevice,
 }) => {
   const [dimensions, setDimensions] = useState({
     width: initialWidth || 'auto',
@@ -195,12 +198,12 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     return <div className={className}>{children}</div>;
   }
 
-  const isMobile = useIsMobile();
+  const device: DeviceType = currentDevice ?? (useIsMobile() ? 'mobile' : 'desktop');
 
   const style = {
-    width: isMobile
-      ? '100%'
-      : (typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width),
+    width: device === 'desktop'
+      ? (typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width)
+      : '100%',
     height: typeof dimensions.height === 'number' ? `${dimensions.height}px` : dimensions.height,
   };
 
