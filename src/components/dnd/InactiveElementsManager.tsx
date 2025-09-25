@@ -106,11 +106,34 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       const sectionIds = activeSections.map(s => s.id);
       console.log('Section IDs to process:', sectionIds);
 
-      // Check how many inactive items exist in these sections
+      // Also include currently inactive child sections of these sections (rows' slots)
+      const { data: childSecs, error: childErr } = await supabase
+        .from('cms_sections')
+        .select('id, parent_id, is_active')
+        .in('parent_id', sectionIds);
+
+      if (childErr) {
+        console.error('Error fetching child sections:', childErr);
+      }
+
+      const childSectionIds = (childSecs || []).map(s => s.id);
+
+      // Activate any inactive child sections so they become visible
+      if (childSectionIds.length > 0) {
+        const { error: childActivateErr } = await supabase
+          .from('cms_sections')
+          .update({ is_active: true, page_id: null, updated_at: new Date().toISOString() })
+          .in('id', childSectionIds);
+        if (childActivateErr) console.error('Error activating child sections (bulk):', childActivateErr);
+      }
+
+      const allSectionIdsForItems = [...sectionIds, ...childSectionIds];
+
+      // Check how many inactive items exist in these sections (including child sections)
       const { data: inactiveItemsCheck, error: checkError } = await supabase
         .from('cms_items')
         .select('id, title, section_id')
-        .in('section_id', sectionIds)
+        .in('section_id', allSectionIdsForItems)
         .eq('is_active', false);
 
       console.log('Inactive items found:', inactiveItemsCheck);
@@ -128,7 +151,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         return;
       }
 
-      // Activate all inactive items in these sections
+      // Activate all inactive items in these sections (including child sections)
       const { data: updatedItems, error } = await supabase
         .from('cms_items')
         .update({ 
@@ -136,7 +159,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
           page_id: null,
           updated_at: new Date().toISOString() 
         })
-        .in('section_id', sectionIds)
+        .in('section_id', allSectionIdsForItems)
         .select();
 
       console.log('Updated items:', updatedItems);
@@ -230,8 +253,9 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
 
       if (error) throw error;
 
-      // If we're activating a section, also activate all its inactive items
+      // If we're activating a section, also activate its items and any child sections/items
       if (type === 'section') {
+        // Activate direct items of this section
         const { error: itemsError } = await supabase
           .from('cms_items')
           .update({ 
@@ -239,10 +263,50 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
             page_id: null,
             updated_at: new Date().toISOString() 
           })
-          .eq('section_id', id)
+          .eq('section_id', id);
 
         if (itemsError) {
           console.error('Error activating section items:', itemsError);
+        }
+
+        // Find child sections (e.g., row slots) and activate them
+        const { data: childSections, error: childFetchErr } = await supabase
+          .from('cms_sections')
+          .select('id')
+          .eq('parent_id', id);
+
+        if (childFetchErr) {
+          console.error('Error fetching child sections:', childFetchErr);
+        } else if (childSections && childSections.length > 0) {
+          const childIds = childSections.map(cs => cs.id);
+
+          // Activate child sections
+          const { error: childActivateErr } = await supabase
+            .from('cms_sections')
+            .update({ 
+              is_active: true,
+              page_id: null,
+              updated_at: new Date().toISOString()
+            })
+            .in('id', childIds);
+
+          if (childActivateErr) {
+            console.error('Error activating child sections:', childActivateErr);
+          }
+
+          // Activate items inside child sections
+          const { error: childItemsErr } = await supabase
+            .from('cms_items')
+            .update({ 
+              is_active: true,
+              page_id: null,
+              updated_at: new Date().toISOString()
+            })
+            .in('section_id', childIds);
+
+          if (childItemsErr) {
+            console.error('Error activating items in child sections:', childItemsErr);
+          }
         }
       }
 
