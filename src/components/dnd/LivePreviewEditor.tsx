@@ -745,8 +745,8 @@ export const LivePreviewEditor: React.FC = () => {
         throw new Error('Save did not complete successfully');
       }
 
-      // Don't reload immediately - trust the local state after successful save
-      // await fetchData();
+      // Reload from DB to ensure persisted order/state
+      await fetchData();
 
       // Notify all clients (including homepage) to refresh layout
       const channel = supabase.channel('cms-live');
@@ -1357,6 +1357,15 @@ export const LivePreviewEditor: React.FC = () => {
         </>
       )}
 
+      <InactiveElementsManager
+        onElementActivated={() => {
+          console.log('Element activated, refreshing layout...');
+          fetchData();
+        }}
+        onElementDeleted={fetchData}
+        refreshKey={inactiveRefresh}
+      />
+
       <LayoutControls
         isVisible={editMode}
         selectedElement={selectedElement}
@@ -1616,15 +1625,6 @@ export const LivePreviewEditor: React.FC = () => {
         </DragDropProvider>
         </DeviceFrame>
       </div>
-
-      <InactiveElementsManager
-        onElementActivated={() => {
-          console.log('Element activated, refreshing layout...');
-          fetchData();
-        }}
-        onElementDeleted={fetchData}
-        refreshKey={inactiveRefresh}
-      />
     </div>
   );
 };
