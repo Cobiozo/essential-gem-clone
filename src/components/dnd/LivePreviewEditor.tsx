@@ -875,7 +875,6 @@ export const LivePreviewEditor: React.FC = () => {
           title: 'Sukces',
           description: 'Rozmiar sekcji został zapisany',
         });
-      }
     } catch (error) {
       console.error('Error saving element resize:', error);
       toast({
