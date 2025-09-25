@@ -555,12 +555,18 @@ export const LivePreviewEditor: React.FC = () => {
         } else {
           // Regular reordering of top-level sections
           const reorderedTopLevel = arrayMove(topLevelSections, oldIndex, newIndex);
+          // Recalculate explicit positions for top-level sections to persist correctly
+          const updatedTopLevel = reorderedTopLevel.map((s, idx) => ({
+            ...s,
+            parent_id: null,
+            position: idx,
+          }));
           const allOtherSections = sections.filter(s => s.parent_id);
-          const newSections = [...reorderedTopLevel, ...allOtherSections];
+          const newSections = [...updatedTopLevel, ...allOtherSections];
           saveToHistory(newSections, items);
           setSections(newSections);
           setHasUnsavedChanges(true);
-          // Auto-save the reordered sections
+          // Auto-save the reordered sections (edge function updates DB)
           autoSave(newSections, items);
         }
       }
