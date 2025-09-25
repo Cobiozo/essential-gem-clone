@@ -108,8 +108,10 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (isResizingRef.current && onResize && typeof dimensions.width === 'number' && typeof dimensions.height === 'number') {
-      onResize(dimensions.width, dimensions.height);
+    if (isResizingRef.current && onResize) {
+      const w = typeof dimensions.width === 'number' ? dimensions.width : 0; // 0 => auto
+      const h = typeof dimensions.height === 'number' ? dimensions.height : 0; // 0 => auto
+      onResize(w, h);
     }
     
     isResizingRef.current = false;
