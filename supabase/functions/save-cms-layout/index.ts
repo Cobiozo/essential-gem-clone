@@ -65,7 +65,7 @@ serve(async (req) => {
       });
     }
 
-    const sections: Array<{ id: string; position: number; width_type?: string | null; height_type?: string | null; custom_width?: number | null; custom_height?: number | null }> = body.sections;
+    const sections: Array<{ id: string; position: number; width_type?: string | null; height_type?: string | null; custom_width?: number | null; custom_height?: number | null; row_layout_type?: string | null }> = body.sections;
     const items: Array<{ id: string; section_id: string; position: number; column_index?: number }> = body.items;
 
     // Service role client to bypass RLS for the actual updates
@@ -79,6 +79,7 @@ serve(async (req) => {
         if (s.height_type !== undefined) update.height_type = s.height_type;
         if (Object.prototype.hasOwnProperty.call(s, 'custom_width')) update.custom_width = s.custom_width ?? null;
         if (Object.prototype.hasOwnProperty.call(s, 'custom_height')) update.custom_height = s.custom_height ?? null;
+        if (s.row_layout_type !== undefined) update.row_layout_type = s.row_layout_type;
 
         const res = await sr
           .from("cms_sections")
