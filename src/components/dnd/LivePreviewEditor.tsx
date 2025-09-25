@@ -714,8 +714,12 @@ export const LivePreviewEditor: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-        // Build payload for edge function - include size fields and row layout so latest widths persist
-         const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null, row_layout_type: (s as any).row_layout_type ?? null }));
+      // Cancel any pending autosave to avoid race conditions overriding latest sizes
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+      // Build payload for edge function - save ordering only to avoid overwriting sizes set by resize
+      const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position }));
 
       const itemsBySection: { [key: string]: CMSItem[] } = {};
       items.forEach((it) => {
