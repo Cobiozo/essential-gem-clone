@@ -824,6 +824,19 @@ export const LivePreviewEditor: React.FC = () => {
           return updated;
         });
 
+        // Persist immediately to DB to avoid debounce race conditions
+        try {
+          const { error: immediateErr } = await supabase
+            .from('cms_sections')
+            .update({ custom_width: newCustomWidth, custom_height: null, width_type, height_type, updated_at: new Date().toISOString() })
+            .eq('id', elementId);
+          if (immediateErr) {
+            console.error('Immediate width save failed', immediateErr);
+          }
+        } catch (e) {
+          console.error('Immediate width save exception', e);
+        }
+
         toast({
           title: 'Sukces',
           description: 'Rozmiar sekcji został zapisany',
