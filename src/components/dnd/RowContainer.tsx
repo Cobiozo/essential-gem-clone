@@ -90,6 +90,8 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
               isSelected={selectedElement === slotSection.id}
               isEditMode={isEditMode}
               onResize={(width, height) => onElementResize(slotSection.id, width, height)}
+              initialWidth={slotSection.width_type === 'custom' ? slotSection.custom_width || undefined : undefined}
+              initialHeight={slotSection.height_type === 'custom' ? slotSection.custom_height || undefined : undefined}
             >
               <DraggableSection id={slotSection.id} isEditMode={isEditMode} className="h-full">
                 <CollapsibleSection
@@ -383,6 +385,8 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 isSelected={selectedElement === slotSections[columnIndex]!.id}
                 isEditMode={isEditMode}
                 onResize={(width, height) => onElementResize(slotSections[columnIndex]!.id, width, height)}
+                initialWidth={slotSections[columnIndex]!.width_type === 'custom' ? slotSections[columnIndex]!.custom_width || undefined : undefined}
+                initialHeight={slotSections[columnIndex]!.height_type === 'custom' ? slotSections[columnIndex]!.custom_height || undefined : undefined}
               >
                 <DraggableSection
                   id={slotSections[columnIndex]!.id}
