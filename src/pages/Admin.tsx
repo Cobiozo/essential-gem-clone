@@ -284,7 +284,9 @@ const Admin = () => {
     'hover_opacity', 'hover_scale', 'hover_transition_duration',
     // Added columns from the migration
     'background_color', 'text_color', 'font_size', 'alignment', 
-    'padding', 'margin', 'border_radius', 'style_class'
+    'padding', 'margin', 'border_radius', 'style_class',
+    // Default expanded toggle
+    'default_expanded'
   ] as const;
   type SectionDbField = typeof SECTION_DB_FIELDS[number];
 
