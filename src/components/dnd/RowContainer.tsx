@@ -371,10 +371,12 @@ export const RowContainer: React.FC<RowContainerProps> = ({
           "min-h-[120px] transition-all duration-200",
           isEditMode && "border border-dashed border-border/30 rounded p-2",
           isEditMode && isColumnOver && "bg-primary/10 ring-2 ring-primary",
-          isEditMode && slotSections[columnIndex] && "border-transparent"
+          isEditMode && slotSections[columnIndex] && "border-transparent",
+          isCustomRow && "shrink-0"
         )}
         style={{
           width: isCustomRow ? getColumnWidth(columnIndex) : undefined,
+          flex: isCustomRow ? `0 0 ${getColumnWidth(columnIndex)}` : undefined,
         }}
       >
         {slotSections[columnIndex] ? (
