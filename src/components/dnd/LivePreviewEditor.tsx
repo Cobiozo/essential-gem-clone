@@ -201,6 +201,14 @@ export const LivePreviewEditor: React.FC = () => {
       setSections(convertedSections);
       setItems(convertedItems);
 
+      // Debug: log size fields for sections
+      try {
+        const sizeSnapshot = convertedSections.map(s => ({ id: s.id, title: s.title, width_type: s.width_type, custom_width: s.custom_width, height_type: s.height_type, custom_height: s.custom_height }));
+        console.log('[DEBUG] Sections size snapshot:', sizeSnapshot);
+      } catch (e) {
+        // ignore
+      }
+
       // Initialize open sections based on default_expanded values
       const initialOpenSections: Record<string, boolean> = {};
       convertedSections.forEach(section => {
