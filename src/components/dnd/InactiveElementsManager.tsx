@@ -40,11 +40,10 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
     try {
       setLoading(true);
 
-      // Fetch inactive sections
+      // Fetch inactive sections - without page_id filter to show all inactive sections
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('cms_sections')
         .select('*')
-        .is('page_id', null)
         .eq('is_active', false)
         .order('updated_at', { ascending: false });
 
