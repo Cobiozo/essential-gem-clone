@@ -338,14 +338,16 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       hover_box_shadow: editedSection.hover_box_shadow?.trim() || null,
     };
 
-    let finalSection: Section;
-    if (!allowSizeEditing) {
-      // Omit size-related fields so we don't overwrite widths/heights saved in Layout Editor
-      const { width_type, custom_width, height_type, custom_height, max_width, ...rest } = cleanedSection as any;
-      finalSection = rest as Section;
-    } else {
-      finalSection = cleanedSection as Section;
-    }
+    const finalSection = (!allowSizeEditing && section)
+      ? {
+        ...cleanedSection,
+        width_type: section.width_type,
+        custom_width: section.custom_width,
+        height_type: section.height_type,
+        custom_height: section.custom_height,
+        max_width: section.max_width,
+      }
+      : cleanedSection;
     
     onSave(finalSection);
     setIsOpen(false);
