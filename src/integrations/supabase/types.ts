@@ -156,7 +156,7 @@ export type Database = {
           style_class: string | null
           text_color: string | null
           text_transform: string | null
-          title: string
+          title: string | null
           updated_at: string
           visible_to_anonymous: boolean
           visible_to_clients: boolean
@@ -225,7 +225,7 @@ export type Database = {
           style_class?: string | null
           text_color?: string | null
           text_transform?: string | null
-          title: string
+          title?: string | null
           updated_at?: string
           visible_to_anonymous?: boolean
           visible_to_clients?: boolean
@@ -294,7 +294,7 @@ export type Database = {
           style_class?: string | null
           text_color?: string | null
           text_transform?: string | null
-          title?: string
+          title?: string | null
           updated_at?: string
           visible_to_anonymous?: boolean
           visible_to_clients?: boolean
