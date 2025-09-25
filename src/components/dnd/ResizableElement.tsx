@@ -209,7 +209,9 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   const device: DeviceType = currentDevice ?? (useIsMobile() ? 'mobile' : 'desktop');
 
   const style = {
-    width: typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width,
+    width: device === 'desktop'
+      ? (typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width)
+      : '100%',
     height: typeof dimensions.height === 'number' ? `${dimensions.height}px` : dimensions.height,
   };
 

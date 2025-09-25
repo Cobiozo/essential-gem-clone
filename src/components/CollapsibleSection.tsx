@@ -151,9 +151,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     borderRadius: `${sectionStyle.border_radius || 16}px`, // More rounded for modern card look
     boxShadow: sectionStyle.box_shadow || '0 4px 20px rgba(0, 0, 0, 0.08)', // Modern card shadow
     opacity: (sectionStyle.opacity || 100) / 100,
-    width: (sectionStyle.width_type === 'custom' && typeof sectionStyle.custom_width === 'number' && sectionStyle.custom_width > 0)
-      ? `${sectionStyle.custom_width}px`
-      : '100%',
+    width: isMobile
+      ? '100%'
+      : (sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%'),
     height: sectionStyle.height_type === 'custom' ? `${sectionStyle.custom_height}px` : 'auto',
     maxWidth: `${sectionStyle.max_width || 1200}px`,
     marginTop: `${sectionStyle.section_margin_top || 16}px`,
