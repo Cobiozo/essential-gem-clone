@@ -745,8 +745,8 @@ export const LivePreviewEditor: React.FC = () => {
         throw new Error('Save did not complete successfully');
       }
 
-      // Reload from DB to ensure persisted order/state
-      await fetchData();
+      // Don't reload immediately - trust the local state after successful save
+      // await fetchData();
 
       // Notify all clients (including homepage) to refresh layout
       const channel = supabase.channel('cms-live');
