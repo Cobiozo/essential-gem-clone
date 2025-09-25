@@ -70,7 +70,8 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
         isEditMode && 'border border-dashed border-border/30 rounded p-2',
         isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary',
         // Only hide border when slot has content AND we're not hovering
-        isEditMode && slotSection && !isOver && 'border-transparent'
+        isEditMode && slotSection && !isOver && 'border-transparent',
+        rowLayoutType === 'custom' && 'shrink-0'
       )}
       style={{ width: rowLayoutType === 'custom' ? columnWidth : undefined }}
     >
@@ -629,8 +630,14 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         </div>
       )}
 
-      {/* Grid layout for sections */}
-      <div className={cn("grid gap-4", getGridClass())}>
+      {/* Layout for sections: grid by default, flex when custom widths */}
+      <div
+        className={cn(
+          row.row_layout_type === 'custom'
+            ? 'flex flex-row flex-wrap gap-4'
+            : cn('grid gap-4', getGridClass())
+        )}
+      >
         <SortableContext items={childSectionIds} strategy={columnCount > 1 ? horizontalListSortingStrategy : verticalListSortingStrategy}>
           {Array.from({ length: columnCount }, (_, index) => (
             <RowColumnDropZone

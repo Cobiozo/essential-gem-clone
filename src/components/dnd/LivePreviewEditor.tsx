@@ -795,9 +795,9 @@ export const LivePreviewEditor: React.FC = () => {
     
     try {
       // Check if it's a section or item
-      const isSection = sections.find(s => s.id === elementId);
+      const section = sections.find(s => s.id === elementId);
       
-      if (isSection) {
+      if (section) {
         // Determine width_type based on width; always keep height auto for responsiveness
         const width_type = width > 0 ? 'custom' : 'full';
         const height_type = 'auto';
@@ -817,7 +817,13 @@ export const LivePreviewEditor: React.FC = () => {
                   height_type
                 }
               : s
-          );
+          ).map(s => {
+            // If resized section is inside a row, ensure that row uses custom layout so widths take effect
+            if (section.parent_id && s.id === section.parent_id && s.section_type === 'row' && s.row_layout_type !== 'custom') {
+              return { ...s, row_layout_type: 'custom' } as any;
+            }
+            return s;
+          });
 
           // Schedule autosave to persist sizes and ordering reliably
           autoSave(updated, items);
@@ -826,15 +832,31 @@ export const LivePreviewEditor: React.FC = () => {
 
         // Persist immediately to DB to avoid debounce race conditions
         try {
+          const updates: any = { custom_width: newCustomWidth, custom_height: null, width_type, height_type, updated_at: new Date().toISOString() };
           const { error: immediateErr } = await supabase
             .from('cms_sections')
-            .update({ custom_width: newCustomWidth, custom_height: null, width_type, height_type, updated_at: new Date().toISOString() })
+            .update(updates)
             .eq('id', elementId);
           if (immediateErr) {
             console.error('Immediate width save failed', immediateErr);
           }
         } catch (e) {
           console.error('Immediate width save exception', e);
+        }
+
+        // If section is in a row, switch row to custom layout so custom widths are visible
+        if (section.parent_id) {
+          const parentRow = sections.find(s => s.id === section.parent_id && s.section_type === 'row');
+          if (parentRow && parentRow.row_layout_type !== 'custom') {
+            try {
+              await supabase
+                .from('cms_sections')
+                .update({ row_layout_type: 'custom', updated_at: new Date().toISOString() })
+                .eq('id', parentRow.id);
+            } catch (e) {
+              console.error('Failed to switch row to custom layout', e);
+            }
+          }
         }
 
         toast({
