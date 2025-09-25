@@ -6,9 +6,12 @@ export const convertSupabaseSection = (section: any): CMSSection => ({
   section_type: section.section_type === 'row' ? 'row' : 'section',
   row_column_count: section.row_column_count || 1,
   row_layout_type: section.row_layout_type === 'custom' ? 'custom' : 'equal',
-  // Respect DB types; only fallback when missing
-  width_type: section.width_type || 'full',
-  height_type: section.height_type || 'auto'
+  // Respect DB values exactly - only fallback when undefined (not null)
+  width_type: section.width_type !== undefined ? section.width_type : 'full',
+  height_type: section.height_type !== undefined ? section.height_type : 'auto',
+  // Preserve custom dimensions from DB
+  custom_width: section.custom_width,
+  custom_height: section.custom_height
 });
 
 // Helper function to convert array of raw Supabase sections
