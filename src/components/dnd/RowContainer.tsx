@@ -659,7 +659,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
               activeId={activeId}
               openStates={openStates}
               onOpenChange={onOpenChange}
-              rowLayoutType={row.row_layout_type}
+              rowLayoutType={isCustomRow ? 'custom' : row.row_layout_type}
               columnWidth={getColumnWidth(index)}
             />
           ))}
