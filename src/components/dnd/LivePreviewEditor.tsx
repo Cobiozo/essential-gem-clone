@@ -1357,6 +1357,15 @@ export const LivePreviewEditor: React.FC = () => {
         </>
       )}
 
+      <InactiveElementsManager
+        onElementActivated={() => {
+          console.log('Element activated, refreshing layout...');
+          fetchData();
+        }}
+        onElementDeleted={fetchData}
+        refreshKey={inactiveRefresh}
+      />
+
       <LayoutControls
         isVisible={editMode}
         selectedElement={selectedElement}
@@ -1616,15 +1625,6 @@ export const LivePreviewEditor: React.FC = () => {
         </DragDropProvider>
         </DeviceFrame>
       </div>
-
-      <InactiveElementsManager
-        onElementActivated={() => {
-          console.log('Element activated, refreshing layout...');
-          fetchData();
-        }}
-        onElementDeleted={fetchData}
-        refreshKey={inactiveRefresh}
-      />
     </div>
   );
 };
