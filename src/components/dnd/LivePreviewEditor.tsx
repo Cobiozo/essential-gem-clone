@@ -285,7 +285,7 @@ export const LivePreviewEditor: React.FC = () => {
       setAutoSaveStatus('saving');
       try {
         // Build payload for edge function - include size fields and row layout so latest widths persist
-        const sectionsPayload = newSections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null, row_layout_type: (s as any).row_layout_type ?? null }));
+        const sectionsPayload = newSections.map((s) => ({ id: s.id, position: s.position, row_layout_type: (s as any).row_layout_type ?? null }));
 
         const itemsBySection: { [key: string]: CMSItem[] } = {};
         newItems.forEach((it) => {
@@ -719,7 +719,7 @@ export const LivePreviewEditor: React.FC = () => {
         clearTimeout(autoSaveTimeoutRef.current);
       }
       // Build payload for edge function - include size fields and row layout so latest widths persist
-      const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null, row_layout_type: (s as any).row_layout_type ?? null }));
+       const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position, row_layout_type: (s as any).row_layout_type ?? null }));
 
       const itemsBySection: { [key: string]: CMSItem[] } = {};
       items.forEach((it) => {
