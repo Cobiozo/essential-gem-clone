@@ -343,7 +343,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
  
   const getColumnWidth = (index: number) => {
     const sec = slotSections[index];
-    if (row.row_layout_type === 'custom' && sec?.custom_width) {
+    if (isCustomRow && sec?.width_type === 'custom' && sec?.custom_width) {
       return `${sec.custom_width}px`;
     }
     return 'auto';
