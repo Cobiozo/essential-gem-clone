@@ -201,6 +201,13 @@ export const LivePreviewEditor: React.FC = () => {
       setSections(convertedSections);
       setItems(convertedItems);
 
+      // Initialize open sections based on default_expanded values
+      const initialOpenSections: Record<string, boolean> = {};
+      convertedSections.forEach(section => {
+        initialOpenSections[section.id] = section.default_expanded || false;
+      });
+      setOpenSections(initialOpenSections);
+
       // Debug counts for key sections
       try {
         const names = ['Witamy w Pure Life', 'DOWIEDZ SIĘ WIĘCEJ'];
@@ -1481,6 +1488,7 @@ export const LivePreviewEditor: React.FC = () => {
                         <CollapsibleSection
                           title={section.title}
                           description={section.description}
+                          defaultOpen={section.default_expanded || false}
                           sectionStyle={{
                             background_color: section.background_color,
                             text_color: section.text_color,
@@ -1534,7 +1542,6 @@ export const LivePreviewEditor: React.FC = () => {
                             overflow_behavior: section.overflow_behavior
                           }}
                           nestedItems={[]}
-                          defaultOpen={false}
                           disableToggle={!!activeId}
                           isOpen={!!openSections[section.id]}
                           onOpenChange={(o) => setOpenSections((prev) => ({ ...prev, [section.id]: o }))}
