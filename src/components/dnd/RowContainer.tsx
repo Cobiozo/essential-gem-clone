@@ -148,7 +148,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                     overflow_behavior: slotSection.overflow_behavior,
                   }}
                   nestedItems={[]}
-                  defaultOpen={false}
+                  defaultOpen={slotSection.default_expanded || false}
                   disableToggle={!!activeId}
                   isOpen={!!openStates?.[slotSection.id]}
                   onOpenChange={(o) => onOpenChange?.(slotSection.id, o)}
@@ -223,7 +223,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                 overflow_behavior: slotSection.overflow_behavior,
               }}
               nestedItems={[]}
-              defaultOpen={false}
+              defaultOpen={slotSection.default_expanded || false}
               disableToggle={!!activeId}
               isOpen={!!openStates?.[slotSection.id]}
               onOpenChange={(o) => onOpenChange?.(slotSection.id, o)}
@@ -439,7 +439,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                       overflow_behavior: slotSections[columnIndex]!.overflow_behavior
                     }}
                     nestedItems={[]}
-                     defaultOpen={false}
+                     defaultOpen={slotSections[columnIndex]!.default_expanded || false}
                      disableToggle={!!activeId}
                      isOpen={!!openStates?.[slotSections[columnIndex]!.id]}
                      onOpenChange={(o) => onOpenChange?.(slotSections[columnIndex]!.id, o)}
@@ -518,7 +518,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                   overflow_behavior: slotSections[columnIndex]!.overflow_behavior
                 }}
                 nestedItems={[]}
-                defaultOpen={false}
+                defaultOpen={slotSections[columnIndex]!.default_expanded || false}
                 disableToggle={!!activeId}
                 isOpen={!!openStates?.[slotSections[columnIndex]!.id]}
                 onOpenChange={(o) => onOpenChange?.(slotSections[columnIndex]!.id, o)}
