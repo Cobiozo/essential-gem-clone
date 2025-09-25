@@ -560,6 +560,8 @@ export const LivePreviewEditor: React.FC = () => {
           saveToHistory(newSections, items);
           setSections(newSections);
           setHasUnsavedChanges(true);
+          // Auto-save the reordered sections
+          autoSave(newSections, items);
         }
       }
       return;
