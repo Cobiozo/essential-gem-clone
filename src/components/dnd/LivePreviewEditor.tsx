@@ -1470,7 +1470,7 @@ export const LivePreviewEditor: React.FC = () => {
                     key={section.id}
                     id={section.id}
                     isEditMode={editMode}
-                    className="justify-self-center w-auto"
+                    className="mx-auto w-fit"
                   >
                     <div 
                       onClick={(e) => {
@@ -1483,7 +1483,7 @@ export const LivePreviewEditor: React.FC = () => {
                         setSelectedElement(section.id);
                       }}
                       className={cn(
-                        "cursor-pointer transition-all duration-200",
+                        "inline-block cursor-pointer transition-all duration-200",
                         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
                       )}
                     >
