@@ -273,37 +273,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
     }
   };
 
-      if (error) {
-        console.error('Error updating items:', error);
-        throw error;
-      }
-
-      // Remove activated items from local state
-      if (updatedItems && updatedItems.length > 0) {
-        const activatedItemIds = updatedItems.map(item => item.id);
-        setInactiveItems(prev => prev.filter(item => !activatedItemIds.includes(item.id)));
-        
-        toast({
-          title: 'Sukces',
-          description: `Aktywowano ${updatedItems.length} elementów w przywróconych sekcjach`,
-        });
-        
-        onElementActivated();
-      } else {
-        toast({
-          title: 'Info',
-          description: 'Brak elementów do aktywacji',
-        });
-      }
-    } catch (error) {
-      console.error('Error activating all items:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie można aktywować elementów: ' + (error as Error).message,
-        variant: 'destructive',
-      });
-    }
-  };
 
   const activateElement = async (type: 'section' | 'item', id: string) => {
     try {
