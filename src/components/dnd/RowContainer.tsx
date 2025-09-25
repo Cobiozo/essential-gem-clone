@@ -336,8 +336,11 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       default: return 'grid-cols-1';
     }
   };
-
-
+ 
+  const isCustomRow = React.useMemo(() => {
+    return row.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
+  }, [row.row_layout_type, slotSections]);
+ 
   const getColumnWidth = (index: number) => {
     const sec = slotSections[index];
     if (row.row_layout_type === 'custom' && sec?.custom_width) {
@@ -368,7 +371,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
           isEditMode && slotSections[columnIndex] && "border-transparent"
         )}
         style={{
-          width: row.row_layout_type === 'custom' ? getColumnWidth(columnIndex) : undefined,
+          width: isCustomRow ? getColumnWidth(columnIndex) : undefined,
         }}
       >
         {slotSections[columnIndex] ? (
@@ -633,7 +636,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
       {/* Layout for sections: grid by default, flex when custom widths */}
       <div
         className={cn(
-          row.row_layout_type === 'custom'
+          isCustomRow
             ? 'flex flex-row flex-wrap gap-4'
             : cn('grid gap-4', getGridClass())
         )}
