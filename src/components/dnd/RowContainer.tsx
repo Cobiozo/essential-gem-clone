@@ -73,7 +73,10 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
         isEditMode && slotSection && !isOver && 'border-transparent',
         rowLayoutType === 'custom' && 'shrink-0'
       )}
-      style={{ width: rowLayoutType === 'custom' ? columnWidth : undefined }}
+      style={{
+        width: columnWidth,
+        flex: rowLayoutType === 'custom' && columnWidth ? `0 0 ${columnWidth}` : undefined,
+      }}
     >
       {slotSection ? (
         <div
