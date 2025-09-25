@@ -49,7 +49,6 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   const elementRef = useRef<HTMLDivElement>(null);
   const startPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
   const isResizingRef = useRef(false);
-  const movedRef = useRef(false);
   const resizeDirectionRef = useRef<string>('');
   const handleMouseDown = useCallback((e: React.MouseEvent, direction: string) => {
     if (!isEditMode) return;
@@ -74,7 +73,6 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    movedRef.current = false;
     console.info('Resize start', { direction });
   }, [isEditMode]);
 
@@ -106,21 +104,17 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       width: newWidth,
       height: newHeight,
     });
-    movedRef.current = true;
     // console.info('Resizing', { newWidth, newHeight, dir });
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (isResizingRef.current) {
-      if (onResize && movedRef.current) {
-        const w = typeof dimensions.width === 'number' ? dimensions.width : (elementRef.current?.getBoundingClientRect().width || 0);
-        const h = typeof dimensions.height === 'number' ? dimensions.height : (elementRef.current?.getBoundingClientRect().height || 0);
-        onResize(w, h);
-      }
+    if (isResizingRef.current && onResize) {
+      const w = typeof dimensions.width === 'number' ? dimensions.width : 0; // 0 => auto
+      const h = typeof dimensions.height === 'number' ? dimensions.height : 0; // 0 => auto
+      onResize(w, h);
     }
     
     isResizingRef.current = false;
-    movedRef.current = false;
     resizeDirectionRef.current = '';
     setIsResizing(false);
     setResizeDirection('');
