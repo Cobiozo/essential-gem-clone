@@ -284,8 +284,8 @@ export const LivePreviewEditor: React.FC = () => {
     autoSaveTimeoutRef.current = setTimeout(async () => {
       setAutoSaveStatus('saving');
       try {
-        // Build payload for edge function - use actual position values, not array indices
-        const sectionsPayload = newSections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null }));
+        // Build payload for edge function - save ordering only (avoid overwriting latest sizes)
+        const sectionsPayload = newSections.map((s) => ({ id: s.id, position: s.position }));
 
         const itemsBySection: { [key: string]: CMSItem[] } = {};
         newItems.forEach((it) => {
@@ -714,8 +714,8 @@ export const LivePreviewEditor: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-        // Build payload for edge function - use actual position values, not array indices
-         const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null }));
+        // Build payload for edge function - save ordering only (avoid overwriting latest sizes)
+         const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position }));
 
       const itemsBySection: { [key: string]: CMSItem[] } = {};
       items.forEach((it) => {
