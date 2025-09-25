@@ -196,53 +196,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
     }
   };
 
-  // Recreate missing "Terminarz" item inside section "TERMINARZ DLA KLIENTA"
-  const recreateTerminarzItem = async () => {
-    try {
-      const { data: section, error: secErr } = await supabase
-        .from('cms_sections')
-        .select('id, title')
-        .eq('title', 'TERMINARZ DLA KLIENTA')
-        .maybeSingle();
-
-      if (secErr) throw secErr;
-      if (!section) {
-        toast({ title: 'Błąd', description: 'Nie znaleziono sekcji TERMINARZ DLA KLIENTA', variant: 'destructive' });
-        return;
-      }
-
-      const { data: maxPos } = await supabase
-        .from('cms_items')
-        .select('position')
-        .eq('section_id', section.id)
-        .order('position', { ascending: false })
-        .limit(1);
-
-      const nextPos = (maxPos && maxPos[0] ? maxPos[0].position : -1) + 1;
-
-      const { error: insErr } = await supabase
-        .from('cms_items')
-        .insert({
-          section_id: section.id,
-          type: 'button',
-          title: 'Terminarz',
-          description: 'Przejdź do terminarza',
-          position: nextPos,
-          is_active: true,
-          page_id: null,
-          column_index: 0,
-        });
-
-      if (insErr) throw insErr;
-
-      toast({ title: 'Odtworzono', description: 'Dodano element "Terminarz" do sekcji' });
-      onElementActivated();
-    } catch (e: any) {
-      console.error('recreateTerminarzItem error', e);
-      toast({ title: 'Błąd', description: 'Nie udało się odtworzyć elementu: ' + e.message, variant: 'destructive' });
-    }
-  };
-
   // Scan for active sections without visible items
   const scanSectionsForMissingItems = async () => {
     try {
@@ -272,7 +225,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       toast({ title: 'Błąd', description: 'Skanowanie nie powiodło się', variant: 'destructive' });
     }
   };
-
 
   const activateElement = async (type: 'section' | 'item', id: string) => {
     try {
@@ -494,15 +446,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
           <Button
             variant="outline"
             size="sm"
-            onClick={recreateTerminarzItem}
-            disabled={loading}
-            className="text-xs"
-          >
-            Odtwórz „Terminarz”
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
             onClick={scanSectionsForMissingItems}
             disabled={loading}
             className="text-xs"
@@ -546,24 +489,28 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
                           size="sm"
                           onClick={() => activateElement('section', section.id)}
                           disabled={activating === section.id}
+                          className="text-xs"
                         >
                           {activating === section.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            <Plus className="w-3 h-3" />
                           )}
+                          Aktywuj
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
                           onClick={() => deleteElement('section', section.id, section.title)}
                           disabled={deleting === section.id}
+                          className="text-xs"
                         >
                           {deleting === section.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3" />
                           )}
+                          Usuń
                         </Button>
                       </div>
                     </div>
@@ -572,7 +519,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
               </div>
             )}
 
-            {/* Separator if both sections and items exist */}
+            {/* Separator */}
             {inactiveSections.length > 0 && inactiveItems.length > 0 && (
               <Separator />
             )}
@@ -592,11 +539,9 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
                     >
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm">
-                          {item.title || `${item.type} element`}
-                        </h4>
+                        <h4 className="font-medium text-sm">{item.title || 'Bez tytułu'}</h4>
                         <p className="text-xs text-muted-foreground">
-                          Typ: {item.type} {item.description && `• ${item.description}`}
+                          {item.description || 'Brak opisu'} • {item.type}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -605,24 +550,28 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
                           size="sm"
                           onClick={() => activateElement('item', item.id)}
                           disabled={activating === item.id}
+                          className="text-xs"
                         >
                           {activating === item.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            <Plus className="w-3 h-3" />
                           )}
+                          Aktywuj
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => deleteElement('item', item.id, item.title || item.type)}
+                          onClick={() => deleteElement('item', item.id, item.title || 'Element')}
                           disabled={deleting === item.id}
+                          className="text-xs"
                         >
                           {deleting === item.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3" />
                           )}
+                          Usuń
                         </Button>
                       </div>
                     </div>
@@ -633,11 +582,10 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
 
             {/* Empty state */}
             {inactiveSections.length === 0 && inactiveItems.length === 0 && (
-              <div className="text-center py-8">
-                <EyeOff className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  Brak nieaktywnych elementów
-                </p>
+              <div className="text-center py-8 text-muted-foreground">
+                <EyeOff className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">Brak nieaktywnych elementów</p>
+                <p className="text-sm">Wszystkie sekcje i elementy są aktywne</p>
               </div>
             )}
           </div>
