@@ -83,9 +83,29 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       setActivating(id);
 
       const table = type === 'section' ? 'cms_sections' : 'cms_items';
+      
+      // For sections, we need to set a proper position when activating
+      let updateData: any = { is_active: true, updated_at: new Date().toISOString() };
+      
+      if (type === 'section') {
+        // Get the highest position for top-level sections to append at the end
+        const { data: maxPositionData } = await supabase
+          .from('cms_sections')
+          .select('position')
+          .is('page_id', null)
+          .is('parent_id', null)
+          .eq('is_active', true)
+          .order('position', { ascending: false })
+          .limit(1);
+          
+        const maxPosition = maxPositionData && maxPositionData[0] ? maxPositionData[0].position : -1;
+        updateData.position = maxPosition + 1;
+        updateData.parent_id = null; // Ensure it's a top-level section
+      }
+
       const { error } = await supabase
         .from(table)
-        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
@@ -99,7 +119,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
 
       toast({
         title: 'Sukces',
-        description: `${type === 'section' ? 'Sekcja' : 'Element'} został aktywowany`,
+        description: `${type === 'section' ? 'Sekcja' : 'Element'} został aktywowany i dodany na końcu listy`,
       });
 
       onElementActivated();
