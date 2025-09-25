@@ -1252,23 +1252,9 @@ export const LivePreviewEditor: React.FC = () => {
             isSaving={isSaving}
             hasUnsavedChanges={hasUnsavedChanges}
             autoSaveStatus={autoSaveStatus}
+            currentDevice={currentDevice}
+            onDeviceChange={setCurrentDevice}
           />
-          
-          <div className="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4 bg-background border rounded-lg">
-            <DevicePreview
-              currentDevice={currentDevice}
-              onDeviceChange={setCurrentDevice}
-            />
-            
-            {selectedElement && (
-              <ResponsiveControls
-                settings={responsiveSettings}
-                currentDevice={currentDevice}
-                onSettingsChange={setResponsiveSettings}
-                className="w-full sm:w-auto"
-              />
-            )}
-          </div>
         </>
       )}
 

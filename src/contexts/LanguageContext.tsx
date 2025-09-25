@@ -298,6 +298,18 @@ const translations = {
     'ui.client': 'klient',
     'ui.partner': 'partner',
     'ui.position': 'pozycja',
+    
+    // Toolbar translations
+    'toolbar.saving': 'Zapisywanie...',
+    'toolbar.saved': 'Zapisane',
+    'toolbar.errorSaving': 'Błąd zapisu',
+    'toolbar.unsavedChanges': 'Niezapisane zmiany',
+    'toolbar.desktopView': 'Widok pulpitu',
+    'toolbar.tabletView': 'Widok tabletu', 
+    'toolbar.mobileView': 'Widok telefonu',
+    'toolbar.preview': 'Podgląd',
+    'toolbar.cancel': 'Anuluj',
+    'toolbar.save': 'Zapisz',
     'ui.active': 'Aktywna',
     'ui.publish': 'Opublikuj',
     'ui.for': 'Dla',
@@ -650,6 +662,18 @@ const translations = {
     'ui.backgroundColor': 'Hintergrundfarbe',
     'ui.alignment': 'Ausrichtung',
     
+    // Toolbar translations
+    'toolbar.saving': 'Speichern...',
+    'toolbar.saved': 'Gespeichert',
+    'toolbar.errorSaving': 'Speicherfehler',
+    'toolbar.unsavedChanges': 'Ungespeicherte Änderungen',
+    'toolbar.desktopView': 'Desktop-Ansicht',
+    'toolbar.tabletView': 'Tablet-Ansicht',
+    'toolbar.mobileView': 'Mobil-Ansicht', 
+    'toolbar.preview': 'Vorschau',
+    'toolbar.cancel': 'Abbrechen',
+    'toolbar.save': 'Speichern',
+    
     // Common
     'common.loading': 'Lade...',
     'common.noContent': 'Kein Inhalt',
@@ -967,6 +991,18 @@ const translations = {
     'ui.textColor': 'Text color',
     'ui.backgroundColor': 'Background color',
     'ui.alignment': 'Alignment',
+    
+    // Toolbar translations
+    'toolbar.saving': 'Saving...',
+    'toolbar.saved': 'Saved',
+    'toolbar.errorSaving': 'Save error',
+    'toolbar.unsavedChanges': 'Unsaved changes',
+    'toolbar.desktopView': 'Desktop view',
+    'toolbar.tabletView': 'Tablet view',
+    'toolbar.mobileView': 'Mobile view',
+    'toolbar.preview': 'Preview',
+    'toolbar.cancel': 'Cancel',
+    'toolbar.save': 'Save',
     
     // Common
     'common.loading': 'Loading...',

@@ -14,6 +14,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DeviceType } from './DevicePreview';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EditingToolbarProps {
   isVisible: boolean;
@@ -27,6 +29,8 @@ interface EditingToolbarProps {
   isSaving?: boolean;
   hasUnsavedChanges?: boolean;
   autoSaveStatus?: 'saved' | 'saving' | 'error';
+  currentDevice?: DeviceType;
+  onDeviceChange?: (device: DeviceType) => void;
   className?: string;
 }
 
@@ -42,8 +46,12 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
   isSaving = false,
   hasUnsavedChanges = false,
   autoSaveStatus = 'saved',
+  currentDevice = 'desktop',
+  onDeviceChange,
   className,
 }) => {
+  const { t } = useLanguage();
+  
   if (!isVisible) return null;
 
   return (
@@ -59,22 +67,22 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
         {autoSaveStatus === 'saving' && (
           <Badge variant="secondary" className="text-xs">
             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-            Saving...
+            {t('toolbar.saving')}
           </Badge>
         )}
         {autoSaveStatus === 'saved' && !hasUnsavedChanges && (
           <Badge variant="outline" className="text-xs text-green-600">
-            Saved
+            {t('toolbar.saved')}
           </Badge>
         )}
         {autoSaveStatus === 'error' && (
           <Badge variant="destructive" className="text-xs">
-            Error saving
+            {t('toolbar.errorSaving')}
           </Badge>
         )}
         {hasUnsavedChanges && autoSaveStatus === 'saved' && (
           <Badge variant="secondary" className="text-xs text-orange-600">
-            Unsaved changes
+            {t('toolbar.unsavedChanges')}
           </Badge>
         )}
       </div>
@@ -107,13 +115,31 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
 
       {/* Responsive preview buttons */}
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="px-2" title="Desktop view">
+        <Button 
+          variant={currentDevice === 'desktop' ? 'default' : 'ghost'} 
+          size="sm" 
+          className="px-2" 
+          onClick={() => onDeviceChange?.('desktop')}
+          title={t('toolbar.desktopView')}
+        >
           <Monitor className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="sm" className="px-2" title="Tablet view">
+        <Button 
+          variant={currentDevice === 'tablet' ? 'default' : 'ghost'} 
+          size="sm" 
+          className="px-2" 
+          onClick={() => onDeviceChange?.('tablet')}
+          title={t('toolbar.tabletView')}
+        >
           <Tablet className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="sm" className="px-2" title="Mobile view">
+        <Button 
+          variant={currentDevice === 'mobile' ? 'default' : 'ghost'} 
+          size="sm" 
+          className="px-2" 
+          onClick={() => onDeviceChange?.('mobile')}
+          title={t('toolbar.mobileView')}
+        >
           <Smartphone className="w-4 h-4" />
         </Button>
       </div>
@@ -130,7 +156,7 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
             className="gap-2"
           >
             <Eye className="w-4 h-4" />
-            Preview
+            {t('toolbar.preview')}
           </Button>
           <Separator orientation="vertical" className="h-6" />
         </>
@@ -145,7 +171,7 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
           className="gap-2"
         >
           <X className="w-4 h-4" />
-          Cancel
+          {t('toolbar.cancel')}
         </Button>
         <Button
           onClick={onSave}
@@ -158,7 +184,7 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
           ) : (
             <Save className="w-4 h-4" />
           )}
-          Save
+          {t('toolbar.save')}
         </Button>
       </div>
     </div>
