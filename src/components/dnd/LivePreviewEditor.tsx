@@ -133,6 +133,40 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
+  // Repair helper: if a section is active but shows 0 items while DB has items, reactivate them
+  const hasRepairedInvisibleRef = React.useRef(false);
+  const repairInvisibleItems = async (sectionsList: CMSSection[], itemsList: CMSItem[]) => {
+    if (hasRepairedInvisibleRef.current) return false;
+    try {
+      // Sections with zero visible items
+      const zeroItemSections = sectionsList.filter(sec => itemsList.filter(it => it.section_id === sec.id).length === 0);
+      if (zeroItemSections.length === 0) return false;
+
+      // Check DB for any items for these sections (admin policy allows seeing inactive)
+      const idsToCheck = zeroItemSections.map(s => s.id);
+      const { data: hiddenItems } = await supabase
+        .from('cms_items')
+        .select('id, section_id, is_active, page_id')
+        .in('section_id', idsToCheck);
+
+      if (!hiddenItems || hiddenItems.length === 0) return false;
+
+      const sectionIdsNeedingActivation = Array.from(new Set(hiddenItems.map(it => it.section_id)));
+      const { error } = await supabase
+        .from('cms_items')
+        .update({ is_active: true, page_id: null, updated_at: new Date().toISOString() })
+        .in('section_id', sectionIdsNeedingActivation);
+
+      if (error) throw error;
+      hasRepairedInvisibleRef.current = true;
+      console.log('Repaired invisible items for sections:', sectionIdsNeedingActivation);
+      return true;
+    } catch (e) {
+      console.error('repairInvisibleItems error', e);
+      return false;
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -166,12 +200,36 @@ export const LivePreviewEditor: React.FC = () => {
       
       setSections(convertedSections);
       setItems(convertedItems);
+
+      // Debug counts for key sections
+      try {
+        const names = ['Witamy w Pure Life', 'DOWIEDZ SIĘ WIĘCEJ'];
+        names.forEach((name) => {
+          const sec = convertedSections.find(s => s.title?.trim().toLowerCase() === name.toLowerCase());
+          if (sec) {
+            const cnt = convertedItems.filter(it => it.section_id === sec.id).length;
+            console.log(`[DEBUG] Section "${name}" items:`, cnt, { sectionId: sec.id });
+          } else {
+            console.log(`[DEBUG] Section not found by title: ${name}`);
+          }
+        });
+      } catch (e) {
+        console.warn('Debug logging failed', e);
+      }
       
       // Initialize history
       if (convertedSections && convertedItems) {
         setHistory([{ sections: convertedSections, items: convertedItems }]);
         setHistoryIndex(0);
         initializeColumns(convertedSections, convertedItems);
+
+        // Attempt auto-repair of invisible items once
+        const repaired = await repairInvisibleItems(convertedSections, convertedItems);
+        if (repaired) {
+          console.log('Auto-repair completed, refetching data...');
+          await fetchData();
+          return;
+        }
       }
 
       // Safety: ensure no rows are nested inside rows
