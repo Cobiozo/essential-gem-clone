@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { RotateCcw, Move, MoreHorizontal, MoreVertical } from 'lucide-react';
 
@@ -32,6 +32,14 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     width: initialWidth || 'auto',
     height: initialHeight || 'auto',
   });
+  
+  // Sync with prop changes (e.g., after saving and refetching from DB)
+  useEffect(() => {
+    setDimensions({
+      width: initialWidth || 'auto',
+      height: initialHeight || 'auto',
+    });
+  }, [initialWidth, initialHeight]);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string>('');
   const elementRef = useRef<HTMLDivElement>(null);
