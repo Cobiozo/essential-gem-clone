@@ -302,6 +302,12 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   const rawChildSections = sections.filter(s => s.parent_id === row.id);
   const columnCount = row.row_column_count || 1;
 
+  // Check if the row has enough columns for all child sections
+  const childSectionCount = rawChildSections.length;
+  if (childSectionCount > columnCount) {
+    console.log(`Row ${row.id} has ${childSectionCount} child sections but only ${columnCount} columns. Some sections may not be visible.`);
+  }
+
   // Sort children by position and assign to fixed column slots
   const childSections = [...rawChildSections].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const slotSections: (CMSSection | undefined)[] = Array.from({ length: columnCount }, () => undefined);
