@@ -196,6 +196,115 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
     }
   };
 
+  // Recreate missing "Terminarz" item inside section "TERMINARZ DLA KLIENTA"
+  const recreateTerminarzItem = async () => {
+    try {
+      const { data: section, error: secErr } = await supabase
+        .from('cms_sections')
+        .select('id, title')
+        .eq('title', 'TERMINARZ DLA KLIENTA')
+        .maybeSingle();
+
+      if (secErr) throw secErr;
+      if (!section) {
+        toast({ title: 'Błąd', description: 'Nie znaleziono sekcji TERMINARZ DLA KLIENTA', variant: 'destructive' });
+        return;
+      }
+
+      const { data: maxPos } = await supabase
+        .from('cms_items')
+        .select('position')
+        .eq('section_id', section.id)
+        .order('position', { ascending: false })
+        .limit(1);
+
+      const nextPos = (maxPos && maxPos[0] ? maxPos[0].position : -1) + 1;
+
+      const { error: insErr } = await supabase
+        .from('cms_items')
+        .insert({
+          section_id: section.id,
+          type: 'button',
+          title: 'Terminarz',
+          description: 'Przejdź do terminarza',
+          position: nextPos,
+          is_active: true,
+          page_id: null,
+          column_index: 0,
+        });
+
+      if (insErr) throw insErr;
+
+      toast({ title: 'Odtworzono', description: 'Dodano element "Terminarz" do sekcji' });
+      onElementActivated();
+    } catch (e: any) {
+      console.error('recreateTerminarzItem error', e);
+      toast({ title: 'Błąd', description: 'Nie udało się odtworzyć elementu: ' + e.message, variant: 'destructive' });
+    }
+  };
+
+  // Scan for active sections without visible items
+  const scanSectionsForMissingItems = async () => {
+    try {
+      const { data: secs } = await supabase
+        .from('cms_sections')
+        .select('id, title, section_type')
+        .eq('is_active', true)
+        .neq('section_type', 'row');
+
+      const { data: its } = await supabase
+        .from('cms_items')
+        .select('id, section_id')
+        .eq('is_active', true);
+
+      const itemsBySection = new Map<string, number>();
+      (its || []).forEach(it => itemsBySection.set(it.section_id, (itemsBySection.get(it.section_id) || 0) + 1));
+      const emptySecs = (secs || []).filter(s => (itemsBySection.get(s.id) || 0) === 0);
+
+      if (emptySecs.length === 0) {
+        toast({ title: 'OK', description: 'Wszystkie aktywne sekcje mają elementy' });
+      } else {
+        console.log('Sekcje bez elementów:', emptySecs);
+        toast({ title: 'Uwaga', description: `Sekcje bez elementów: ${emptySecs.map(s => s.title).slice(0,5).join(', ')}${emptySecs.length>5?'…':''}` });
+      }
+    } catch (e) {
+      console.error('scanSectionsForMissingItems error', e);
+      toast({ title: 'Błąd', description: 'Skanowanie nie powiodło się', variant: 'destructive' });
+    }
+  };
+
+      if (error) {
+        console.error('Error updating items:', error);
+        throw error;
+      }
+
+      // Remove activated items from local state
+      if (updatedItems && updatedItems.length > 0) {
+        const activatedItemIds = updatedItems.map(item => item.id);
+        setInactiveItems(prev => prev.filter(item => !activatedItemIds.includes(item.id)));
+        
+        toast({
+          title: 'Sukces',
+          description: `Aktywowano ${updatedItems.length} elementów w przywróconych sekcjach`,
+        });
+        
+        onElementActivated();
+      } else {
+        toast({
+          title: 'Info',
+          description: 'Brak elementów do aktywacji',
+        });
+      }
+    } catch (error) {
+      console.error('Error activating all items:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można aktywować elementów: ' + (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const activateElement = async (type: 'section' | 'item', id: string) => {
     try {
       setActivating(id);
@@ -402,7 +511,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         </CardDescription>
         
         {/* Action buttons */}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button 
             variant="outline" 
             size="sm" 
@@ -412,6 +521,24 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
           >
             <Eye className="w-3 h-3 mr-1" />
             Aktywuj wszystkie elementy w sekcjach
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={recreateTerminarzItem}
+            disabled={loading}
+            className="text-xs"
+          >
+            Odtwórz „Terminarz”
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={scanSectionsForMissingItems}
+            disabled={loading}
+            className="text-xs"
+          >
+            Skanuj sekcje bez elementów
           </Button>
         </div>
       </CardHeader>
