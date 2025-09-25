@@ -132,11 +132,11 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       const { data: updatedItems, error } = await supabase
         .from('cms_items')
         .update({ 
-          is_active: true, 
+          is_active: true,
+          page_id: null,
           updated_at: new Date().toISOString() 
         })
         .in('section_id', sectionIds)
-        .eq('is_active', false)
         .select();
 
       console.log('Updated items:', updatedItems);
@@ -235,11 +235,11 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         const { error: itemsError } = await supabase
           .from('cms_items')
           .update({ 
-            is_active: true, 
+            is_active: true,
+            page_id: null,
             updated_at: new Date().toISOString() 
           })
           .eq('section_id', id)
-          .eq('is_active', false);
 
         if (itemsError) {
           console.error('Error activating section items:', itemsError);
