@@ -468,6 +468,40 @@ export const LivePreviewEditor: React.FC = () => {
         return;
       }
 
+      // Check if both sections are siblings in the same row (need to swap positions)
+      const overSection = sections.find(s => s.id === overId);
+      if (draggedSection.parent_id && overSection && draggedSection.parent_id === overSection.parent_id) {
+        // Swapping siblings within the same row
+        try {
+          const draggedPosition = draggedSection.position;
+          const overPosition = overSection.position;
+          
+          await Promise.all([
+            supabase
+              .from('cms_sections')
+              .update({ position: overPosition, updated_at: new Date().toISOString() })
+              .eq('id', activeId),
+            supabase
+              .from('cms_sections')
+              .update({ position: draggedPosition, updated_at: new Date().toISOString() })
+              .eq('id', overId)
+          ]);
+          
+          // Update local state
+          setSections(prev => prev.map(s => {
+            if (s.id === activeId) return { ...s, position: overPosition };
+            if (s.id === overId) return { ...s, position: draggedPosition };
+            return s;
+          }));
+          
+          toast({ title: 'Sekcje zamienione', description: 'Pozycje sekcji zostały zamienione' });
+        } catch (error) {
+          console.error('Error swapping sections:', error);
+          toast({ title: 'Błąd', description: 'Nie udało się zamienić sekcji', variant: 'destructive' });
+        }
+        return;
+      }
+
       // Regular section reordering (top-level sections only)
       const topLevelSections = sections.filter(s => !s.parent_id);
       const oldIndex = topLevelSections.findIndex(s => s.id === activeId);
