@@ -111,7 +111,16 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     if (isResizingRef.current && onResize) {
       const w = typeof dimensions.width === 'number' ? dimensions.width : 0; // 0 => auto
       const h = typeof dimensions.height === 'number' ? dimensions.height : 0; // 0 => auto
-      onResize(w, h);
+      
+      // Only call onResize if there was actual resizing with valid dimensions
+      const hasValidWidth = w > 0 && Number.isFinite(w);
+      const hasValidHeight = h > 0 && Number.isFinite(h);
+      
+      if (hasValidWidth || hasValidHeight) {
+        onResize(w, h);
+      } else {
+        console.info('Skipped resize callback: no valid dimensions changed');
+      }
     }
     
     isResizingRef.current = false;

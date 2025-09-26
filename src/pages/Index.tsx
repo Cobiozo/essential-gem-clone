@@ -402,7 +402,7 @@ const Index = () => {
                   }
                 });
 
-                const isCustomRow = section.row_layout_type === 'custom';
+                const isCustomRow = section.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
                 
                 return (
                   <div key={`row-${section.id}`} className="w-full">
