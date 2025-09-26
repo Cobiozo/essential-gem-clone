@@ -294,18 +294,14 @@ const Index = () => {
       </div>
       
       {/* Main Content Container */}
-      <div 
-        className={`w-full min-h-screen ${
-          pageAlignment === 'center' ? 'flex justify-center' : 
-          pageAlignment === 'left' ? 'flex justify-start' : 
-          'flex justify-end'
-        }`}
-        style={{ 
-          paddingLeft: `${pageMargin}px`, 
-          paddingRight: `${pageMargin}px` 
-        }}
-      >
-        <div className="w-full max-w-4xl">
+      <div className="w-full min-h-screen flex justify-center">
+        <div 
+          className="w-full max-w-4xl"
+          style={{ 
+            paddingLeft: `${pageMargin}px`, 
+            paddingRight: `${pageMargin}px` 
+          }}
+        >
           {/* Header */}
           <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
             <div className="mb-6">
