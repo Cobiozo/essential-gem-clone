@@ -167,7 +167,8 @@ const Index = () => {
       // Dla adminów - pokaż wszystkie aktywne sekcje
       // Dla pozostałych użytkowników - zastosuj filtry widoczności
       if (!user) {
-        sectionsQuery = sectionsQuery.eq('visible_to_everyone', true);
+        // Dla niezalogowanych użytkowników - pokaż sekcje widoczne dla wszystkich lub anonimowych
+        sectionsQuery = sectionsQuery.or('visible_to_everyone.eq.true,visible_to_anonymous.eq.true');
       } else if (!isAdmin) {
         // Dla zalogowanych użytkowników (nie adminów) - polegaj na RLS policies
         // RLS policies już obsługują widoczność bazując na rolach
