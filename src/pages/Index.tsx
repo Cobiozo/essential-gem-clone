@@ -201,10 +201,10 @@ const Index = () => {
         .from('system_texts')
         .select('type, content, text_formatting')
         .eq('is_active', true)
-        .in('type', ['header_text', 'author_text']);
+        .in('type', ['header_text', 'author']);
       
       const headerSystemText = systemTexts?.find((item: any) => item.type === 'header_text');
-      const authorSystemText = systemTexts?.find((item: any) => item.type === 'author_text');
+      const authorSystemText = systemTexts?.find((item: any) => item.type === 'author');
       
       if (headerSystemText?.content) setHeaderText(headerSystemText.content);
       if (authorSystemText?.content) setAuthorText(authorSystemText.content);

@@ -725,7 +725,7 @@ const Admin = () => {
       const { data, error } = await (supabase as any)
         .from('system_texts')
         .select('content, text_formatting')
-        .eq('type', 'author_text')
+        .eq('type', 'author')
         .eq('is_active', true)
         .maybeSingle();
 
@@ -760,7 +760,7 @@ const Admin = () => {
       const { data: existingItem } = await (supabase as any)
         .from('system_texts')
         .select('id')
-        .eq('type', 'author_text')
+        .eq('type', 'author')
         .eq('is_active', true)
         .maybeSingle();
 
@@ -781,7 +781,7 @@ const Admin = () => {
         const { error } = await (supabase as any)
           .from('system_texts')
           .insert({
-            type: 'author_text',
+            type: 'author',
             content: newText,
             text_formatting: authorTextFormatting,
             is_active: true
