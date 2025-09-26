@@ -120,9 +120,9 @@ const Index = () => {
   const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
   const [headerImage, setHeaderImage] = React.useState<string>(niezbednikLogo);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
-   const [loading, setLoading] = React.useState(true);
-   const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
-   const [sectionColumnCount, setSectionColumnCount] = React.useState<number>(1);
+  const [loading, setLoading] = React.useState(true);
+  const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
+  const [sectionColumnCount, setSectionColumnCount] = React.useState<number>(1);
   
   // Enable security preventions
   useSecurityPreventions();
@@ -188,16 +188,16 @@ const Index = () => {
       setSections(convertSupabaseSections(sectionsData || []));
       setItems(itemsData || []);
 
-       // Pobierz ustawienia układu strony głównej (sekcje w gridzie)
-       const { data: settings } = await supabase
-         .from('page_settings')
-         .select('layout_mode, column_count')
-         .eq('page_type', 'homepage')
-         .maybeSingle();
-       if (settings) {
-         setSectionLayoutMode((settings.layout_mode as any) || 'single');
-         setSectionColumnCount(settings.column_count || 1);
-       }
+      // Pobierz ustawienia układu strony głównej (sekcje w gridzie)
+      const { data: settings } = await supabase
+        .from('page_settings')
+        .select('layout_mode, column_count')
+        .eq('page_type', 'homepage')
+        .maybeSingle();
+      if (settings) {
+        setSectionLayoutMode((settings.layout_mode as any) || 'single');
+        setSectionColumnCount(settings.column_count || 1);
+      }
       
       // Pobierz teksty nagłówka, autora, logo i zdjęcie nagłówka z system_texts
       const { data: systemTexts } = await (supabase as any)
@@ -289,272 +289,268 @@ const Index = () => {
         <ThemeSelector />
       </div>
       
-      {/* Main Content Container */}
-      <div className="w-full min-h-screen flex justify-center px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-4xl">
-          {/* Header */}
-          <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
-            <div className="mb-6">
-              <img 
-                src={headerImage || niezbednikLogo} 
-                alt="Niezbędnik Pure Life" 
-                className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = niezbednikLogo;
-                }}
-              />
-            </div>
-            
-            {/* Header text with formatting support */}
-            {headerText && (
-              <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-                <span dangerouslySetInnerHTML={{ __html: headerText }} />
-              </div>
-            )}
-            
-            {!headerText && (
-              <p className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-                Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
-              </p>
-            )}
-            
-            {/* Author text with formatting support */}
-            {authorText && (
-              <div className="text-xs sm:text-sm text-muted-foreground mb-4">
-                <span dangerouslySetInnerHTML={{ __html: authorText }} />
-              </div>
-            )}
-            
-            {!authorText && (
-              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-                Pozostałem - Dawid Kowalczyk
-              </p>
-            )}
-            
-            {/* User Controls */}
-            {user && (
-              <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
-                {isAdmin ? (
-                  <Link to="/admin">
-                    <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                      <Settings className="w-3 h-3 mr-1" />
-                      {t('nav.admin')}
-                    </Button>
-                  </Link>
-                 ) : (
-                  <Link to="/my-account">
-                    <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                      <Settings className="w-3 h-3 mr-1" />
-                      {t('nav.myAccount')}
-                    </Button>
-                  </Link>
-                 )}
-                <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
-                  <LogOut className="w-3 h-3 mr-1" />
-                  {t('nav.logout')}
+      {/* Header */}
+      <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mb-6">
+          <img 
+            src={headerImage || niezbednikLogo} 
+            alt="Niezbędnik Pure Life" 
+            className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = niezbednikLogo;
+            }}
+          />
+        </div>
+        
+        {/* Header text with formatting support */}
+        {headerText && (
+          <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
+            <span dangerouslySetInnerHTML={{ __html: headerText }} />
+          </div>
+        )}
+        
+        {!headerText && (
+          <p className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
+            Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
+          </p>
+        )}
+        
+        {/* Author text with formatting support */}
+        {authorText && (
+          <div className="text-xs sm:text-sm text-muted-foreground mb-4">
+            <span dangerouslySetInnerHTML={{ __html: authorText }} />
+          </div>
+        )}
+        
+        {!authorText && (
+          <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+            Pozostałem - Dawid Kowalczyk
+          </p>
+        )}
+        
+        {/* User Controls */}
+        {user && (
+          <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+            {isAdmin ? (
+              <Link to="/admin">
+                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                  <Settings className="w-3 h-3 mr-1" />
+                  {t('nav.admin')}
                 </Button>
-              </div>
-            )}
-            
-            {!user && (
-              <div className="flex justify-center mb-4">
-                <Link to="/auth">
-                  <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                    <Settings className="w-3 h-3 mr-1" />
-                    {t('nav.login')}
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </header>
+              </Link>
+             ) : (
+              <Link to="/my-account">
+                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                  <Settings className="w-3 h-3 mr-1" />
+                  {t('nav.myAccount')}
+                </Button>
+              </Link>
+             )}
+            <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
+              <LogOut className="w-3 h-3 mr-1" />
+              {t('nav.logout')}
+            </Button>
+          </div>
+        )}
+        
+        {!user && (
+          <div className="flex justify-center mb-4">
+            <Link to="/auth">
+              <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                <Settings className="w-3 h-3 mr-1" />
+                {t('nav.login')}
+              </Button>
+            </Link>
+          </div>
+        )}
+      </header>
 
-          {/* Sections Content */}
-          <main className="mb-8">
-            <div
-              className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
-              style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
-            >
-              {sections.filter(s => (s as any).parent_id == null).map((section) => {
-                if (section.section_type === 'row') {
-                  const rowColumnCount = section.row_column_count || 1;
-                  const childSections = sections.filter(s => s.parent_id === section.id)
-                    .sort((a, b) => a.position - b.position);
+      {/* Main Content */}
+      <main className="px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <div
+            className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
+            style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
+          >
+            {sections.filter(s => (s as any).parent_id == null).map((section) => {
+              if (section.section_type === 'row') {
+                const rowColumnCount = section.row_column_count || 1;
+                const childSections = sections.filter(s => s.parent_id === section.id)
+                  .sort((a, b) => a.position - b.position);
 
-                  // Map children to fixed column slots based on their position (like in editor)
-                  const slotSections: (CMSSection | undefined)[] = Array.from({ length: rowColumnCount }, () => undefined);
-                  childSections.forEach((child) => {
-                    const pos = typeof child.position === 'number' ? child.position : 0;
-                    if (pos >= 0 && pos < rowColumnCount && !slotSections[pos]) {
-                      slotSections[pos] = child;
-                    } else {
-                      const freeIndex = slotSections.findIndex((s) => !s);
-                      if (freeIndex !== -1) slotSections[freeIndex] = child;
-                    }
-                  });
-
-                  const isCustomRow = section.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
-                  
-                  return (
-                    <div key={`row-${section.id}`} className="w-full">
-                      <div
-                        className={isCustomRow ? 'flex flex-row flex-wrap gap-4 w-full' : 'grid gap-4 lg:gap-6 w-full'}
-                        style={isCustomRow ? undefined : { gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}
-                      >
-                        {Array.from({ length: rowColumnCount }, (_, colIndex) => {
-                          const childSection = slotSections[colIndex];
-                          return (
-                            <div
-                              key={`row-${section.id}-col-${colIndex}`}
-                              className={isCustomRow ? 'space-y-4 shrink-0' : 'space-y-4'}
-                              style={
-                                isCustomRow
-                                  ? (isMobile
-                                      ? { width: '100%' }
-                                      : (childSection?.width_type === 'custom' && childSection?.custom_width
-                                          ? { width: `${childSection.custom_width}px` }
-                                          : undefined))
-                                  : undefined
-                              }
-                            >
-                              {childSection && (() => {
-                                const sectionItems = items
-                                  .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
-                                  .sort((a, b) => a.position - b.position);
-                                const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
-                                const columnCount = Math.max(1, maxColIndex + 1);
-                                const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({ id: `${childSection.id}-col-${i}`, items: [], width: 100 / columnCount }));
-                                sectionItems.forEach((item) => {
-                                  const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                                  columns[ci].items.push(item);
-                                });
-                                const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(childSection.title);
-                                return (
-                                  <CollapsibleSection 
-                                    key={`section-${childSection.id}-${childSection.title}`}
-                                    title={childSection.title}
-                                    description={childSection.description}
-                                    defaultOpen={childSection.default_expanded || false}
-                                    showShareButton={shouldShowShare}
-                                    sectionStyle={childSection}
-                                  >
-                                    <ColumnLayout
-                                      sectionId={childSection.id}
-                                      columns={columns}
-                                      isEditMode={false}
-                                      onColumnsChange={() => {}}
-                                      onItemClick={handleButtonClick}
-                                      onSelectItem={() => {}}
-                                    />
-                                    {sectionItems.length === 0 && (
-                                      <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                                        {t('common.noContent')}
-                                      </div>
-                                    )}
-                                  </CollapsibleSection>
-                                );
-                              })()}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                }
-                
-                // Zwykłe sekcje (nie-row)
-                const sectionItems = items.filter(item => 
-                  item.section_id === section.id && 
-                  item.type !== 'header_text' && 
-                  item.type !== 'author'
-                ).sort((a, b) => a.position - b.position);
-                // Derive column count from items' column_index to reflect saved layout
-                const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
-                const columnCount = Math.max(1, maxColIndex + 1);
-                
-                // Group items by column_index
-                const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
-                  id: `${section.id}-col-${i}`,
-                  items: [],
-                  width: 100 / Math.max(1, columnCount),
-                }));
-                
-                sectionItems.forEach((item) => {
-                  const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                  columns[colIndex].items.push(item);
+                // Map children to fixed column slots based on their position (like in editor)
+                const slotSections: (CMSSection | undefined)[] = Array.from({ length: rowColumnCount }, () => undefined);
+                childSections.forEach((child) => {
+                  const pos = typeof child.position === 'number' ? child.position : 0;
+                  if (pos >= 0 && pos < rowColumnCount && !slotSections[pos]) {
+                    slotSections[pos] = child;
+                  } else {
+                    const freeIndex = slotSections.findIndex((s) => !s);
+                    if (freeIndex !== -1) slotSections[freeIndex] = child;
+                  }
                 });
-                
-                const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
+
+                const isCustomRow = section.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
                 
                 return (
-                  <CollapsibleSection 
-                    key={`section-${section.id}-${section.title}`}
-                    title={section.title}
-                    description={section.description}
-                    defaultOpen={section.default_expanded || false}
-                    showShareButton={shouldShowShare}
-                    sectionStyle={section}
-                  >
-                    <ColumnLayout
-                      sectionId={section.id}
-                      columns={columns}
-                      isEditMode={false}
-                      onColumnsChange={() => {}}
-                      onItemClick={handleButtonClick}
-                      onSelectItem={() => {}}
-                    />
-                    {sectionItems.length === 0 && (
-                      <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                        {t('common.noContent')}
-                      </div>
-                    )}
-                  </CollapsibleSection>
+                  <div key={`row-${section.id}`} className="w-full">
+                    <div
+                      className={isCustomRow ? 'flex flex-row flex-wrap gap-4 w-full' : 'grid gap-4 lg:gap-6 w-full'}
+                      style={isCustomRow ? undefined : { gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}
+                    >
+                      {Array.from({ length: rowColumnCount }, (_, colIndex) => {
+                        const childSection = slotSections[colIndex];
+                        return (
+                          <div
+                            key={`row-${section.id}-col-${colIndex}`}
+                            className={isCustomRow ? 'space-y-4 shrink-0' : 'space-y-4'}
+                            style={
+                              isCustomRow
+                                ? (isMobile
+                                    ? { width: '100%' }
+                                    : (childSection?.width_type === 'custom' && childSection?.custom_width
+                                        ? { width: `${childSection.custom_width}px` }
+                                        : undefined))
+                                : undefined
+                            }
+                          >
+                            {childSection && (() => {
+                              const sectionItems = items
+                                .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
+                                .sort((a, b) => a.position - b.position);
+                              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+                              const columnCount = Math.max(1, maxColIndex + 1);
+                              const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({ id: `${childSection.id}-col-${i}`, items: [], width: 100 / columnCount }));
+                              sectionItems.forEach((item) => {
+                                const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                                columns[ci].items.push(item);
+                              });
+                              const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(childSection.title);
+                              return (
+                                <CollapsibleSection 
+                                  key={`section-${childSection.id}-${childSection.title}`}
+                                  title={childSection.title}
+                                  description={childSection.description}
+                                  defaultOpen={childSection.default_expanded || false}
+                                  showShareButton={shouldShowShare}
+                                  sectionStyle={childSection}
+                                >
+                                  <ColumnLayout
+                                    sectionId={childSection.id}
+                                    columns={columns}
+                                    isEditMode={false}
+                                    onColumnsChange={() => {}}
+                                    onItemClick={handleButtonClick}
+                                    onSelectItem={() => {}}
+                                  />
+                                  {sectionItems.length === 0 && (
+                                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                                      {t('common.noContent')}
+                                    </div>
+                                  )}
+                                </CollapsibleSection>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
-              })}
-            </div>
-          </main>
-
-          {/* No content fallback */}
-          {sections.length === 0 && (
-            <div className="text-center text-muted-foreground py-8 sm:py-12">
-              <img 
-                src={siteLogo} 
-                alt="Logo" 
-                className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = newPureLifeLogo;
-                }}
-              />
-              <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
-              <p className="text-xs sm:text-sm px-4">
-                {user ? (
-                  <>
-                    {isAdmin ? (
-                      <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
-                    ) : (
-                      <>Skontaktuj się z administratorem aby dodać treści.</>
-                    )}
-                  </>
-                ) : (
-                  <>Skontaktuj się z administratorem aby dodać treści.</>
-                )}
-              </p>
-            </div>
-          )}
-
-          {/* Footer Logo - properly positioned within content flow */}
-          <footer className="text-center py-6 sm:py-8 mt-8">
+              }
+              
+              // Zwykłe sekcje (nie-row)
+              const sectionItems = items.filter(item => 
+                item.section_id === section.id && 
+                item.type !== 'header_text' && 
+                item.type !== 'author'
+              ).sort((a, b) => a.position - b.position);
+              // Derive column count from items' column_index to reflect saved layout
+              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+              const columnCount = Math.max(1, maxColIndex + 1);
+              
+              // Group items by column_index
+              const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
+                id: `${section.id}-col-${i}`,
+                items: [],
+                width: 100 / Math.max(1, columnCount),
+              }));
+              
+              sectionItems.forEach((item) => {
+                const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                columns[colIndex].items.push(item);
+              });
+              
+              const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
+              
+              return (
+                <CollapsibleSection 
+                  key={`section-${section.id}-${section.title}`}
+                  title={section.title}
+                  description={section.description}
+                  defaultOpen={section.default_expanded || false}
+                  showShareButton={shouldShowShare}
+                  sectionStyle={section}
+                >
+                  <ColumnLayout
+                    sectionId={section.id}
+                    columns={columns}
+                    isEditMode={false}
+                    onColumnsChange={() => {}}
+                    onItemClick={handleButtonClick}
+                    onSelectItem={() => {}}
+                  />
+                  {sectionItems.length === 0 && (
+                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                      {t('common.noContent')}
+                    </div>
+                  )}
+                </CollapsibleSection>
+              );
+            })}
+          </div>
+        </div>
+        
+        {sections.length === 0 && (
+          <div className="text-center text-muted-foreground py-8 sm:py-12">
             <img 
               src={siteLogo} 
               alt="Logo" 
-              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto"
+              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = newPureLifeLogo;
               }}
             />
-            <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
-          </footer>
+            <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
+            <p className="text-xs sm:text-sm px-4">
+              {user ? (
+                <>
+                  {isAdmin ? (
+                    <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
+                  ) : (
+                    <>Skontaktuj się z administratorem aby dodać treści.</>
+                  )}
+                </>
+              ) : (
+                <>Skontaktuj się z administratorem aby dodać treści.</>
+              )}
+            </p>
+          </div>
+        )}
+        
+        {/* Footer Logo */}
+        <div className="text-center py-6 sm:py-8">
+          <img 
+            src={siteLogo} 
+            alt="Logo" 
+            className="w-12 h-12 sm:w-16 sm:h-16 mx-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = newPureLifeLogo;
+            }}
+          />
+          <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
