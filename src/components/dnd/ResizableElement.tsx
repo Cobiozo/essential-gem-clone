@@ -120,15 +120,9 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       const w = typeof dimensions.width === 'number' ? dimensions.width : 0; // 0 => auto
       const h = typeof dimensions.height === 'number' ? dimensions.height : 0; // 0 => auto
       
-      // Only call onResize if there was actual resizing with valid dimensions
-      const hasValidWidth = w > 0 && Number.isFinite(w);
-      const hasValidHeight = h > 0 && Number.isFinite(h);
-      
-      if (hasValidWidth || hasValidHeight) {
-        onResize(w, h);
-      } else {
-        console.info('Skipped resize callback: no valid dimensions changed');
-      }
+      // Call onResize with the current dimensions - let parent decide what to save
+      onResize(w, h);
+      console.info('Resize completed', { width: w, height: h });
     } else if (isResizingRef.current && !hasDraggedRef.current) {
       console.info('Skipped resize callback: no dragging movement detected');
     }

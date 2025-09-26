@@ -802,17 +802,37 @@ export const LivePreviewEditor: React.FC = () => {
       const section = sections.find(s => s.id === elementId);
       
       if (section) {
-        // Ignore invalid measurements to avoid overwriting saved sizes
-        if (!Number.isFinite(width) || width <= 0) {
-          console.warn(`Ignored resize for ${elementId}: non-positive width (${width}). Keeping previous width settings.`);
-          return;
+        // Determine width settings
+        let width_type = section.width_type || 'full';
+        let newCustomWidth = section.custom_width;
+        
+        if (Number.isFinite(width) && width > 0) {
+          width_type = 'custom';
+          newCustomWidth = Math.round(width);
+        } else if (width === 0) {
+          // Reset to auto width
+          width_type = 'full';
+          newCustomWidth = null;
+        } else {
+          console.warn(`Ignored width resize for ${elementId}: invalid width (${width}). Keeping previous width settings.`);
         }
 
-        const width_type = 'custom' as const;
-        const height_type = section.height_type ?? 'auto';
-        const newCustomWidth = Math.round(width);
+        // Determine height settings  
+        let height_type = section.height_type || 'auto';
+        let newCustomHeight = section.custom_height;
+        
+        if (Number.isFinite(height) && height > 0) {
+          height_type = 'custom';
+          newCustomHeight = Math.round(height);
+        } else if (height === 0) {
+          // Reset to auto height
+          height_type = 'auto';
+          newCustomHeight = null;
+        } else {
+          console.warn(`Ignored height resize for ${elementId}: invalid height (${height}). Keeping previous height settings.`);
+        }
 
-        console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${newCustomWidth}, custom_height: null`);
+        console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${newCustomWidth}, custom_height: ${newCustomHeight}`);
 
         // Update local state and persist via Edge Function autosave (service role)
         setSections(prev => {
@@ -823,7 +843,7 @@ export const LivePreviewEditor: React.FC = () => {
                   width_type,
                   height_type,
                   custom_width: newCustomWidth, 
-                  custom_height: null,
+                  custom_height: newCustomHeight,
                 }
               : s
           ).map(s => {
@@ -841,13 +861,19 @@ export const LivePreviewEditor: React.FC = () => {
 
         // Persist immediately to DB to avoid debounce race conditions
         try {
-          const updates: any = { width_type, height_type, custom_width: newCustomWidth, custom_height: null, updated_at: new Date().toISOString() };
+          const updates: any = { 
+            width_type, 
+            height_type, 
+            custom_width: newCustomWidth, 
+            custom_height: newCustomHeight, 
+            updated_at: new Date().toISOString() 
+          };
           const { error: immediateErr } = await supabase
             .from('cms_sections')
             .update(updates)
             .eq('id', elementId);
           if (immediateErr) {
-            console.error('Immediate width save failed', immediateErr);
+            console.error('Immediate resize save failed', immediateErr);
           }
         } catch (e) {
           console.error('Immediate width save exception', e);
