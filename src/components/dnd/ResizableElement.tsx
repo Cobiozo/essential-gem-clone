@@ -51,6 +51,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   const isResizingRef = useRef(false);
   const resizeDirectionRef = useRef<string>('');
   const hasDraggedRef = useRef(false);
+  const currentDimensionsRef = useRef({ width: 0, height: 0 });
   const handleMouseDown = useCallback((e: React.MouseEvent, direction: string) => {
     if (!isEditMode) return;
     
@@ -111,14 +112,19 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       width: newWidth,
       height: newHeight,
     });
+    
+    // Store current dimensions for handleMouseUp
+    currentDimensionsRef.current = { width: newWidth, height: newHeight };
     // console.info('Resizing', { newWidth, newHeight, dir });
   }, []);
 
   const handleMouseUp = useCallback(() => {
     // Only call onResize if there was actual dragging movement
     if (isResizingRef.current && onResize && hasDraggedRef.current) {
-      const w = typeof dimensions.width === 'number' ? dimensions.width : 0; // 0 => auto
-      const h = typeof dimensions.height === 'number' ? dimensions.height : 0; // 0 => auto
+      // Use the current dimensions from the resize operation, not state (which may not be updated yet)
+      const { width: currentWidth, height: currentHeight } = currentDimensionsRef.current;
+      const w = typeof currentWidth === 'number' ? currentWidth : 0;
+      const h = typeof currentHeight === 'number' ? currentHeight : 0;
       
       // Call onResize with the current dimensions - let parent decide what to save
       onResize(w, h);
@@ -171,6 +177,9 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     }
 
     setDimensions({ width: newWidth, height: newHeight });
+    
+    // Store current dimensions for handleTouchEnd
+    currentDimensionsRef.current = { width: newWidth, height: newHeight };
   }, []);
 
   const handleTouchEnd = useCallback(() => {
