@@ -634,9 +634,10 @@ const Admin = () => {
   const fetchHeaderText = async () => {
     try {
       const { data, error } = await supabase
-        .from('system_texts')
-        .select('content, text_formatting')
+        .from('cms_items')
+        .select('description, text_formatting')
         .eq('type', 'header_text')
+        .is('page_id', null)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -646,7 +647,7 @@ const Admin = () => {
       }
       
       if (data) {
-        setHeaderText(data.content || '');
+        setHeaderText(data.description || '');
         setHeaderTextFormatting(data.text_formatting || null);
       } else {
         // If no header text exists, set the default text from Index.tsx
@@ -667,20 +668,21 @@ const Admin = () => {
     try {
       setHeaderTextLoading(true);
       
-      // Check if header text exists
+      // Check if header text item exists
       const { data: existingItem } = await supabase
-        .from('system_texts')
+        .from('cms_items')
         .select('id')
         .eq('type', 'header_text')
+        .is('page_id', null)
         .eq('is_active', true)
         .maybeSingle();
 
       if (existingItem) {
         // Update existing item
         const { error } = await supabase
-          .from('system_texts')
+          .from('cms_items')
           .update({ 
-            content: newText,
+            description: newText,
             text_formatting: headerTextFormatting,
             updated_at: new Date().toISOString()
           })
@@ -688,13 +690,49 @@ const Admin = () => {
 
         if (error) throw error;
       } else {
-        // Create new header text item
+        // Find or create a special HIDDEN section for system items (header_text, author, etc.)
+        let { data: systemSection } = await supabase
+          .from('cms_sections')
+          .select('id')
+          .eq('title', '_system_items')
+          .eq('is_active', false) // Keep it inactive so it doesn't show in UI
+          .is('page_id', null)
+          .maybeSingle();
+
+        if (!systemSection) {
+          // Create special hidden section for system items
+          const { data: newSystemSection, error: sectionError } = await supabase
+            .from('cms_sections')
+            .insert({
+              title: '_system_items',
+              description: 'Sekcja systemowa ukryta dla elementów systemowych',
+              position: -999, // Put it at the very beginning with negative position
+              is_active: false, // Keep inactive so it doesn't display in UI
+              visible_to_everyone: false,
+              visible_to_partners: false,
+              visible_to_clients: false,
+              visible_to_specjalista: false,
+              visible_to_anonymous: false,
+              page_id: null
+            })
+            .select('id')
+            .single();
+
+          if (sectionError) throw sectionError;
+          systemSection = newSystemSection;
+        }
+
+        // Create new header text item in the hidden system section
         const { error } = await supabase
-          .from('system_texts')
+          .from('cms_items')
           .insert({
             type: 'header_text',
-            content: newText,
+            title: 'Tekst nagłówka',
+            description: newText,
             text_formatting: headerTextFormatting,
+            section_id: systemSection.id, // Use the hidden system section
+            page_id: null, // Main page
+            position: 0,
             is_active: true
           });
 
@@ -723,9 +761,10 @@ const Admin = () => {
   const fetchAuthorText = async () => {
     try {
       const { data, error } = await supabase
-        .from('system_texts')
-        .select('content, text_formatting')
+        .from('cms_items')
+        .select('description, text_formatting')
         .eq('type', 'author')
+        .is('page_id', null)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -735,7 +774,7 @@ const Admin = () => {
       }
       
       if (data) {
-        setAuthorText(data.content || '');
+        setAuthorText(data.description || '');
         setAuthorTextFormatting(data.text_formatting || null);
       } else {
         // If no author text exists, set the default text from Index.tsx
@@ -756,20 +795,21 @@ const Admin = () => {
     try {
       setAuthorTextLoading(true);
       
-      // Check if author text exists
+      // Check if author text item exists
       const { data: existingItem } = await supabase
-        .from('system_texts')
+        .from('cms_items')
         .select('id')
         .eq('type', 'author')
+        .is('page_id', null)
         .eq('is_active', true)
         .maybeSingle();
 
       if (existingItem) {
         // Update existing item
         const { error } = await supabase
-          .from('system_texts')
+          .from('cms_items')
           .update({ 
-            content: newText,
+            description: newText,
             text_formatting: authorTextFormatting,
             updated_at: new Date().toISOString()
           })
@@ -777,13 +817,49 @@ const Admin = () => {
 
         if (error) throw error;
       } else {
-        // Create new author text item
+        // Find or create a special HIDDEN section for system items (header_text, author, etc.)
+        let { data: systemSection } = await supabase
+          .from('cms_sections')
+          .select('id')
+          .eq('title', '_system_items')
+          .eq('is_active', false) // Keep it inactive so it doesn't show in UI
+          .is('page_id', null)
+          .maybeSingle();
+
+        if (!systemSection) {
+          // Create special hidden section for system items
+          const { data: newSystemSection, error: sectionError } = await supabase
+            .from('cms_sections')
+            .insert({
+              title: '_system_items',
+              description: 'Sekcja systemowa ukryta dla elementów systemowych',
+              position: -999, // Put it at the very beginning with negative position
+              is_active: false, // Keep inactive so it doesn't display in UI
+              visible_to_everyone: false,
+              visible_to_partners: false,
+              visible_to_clients: false,
+              visible_to_specjalista: false,
+              visible_to_anonymous: false,
+              page_id: null
+            })
+            .select('id')
+            .single();
+
+          if (sectionError) throw sectionError;
+          systemSection = newSystemSection;
+        }
+
+        // Create new author text item in the hidden system section
         const { error } = await supabase
-          .from('system_texts')
+          .from('cms_items')
           .insert({
             type: 'author',
-            content: newText,
+            title: 'Tekst autora',
+            description: newText,
             text_formatting: authorTextFormatting,
+            section_id: systemSection.id, // Use the hidden system section
+            page_id: null, // Main page
+            position: 1, // Position after header text
             is_active: true
           });
 

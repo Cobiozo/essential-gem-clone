@@ -117,8 +117,6 @@ const Index = () => {
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [headerText, setHeaderText] = React.useState<string>('');
   const [authorText, setAuthorText] = React.useState<string>('');
-  const [headerTextFormatting, setHeaderTextFormatting] = React.useState<any>(null);
-  const [authorTextFormatting, setAuthorTextFormatting] = React.useState<any>(null);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
@@ -198,24 +196,12 @@ const Index = () => {
         setSectionColumnCount(settings.column_count || 1);
       }
       
-      // Pobierz teksty nagłówka i autora z system_texts
-      const { data: systemTexts } = await supabase
-        .from('system_texts')
-        .select('type, content, text_formatting')
-        .eq('is_active', true)
-        .in('type', ['header_text', 'author']);
-
-      const headerItem = systemTexts?.find(item => item.type === 'header_text');
-      const authorItem = systemTexts?.find(item => item.type === 'author');
+      // Pobierz teksty nagłówka
+      const headerItem = itemsData?.find(item => item.type === 'header_text');
+      const authorItem = itemsData?.find(item => item.type === 'author');
       
-      if (headerItem?.content) {
-        setHeaderText(headerItem.content);
-        setHeaderTextFormatting(headerItem.text_formatting);
-      }
-      if (authorItem?.content) {
-        setAuthorText(authorItem.content);
-        setAuthorTextFormatting(authorItem.text_formatting);
-      }
+      if (headerItem?.description) setHeaderText(headerItem.description);
+      if (authorItem?.description) setAuthorText(authorItem.description);
       
       // Pobierz opublikowane strony
       let pagesQuery = supabase
@@ -287,25 +273,29 @@ const Index = () => {
         {/* Header text with formatting support */}
         {headerText && (
           <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-            {headerTextFormatting ? (
-              <div
-                style={{
-                  fontSize: `${headerTextFormatting.fontSize || 16}px`,
-                  fontWeight: headerTextFormatting.fontWeight || '400',
-                  fontStyle: headerTextFormatting.fontStyle || 'normal',
-                  textDecoration: headerTextFormatting.textDecoration || 'none',
-                  textAlign: headerTextFormatting.textAlign || 'center',
-                  color: headerTextFormatting.color || '#666666',
-                  backgroundColor: headerTextFormatting.backgroundColor === 'transparent' ? undefined : headerTextFormatting.backgroundColor,
-                  lineHeight: headerTextFormatting.lineHeight || 1.5,
-                  letterSpacing: `${headerTextFormatting.letterSpacing || 0}px`,
-                  fontFamily: headerTextFormatting.fontFamily || 'system-ui, -apple-system, sans-serif',
-                }}
-                dangerouslySetInnerHTML={{ __html: headerText }}
-              />
-            ) : (
-              <span dangerouslySetInnerHTML={{ __html: headerText }} />
-            )}
+            {(() => {
+              const headerItem = items.find(item => item.type === 'header_text');
+              if (headerItem?.text_formatting) {
+                return (
+                  <div
+                    style={{
+                      fontSize: `${headerItem.text_formatting.fontSize || 16}px`,
+                      fontWeight: headerItem.text_formatting.fontWeight || '400',
+                      fontStyle: headerItem.text_formatting.fontStyle || 'normal',
+                      textDecoration: headerItem.text_formatting.textDecoration || 'none',
+                      textAlign: headerItem.text_formatting.textAlign || 'center',
+                      color: headerItem.text_formatting.color || '#666666',
+                      backgroundColor: headerItem.text_formatting.backgroundColor === 'transparent' ? undefined : headerItem.text_formatting.backgroundColor,
+                      lineHeight: headerItem.text_formatting.lineHeight || 1.5,
+                      letterSpacing: `${headerItem.text_formatting.letterSpacing || 0}px`,
+                      fontFamily: headerItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
+                    }}
+                    dangerouslySetInnerHTML={{ __html: headerText }}
+                  />
+                );
+              }
+              return <span dangerouslySetInnerHTML={{ __html: headerText }} />;
+            })()}
           </div>
         )}
         
@@ -437,9 +427,9 @@ const Index = () => {
                             }
                           >
                             {childSection && (() => {
-                const sectionItems = items
-                  .filter(item => item.section_id === childSection.id && item.is_active)
-                  .sort((a, b) => a.position - b.position);
+                              const sectionItems = items
+                                .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
+                                .sort((a, b) => a.position - b.position);
                               const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
                               const columnCount = Math.max(1, maxColIndex + 1);
                               const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({ id: `${childSection.id}-col-${i}`, items: [], width: 100 / columnCount }));
@@ -484,7 +474,8 @@ const Index = () => {
               // Zwykłe sekcje (nie-row)
               const sectionItems = items.filter(item => 
                 item.section_id === section.id && 
-                item.is_active
+                item.type !== 'header_text' && 
+                item.type !== 'author'
               ).sort((a, b) => a.position - b.position);
               // Derive column count from items' column_index to reflect saved layout
               const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
