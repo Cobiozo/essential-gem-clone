@@ -123,8 +123,6 @@ const Index = () => {
    const [loading, setLoading] = React.useState(true);
    const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
    const [sectionColumnCount, setSectionColumnCount] = React.useState<number>(1);
-   const [pageMargin, setPageMargin] = React.useState<number>(16);
-   const [pageAlignment, setPageAlignment] = React.useState<string>('center');
   
   // Enable security preventions
   useSecurityPreventions();
@@ -193,14 +191,12 @@ const Index = () => {
        // Pobierz ustawienia układu strony głównej (sekcje w gridzie)
        const { data: settings } = await supabase
          .from('page_settings')
-         .select('layout_mode, column_count, page_margin, page_alignment')
+         .select('layout_mode, column_count')
          .eq('page_type', 'homepage')
          .maybeSingle();
        if (settings) {
          setSectionLayoutMode((settings.layout_mode as any) || 'single');
          setSectionColumnCount(settings.column_count || 1);
-         setPageMargin(settings.page_margin || 16);
-         setPageAlignment(settings.page_alignment || 'center');
        }
       
       // Pobierz teksty nagłówka, autora, logo i zdjęcie nagłówka z system_texts
@@ -294,14 +290,8 @@ const Index = () => {
       </div>
       
       {/* Main Content Container */}
-      <div className="w-full min-h-screen flex justify-center">
-        <div 
-          className="w-full max-w-4xl"
-          style={{ 
-            paddingLeft: `${pageMargin}px`, 
-            paddingRight: `${pageMargin}px` 
-          }}
-        >
+      <div className="w-full min-h-screen flex justify-center px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-4xl">
           {/* Header */}
           <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
             <div className="mb-6">

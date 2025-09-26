@@ -264,10 +264,6 @@ const Admin = () => {
    });
    const [passwordLoading, setPasswordLoading] = useState(false);
    
-   // Page layout settings state
-   const [pageMargin, setPageMargin] = useState<number>(16);
-   const [pageAlignment, setPageAlignment] = useState<string>('center');
-   const [pageSettingsLoading, setPageSettingsLoading] = useState(false);
   
   // Reset user password state
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
@@ -825,87 +821,6 @@ const Admin = () => {
      }
    };
 
-   // Page settings management functions
-   const fetchPageSettings = async () => {
-     try {
-       const { data, error } = await supabase
-         .from('page_settings')
-         .select('page_margin, page_alignment')
-         .eq('page_type', 'homepage')
-         .maybeSingle();
-
-       if (error && error.code !== 'PGRST116') {
-         throw error;
-       }
-
-       if (data) {
-         setPageMargin(data.page_margin || 16);
-         setPageAlignment(data.page_alignment || 'center');
-       } else {
-         // Set defaults if no data found
-         setPageMargin(16);
-         setPageAlignment('center');
-       }
-     } catch (error) {
-       console.error('Error fetching page settings:', error);
-       setPageMargin(16);
-       setPageAlignment('center');
-     }
-   };
-
-   const updatePageSettings = async () => {
-     try {
-       setPageSettingsLoading(true);
-       
-       // Check if page settings exist
-       const { data: existingSettings } = await supabase
-         .from('page_settings')
-         .select('id')
-         .eq('page_type', 'homepage')
-         .maybeSingle();
-
-       if (existingSettings) {
-         // Update existing settings
-         const { error } = await supabase
-           .from('page_settings')
-           .update({ 
-             page_margin: pageMargin,
-             page_alignment: pageAlignment,
-             updated_at: new Date().toISOString()
-           })
-           .eq('id', existingSettings.id);
-
-         if (error) throw error;
-       } else {
-         // Create new settings
-         const { error } = await supabase
-           .from('page_settings')
-           .insert({
-             page_type: 'homepage',
-             layout_mode: 'single',
-             column_count: 1,
-             page_margin: pageMargin,
-             page_alignment: pageAlignment
-           });
-
-         if (error) throw error;
-       }
-       
-       toast({
-         title: "Sukces",
-         description: "Ustawienia strony zostały zaktualizowane",
-       });
-     } catch (error: any) {
-       console.error('Error updating page settings:', error);
-       toast({
-         title: "Błąd",
-         description: "Nie udało się zaktualizować ustawień strony",
-         variant: "destructive",
-       });
-     } finally {
-       setPageSettingsLoading(false);
-     }
-   };
 
   // Logo management functions
   const loadSiteLogo = async () => {
@@ -1369,7 +1284,6 @@ const Admin = () => {
      if (activeTab === 'settings' && isAdmin) {
        loadSiteLogo();
        loadHeaderImage();
-       fetchPageSettings();
      }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
@@ -2978,69 +2892,6 @@ const Admin = () => {
                </Card>
              </div>
              
-             {/* Page Layout Settings */}
-             <div className="mb-8">
-               <Card>
-                 <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
-                     <Settings2 className="w-5 h-5" />
-                     Ustawienia układu strony
-                   </CardTitle>
-                   <CardDescription>
-                     Skonfiguruj marginesy i wyrównanie elementów na stronie głównej
-                   </CardDescription>
-                 </CardHeader>
-                 <CardContent className="space-y-4">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                       <Label htmlFor="page-margin" className="text-sm font-medium">
-                         Margines strony (px)
-                       </Label>
-                       <Input
-                         id="page-margin"
-                         type="number"
-                         min="0"
-                         max="200"
-                         value={pageMargin}
-                         onChange={(e) => setPageMargin(parseInt(e.target.value) || 16)}
-                         className="mt-1"
-                       />
-                       <p className="text-xs text-muted-foreground mt-1">
-                         Odstęp od brzegów ekranu (0-200px)
-                       </p>
-                     </div>
-                     <div>
-                       <Label htmlFor="page-alignment" className="text-sm font-medium">
-                         Wyrównanie strony
-                       </Label>
-                       <Select value={pageAlignment} onValueChange={setPageAlignment}>
-                         <SelectTrigger className="mt-1">
-                           <SelectValue placeholder="Wybierz wyrównanie" />
-                         </SelectTrigger>
-                         <SelectContent>
-                           <SelectItem value="left">Do lewej</SelectItem>
-                           <SelectItem value="center">Do środka</SelectItem>
-                           <SelectItem value="right">Do prawej</SelectItem>
-                         </SelectContent>
-                       </Select>
-                       <p className="text-xs text-muted-foreground mt-1">
-                         Sposób wyrównania zawartości strony
-                       </p>
-                     </div>
-                   </div>
-                   <div className="flex gap-2 pt-2">
-                     <Button
-                       onClick={updatePageSettings}
-                       disabled={pageSettingsLoading}
-                       className="flex items-center gap-2"
-                     >
-                       <Save className="w-4 h-4" />
-                       {pageSettingsLoading ? 'Zapisywanie...' : 'Zapisz ustawienia'}
-                     </Button>
-                   </div>
-                 </CardContent>
-               </Card>
-             </div>
            </TabsContent>
 
           <TabsContent value="account">
