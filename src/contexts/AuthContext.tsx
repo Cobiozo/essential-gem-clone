@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -62,37 +63,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    let mounted = true;
+    
+    const initializeAuth = async () => {
+      try {
+        // Set up auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (!mounted) return;
+            
+            setSession(session);
+            setUser(session?.user ?? null);
+            
+            if (session?.user) {
+              setTimeout(() => {
+                if (mounted) {
+                  fetchProfile(session.user.id);
+                }
+              }, 0);
+            } else {
+              setProfile(null);
+            }
+            
+            setLoading(false);
+            setInitialized(true);
+          }
+        );
+
+        // Check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
+          await fetchProfile(session.user.id);
         }
         
         setLoading(false);
-      }
-    );
+        setInitialized(true);
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setLoading(false);
+          setInitialized(true);
+        }
       }
-      
-      setLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -153,6 +182,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
   };
+
+  // Don't render children until auth is initialized
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 mx-auto mb-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
