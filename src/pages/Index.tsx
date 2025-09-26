@@ -272,7 +272,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Unified Page Container */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative">
         {/* Top Left Logo */}
         <div className="absolute top-4 left-4 z-50">
           <img 
