@@ -154,13 +154,14 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     width: isMobile
       ? '100%'
       : (sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%'),
-    height: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
+    minHeight: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
+    height: 'auto',
     maxWidth: `${sectionStyle.max_width || 1200}px`,
     marginTop: `${sectionStyle.section_margin_top || 16}px`,
     marginBottom: `${sectionStyle.section_margin_bottom || 16}px`,
     marginLeft: 'auto',
     marginRight: 'auto',
-    overflow: isOpen ? 'visible' : 'hidden', // Allow content to expand when open
+    overflow: 'hidden', // Ensure rounded corners are preserved
     position: 'relative' as const,
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
@@ -184,8 +185,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     backgroundPosition: sectionStyle.background_image_position || 'center',
     backgroundSize: sectionStyle.background_image_size || 'cover',
     backgroundRepeat: 'no-repeat',
-    height: !isOpen && sectionStyle.height_type === 'custom' ? `${sectionStyle.custom_height}px` : (!isOpen ? 'auto' : 'auto'),
-    minHeight: !isOpen ? `${Math.max(sectionStyle.min_height || 200, 200)}px` : 'auto', // Minimum card height
+    height: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
+    minHeight: (!isOpen) ? `${Math.max(sectionStyle.min_height || 200, 200)}px` : 'auto', // Minimum card height
     padding: `${sectionStyle.padding || 32}px`,
     display: 'flex',
     flexDirection: sectionStyle.content_direction as any || 'column',
