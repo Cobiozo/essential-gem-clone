@@ -671,7 +671,7 @@ const Admin = () => {
       // Check if header text item exists
       const { data: existingItem } = await supabase
         .from('cms_items')
-        .select('id, section_id')
+        .select('id')
         .eq('type', 'header_text')
         .is('page_id', null)
         .eq('is_active', true)
@@ -690,39 +690,39 @@ const Admin = () => {
 
         if (error) throw error;
       } else {
-        // Find or create a special section for header texts
-        let { data: headerSection } = await supabase
+        // Find or create a special HIDDEN section for system items (header_text, author, etc.)
+        let { data: systemSection } = await supabase
           .from('cms_sections')
           .select('id')
-          .eq('title', 'Teksty nagłówka')
-          .eq('is_active', true)
+          .eq('title', '_system_items')
+          .eq('is_active', false) // Keep it inactive so it doesn't show in UI
           .is('page_id', null)
           .maybeSingle();
 
-        if (!headerSection) {
-          // Create special section for header texts
-          const { data: newHeaderSection, error: sectionError } = await supabase
+        if (!systemSection) {
+          // Create special hidden section for system items
+          const { data: newSystemSection, error: sectionError } = await supabase
             .from('cms_sections')
             .insert({
-              title: 'Teksty nagłówka',
-              description: 'Sekcja systemowa dla tekstów nagłówka',
-              position: -1, // Put it before all other sections
-              is_active: true,
-              visible_to_everyone: true,
+              title: '_system_items',
+              description: 'Sekcja systemowa ukryta dla elementów systemowych',
+              position: -999, // Put it at the very beginning with negative position
+              is_active: false, // Keep inactive so it doesn't display in UI
+              visible_to_everyone: false,
               visible_to_partners: false,
               visible_to_clients: false,
               visible_to_specjalista: false,
-              visible_to_anonymous: true,
+              visible_to_anonymous: false,
               page_id: null
             })
             .select('id')
             .single();
 
           if (sectionError) throw sectionError;
-          headerSection = newHeaderSection;
+          systemSection = newSystemSection;
         }
 
-        // Create new header text item
+        // Create new header text item in the hidden system section
         const { error } = await supabase
           .from('cms_items')
           .insert({
@@ -730,7 +730,7 @@ const Admin = () => {
             title: 'Tekst nagłówka',
             description: newText,
             text_formatting: headerTextFormatting,
-            section_id: headerSection.id, // Use the header section
+            section_id: systemSection.id, // Use the hidden system section
             page_id: null, // Main page
             position: 0,
             is_active: true
@@ -798,7 +798,7 @@ const Admin = () => {
       // Check if author text item exists
       const { data: existingItem } = await supabase
         .from('cms_items')
-        .select('id, section_id')
+        .select('id')
         .eq('type', 'author')
         .is('page_id', null)
         .eq('is_active', true)
@@ -817,39 +817,39 @@ const Admin = () => {
 
         if (error) throw error;
       } else {
-        // Find or create a special section for header texts
-        let { data: headerSection } = await supabase
+        // Find or create a special HIDDEN section for system items (header_text, author, etc.)
+        let { data: systemSection } = await supabase
           .from('cms_sections')
           .select('id')
-          .eq('title', 'Teksty nagłówka')
-          .eq('is_active', true)
+          .eq('title', '_system_items')
+          .eq('is_active', false) // Keep it inactive so it doesn't show in UI
           .is('page_id', null)
           .maybeSingle();
 
-        if (!headerSection) {
-          // Create special section for header texts
-          const { data: newHeaderSection, error: sectionError } = await supabase
+        if (!systemSection) {
+          // Create special hidden section for system items
+          const { data: newSystemSection, error: sectionError } = await supabase
             .from('cms_sections')
             .insert({
-              title: 'Teksty nagłówka',
-              description: 'Sekcja systemowa dla tekstów nagłówka',
-              position: -1, // Put it before all other sections
-              is_active: true,
-              visible_to_everyone: true,
+              title: '_system_items',
+              description: 'Sekcja systemowa ukryta dla elementów systemowych',
+              position: -999, // Put it at the very beginning with negative position
+              is_active: false, // Keep inactive so it doesn't display in UI
+              visible_to_everyone: false,
               visible_to_partners: false,
               visible_to_clients: false,
               visible_to_specjalista: false,
-              visible_to_anonymous: true,
+              visible_to_anonymous: false,
               page_id: null
             })
             .select('id')
             .single();
 
           if (sectionError) throw sectionError;
-          headerSection = newHeaderSection;
+          systemSection = newSystemSection;
         }
 
-        // Create new author text item
+        // Create new author text item in the hidden system section
         const { error } = await supabase
           .from('cms_items')
           .insert({
@@ -857,7 +857,7 @@ const Admin = () => {
             title: 'Tekst autora',
             description: newText,
             text_formatting: authorTextFormatting,
-            section_id: headerSection.id, // Use the header section
+            section_id: systemSection.id, // Use the hidden system section
             page_id: null, // Main page
             position: 1, // Position after header text
             is_active: true
