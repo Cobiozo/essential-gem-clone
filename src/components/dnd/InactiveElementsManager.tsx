@@ -491,13 +491,13 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
             <Eye className="w-3 h-3 mr-1" />
             Aktywuj wszystkie elementy w sekcjach
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={recreateTerminarzItem}
-            disabled={loading}
-            className="text-xs"
-          >
+           <Button
+             variant="outline"
+             size="sm"
+             onClick={recreateTerminarzItem}
+             disabled={loading}
+             className="text-xs hidden"
+           >
             Odtwórz „Terminarz”
           </Button>
           <Button
