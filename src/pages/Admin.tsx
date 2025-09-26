@@ -1943,7 +1943,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
@@ -1952,17 +1952,13 @@ const Admin = () => {
               <Type className="w-4 h-4" />
               <span className="hidden sm:inline">Layout</span>
             </TabsTrigger>
-            <TabsTrigger value="fonts" className="flex items-center gap-2">
-              <Type className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.fonts')}</span>
-            </TabsTrigger>
             <TabsTrigger value="colors" className="flex items-center gap-2">
               <Palette className="w-4 h-4" />
               <span className="hidden sm:inline">{t('admin.colors')}</span>
             </TabsTrigger>
-            <TabsTrigger value="text-editor" className="flex items-center gap-2">
-              <Type className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.textEditor')}</span>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('admin.settings')}</span>
             </TabsTrigger>
             <TabsTrigger value="pages" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
@@ -1979,88 +1975,6 @@ const Admin = () => {
           </TabsList>
 
           <TabsContent value="content">
-            {/* Header Text Editor */}
-            <div className="mb-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Type className="w-5 h-5" />
-                    Edytor tekstu nagłówka
-                  </CardTitle>
-                  <CardDescription>
-                    Edytuj tekst wyświetlany w nagłówku strony głównej
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="header-text-editor" className="text-sm font-medium">
-                      Tekst nagłówka strony głównej
-                    </Label>
-                    <div className="mt-2">
-                      <RichTextEditor
-                        value={headerText}
-                        onChange={setHeaderText}
-                        placeholder="Wpisz tekst nagłówka strony głównej..."
-                        rows={4}
-                        className="min-h-[120px]"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => updateHeaderText(headerText)}
-                      disabled={headerTextLoading}
-                      className="flex items-center gap-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      {headerTextLoading ? 'Zapisywanie...' : 'Zapisz tekst nagłówka'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Author Text Editor */}
-            <div className="mb-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Type className="w-5 h-5" />
-                    Edytor tekstu autora
-                  </CardTitle>
-                  <CardDescription>
-                    Edytuj tekst autora wyświetlany pod nagłówkiem strony głównej
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="author-text-editor" className="text-sm font-medium">
-                      Tekst autora
-                    </Label>
-                    <div className="mt-2">
-                      <RichTextEditor
-                        value={authorText}
-                        onChange={setAuthorText}
-                        placeholder="Wpisz tekst autora..."
-                        rows={2}
-                        className="min-h-[80px]"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => updateAuthorText(authorText)}
-                      disabled={authorTextLoading}
-                      className="flex items-center gap-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      {authorTextLoading ? 'Zapisywanie...' : 'Zapisz tekst autora'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
             {/* Section Management */}
             <div className="mb-6 sm:mb-8">
           <div className="flex flex-col gap-4 mb-4">
@@ -2433,23 +2347,6 @@ const Admin = () => {
             <LivePreviewEditor />
           </TabsContent>
 
-          <TabsContent value="fonts">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Type className="w-5 h-5" />
-                  <span>{t('admin.fonts')}</span>
-                </CardTitle>
-                <CardDescription>
-                  Dostosuj czcionki używane w aplikacji
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FontEditor />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="colors">
             <Card>
               <CardHeader>
@@ -2467,29 +2364,88 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="text-editor">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Type className="w-5 h-5" />
-                  <span>{t('admin.textEditor')}</span>
-                </CardTitle>
-                <CardDescription>
-                  Zaawansowany edytor do formatowania treści
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TextEditor 
-                  placeholder="Używaj tego edytora do formatowania zawartości..."
-                  onSave={(text, style) => {
-                    toast({
-                      title: "Tekst sformatowany",
-                      description: "Skopiuj sformatowany tekst do elementów CMS",
-                    });
-                  }}
-                />
-              </CardContent>
-            </Card>
+          <TabsContent value="settings">
+            {/* Header Text Editor */}
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Type className="w-5 h-5" />
+                    Edytor tekstu nagłówka
+                  </CardTitle>
+                  <CardDescription>
+                    Edytuj tekst wyświetlany w nagłówku strony głównej
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="header-text-editor" className="text-sm font-medium">
+                      Tekst nagłówka strony głównej
+                    </Label>
+                    <div className="mt-2">
+                      <RichTextEditor
+                        value={headerText}
+                        onChange={setHeaderText}
+                        placeholder="Wpisz tekst nagłówka strony głównej..."
+                        rows={4}
+                        className="min-h-[120px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => updateHeaderText(headerText)}
+                      disabled={headerTextLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {headerTextLoading ? 'Zapisywanie...' : 'Zapisz tekst nagłówka'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Author Text Editor */}
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Type className="w-5 h-5" />
+                    Edytor tekstu autora
+                  </CardTitle>
+                  <CardDescription>
+                    Edytuj tekst autora wyświetlany pod nagłówkiem strony głównej
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="author-text-editor" className="text-sm font-medium">
+                      Tekst autora
+                    </Label>
+                    <div className="mt-2">
+                      <RichTextEditor
+                        value={authorText}
+                        onChange={setAuthorText}
+                        placeholder="Wpisz tekst autora..."
+                        rows={2}
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => updateAuthorText(authorText)}
+                      disabled={authorTextLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {authorTextLoading ? 'Zapisywanie...' : 'Zapisz tekst autora'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="account">
