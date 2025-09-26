@@ -118,6 +118,7 @@ const Index = () => {
   const [headerText, setHeaderText] = React.useState<string>('');
   const [authorText, setAuthorText] = React.useState<string>('');
   const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
+  const [headerImage, setHeaderImage] = React.useState<string>(niezbednikLogo);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
@@ -198,20 +199,22 @@ const Index = () => {
         setSectionColumnCount(settings.column_count || 1);
       }
       
-      // Pobierz teksty nagłówka, autora i logo z system_texts
+      // Pobierz teksty nagłówka, autora, logo i zdjęcie nagłówka z system_texts
       const { data: systemTexts } = await (supabase as any)
         .from('system_texts')
         .select('type, content, text_formatting')
         .eq('is_active', true)
-        .in('type', ['header_text', 'author', 'site_logo']);
+        .in('type', ['header_text', 'author', 'site_logo', 'header_image']);
       
       const headerSystemText = systemTexts?.find((item: any) => item.type === 'header_text');
       const authorSystemText = systemTexts?.find((item: any) => item.type === 'author');
       const logoSystemText = systemTexts?.find((item: any) => item.type === 'site_logo');
+      const headerImageSystemText = systemTexts?.find((item: any) => item.type === 'header_image');
       
       if (headerSystemText?.content) setHeaderText(headerSystemText.content);
       if (authorSystemText?.content) setAuthorText(authorSystemText.content);
       if (logoSystemText?.content) setSiteLogo(logoSystemText.content);
+      if (headerImageSystemText?.content) setHeaderImage(headerImageSystemText.content);
       
       // Pobierz opublikowane strony
       let pagesQuery = supabase
@@ -289,7 +292,14 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
-          <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
+          <img 
+            src={headerImage || niezbednikLogo} 
+            alt="Niezbędnik Pure Life" 
+            className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = niezbednikLogo;
+            }}
+          />
         </div>
         
         {/* Header text with formatting support */}
