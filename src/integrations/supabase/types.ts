@@ -449,6 +449,36 @@ export type Database = {
         }
         Relationships: []
       }
+      system_texts: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          text_formatting: Json | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          text_formatting?: Json | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          text_formatting?: Json | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
