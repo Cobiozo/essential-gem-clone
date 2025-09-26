@@ -270,104 +270,105 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background relative">
-      {/* Top Left Logo */}
-      <div className="fixed top-4 left-4 z-50">
-        <img 
-          src={siteLogo} 
-          alt="Logo" 
-          className="w-8 h-8 sm:w-10 sm:h-10"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = newPureLifeLogo;
-          }}
-        />
-      </div>
-
-      {/* Language & Theme Selector - positioned in top right */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <LanguageSelector />
-        <ThemeSelector />
-      </div>
-      
-      {/* Header */}
-      <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
+    <div className="min-h-screen bg-background">
+      {/* Unified Page Container */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        {/* Top Left Logo */}
+        <div className="absolute top-4 left-4 z-50">
           <img 
-            src={headerImage || niezbednikLogo} 
-            alt="Niezbędnik Pure Life" 
-            className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
+            src={siteLogo} 
+            alt="Logo" 
+            className="w-8 h-8 sm:w-10 sm:h-10"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = niezbednikLogo;
+              (e.target as HTMLImageElement).src = newPureLifeLogo;
             }}
           />
         </div>
-        
-        {/* Header text with formatting support */}
-        {headerText && (
-          <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-            <span dangerouslySetInnerHTML={{ __html: headerText }} />
-          </div>
-        )}
-        
-        {!headerText && (
-          <p className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-            Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
-          </p>
-        )}
-        
-        {/* Author text with formatting support */}
-        {authorText && (
-          <div className="text-xs sm:text-sm text-muted-foreground mb-4">
-            <span dangerouslySetInnerHTML={{ __html: authorText }} />
-          </div>
-        )}
-        
-        {!authorText && (
-          <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-            Pozostałem - Dawid Kowalczyk
-          </p>
-        )}
-        
-        {/* User Controls */}
-        {user && (
-          <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
-            {isAdmin ? (
-              <Link to="/admin">
-                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                  <Settings className="w-3 h-3 mr-1" />
-                  {t('nav.admin')}
-                </Button>
-              </Link>
-             ) : (
-              <Link to="/my-account">
-                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                  <Settings className="w-3 h-3 mr-1" />
-                  {t('nav.myAccount')}
-                </Button>
-              </Link>
-             )}
-            <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
-              <LogOut className="w-3 h-3 mr-1" />
-              {t('nav.logout')}
-            </Button>
-          </div>
-        )}
-        
-        {!user && (
-          <div className="flex justify-center mb-4">
-            <Link to="/auth">
-              <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                <Settings className="w-3 h-3 mr-1" />
-                {t('nav.login')}
-              </Button>
-            </Link>
-          </div>
-        )}
-      </header>
 
-      {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20">
-        <div className="max-w-7xl mx-auto">
+        {/* Language & Theme Selector - positioned in top right */}
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+          <LanguageSelector />
+          <ThemeSelector />
+        </div>
+        
+        {/* Header */}
+        <header className="text-center mb-8 py-6 pt-16">
+          <div className="mb-6">
+            <img 
+              src={headerImage || niezbednikLogo} 
+              alt="Niezbędnik Pure Life" 
+              className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = niezbednikLogo;
+              }}
+            />
+          </div>
+          
+          {/* Header text with formatting support */}
+          {headerText && (
+            <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
+              <span dangerouslySetInnerHTML={{ __html: headerText }} />
+            </div>
+          )}
+          
+          {!headerText && (
+            <p className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
+              Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
+            </p>
+          )}
+          
+          {/* Author text with formatting support */}
+          {authorText && (
+            <div className="text-xs sm:text-sm text-muted-foreground mb-4">
+              <span dangerouslySetInnerHTML={{ __html: authorText }} />
+            </div>
+          )}
+          
+          {!authorText && (
+            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+              Pozostałem - Dawid Kowalczyk
+            </p>
+          )}
+          
+          {/* User Controls */}
+          {user && (
+            <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+              {isAdmin ? (
+                <Link to="/admin">
+                  <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                    <Settings className="w-3 h-3 mr-1" />
+                    {t('nav.admin')}
+                  </Button>
+                </Link>
+               ) : (
+                <Link to="/my-account">
+                  <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                    <Settings className="w-3 h-3 mr-1" />
+                    {t('nav.myAccount')}
+                  </Button>
+                </Link>
+               )}
+              <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
+                <LogOut className="w-3 h-3 mr-1" />
+                {t('nav.logout')}
+              </Button>
+            </div>
+          )}
+          
+          {!user && (
+            <div className="flex justify-center mb-4">
+              <Link to="/auth">
+                <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                  <Settings className="w-3 h-3 mr-1" />
+                  {t('nav.login')}
+                </Button>
+              </Link>
+            </div>
+          )}
+        </header>
+
+        {/* Main Content */}
+        <main>
           <div
             className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
@@ -509,48 +510,71 @@ const Index = () => {
               );
             })}
           </div>
-        </div>
-        
+        </main>
+
+        {/* Published Pages */}
+        {publishedPages.length > 0 && (
+          <div className="mb-8">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t('pages.otherPages')}</h3>
+              <div className="flex flex-wrap justify-center gap-2">
+                {publishedPages.map((page) => (
+                  <Link 
+                    key={page.id} 
+                    to={`/page/${page.slug}`}
+                    className="inline-flex items-center px-3 py-1 rounded-md text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    {page.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer with no content fallback */}
         {sections.length === 0 && (
-          <div className="text-center text-muted-foreground py-8 sm:py-12">
+          <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
             <img 
               src={siteLogo} 
-              alt="Logo" 
-              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
+              alt="Pure Life" 
+              className="w-24 h-24 mb-6 opacity-50"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = newPureLifeLogo;
               }}
             />
-            <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
-            <p className="text-xs sm:text-sm px-4">
-              {user ? (
-                <>
-                  {isAdmin ? (
-                    <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
-                  ) : (
-                    <>Skontaktuj się z administratorem aby dodać treści.</>
-                  )}
-                </>
-              ) : (
-                <>Skontaktuj się z administratorem aby dodać treści.</>
-              )}
+            <h2 className="text-xl font-semibold text-muted-foreground mb-2">
+              {t('cms.noContent')}
+            </h2>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              {t('cms.noContentDescription')}
             </p>
+            {isAdmin && (
+              <Link to="/admin">
+                <Button variant="outline">
+                  <Settings className="w-4 h-4 mr-2" />
+                  {t('cms.goToCMS')}
+                </Button>
+              </Link>
+            )}
           </div>
         )}
-        
-        {/* Footer Logo */}
-        <div className="text-center py-6 sm:py-8">
-          <img 
-            src={siteLogo} 
-            alt="Logo" 
-            className="w-12 h-12 sm:w-16 sm:h-16 mx-auto"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = newPureLifeLogo;
-            }}
-          />
-          <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
-        </div>
-      </main>
+
+        {/* Footer */}
+        <footer className="text-center py-8 border-t border-border bg-card/50 mt-8">
+          <div className="flex flex-col items-center space-y-4">
+            <img 
+              src={siteLogo} 
+              alt="Pure Life" 
+              className="w-12 h-12"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = newPureLifeLogo;
+              }}
+            />
+            <p className="text-sm text-muted-foreground">Pure Life</p>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 };
