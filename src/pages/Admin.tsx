@@ -657,7 +657,7 @@ const Admin = () => {
       // Check if header text item exists
       const { data: existingItem } = await supabase
         .from('cms_items')
-        .select('id')
+        .select('id, section_id')
         .eq('type', 'header_text')
         .is('page_id', null)
         .eq('is_active', true)
@@ -676,6 +676,38 @@ const Admin = () => {
 
         if (error) throw error;
       } else {
+        // Find or create a special section for header texts
+        let { data: headerSection } = await supabase
+          .from('cms_sections')
+          .select('id')
+          .eq('title', 'Teksty nagłówka')
+          .eq('is_active', true)
+          .is('page_id', null)
+          .maybeSingle();
+
+        if (!headerSection) {
+          // Create special section for header texts
+          const { data: newHeaderSection, error: sectionError } = await supabase
+            .from('cms_sections')
+            .insert({
+              title: 'Teksty nagłówka',
+              description: 'Sekcja systemowa dla tekstów nagłówka',
+              position: -1, // Put it before all other sections
+              is_active: true,
+              visible_to_everyone: true,
+              visible_to_partners: false,
+              visible_to_clients: false,
+              visible_to_specjalista: false,
+              visible_to_anonymous: true,
+              page_id: null
+            })
+            .select('id')
+            .single();
+
+          if (sectionError) throw sectionError;
+          headerSection = newHeaderSection;
+        }
+
         // Create new header text item
         const { error } = await supabase
           .from('cms_items')
@@ -684,7 +716,7 @@ const Admin = () => {
             title: 'Tekst nagłówka',
             description: newText,
             text_formatting: headerTextFormatting,
-            section_id: null, // Header text doesn't belong to any section
+            section_id: headerSection.id, // Use the header section
             page_id: null, // Main page
             position: 0,
             is_active: true
