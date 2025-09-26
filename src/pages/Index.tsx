@@ -293,9 +293,9 @@ const Index = () => {
         <ThemeSelector />
       </div>
       
-      {/* Main Content */}
-      <main 
-        className={`w-full ${
+      {/* Main Content Container */}
+      <div 
+        className={`w-full min-h-screen ${
           pageAlignment === 'center' ? 'flex justify-center' : 
           pageAlignment === 'left' ? 'flex justify-start' : 
           'flex justify-end'
@@ -305,7 +305,7 @@ const Index = () => {
           paddingRight: `${pageMargin}px` 
         }}
       >
-        <div className="max-w-4xl">
+        <div className="w-full max-w-4xl">
           {/* Header */}
           <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
             <div className="mb-6">
@@ -381,150 +381,182 @@ const Index = () => {
               </div>
             )}
           </header>
-          <div
-            className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
-            style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
-          >
-            {sections.filter(s => (s as any).parent_id == null).map((section) => {
-              if (section.section_type === 'row') {
-                const rowColumnCount = section.row_column_count || 1;
-                const childSections = sections.filter(s => s.parent_id === section.id)
-                  .sort((a, b) => a.position - b.position);
 
-                // Map children to fixed column slots based on their position (like in editor)
-                const slotSections: (CMSSection | undefined)[] = Array.from({ length: rowColumnCount }, () => undefined);
-                childSections.forEach((child) => {
-                  const pos = typeof child.position === 'number' ? child.position : 0;
-                  if (pos >= 0 && pos < rowColumnCount && !slotSections[pos]) {
-                    slotSections[pos] = child;
-                  } else {
-                    const freeIndex = slotSections.findIndex((s) => !s);
-                    if (freeIndex !== -1) slotSections[freeIndex] = child;
-                  }
+          {/* Sections Content */}
+          <main className="mb-8">
+            <div
+              className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
+              style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
+            >
+              {sections.filter(s => (s as any).parent_id == null).map((section) => {
+                if (section.section_type === 'row') {
+                  const rowColumnCount = section.row_column_count || 1;
+                  const childSections = sections.filter(s => s.parent_id === section.id)
+                    .sort((a, b) => a.position - b.position);
+
+                  // Map children to fixed column slots based on their position (like in editor)
+                  const slotSections: (CMSSection | undefined)[] = Array.from({ length: rowColumnCount }, () => undefined);
+                  childSections.forEach((child) => {
+                    const pos = typeof child.position === 'number' ? child.position : 0;
+                    if (pos >= 0 && pos < rowColumnCount && !slotSections[pos]) {
+                      slotSections[pos] = child;
+                    } else {
+                      const freeIndex = slotSections.findIndex((s) => !s);
+                      if (freeIndex !== -1) slotSections[freeIndex] = child;
+                    }
+                  });
+
+                  const isCustomRow = section.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
+                  
+                  return (
+                    <div key={`row-${section.id}`} className="w-full">
+                      <div
+                        className={isCustomRow ? 'flex flex-row flex-wrap gap-4 w-full' : 'grid gap-4 lg:gap-6 w-full'}
+                        style={isCustomRow ? undefined : { gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}
+                      >
+                        {Array.from({ length: rowColumnCount }, (_, colIndex) => {
+                          const childSection = slotSections[colIndex];
+                          return (
+                            <div
+                              key={`row-${section.id}-col-${colIndex}`}
+                              className={isCustomRow ? 'space-y-4 shrink-0' : 'space-y-4'}
+                              style={
+                                isCustomRow
+                                  ? (isMobile
+                                      ? { width: '100%' }
+                                      : (childSection?.width_type === 'custom' && childSection?.custom_width
+                                          ? { width: `${childSection.custom_width}px` }
+                                          : undefined))
+                                  : undefined
+                              }
+                            >
+                              {childSection && (() => {
+                                const sectionItems = items
+                                  .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
+                                  .sort((a, b) => a.position - b.position);
+                                const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+                                const columnCount = Math.max(1, maxColIndex + 1);
+                                const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({ id: `${childSection.id}-col-${i}`, items: [], width: 100 / columnCount }));
+                                sectionItems.forEach((item) => {
+                                  const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                                  columns[ci].items.push(item);
+                                });
+                                const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(childSection.title);
+                                return (
+                                  <CollapsibleSection 
+                                    key={`section-${childSection.id}-${childSection.title}`}
+                                    title={childSection.title}
+                                    description={childSection.description}
+                                    defaultOpen={childSection.default_expanded || false}
+                                    showShareButton={shouldShowShare}
+                                    sectionStyle={childSection}
+                                  >
+                                    <ColumnLayout
+                                      sectionId={childSection.id}
+                                      columns={columns}
+                                      isEditMode={false}
+                                      onColumnsChange={() => {}}
+                                      onItemClick={handleButtonClick}
+                                      onSelectItem={() => {}}
+                                    />
+                                    {sectionItems.length === 0 && (
+                                      <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                                        {t('common.noContent')}
+                                      </div>
+                                    )}
+                                  </CollapsibleSection>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Zwykłe sekcje (nie-row)
+                const sectionItems = items.filter(item => 
+                  item.section_id === section.id && 
+                  item.type !== 'header_text' && 
+                  item.type !== 'author'
+                ).sort((a, b) => a.position - b.position);
+                // Derive column count from items' column_index to reflect saved layout
+                const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+                const columnCount = Math.max(1, maxColIndex + 1);
+                
+                // Group items by column_index
+                const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
+                  id: `${section.id}-col-${i}`,
+                  items: [],
+                  width: 100 / Math.max(1, columnCount),
+                }));
+                
+                sectionItems.forEach((item) => {
+                  const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                  columns[colIndex].items.push(item);
                 });
-
-                const isCustomRow = section.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
+                
+                const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
                 
                 return (
-                  <div key={`row-${section.id}`} className="w-full">
-                    <div
-                      className={isCustomRow ? 'flex flex-row flex-wrap gap-4 w-full' : 'grid gap-4 lg:gap-6 w-full'}
-                      style={isCustomRow ? undefined : { gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}
-                    >
-                      {Array.from({ length: rowColumnCount }, (_, colIndex) => {
-                        const childSection = slotSections[colIndex];
-                        return (
-                          <div
-                            key={`row-${section.id}-col-${colIndex}`}
-                            className={isCustomRow ? 'space-y-4 shrink-0' : 'space-y-4'}
-                            style={
-                              isCustomRow
-                                ? (isMobile
-                                    ? { width: '100%' }
-                                    : (childSection?.width_type === 'custom' && childSection?.custom_width
-                                        ? { width: `${childSection.custom_width}px` }
-                                        : undefined))
-                                : undefined
-                            }
-                          >
-                            {childSection && (() => {
-                              const sectionItems = items
-                                .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
-                                .sort((a, b) => a.position - b.position);
-                              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
-                              const columnCount = Math.max(1, maxColIndex + 1);
-                              const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({ id: `${childSection.id}-col-${i}`, items: [], width: 100 / columnCount }));
-                              sectionItems.forEach((item) => {
-                                const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                                columns[ci].items.push(item);
-                              });
-                              const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(childSection.title);
-                              return (
-                                <CollapsibleSection 
-                                  key={`section-${childSection.id}-${childSection.title}`}
-                                  title={childSection.title}
-                                  description={childSection.description}
-                                  defaultOpen={childSection.default_expanded || false}
-                                  showShareButton={shouldShowShare}
-                                  sectionStyle={childSection}
-                                >
-                                  <ColumnLayout
-                                    sectionId={childSection.id}
-                                    columns={columns}
-                                    isEditMode={false}
-                                    onColumnsChange={() => {}}
-                                    onItemClick={handleButtonClick}
-                                    onSelectItem={() => {}}
-                                  />
-                                  {sectionItems.length === 0 && (
-                                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                                      {t('common.noContent')}
-                                    </div>
-                                  )}
-                                </CollapsibleSection>
-                              );
-                            })()}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <CollapsibleSection 
+                    key={`section-${section.id}-${section.title}`}
+                    title={section.title}
+                    description={section.description}
+                    defaultOpen={section.default_expanded || false}
+                    showShareButton={shouldShowShare}
+                    sectionStyle={section}
+                  >
+                    <ColumnLayout
+                      sectionId={section.id}
+                      columns={columns}
+                      isEditMode={false}
+                      onColumnsChange={() => {}}
+                      onItemClick={handleButtonClick}
+                      onSelectItem={() => {}}
+                    />
+                    {sectionItems.length === 0 && (
+                      <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                        {t('common.noContent')}
+                      </div>
+                    )}
+                  </CollapsibleSection>
                 );
-              }
-              
-              // Zwykłe sekcje (nie-row)
-              const sectionItems = items.filter(item => 
-                item.section_id === section.id && 
-                item.type !== 'header_text' && 
-                item.type !== 'author'
-              ).sort((a, b) => a.position - b.position);
-              // Derive column count from items' column_index to reflect saved layout
-              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
-              const columnCount = Math.max(1, maxColIndex + 1);
-              
-              // Group items by column_index
-              const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
-                id: `${section.id}-col-${i}`,
-                items: [],
-                width: 100 / Math.max(1, columnCount),
-              }));
-              
-              sectionItems.forEach((item) => {
-                const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                columns[colIndex].items.push(item);
-              });
-              
-              const shouldShowShare = ['Strefa współpracy', 'Klient', 'Social Media', 'Materiały - social media', 'Aplikacje', 'Materiały na zamówienie'].includes(section.title);
-              
-              return (
-                <CollapsibleSection 
-                  key={`section-${section.id}-${section.title}`}
-                  title={section.title}
-                  description={section.description}
-                  defaultOpen={section.default_expanded || false}
-                  showShareButton={shouldShowShare}
-                  sectionStyle={section}
-                >
-                  <ColumnLayout
-                    sectionId={section.id}
-                    columns={columns}
-                    isEditMode={false}
-                    onColumnsChange={() => {}}
-                    onItemClick={handleButtonClick}
-                    onSelectItem={() => {}}
-                  />
-                  {sectionItems.length === 0 && (
-                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                      {t('common.noContent')}
-                    </div>
-                  )}
-                </CollapsibleSection>
-              );
-            })}
-          </div>
-          
-          {/* Footer Logo */}
-          <div className="text-center py-6 sm:py-8">
+              })}
+            </div>
+          </main>
+
+          {/* No content fallback */}
+          {sections.length === 0 && (
+            <div className="text-center text-muted-foreground py-8 sm:py-12">
+              <img 
+                src={siteLogo} 
+                alt="Logo" 
+                className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = newPureLifeLogo;
+                }}
+              />
+              <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
+              <p className="text-xs sm:text-sm px-4">
+                {user ? (
+                  <>
+                    {isAdmin ? (
+                      <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
+                    ) : (
+                      <>Skontaktuj się z administratorem aby dodać treści.</>
+                    )}
+                  </>
+                ) : (
+                  <>Skontaktuj się z administratorem aby dodać treści.</>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Footer Logo - properly positioned within content flow */}
+          <footer className="text-center py-6 sm:py-8 mt-8">
             <img 
               src={siteLogo} 
               alt="Logo" 
@@ -534,36 +566,9 @@ const Index = () => {
               }}
             />
             <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
-          </div>
+          </footer>
         </div>
-        
-        {sections.length === 0 && (
-          <div className="text-center text-muted-foreground py-8 sm:py-12">
-            <img 
-              src={siteLogo} 
-              alt="Logo" 
-              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = newPureLifeLogo;
-              }}
-            />
-            <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
-            <p className="text-xs sm:text-sm px-4">
-              {user ? (
-                <>
-                  {isAdmin ? (
-                    <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
-                  ) : (
-                    <>Skontaktuj się z administratorem aby dodać treści.</>
-                  )}
-                </>
-              ) : (
-                <>Skontaktuj się z administratorem aby dodać treści.</>
-              )}
-            </p>
-          </div>
-        )}
-      </main>
+      </div>
     </div>
   );
 };
