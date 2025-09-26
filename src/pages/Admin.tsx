@@ -239,6 +239,11 @@ const Admin = () => {
   const [headerTextFormatting, setHeaderTextFormatting] = useState<any>(null);
   const [headerTextLoading, setHeaderTextLoading] = useState(false);
   
+  // Author text management state
+  const [authorText, setAuthorText] = useState<string>('');
+  const [authorTextFormatting, setAuthorTextFormatting] = useState<any>(null);
+  const [authorTextLoading, setAuthorTextLoading] = useState(false);
+  
   // Password change state
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -752,6 +757,133 @@ const Admin = () => {
     }
   };
 
+  // Author text management functions
+  const fetchAuthorText = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cms_items')
+        .select('description, text_formatting')
+        .eq('type', 'author')
+        .is('page_id', null)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching author text:', error);
+        return;
+      }
+      
+      if (data) {
+        setAuthorText(data.description || '');
+        setAuthorTextFormatting(data.text_formatting || null);
+      } else {
+        // If no author text exists, set the default text from Index.tsx
+        const defaultAuthorText = 'Pozostałem - Dawid Kowalczyk';
+        setAuthorText(defaultAuthorText);
+        setAuthorTextFormatting(null);
+      }
+    } catch (error) {
+      console.error('Error fetching author text:', error);
+      // Set default text even on error
+      const defaultAuthorText = 'Pozostałem - Dawid Kowalczyk';
+      setAuthorText(defaultAuthorText);
+      setAuthorTextFormatting(null);
+    }
+  };
+
+  const updateAuthorText = async (newText: string) => {
+    try {
+      setAuthorTextLoading(true);
+      
+      // Check if author text item exists
+      const { data: existingItem } = await supabase
+        .from('cms_items')
+        .select('id, section_id')
+        .eq('type', 'author')
+        .is('page_id', null)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingItem) {
+        // Update existing item
+        const { error } = await supabase
+          .from('cms_items')
+          .update({ 
+            description: newText,
+            text_formatting: authorTextFormatting,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingItem.id);
+
+        if (error) throw error;
+      } else {
+        // Find or create a special section for header texts
+        let { data: headerSection } = await supabase
+          .from('cms_sections')
+          .select('id')
+          .eq('title', 'Teksty nagłówka')
+          .eq('is_active', true)
+          .is('page_id', null)
+          .maybeSingle();
+
+        if (!headerSection) {
+          // Create special section for header texts
+          const { data: newHeaderSection, error: sectionError } = await supabase
+            .from('cms_sections')
+            .insert({
+              title: 'Teksty nagłówka',
+              description: 'Sekcja systemowa dla tekstów nagłówka',
+              position: -1, // Put it before all other sections
+              is_active: true,
+              visible_to_everyone: true,
+              visible_to_partners: false,
+              visible_to_clients: false,
+              visible_to_specjalista: false,
+              visible_to_anonymous: true,
+              page_id: null
+            })
+            .select('id')
+            .single();
+
+          if (sectionError) throw sectionError;
+          headerSection = newHeaderSection;
+        }
+
+        // Create new author text item
+        const { error } = await supabase
+          .from('cms_items')
+          .insert({
+            type: 'author',
+            title: 'Tekst autora',
+            description: newText,
+            text_formatting: authorTextFormatting,
+            section_id: headerSection.id, // Use the header section
+            page_id: null, // Main page
+            position: 1, // Position after header text
+            is_active: true
+          });
+
+        if (error) throw error;
+      }
+
+      setAuthorText(newText);
+      
+      toast({
+        title: "Sukces",
+        description: "Tekst autora został zaktualizowany",
+      });
+    } catch (error: any) {
+      console.error('Error updating author text:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zaktualizować tekstu autora",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthorTextLoading(false);
+    }
+  };
+
   // Sort users function
   const sortedUsers = [...users].sort((a, b) => {
     let aValue: any = a[userSortBy];
@@ -931,6 +1063,7 @@ const Admin = () => {
   useEffect(() => {
     if (activeTab === 'content' && isAdmin) {
       fetchHeaderText();
+      fetchAuthorText();
     }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
@@ -944,6 +1077,7 @@ const Admin = () => {
   useEffect(() => {
     if (isAdmin && activeTab === 'content') {
       fetchHeaderText();
+      fetchAuthorText();
     }
   }, [isAdmin]);
 
@@ -1956,6 +2090,47 @@ const Admin = () => {
                     >
                       <Save className="w-4 h-4" />
                       {headerTextLoading ? 'Zapisywanie...' : 'Zapisz tekst nagłówka'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Author Text Editor */}
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Type className="w-5 h-5" />
+                    Edytor tekstu autora
+                  </CardTitle>
+                  <CardDescription>
+                    Edytuj tekst autora wyświetlany pod nagłówkiem strony głównej
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="author-text-editor" className="text-sm font-medium">
+                      Tekst autora
+                    </Label>
+                    <div className="mt-2">
+                      <RichTextEditor
+                        value={authorText}
+                        onChange={setAuthorText}
+                        placeholder="Wpisz tekst autora..."
+                        rows={2}
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => updateAuthorText(authorText)}
+                      disabled={authorTextLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {authorTextLoading ? 'Zapisywanie...' : 'Zapisz tekst autora'}
                     </Button>
                   </div>
                 </CardContent>
