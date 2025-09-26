@@ -381,7 +381,7 @@ const Index = () => {
            paddingRight: `${pageMargin}px` 
          }}
        >
-         <div className="w-full max-w-none">
+         <div className="max-w-4xl">
           <div
             className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
