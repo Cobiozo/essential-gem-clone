@@ -35,6 +35,8 @@ interface LayoutControlsProps {
   onAlignElement?: (alignment: 'left' | 'center' | 'right' | 'justify') => void;
   onSizeElement?: (sizeType: 'fit' | 'full') => void;
   className?: string;
+  sections?: any[];
+  items?: any[];
 }
 
 export const LayoutControls: React.FC<LayoutControlsProps> = ({
@@ -51,8 +53,28 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
   onAlignElement,
   onSizeElement,
   className,
+  sections = [],
+  items = [],
 }) => {
   if (!isVisible) return null;
+
+  // Get selected element title
+  const getSelectedElementDisplay = () => {
+    if (!selectedElement) return null;
+    
+    const section = sections.find(s => s.id === selectedElement);
+    const item = items.find(i => i.id === selectedElement);
+    
+    if (section) {
+      return section.title || selectedElement;
+    }
+    
+    if (item) {
+      return item.title || selectedElement;
+    }
+    
+    return selectedElement;
+  };
 
   return (
     <div className={cn(
@@ -147,7 +169,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
         <>
           <div className="flex items-center gap-1">
             <Badge variant="secondary" className="text-xs">
-              Selected: {selectedElement}
+              Selected: {getSelectedElementDisplay()}
             </Badge>
             
             <Button

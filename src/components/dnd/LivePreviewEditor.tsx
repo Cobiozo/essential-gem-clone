@@ -1374,6 +1374,8 @@ export const LivePreviewEditor: React.FC = () => {
         onElementSettings={handleElementSettings}
         onAlignElement={handleAlignElement}
         onSizeElement={handleSizeElement}
+        sections={sections}
+        items={items}
       />
 
       <div className={`space-y-6 ${editMode ? 'pb-32' : ''}`}>
