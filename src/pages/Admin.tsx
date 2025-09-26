@@ -234,6 +234,11 @@ const Admin = () => {
   const [newItemTextStyle, setNewItemTextStyle] = useState<any>(null);
   const [newItemTitleStyle, setNewItemTitleStyle] = useState<any>(null);
   
+  // Header text management state
+  const [headerText, setHeaderText] = useState<string>('');
+  const [headerTextFormatting, setHeaderTextFormatting] = useState<any>(null);
+  const [headerTextLoading, setHeaderTextLoading] = useState(false);
+  
   // Password change state
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -620,6 +625,92 @@ const Admin = () => {
     }
   };
 
+  // Header text management functions
+  const fetchHeaderText = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cms_items')
+        .select('description, text_formatting')
+        .eq('type', 'header_text')
+        .is('page_id', null)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data) {
+        setHeaderText(data.description || '');
+        setHeaderTextFormatting(data.text_formatting || null);
+      } else {
+        setHeaderText('');
+        setHeaderTextFormatting(null);
+      }
+    } catch (error) {
+      console.error('Error fetching header text:', error);
+    }
+  };
+
+  const updateHeaderText = async (newText: string) => {
+    try {
+      setHeaderTextLoading(true);
+      
+      // Check if header text item exists
+      const { data: existingItem } = await supabase
+        .from('cms_items')
+        .select('id')
+        .eq('type', 'header_text')
+        .is('page_id', null)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingItem) {
+        // Update existing item
+        const { error } = await supabase
+          .from('cms_items')
+          .update({ 
+            description: newText,
+            text_formatting: headerTextFormatting,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingItem.id);
+
+        if (error) throw error;
+      } else {
+        // Create new header text item
+        const { error } = await supabase
+          .from('cms_items')
+          .insert({
+            type: 'header_text',
+            title: 'Tekst nagłówka',
+            description: newText,
+            text_formatting: headerTextFormatting,
+            section_id: null, // Header text doesn't belong to any section
+            page_id: null, // Main page
+            position: 0,
+            is_active: true
+          });
+
+        if (error) throw error;
+      }
+
+      setHeaderText(newText);
+      
+      toast({
+        title: "Sukces",
+        description: "Tekst nagłówka został zaktualizowany",
+      });
+    } catch (error: any) {
+      console.error('Error updating header text:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zaktualizować tekstu nagłówka",
+        variant: "destructive",
+      });
+    } finally {
+      setHeaderTextLoading(false);
+    }
+  };
+
   // Sort users function
   const sortedUsers = [...users].sort((a, b) => {
     let aValue: any = a[userSortBy];
@@ -797,6 +888,9 @@ const Admin = () => {
 
   // Load users when switching to users tab
   useEffect(() => {
+    if (activeTab === 'content' && isAdmin) {
+      fetchHeaderText();
+    }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
     }
@@ -1779,6 +1873,47 @@ const Admin = () => {
           </TabsList>
 
           <TabsContent value="content">
+            {/* Header Text Editor */}
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Type className="w-5 h-5" />
+                    Edytor tekstu nagłówka
+                  </CardTitle>
+                  <CardDescription>
+                    Edytuj tekst wyświetlany w nagłówku strony głównej
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="header-text-editor" className="text-sm font-medium">
+                      Tekst nagłówka strony głównej
+                    </Label>
+                    <div className="mt-2">
+                      <RichTextEditor
+                        value={headerText}
+                        onChange={setHeaderText}
+                        placeholder="Wpisz tekst nagłówka strony głównej..."
+                        rows={4}
+                        className="min-h-[120px]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => updateHeaderText(headerText)}
+                      disabled={headerTextLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {headerTextLoading ? 'Zapisywanie...' : 'Zapisz tekst nagłówka'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
             {/* Section Management */}
             <div className="mb-6 sm:mb-8">
           <div className="flex flex-col gap-4 mb-4">
