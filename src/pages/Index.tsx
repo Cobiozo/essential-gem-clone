@@ -120,9 +120,11 @@ const Index = () => {
   const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
   const [headerImage, setHeaderImage] = React.useState<string>(niezbednikLogo);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
-  const [sectionColumnCount, setSectionColumnCount] = React.useState<number>(1);
+   const [loading, setLoading] = React.useState(true);
+   const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
+   const [sectionColumnCount, setSectionColumnCount] = React.useState<number>(1);
+   const [pageMargin, setPageMargin] = React.useState<number>(16);
+   const [pageAlignment, setPageAlignment] = React.useState<string>('center');
   
   // Enable security preventions
   useSecurityPreventions();
@@ -188,16 +190,18 @@ const Index = () => {
       setSections(convertSupabaseSections(sectionsData || []));
       setItems(itemsData || []);
 
-      // Pobierz ustawienia układu strony głównej (sekcje w gridzie)
-      const { data: settings } = await supabase
-        .from('page_settings')
-        .select('layout_mode, column_count')
-        .eq('page_type', 'homepage')
-        .maybeSingle();
-      if (settings) {
-        setSectionLayoutMode((settings.layout_mode as any) || 'single');
-        setSectionColumnCount(settings.column_count || 1);
-      }
+       // Pobierz ustawienia układu strony głównej (sekcje w gridzie)
+       const { data: settings } = await supabase
+         .from('page_settings')
+         .select('layout_mode, column_count, page_margin, page_alignment')
+         .eq('page_type', 'homepage')
+         .maybeSingle();
+       if (settings) {
+         setSectionLayoutMode((settings.layout_mode as any) || 'single');
+         setSectionColumnCount(settings.column_count || 1);
+         setPageMargin(settings.page_margin || 16);
+         setPageAlignment(settings.page_alignment || 'center');
+       }
       
       // Pobierz teksty nagłówka, autora, logo i zdjęcie nagłówka z system_texts
       const { data: systemTexts } = await (supabase as any)
@@ -365,9 +369,21 @@ const Index = () => {
         )}
       </header>
 
-      {/* Main Content */}
-      <main className="px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
+       {/* Main Content */}
+       <main 
+         style={{ 
+           paddingLeft: `${pageMargin}px`, 
+           paddingRight: `${pageMargin}px` 
+         }}
+         className="px-0 sm:px-0 lg:px-0"
+       >
+         <div 
+           className={`max-w-4xl ${
+             pageAlignment === 'center' ? 'mx-auto' : 
+             pageAlignment === 'left' ? 'mr-auto ml-0' : 
+             'ml-auto mr-0'
+           }`}
+         >
           <div
             className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}

@@ -329,6 +329,8 @@ export type Database = {
           created_at: string
           id: string
           layout_mode: string
+          page_alignment: string | null
+          page_margin: number | null
           page_type: string
           updated_at: string
         }
@@ -337,6 +339,8 @@ export type Database = {
           created_at?: string
           id?: string
           layout_mode?: string
+          page_alignment?: string | null
+          page_margin?: number | null
           page_type?: string
           updated_at?: string
         }
@@ -345,6 +349,8 @@ export type Database = {
           created_at?: string
           id?: string
           layout_mode?: string
+          page_alignment?: string | null
+          page_margin?: number | null
           page_type?: string
           updated_at?: string
         }
