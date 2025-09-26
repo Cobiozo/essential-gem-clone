@@ -645,12 +645,17 @@ const Admin = () => {
         setHeaderText(data.description || '');
         setHeaderTextFormatting(data.text_formatting || null);
       } else {
-        // If no header text exists, set empty values
-        setHeaderText('');
+        // If no header text exists, set the default text from Index.tsx
+        const defaultHeaderText = 'Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.';
+        setHeaderText(defaultHeaderText);
         setHeaderTextFormatting(null);
       }
     } catch (error) {
       console.error('Error fetching header text:', error);
+      // Set default text even on error
+      const defaultHeaderText = 'Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.';
+      setHeaderText(defaultHeaderText);
+      setHeaderTextFormatting(null);
     }
   };
 
