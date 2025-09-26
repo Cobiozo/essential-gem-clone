@@ -196,12 +196,18 @@ const Index = () => {
         setSectionColumnCount(settings.column_count || 1);
       }
       
-      // Pobierz teksty nagłówka
-      const headerItem = itemsData?.find(item => item.type === 'header_text');
-      const authorItem = itemsData?.find(item => item.type === 'author');
+      // Pobierz teksty nagłówka i autora z system_texts
+      const { data: systemTexts } = await (supabase as any)
+        .from('system_texts')
+        .select('type, content, text_formatting')
+        .eq('is_active', true)
+        .in('type', ['header_text', 'author_text']);
       
-      if (headerItem?.description) setHeaderText(headerItem.description);
-      if (authorItem?.description) setAuthorText(authorItem.description);
+      const headerSystemText = systemTexts?.find((item: any) => item.type === 'header_text');
+      const authorSystemText = systemTexts?.find((item: any) => item.type === 'author_text');
+      
+      if (headerSystemText?.content) setHeaderText(headerSystemText.content);
+      if (authorSystemText?.content) setAuthorText(authorSystemText.content);
       
       // Pobierz opublikowane strony
       let pagesQuery = supabase
@@ -273,29 +279,7 @@ const Index = () => {
         {/* Header text with formatting support */}
         {headerText && (
           <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-            {(() => {
-              const headerItem = items.find(item => item.type === 'header_text');
-              if (headerItem?.text_formatting) {
-                return (
-                  <div
-                    style={{
-                      fontSize: `${headerItem.text_formatting.fontSize || 16}px`,
-                      fontWeight: headerItem.text_formatting.fontWeight || '400',
-                      fontStyle: headerItem.text_formatting.fontStyle || 'normal',
-                      textDecoration: headerItem.text_formatting.textDecoration || 'none',
-                      textAlign: headerItem.text_formatting.textAlign || 'center',
-                      color: headerItem.text_formatting.color || '#666666',
-                      backgroundColor: headerItem.text_formatting.backgroundColor === 'transparent' ? undefined : headerItem.text_formatting.backgroundColor,
-                      lineHeight: headerItem.text_formatting.lineHeight || 1.5,
-                      letterSpacing: `${headerItem.text_formatting.letterSpacing || 0}px`,
-                      fontFamily: headerItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
-                    }}
-                    dangerouslySetInnerHTML={{ __html: headerText }}
-                  />
-                );
-              }
-              return <span dangerouslySetInnerHTML={{ __html: headerText }} />;
-            })()}
+            <span dangerouslySetInnerHTML={{ __html: headerText }} />
           </div>
         )}
         
@@ -308,29 +292,7 @@ const Index = () => {
         {/* Author text with formatting support */}
         {authorText && (
           <div className="text-xs sm:text-sm text-muted-foreground mb-4">
-            {(() => {
-              const authorItem = items.find(item => item.type === 'author');
-              if (authorItem?.text_formatting) {
-                return (
-                  <div
-                    style={{
-                      fontSize: `${authorItem.text_formatting.fontSize || 14}px`,
-                      fontWeight: authorItem.text_formatting.fontWeight || '400',
-                      fontStyle: authorItem.text_formatting.fontStyle || 'normal',
-                      textDecoration: authorItem.text_formatting.textDecoration || 'none',
-                      textAlign: authorItem.text_formatting.textAlign || 'center',
-                      color: authorItem.text_formatting.color || '#666666',
-                      backgroundColor: authorItem.text_formatting.backgroundColor === 'transparent' ? undefined : authorItem.text_formatting.backgroundColor,
-                      lineHeight: authorItem.text_formatting.lineHeight || 1.5,
-                      letterSpacing: `${authorItem.text_formatting.letterSpacing || 0}px`,
-                      fontFamily: authorItem.text_formatting.fontFamily || 'system-ui, -apple-system, sans-serif',
-                    }}
-                    dangerouslySetInnerHTML={{ __html: authorText }}
-                  />
-                );
-              }
-              return <span dangerouslySetInnerHTML={{ __html: authorText }} />;
-            })()}
+            <span dangerouslySetInnerHTML={{ __html: authorText }} />
           </div>
         )}
         
