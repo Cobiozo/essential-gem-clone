@@ -267,6 +267,18 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
+      {/* Top Left Logo */}
+      <div className="fixed top-4 left-4 z-50">
+        <img 
+          src={siteLogo} 
+          alt="Logo" 
+          className="w-8 h-8 sm:w-10 sm:h-10"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = newPureLifeLogo;
+          }}
+        />
+      </div>
+
       {/* Language & Theme Selector - positioned in top right */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <LanguageSelector />
@@ -276,14 +288,7 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
-          <img 
-            src={siteLogo} 
-            alt="Logo" 
-            className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = newPureLifeLogo;
-            }}
-          />
+          <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
         </div>
         
         {/* Header text with formatting support */}
