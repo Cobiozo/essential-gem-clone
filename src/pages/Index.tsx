@@ -271,27 +271,27 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Top Left Logo */}
-      <div className="fixed top-4 left-4 z-50">
-        <img 
-          src={siteLogo} 
-          alt="Logo" 
-          className="w-8 h-8 sm:w-10 sm:h-10"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = newPureLifeLogo;
-          }}
-        />
-      </div>
-
-      {/* Language & Theme Selector - positioned in top right */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <LanguageSelector />
-        <ThemeSelector />
-      </div>
-      
-      {/* Main Content Container */}
+      {/* Main Content Container with unified centering */}
       <div className="w-full min-h-screen flex justify-center px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-5xl">
+        <div className="w-full max-w-4xl mx-auto relative">
+          
+          {/* Top Left Logo - positioned within main container */}
+          <div className="absolute top-4 left-0 z-50">
+            <img 
+              src={siteLogo} 
+              alt="Logo" 
+              className="w-8 h-8 sm:w-10 sm:h-10"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = newPureLifeLogo;
+              }}
+            />
+          </div>
+
+          {/* Language & Theme Selector - positioned within main container */}
+          <div className="absolute top-4 right-0 z-50 flex items-center gap-2">
+            <LanguageSelector />
+            <ThemeSelector />
+          </div>
           {/* Header */}
           <header className="text-center mb-8 py-6">
             <div className="mb-6">

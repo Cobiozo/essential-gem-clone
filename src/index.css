@@ -141,4 +141,17 @@ All colors MUST be HSL.
     height: auto;
     display: block;
   }
+
+  /* Temporary debugging outlines - remove after testing */
+  .debug-container {
+    outline: 2px solid red !important;
+  }
+  
+  .debug-section {
+    outline: 1px solid blue !important;
+  }
+  
+  .debug-content {
+    outline: 1px dotted green !important;
+  }
 }
