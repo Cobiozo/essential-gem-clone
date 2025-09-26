@@ -367,7 +367,7 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="px-4 sm:px-6 lg:px-8">
-        <div className="w-fit mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div
             className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
