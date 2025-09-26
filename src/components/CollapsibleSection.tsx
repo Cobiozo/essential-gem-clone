@@ -154,13 +154,13 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     width: isMobile
       ? '100%'
       : (sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%'),
-    height: sectionStyle.height_type === 'custom' ? `${sectionStyle.custom_height}px` : 'auto',
+    height: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
     maxWidth: `${sectionStyle.max_width || 1200}px`,
     marginTop: `${sectionStyle.section_margin_top || 16}px`,
     marginBottom: `${sectionStyle.section_margin_bottom || 16}px`,
     marginLeft: 'auto',
     marginRight: 'auto',
-    overflow: 'hidden', // Ensure rounded corners clip backgrounds and overlays
+    overflow: isOpen ? 'visible' : 'hidden', // Allow content to expand when open
     position: 'relative' as const,
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
