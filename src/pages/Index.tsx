@@ -291,9 +291,9 @@ const Index = () => {
       
       {/* Main Content Container */}
       <div className="w-full min-h-screen flex justify-center px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-4xl">
+        <div className="w-full max-w-5xl">
           {/* Header */}
-          <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
+          <header className="text-center mb-8 py-6">
             <div className="mb-6">
               <img 
                 src={headerImage || niezbednikLogo} 
