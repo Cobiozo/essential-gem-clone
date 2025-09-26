@@ -117,6 +117,7 @@ const Index = () => {
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [headerText, setHeaderText] = React.useState<string>('');
   const [authorText, setAuthorText] = React.useState<string>('');
+  const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [sectionLayoutMode, setSectionLayoutMode] = React.useState<'single' | 'columns' | 'grid'>('single');
@@ -196,18 +197,20 @@ const Index = () => {
         setSectionColumnCount(settings.column_count || 1);
       }
       
-      // Pobierz teksty nagłówka i autora z system_texts
+      // Pobierz teksty nagłówka, autora i logo z system_texts
       const { data: systemTexts } = await (supabase as any)
         .from('system_texts')
         .select('type, content, text_formatting')
         .eq('is_active', true)
-        .in('type', ['header_text', 'author']);
+        .in('type', ['header_text', 'author', 'site_logo']);
       
       const headerSystemText = systemTexts?.find((item: any) => item.type === 'header_text');
       const authorSystemText = systemTexts?.find((item: any) => item.type === 'author');
+      const logoSystemText = systemTexts?.find((item: any) => item.type === 'site_logo');
       
       if (headerSystemText?.content) setHeaderText(headerSystemText.content);
       if (authorSystemText?.content) setAuthorText(authorSystemText.content);
+      if (logoSystemText?.content) setSiteLogo(logoSystemText.content);
       
       // Pobierz opublikowane strony
       let pagesQuery = supabase
@@ -255,7 +258,7 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+          <img src={siteLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
           <p className="text-muted-foreground">{t('common.loading')}</p>
         </div>
       </div>
@@ -273,7 +276,14 @@ const Index = () => {
       {/* Header */}
       <header className="text-center mb-8 px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
-          <img src={niezbednikLogo} alt="Niezbędnik Pure Life" className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto" />
+          <img 
+            src={siteLogo} 
+            alt="Logo" 
+            className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = newPureLifeLogo;
+            }}
+          />
         </div>
         
         {/* Header text with formatting support */}
@@ -487,7 +497,14 @@ const Index = () => {
         
         {sections.length === 0 && (
           <div className="text-center text-muted-foreground py-8 sm:py-12">
-            <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50" />
+            <img 
+              src={siteLogo} 
+              alt="Logo" 
+              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = newPureLifeLogo;
+              }}
+            />
             <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
             <p className="text-xs sm:text-sm px-4">
               {user ? (
@@ -507,7 +524,14 @@ const Index = () => {
         
         {/* Footer Logo */}
         <div className="text-center py-6 sm:py-8">
-          <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto" />
+          <img 
+            src={siteLogo} 
+            alt="Logo" 
+            className="w-12 h-12 sm:w-16 sm:h-16 mx-auto"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = newPureLifeLogo;
+            }}
+          />
           <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
         </div>
       </main>

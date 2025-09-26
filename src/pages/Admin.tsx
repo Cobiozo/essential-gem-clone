@@ -244,6 +244,12 @@ const Admin = () => {
   const [authorTextFormatting, setAuthorTextFormatting] = useState<any>(null);
   const [authorTextLoading, setAuthorTextLoading] = useState(false);
   
+  // Logo management state
+  const [siteLogo, setSiteLogo] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logoUploadLoading, setLogoUploadLoading] = useState(false);
+  
   // Password change state
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -808,6 +814,145 @@ const Admin = () => {
     }
   };
 
+  // Logo management functions
+  const loadSiteLogo = async () => {
+    try {
+      const { data: logoData } = await (supabase as any)
+        .from('system_texts')
+        .select('content')
+        .eq('type', 'site_logo')
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (logoData?.content) {
+        setSiteLogo(logoData.content);
+      } else {
+        // Set default logo if none found
+        setSiteLogo(newPureLifeLogo);
+      }
+    } catch (error) {
+      console.error('Error fetching site logo:', error);
+      setSiteLogo(newPureLifeLogo);
+    }
+  };
+
+  const updateSiteLogo = async (logoUrl: string) => {
+    try {
+      setLogoLoading(true);
+      
+      // Check if logo setting exists
+      const { data: existingLogo } = await (supabase as any)
+        .from('system_texts')
+        .select('id')
+        .eq('type', 'site_logo')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingLogo) {
+        // Update existing logo
+        const { error } = await (supabase as any)
+          .from('system_texts')
+          .update({ 
+            content: logoUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingLogo.id);
+
+        if (error) throw error;
+      } else {
+        // Create new logo setting
+        const { error } = await (supabase as any)
+          .from('system_texts')
+          .insert({
+            type: 'site_logo',
+            content: logoUrl,
+            is_active: true
+          });
+
+        if (error) throw error;
+      }
+
+      setSiteLogo(logoUrl);
+      setLogoUrl('');
+      
+      toast({
+        title: "Sukces",
+        description: "Logo zostało zaktualizowane",
+      });
+    } catch (error: any) {
+      console.error('Error updating site logo:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zaktualizować logo",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    try {
+      setLogoUploadLoading(true);
+
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cms-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('cms-images')
+        .getPublicUrl(fileName);
+
+      // Update logo in database
+      await updateSiteLogo(publicUrl);
+      
+    } catch (error: any) {
+      console.error('Error uploading logo:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się przesłać logo",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoUploadLoading(false);
+    }
+  };
+
+  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Błąd",
+          description: "Obsługiwane formaty: JPG, PNG, GIF, WEBP",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Błąd",
+          description: "Rozmiar pliku nie może przekraczać 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      handleLogoUpload(file);
+    }
+  };
+
   // Sort users function
   const sortedUsers = [...users].sort((a, b) => {
     let aValue: any = a[userSortBy];
@@ -988,6 +1133,9 @@ const Admin = () => {
     if (activeTab === 'content' && isAdmin) {
       fetchHeaderText();
       fetchAuthorText();
+    }
+    if (activeTab === 'settings' && isAdmin) {
+      loadSiteLogo();
     }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
@@ -1876,7 +2024,7 @@ const Admin = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
+          <img src={siteLogo || newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
           <p className="text-muted-foreground">{t('common.loading')}...</p>
         </div>
       </div>
@@ -1892,7 +2040,7 @@ const Admin = () => {
           <div className="flex flex-col gap-4 sm:hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <img src={newPureLifeLogo} alt="Pure Life" className="w-6 h-6" />
+                <img src={siteLogo || newPureLifeLogo} alt="Pure Life" className="w-6 h-6" />
                 <h1 className="text-lg font-bold text-foreground">{t('admin.title')}</h1>
               </div>
               <div className="flex items-center gap-2">
@@ -1918,7 +2066,7 @@ const Admin = () => {
           {/* Desktop layout - horizontal */}
           <div className="hidden sm:flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <img src={newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
+              <img src={siteLogo || newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
               <h1 className="text-2xl font-bold text-foreground">{t('admin.title')}</h1>
             </div>
             <div className="flex items-center gap-4">
@@ -2443,6 +2591,94 @@ const Admin = () => {
                       {authorTextLoading ? 'Zapisywanie...' : 'Zapisz tekst autora'}
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Logo Management */}
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <img src={siteLogo || newPureLifeLogo} alt="Logo" className="w-5 h-5" />
+                    Logo strony
+                  </CardTitle>
+                  <CardDescription>
+                    Zarządzaj logo wyświetlanym w aplikacji
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Current Logo Display */}
+                  <div>
+                    <Label className="text-sm font-medium">Aktualny logo</Label>
+                    <div className="mt-2 p-4 border border-border rounded-lg bg-muted/50 flex items-center justify-center">
+                      <img 
+                        src={siteLogo || newPureLifeLogo} 
+                        alt="Current Logo" 
+                        className="max-w-[200px] max-h-[100px] object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = newPureLifeLogo;
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Upload from Device */}
+                  <div>
+                    <Label className="text-sm font-medium">Prześlij z urządzenia</Label>
+                    <div className="mt-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoFileChange}
+                        disabled={logoUploadLoading}
+                        className="block w-full text-sm text-muted-foreground
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-md file:border-0
+                          file:text-sm file:font-medium
+                          file:bg-primary file:text-primary-foreground
+                          hover:file:bg-primary/90
+                          file:disabled:opacity-50 file:disabled:cursor-not-allowed"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Obsługiwane formaty: JPG, PNG, GIF, WEBP (max 5MB)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* URL Input */}
+                  <div>
+                    <Label htmlFor="logo-url" className="text-sm font-medium">
+                      Lub podaj adres URL
+                    </Label>
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        id="logo-url"
+                        type="url"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        placeholder="https://example.com/logo.png"
+                        disabled={logoLoading}
+                      />
+                      <Button
+                        onClick={() => updateSiteLogo(logoUrl)}
+                        disabled={logoLoading || !logoUrl.trim()}
+                        className="flex items-center gap-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        {logoLoading ? 'Zapisywanie...' : 'Ustaw'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Loading State */}
+                  {(logoUploadLoading || logoLoading) && (
+                    <div className="text-center text-sm text-muted-foreground">
+                      <div className="animate-pulse">
+                        {logoUploadLoading ? 'Przesyłanie logo...' : 'Zapisywanie...'}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
