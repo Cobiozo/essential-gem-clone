@@ -636,12 +636,16 @@ const Admin = () => {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching header text:', error);
+        return;
+      }
       
       if (data) {
         setHeaderText(data.description || '');
         setHeaderTextFormatting(data.text_formatting || null);
       } else {
+        // If no header text exists, set empty values
         setHeaderText('');
         setHeaderTextFormatting(null);
       }
@@ -930,6 +934,13 @@ const Admin = () => {
       fetchPages();
     }
   }, [activeTab, isAdmin]);
+
+  // Also fetch header text on component mount if we're on content tab
+  useEffect(() => {
+    if (isAdmin && activeTab === 'content') {
+      fetchHeaderText();
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user) {
