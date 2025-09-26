@@ -371,19 +371,17 @@ const Index = () => {
 
        {/* Main Content */}
        <main 
+         className={`w-full ${
+           pageAlignment === 'center' ? 'flex justify-center' : 
+           pageAlignment === 'left' ? 'flex justify-start' : 
+           'flex justify-end'
+         }`}
          style={{ 
            paddingLeft: `${pageMargin}px`, 
            paddingRight: `${pageMargin}px` 
          }}
-         className="px-0 sm:px-0 lg:px-0"
        >
-         <div 
-           className={`max-w-4xl ${
-             pageAlignment === 'center' ? 'mx-auto' : 
-             pageAlignment === 'left' ? 'mr-auto ml-0' : 
-             'ml-auto mr-0'
-           }`}
-         >
+         <div className="w-full max-w-none">
           <div
             className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
             style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
