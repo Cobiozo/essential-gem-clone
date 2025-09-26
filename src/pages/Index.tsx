@@ -290,8 +290,8 @@ const Index = () => {
       </div>
       
       {/* Main Content Container */}
-      <div className="w-full min-h-screen flex justify-center">
-        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8" style={{ maxWidth: 'min(1200px, 100vw - 2rem)' }}>
+      <div className="w-full min-h-screen flex justify-center px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-5xl">
           {/* Header */}
           <header className="text-center mb-8 py-6">
             <div className="mb-6">
