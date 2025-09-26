@@ -71,9 +71,9 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
         isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary',
         // Only hide border when slot has content AND we're not hovering
         isEditMode && slotSection && !isOver && 'border-transparent',
-        rowLayoutType === 'custom' && 'shrink-0'
+        (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) && 'shrink-0'
       )}
-      style={{ width: rowLayoutType === 'custom' ? columnWidth : undefined }}
+      style={{ width: (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) ? columnWidth : undefined }}
     >
       {slotSection ? (
         <div
@@ -371,7 +371,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
           isEditMode && slotSections[columnIndex] && "border-transparent"
         )}
         style={{
-          width: isCustomRow ? getColumnWidth(columnIndex) : undefined,
+          width: (isCustomRow || (slotSections[columnIndex] && slotSections[columnIndex]?.width_type === 'custom')) ? getColumnWidth(columnIndex) : undefined,
         }}
       >
         {slotSections[columnIndex] ? (

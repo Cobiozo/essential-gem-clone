@@ -50,6 +50,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   const startPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
   const isResizingRef = useRef(false);
   const resizeDirectionRef = useRef<string>('');
+  const hasDraggedRef = useRef(false);
   const handleMouseDown = useCallback((e: React.MouseEvent, direction: string) => {
     if (!isEditMode) return;
     
@@ -58,6 +59,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     
     isResizingRef.current = true;
     resizeDirectionRef.current = direction;
+    hasDraggedRef.current = false; // Reset drag tracking
     setIsResizing(true);
     setResizeDirection(direction);
     
@@ -81,6 +83,11 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     
     const deltaX = e.clientX - startPos.current.x;
     const deltaY = e.clientY - startPos.current.y;
+    
+    // Track that we actually moved
+    if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+      hasDraggedRef.current = true;
+    }
     
     let newWidth = startPos.current.width;
     let newHeight = startPos.current.height;
@@ -108,7 +115,8 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (isResizingRef.current && onResize) {
+    // Only call onResize if there was actual dragging movement
+    if (isResizingRef.current && onResize && hasDraggedRef.current) {
       const w = typeof dimensions.width === 'number' ? dimensions.width : 0; // 0 => auto
       const h = typeof dimensions.height === 'number' ? dimensions.height : 0; // 0 => auto
       
@@ -121,10 +129,13 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       } else {
         console.info('Skipped resize callback: no valid dimensions changed');
       }
+    } else if (isResizingRef.current && !hasDraggedRef.current) {
+      console.info('Skipped resize callback: no dragging movement detected');
     }
     
     isResizingRef.current = false;
     resizeDirectionRef.current = '';
+    hasDraggedRef.current = false; // Reset drag tracking
     setIsResizing(false);
     setResizeDirection('');
     document.removeEventListener('mousemove', handleMouseMove);
@@ -141,6 +152,11 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
 
     const deltaX = t.clientX - startPos.current.x;
     const deltaY = t.clientY - startPos.current.y;
+    
+    // Track that we actually moved
+    if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+      hasDraggedRef.current = true;
+    }
 
     let newWidth = startPos.current.width;
     let newHeight = startPos.current.height;
@@ -177,6 +193,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
 
     isResizingRef.current = true;
     resizeDirectionRef.current = direction;
+    hasDraggedRef.current = false; // Reset drag tracking
     setIsResizing(true);
     setResizeDirection(direction);
     
