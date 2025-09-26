@@ -256,13 +256,14 @@ const Admin = () => {
   const [headerImageLoading, setHeaderImageLoading] = useState(false);
   const [headerImageUploadLoading, setHeaderImageUploadLoading] = useState(false);
   
-  // Password change state
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [passwordLoading, setPasswordLoading] = useState(false);
+   // Password change state
+   const [passwordData, setPasswordData] = useState({
+     currentPassword: '',
+     newPassword: '',
+     confirmPassword: ''
+   });
+   const [passwordLoading, setPasswordLoading] = useState(false);
+   
   
   // Reset user password state
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
@@ -815,10 +816,11 @@ const Admin = () => {
         description: error.message || "Nie udało się zaktualizować tekstu autora",
         variant: "destructive",
       });
-    } finally {
-      setAuthorTextLoading(false);
-    }
-  };
+     } finally {
+       setAuthorTextLoading(false);
+     }
+   };
+
 
   // Logo management functions
   const loadSiteLogo = async () => {
@@ -1279,10 +1281,10 @@ const Admin = () => {
       fetchHeaderText();
       fetchAuthorText();
     }
-    if (activeTab === 'settings' && isAdmin) {
-      loadSiteLogo();
-      loadHeaderImage();
-    }
+     if (activeTab === 'settings' && isAdmin) {
+       loadSiteLogo();
+       loadHeaderImage();
+     }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
     }
@@ -2886,10 +2888,11 @@ const Admin = () => {
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                 </CardContent>
+               </Card>
+             </div>
+             
+           </TabsContent>
 
           <TabsContent value="account">
             <Card>
