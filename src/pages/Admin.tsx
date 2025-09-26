@@ -250,6 +250,12 @@ const Admin = () => {
   const [logoLoading, setLogoLoading] = useState(false);
   const [logoUploadLoading, setLogoUploadLoading] = useState(false);
   
+  // Header image management state
+  const [headerImage, setHeaderImage] = useState('');
+  const [headerImageUrl, setHeaderImageUrl] = useState('');
+  const [headerImageLoading, setHeaderImageLoading] = useState(false);
+  const [headerImageUploadLoading, setHeaderImageUploadLoading] = useState(false);
+  
   // Password change state
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -953,6 +959,145 @@ const Admin = () => {
     }
   };
 
+  // Header image management functions
+  const loadHeaderImage = async () => {
+    try {
+      const { data: headerImageData } = await (supabase as any)
+        .from('system_texts')
+        .select('content')
+        .eq('type', 'header_image')
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (headerImageData?.content) {
+        setHeaderImage(headerImageData.content);
+      } else {
+        // Set default header image if none found
+        setHeaderImage('/src/assets/logo-niezbednika-pure-life.png');
+      }
+    } catch (error) {
+      console.error('Error fetching header image:', error);
+      setHeaderImage('/src/assets/logo-niezbednika-pure-life.png');
+    }
+  };
+
+  const updateHeaderImage = async (imageUrl: string) => {
+    try {
+      setHeaderImageLoading(true);
+      
+      // Check if header image setting exists
+      const { data: existingHeaderImage } = await (supabase as any)
+        .from('system_texts')
+        .select('id')
+        .eq('type', 'header_image')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingHeaderImage) {
+        // Update existing header image
+        const { error } = await (supabase as any)
+          .from('system_texts')
+          .update({ 
+            content: imageUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingHeaderImage.id);
+
+        if (error) throw error;
+      } else {
+        // Create new header image setting
+        const { error } = await (supabase as any)
+          .from('system_texts')
+          .insert({
+            type: 'header_image',
+            content: imageUrl,
+            is_active: true
+          });
+
+        if (error) throw error;
+      }
+
+      setHeaderImage(imageUrl);
+      setHeaderImageUrl('');
+      
+      toast({
+        title: "Sukces",
+        description: "Zdjęcie nagłówka zostało zaktualizowane",
+      });
+    } catch (error: any) {
+      console.error('Error updating header image:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zaktualizować zdjęcia nagłówka",
+        variant: "destructive",
+      });
+    } finally {
+      setHeaderImageLoading(false);
+    }
+  };
+
+  const handleHeaderImageUpload = async (file: File) => {
+    try {
+      setHeaderImageUploadLoading(true);
+
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `header-${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cms-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('cms-images')
+        .getPublicUrl(fileName);
+
+      // Update header image in database
+      await updateHeaderImage(publicUrl);
+      
+    } catch (error: any) {
+      console.error('Error uploading header image:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się przesłać zdjęcia nagłówka",
+        variant: "destructive",
+      });
+    } finally {
+      setHeaderImageUploadLoading(false);
+    }
+  };
+
+  const handleHeaderImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Błąd",
+          description: "Obsługiwane formaty: JPG, PNG, GIF, WEBP",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Błąd",
+          description: "Rozmiar pliku nie może przekraczać 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      handleHeaderImageUpload(file);
+    }
+  };
+
   // Sort users function
   const sortedUsers = [...users].sort((a, b) => {
     let aValue: any = a[userSortBy];
@@ -1136,6 +1281,7 @@ const Admin = () => {
     }
     if (activeTab === 'settings' && isAdmin) {
       loadSiteLogo();
+      loadHeaderImage();
     }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
@@ -2592,7 +2738,68 @@ const Admin = () => {
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+            </Card>
+            
+            {/* Header Image Editor */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Zdjęcie nagłówka strony głównej</CardTitle>
+                <CardDescription>
+                  Zmień zdjęcie wyświetlane nad tekstem nagłówka na stronie głównej
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {headerImage && (
+                  <div className="mb-4">
+                    <Label className="text-sm font-medium">Aktualne zdjęcie nagłówka:</Label>
+                    <div className="mt-2 p-4 border rounded-lg bg-muted/20">
+                      <img src={headerImage} alt="Header" className="max-w-full h-auto max-h-32 object-contain mx-auto" />
+                    </div>
+                  </div>
+                )}
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="header-image-url">URL zdjęcia nagłówka</Label>
+                    <div className="flex mt-1 space-x-2">
+                      <Input
+                        id="header-image-url"
+                        value={headerImageUrl}
+                        onChange={(e) => setHeaderImageUrl(e.target.value)}
+                        placeholder="https://example.com/header-image.jpg"
+                        className="flex-1"
+                      />
+                      <Button 
+                        onClick={() => updateHeaderImage(headerImageUrl)} 
+                        disabled={!headerImageUrl || headerImageLoading}
+                        size="sm"
+                      >
+                        {headerImageLoading ? 'Zapisywanie...' : 'Zapisz'}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center text-sm text-muted-foreground">lub</div>
+                  
+                  <div>
+                    <Label htmlFor="header-image-upload">Prześlij z urządzenia</Label>
+                    <div className="mt-1">
+                      <Input
+                        id="header-image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleHeaderImageFileChange}
+                        disabled={headerImageUploadLoading}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/80"
+                      />
+                      {headerImageUploadLoading && (
+                        <p className="text-sm text-blue-600 mt-2">Przesyłanie zdjęcia nagłówka...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             </div>
             
             {/* Logo Management */}
