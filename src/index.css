@@ -115,6 +115,9 @@ All colors MUST be HSL.
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    /* Force cache refresh for mobile responsiveness */
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   /* Disable image dragging and context menu globally */
