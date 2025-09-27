@@ -370,7 +370,7 @@ const Index = () => {
           {/* Sections Content */}
           <main className="mb-8">
             <div
-              className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6' : 'grid items-start gap-4 lg:gap-6'}
+              className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6 w-full' : 'grid items-start gap-4 lg:gap-6 w-full'}
               style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
             >
               {sections.filter(s => (s as any).parent_id == null).map((section) => {
@@ -394,9 +394,9 @@ const Index = () => {
                   const isCustomRow = section.row_layout_type === 'custom' || slotSections.some((sec) => !!sec && sec.width_type === 'custom' && (sec.custom_width ?? 0) > 0);
                   
                   return (
-                    <div key={`row-${section.id}`} className="w-full">
+                    <div key={`row-${section.id}`} className="w-full max-w-none mx-auto">
                       <div
-                        className={isCustomRow ? 'flex flex-row flex-wrap gap-4 w-full' : 'grid gap-4 lg:gap-6 w-full'}
+                        className={isCustomRow ? 'flex flex-row flex-wrap gap-4 lg:gap-6 justify-center' : 'grid gap-4 lg:gap-6 w-full'}
                         style={isCustomRow ? undefined : { gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}
                       >
                         {Array.from({ length: rowColumnCount }, (_, colIndex) => {

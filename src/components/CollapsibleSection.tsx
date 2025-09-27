@@ -156,7 +156,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       : (sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%'),
     minHeight: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
     height: 'auto',
-    maxWidth: '100%', // Inherit parent container width instead of fixed 1200px
+    maxWidth: isMobile ? '100%' : 'none', // No max-width constraint on desktop for proper alignment
     marginTop: `${sectionStyle.section_margin_top || 16}px`,
     marginBottom: `${sectionStyle.section_margin_bottom || 16}px`,
     marginLeft: 'auto',
