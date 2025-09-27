@@ -136,10 +136,16 @@ All colors MUST be HSL.
   }
 
   /* Ensure embedded media scales responsively */
-  img, video, canvas, iframe {
+  video, canvas, iframe {
     max-width: 100%;
     height: auto;
     display: block;
+  }
+
+  /* Specific responsive styles to override cache issues */
+  img {
+    max-width: 100%;
+    height: auto;
   }
 
 }
