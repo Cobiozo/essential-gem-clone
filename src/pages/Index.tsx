@@ -271,9 +271,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Main Content Container with mobile-first responsive centering */}
-      <div className="w-full min-h-screen flex justify-center px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20">
-        <div className="w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto relative">
+      {/* Main Content Container with proper desktop centering */}
+      <div className="w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-6 sm:px-8 md:px-12 lg:px-16 xl:px-24 min-h-screen relative">
           
           {/* Top Left Logo - positioned within main container */}
           <div className="absolute top-4 left-0 z-50">
@@ -555,8 +554,7 @@ const Index = () => {
           </footer>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default Index;
