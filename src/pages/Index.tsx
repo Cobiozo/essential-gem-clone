@@ -272,10 +272,10 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
       {/* Main Content Container with proper desktop centering */}
-      <div className="w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto px-6 sm:px-8 md:px-10 lg:px-6 xl:px-8 min-h-screen relative">
+      <div className="w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto px-6 sm:px-8 md:px-10 lg:px-12 xl:px-16 min-h-screen relative">
           
           {/* Top Left Logo - positioned within main container */}
-          <div className="absolute top-4 left-6 sm:left-8 md:left-10 lg:left-6 xl:left-8 z-50">
+          <div className="absolute top-4 left-6 sm:left-8 md:left-10 lg:left-12 xl:left-16 z-50">
             <img 
               src={siteLogo} 
               alt="Logo" 
@@ -287,7 +287,7 @@ const Index = () => {
           </div>
 
           {/* Language & Theme Selector - positioned within main container */}
-          <div className="absolute top-4 right-6 sm:right-8 md:right-10 lg:right-6 xl:right-8 z-50 flex items-center gap-2">
+          <div className="absolute top-4 right-6 sm:right-8 md:right-10 lg:right-12 xl:right-16 z-50 flex items-center gap-2">
             <LanguageSelector />
             <ThemeSelector />
           </div>
