@@ -63,7 +63,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState('');
-  const [activeTab, setActiveTab] = useState('edit');
+  const [activeTab, setActiveTab] = useState('preview');
 
   const colors = [
     '#000000', '#333333', '#666666', '#999999', '#cccccc', '#ffffff',
