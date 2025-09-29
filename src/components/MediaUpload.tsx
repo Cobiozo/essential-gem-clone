@@ -148,10 +148,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     if (isImage) {
       mediaType = 'image';
-      bucket = 'cms-images'; // Use cms-images bucket instead
+      bucket = 'training-media';
     } else if (isVideo) {
       mediaType = 'video';
-      bucket = 'cms-videos'; // Use cms-videos bucket instead
+      bucket = 'training-media';
     } else if (isAudio) {
       mediaType = 'audio';
       bucket = 'training-media';
@@ -162,6 +162,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       mediaType = 'other';
       bucket = 'training-media';
     }
+    
+    console.log('=== UPLOAD DEBUG ===');
+    console.log('Media type:', mediaType);
+    console.log('Bucket:', bucket);
+    console.log('File details:', {
+      name: file.name,
+      type: file.type,
+      size: Math.round(file.size / (1024 * 1024)) + 'MB',
+      isVideo,
+      isImage
+    });
 
     // Check allowed types
     if (allowedTypes && allowedTypes.length > 0) {
@@ -227,10 +238,12 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }, progressSpeed);
 
     try {
+      console.log('=== UPLOAD START ===');
+      
       // Debug: Check auth state
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Upload attempt - Session exists:', !!session);
-      console.log('Upload attempt - User ID:', session?.user?.id);
+      console.log('Session exists:', !!session);
+      console.log('User ID:', session?.user?.id);
       
       if (!session) {
         throw new Error('Musisz być zalogowany, aby przesyłać pliki');
@@ -240,10 +253,15 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = fileName;
 
-      console.log('Uploading to bucket:', bucket, 'path:', filePath, 'size:', Math.round(fileSize), 'MB');
+      console.log('=== UPLOAD DETAILS ===');
+      console.log('Target bucket:', bucket);
+      console.log('File path:', filePath);
+      console.log('File size:', Math.round(fileSize), 'MB');
       console.log('File type:', file.type);
       console.log('File name:', file.name);
+      console.log('Content type:', file.type);
 
+      console.log('=== CALLING SUPABASE STORAGE ===');
       // Direct upload without bucket test
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from(bucket)
@@ -252,6 +270,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           upsert: false,
           contentType: file.type
         });
+      
+      console.log('=== SUPABASE RESPONSE ===');
+      console.log('Error:', uploadError);
+      console.log('Data:', uploadData);
 
       clearInterval(progressInterval);
       setUploadProgress(100);
