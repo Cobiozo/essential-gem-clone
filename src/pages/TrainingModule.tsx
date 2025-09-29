@@ -68,7 +68,7 @@ const TrainingModule = () => {
     if (moduleId) {
       fetchModuleData();
     }
-  }, [moduleId]);
+  }, [moduleId, user]);
 
   useEffect(() => {
     // Start timer when lesson changes

@@ -14,13 +14,17 @@ interface MediaUploadProps {
   currentMediaUrl?: string;
   currentMediaType?: 'image' | 'video' | 'document' | 'audio' | 'other';
   currentAltText?: string;
+  allowedTypes?: ('image' | 'video' | 'document' | 'audio')[];
+  maxSizeMB?: number | null;
 }
 
 export const MediaUpload: React.FC<MediaUploadProps> = ({
   onMediaUploaded,
   currentMediaUrl,
   currentMediaType,
-  currentAltText
+  currentAltText,
+  allowedTypes,
+  maxSizeMB = 50
 }) => {
   const [uploading, setUploading] = useState(false);
   const [altText, setAltText] = useState(currentAltText || '');
@@ -49,7 +53,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       bucket = 'cms-images';
     } else if (isVideo) {
       mediaType = 'video';
-      bucket = 'cms-videos';
+      bucket = 'training-media';
     } else if (isAudio) {
       mediaType = 'audio';
       bucket = 'cms-files';
@@ -61,15 +65,44 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       bucket = 'cms-files';
     }
 
-    // Check file size (max 50MB for documents, 20MB for media)
-    const maxSize = (isDocument || mediaType === 'other') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast({
-        title: "Plik za duży",
-        description: `Maksymalny rozmiar pliku to ${maxSize / 1024 / 1024}MB.`,
-        variant: "destructive",
+    // Check allowed types
+    if (allowedTypes && allowedTypes.length > 0) {
+      const typeAllowed = allowedTypes.some(type => {
+        if (type === 'image') return isImage;
+        if (type === 'video') return isVideo;
+        if (type === 'audio') return isAudio;
+        if (type === 'document') return isDocument;
+        return false;
       });
-      return;
+      
+      if (!typeAllowed) {
+        const typeNames = {
+          image: 'obrazy',
+          video: 'filmy wideo',
+          audio: 'pliki audio',
+          document: 'dokumenty'
+        };
+        const allowedNames = allowedTypes.map(t => typeNames[t]).join(', ');
+        toast({
+          title: "Nieprawidłowy typ pliku",
+          description: `Dozwolone formaty: ${allowedNames}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Check file size if limit is set
+    if (maxSizeMB !== null && maxSizeMB > 0) {
+      const maxSize = maxSizeMB * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast({
+          title: "Plik za duży",
+          description: `Maksymalny rozmiar pliku to ${maxSizeMB}MB.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setUploading(true);
@@ -129,6 +162,41 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     setAltText('');
   };
 
+  const getAcceptString = () => {
+    if (!allowedTypes || allowedTypes.length === 0) {
+      return "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt";
+    }
+    const acceptMap = {
+      image: "image/*",
+      video: "video/*",
+      audio: "audio/*",
+      document: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+    };
+    return allowedTypes.map(t => acceptMap[t]).join(',');
+  };
+
+  const getHelpText = () => {
+    if (!allowedTypes || allowedTypes.length === 0) {
+      if (maxSizeMB === null || maxSizeMB === 0) {
+        return "Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT";
+      }
+      return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max ${maxSizeMB}MB)`;
+    }
+    
+    const formatMap = {
+      image: "JPG, PNG, GIF",
+      video: "MP4, MOV, AVI, WebM",
+      audio: "MP3, WAV, OGG",
+      document: "PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT"
+    };
+    const formats = allowedTypes.map(t => formatMap[t]).join(', ');
+    
+    if (maxSizeMB === null || maxSizeMB === 0) {
+      return `Dozwolone formaty: ${formats}`;
+    }
+    return `Dozwolone formaty: ${formats} (max ${maxSizeMB}MB)`;
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -137,13 +205,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           <Input
             id="media-upload"
             type="file"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            accept={getAcceptString()}
             onChange={handleFileSelect}
             disabled={uploading}
             className="cursor-pointer"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max 50MB dla dokumentów, 20MB dla mediów)
+            {getHelpText()}
           </p>
         </div>
       </div>
