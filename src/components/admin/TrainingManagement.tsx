@@ -60,6 +60,7 @@ const TrainingManagement = () => {
   const [editingLesson, setEditingLesson] = useState<TrainingLesson | null>(null);
   const [showModuleForm, setShowModuleForm] = useState(false);
   const [showLessonForm, setShowLessonForm] = useState(false);
+  const [activeTab, setActiveTab] = useState("modules");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -257,7 +258,7 @@ const TrainingManagement = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="modules" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="modules">Moduły</TabsTrigger>
           <TabsTrigger value="lessons">Lekcje</TabsTrigger>
@@ -308,9 +309,7 @@ const TrainingManagement = () => {
                       variant="outline"
                       onClick={() => {
                         setSelectedModule(module.id);
-                        // Switch to lessons tab
-                        const lessonsTab = document.querySelector('[value="lessons"]') as HTMLElement;
-                        if (lessonsTab) lessonsTab.click();
+                        setActiveTab("lessons");
                       }}
                     >
                       <Eye className="h-4 w-4 mr-1" />
