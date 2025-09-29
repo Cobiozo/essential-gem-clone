@@ -306,7 +306,12 @@ const TrainingManagement = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedModule(module.id)}
+                      onClick={() => {
+                        setSelectedModule(module.id);
+                        // Switch to lessons tab
+                        const lessonsTab = document.querySelector('[value="lessons"]') as HTMLElement;
+                        if (lessonsTab) lessonsTab.click();
+                      }}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Lekcje
@@ -629,7 +634,7 @@ const LessonForm = ({
     media_url: lesson?.media_url || "",
     media_type: lesson?.media_type || "",
     media_alt_text: lesson?.media_alt_text || "",
-    min_time_seconds: lesson?.min_time_seconds || 0,
+    min_time_seconds: lesson?.min_time_seconds || 60,
     is_required: lesson?.is_required ?? true,
     is_active: lesson?.is_active ?? true,
   });
@@ -688,10 +693,13 @@ const LessonForm = ({
           type="number"
           min="0"
           value={formData.min_time_seconds}
-          onChange={(e) => setFormData(prev => ({ 
-            ...prev, 
-            min_time_seconds: parseInt(e.target.value) || 0 
-          }))}
+          onChange={(e) => {
+            const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+            setFormData(prev => ({ 
+              ...prev, 
+              min_time_seconds: isNaN(value) ? 0 : value
+            }));
+          }}
         />
       </div>
 

@@ -27,6 +27,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   maxSizeMB = 50
 }) => {
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [altText, setAltText] = useState(currentAltText || '');
   const { toast } = useToast();
 
@@ -106,6 +107,15 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
 
     setUploading(true);
+    setUploadProgress(0);
+
+    // Simulate progress for large files
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + 10;
+      });
+    }, 200);
 
     try {
       const fileExt = file.name.split('.').pop();
@@ -115,6 +125,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(filePath, file);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       if (uploadError) {
         throw uploadError;
@@ -139,6 +152,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         description: `${typeNames[mediaType]} zostało przesłane.`,
       });
     } catch (error) {
+      clearInterval(progressInterval);
       console.error('Error uploading media:', error);
       toast({
         title: "Błąd",
@@ -147,6 +161,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       });
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -218,9 +233,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
       {uploading && (
         <Card>
-          <CardContent className="flex items-center justify-center p-6">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            <span className="text-sm">Przesyłanie...</span>
+          <CardContent className="p-6 space-y-3">
+            <div className="flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              <span className="text-sm">Przesyłanie... {uploadProgress}%</span>
+            </div>
+            <div className="w-full bg-secondary rounded-full h-2">
+              <div 
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
