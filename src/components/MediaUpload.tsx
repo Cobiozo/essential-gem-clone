@@ -34,27 +34,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const compressFile = async (file: File): Promise<File> => {
     const fileSizeMB = file.size / (1024 * 1024);
     
-    // Only compress if file is over 49MB
-    if (fileSizeMB <= 49) {
-      return file;
+    // Only compress images over 49MB
+    if (fileSizeMB <= 49 || !file.type.startsWith('image/')) {
+      return file; // Return original file without any modifications
     }
 
-    showCompressionProgress("Rozpoczynanie kompresji pliku...");
-
-    if (file.type.startsWith('image/')) {
-      return compressImage(file);
-    }
-    
-    // For videos and other large files, return original with warning
-    // Video compression in browser is complex and may not always work
-    toast({
-      title: "Duży plik",
-      description: `Plik ma ${Math.round(fileSizeMB)}MB. Kompresja wideo jest ograniczona w przeglądarce. Rozważ kompresję zewnętrzną.`,
-      variant: "default",
-      duration: 8000,
-    });
-    
-    return file;
+    showCompressionProgress("Rozpoczynanie kompresji obrazu...");
+    return compressImage(file);
   };
 
   const compressImage = async (file: File): Promise<File> => {
