@@ -93,29 +93,41 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       }
     }
 
-    // Check file size if limit is set
+    // Check file size if limit is set (skip for videos in training)
     if (maxSizeMB !== null && maxSizeMB > 0) {
       const maxSize = maxSizeMB * 1024 * 1024;
       if (file.size > maxSize) {
-        toast({
-          title: "Plik za duży",
-          description: `Maksymalny rozmiar pliku to ${maxSizeMB}MB.`,
-          variant: "destructive",
-        });
-        return;
+        // For videos, show warning but allow upload
+        if (isVideo) {
+          toast({
+            title: "Duży plik wideo",
+            description: `Plik ma ${Math.round(file.size / (1024 * 1024))}MB. Upload może potrwać dłużej.`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Plik za duży",
+            description: `Maksymalny rozmiar pliku to ${maxSizeMB}MB.`,
+            variant: "destructive",
+          });
+          return;
+        }
       }
     }
 
     setUploading(true);
     setUploadProgress(0);
 
-    // Simulate progress for large files
+    // Adjust progress simulation for large files
+    const fileSize = file.size / (1024 * 1024); // Size in MB
+    const progressSpeed = fileSize > 100 ? 500 : fileSize > 50 ? 300 : 200; // Slower for larger files
+
     const progressInterval = setInterval(() => {
       setUploadProgress(prev => {
         if (prev >= 90) return prev;
-        return prev + 10;
+        return prev + (fileSize > 100 ? 5 : 10); // Smaller increments for large files
       });
-    }, 200);
+    }, progressSpeed);
 
     try {
       const fileExt = file.name.split('.').pop();
@@ -151,12 +163,21 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         title: "Sukces",
         description: `${typeNames[mediaType]} zostało przesłane.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       clearInterval(progressInterval);
       console.error('Error uploading media:', error);
+      
+      // Better error handling - don't break the form
+      let errorMessage = "Nie udało się przesłać pliku.";
+      if (error.message?.includes('413') || error.message?.includes('too large')) {
+        errorMessage = "Plik jest za duży dla serwera. Spróbuj zmniejszyć rozmiar pliku.";
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = "Upload trwał zbyt długo. Spróbuj ponownie z mniejszym plikiem.";
+      }
+      
       toast({
-        title: "Błąd",
-        description: "Nie udało się przesłać pliku.",
+        title: "Błąd uploadu",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

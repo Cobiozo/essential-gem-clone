@@ -725,7 +725,7 @@ const LessonForm = ({
           currentMediaType={formData.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
           currentAltText={formData.media_alt_text}
           allowedTypes={['video', 'document', 'audio']}
-          maxSizeMB={100}
+          maxSizeMB={null}
         />
       </div>
 
