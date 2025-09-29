@@ -89,17 +89,15 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         
         canvas.toBlob((blob) => {
           if (blob) {
-            // Create a simple file-like object
+            // Add File properties to blob for Supabase compatibility
             const compressedFile = Object.assign(blob, {
               name: file.name,
               lastModified: Date.now(),
-              lastModifiedDate: new Date(),
-              webkitRelativePath: ''
-            }) as File;
+            });
             
             const newSizeMB = blob.size / (1024 * 1024);
             showCompressionProgress(`Kompresja zakończona: ${Math.round(fileSizeMB)}MB → ${Math.round(newSizeMB)}MB`);
-            resolve(compressedFile);
+            resolve(compressedFile as File);
           } else {
             resolve(file); // Fallback to original
           }
