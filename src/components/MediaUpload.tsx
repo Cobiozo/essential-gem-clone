@@ -169,16 +169,32 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       
       // Better error handling - don't break the form
       let errorMessage = "Nie udało się przesłać pliku.";
-      if (error.message?.includes('413') || error.message?.includes('too large')) {
-        errorMessage = "Plik jest za duży dla serwera. Spróbuj zmniejszyć rozmiar pliku.";
+      let errorTitle = "Błąd uploadu";
+      
+      // Check for specific error types
+      if (error.message?.includes('413') || 
+          error.message?.includes('too large') ||
+          error.message?.includes('exceeded the maximum allowed size') ||
+          (error.error === 'Payload too large')) {
+        errorTitle = "Plik za duży";
+        errorMessage = `Plik wideo jest za duży dla serwera (limit Supabase: ~50MB). 
+        
+Sugestie:
+• Zmniejsz jakość wideo (np. z 4K na 1080p)
+• Skróć długość filmu
+• Użyj kompresji wideo (np. HandBrake, FFmpeg)
+• Podziel długi film na krótsze części`;
       } else if (error.message?.includes('timeout')) {
         errorMessage = "Upload trwał zbyt długo. Spróbuj ponownie z mniejszym plikiem.";
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = "Problem z połączeniem internetowym. Sprawdź połączenie i spróbuj ponownie.";
       }
       
       toast({
-        title: "Błąd uploadu",
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive",
+        duration: 10000, // Longer duration for important error info
       });
     } finally {
       setUploading(false);
@@ -214,9 +230,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const getHelpText = () => {
     if (!allowedTypes || allowedTypes.length === 0) {
       if (maxSizeMB === null || maxSizeMB === 0) {
-        return "Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT";
+        return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT
+        
+⚠️ Uwaga: Supabase ma limit ~50MB na plik. Dla większych plików wideo użyj kompresji.`;
       }
-      return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max ${maxSizeMB}MB)`;
+      return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max ${maxSizeMB}MB)
+      
+⚠️ Supabase ma limit ~50MB na plik. Dla większych filmów użyj kompresji.`;
     }
     
     const formatMap = {
@@ -228,9 +248,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     const formats = allowedTypes.map(t => formatMap[t]).join(', ');
     
     if (maxSizeMB === null || maxSizeMB === 0) {
-      return `Dozwolone formaty: ${formats}`;
+      return `Dozwolone formaty: ${formats}
+      
+⚠️ Uwaga: Supabase ma limit ~50MB na plik. Dla większych plików wideo użyj kompresji.`;
     }
-    return `Dozwolone formaty: ${formats} (max ${maxSizeMB}MB)`;
+    return `Dozwolone formaty: ${formats} (max ${maxSizeMB}MB)
+    
+⚠️ Supabase ma limit ~50MB na plik. Dla większych filmów użyj kompresji.`;
   };
 
   return (
