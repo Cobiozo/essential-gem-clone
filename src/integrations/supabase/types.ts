@@ -485,6 +485,154 @@ export type Database = {
         }
         Relationships: []
       }
+      training_lessons: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_required: boolean
+          media_alt_text: string | null
+          media_type: string | null
+          media_url: string | null
+          min_time_seconds: number | null
+          module_id: string
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          media_alt_text?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          min_time_seconds?: number | null
+          module_id: string
+          position?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          media_alt_text?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          min_time_seconds?: number | null
+          module_id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "training_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_modules: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon_name: string | null
+          id: string
+          is_active: boolean
+          position: number
+          title: string
+          updated_at: string
+          visible_to_anonymous: boolean
+          visible_to_clients: boolean
+          visible_to_everyone: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          position?: number
+          title: string
+          updated_at?: string
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          position?: number
+          title?: string
+          updated_at?: string
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
+      training_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          is_completed: boolean
+          lesson_id: string
+          started_at: string | null
+          time_spent_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          lesson_id: string
+          started_at?: string | null
+          time_spent_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          lesson_id?: string
+          started_at?: string | null
+          time_spent_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "training_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

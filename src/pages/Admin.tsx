@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import { GroupEmailSender } from '@/components/GroupEmailSender';
+import TrainingManagement from '@/components/admin/TrainingManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -2239,7 +2240,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
@@ -2267,6 +2268,10 @@ const Admin = () => {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">{t('admin.users')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="training" className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">Szkolenia</span>
             </TabsTrigger>
           </TabsList>
 
@@ -3597,6 +3602,10 @@ const Admin = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          <TabsContent value="training">
+            <TrainingManagement />
           </TabsContent>
         </Tabs>
       </div>

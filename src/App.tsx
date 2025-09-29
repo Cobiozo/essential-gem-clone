@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import MyAccount from "./pages/MyAccount";
 import Page from "./pages/Page";
+import Training from "./pages/Training";
+import TrainingModule from "./pages/TrainingModule";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +31,8 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/my-account" element={<MyAccount />} />
+              <Route path="/training" element={<Training />} />
+              <Route path="/training/:moduleId" element={<TrainingModule />} />
               <Route path="/page/:slug" element={<Page />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
