@@ -223,9 +223,20 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }, progressSpeed);
 
     try {
+      // Debug: Check auth state
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Upload attempt - Session exists:', !!session);
+      console.log('Upload attempt - User ID:', session?.user?.id);
+      
+      if (!session) {
+        throw new Error('Musisz być zalogowany, aby przesyłać pliki');
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = fileName;
+
+      console.log('Uploading to bucket:', bucket, 'path:', filePath, 'size:', Math.round(fileSize), 'MB');
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
@@ -235,6 +246,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       setUploadProgress(100);
 
       if (uploadError) {
+        console.error('Upload error details:', uploadError);
         throw uploadError;
       }
 
