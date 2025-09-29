@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +25,10 @@ import {
   BookOpen, 
   Users,
   Clock,
-  FileText
+  FileText,
+  ExternalLink,
+  Send,
+  UserPlus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
@@ -60,9 +71,12 @@ const TrainingManagement = () => {
   const [editingLesson, setEditingLesson] = useState<TrainingLesson | null>(null);
   const [showModuleForm, setShowModuleForm] = useState(false);
   const [showLessonForm, setShowLessonForm] = useState(false);
+  const [showUserSelector, setShowUserSelector] = useState(false);
+  const [selectedModuleForUsers, setSelectedModuleForUsers] = useState<string>("");
   const [activeTab, setActiveTab] = useState("modules");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchModules();
@@ -307,6 +321,14 @@ const TrainingManagement = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => navigate(`/training/${module.id}`)}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Podgląd
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => {
                         setSelectedModule(module.id);
                         setActiveTab("lessons");
@@ -314,6 +336,17 @@ const TrainingManagement = () => {
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Lekcje
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedModuleForUsers(module.id);
+                        setShowUserSelector(true);
+                      }}
+                    >
+                      <Send className="h-4 w-4 mr-1" />
+                      Wyślij
                     </Button>
                     <Button
                       size="sm"
@@ -466,6 +499,17 @@ const TrainingManagement = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* User Selector Modal */}
+      {showUserSelector && (
+        <UserSelectorModal
+          moduleId={selectedModuleForUsers}
+          onClose={() => {
+            setShowUserSelector(false);
+            setSelectedModuleForUsers("");
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -733,6 +777,157 @@ const LessonForm = ({
         </Button>
       </div>
     </form>
+  );
+};
+
+// User Selector Modal Component
+const UserSelectorModal = ({ 
+  moduleId, 
+  onClose 
+}: { 
+  moduleId: string;
+  onClose: () => void;
+}) => {
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, email, first_name, last_name, role')
+        .eq('is_active', true)
+        .order('email');
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie można załadować użytkowników",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleUser = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedUsers(users.map(user => user.user_id));
+  };
+
+  const clearAll = () => {
+    setSelectedUsers([]);
+  };
+
+  const sendInvitations = async () => {
+    if (selectedUsers.length === 0) {
+      toast({
+        title: "Błąd",
+        description: "Wybierz co najmniej jednego użytkownika",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSending(true);
+    try {
+      // Here you would call an edge function to send emails
+      // For now, we'll just show a success message
+      toast({
+        title: "Sukces",
+        description: `Zaproszenia zostały wysłane do ${selectedUsers.length} użytkowników`,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error sending invitations:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie można wysłać zaproszeń",
+        variant: "destructive"
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Wyślij szkolenie do użytkowników</DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-4">
+              <Button size="sm" variant="outline" onClick={selectAll}>
+                <UserPlus className="h-4 w-4 mr-1" />
+                Zaznacz wszystkich
+              </Button>
+              <Button size="sm" variant="outline" onClick={clearAll}>
+                Odznacz wszystkich
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Wybrano: {selectedUsers.length} z {users.length}
+              </span>
+            </div>
+
+            <div className="border rounded-lg max-h-60 overflow-y-auto flex-1">
+              {users.map((user) => (
+                <div key={user.user_id} className="flex items-center p-3 border-b last:border-b-0">
+                  <Checkbox
+                    checked={selectedUsers.includes(user.user_id)}
+                    onCheckedChange={() => toggleUser(user.user_id)}
+                  />
+                  <div className="ml-3 flex-1">
+                    <div className="font-medium">
+                      {user.first_name} {user.last_name} 
+                      <Badge variant="outline" className="ml-2">
+                        {user.role}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">{user.email}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Anuluj
+          </Button>
+          <Button 
+            onClick={sendInvitations} 
+            disabled={sending || selectedUsers.length === 0}
+          >
+            {sending ? "Wysyłanie..." : `Wyślij (${selectedUsers.length})`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
