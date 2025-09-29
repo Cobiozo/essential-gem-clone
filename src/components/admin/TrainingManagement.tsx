@@ -718,14 +718,14 @@ const LessonForm = ({
       </div>
 
       <div>
-        <Label>Media (tylko wideo)</Label>
+        <Label>Media</Label>
         <MediaUpload
           onMediaUploaded={handleMediaUploaded}
           currentMediaUrl={formData.media_url}
           currentMediaType={formData.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
           currentAltText={formData.media_alt_text}
-          allowedTypes={['video']}
-          maxSizeMB={null}
+          allowedTypes={['video', 'document', 'audio']}
+          maxSizeMB={100}
         />
       </div>
 

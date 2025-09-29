@@ -51,19 +51,19 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     if (isImage) {
       mediaType = 'image';
-      bucket = 'cms-images';
+      bucket = 'training-media';
     } else if (isVideo) {
       mediaType = 'video';
       bucket = 'training-media';
     } else if (isAudio) {
       mediaType = 'audio';
-      bucket = 'cms-files';
+      bucket = 'training-media';
     } else if (isDocument) {
       mediaType = 'document';
-      bucket = 'cms-files';
+      bucket = 'training-media';
     } else {
       mediaType = 'other';
-      bucket = 'cms-files';
+      bucket = 'training-media';
     }
 
     // Check allowed types
