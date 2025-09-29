@@ -148,10 +148,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     if (isImage) {
       mediaType = 'image';
-      bucket = 'training-media';
+      bucket = 'cms-images'; // Use cms-images bucket instead
     } else if (isVideo) {
       mediaType = 'video';
-      bucket = 'training-media';
+      bucket = 'cms-videos'; // Use cms-videos bucket instead
     } else if (isAudio) {
       mediaType = 'audio';
       bucket = 'training-media';
