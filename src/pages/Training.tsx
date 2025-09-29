@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Clock, CheckCircle, Lock } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -153,6 +154,23 @@ const Training = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header with Navigation */}
+      <header className="border-b bg-card sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Strona główna
+          </Button>
+          <Separator orientation="vertical" className="h-6" />
+          <h1 className="text-xl font-semibold">Szkolenia</h1>
+        </div>
+      </header>
+
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Szkolenia</h1>
