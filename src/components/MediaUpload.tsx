@@ -87,17 +87,24 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         }
         
-        canvas.toBlob((blob) => {
+        canvas.toBlob(async (blob) => {
           if (blob) {
-            // Add File properties to blob for Supabase compatibility
-            const compressedFile = Object.assign(blob, {
-              name: file.name,
-              lastModified: Date.now(),
-            });
-            
-            const newSizeMB = blob.size / (1024 * 1024);
-            showCompressionProgress(`Kompresja zakończona: ${Math.round(fileSizeMB)}MB → ${Math.round(newSizeMB)}MB`);
-            resolve(compressedFile as File);
+            try {
+              // Convert Blob to File properly
+              const buffer = await blob.arrayBuffer();
+              const compressedFile = new (File as any)(
+                [buffer], 
+                file.name, 
+                { type: blob.type }
+              );
+              
+              const newSizeMB = blob.size / (1024 * 1024);
+              showCompressionProgress(`Kompresja zakończona: ${Math.round(fileSizeMB)}MB → ${Math.round(newSizeMB)}MB`);
+              resolve(compressedFile);
+            } catch (e) {
+              console.error('Blob to File conversion failed:', e);
+              resolve(file); // Fallback to original
+            }
           } else {
             resolve(file); // Fallback to original
           }
