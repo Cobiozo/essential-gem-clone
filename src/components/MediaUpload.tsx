@@ -271,6 +271,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       let errorMessage = "Nie udało się przesłać pliku.";
       let errorTitle = "Błąd uploadu";
       
+      const isVideo = file.type.startsWith('video/');
+      const fileSizeMB = file.size / (1024 * 1024);
+      
       // Check for specific error types
       if (error.message?.includes('413') || 
           error.message?.includes('too large') ||
@@ -284,10 +287,22 @@ Sugestie:
 • Skróć długość filmu
 • Użyj kompresji wideo (np. HandBrake, FFmpeg)
 • Podziel długi film na krótsze części`;
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('fetch')) {
+        // "Failed to fetch" for videos often means file too large
+        if (isVideo && fileSizeMB > 40) {
+          errorTitle = "Prawdopodobnie plik za duży";
+          errorMessage = `Upload wideo nie powiódł się. Plik ma ${Math.round(fileSizeMB)}MB.
+
+Supabase ma limit ~50MB. Sugestie:
+• Skompresuj wideo (HandBrake, FFmpeg, lub online)
+• Zmniejsz rozdzielczość (np. 1080p → 720p)
+• Skróć długość filmu
+• Podziel na krótsze części`;
+        } else {
+          errorMessage = "Problem z połączeniem lub plik jest za duży. Sprawdź połączenie i rozmiar pliku.";
+        }
       } else if (error.message?.includes('timeout')) {
         errorMessage = "Upload trwał zbyt długo. Spróbuj ponownie z mniejszym plikiem.";
-      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorMessage = "Problem z połączeniem internetowym. Sprawdź połączenie i spróbuj ponownie.";
       }
       
       toast({
