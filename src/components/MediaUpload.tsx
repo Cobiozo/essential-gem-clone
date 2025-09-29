@@ -31,8 +31,110 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [altText, setAltText] = useState(currentAltText || '');
   const { toast } = useToast();
 
-  const uploadMedia = async (file: File) => {
-    if (!file) return;
+  const compressFile = async (file: File): Promise<File> => {
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    // Only compress if file is over 49MB
+    if (fileSizeMB <= 49) {
+      return file;
+    }
+
+    showCompressionProgress("Rozpoczynanie kompresji pliku...");
+
+    if (file.type.startsWith('image/')) {
+      return compressImage(file);
+    }
+    
+    // For videos and other large files, return original with warning
+    // Video compression in browser is complex and may not always work
+    toast({
+      title: "Duży plik",
+      description: `Plik ma ${Math.round(fileSizeMB)}MB. Kompresja wideo jest ograniczona w przeglądarce. Rozważ kompresję zewnętrzną.`,
+      variant: "default",
+      duration: 8000,
+    });
+    
+    return file;
+  };
+
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = document.createElement('img');
+      
+      img.onload = () => {
+        const fileSizeMB = file.size / (1024 * 1024);
+        let scaleFactor = 0.8; // Default compression
+        let quality = 0.8;
+        
+        // Aggressive compression for very large files
+        if (fileSizeMB > 100) {
+          scaleFactor = 0.5;
+          quality = 0.6;
+        } else if (fileSizeMB > 75) {
+          scaleFactor = 0.6;
+          quality = 0.7;
+        } else if (fileSizeMB > 50) {
+          scaleFactor = 0.7;
+          quality = 0.75;
+        }
+
+        canvas.width = img.width * scaleFactor;
+        canvas.height = img.height * scaleFactor;
+        
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            // Create a simple file-like object
+            const compressedFile = Object.assign(blob, {
+              name: file.name,
+              lastModified: Date.now(),
+              lastModifiedDate: new Date(),
+              webkitRelativePath: ''
+            }) as File;
+            
+            const newSizeMB = blob.size / (1024 * 1024);
+            showCompressionProgress(`Kompresja zakończona: ${Math.round(fileSizeMB)}MB → ${Math.round(newSizeMB)}MB`);
+            resolve(compressedFile);
+          } else {
+            resolve(file); // Fallback to original
+          }
+        }, file.type, quality);
+      };
+      
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const showCompressionProgress = (message: string) => {
+    toast({
+      title: "Kompresja pliku",
+      description: message,
+      duration: 3000,
+    });
+  };
+
+  const uploadMedia = async (originalFile: File) => {
+    if (!originalFile) return;
+
+    // Check if compression is needed and compress if necessary
+    let file = originalFile;
+    try {
+      file = await compressFile(originalFile);
+    } catch (error) {
+      console.error('Compression error:', error);
+      // Continue with original file if compression fails
+      toast({
+        title: "Ostrzeżenie",
+        description: "Nie udało się skompresować pliku. Kontynuowanie z oryginalnym plikiem.",
+        variant: "default",
+      });
+    }
 
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
