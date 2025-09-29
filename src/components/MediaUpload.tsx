@@ -237,10 +237,27 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       const filePath = fileName;
 
       console.log('Uploading to bucket:', bucket, 'path:', filePath, 'size:', Math.round(fileSize), 'MB');
+      console.log('File type:', file.type);
+      console.log('File name:', file.name);
 
-      const { error: uploadError } = await supabase.storage
+      // Try to list bucket first to check access
+      const { data: bucketData, error: bucketError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file);
+        .list('', { limit: 1 });
+      
+      if (bucketError) {
+        console.error('Bucket access error:', bucketError);
+        throw new Error(`Brak dostępu do bucket: ${bucketError.message}`);
+      }
+      
+      console.log('Bucket accessible:', !!bucketData);
+
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -249,6 +266,8 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         console.error('Upload error details:', uploadError);
         throw uploadError;
       }
+      
+      console.log('Upload successful:', uploadData);
 
       const { data } = supabase.storage
         .from(bucket)
