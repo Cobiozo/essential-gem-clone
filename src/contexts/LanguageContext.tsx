@@ -227,7 +227,7 @@ const translations = {
     'success.statusChanged': 'Status klienta został zmieniony.',
     'success.passwordChanged': 'Hasło zostało zmienione.',
     'success.clientCreated': 'Nowy klient został utworzony.',
-    'success.redirectToAccount': 'Zostaniesz przekierowany na stronę Moje konto.',
+    
     'success.sectionCreated': 'Nowa sekcja została utworzona.',
     'success.sectionDeleted': 'Sekcja została usunięta.',
     'success.sectionMovedUp': 'Sekcja została przesunięta w górę.',

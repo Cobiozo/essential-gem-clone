@@ -1308,15 +1308,6 @@ const Admin = () => {
       return;
     }
     
-    if (!isAdmin) {
-      toast({
-        title: t('toast.redirect'),
-        description: t('success.redirectToAccount'),
-        variant: "default",
-      });
-      navigate('/my-account');
-      return;
-    }
 
     fetchData();
   }, [user, isAdmin, navigate, toast]);
