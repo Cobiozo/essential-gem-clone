@@ -33,14 +33,41 @@ const Training = () => {
 
   const fetchTrainingModules = async () => {
     try {
-      // Fetch modules with lesson counts and progress
-      const { data: modulesData, error: modulesError } = await supabase
-        .from('training_modules')
-        .select('*')
-        .eq('is_active', true)
-        .order('position');
+      // Get current user's profile to check if admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user?.id)
+        .single();
 
-      if (modulesError) throw modulesError;
+      const isAdmin = profile?.role === 'admin';
+
+      let modulesData;
+      
+      if (isAdmin) {
+        // Admins see all modules
+        const { data, error } = await supabase
+          .from('training_modules')
+          .select('*')
+          .eq('is_active', true)
+          .order('position');
+        
+        if (error) throw error;
+        modulesData = data;
+      } else {
+        // Non-admins only see assigned modules
+        const { data, error } = await supabase
+          .from('training_assignments')
+          .select(`
+            module:training_modules!inner(*)
+          `)
+          .eq('user_id', user?.id)
+          .eq('module.is_active', true)
+          .order('assigned_at', { ascending: false });
+        
+        if (error) throw error;
+        modulesData = data?.map(assignment => assignment.module) || [];
+      }
 
       // For each module, get lesson count and user progress
       const modulesWithProgress = await Promise.all(

@@ -848,23 +848,55 @@ const UserSelectorModal = ({
 
     setSending(true);
     try {
-      // Here you would call an edge function to send emails
-      // For now, we'll just show a success message
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        throw new Error("Nie zalogowany");
+      }
+
+      // Create training assignments
+      const assignments = selectedUsers.map(userId => ({
+        user_id: userId,
+        module_id: moduleId,
+        assigned_by: currentUser.id,
+        assigned_at: new Date().toISOString(),
+      }));
+
+      const { error: assignmentError } = await supabase
+        .from('training_assignments')
+        .insert(assignments);
+
+      if (assignmentError) throw assignmentError;
+
+      // Send notifications via edge function
+      const notifications = selectedUsers.map(userId => 
+        supabase.functions.invoke('send-training-notification', {
+          body: {
+            userId,
+            moduleId,
+            assignedBy: currentUser.id
+          }
+        })
+      );
+
+      await Promise.all(notifications);
+
       toast({
         title: "Sukces",
-        description: `Zaproszenia zostały wysłane do ${selectedUsers.length} użytkowników`,
+        description: `Szkolenie zostało wysłane do ${selectedUsers.length} użytkowników`,
       });
+
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending invitations:', error);
       toast({
         title: "Błąd",
-        description: "Nie można wysłać zaproszeń",
+        description: error.message || "Nie udało się wysłać szkoleń",
         variant: "destructive"
       });
     } finally {
       setSending(false);
     }
+      // Here you would call an edge function to send emails
   };
 
   return (

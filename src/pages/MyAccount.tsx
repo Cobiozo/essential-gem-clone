@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, Clock, AlertCircle, BookOpen, Play } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -26,6 +26,8 @@ const MyAccount = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [trainings, setTrainings] = useState<any[]>([]);
+  const [trainingsLoading, setTrainingsLoading] = useState(true);
 
   // Helper function to get role display name
   const getRoleDisplayName = (role: string) => {
@@ -36,6 +38,65 @@ const MyAccount = () => {
       case 'user':
       case 'client':
       default: return 'Klient';
+    }
+  };
+
+  // Fetch assigned trainings
+  React.useEffect(() => {
+    if (user) {
+      fetchTrainings();
+    }
+  }, [user]);
+
+  const fetchTrainings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('training_assignments')
+        .select(`
+          *,
+          module:training_modules!inner(
+            id,
+            title,
+            description,
+            icon_name
+          )
+        `)
+        .eq('user_id', user?.id)
+        .order('assigned_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Get progress for each training
+      const trainingsWithProgress = await Promise.all(
+        (data || []).map(async (assignment) => {
+          const { data: progressData } = await supabase
+            .from('training_progress')
+            .select('*')
+            .eq('user_id', user?.id)
+            .eq('lesson_id', assignment.module.id);
+
+          const { count: totalLessons } = await supabase
+            .from('training_lessons')
+            .select('*', { count: 'exact', head: true })
+            .eq('module_id', assignment.module.id)
+            .eq('is_active', true);
+
+          const completedLessons = progressData?.filter(p => p.is_completed).length || 0;
+
+          return {
+            ...assignment,
+            total_lessons: totalLessons || 0,
+            completed_lessons: completedLessons,
+            progress_percentage: totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0
+          };
+        })
+      );
+
+      setTrainings(trainingsWithProgress);
+    } catch (error) {
+      console.error('Error fetching trainings:', error);
+    } finally {
+      setTrainingsLoading(false);
     }
   };
 
@@ -276,6 +337,88 @@ const MyAccount = () => {
                   {profile.user_id}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Training Assignments */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Moje szkolenia
+              </CardTitle>
+              <CardDescription>
+                Szkolenia przypisane do Twojego konta
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {trainingsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : trainings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Nie masz przypisanych żadnych szkoleń</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {trainings.map((training) => (
+                    <div key={training.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">{training.module.title}</h4>
+                        <Badge variant={
+                          training.is_completed ? "default" : 
+                          training.progress_percentage > 0 ? "secondary" : "outline"
+                        }>
+                          {training.is_completed ? "Ukończone" : 
+                           training.progress_percentage > 0 ? "W trakcie" : "Do rozpoczęcia"}
+                        </Badge>
+                      </div>
+                      
+                      {training.module.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {training.module.description}
+                        </p>
+                      )}
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Postęp</span>
+                          <span>{training.completed_lessons}/{training.total_lessons} lekcji</span>
+                        </div>
+                        <div className="w-full bg-secondary rounded-full h-2">
+                          <div 
+                            className="bg-primary h-2 rounded-full transition-all" 
+                            style={{ width: `${training.progress_percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="text-xs text-muted-foreground">
+                          Przypisane: {new Date(training.assigned_at).toLocaleDateString('pl-PL')}
+                          {training.due_date && (
+                            <span className="ml-2">
+                              • Termin: {new Date(training.due_date).toLocaleDateString('pl-PL')}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <Button
+                          size="sm"
+                          onClick={() => navigate(`/training/${training.module.id}`)}
+                          variant={training.is_completed ? "outline" : "default"}
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          {training.is_completed ? "Przejrzyj" : 
+                           training.progress_percentage > 0 ? "Kontynuuj" : "Rozpocznij"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
