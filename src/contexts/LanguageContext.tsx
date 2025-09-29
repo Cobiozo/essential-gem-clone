@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React from 'react';
 
 export type Language = 'pl' | 'de' | 'en';
 
@@ -8,7 +8,7 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+const LanguageContext = React.createContext<LanguageContextType | undefined>(undefined);
 
 // Default context value to prevent undefined errors during hot reload
 const defaultContextValue: LanguageContextType = {
@@ -1014,7 +1014,7 @@ const translations = {
 };
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>(() => {
+  const [language, setLanguage] = React.useState<Language>(() => {
     try {
       const saved = localStorage.getItem('pure-life-language');
       return (saved as Language) || 'pl';
@@ -1024,7 +1024,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   });
 
-  useEffect(() => {
+  React.useEffect(() => {
     try {
       localStorage.setItem('pure-life-language', language);
       document.documentElement.lang = language;
@@ -1051,7 +1051,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 };
 
 export const useLanguage = (): LanguageContextType => {
-  const context = useContext(LanguageContext);
+  const context = React.useContext(LanguageContext);
   if (context === undefined) {
     console.warn('useLanguage must be used within a LanguageProvider, using default values');
     return defaultContextValue;
