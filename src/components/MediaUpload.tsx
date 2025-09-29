@@ -113,22 +113,26 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const uploadMedia = async (originalFile: File) => {
     if (!originalFile) return;
 
-    // Check if compression is needed and compress if necessary
+    // For videos, skip compression entirely - upload original
+    const isVideo = originalFile.type.startsWith('video/');
     let file = originalFile;
-    try {
-      file = await compressFile(originalFile);
-    } catch (error) {
-      console.error('Compression error:', error);
-      // Continue with original file if compression fails
-      toast({
-        title: "Ostrzeżenie",
-        description: "Nie udało się skompresować pliku. Kontynuowanie z oryginalnym plikiem.",
-        variant: "default",
-      });
+    
+    // Only compress large images
+    if (!isVideo && originalFile.size > 49 * 1024 * 1024) {
+      try {
+        file = await compressFile(originalFile);
+      } catch (error) {
+        console.error('Compression error:', error);
+        toast({
+          title: "Ostrzeżenie",
+          description: "Nie udało się skompresować pliku. Kontynuowanie z oryginalnym plikiem.",
+          variant: "default",
+        });
+      }
     }
 
     const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
+    // isVideo already declared above
     const isAudio = file.type.startsWith('audio/');
     const isDocument = file.type === 'application/pdf' || 
                      file.type === 'application/msword' || 
