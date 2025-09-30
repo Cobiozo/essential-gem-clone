@@ -56,18 +56,28 @@ const Training = () => {
         if (error) throw error;
         modulesData = data;
       } else {
-        // Non-admins only see assigned modules
-        const { data, error } = await supabase
+        // Non-admins see assigned modules (bypassing visibility restrictions)
+        const { data: assignments, error } = await supabase
           .from('training_assignments')
-          .select(`
-            module:training_modules!inner(*)
-          `)
-          .eq('user_id', user?.id)
-          .eq('module.is_active', true)
-          .order('assigned_at', { ascending: false });
+          .select('module_id')
+          .eq('user_id', user?.id);
         
         if (error) throw error;
-        modulesData = data?.map(assignment => assignment.module) || [];
+        
+        if (assignments && assignments.length > 0) {
+          const moduleIds = assignments.map(a => a.module_id);
+          const { data: assignedModules, error: modulesError } = await supabase
+            .from('training_modules')
+            .select('*')
+            .in('id', moduleIds)
+            .eq('is_active', true)
+            .order('position');
+          
+          if (modulesError) throw modulesError;
+          modulesData = assignedModules || [];
+        } else {
+          modulesData = [];
+        }
       }
 
       // For each module, get lesson count and user progress
