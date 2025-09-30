@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SecureMediaProps {
@@ -6,16 +6,19 @@ interface SecureMediaProps {
   mediaType: 'image' | 'video' | 'document' | 'audio' | 'other';
   altText?: string;
   className?: string;
+  disableInteraction?: boolean; // For training videos - prevents pause and seek
 }
 
 export const SecureMedia: React.FC<SecureMediaProps> = ({
   mediaUrl,
   mediaType,
   altText,
-  className
+  className,
+  disableInteraction = false
 }) => {
   const [signedUrl, setSignedUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const getSignedUrl = async () => {
@@ -46,6 +49,29 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       getSignedUrl();
     }
   }, [mediaUrl]);
+
+  // Block seeking for training videos
+  useEffect(() => {
+    if (mediaType !== 'video' || !disableInteraction || !videoRef.current) return;
+
+    const video = videoRef.current;
+    let lastValidTime = 0;
+
+    const preventSeek = () => {
+      // Force video to continue from where it was, preventing backwards seek
+      if (Math.abs(video.currentTime - lastValidTime) > 0.5 && video.currentTime < lastValidTime) {
+        video.currentTime = lastValidTime;
+      } else {
+        lastValidTime = video.currentTime;
+      }
+    };
+
+    video.addEventListener('timeupdate', preventSeek);
+    
+    return () => {
+      video.removeEventListener('timeupdate', preventSeek);
+    };
+  }, [mediaType, disableInteraction, signedUrl]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -89,15 +115,46 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   };
 
   if (mediaType === 'video') {
+    const handleVideoInteraction = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+      if (!disableInteraction) return;
+      
+      const video = e.currentTarget;
+      
+      // Prevent pause
+      if (e.type === 'pause' && !video.ended) {
+        video.play();
+      }
+      
+      // Prevent seeking
+      if (e.type === 'seeking' || e.type === 'seeked') {
+        // This will be handled by blocking the seek in the effect
+      }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (!disableInteraction) return;
+      
+      // Block space (pause) and arrow keys (seek)
+      if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+      }
+    };
+
     return (
       <video
+        ref={videoRef}
         {...securityProps}
         src={signedUrl}
-        controls
+        controls={!disableInteraction}
         controlsList="nodownload nofullscreen noremoteplayback"
         disablePictureInPicture
         className={`w-full h-auto rounded-lg ${className || ''}`}
         preload="metadata"
+        onPause={handleVideoInteraction}
+        onSeeking={handleVideoInteraction}
+        onSeeked={handleVideoInteraction}
+        onKeyDown={handleKeyDown}
+        autoPlay={disableInteraction}
       >
         Twoja przeglądarka nie obsługuje odtwarzania wideo.
       </video>

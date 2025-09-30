@@ -428,6 +428,7 @@ const TrainingModule = () => {
                       mediaUrl={currentLesson.media_url}
                       mediaType={currentLesson.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
                       altText={currentLesson.media_alt_text}
+                      disableInteraction={true}
                       className="w-full max-h-96 object-contain"
                     />
                   </div>
