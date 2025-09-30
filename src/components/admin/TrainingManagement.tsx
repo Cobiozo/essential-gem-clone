@@ -863,7 +863,10 @@ const UserSelectorModal = ({
 
       const { error: assignmentError } = await supabase
         .from('training_assignments')
-        .insert(assignments);
+        .upsert(assignments, {
+          onConflict: 'user_id,module_id',
+          ignoreDuplicates: false
+        });
 
       if (assignmentError) throw assignmentError;
 
