@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
-import { Settings, LogOut } from 'lucide-react';
+import { Settings, LogOut, BookOpen } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -348,6 +348,12 @@ const Index = () => {
                     </Button>
                   </Link>
                  )}
+                <Link to="/training">
+                  <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
+                    <BookOpen className="w-3 h-3 mr-1" />
+                    Akademia
+                  </Button>
+                </Link>
                 <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
                   <LogOut className="w-3 h-3 mr-1" />
                   {t('nav.logout')}

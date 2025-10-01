@@ -156,7 +156,7 @@ const Training = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Ładowanie szkoleń...</p>
+          <p className="text-muted-foreground">Ładowanie Akademii...</p>
         </div>
       </div>
     );
@@ -177,13 +177,13 @@ const Training = () => {
             Strona główna
           </Button>
           <Separator orientation="vertical" className="h-6" />
-          <h1 className="text-xl font-semibold">Szkolenia</h1>
+          <h1 className="text-xl font-semibold">Akademia</h1>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Szkolenia</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Akademia</h1>
           <p className="text-muted-foreground">
             Ukończ wszystkie wymagane szkolenia, aby zdobyć niezbędną wiedzę i certyfikaty.
           </p>
