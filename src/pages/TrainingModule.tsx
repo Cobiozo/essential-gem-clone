@@ -312,6 +312,7 @@ const TrainingModule = () => {
 
   const currentLesson = lessons[currentLessonIndex];
   const currentProgress = progress[currentLesson?.id];
+  const isLessonCompleted = currentProgress?.is_completed || false;
   const totalTimeSpent = (currentProgress?.time_spent_seconds || 0) + timeSpent;
   const progressPercentage = currentLesson?.min_time_seconds 
     ? Math.min(100, (totalTimeSpent / currentLesson.min_time_seconds) * 100)
@@ -428,9 +429,14 @@ const TrainingModule = () => {
                       mediaUrl={currentLesson.media_url}
                       mediaType={currentLesson.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
                       altText={currentLesson.media_alt_text}
-                      disableInteraction={true}
+                      disableInteraction={!isLessonCompleted}
                       className="w-full max-h-96 object-contain"
                     />
+                    {isLessonCompleted && currentLesson.media_type === 'video' && (
+                      <div className="bg-green-50 border-t border-green-200 px-4 py-2 text-sm text-green-700">
+                        ✓ Lekcja ukończona - możesz obejrzeć ponownie z pełnymi kontrolkami
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -460,7 +466,7 @@ const TrainingModule = () => {
 
                   <Button
                     onClick={goToNextLesson}
-                    disabled={!canProceed && currentLesson.min_time_seconds > 0}
+                    disabled={!canProceed && currentLesson.min_time_seconds > 0 && !isLessonCompleted}
                   >
                     {currentLessonIndex === lessons.length - 1 ? "Zakończ" : "Następna"}
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -468,7 +474,7 @@ const TrainingModule = () => {
                 </div>
 
                 {/* Time Warning */}
-                {!canProceed && currentLesson.min_time_seconds > 0 && (
+                {!canProceed && currentLesson.min_time_seconds > 0 && !isLessonCompleted && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
                     <Clock className="h-5 w-5 text-amber-600 mx-auto mb-2" />
                     <p className="text-sm text-amber-800">
