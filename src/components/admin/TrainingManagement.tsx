@@ -63,6 +63,21 @@ interface TrainingLesson {
   is_active: boolean;
 }
 
+interface UserProgress {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  modules: {
+    module_id: string;
+    module_title: string;
+    assigned_at: string;
+    total_lessons: number;
+    completed_lessons: number;
+    progress_percentage: number;
+  }[];
+}
+
 const TrainingManagement = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
@@ -75,6 +90,8 @@ const TrainingManagement = () => {
   const [selectedModuleForUsers, setSelectedModuleForUsers] = useState<string>("");
   const [activeTab, setActiveTab] = useState("modules");
   const [loading, setLoading] = useState(true);
+  const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
+  const [progressLoading, setProgressLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -87,6 +104,12 @@ const TrainingManagement = () => {
       fetchLessons(selectedModule);
     }
   }, [selectedModule]);
+
+  useEffect(() => {
+    if (activeTab === 'progress') {
+      fetchUserProgress();
+    }
+  }, [activeTab]);
 
   const fetchModules = async () => {
     try {
@@ -250,6 +273,116 @@ const TrainingManagement = () => {
         description: "Nie można usunąć lekcji",
         variant: "destructive"
       });
+    }
+  };
+
+  const fetchUserProgress = async () => {
+    setProgressLoading(true);
+    try {
+      // Fetch all assignments with user and module info
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('training_assignments')
+        .select(`
+          user_id,
+          module_id,
+          assigned_at,
+          profiles!training_assignments_user_id_fkey (
+            email,
+            first_name,
+            last_name
+          ),
+          training_modules!training_assignments_module_id_fkey (
+            title
+          )
+        `);
+
+      if (assignmentsError) throw assignmentsError;
+
+      // Fetch all progress
+      const { data: progressData, error: progressError } = await supabase
+        .from('training_progress')
+        .select('user_id, lesson_id, is_completed');
+
+      if (progressError) throw progressError;
+
+      // Fetch all lessons per module
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('training_lessons')
+        .select('id, module_id')
+        .eq('is_active', true);
+
+      if (lessonsError) throw lessonsError;
+
+      // Group lessons by module
+      const lessonsByModule: Record<string, string[]> = {};
+      lessonsData?.forEach(lesson => {
+        if (!lessonsByModule[lesson.module_id]) {
+          lessonsByModule[lesson.module_id] = [];
+        }
+        lessonsByModule[lesson.module_id].push(lesson.id);
+      });
+
+      // Group progress by user
+      const progressByUser: Record<string, Set<string>> = {};
+      progressData?.forEach(progress => {
+        if (progress.is_completed) {
+          if (!progressByUser[progress.user_id]) {
+            progressByUser[progress.user_id] = new Set();
+          }
+          progressByUser[progress.user_id].add(progress.lesson_id);
+        }
+      });
+
+      // Build user progress structure
+      const userProgressMap: Record<string, UserProgress> = {};
+
+      assignments?.forEach((assignment: any) => {
+        const userId = assignment.user_id;
+        const moduleId = assignment.module_id;
+        const profile = assignment.profiles;
+        const module = assignment.training_modules;
+
+        if (!profile || !module) return;
+
+        if (!userProgressMap[userId]) {
+          userProgressMap[userId] = {
+            user_id: userId,
+            email: profile.email,
+            first_name: profile.first_name || '',
+            last_name: profile.last_name || '',
+            modules: []
+          };
+        }
+
+        const totalLessons = lessonsByModule[moduleId]?.length || 0;
+        const userCompletedLessons = progressByUser[userId] 
+          ? lessonsByModule[moduleId]?.filter(lessonId => 
+              progressByUser[userId].has(lessonId)
+            ).length || 0
+          : 0;
+
+        userProgressMap[userId].modules.push({
+          module_id: moduleId,
+          module_title: module.title,
+          assigned_at: assignment.assigned_at,
+          total_lessons: totalLessons,
+          completed_lessons: userCompletedLessons,
+          progress_percentage: totalLessons > 0 
+            ? Math.round((userCompletedLessons / totalLessons) * 100)
+            : 0
+        });
+      });
+
+      setUserProgress(Object.values(userProgressMap));
+    } catch (error) {
+      console.error('Error fetching user progress:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie można załadować postępów użytkowników",
+        variant: "destructive"
+      });
+    } finally {
+      setProgressLoading(false);
     }
   };
 
@@ -488,15 +621,68 @@ const TrainingManagement = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="progress">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Funkcja raportów postępów będzie dostępna wkrótce</p>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="progress" className="space-y-4">
+          {progressLoading ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : userProgress.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Brak przypisanych szkoleń</p>
+                  <p className="text-sm mt-2">Przypisz moduły szkoleniowe użytkownikom w zakładce "Moduły"</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {userProgress.map((user) => (
+                <Card key={user.user_id}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      {user.first_name} {user.last_name}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {user.modules.map((module) => (
+                        <div key={module.module_id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-medium">{module.module_title}</div>
+                            <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"}>
+                              {module.progress_percentage}%
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            <span>
+                              Ukończono {module.completed_lessons} z {module.total_lessons} lekcji
+                            </span>
+                          </div>
+                          <div className="mt-2 bg-secondary rounded-full h-2">
+                            <div 
+                              className="bg-primary rounded-full h-2 transition-all"
+                              style={{ width: `${module.progress_percentage}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2">
+                            Przypisano: {new Date(module.assigned_at).toLocaleDateString('pl-PL')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
