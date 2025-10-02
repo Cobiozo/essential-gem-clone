@@ -17,7 +17,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const MyAccount = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, userRole, signOut } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -235,12 +235,12 @@ const MyAccount = () => {
                   <Label className="text-sm font-medium">{t('admin.userRole')}</Label>
                   <div className="mt-1">
                     <Badge variant={
-                      profile.role === 'admin' ? 'default' : 
-                      profile.role === 'partner' ? 'outline' : 
-                      profile.role === 'specjalista' ? 'outline' : 
+                      userRole?.role === 'admin' ? 'default' : 
+                      userRole?.role === 'partner' ? 'outline' : 
+                      userRole?.role === 'specjalista' ? 'outline' : 
                       'secondary'
                     }>
-                      {getRoleDisplayName(profile.role)}
+                      {getRoleDisplayName(userRole?.role || 'user')}
                     </Badge>
                   </div>
                 </div>

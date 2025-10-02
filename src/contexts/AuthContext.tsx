@@ -6,16 +6,23 @@ interface Profile {
   id: string;
   user_id: string;
   email: string;
-  role: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+interface UserRole {
+  id: string;
+  user_id: string;
+  role: string;
+  created_at: string;
 }
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  userRole: UserRole | null;
   loading: boolean;
   isAdmin: boolean;
   isPartner: boolean;
@@ -40,23 +47,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .single();
       
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return;
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      } else {
+        setProfile(profileData);
       }
+
+      // Fetch user role from user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
       
-      setProfile(data);
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
+      } else {
+        setUserRole(roleData);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
@@ -83,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }, 0);
             } else {
               setProfile(null);
+              setUserRole(null);
             }
             
             setLoading(false);
@@ -155,24 +178,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setSession(null);
       setProfile(null);
+      setUserRole(null);
     } catch (error) {
       console.error('Logout error:', error);
       // Clear state anyway on error
       setUser(null);
       setSession(null);
       setProfile(null);
+      setUserRole(null);
     }
   };
 
-  const isAdmin = profile?.role === 'admin';
-  const isPartner = profile?.role === 'partner';
-  const isClient = profile?.role === 'client';
-  const isSpecjalista = profile?.role === 'specjalista';
+  const isAdmin = userRole?.role === 'admin';
+  const isPartner = userRole?.role === 'partner';
+  const isClient = userRole?.role === 'client';
+  const isSpecjalista = userRole?.role === 'specjalista';
 
   const value: AuthContextType = {
     user,
     session,
     profile,
+    userRole,
     loading,
     isAdmin,
     isPartner,
