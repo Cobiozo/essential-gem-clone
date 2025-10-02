@@ -450,7 +450,7 @@ const TrainingManagement = () => {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-4 flex-wrap">
                     <Button
                       size="sm"
                       variant="outline"
@@ -687,9 +687,9 @@ const TrainingManagement = () => {
       </Tabs>
 
       {/* User Selector Modal */}
-      {showUserSelector && (
+      {showUserSelector && selectedModuleForUsers && (
         <UserSelectorModal
-          moduleId={selectedModuleForUsers}
+          module={modules.find(m => m.id === selectedModuleForUsers)!}
           onClose={() => {
             setShowUserSelector(false);
             setSelectedModuleForUsers("");
@@ -968,10 +968,10 @@ const LessonForm = ({
 
 // User Selector Modal Component
 const UserSelectorModal = ({ 
-  moduleId, 
+  module, 
   onClose 
 }: { 
-  moduleId: string;
+  module: TrainingModule;
   onClose: () => void;
 }) => {
   const [users, setUsers] = useState<any[]>([]);
@@ -986,14 +986,47 @@ const UserSelectorModal = ({
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch profiles with roles from user_roles table
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, email, first_name, last_name, role')
+        .select('user_id, email, first_name, last_name')
         .eq('is_active', true)
         .order('email');
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Fetch user roles
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) throw rolesError;
+
+      // Combine profiles with roles
+      const usersWithRoles = profiles?.map(profile => {
+        const userRole = userRoles?.find(ur => ur.user_id === profile.user_id);
+        return {
+          ...profile,
+          role: userRole?.role || 'client'
+        };
+      }) || [];
+
+      // Filter users based on module visibility settings
+      const filteredUsers = usersWithRoles.filter(user => {
+        // If visible to everyone, show all users
+        if (module.visible_to_everyone) return true;
+
+        // Otherwise, check specific role visibility
+        const role = user.role.toLowerCase();
+        if (module.visible_to_clients && (role === 'client' || role === 'user')) return true;
+        if (module.visible_to_partners && role === 'partner') return true;
+        if (module.visible_to_specjalista && role === 'specjalista') return true;
+        if (module.visible_to_anonymous) return true;
+
+        return false;
+      });
+
+      setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -1042,7 +1075,7 @@ const UserSelectorModal = ({
       // Create training assignments
       const assignments = selectedUsers.map(userId => ({
         user_id: userId,
-        module_id: moduleId,
+        module_id: module.id,
         assigned_by: currentUser.id,
         assigned_at: new Date().toISOString(),
       }));
@@ -1061,7 +1094,7 @@ const UserSelectorModal = ({
         supabase.functions.invoke('send-training-notification', {
           body: {
             userId,
-            moduleId,
+            moduleId: module.id,
             assignedBy: currentUser.id
           }
         })
@@ -1093,6 +1126,9 @@ const UserSelectorModal = ({
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Wyślij szkolenie do użytkowników</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+            Moduł: <strong>{module.title}</strong> | Widoczny dla: {getVisibilityText(module)}
+          </p>
         </DialogHeader>
 
         {loading ? (
