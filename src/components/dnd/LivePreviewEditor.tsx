@@ -1535,7 +1535,7 @@ export const LivePreviewEditor: React.FC = () => {
                     key={section.id}
                     id={section.id}
                     isEditMode={editMode}
-                    className="w-full mb-4"
+                    className="w-full mb-8"
                   >
                     <div 
                       onClick={(e) => {
