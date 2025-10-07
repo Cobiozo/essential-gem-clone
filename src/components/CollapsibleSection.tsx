@@ -186,7 +186,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     backgroundSize: sectionStyle.background_image_size || 'cover',
     backgroundRepeat: 'no-repeat',
     height: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
-    minHeight: (!isOpen) ? `${Math.max(sectionStyle.min_height || 200, 200)}px` : 'auto', // Minimum card height
+    minHeight: (!isOpen) ? `${Math.max(sectionStyle.min_height || 200, 200)}px` : '80px',
     padding: `${sectionStyle.padding || 32}px`,
     display: 'flex',
     flexDirection: sectionStyle.content_direction as any || 'column',
@@ -205,11 +205,10 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     border: 'none',
     cursor: 'pointer',
     width: '100%',
-    position: 'relative' as const,
   } : {
     // Default modern card header
     flex: 'none',
-    minHeight: '200px',
+    minHeight: isOpen ? '80px' : '200px',
     padding: '32px',
     display: 'flex',
     flexDirection: 'column' as const,
@@ -295,10 +294,12 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           }
           setOpen(!isOpen);
         }}
-        className="relative z-10 transition-all duration-300"
+        className="w-full transition-all duration-300"
         style={{
           ...customHeaderStyle,
           background: !isOpen && sectionStyle?.background_gradient ? sectionStyle.background_gradient : customHeaderStyle.backgroundColor,
+          position: 'static',
+          display: 'block',
         }}
         onMouseEnter={(e) => {
           if (sectionStyle?.hover_background_gradient) {
@@ -400,8 +401,12 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       </button>
       {isOpen && (
         <div 
-          className="px-6 py-6 bg-white border-t border-gray-100"
-          style={customContentStyle}
+          className="w-full px-6 py-6 bg-white border-t border-gray-100"
+          style={{
+            ...customContentStyle,
+            display: 'block',
+            position: 'static',
+          }}
         >
           {children}
           
