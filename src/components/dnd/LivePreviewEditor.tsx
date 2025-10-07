@@ -1537,9 +1537,8 @@ export const LivePreviewEditor: React.FC = () => {
                     isEditMode={editMode}
                     className="w-full"
                   >
-                    <div 
+                     <div 
                       onClick={(e) => {
-                        // Ignore clicks during drag operations
                         if (activeId) {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1548,10 +1547,9 @@ export const LivePreviewEditor: React.FC = () => {
                         setSelectedElement(section.id);
                       }}
                       className={cn(
-                        "block w-full cursor-pointer transition-all duration-200",
+                        "block w-full cursor-pointer transition-all duration-200 mb-6",
                         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
                       )}
-                      style={{display: 'block', position: 'static'}}
                     >
                       <ResizableElement
                         key={`${section.id}-${section.custom_width ?? 'auto'}`}

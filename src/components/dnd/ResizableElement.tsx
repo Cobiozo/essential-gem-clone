@@ -242,20 +242,17 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     <div
       ref={elementRef}
       className={cn(
-        "relative group block w-full",
+        "relative group block w-full mb-4",
         isResizing && "select-none",
         className
       )}
-      style={{
-        ...style,
-        display: 'block',
-      }}
+      style={style}
     >
       {children}
       
       {/* Resize handles - only visible on hover or during resize */}
       <div className={cn(
-        "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity",
+        "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
         isResizing && "opacity-100"
       )}>
         {/* Corner handles */}

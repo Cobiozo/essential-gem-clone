@@ -148,32 +148,28 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     borderWidth: `${sectionStyle.border_width || 0}px`,
     borderStyle: sectionStyle.border_style || 'solid',
     borderColor: sectionStyle.border_color || 'transparent',
-    borderRadius: `${sectionStyle.border_radius || 16}px`, // More rounded for modern card look
-    boxShadow: sectionStyle.box_shadow || '0 4px 20px rgba(0, 0, 0, 0.08)', // Modern card shadow
+    borderRadius: `${sectionStyle.border_radius || 16}px`,
+    boxShadow: sectionStyle.box_shadow || '0 4px 20px rgba(0, 0, 0, 0.08)',
     opacity: (sectionStyle.opacity || 100) / 100,
     width: isMobile
       ? '100%'
       : (sectionStyle.width_type === 'custom' ? `${sectionStyle.custom_width}px` : '100%'),
     minHeight: (!isOpen && sectionStyle.height_type === 'custom') ? `${sectionStyle.custom_height}px` : 'auto',
     height: 'auto',
-    maxWidth: isMobile ? '100%' : 'none', // No max-width constraint on desktop for proper alignment
+    maxWidth: isMobile ? '100%' : 'none',
     marginTop: `${sectionStyle.section_margin_top || 16}px`,
     marginBottom: `${sectionStyle.section_margin_bottom || 16}px`,
     marginLeft: 'auto',
     marginRight: 'auto',
-    overflow: 'hidden', // Ensure rounded corners are preserved
-    position: 'relative' as const,
+    overflow: 'hidden',
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
-    display: 'block',
   } : {
-    // Default modern card styles when no custom styles
     borderRadius: '16px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
     overflow: 'hidden',
     cursor: 'pointer',
     transition: 'all 300ms ease-in-out',
-    display: 'block',
   };
 
   // Header styles - modern card header design
@@ -226,18 +222,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Default gradient
   };
 
-  // Background image overlay for opacity
-  const backgroundImageOverlay = sectionStyle?.background_image && sectionStyle?.background_image_opacity !== 100 ? {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: sectionStyle.background_color || 'transparent',
-    opacity: (100 - (sectionStyle.background_image_opacity || 100)) / 100,
-    borderRadius: `${sectionStyle?.border_radius || 16}px`,
-    pointerEvents: 'none' as const,
-  } : undefined;
+  // Background image overlay (disabled as it requires absolute positioning)
+  const backgroundImageOverlay = undefined;
 
   const customContentStyle = sectionStyle ? {
     padding: `${sectionStyle.padding || 24}px`,
@@ -260,16 +246,13 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   return (
     <div 
       className={cn(
-        "group transition-all duration-300 ease-in-out hover:shadow-lg w-full block",
+        "group transition-all duration-300 ease-in-out hover:shadow-lg w-full block mb-8",
         className, 
         sectionStyle?.style_class
       )}
       style={{
         ...customContainerStyle,
         ...hoverStyles,
-        position: 'static',
-        display: 'block',
-        marginBottom: '2rem',
       }}
       onMouseEnter={(e) => {
         if (sectionStyle?.hover_scale && sectionStyle.hover_scale !== 1) {
@@ -298,8 +281,6 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         style={{
           ...customHeaderStyle,
           background: !isOpen && sectionStyle?.background_gradient ? sectionStyle.background_gradient : customHeaderStyle.backgroundColor,
-          position: 'static',
-          display: 'block',
         }}
         onMouseEnter={(e) => {
           if (sectionStyle?.hover_background_gradient) {
@@ -402,11 +383,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       {isOpen && (
         <div 
           className="w-full px-6 py-6 bg-white border-t border-gray-100"
-          style={{
-            ...customContentStyle,
-            display: 'block',
-            position: 'static',
-          }}
+          style={customContentStyle}
         >
           {children}
           
