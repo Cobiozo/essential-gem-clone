@@ -41,7 +41,7 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "relative group",
+        "relative group block w-full clear-both",
         isOver && "ring-2 ring-blue-400 ring-offset-2",
         isDragging && "opacity-50 scale-105 z-50",
         className

@@ -242,11 +242,15 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     <div
       ref={elementRef}
       className={cn(
-        "relative group block w-full",
+        "relative group block w-full clear-both",
         isResizing && "select-none",
         className
       )}
-      style={style}
+      style={{
+        ...style,
+        position: 'static',
+        isolation: 'isolate',
+      }}
     >
       {children}
       
