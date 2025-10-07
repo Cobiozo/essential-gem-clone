@@ -1535,7 +1535,7 @@ export const LivePreviewEditor: React.FC = () => {
                     key={section.id}
                     id={section.id}
                     isEditMode={editMode}
-                    className="w-full mb-8"
+                    className="w-full"
                   >
                     <div 
                       onClick={(e) => {
@@ -1548,9 +1548,10 @@ export const LivePreviewEditor: React.FC = () => {
                         setSelectedElement(section.id);
                       }}
                       className={cn(
-                        "block w-full cursor-pointer transition-all duration-200 clear-both",
+                        "block w-full cursor-pointer transition-all duration-200",
                         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
                       )}
+                      style={{display: 'block', position: 'static'}}
                     >
                       <ResizableElement
                         key={`${section.id}-${section.custom_width ?? 'auto'}`}

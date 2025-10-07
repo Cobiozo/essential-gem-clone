@@ -39,9 +39,9 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{...style, position: 'static', display: 'block'}}
       className={cn(
-        "relative group block w-full clear-both",
+        "group block w-full mb-6",
         isOver && "ring-2 ring-blue-400 ring-offset-2",
         isDragging && "opacity-50 scale-105 z-50",
         className
