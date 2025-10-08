@@ -138,6 +138,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   // Build custom styles from section properties - Modern card design
   const effectiveDevice: DeviceType = (currentDevice as DeviceType) ?? (useIsMobile() ? 'mobile' : 'desktop');
   const isMobile = effectiveDevice !== 'desktop';
+  const borderRadiusValue = `${sectionStyle?.border_radius || 16}px`;
   const customContainerStyle = sectionStyle ? {
     backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
     backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 
@@ -148,7 +149,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     borderWidth: `${sectionStyle.border_width || 0}px`,
     borderStyle: sectionStyle.border_style || 'solid',
     borderColor: sectionStyle.border_color || 'transparent',
-    borderRadius: `${sectionStyle.border_radius || 16}px`,
+    borderRadius: isOpen ? `${borderRadiusValue} ${borderRadiusValue} 0 0` : borderRadiusValue,
     boxShadow: sectionStyle.box_shadow || '0 4px 20px rgba(0, 0, 0, 0.08)',
     opacity: (sectionStyle.opacity || 100) / 100,
     width: isMobile
@@ -165,7 +166,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
   } : {
-    borderRadius: '16px',
+    borderRadius: isOpen ? '16px 16px 0 0' : '16px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
     overflow: 'visible',
     cursor: 'pointer',
@@ -227,7 +228,10 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 
   const customContentStyle = sectionStyle ? {
     padding: `${sectionStyle.padding || 24}px`,
-  } : {};
+    borderRadius: `0 0 ${borderRadiusValue} ${borderRadiusValue}`,
+  } : {
+    borderRadius: '0 0 16px 16px',
+  };
 
   // Get Lucide icon component
   const IconComponent = sectionStyle?.show_icon && sectionStyle?.icon_name ? 
