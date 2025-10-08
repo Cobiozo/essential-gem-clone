@@ -235,7 +235,8 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     width: device === 'desktop'
       ? (typeof dimensions.width === 'number' ? `${dimensions.width}px` : dimensions.width)
       : '100%',
-    height: typeof dimensions.height === 'number' ? `${dimensions.height}px` : dimensions.height,
+    minHeight: typeof dimensions.height === 'number' ? `${dimensions.height}px` : 'auto',
+    height: 'auto',
   };
 
   return (

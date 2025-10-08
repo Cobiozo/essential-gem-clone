@@ -39,7 +39,7 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{...style, position: 'relative'}}
       className={cn(
         "group w-full mb-6 clear-both",
         isOver && "ring-2 ring-blue-400 ring-offset-2",
