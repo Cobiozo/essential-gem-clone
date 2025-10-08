@@ -140,16 +140,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   const isMobile = effectiveDevice !== 'desktop';
   const borderRadiusValue = `${sectionStyle?.border_radius || 16}px`;
   const customContainerStyle = sectionStyle ? {
-    backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
-    backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 
-                      sectionStyle.background_image ? `url(${sectionStyle.background_image})` : 'none',
-    backgroundPosition: sectionStyle.background_image_position || 'center',
-    backgroundSize: sectionStyle.background_image_size || 'cover',
-    backgroundRepeat: 'no-repeat',
-    borderWidth: `${sectionStyle.border_width || 0}px`,
-    borderStyle: sectionStyle.border_style || 'solid',
-    borderColor: sectionStyle.border_color || 'transparent',
-    borderRadius: isOpen ? `${borderRadiusValue} ${borderRadiusValue} 0 0` : borderRadiusValue,
+    backgroundColor: 'transparent',
+    borderRadius: borderRadiusValue,
     boxShadow: sectionStyle.box_shadow || '0 4px 20px rgba(0, 0, 0, 0.08)',
     opacity: (sectionStyle.opacity || 100) / 100,
     width: isMobile
@@ -162,13 +154,13 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     marginBottom: `${sectionStyle.section_margin_bottom || 16}px`,
     marginLeft: 'auto',
     marginRight: 'auto',
-    overflow: 'visible',
+    overflow: 'hidden',
     cursor: 'pointer',
     transition: `all ${sectionStyle.hover_transition_duration || 300}ms ease-in-out`,
   } : {
-    borderRadius: isOpen ? '16px 16px 0 0' : '16px',
+    borderRadius: '16px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-    overflow: 'visible',
+    overflow: 'hidden',
     cursor: 'pointer',
     transition: 'all 300ms ease-in-out',
   };
@@ -184,6 +176,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     backgroundRepeat: 'no-repeat',
     height: 'auto',
     minHeight: (!isOpen) ? `${Math.max(sectionStyle.min_height || 200, 200)}px` : '80px',
+    borderRadius: isOpen ? `${borderRadiusValue} ${borderRadiusValue} 0 0` : borderRadiusValue,
     padding: `${sectionStyle.padding || 32}px`,
     display: 'flex',
     flexDirection: sectionStyle.content_direction as any || 'column',
@@ -221,6 +214,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     cursor: 'pointer',
     width: '100%',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Default gradient
+    borderRadius: isOpen ? '16px 16px 0 0' : '16px',
   };
 
   // Background image overlay (disabled as it requires absolute positioning)
