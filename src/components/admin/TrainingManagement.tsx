@@ -28,11 +28,13 @@ import {
   FileText,
   ExternalLink,
   Send,
-  UserPlus
+  UserPlus,
+  Award
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import jsPDF from "jspdf";
 
 interface TrainingModule {
   id: string;
@@ -386,6 +388,104 @@ const TrainingManagement = () => {
     }
   };
 
+  const generateCertificate = async (
+    userName: string,
+    moduleTitle: string,
+    completedDate: string
+  ) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Background border
+      doc.setDrawColor(52, 152, 219);
+      doc.setLineWidth(2);
+      doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
+
+      // Inner border
+      doc.setDrawColor(52, 152, 219);
+      doc.setLineWidth(0.5);
+      doc.rect(15, 15, pageWidth - 30, pageHeight - 30);
+
+      // Title
+      doc.setFontSize(36);
+      doc.setTextColor(52, 152, 219);
+      doc.text('CERTYFIKAT UKOŃCZENIA', pageWidth / 2, 40, { align: 'center' });
+
+      // Subtitle
+      doc.setFontSize(16);
+      doc.setTextColor(100, 100, 100);
+      doc.text('SZKOLENIA', pageWidth / 2, 52, { align: 'center' });
+
+      // Divider line
+      doc.setDrawColor(52, 152, 219);
+      doc.setLineWidth(0.5);
+      doc.line(60, 60, pageWidth - 60, 60);
+
+      // User name
+      doc.setFontSize(14);
+      doc.setTextColor(80, 80, 80);
+      doc.text('Niniejszym poświadcza się, że', pageWidth / 2, 80, { align: 'center' });
+
+      doc.setFontSize(28);
+      doc.setTextColor(0, 0, 0);
+      doc.text(userName, pageWidth / 2, 95, { align: 'center' });
+
+      // Completion text
+      doc.setFontSize(14);
+      doc.setTextColor(80, 80, 80);
+      doc.text('ukończył/a z powodzeniem szkolenie', pageWidth / 2, 110, { align: 'center' });
+
+      // Module title
+      doc.setFontSize(20);
+      doc.setTextColor(52, 152, 219);
+      doc.text(moduleTitle, pageWidth / 2, 125, { align: 'center' });
+
+      // Date
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Data ukończenia: ${new Date(completedDate).toLocaleDateString('pl-PL')}`, 
+        pageWidth / 2, 145, { align: 'center' });
+
+      // Award icon simulation (decorative elements)
+      doc.setDrawColor(52, 152, 219);
+      doc.setFillColor(52, 152, 219);
+      doc.circle(pageWidth / 2, 165, 8, 'S');
+      
+      doc.setFontSize(20);
+      doc.setTextColor(255, 255, 255);
+      doc.text('✓', pageWidth / 2, 168, { align: 'center' });
+
+      // Footer
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Certyfikat wygenerowany: ${new Date().toLocaleDateString('pl-PL')}`, 
+        pageWidth / 2, pageHeight - 20, { align: 'center' });
+
+      // Download the PDF
+      const fileName = `certyfikat_${userName.replace(/\s+/g, '_')}_${moduleTitle.replace(/\s+/g, '_')}.pdf`;
+      doc.save(fileName);
+
+      toast({
+        title: "Sukces",
+        description: "Certyfikat został wygenerowany i pobrany",
+      });
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie można wygenerować certyfikatu",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -672,8 +772,24 @@ const TrainingManagement = () => {
                               style={{ width: `${module.progress_percentage}%` }}
                             />
                           </div>
-                          <div className="text-xs text-muted-foreground mt-2">
-                            Przypisano: {new Date(module.assigned_at).toLocaleDateString('pl-PL')}
+                          <div className="flex items-center justify-between mt-3">
+                            <div className="text-xs text-muted-foreground">
+                              Przypisano: {new Date(module.assigned_at).toLocaleDateString('pl-PL')}
+                            </div>
+                            {module.progress_percentage === 100 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => generateCertificate(
+                                  `${user.first_name} ${user.last_name}`.trim() || user.email,
+                                  module.module_title,
+                                  module.assigned_at
+                                )}
+                              >
+                                <Award className="h-4 w-4 mr-1" />
+                                Wystaw certyfikat
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}
