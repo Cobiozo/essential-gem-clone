@@ -278,10 +278,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           setOpen(!isOpen);
         }}
         className="w-full transition-all duration-300"
-        style={{
-          ...customHeaderStyle,
-          background: !isOpen && sectionStyle?.background_gradient ? sectionStyle.background_gradient : customHeaderStyle.backgroundColor,
-        }}
+        style={customHeaderStyle}
         onMouseEnter={(e) => {
           if (sectionStyle?.hover_background_gradient) {
             e.currentTarget.style.backgroundImage = sectionStyle.hover_background_gradient;
