@@ -70,7 +70,6 @@ const Training = () => {
             .from('training_modules')
             .select('*')
             .in('id', moduleIds)
-            .eq('is_active', true)
             .order('position');
           
           if (modulesError) throw modulesError;
