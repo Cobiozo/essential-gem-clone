@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Dialog,
   DialogContent,
@@ -95,6 +96,7 @@ const TrainingManagement = () => {
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -391,7 +393,9 @@ const TrainingManagement = () => {
   const generateCertificate = async (
     userName: string,
     moduleTitle: string,
-    completedDate: string
+    completedDate: string,
+    userId: string,
+    moduleId: string
   ) => {
     try {
       const doc = new jsPDF({
@@ -468,19 +472,53 @@ const TrainingManagement = () => {
       doc.text(`Certyfikat wygenerowany: ${new Date().toLocaleDateString('pl-PL')}`, 
         pageWidth / 2, pageHeight - 20, { align: 'center' });
 
-      // Download the PDF
-      const fileName = `certyfikat_${userName.replace(/\s+/g, '_')}_${moduleTitle.replace(/\s+/g, '_')}.pdf`;
-      doc.save(fileName);
+      // Convert PDF to blob
+      const pdfBlob = doc.output('blob');
+      const fileName = `${userId}/certificate-${moduleId}-${Date.now()}.pdf`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('certificates')
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('certificates')
+        .getPublicUrl(fileName);
+
+      // Save certificate record to database
+      const { error: dbError } = await supabase
+        .from('certificates')
+        .insert({
+          user_id: userId,
+          module_id: moduleId,
+          issued_by: user?.id,
+          file_url: publicUrl
+        });
+
+      if (dbError) throw dbError;
+
+      // Also download the certificate for admin
+      const downloadFileName = `certyfikat_${userName.replace(/\s+/g, '_')}_${moduleTitle.replace(/\s+/g, '_')}.pdf`;
+      doc.save(downloadFileName);
 
       toast({
         title: "Sukces",
-        description: "Certyfikat został wygenerowany i pobrany",
+        description: "Certyfikat został wygenerowany i zapisany",
       });
+
+      // Refresh the user progress to show the certificate
+      fetchUserProgress();
     } catch (error) {
       console.error('Error generating certificate:', error);
       toast({
         title: "Błąd",
-        description: "Nie można wygenerować certyfikatu",
+        description: "Nie udało się wygenerować certyfikatu",
         variant: "destructive"
       });
     }
@@ -783,7 +821,9 @@ const TrainingManagement = () => {
                                 onClick={() => generateCertificate(
                                   `${user.first_name} ${user.last_name}`.trim() || user.email,
                                   module.module_title,
-                                  module.assigned_at
+                                  module.assigned_at,
+                                  user.user_id,
+                                  module.module_id
                                 )}
                               >
                                 <Award className="h-4 w-4 mr-1" />

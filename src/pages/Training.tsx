@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft, Award, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,18 +19,44 @@ interface TrainingModule {
   lessons_count: number;
   completed_lessons: number;
   total_time_minutes: number;
+  certificate_url?: string;
 }
 
 const Training = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [certificates, setCertificates] = useState<{[key: string]: string}>({});
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTrainingModules();
+    if (user) {
+      fetchCertificates();
+    }
   }, [user]);
+
+  const fetchCertificates = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('module_id, file_url')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const certMap: {[key: string]: string} = {};
+      data?.forEach(cert => {
+        certMap[cert.module_id] = cert.file_url;
+      });
+      setCertificates(certMap);
+    } catch (error) {
+      console.error('Error fetching certificates:', error);
+    }
+  };
 
   const fetchTrainingModules = async () => {
     try {
@@ -120,7 +146,8 @@ const Training = () => {
             ...module,
             lessons_count: lessonsCount || 0,
             completed_lessons: completedLessons,
-            total_time_minutes: Math.ceil(totalTime / 60)
+            total_time_minutes: Math.ceil(totalTime / 60),
+            certificate_url: certificates[module.id]
           };
         })
       );
@@ -244,6 +271,25 @@ const Training = () => {
                           </div>
                         )}
                       </div>
+
+                      {/* Certificate */}
+                      {module.certificate_url && (
+                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Award className="h-5 w-5 text-primary" />
+                              <span className="text-sm font-medium">Certyfikat ukończenia</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => window.open(module.certificate_url, '_blank')}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Action Button */}
                       <Button 
