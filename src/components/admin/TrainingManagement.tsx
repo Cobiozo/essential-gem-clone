@@ -399,21 +399,31 @@ const TrainingManagement = () => {
   ) => {
     try {
       // Fetch active certificate template
-      const { data: template, error: templateError } = await supabase
+      const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
         .select('*')
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
 
       if (templateError) {
         console.error('Error fetching template:', templateError);
         toast({
           title: "Błąd",
-          description: "Nie znaleziono aktywnego szablonu certyfikatu",
+          description: "Błąd podczas pobierania szablonu certyfikatu",
           variant: "destructive"
         });
         return;
       }
+
+      if (!templates || templates.length === 0) {
+        toast({
+          title: "Błąd",
+          description: "Nie znaleziono aktywnego szablonu certyfikatu. Ustaw szablon jako domyślny w zakładce Certyfikaty.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const template = templates[0]; // Use first active template
 
       const doc = new jsPDF({
         orientation: 'landscape',

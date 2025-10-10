@@ -79,10 +79,14 @@ const CertificateEditor = () => {
     }
 
     try {
+      // Check if there are any existing templates
+      const hasExistingTemplates = templates.length > 0;
+
       const { data, error } = await supabase
         .from('certificate_templates')
         .insert({
           name: newTemplateName,
+          is_active: !hasExistingTemplates, // Only set as active if it's the first template
           layout: {
             elements: [
               {
@@ -215,15 +219,15 @@ const CertificateEditor = () => {
 
   const setDefaultTemplate = async (templateId: string) => {
     try {
-      // Deactivate all templates first
+      // First, deactivate ALL templates
       const { error: deactivateError } = await supabase
         .from('certificate_templates')
         .update({ is_active: false })
-        .neq('id', templateId);
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all rows
 
       if (deactivateError) throw deactivateError;
 
-      // Activate selected template
+      // Then activate only the selected template
       const { error: activateError } = await supabase
         .from('certificate_templates')
         .update({ is_active: true })
