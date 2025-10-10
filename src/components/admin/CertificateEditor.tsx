@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Save, Trash2, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import TemplateDndEditor from './TemplateDndEditor';
 
 interface CertificateTemplate {
   id: string;
@@ -324,21 +325,11 @@ const CertificateEditor = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Edytor DND będzie dostępny wkrótce. Obecnie możesz używać domyślnego szablonu.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Dostępne zmienne: {'{userName}'}, {'{moduleTitle}'}, {'{completionDate}'}
-                </p>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={() => setSelectedTemplate(null)}>
-                  Zamknij edytor
-                </Button>
-              </div>
-            </div>
+            <TemplateDndEditor
+              template={selectedTemplate}
+              onSave={updateTemplateLayout}
+              onClose={() => setSelectedTemplate(null)}
+            />
           </CardContent>
         </Card>
       )}

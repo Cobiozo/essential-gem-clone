@@ -2232,7 +2232,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6">
+          <TabsList className="grid w-full grid-cols-9 mb-6">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
