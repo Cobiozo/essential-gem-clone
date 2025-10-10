@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Save, Trash2, FileText } from 'lucide-react';
@@ -212,6 +213,41 @@ const CertificateEditor = () => {
     }
   };
 
+  const setDefaultTemplate = async (templateId: string) => {
+    try {
+      // Deactivate all templates first
+      const { error: deactivateError } = await supabase
+        .from('certificate_templates')
+        .update({ is_active: false })
+        .neq('id', templateId);
+
+      if (deactivateError) throw deactivateError;
+
+      // Activate selected template
+      const { error: activateError } = await supabase
+        .from('certificate_templates')
+        .update({ is_active: true })
+        .eq('id', templateId);
+
+      if (activateError) throw activateError;
+
+      // Refresh templates
+      await fetchTemplates();
+
+      toast({
+        title: "Sukces",
+        description: "Szablon został ustawiony jako domyślny",
+      });
+    } catch (error) {
+      console.error('Error setting default template:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się ustawić domyślnego szablonu",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -285,7 +321,12 @@ const CertificateEditor = () => {
                 {template.layout.elements.length} elementów
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                {template.is_active && (
+                  <Badge variant="default">Domyślny</Badge>
+                )}
+              </div>
               <Button
                 variant="outline"
                 className="w-full"
@@ -293,6 +334,15 @@ const CertificateEditor = () => {
               >
                 Edytuj szablon
               </Button>
+              {!template.is_active && (
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setDefaultTemplate(template.id)}
+                >
+                  Ustaw jako domyślny
+                </Button>
+              )}
             </CardContent>
           </Card>
         ))}

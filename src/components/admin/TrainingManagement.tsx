@@ -398,6 +398,23 @@ const TrainingManagement = () => {
     moduleId: string
   ) => {
     try {
+      // Fetch active certificate template
+      const { data: template, error: templateError } = await supabase
+        .from('certificate_templates')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+
+      if (templateError) {
+        console.error('Error fetching template:', templateError);
+        toast({
+          title: "Błąd",
+          description: "Nie znaleziono aktywnego szablonu certyfikatu",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -407,70 +424,44 @@ const TrainingManagement = () => {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      // Background border
-      doc.setDrawColor(52, 152, 219);
-      doc.setLineWidth(2);
-      doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
+      // Render template elements
+      if (template.layout && typeof template.layout === 'object' && 'elements' in template.layout) {
+        const layoutData = template.layout as { elements: any[] };
+        layoutData.elements.forEach((element: any) => {
+          // Replace variables
+          let content = element.content || '';
+          content = content.replace('{userName}', userName);
+          content = content.replace('{moduleTitle}', moduleTitle);
+          content = content.replace('{completionDate}', new Date(completedDate).toLocaleDateString('pl-PL'));
 
-      // Inner border
-      doc.setDrawColor(52, 152, 219);
-      doc.setLineWidth(0.5);
-      doc.rect(15, 15, pageWidth - 30, pageHeight - 30);
+          if (element.type === 'text') {
+            doc.setFontSize(element.fontSize || 16);
+            
+            // Convert hex color to RGB
+            const color = element.color || '#000000';
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            doc.setTextColor(r, g, b);
 
-      // Title
-      doc.setFontSize(36);
-      doc.setTextColor(52, 152, 219);
-      doc.text('CERTYFIKAT UKOŃCZENIA', pageWidth / 2, 40, { align: 'center' });
+            // Convert fontWeight to jsPDF format
+            if (element.fontWeight === 'bold' || element.fontWeight === '700') {
+              doc.setFont('helvetica', 'bold');
+            } else {
+              doc.setFont('helvetica', 'normal');
+            }
 
-      // Subtitle
-      doc.setFontSize(16);
-      doc.setTextColor(100, 100, 100);
-      doc.text('SZKOLENIA', pageWidth / 2, 52, { align: 'center' });
+            // Calculate position (Fabric.js uses pixels, jsPDF uses mm at 72 DPI)
+            const x = element.x * 0.352778;
+            const y = element.y * 0.352778;
 
-      // Divider line
-      doc.setDrawColor(52, 152, 219);
-      doc.setLineWidth(0.5);
-      doc.line(60, 60, pageWidth - 60, 60);
-
-      // User name
-      doc.setFontSize(14);
-      doc.setTextColor(80, 80, 80);
-      doc.text('Niniejszym poświadcza się, że', pageWidth / 2, 80, { align: 'center' });
-
-      doc.setFontSize(28);
-      doc.setTextColor(0, 0, 0);
-      doc.text(userName, pageWidth / 2, 95, { align: 'center' });
-
-      // Completion text
-      doc.setFontSize(14);
-      doc.setTextColor(80, 80, 80);
-      doc.text('ukończył/a z powodzeniem szkolenie', pageWidth / 2, 110, { align: 'center' });
-
-      // Module title
-      doc.setFontSize(20);
-      doc.setTextColor(52, 152, 219);
-      doc.text(moduleTitle, pageWidth / 2, 125, { align: 'center' });
-
-      // Date
-      doc.setFontSize(12);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Data ukończenia: ${new Date(completedDate).toLocaleDateString('pl-PL')}`, 
-        pageWidth / 2, 145, { align: 'center' });
-
-      // Award icon simulation (decorative elements)
-      doc.setDrawColor(52, 152, 219);
-      doc.setFillColor(52, 152, 219);
-      doc.circle(pageWidth / 2, 165, 8, 'S');
-      
-      doc.setFontSize(20);
-      doc.setTextColor(255, 255, 255);
-      doc.text('✓', pageWidth / 2, 168, { align: 'center' });
-
-      // Footer
-      doc.setFontSize(10);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Certyfikat wygenerowany: ${new Date().toLocaleDateString('pl-PL')}`, 
-        pageWidth / 2, pageHeight - 20, { align: 'center' });
+            doc.text(content, x, y, { 
+              align: element.align || 'left',
+              maxWidth: pageWidth - 20
+            });
+          }
+        });
+      }
 
       // Convert PDF to blob
       const pdfBlob = doc.output('blob');
@@ -486,10 +477,14 @@ const TrainingManagement = () => {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Create a signed URL that expires in 10 years
+      const { data: signedUrlData, error: urlError } = await supabase.storage
         .from('certificates')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 315360000); // 10 years in seconds
+
+      if (urlError) throw urlError;
+
+      const fileUrl = signedUrlData.signedUrl;
 
       // Save certificate record to database
       const { error: dbError } = await supabase
@@ -498,7 +493,7 @@ const TrainingManagement = () => {
           user_id: userId,
           module_id: moduleId,
           issued_by: user?.id,
-          file_url: publicUrl
+          file_url: fileUrl
         });
 
       if (dbError) throw dbError;
