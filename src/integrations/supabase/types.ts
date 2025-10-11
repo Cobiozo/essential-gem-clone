@@ -855,6 +855,10 @@ export type Database = {
         Args: { new_role: string; user_id_param: string }
         Returns: boolean
       }
+      set_default_certificate_template: {
+        Args: { template_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "partner" | "client" | "specjalista" | "user"

@@ -169,7 +169,8 @@ const Training = () => {
             lessons_count: lessonsCount || 0,
             completed_lessons: completedLessons,
             total_time_minutes: Math.ceil(totalTime / 60),
-            certificate_url: certificates[module.id]
+            certificate_id: certificates[module.id]?.id,
+            certificate_url: certificates[module.id]?.url
           };
         })
       );
