@@ -19,13 +19,14 @@ interface TrainingModule {
   lessons_count: number;
   completed_lessons: number;
   total_time_minutes: number;
+  certificate_id?: string;
   certificate_url?: string;
 }
 
 const Training = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [certificates, setCertificates] = useState<{[key: string]: string}>({});
+  const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string}}>({});
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -43,18 +44,39 @@ const Training = () => {
     try {
       const { data, error } = await supabase
         .from('certificates')
-        .select('module_id, file_url')
+        .select('id, module_id, file_url')
         .eq('user_id', user.id);
 
       if (error) throw error;
 
-      const certMap: {[key: string]: string} = {};
+      const certMap: {[key: string]: {id: string, url: string}} = {};
       data?.forEach(cert => {
-        certMap[cert.module_id] = cert.file_url;
+        certMap[cert.module_id] = { id: cert.id, url: cert.file_url };
       });
       setCertificates(certMap);
     } catch (error) {
       console.error('Error fetching certificates:', error);
+    }
+  };
+
+  const downloadCertificate = async (certificateId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-certificate-url', {
+        body: { certificateId }
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error downloading certificate:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać certyfikatu",
+        variant: "destructive"
+      });
     }
   };
 
@@ -273,7 +295,7 @@ const Training = () => {
                       </div>
 
                       {/* Certificate */}
-                      {module.certificate_url && (
+                      {module.certificate_id && (
                         <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -283,7 +305,7 @@ const Training = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => window.open(module.certificate_url, '_blank')}
+                              onClick={() => downloadCertificate(module.certificate_id!)}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
