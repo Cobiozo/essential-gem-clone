@@ -79,14 +79,19 @@ const CertificateEditor = () => {
     }
 
     try {
-      // Check if there are any existing templates
-      const hasExistingTemplates = templates.length > 0;
+      // Check if there are any active templates
+      const { data: activeTemplates } = await supabase
+        .from('certificate_templates')
+        .select('id')
+        .eq('is_active', true);
+
+      const hasActiveTemplate = activeTemplates && activeTemplates.length > 0;
 
       const { data, error } = await supabase
         .from('certificate_templates')
         .insert({
           name: newTemplateName,
-          is_active: !hasExistingTemplates, // Only set as active if it's the first template
+          is_active: !hasActiveTemplate, // Only set as active if no active template exists
           layout: {
             elements: [
               {
@@ -219,12 +224,29 @@ const CertificateEditor = () => {
 
   const setDefaultTemplate = async (templateId: string) => {
     try {
-      // Use RPC function to ensure atomic operation
-      const { error } = await supabase.rpc('set_default_certificate_template', {
-        template_id: templateId
-      });
+      // Manual implementation to ensure atomicity
+      // First, deactivate all templates
+      const { data: allTemplates } = await supabase
+        .from('certificate_templates')
+        .select('id');
 
-      if (error) throw error;
+      if (allTemplates && allTemplates.length > 0) {
+        // Deactivate each template individually
+        for (const tmpl of allTemplates) {
+          await supabase
+            .from('certificate_templates')
+            .update({ is_active: false })
+            .eq('id', tmpl.id);
+        }
+      }
+
+      // Then activate only the selected template
+      const { error: activateError } = await supabase
+        .from('certificate_templates')
+        .update({ is_active: true })
+        .eq('id', templateId);
+
+      if (activateError) throw activateError;
 
       // Refresh templates
       await fetchTemplates();

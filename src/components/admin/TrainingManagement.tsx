@@ -438,6 +438,9 @@ const TrainingManagement = () => {
       if (template.layout && typeof template.layout === 'object' && 'elements' in template.layout) {
         const layoutData = template.layout as { elements: any[] };
         layoutData.elements.forEach((element: any) => {
+          // Skip images for now as they require async loading
+          if (element.type === 'image') return;
+
           // Replace variables
           let content = element.content || '';
           content = content.replace('{userName}', userName);
