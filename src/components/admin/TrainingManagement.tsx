@@ -508,10 +508,6 @@ const TrainingManagement = () => {
 
       if (dbError) throw dbError;
 
-      // Also download the certificate for admin
-      const downloadFileName = `certyfikat_${userName.replace(/\s+/g, '_')}_${moduleTitle.replace(/\s+/g, '_')}.pdf`;
-      doc.save(downloadFileName);
-
       toast({
         title: "Sukces",
         description: "Certyfikat został wygenerowany i zapisany",

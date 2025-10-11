@@ -219,13 +219,20 @@ const CertificateEditor = () => {
 
   const setDefaultTemplate = async (templateId: string) => {
     try {
-      // First, deactivate ALL templates
-      const { error: deactivateError } = await supabase
+      // First, get all templates and deactivate them
+      const { data: allTemplates } = await supabase
         .from('certificate_templates')
-        .update({ is_active: false })
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all rows
+        .select('id');
 
-      if (deactivateError) throw deactivateError;
+      if (allTemplates) {
+        // Deactivate all templates
+        for (const template of allTemplates) {
+          await supabase
+            .from('certificate_templates')
+            .update({ is_active: false })
+            .eq('id', template.id);
+        }
+      }
 
       // Then activate only the selected template
       const { error: activateError } = await supabase
