@@ -72,15 +72,7 @@ serve(async (req) => {
     }
 
     // Extract file path from the stored URL or use it directly
-    let filePath = certificate.file_url;
-    
-    // If it's a signed URL, extract the path
-    if (filePath.includes('certificates/')) {
-      const pathMatch = filePath.match(/certificates\/(.+?)(\?|$)/);
-      if (pathMatch) {
-        filePath = pathMatch[1];
-      }
-    }
+    const filePath = certificate.file_url;
 
     // Create a new signed URL (valid for 1 hour)
     const { data: signedUrlData, error: urlError } = await supabaseClient.storage
@@ -90,7 +82,7 @@ serve(async (req) => {
     if (urlError) {
       console.error('Error creating signed URL:', urlError);
       return new Response(
-        JSON.stringify({ error: 'Failed to generate download URL' }),
+        JSON.stringify({ error: 'Failed to generate download URL', details: urlError.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -32,14 +32,17 @@ const Training = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchTrainingModules();
-    if (user) {
-      fetchCertificates();
-    }
+    const loadData = async () => {
+      if (user) {
+        await fetchCertificates();
+      }
+      await fetchTrainingModules();
+    };
+    loadData();
   }, [user]);
 
   const fetchCertificates = async () => {
-    if (!user) return;
+    if (!user) return {};
 
     try {
       const { data, error } = await supabase
@@ -54,8 +57,10 @@ const Training = () => {
         certMap[cert.module_id] = { id: cert.id, url: cert.file_url };
       });
       setCertificates(certMap);
+      return certMap;
     } catch (error) {
       console.error('Error fetching certificates:', error);
+      return {};
     }
   };
 

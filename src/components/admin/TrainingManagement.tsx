@@ -490,23 +490,14 @@ const TrainingManagement = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create a signed URL that expires in 10 years
-      const { data: signedUrlData, error: urlError } = await supabase.storage
-        .from('certificates')
-        .createSignedUrl(fileName, 315360000); // 10 years in seconds
-
-      if (urlError) throw urlError;
-
-      const fileUrl = signedUrlData.signedUrl;
-
-      // Save certificate record to database
+      // Save certificate record to database with file path (not signed URL)
       const { error: dbError } = await supabase
         .from('certificates')
         .insert({
           user_id: userId,
           module_id: moduleId,
           issued_by: user?.id,
-          file_url: fileUrl
+          file_url: fileName  // Store just the file path, not signed URL
         });
 
       if (dbError) throw dbError;
