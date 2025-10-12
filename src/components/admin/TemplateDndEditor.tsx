@@ -68,58 +68,63 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
 
     setFabricCanvas(canvas);
 
-    // Load existing template elements
-    if (template.layout.elements) {
-      template.layout.elements.forEach(async (element) => {
-        if (element.type === 'text') {
-          const text = new IText(element.content || '', {
-            left: element.x,
-            top: element.y,
-            fontSize: element.fontSize || 16,
-            fontWeight: element.fontWeight || 'normal',
-            fill: element.color || '#000000',
-            fontFamily: 'Arial',
-          });
-          canvas.add(text);
-        } else if (element.type === 'image' && element.imageUrl) {
-          try {
-            const img = await FabricImage.fromURL(element.imageUrl);
-            img.set({
+    // Load existing template elements in order
+    const loadElements = async () => {
+      if (template.layout.elements) {
+        for (const element of template.layout.elements) {
+          if (element.type === 'text') {
+            const text = new IText(element.content || '', {
               left: element.x,
               top: element.y,
-              scaleX: (element.width || 100) / (img.width || 1),
-              scaleY: (element.height || 100) / (img.height || 1),
+              fontSize: element.fontSize || 16,
+              fontWeight: element.fontWeight || 'normal',
+              fill: element.color || '#000000',
+              fontFamily: 'Arial',
             });
-            canvas.add(img);
-          } catch (error) {
-            console.error('Error loading image:', error);
-          }
-        } else if (element.type === 'shape') {
-          if (element.width && element.height && element.width === element.height) {
-            const circle = new Circle({
-              left: element.x,
-              top: element.y,
-              radius: element.width / 2,
-              fill: '#e0e0e0',
-              stroke: '#000000',
-              strokeWidth: 2,
-            });
-            canvas.add(circle);
-          } else {
-            const rect = new Rect({
-              left: element.x,
-              top: element.y,
-              width: element.width || 100,
-              height: element.height || 100,
-              fill: '#e0e0e0',
-              stroke: '#000000',
-              strokeWidth: 2,
-            });
-            canvas.add(rect);
+            canvas.add(text);
+          } else if (element.type === 'image' && element.imageUrl) {
+            try {
+              const img = await FabricImage.fromURL(element.imageUrl);
+              img.set({
+                left: element.x,
+                top: element.y,
+                scaleX: (element.width || 100) / (img.width || 1),
+                scaleY: (element.height || 100) / (img.height || 1),
+              });
+              canvas.add(img);
+            } catch (error) {
+              console.error('Error loading image:', error);
+            }
+          } else if (element.type === 'shape') {
+            if (element.width && element.height && element.width === element.height) {
+              const circle = new Circle({
+                left: element.x,
+                top: element.y,
+                radius: element.width / 2,
+                fill: '#e0e0e0',
+                stroke: '#000000',
+                strokeWidth: 2,
+              });
+              canvas.add(circle);
+            } else {
+              const rect = new Rect({
+                left: element.x,
+                top: element.y,
+                width: element.width || 100,
+                height: element.height || 100,
+                fill: '#e0e0e0',
+                stroke: '#000000',
+                strokeWidth: 2,
+              });
+              canvas.add(rect);
+            }
           }
         }
-      });
-    }
+        canvas.renderAll();
+      }
+    };
+
+    loadElements();
 
     // Handle object selection
     canvas.on('selection:created', (e) => {
