@@ -33,10 +33,14 @@ const Training = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
+      let certMap: {[key: string]: {id: string, url: string}} = {};
+      
       if (user) {
-        await fetchCertificates();
+        certMap = await fetchCertificates();
       }
-      await fetchTrainingModules();
+      await fetchTrainingModules(certMap);
+      setLoading(false);
     };
     loadData();
   }, [user]);
@@ -85,7 +89,7 @@ const Training = () => {
     }
   };
 
-  const fetchTrainingModules = async () => {
+  const fetchTrainingModules = async (certMap: {[key: string]: {id: string, url: string}} = certificates) => {
     try {
       // Get current user's profile to check if admin
       const { data: profile } = await supabase
@@ -174,8 +178,8 @@ const Training = () => {
             lessons_count: lessonsCount || 0,
             completed_lessons: completedLessons,
             total_time_minutes: Math.ceil(totalTime / 60),
-            certificate_id: certificates[module.id]?.id,
-            certificate_url: certificates[module.id]?.url
+            certificate_id: certMap[module.id]?.id,
+            certificate_url: certMap[module.id]?.url
           };
         })
       );
@@ -188,8 +192,6 @@ const Training = () => {
         description: "Nie można załadować modułów szkoleniowych",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 

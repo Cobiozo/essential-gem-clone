@@ -391,11 +391,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       />
 
       {/* Toolbar */}
-      <Card className="p-4">
+      <Card className="p-4 sticky top-0 z-10 bg-background shadow-md">
         <Tabs defaultValue="add" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="add">Dodaj element</TabsTrigger>
-            <TabsTrigger value="edit" disabled={!selectedObject}>Edytuj element</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="add">Dodaj</TabsTrigger>
+            <TabsTrigger value="edit" disabled={!selectedObject}>Edytuj</TabsTrigger>
+            <TabsTrigger value="layers" disabled={!selectedObject}>Warstwy</TabsTrigger>
           </TabsList>
           
           <TabsContent value="add" className="space-y-4">
@@ -424,7 +425,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
             </div>
 
             {/* Text formatting options */}
-            <div className="grid grid-cols-3 gap-4 pt-2 border-t">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t">
               <div className="space-y-2">
                 <Label htmlFor="textColor">Kolor tekstu</Label>
                 <Input
@@ -464,7 +465,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           <TabsContent value="edit" className="space-y-4">
             {selectedObject && selectedObject.type === 'i-text' && (
               <>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="editColor">Kolor tekstu</Label>
                     <Input
@@ -499,39 +500,42 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                     </Select>
                   </div>
                 </div>
-                <Button onClick={updateSelectedText} size="sm">
+                <Button onClick={updateSelectedText} size="sm" className="w-full sm:w-auto">
                   Zastosuj zmiany
                 </Button>
               </>
             )}
             {selectedObject && (
-              <>
-                <div className="space-y-2">
-                  <Label>Zarządzanie warstwami</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button onClick={bringToFront} size="sm" variant="outline">
-                      <ArrowUp className="h-4 w-4 mr-2" />
-                      Na wierzch
-                    </Button>
-                    <Button onClick={sendToBack} size="sm" variant="outline">
-                      <ArrowDown className="h-4 w-4 mr-2" />
-                      Na spód
-                    </Button>
-                    <Button onClick={bringForward} size="sm" variant="outline">
-                      <MoveUp className="h-4 w-4 mr-2" />
-                      W górę
-                    </Button>
-                    <Button onClick={sendBackward} size="sm" variant="outline">
-                      <MoveDown className="h-4 w-4 mr-2" />
-                      W dół
-                    </Button>
-                  </div>
+              <Button onClick={deleteSelected} size="sm" variant="destructive" className="w-full">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Usuń zaznaczony element
+              </Button>
+            )}
+          </TabsContent>
+
+          <TabsContent value="layers" className="space-y-4">
+            {selectedObject && (
+              <div className="space-y-2">
+                <Label>Zarządzanie warstwami</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={bringToFront} size="sm" variant="outline" className="w-full">
+                    <ArrowUp className="h-4 w-4 mr-2" />
+                    Na wierzch
+                  </Button>
+                  <Button onClick={sendToBack} size="sm" variant="outline" className="w-full">
+                    <ArrowDown className="h-4 w-4 mr-2" />
+                    Na spód
+                  </Button>
+                  <Button onClick={bringForward} size="sm" variant="outline" className="w-full">
+                    <MoveUp className="h-4 w-4 mr-2" />
+                    W górę
+                  </Button>
+                  <Button onClick={sendBackward} size="sm" variant="outline" className="w-full">
+                    <MoveDown className="h-4 w-4 mr-2" />
+                    W dół
+                  </Button>
                 </div>
-                <Button onClick={deleteSelected} size="sm" variant="destructive" className="w-full">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Usuń zaznaczony element
-                </Button>
-              </>
+              </div>
             )}
           </TabsContent>
         </Tabs>
@@ -550,18 +554,18 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       </Card>
 
       {/* Canvas */}
-      <div className="border rounded-lg overflow-auto bg-gray-50 p-4">
+      <div className="border rounded-lg overflow-auto bg-gray-50 p-2 sm:p-4">
         <div className="inline-block">
-          <canvas ref={canvasRef} className="shadow-lg" />
+          <canvas ref={canvasRef} className="shadow-lg max-w-full h-auto" />
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sticky bottom-0 bg-background p-4 border-t">
+        <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
           Anuluj
         </Button>
-        <Button onClick={handleSave}>
+        <Button onClick={handleSave} className="w-full sm:w-auto">
           <Save className="h-4 w-4 mr-2" />
           Zapisz szablon
         </Button>
