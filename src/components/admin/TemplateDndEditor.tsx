@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, Upload } from 'lucide-react';
+import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, Upload, ArrowUp, ArrowDown, MoveUp, MoveDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -132,6 +132,28 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
 
     canvas.on('selection:cleared', () => {
       setSelectedObject(null);
+    });
+
+    // Constrain objects within canvas bounds
+    canvas.on('object:moving', (e) => {
+      const obj = e.target;
+      if (!obj) return;
+
+      const bound = obj.getBoundingRect();
+      
+      // Check boundaries and constrain position
+      if (bound.left < 0) {
+        obj.left = Math.max(obj.left || 0, obj.left! - bound.left);
+      }
+      if (bound.top < 0) {
+        obj.top = Math.max(obj.top || 0, obj.top! - bound.top);
+      }
+      if (bound.left + bound.width > CANVAS_WIDTH) {
+        obj.left = Math.min(obj.left || 0, CANVAS_WIDTH - bound.width + (obj.left! - bound.left));
+      }
+      if (bound.top + bound.height > CANVAS_HEIGHT) {
+        obj.top = Math.min(obj.top || 0, CANVAS_HEIGHT - bound.height + (obj.top! - bound.top));
+      }
     });
 
     return () => {
@@ -272,6 +294,30 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
     fabricCanvas.remove(selectedObject);
     fabricCanvas.renderAll();
     setSelectedObject(null);
+  };
+
+  const bringToFront = () => {
+    if (!fabricCanvas || !selectedObject) return;
+    fabricCanvas.bringObjectToFront(selectedObject);
+    fabricCanvas.renderAll();
+  };
+
+  const sendToBack = () => {
+    if (!fabricCanvas || !selectedObject) return;
+    fabricCanvas.sendObjectToBack(selectedObject);
+    fabricCanvas.renderAll();
+  };
+
+  const bringForward = () => {
+    if (!fabricCanvas || !selectedObject) return;
+    fabricCanvas.bringObjectForward(selectedObject);
+    fabricCanvas.renderAll();
+  };
+
+  const sendBackward = () => {
+    if (!fabricCanvas || !selectedObject) return;
+    fabricCanvas.sendObjectBackwards(selectedObject);
+    fabricCanvas.renderAll();
   };
 
   const handleSave = async () => {
@@ -459,10 +505,33 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
               </>
             )}
             {selectedObject && (
-              <Button onClick={deleteSelected} size="sm" variant="destructive" className="w-full">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Usuń zaznaczony element
-              </Button>
+              <>
+                <div className="space-y-2">
+                  <Label>Zarządzanie warstwami</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={bringToFront} size="sm" variant="outline">
+                      <ArrowUp className="h-4 w-4 mr-2" />
+                      Na wierzch
+                    </Button>
+                    <Button onClick={sendToBack} size="sm" variant="outline">
+                      <ArrowDown className="h-4 w-4 mr-2" />
+                      Na spód
+                    </Button>
+                    <Button onClick={bringForward} size="sm" variant="outline">
+                      <MoveUp className="h-4 w-4 mr-2" />
+                      W górę
+                    </Button>
+                    <Button onClick={sendBackward} size="sm" variant="outline">
+                      <MoveDown className="h-4 w-4 mr-2" />
+                      W dół
+                    </Button>
+                  </div>
+                </div>
+                <Button onClick={deleteSelected} size="sm" variant="destructive" className="w-full">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Usuń zaznaczony element
+                </Button>
+              </>
             )}
           </TabsContent>
         </Tabs>
