@@ -426,6 +426,7 @@ const TrainingManagement = () => {
       }
 
       const template = templates[0]; // Use the default active template
+      console.log('Using certificate template:', template.name, 'ID:', template.id);
 
       const doc = new jsPDF({
         orientation: 'landscape',

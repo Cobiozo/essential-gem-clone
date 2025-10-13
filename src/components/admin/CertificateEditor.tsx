@@ -224,29 +224,12 @@ const CertificateEditor = () => {
 
   const setDefaultTemplate = async (templateId: string) => {
     try {
-      // Manual implementation to ensure atomicity
-      // First, deactivate all templates
-      const { data: allTemplates } = await supabase
-        .from('certificate_templates')
-        .select('id');
+      // Use database function to ensure atomicity
+      const { error } = await supabase.rpc('set_default_certificate_template', {
+        template_id: templateId
+      });
 
-      if (allTemplates && allTemplates.length > 0) {
-        // Deactivate each template individually
-        for (const tmpl of allTemplates) {
-          await supabase
-            .from('certificate_templates')
-            .update({ is_active: false })
-            .eq('id', tmpl.id);
-        }
-      }
-
-      // Then activate only the selected template
-      const { error: activateError } = await supabase
-        .from('certificate_templates')
-        .update({ is_active: true })
-        .eq('id', templateId);
-
-      if (activateError) throw activateError;
+      if (error) throw error;
 
       // Refresh templates
       await fetchTemplates();
