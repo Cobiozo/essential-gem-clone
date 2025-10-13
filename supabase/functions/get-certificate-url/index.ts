@@ -71,13 +71,29 @@ serve(async (req) => {
       );
     }
 
-    // Extract file path from the stored URL or use it directly
-    const filePath = certificate.file_url;
+    // Extract file path from the stored URL
+    // If file_url is a full URL, extract just the path part
+    let filePath = certificate.file_url;
+    
+    console.log('Original file_url:', filePath);
+    
+    // If it's a full URL, extract the path after the bucket name
+    if (filePath.includes('/storage/v1/object/')) {
+      // Extract path after "certificates/"
+      const parts = filePath.split('certificates/');
+      if (parts.length > 1) {
+        filePath = parts[1];
+      }
+    }
+    
+    console.log('Extracted file path:', filePath);
 
-    // Create a new signed URL (valid for 1 hour)
+    // Create a signed URL with download option (valid for 1 hour)
     const { data: signedUrlData, error: urlError } = await supabaseClient.storage
       .from('certificates')
-      .createSignedUrl(filePath, 3600);
+      .createSignedUrl(filePath, 3600, {
+        download: true // Force download instead of opening in browser
+      });
 
     if (urlError) {
       console.error('Error creating signed URL:', urlError);

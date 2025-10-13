@@ -77,18 +77,12 @@ const Training = () => {
       if (error) throw error;
 
       if (data?.url) {
-        // Force download instead of opening in new tab
-        const link = document.createElement('a');
-        link.href = data.url;
-        link.download = `certyfikat-${certificateId}.pdf`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Open the signed URL - it will download automatically due to edge function settings
+        window.location.href = data.url;
         
         toast({
           title: "Sukces",
-          description: "Certyfikat został pobrany",
+          description: "Pobieranie certyfikatu rozpoczęte",
         });
       }
     } catch (error) {
