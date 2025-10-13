@@ -55,6 +55,10 @@ const CertificateEditor = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('Fetched templates:', data);
+      console.log('Active template:', data?.find(t => t.is_active));
+      
       setTemplates((data || []) as unknown as CertificateTemplate[]);
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -224,14 +228,21 @@ const CertificateEditor = () => {
 
   const setDefaultTemplate = async (templateId: string) => {
     try {
+      console.log('Setting default template:', templateId);
+      
       // Use database function to ensure atomicity
       const { error } = await supabase.rpc('set_default_certificate_template', {
         template_id: templateId
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
 
-      // Refresh templates
+      console.log('Template set successfully, refreshing list...');
+      
+      // Refresh templates to show updated state
       await fetchTemplates();
 
       toast({
