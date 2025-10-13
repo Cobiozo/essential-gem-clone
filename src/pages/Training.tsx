@@ -77,7 +77,19 @@ const Training = () => {
       if (error) throw error;
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        // Force download instead of opening in new tab
+        const link = document.createElement('a');
+        link.href = data.url;
+        link.download = `certyfikat-${certificateId}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Sukces",
+          description: "Certyfikat został pobrany",
+        });
       }
     } catch (error) {
       console.error('Error downloading certificate:', error);

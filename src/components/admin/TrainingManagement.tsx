@@ -398,11 +398,13 @@ const TrainingManagement = () => {
     moduleId: string
   ) => {
     try {
-      // Fetch active certificate template
+      // Fetch the default certificate template (only one should be active)
       const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
         .select('*')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1);
 
       if (templateError) {
         console.error('Error fetching template:', templateError);
@@ -423,7 +425,7 @@ const TrainingManagement = () => {
         return;
       }
 
-      const template = templates[0]; // Use first active template
+      const template = templates[0]; // Use the default active template
 
       const doc = new jsPDF({
         orientation: 'landscape',
