@@ -487,9 +487,43 @@ const TrainingManagement = () => {
 
       // Convert PDF to blob
       const pdfBlob = doc.output('blob');
-      const fileName = `${userId}/certificate-${moduleId}-${Date.now()}.pdf`;
+      // FIRST: Check if certificates already exist and delete them
+      const { data: existingCerts } = await supabase
+        .from('certificates')
+        .select('id, file_url')
+        .eq('user_id', userId)
+        .eq('module_id', moduleId);
 
-      // Upload to Supabase Storage
+      // Delete old files from storage and records BEFORE uploading new one
+      if (existingCerts && existingCerts.length > 0) {
+        console.log(`🗑️ Deleting ${existingCerts.length} old certificate(s) BEFORE generating new one`);
+        
+        // Delete files from storage
+        const filePaths = existingCerts.map(cert => cert.file_url);
+        const { error: removeError } = await supabase.storage
+          .from('certificates')
+          .remove(filePaths);
+        
+        if (removeError) {
+          console.error('Error removing old certificate files:', removeError);
+        }
+        
+        // Delete all old certificate records
+        const { error: deleteError } = await supabase
+          .from('certificates')
+          .delete()
+          .eq('user_id', userId)
+          .eq('module_id', moduleId);
+        
+        if (deleteError) {
+          console.error('Error deleting old certificate records:', deleteError);
+        }
+      }
+
+      // NOW: Upload the new certificate
+      const fileName = `${userId}/certificate-${moduleId}-${Date.now()}.pdf`;
+      console.log('📤 Uploading new certificate:', fileName);
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('certificates')
         .upload(fileName, pdfBlob, {
@@ -498,30 +532,6 @@ const TrainingManagement = () => {
         });
 
       if (uploadError) throw uploadError;
-
-      // Check if certificates already exist for this user+module
-      const { data: existingCerts } = await supabase
-        .from('certificates')
-        .select('id, file_url')
-        .eq('user_id', userId)
-        .eq('module_id', moduleId);
-
-      // If exist, delete all old files from storage and records
-      if (existingCerts && existingCerts.length > 0) {
-        console.log(`🗑️ Deleting ${existingCerts.length} old certificate(s)`);
-        // Delete files from storage
-        const filePaths = existingCerts.map(cert => cert.file_url);
-        await supabase.storage
-          .from('certificates')
-          .remove(filePaths);
-        
-        // Delete all old certificate records
-        await supabase
-          .from('certificates')
-          .delete()
-          .eq('user_id', userId)
-          .eq('module_id', moduleId);
-      }
 
       // Save new certificate record to database with file path (not signed URL)
       const { error: dbError } = await supabase
