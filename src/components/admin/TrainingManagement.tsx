@@ -398,6 +398,9 @@ const TrainingManagement = () => {
     moduleId: string
   ) => {
     try {
+      console.log('=== GENERATING CERTIFICATE ===');
+      console.log('User:', userName, 'Module:', moduleTitle);
+      
       // Fetch the default certificate template (only one should be active)
       const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
@@ -417,6 +420,7 @@ const TrainingManagement = () => {
       }
 
       if (!templates || templates.length === 0) {
+        console.error('NO ACTIVE TEMPLATE FOUND!');
         toast({
           title: "Błąd",
           description: "Nie znaleziono aktywnego szablonu certyfikatu. Ustaw szablon jako domyślny w zakładce Certyfikaty.",
@@ -426,7 +430,9 @@ const TrainingManagement = () => {
       }
 
       const template = templates[0]; // Use the default active template
-      console.log('Using certificate template:', template.name, 'ID:', template.id);
+      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id);
+      const layoutData = template.layout as { elements?: any[] };
+      console.log('Template layout elements count:', layoutData?.elements?.length || 0);
 
       const doc = new jsPDF({
         orientation: 'landscape',
@@ -502,6 +508,7 @@ const TrainingManagement = () => {
 
       // If exist, delete all old files from storage and records
       if (existingCerts && existingCerts.length > 0) {
+        console.log(`🗑️ Deleting ${existingCerts.length} old certificate(s)`);
         // Delete files from storage
         const filePaths = existingCerts.map(cert => cert.file_url);
         await supabase.storage
@@ -528,9 +535,12 @@ const TrainingManagement = () => {
 
       if (dbError) throw dbError;
 
+      console.log('✅ Certificate saved to database:', fileName);
+      console.log('=== CERTIFICATE GENERATION COMPLETE ===');
+
       toast({
         title: "Sukces",
-        description: "Certyfikat został wygenerowany i zapisany",
+        description: `Certyfikat wygenerowany przy użyciu szablonu "${template.name}"`,
       });
 
       // Refresh the user progress to show the certificate
