@@ -493,25 +493,27 @@ const TrainingManagement = () => {
 
       if (uploadError) throw uploadError;
 
-      // Check if certificate already exists for this user+module
-      const { data: existingCert } = await supabase
+      // Check if certificates already exist for this user+module
+      const { data: existingCerts } = await supabase
         .from('certificates')
         .select('id, file_url')
         .eq('user_id', userId)
-        .eq('module_id', moduleId)
-        .single();
+        .eq('module_id', moduleId);
 
-      // If exists, delete old file from storage
-      if (existingCert) {
+      // If exist, delete all old files from storage and records
+      if (existingCerts && existingCerts.length > 0) {
+        // Delete files from storage
+        const filePaths = existingCerts.map(cert => cert.file_url);
         await supabase.storage
           .from('certificates')
-          .remove([existingCert.file_url]);
+          .remove(filePaths);
         
-        // Delete old certificate record
+        // Delete all old certificate records
         await supabase
           .from('certificates')
           .delete()
-          .eq('id', existingCert.id);
+          .eq('user_id', userId)
+          .eq('module_id', moduleId);
       }
 
       // Save new certificate record to database with file path (not signed URL)

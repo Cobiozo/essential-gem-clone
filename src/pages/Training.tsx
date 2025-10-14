@@ -51,14 +51,18 @@ const Training = () => {
     try {
       const { data, error } = await supabase
         .from('certificates')
-        .select('id, module_id, file_url')
-        .eq('user_id', user.id);
+        .select('id, module_id, file_url, issued_at')
+        .eq('user_id', user.id)
+        .order('issued_at', { ascending: false });
 
       if (error) throw error;
 
       const certMap: {[key: string]: {id: string, url: string}} = {};
+      // Only keep the newest certificate for each module
       data?.forEach(cert => {
-        certMap[cert.module_id] = { id: cert.id, url: cert.file_url };
+        if (!certMap[cert.module_id]) {
+          certMap[cert.module_id] = { id: cert.id, url: cert.file_url };
+        }
       });
       setCertificates(certMap);
       return certMap;
