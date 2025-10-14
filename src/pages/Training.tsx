@@ -77,12 +77,29 @@ const Training = () => {
       if (error) throw error;
 
       if (data?.url) {
-        // Open the signed URL - it will download automatically due to edge function settings
-        window.location.href = data.url;
+        // Fetch the file as a blob and download with custom filename
+        const response = await fetch(data.url);
+        const blob = await response.blob();
+        
+        // Create custom filename with purelife branding
+        const timestamp = new Date().getTime();
+        const filename = `certyfikat-purelife-${timestamp}.pdf`;
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
         
         toast({
           title: "Sukces",
-          description: "Pobieranie certyfikatu rozpoczęte",
+          description: "Certyfikat został pobrany",
         });
       }
     } catch (error) {
