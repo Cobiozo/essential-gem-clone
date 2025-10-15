@@ -2397,7 +2397,10 @@ export const LivePreviewEditor: React.FC = () => {
               'new-html', 'new-menu-anchor', 'new-sidebar', 'new-learn-more',
               'new-rating', 'new-trustindex', 'new-ppom', 'new-text-path'
             ]}
-            onDragStart={handleDragStart}
+            onDragStart={(e) => {
+              console.log('[DragDropProvider] onDragStart called, editMode:', editMode);
+              handleDragStart(e);
+            }}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             activeId={activeId}
@@ -2439,6 +2442,8 @@ export const LivePreviewEditor: React.FC = () => {
             {editMode && !showEditingPanel && (
               <div className="fixed left-0 top-0 h-screen z-40">
                 <ElementsPanel onElementClick={(type) => {
+                  console.log('[ElementsPanel] Element clicked:', type);
+                  console.log('[ElementsPanel] editMode:', editMode);
                   toast({ title: 'Element clicked', description: `You clicked: ${type}` });
                 }} />
               </div>
