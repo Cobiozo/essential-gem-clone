@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
+import { DragEndEvent, DragStartEvent, DragOverEvent, useDroppable } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +35,174 @@ interface Column {
   items: CMSItem[];
   width?: number;
 }
+
+// Component for rendering regular (non-row) sections with droppable zone
+interface RegularSectionContentProps {
+  section: CMSSection;
+  sectionItems: CMSItem[];
+  sectionColumnCount: number;
+  itemsByColumn: CMSItem[][];
+  editMode: boolean;
+  selectedElement: string | null;
+  activeId: string | null;
+  expandedItemId: string | null;
+  onSelectElement: (id: string) => void;
+  onToggleExpand: (id: string | null) => void;
+}
+
+const RegularSectionContent: React.FC<RegularSectionContentProps> = ({
+  section,
+  sectionItems,
+  sectionColumnCount,
+  itemsByColumn,
+  editMode,
+  selectedElement,
+  activeId,
+  expandedItemId,
+  onSelectElement,
+  onToggleExpand,
+}) => {
+  // Make the section droppable so elements can be dropped into it
+  const { setNodeRef, isOver } = useDroppable({
+    id: section.id,
+    disabled: !editMode,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      onClick={(e) => {
+        if (activeId) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        onSelectElement(section.id);
+      }}
+      className={cn(
+        "block w-full cursor-pointer transition-all duration-200 bg-white mb-6 relative",
+        selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
+        isOver && editMode && "ring-2 ring-green-500 ring-offset-2"
+      )}
+      style={{
+        backgroundColor: section.background_color || '#ffffff',
+        color: section.text_color || '#000000',
+        padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
+      }}
+    >
+      {isOver && editMode && (
+        <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center">
+          <span className="text-green-700 font-semibold bg-white/90 px-4 py-2 rounded-lg">
+            Upuść tutaj
+          </span>
+        </div>
+      )}
+      
+      <div className="max-w-6xl mx-auto">
+        {/* Section Header */}
+        <div className="text-center mb-10">
+          <h2 
+            className="text-4xl font-bold mb-6 text-black uppercase tracking-wide"
+            dangerouslySetInnerHTML={{ __html: section.title || '' }}
+          />
+          {section.description && (
+            <p 
+              className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: section.description }}
+            />
+          )}
+        </div>
+        
+        {/* Section Items */}
+        {sectionColumnCount > 0 ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
+            gap: '48px',
+            marginTop: '32px'
+          }}>
+            {itemsByColumn.map((columnItems, colIdx) => (
+              <SortableContext
+                key={colIdx}
+                items={columnItems.filter(i => i.id).map(i => i.id as string)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {columnItems.map(item => {
+                    let itemContent;
+                    
+                    if (item.type === 'info_text' && section.display_type === 'grid') {
+                      itemContent = <InfoTextItem item={item} />;
+                    } else if (item.type === 'multi_cell') {
+                      const itemIndex = columnItems.findIndex(i => i.id === item.id);
+                      itemContent = (
+                        <LearnMoreItem 
+                          item={item} 
+                          itemIndex={itemIndex}
+                          isExpanded={expandedItemId === item.id}
+                          onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
+                        />
+                      );
+                    } else {
+                      itemContent = <CMSContent item={item} onClick={() => {}} />;
+                    }
+                    
+                    if (editMode && item.id) {
+                      return (
+                        <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                          {itemContent}
+                        </DraggableItem>
+                      );
+                    }
+                    
+                    return <div key={item.id}>{itemContent}</div>;
+                  })}
+                </div>
+              </SortableContext>
+            ))}
+          </div>
+        ) : (
+          <SortableContext
+            items={sectionItems.filter(i => i.id).map(i => i.id as string)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
+              {sectionItems.map(item => {
+                let itemContent;
+                
+                if (item.type === 'info_text' && section.display_type === 'grid') {
+                  itemContent = <InfoTextItem item={item} />;
+                } else if (item.type === 'multi_cell') {
+                  const itemIndex = sectionItems.findIndex(i => i.id === item.id);
+                  itemContent = (
+                    <LearnMoreItem 
+                      item={item} 
+                      itemIndex={itemIndex}
+                      isExpanded={expandedItemId === item.id}
+                      onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
+                    />
+                  );
+                } else {
+                  itemContent = <CMSContent item={item} onClick={() => {}} />;
+                }
+                
+                if (editMode && item.id) {
+                  return (
+                    <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                      {itemContent}
+                    </DraggableItem>
+                  );
+                }
+                
+                return <div key={item.id}>{itemContent}</div>;
+              })}
+            </div>
+          </SortableContext>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const LivePreviewEditor: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -1876,142 +2044,18 @@ export const LivePreviewEditor: React.FC = () => {
                     isEditMode={editMode}
                     className="w-full"
                   >
-                     <div 
-                      onClick={(e) => {
-                        if (activeId) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          return;
-                        }
-                        setSelectedElement(section.id);
-                      }}
-                      className={cn(
-                        "block w-full cursor-pointer transition-all duration-200 bg-white mb-6",
-                        selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
-                      )}
-                      style={{
-                        backgroundColor: section.background_color || '#ffffff',
-                        color: section.text_color || '#000000',
-                        padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
-                      }}
-                    >
-                      <div className="max-w-6xl mx-auto">
-                        {/* Section Header - simple white style like homepage */}
-                        <div className="text-center mb-10">
-                          <h2 
-                            className="text-4xl font-bold mb-6 text-black uppercase tracking-wide"
-                            dangerouslySetInnerHTML={{ __html: section.title || '' }}
-                          />
-                          {section.description && (
-                            <p 
-                              className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed"
-                              dangerouslySetInnerHTML={{ __html: section.description }}
-                            />
-                          )}
-                        </div>
-                        
-                        {/* Section Items - render like homepage with column support */}
-                        {sectionColumnCount > 0 ? (
-                          <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
-                            gap: '48px',
-                            marginTop: '32px'
-                          }}>
-                            {itemsByColumn.map((columnItems, colIdx) => (
-                              <SortableContext
-                                key={colIdx}
-                                items={columnItems.filter(i => i.id).map(i => i.id as string)}
-                                strategy={verticalListSortingStrategy}
-                              >
-                                <div className="space-y-4">
-                                  {columnItems.map(item => {
-                                    // Determine the content to render
-                                    let itemContent;
-                                    
-                                    // Special rendering for info_text in grid sections
-                                    if (item.type === 'info_text' && section.display_type === 'grid') {
-                                      itemContent = <InfoTextItem item={item} />;
-                                    }
-                                    // Special rendering for multi_cell items
-                                    else if (item.type === 'multi_cell') {
-                                      const itemIndex = columnItems.findIndex(i => i.id === item.id);
-                                      itemContent = (
-                                        <LearnMoreItem 
-                                          item={item} 
-                                          itemIndex={itemIndex}
-                                          isExpanded={expandedItemId === item.id}
-                                          onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
-                                        />
-                                      );
-                                    }
-                                    // Default rendering
-                                    else {
-                                      itemContent = <CMSContent item={item} onClick={() => {}} />;
-                                    }
-                                    
-                                    // Wrap in DraggableItem if in edit mode and item has ID
-                                    if (editMode && item.id) {
-                                      return (
-                                        <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                                          {itemContent}
-                                        </DraggableItem>
-                                      );
-                                    }
-                                    
-                                    return <div key={item.id}>{itemContent}</div>;
-                                  })}
-                                </div>
-                              </SortableContext>
-                            ))}
-                          </div>
-                        ) : (
-                          <SortableContext
-                            items={sectionItems.filter(i => i.id).map(i => i.id as string)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
-                              {sectionItems.map(item => {
-                                // Determine the content to render
-                                let itemContent;
-                                
-                                // Special rendering for info_text in grid sections
-                                if (item.type === 'info_text' && section.display_type === 'grid') {
-                                  itemContent = <InfoTextItem item={item} />;
-                                }
-                                // Special rendering for multi_cell items
-                                else if (item.type === 'multi_cell') {
-                                  const itemIndex = sectionItems.findIndex(i => i.id === item.id);
-                                  itemContent = (
-                                    <LearnMoreItem 
-                                      item={item} 
-                                      itemIndex={itemIndex}
-                                      isExpanded={expandedItemId === item.id}
-                                      onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
-                                    />
-                                  );
-                                }
-                                // Default rendering
-                                else {
-                                  itemContent = <CMSContent item={item} onClick={() => {}} />;
-                                }
-                                
-                                // Wrap in DraggableItem if in edit mode and item has ID
-                                if (editMode && item.id) {
-                                  return (
-                                    <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                                      {itemContent}
-                                    </DraggableItem>
-                                  );
-                                }
-                                
-                                return <div key={item.id}>{itemContent}</div>;
-                              })}
-                            </div>
-                          </SortableContext>
-                        )}
-                      </div>
-                    </div>
+                    <RegularSectionContent
+                      section={section}
+                      sectionItems={sectionItems}
+                      sectionColumnCount={sectionColumnCount}
+                      itemsByColumn={itemsByColumn}
+                      editMode={editMode}
+                      selectedElement={selectedElement}
+                      activeId={activeId}
+                      expandedItemId={expandedItemId}
+                      onSelectElement={setSelectedElement}
+                      onToggleExpand={setExpandedItemId}
+                    />
                   </DraggableSection>
                 );
               })}
