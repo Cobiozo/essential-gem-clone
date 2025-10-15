@@ -408,7 +408,10 @@ export const LivePreviewEditor: React.FC = () => {
     }
   }, [toast]);
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const draggedId = event.active.id as string;
+    console.log('[DragStart] Element ID:', draggedId);
+    console.log('[DragStart] Element data:', event.active.data.current);
+    setActiveId(draggedId);
   }, []);
 
   const createDefaultContent = (elementType: string) => {
@@ -559,15 +562,19 @@ export const LivePreviewEditor: React.FC = () => {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    console.log('[DragEnd] Active:', active.id, 'Over:', over?.id);
+    console.log('[DragEnd] Active data:', active.data.current);
     setActiveId(null);
 
     if (!over) {
+      console.log('[DragEnd] No drop target');
       return;
     }
 
     // Check if dragging a new element from the panel
     const activeData = active.data.current;
     if (activeData?.type === 'new-element') {
+      console.log('[DragEnd] Dropping new element:', activeData.elementType);
       await handleNewElementDrop(activeData.elementType, over.id as string);
       return;
     }
@@ -1636,7 +1643,19 @@ export const LivePreviewEditor: React.FC = () => {
           <DragDropProvider
             items={[
               ...sections.map(s => s.id),
-              ...items.filter(i => i.id).map(i => i.id as string)
+              ...items.filter(i => i.id).map(i => i.id as string),
+              // Add all possible new elements from panel
+              'new-heading',
+              'new-image',
+              'new-text',
+              'new-video',
+              'new-button',
+              'new-divider',
+              'new-spacer',
+              'new-maps',
+              'new-icon',
+              'new-container',
+              'new-grid'
             ]}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
@@ -1645,6 +1664,16 @@ export const LivePreviewEditor: React.FC = () => {
             dragOverlay={
               activeId ? (
                 (() => {
+                  // Handle new elements from panel
+                  if (typeof activeId === 'string' && activeId.startsWith('new-')) {
+                    const elementType = activeId.replace('new-', '');
+                    return (
+                      <div className="bg-primary text-primary-foreground border rounded px-3 py-2 shadow-lg text-sm font-medium">
+                        + Dodaj: {getElementTypeName(elementType)}
+                      </div>
+                    );
+                  }
+                  
                   const activeItem = items.find(i => i.id === activeId);
                   if (activeItem) {
                     return (
