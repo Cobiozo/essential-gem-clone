@@ -1875,13 +1875,6 @@ export const LivePreviewEditor: React.FC = () => {
       />
 
       <div className={`${editMode ? 'flex gap-0' : ''}`}>
-        {editMode && (
-          <div className="fixed left-0 top-0 h-screen z-40">
-            <ElementsPanel onElementClick={(type) => {
-              toast({ title: 'Element clicked', description: `You clicked: ${type}` });
-            }} />
-          </div>
-        )}
         <div className={`space-y-6 ${editMode ? 'pb-32 ml-80' : ''} flex-1`}>
           <DeviceFrame device={currentDevice} className="mx-auto">
           <DragDropProvider
@@ -1937,6 +1930,13 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
+            {editMode && (
+              <div className="fixed left-0 top-0 h-screen z-40">
+                <ElementsPanel onElementClick={(type) => {
+                  toast({ title: 'Element clicked', description: `You clicked: ${type}` });
+                }} />
+              </div>
+            )}
             
           <SortableContext
             items={sections.filter(s => !s.parent_id).map(s => s.id)} 
