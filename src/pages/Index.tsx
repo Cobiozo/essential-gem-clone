@@ -9,11 +9,10 @@ import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
 import Footer from '@/components/homepage/Footer';
 import { CMSContent } from '@/components/CMSContent';
-import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { convertSupabaseSections } from '@/lib/typeUtils';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
-import dropletIcon from '@/assets/pure-life-droplet.png';
-import * as LucideIcons from 'lucide-react';
+import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
+import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 
 const Index = () => {
   const { user } = useAuth();
@@ -153,72 +152,16 @@ const Index = () => {
 
   // Render individual item with custom styling
   const renderCMSItem = (item: CMSItem, section: CMSSection) => {
-    const IconComponent = item.icon ? (LucideIcons as any)[item.icon] : null;
-    
     // For info_text type in grid sections (Team and Contact sections)
     if (item.type === 'info_text' && section.display_type === 'grid') {
-      return (
-        <div key={item.id} className="text-center group hover:transform hover:scale-105 transition-all duration-300">
-          {IconComponent && (
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-                <IconComponent className="w-10 h-10 text-white" />
-              </div>
-            </div>
-          )}
-          <h3 className="text-xl font-bold mb-3 text-black">{item.title}</h3>
-          {item.url ? (
-            <a 
-              href={item.url} 
-              className="text-gray-600 hover:text-[hsl(45,100%,51%)] transition-colors font-medium"
-            >
-              {item.description}
-            </a>
-          ) : (
-            <p className="text-gray-600 leading-relaxed">{item.description}</p>
-          )}
-        </div>
-      );
+      return <InfoTextItem key={item.id} item={item} />;
     }
 
     // For multi_cell type in Learn More section
     if (item.type === 'multi_cell') {
-      const [isExpanded, setIsExpanded] = React.useState(false);
       const sectionItems = items.filter(i => i.section_id === section.id);
       const itemIndex = sectionItems.findIndex(i => i.id === item.id);
-
-      return (
-        <div 
-          key={item.id}
-          className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
-        >
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors group"
-          >
-            <div className="flex items-center gap-5">
-              <div className="w-14 h-14 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300">
-                {itemIndex + 1}
-              </div>
-              <span className="text-left text-black font-semibold text-lg">{item.title}</span>
-            </div>
-            <LucideIcons.ChevronDown 
-              className={`w-6 h-6 text-gray-400 group-hover:text-[hsl(45,100%,51%)] transition-all duration-300 ${
-                isExpanded ? 'rotate-180' : ''
-              }`} 
-            />
-          </button>
-          <div 
-            className={`overflow-hidden transition-all duration-500 ease-in-out ${
-              isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-            }`}
-          >
-            <div className="px-6 pb-6 text-gray-600 leading-relaxed">
-              {item.description}
-            </div>
-          </div>
-        </div>
-      );
+      return <LearnMoreItem key={item.id} item={item} itemIndex={itemIndex} />;
     }
 
     // Default rendering
