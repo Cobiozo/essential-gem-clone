@@ -135,6 +135,48 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
+  // Fix sections without page_id
+  const hasFixedMissingPageIdRef = React.useRef(false);
+  const fixMissingPageId = async () => {
+    if (hasFixedMissingPageIdRef.current) return;
+    if (!isAdmin) return;
+    try {
+      // Find sections without page_id
+      const { data: orphanSections } = await supabase
+        .from('cms_sections')
+        .select('id, title')
+        .is('page_id', null)
+        .eq('is_active', true);
+      
+      if (!orphanSections || orphanSections.length === 0) return;
+      
+      console.log('[LivePreviewEditor] Found sections without page_id:', orphanSections);
+      
+      // Assign them to the homepage
+      const { error } = await supabase
+        .from('cms_sections')
+        .update({ 
+          page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+          updated_at: new Date().toISOString() 
+        })
+        .is('page_id', null)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      
+      hasFixedMissingPageIdRef.current = true;
+      toast({ 
+        title: 'Naprawiono', 
+        description: `Przypisano ${orphanSections.length} sekcji do strony głównej` 
+      });
+      
+      // Refetch data to show the fixed sections
+      await fetchData();
+    } catch (e) {
+      console.error('fixMissingPageId error', e);
+    }
+  };
+
   // Repair helper: if a section is active but shows 0 items while DB has items, reactivate them
   const hasRepairedInvisibleRef = React.useRef(false);
   const repairInvisibleItems = async (sectionsList: CMSSection[], itemsList: CMSItem[]) => {
@@ -263,6 +305,9 @@ export const LivePreviewEditor: React.FC = () => {
 
       // Safety: ensure no rows are nested inside rows
       await fixNestedRows(convertedSections);
+      
+      // Fix sections without page_id
+      await fixMissingPageId();
 
       // Load page layout settings (sections grid)
       const { data: settings } = await supabase
