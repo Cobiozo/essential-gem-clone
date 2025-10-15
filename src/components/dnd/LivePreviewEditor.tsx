@@ -2563,6 +2563,8 @@ export const LivePreviewEditor: React.FC = () => {
                 // Render regular sections - match homepage display with white background
                 const sectionItems = items.filter(item => item.section_id === section.id);
                 
+                console.log(`[Render] Section ${section.id} has ${sectionItems.length} items`);
+                
                 // Check if section has column layout
                 const columnMatch = section.style_class?.match(/columns-(\d+)/);
                 const sectionColumnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
@@ -2578,7 +2580,7 @@ export const LivePreviewEditor: React.FC = () => {
                 }
                 
                 return (
-                  <React.Fragment key={section.id}>
+                  <React.Fragment key={`${section.id}-${sectionItems.length}`}>
                     <DraggableSection
                       id={section.id}
                       isEditMode={editMode}
