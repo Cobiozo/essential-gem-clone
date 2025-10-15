@@ -62,58 +62,6 @@ const Index = () => {
     fetchBasicData();
   }, [user]);
 
-  // Auto-fix sections without page_id (run once on mount for admins)
-  const hasFixedMissingPageIdRef = React.useRef(false);
-  React.useEffect(() => {
-    const fixMissingPageId = async () => {
-      if (hasFixedMissingPageIdRef.current) return;
-      if (!user) return; // Only for logged-in users
-      
-      try {
-        // Check if user is admin
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (profile?.role !== 'admin') return;
-        
-        // Find sections without page_id
-        const { data: orphanSections } = await supabase
-          .from('cms_sections')
-          .select('id, title')
-          .is('page_id', null)
-          .eq('is_active', true);
-        
-        if (!orphanSections || orphanSections.length === 0) return;
-        
-        console.log('[Index] Auto-fixing sections without page_id:', orphanSections);
-        
-        // Assign them to the homepage
-        await supabase
-          .from('cms_sections')
-          .update({ 
-            page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
-            updated_at: new Date().toISOString() 
-          })
-          .is('page_id', null)
-          .eq('is_active', true);
-        
-        hasFixedMissingPageIdRef.current = true;
-        
-        // Refetch to show fixed sections
-        fetchBasicData();
-      } catch (e) {
-        console.error('fixMissingPageId error', e);
-      }
-    };
-    
-    if (user) {
-      fixMissingPageId();
-    }
-  }, [user]);
-
   const fetchBasicData = async () => {
     try {
       // Pobierz teksty nagłówka, autora, logo i zdjęcie nagłówka z system_texts

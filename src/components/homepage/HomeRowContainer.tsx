@@ -70,8 +70,6 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
               const columnMatch = section.style_class?.match(/columns-(\d+)/);
               const sectionColumnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
               
-              console.log(`[HomeRowContainer] Section "${section.title}" columnCount:`, sectionColumnCount, 'style_class:', section.style_class, 'items:', sectionItems.length);
-              
               // Group items by column_index if columns are defined
               let itemsByColumn: CMSItem[][] = [];
               if (sectionColumnCount > 0) {
@@ -79,7 +77,6 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                 sectionItems.forEach(item => {
                   const colIdx = Math.min(sectionColumnCount - 1, Math.max(0, (item as any).column_index || 0));
                   itemsByColumn[colIdx].push(item);
-                  console.log(`  Item "${item.title}" type:${item.type} -> column ${colIdx}, column_index:`, (item as any).column_index);
                 });
               }
               
