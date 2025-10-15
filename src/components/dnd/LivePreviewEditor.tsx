@@ -27,6 +27,7 @@ import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
+import { ElementsPanel } from './ElementsPanel';
 // import { DndDiagnostics } from './DndDiagnostics';
 
 interface Column {
@@ -1476,8 +1477,16 @@ export const LivePreviewEditor: React.FC = () => {
         items={items}
       />
 
-      <div className={`space-y-6 ${editMode ? 'pb-32' : ''}`}>
-        <DeviceFrame device={currentDevice} className="mx-auto">
+      <div className={`${editMode ? 'flex gap-0' : ''}`}>
+        {editMode && (
+          <div className="fixed left-0 top-0 h-screen z-40">
+            <ElementsPanel onElementClick={(type) => {
+              toast({ title: 'Element clicked', description: `You clicked: ${type}` });
+            }} />
+          </div>
+        )}
+        <div className={`space-y-6 ${editMode ? 'pb-32 ml-80' : ''} flex-1`}>
+          <DeviceFrame device={currentDevice} className="mx-auto">
           <DragDropProvider
             items={[
               ...sections.map(s => s.id),
@@ -1762,6 +1771,7 @@ export const LivePreviewEditor: React.FC = () => {
           </SortableContext>
         </DragDropProvider>
         </DeviceFrame>
+        </div>
       </div>
 
       <InactiveElementsManager
