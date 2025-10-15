@@ -14,23 +14,33 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   children, 
   items 
 }) => {
-  // Grupuj dzieci po position (używamy position jako column_index)
-  const columnCount = row.row_column_count || 1;
+  // Jeśli brak dzieci, nie renderuj niczego
+  if (!children || children.length === 0) {
+    return null;
+  }
+
+  // Oblicz rzeczywistą liczbę kolumn na podstawie unikalnych position dzieci
+  const uniquePositions = Array.from(new Set(children.map(c => c.position || 0)));
+  const actualColumnCount = Math.max(1, uniquePositions.length);
+  
+  // Grupuj dzieci po position (position = column index w starym systemie)
   const columns: { [key: number]: CMSSection[] } = {};
   
-  for (let i = 0; i < columnCount; i++) {
-    columns[i] = [];
-  }
+  // Inicjalizuj kolumny
+  uniquePositions.forEach(pos => {
+    columns[pos] = [];
+  });
   
+  // Przypisz dzieci do kolumn
   children.forEach(child => {
-    const colIndex = Math.min(columnCount - 1, Math.max(0, child.position || 0));
-    columns[colIndex].push(child);
+    const colIndex = child.position || 0;
+    if (columns[colIndex]) {
+      columns[colIndex].push(child);
+    }
   });
 
-  // Sortuj sekcje w każdej kolumnie po position
-  Object.keys(columns).forEach(key => {
-    columns[parseInt(key)].sort((a, b) => (a.position || 0) - (b.position || 0));
-  });
+  // Sortuj pozycje kolumn
+  const sortedPositions = uniquePositions.sort((a, b) => a - b);
 
   // Style dla row container
   const rowStyles: React.CSSProperties = {
@@ -42,15 +52,10 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
     borderRadius: row.border_radius ? `${row.border_radius}px` : undefined,
   };
 
-  // Grid styles dla kolumn
+  // Grid styles dla kolumn - używaj actualColumnCount
   const gridStyles: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: row.row_layout_type === 'custom'
-      ? children.map(child => {
-          const width = child.custom_width || 100 / columnCount;
-          return `${width}%`;
-        }).join(' ')
-      : `repeat(${columnCount}, 1fr)`,
+    gridTemplateColumns: `repeat(${actualColumnCount}, 1fr)`,
     gap: row.gap ? `${row.gap}px` : '24px',
     maxWidth: row.max_width ? `${row.max_width}px` : '1200px',
     margin: '0 auto',
@@ -59,9 +64,9 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   return (
     <div style={rowStyles} className="w-full">
       <div style={gridStyles}>
-        {Object.keys(columns).map(colIndex => (
-          <div key={colIndex} className="flex flex-col gap-4">
-            {columns[parseInt(colIndex)].map(section => {
+        {sortedPositions.map(pos => (
+          <div key={pos} className="flex flex-col gap-4">
+            {columns[pos].map(section => {
               const sectionItems = items.filter(item => item.section_id === section.id);
               
               return (

@@ -212,9 +212,21 @@ export const LivePreviewEditor: React.FC = () => {
       // Initialize open sections based on default_expanded values
       const initialOpenSections: Record<string, boolean> = {};
       convertedSections.forEach(section => {
-        initialOpenSections[section.id] = section.default_expanded || false;
+        // Dla płaskich sekcji (nie-rows) domyślnie rozwijaj w edytorze
+        initialOpenSections[section.id] = section.section_type === 'section' && !section.parent_id 
+          ? true 
+          : (section.default_expanded || false);
       });
       setOpenSections(initialOpenSections);
+
+      // Debug: log sections count
+      console.log('[LivePreviewEditor] Loaded sections:', {
+        total: convertedSections.length,
+        rows: convertedSections.filter(s => s.section_type === 'row').length,
+        flatSections: convertedSections.filter(s => s.section_type === 'section' && !s.parent_id).length,
+        childSections: convertedSections.filter(s => s.parent_id).length,
+        items: convertedItems.length
+      });
 
       // Debug counts for key sections
       try {
