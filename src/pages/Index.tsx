@@ -305,36 +305,23 @@ const Index = () => {
                           .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
                           .sort((a, b) => a.position - b.position);
                         
-                        const maxColIndex = childItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
-                        const columnCount = Math.max(1, maxColIndex + 1);
-                        const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({
-                          id: `${childSection.id}-col-${i}`,
-                          items: [],
-                          width: 100 / columnCount,
-                        }));
-                        childItems.forEach((item) => {
-                          const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                          columns[ci].items.push(item);
-                        });
-                        
                         return (
                           <div key={`row-${section.id}-col-${colIndex}`}>
-                            <CollapsibleSection
-                              title={childSection.title}
-                              description={childSection.description}
-                              defaultOpen={childSection.default_expanded || false}
-                              sectionStyle={childSection}
-                              variant="modern"
-                            >
-                              <ColumnLayout
-                                sectionId={childSection.id}
-                                columns={columns}
-                                isEditMode={false}
-                                onColumnsChange={() => {}}
-                                onItemClick={handleButtonClick}
-                                onSelectItem={() => {}}
-                              />
-                            </CollapsibleSection>
+                            <section>
+                              <h3 className="text-xl font-bold text-foreground mb-4 text-center">{childSection.title}</h3>
+                              {childSection.description && (
+                                <p className="text-sm text-muted-foreground mb-4 text-center">{childSection.description}</p>
+                              )}
+                              <div className="space-y-3">
+                                {childItems.map((item) => (
+                                  <ExpandableListItem
+                                    key={item.id}
+                                    title={item.title || ''}
+                                    onClick={() => handleButtonClick(item.title || '', item.url)}
+                                  />
+                                ))}
+                              </div>
+                            </section>
                           </div>
                         );
                       })}
@@ -348,14 +335,11 @@ const Index = () => {
                 .filter(item => item.section_id === section.id && item.type !== 'header_text' && item.type !== 'author')
                 .sort((a, b) => a.position - b.position);
               
-              // Check section type by title for special styling
+              // Check if this is a special "welcome" section (flat text)
               const titleLower = section.title.toLowerCase();
               const isWelcome = titleLower.includes('witamy');
-              const isTeam = titleLower.includes('zespół') || titleLower.includes('zesp');
-              const isLearnMore = titleLower.includes('dowiedz');
-              const isContact = titleLower.includes('kontakt');
               
-              // Flat section (Welcome) - only if has items
+              // Flat section (Welcome) - only for WITAMY sections
               if (isWelcome && sectionItems.length > 0) {
                 return (
                   <section key={section.id} className="text-center">
@@ -369,24 +353,8 @@ const Index = () => {
                 );
               }
               
-              // Grid section (Team or Contact) - only if has items
-              if ((isTeam || isContact) && sectionItems.length > 0) {
-                return (
-                  <section key={section.id}>
-                    <SectionTitle title={section.title} subtitle={section.description || undefined} />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {sectionItems.map((item) => (
-                        <div key={item.id} onClick={() => handleButtonClick(item.title || '', item.url)}>
-                          <IconCard title={item.title || ''} description={item.description || undefined} />
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              }
-              
-              // List section (Learn More) - only if has items
-              if (isLearnMore && sectionItems.length > 0) {
+              // ALL OTHER sections: Modern list style with yellow circles and arrows
+              if (sectionItems.length > 0) {
                 return (
                   <section key={section.id}>
                     <SectionTitle title={section.title} subtitle={section.description || undefined} />
@@ -403,42 +371,14 @@ const Index = () => {
                 );
               }
               
-              // Default: Collapsible section (for ALL other sections)
-              const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
-              const columnCount = Math.max(1, maxColIndex + 1);
-              const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({
-                id: `${section.id}-col-${i}`,
-                items: [],
-                width: 100 / columnCount,
-              }));
-              sectionItems.forEach((item) => {
-                const colIndex = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
-                columns[colIndex].items.push(item);
-              });
-              
+              // Empty section fallback
               return (
-                <CollapsibleSection
-                  key={section.id}
-                  title={section.title}
-                  description={section.description}
-                  defaultOpen={section.default_expanded || false}
-                  sectionStyle={section}
-                  variant="modern"
-                >
-                  <ColumnLayout
-                    sectionId={section.id}
-                    columns={columns}
-                    isEditMode={false}
-                    onColumnsChange={() => {}}
-                    onItemClick={handleButtonClick}
-                    onSelectItem={() => {}}
-                  />
-                  {sectionItems.length === 0 && (
-                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                      {t('common.noContent')}
-                    </div>
-                  )}
-                </CollapsibleSection>
+                <section key={section.id}>
+                  <SectionTitle title={section.title} subtitle={section.description || undefined} />
+                  <div className="text-center text-muted-foreground py-8 text-sm">
+                    Brak elementów w tej sekcji
+                  </div>
+                </section>
               );
             })}
 
