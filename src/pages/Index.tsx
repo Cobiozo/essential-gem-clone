@@ -7,10 +7,11 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
-import TeamSection from '@/components/homepage/TeamSection';
-import LearnMoreSection from '@/components/homepage/LearnMoreSection';
-import ContactSection from '@/components/homepage/ContactSection';
 import Footer from '@/components/homepage/Footer';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { CMSContent } from '@/components/CMSContent';
+import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
+import { convertSupabaseSections } from '@/lib/typeUtils';
 
 const Index = () => {
   const { user } = useAuth();
@@ -20,10 +21,39 @@ const Index = () => {
   const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
   const [headerImage, setHeaderImage] = React.useState<string>(niezbednikLogo);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
+  const [sections, setSections] = React.useState<CMSSection[]>([]);
+  const [nestedSections, setNestedSections] = React.useState<{[key: string]: CMSSection[]}>({});
+  const [items, setItems] = React.useState<CMSItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   
   // Enable security preventions
   useSecurityPreventions();
+
+  // Funkcja konwersji danych
+  const convertCellsFromDatabase = (cells: any): ContentCell[] => {
+    if (!cells) return [];
+    if (typeof cells === 'string') {
+      try {
+        const parsed = JSON.parse(cells);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch (e) {
+        return [];
+      }
+    }
+    if (Array.isArray(cells)) {
+      return cells;
+    }
+    return [];
+  };
+
+  const convertDatabaseItemToCMSItem = (dbItem: any): CMSItem => {
+    return {
+      ...dbItem,
+      cells: convertCellsFromDatabase(dbItem.cells)
+    };
+  };
 
   React.useEffect(() => {
     fetchBasicData();
@@ -58,6 +88,52 @@ const Index = () => {
         .order('position', { ascending: true });
       
       setPublishedPages(pagesData || []);
+
+      // Pobierz ID strony "Główna"
+      const homePage = pagesData?.find((p: any) => p.slug === 'glowna');
+      
+      if (homePage) {
+        // Pobierz sekcje CMS dla strony głównej
+        const { data: sectionsData, error: sectionsError } = await supabase
+          .from('cms_sections')
+          .select('*')
+          .eq('page_id', homePage.id)
+          .is('parent_id', null)
+          .eq('is_active', true)
+          .order('position', { ascending: true });
+
+        if (!sectionsError && sectionsData) {
+          setSections(convertSupabaseSections(sectionsData));
+
+          // Pobierz sekcje zagnieżdżone
+          const nestedSectionsData: {[key: string]: CMSSection[]} = {};
+          for (const section of sectionsData) {
+            const { data: nestedData } = await supabase
+              .from('cms_sections')
+              .select('*')
+              .eq('parent_id', section.id)
+              .eq('is_active', true)
+              .order('position', { ascending: true });
+            
+            if (nestedData && nestedData.length > 0) {
+              nestedSectionsData[section.id] = convertSupabaseSections(nestedData);
+            }
+          }
+          setNestedSections(nestedSectionsData);
+        }
+
+        // Pobierz elementy CMS
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('cms_items')
+          .select('*')
+          .eq('page_id', homePage.id)
+          .eq('is_active', true)
+          .order('position', { ascending: true });
+
+        if (!itemsError && itemsData) {
+          setItems(itemsData.map(convertDatabaseItemToCMSItem));
+        }
+      }
       
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -92,9 +168,33 @@ const Index = () => {
 
       {/* Main Content */}
       <main id="main-content" className="bg-white">
-        <TeamSection />
-        <LearnMoreSection />
-        <ContactSection />
+        {sections.length > 0 ? (
+          <div className="space-y-0">
+            {sections.map((section) => (
+              <CollapsibleSection 
+                key={section.id} 
+                title={section.title}
+                description={section.description}
+                className="mb-0"
+                sectionStyle={section}
+                nestedSections={nestedSections[section.id] || []}
+                nestedItems={items}
+              >
+                <div className="space-y-4">
+                  {items
+                    .filter(item => item.section_id === section.id)
+                    .map((item) => (
+                      <CMSContent key={item.id} item={item} />
+                    ))}
+                </div>
+              </CollapsibleSection>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">{t('common.loading')}</p>
+          </div>
+        )}
       </main>
       
       {/* Footer */}
