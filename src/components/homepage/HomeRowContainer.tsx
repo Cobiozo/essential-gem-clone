@@ -89,12 +89,11 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                     </h3>
                   )}
                   {section.description && (
-                    <p 
+                    <div 
                       className="mb-4"
                       style={{ color: section.text_color || 'inherit' }}
-                    >
-                      {section.description}
-                    </p>
+                      dangerouslySetInnerHTML={{ __html: section.description }}
+                    />
                   )}
                   <div className="space-y-4">
                     {sectionItems.map(item => (

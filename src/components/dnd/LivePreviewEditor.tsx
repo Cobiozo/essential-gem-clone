@@ -1588,7 +1588,9 @@ export const LivePreviewEditor: React.FC = () => {
                           title={section.title}
                           description={section.description}
                           currentDevice={currentDevice}
-                          defaultOpen={section.default_expanded || false}
+                          isOpen={!!openSections[section.id]}
+                          onOpenChange={(o) => setOpenSections((prev) => ({ ...prev, [section.id]: o }))}
+                          disableToggle={!!activeId}
                           sectionStyle={{
                             background_color: section.background_color,
                             text_color: section.text_color,
@@ -1642,9 +1644,6 @@ export const LivePreviewEditor: React.FC = () => {
                             overflow_behavior: section.overflow_behavior
                           }}
                           nestedItems={[]}
-                          disableToggle={!!activeId}
-                          isOpen={!!openSections[section.id]}
-                          onOpenChange={(o) => setOpenSections((prev) => ({ ...prev, [section.id]: o }))}
                         >
                           <ColumnLayout
                             sectionId={section.id}
