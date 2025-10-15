@@ -42,7 +42,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
 }) => {
   const pointerOptions = React.useMemo(() => ({
     activationConstraint: {
-      distance: 8,
+      distance: 3, // Zmniejszone dla łatwiejszego chwytania elementów z panelu
     },
   }), []);
   const pointerSensor = useSensor(PointerSensor, pointerOptions);

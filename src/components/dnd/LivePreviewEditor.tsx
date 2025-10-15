@@ -635,7 +635,7 @@ export const LivePreviewEditor: React.FC = () => {
   }, [toast]);
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const draggedId = event.active.id as string;
-    console.log('[DragStart] Element ID:', draggedId);
+    console.log('[DragStart] ✅ DRAG STARTED - Element ID:', draggedId);
     console.log('[DragStart] Element data:', event.active.data.current);
     setActiveId(draggedId);
   }, []);
