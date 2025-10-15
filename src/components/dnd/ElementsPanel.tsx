@@ -220,6 +220,8 @@ const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, ic
   });
 
   console.log('[DraggableElement] Rendered:', id, 'isDragging:', isDragging);
+  console.log('[DraggableElement] Listeners:', listeners ? 'PRESENT' : 'MISSING');
+  console.log('[DraggableElement] Attributes:', attributes);
 
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
@@ -237,8 +239,14 @@ const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, ic
         "cursor-grab active:cursor-grabbing group select-none",
         isDragging && "opacity-50 z-50"
       )}
-      onClick={() => console.log('[DraggableElement] Clicked:', id)}
-      onPointerDown={() => console.log('[DraggableElement] PointerDown:', id)}
+      onClick={() => {
+        console.log('[DraggableElement] ===== CLICKED =====');
+        console.log('[DraggableElement] ID:', id);
+      }}
+      onPointerDown={() => {
+        console.log('[DraggableElement] ===== POINTER DOWN =====');
+        console.log('[DraggableElement] ID:', id);
+      }}
     >
       <div className="text-muted-foreground group-hover:text-foreground transition-colors pointer-events-none">
         {icon}

@@ -298,6 +298,13 @@ export const LivePreviewEditor: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Log editMode changes
+  useEffect(() => {
+    console.log('[LivePreviewEditor] ========== EDIT MODE CHANGED ==========');
+    console.log('[LivePreviewEditor] editMode:', editMode);
+    console.log('[LivePreviewEditor] isAdmin:', isAdmin);
+  }, [editMode, isAdmin]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [layoutMode, setLayoutMode] = useState<'single' | 'columns' | 'grid'>('single');
