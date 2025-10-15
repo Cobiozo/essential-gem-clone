@@ -2,6 +2,7 @@ import React from 'react';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { CMSContent } from '@/components/CMSContent';
 import { cn } from '@/lib/utils';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
 
 interface HomeRowContainerProps {
   row: CMSSection;
@@ -65,42 +66,70 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
               const sectionItems = items.filter(item => item.section_id === section.id);
               
               return (
-                <div 
+                <CollapsibleSection
                   key={section.id}
-                  className={cn(
-                    "rounded-lg",
-                    section.style_class
-                  )}
-                  style={{
-                    backgroundColor: section.background_color || 'transparent',
-                    padding: section.padding ? `${section.padding}px` : '20px',
-                    borderRadius: section.border_radius ? `${section.border_radius}px` : '8px',
+                  title={section.title || ''}
+                  description={section.description || undefined}
+                  sectionStyle={{
+                    background_color: section.background_color,
+                    text_color: section.text_color,
+                    font_size: section.font_size,
+                    alignment: section.alignment,
+                    padding: section.padding,
+                    margin: section.margin,
+                    border_radius: section.border_radius,
+                    style_class: section.style_class,
+                    background_gradient: section.background_gradient,
+                    border_width: section.border_width,
+                    border_color: section.border_color,
+                    border_style: section.border_style,
+                    box_shadow: section.box_shadow,
+                    opacity: section.opacity,
+                    width_type: section.width_type,
+                    custom_width: section.custom_width,
+                    height_type: section.height_type,
+                    custom_height: section.custom_height,
+                    max_width: section.max_width,
+                    font_weight: section.font_weight,
+                    line_height: section.line_height,
+                    letter_spacing: section.letter_spacing,
+                    text_transform: section.text_transform,
+                    display_type: section.display_type,
+                    justify_content: section.justify_content,
+                    align_items: section.align_items,
+                    gap: section.gap,
+                    section_margin_top: section.section_margin_top,
+                    section_margin_bottom: section.section_margin_bottom,
+                    background_image: section.background_image,
+                    background_image_opacity: section.background_image_opacity,
+                    background_image_position: section.background_image_position,
+                    background_image_size: section.background_image_size,
+                    icon_name: section.icon_name,
+                    icon_position: section.icon_position,
+                    icon_size: section.icon_size,
+                    icon_color: section.icon_color,
+                    show_icon: section.show_icon,
+                    min_height: section.min_height,
+                    hover_opacity: section.hover_opacity,
+                    hover_scale: section.hover_scale,
+                    hover_transition_duration: section.hover_transition_duration,
+                    hover_background_color: section.hover_background_color,
+                    hover_background_gradient: section.hover_background_gradient,
+                    hover_text_color: section.hover_text_color,
+                    hover_border_color: section.hover_border_color,
+                    hover_box_shadow: section.hover_box_shadow,
+                    content_direction: section.content_direction,
+                    content_wrap: section.content_wrap,
+                    overflow_behavior: section.overflow_behavior,
                   }}
+                  defaultOpen={section.default_expanded || false}
                 >
-                  {section.title && (
-                    <h3 
-                      className="text-xl font-semibold mb-4"
-                      style={{
-                        color: section.text_color || 'inherit',
-                        textAlign: section.alignment as any || 'left',
-                      }}
-                    >
-                      {section.title}
-                    </h3>
-                  )}
-                  {section.description && (
-                    <div 
-                      className="mb-4"
-                      style={{ color: section.text_color || 'inherit' }}
-                      dangerouslySetInnerHTML={{ __html: section.description }}
-                    />
-                  )}
                   <div className="space-y-4">
                     {sectionItems.map(item => (
                       <CMSContent key={item.id} item={item} />
                     ))}
                   </div>
-                </div>
+                </CollapsibleSection>
               );
             })}
           </div>
