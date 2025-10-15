@@ -964,14 +964,10 @@ export const LivePreviewEditor: React.FC = () => {
 
       // Reinitialize columns
       initializeColumns(sections, newItems);
-      
-      // Automatically open sidebar editor for new element
-      setEditingItemId(newItemData.id);
-      setShowEditingPanel(true);
 
       toast({ 
         title: '✅ Element dodany', 
-        description: `Skonfiguruj teraz element: ${getElementTypeName(elementType)}` 
+        description: `Kliknij element, aby go edytować` 
       });
     } catch (error) {
       console.error('Error creating new element:', error);
