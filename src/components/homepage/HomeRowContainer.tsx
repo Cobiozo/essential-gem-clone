@@ -65,6 +65,20 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
             {columnSections.map(section => {
               const sectionItems = items.filter(item => item.section_id === section.id);
               
+              // Check if section has column layout
+              const columnMatch = section.style_class?.match(/columns-(\d+)/);
+              const sectionColumnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
+              
+              // Group items by column_index if columns are defined
+              let itemsByColumn: CMSItem[][] = [];
+              if (sectionColumnCount > 0) {
+                itemsByColumn = Array.from({ length: sectionColumnCount }, () => []);
+                sectionItems.forEach(item => {
+                  const colIdx = Math.min(sectionColumnCount - 1, Math.max(0, (item as any).column_index || 0));
+                  itemsByColumn[colIdx].push(item);
+                });
+              }
+              
               return (
                 <CollapsibleSection
                   key={section.id}
@@ -124,11 +138,27 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                   }}
                   defaultOpen={section.default_expanded || false}
                 >
-                  <div className="space-y-4">
-                    {sectionItems.map(item => (
-                      <CMSContent key={item.id} item={item} />
-                    ))}
-                  </div>
+                  {sectionColumnCount > 0 ? (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
+                      gap: '24px'
+                    }}>
+                      {itemsByColumn.map((columnItems, colIdx) => (
+                        <div key={colIdx} className="space-y-4">
+                          {columnItems.map(item => (
+                            <CMSContent key={item.id} item={item} />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {sectionItems.map(item => (
+                        <CMSContent key={item.id} item={item} />
+                      ))}
+                    </div>
+                  )}
                 </CollapsibleSection>
               );
             })}
