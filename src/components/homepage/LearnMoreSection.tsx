@@ -20,36 +20,41 @@ const LearnMoreSection = () => {
   ];
 
   return (
-    <section className="py-16 px-4 bg-gray-50">
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4 text-black">DOWIEDZ SIĘ WIĘCEJ</h2>
-          <p className="text-gray-600">
+    <section className="py-20 px-4 bg-white">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-6 text-black uppercase tracking-wide">
+            Dowiedz się więcej
+          </h2>
+          <p className="text-gray-600 text-lg">
             Tu znajdziesz materiały dla wszystkich zainteresowanych omega-3
           </p>
         </div>
         
         <div className="space-y-4">
           {items.map((item, index) => (
-            <div key={index} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div 
+              key={index} 
+              className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+            >
               <button
                 onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors group"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center text-white font-bold text-lg">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300">
                     {index + 1}
                   </div>
-                  <span className="text-left text-black font-medium">{item.title}</span>
+                  <span className="text-left text-black font-semibold text-lg">{item.title}</span>
                 </div>
                 <ChevronRight 
-                  className={`w-5 h-5 text-gray-400 transition-transform ${
+                  className={`w-6 h-6 text-gray-400 group-hover:text-[hsl(45,100%,51%)] transition-all duration-300 ${
                     expandedIndex === index ? 'rotate-90' : ''
                   }`} 
                 />
               </button>
               {expandedIndex === index && (
-                <div className="px-6 pb-6 text-gray-600 text-sm">
+                <div className="px-6 pb-6 text-gray-600 leading-relaxed animate-fade-in">
                   {item.content}
                 </div>
               )}

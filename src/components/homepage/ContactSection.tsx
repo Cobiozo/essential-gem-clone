@@ -24,41 +24,49 @@ const ContactSection = () => {
   ];
 
   return (
-    <section className="py-16 px-4 bg-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4 text-black">KONTAKT</h2>
-          <p className="text-gray-600">
+    <section className="py-20 px-4 bg-gray-50">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-6 text-black uppercase tracking-wide">
+            Kontakt
+          </h2>
+          <p className="text-gray-600 text-lg">
             W tym miejscu znajdziesz informacje o kontakcie do Pure Life
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          {contacts.map((contact, index) => (
-            <div key={index} className="text-center">
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center">
-                  <contact.icon className="w-8 h-8 text-white" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
+          {contacts.map((contact, index) => {
+            const IconComponent = contact.icon;
+            return (
+              <div 
+                key={index} 
+                className="text-center group hover:transform hover:scale-105 transition-all duration-300"
+              >
+                <div className="flex justify-center mb-6">
+                  <div className="w-20 h-20 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                    <IconComponent className="w-10 h-10 text-white" />
+                  </div>
                 </div>
+                <h3 className="text-xl font-bold mb-3 text-black">{contact.label}</h3>
+                {contact.link ? (
+                  <a 
+                    href={contact.link} 
+                    className="text-gray-600 hover:text-[hsl(45,100%,51%)] transition-colors font-medium"
+                  >
+                    {contact.value}
+                  </a>
+                ) : (
+                  <p className="text-gray-600 font-medium">{contact.value}</p>
+                )}
               </div>
-              <h3 className="text-lg font-semibold mb-2 text-black">{contact.label}</h3>
-              {contact.link ? (
-                <a 
-                  href={contact.link} 
-                  className="text-gray-600 hover:text-[hsl(45,100%,51%)] transition-colors text-sm"
-                >
-                  {contact.value}
-                </a>
-              ) : (
-                <p className="text-gray-600 text-sm">{contact.value}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div className="text-center border-t pt-8">
-          <h3 className="text-lg font-semibold mb-2 text-black">Osoba do kontaktu</h3>
-          <p className="text-gray-600">Sebastian Snopek</p>
+        <div className="text-center border-t border-gray-200 pt-12">
+          <h3 className="text-xl font-bold mb-3 text-black">Osoba do kontaktu</h3>
+          <p className="text-gray-600 text-lg">Sebastian Snopek</p>
         </div>
       </div>
     </section>

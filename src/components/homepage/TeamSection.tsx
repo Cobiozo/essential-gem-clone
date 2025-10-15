@@ -18,26 +18,31 @@ const TeamSection = () => {
   ];
 
   return (
-    <section className="py-16 px-4 bg-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4 text-black">ZESPÓŁ "PURE LIFE"</h2>
-          <p className="text-gray-600 max-w-3xl mx-auto">
+    <section className="py-20 px-4 bg-gray-50">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-6 text-black uppercase tracking-wide">
+            Zespół "Pure Life"
+          </h2>
+          <p className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed">
             Jesteśmy grupą entuzjastów zdrowia naturalnego, którzy wierzą w moc wysokiej jakości suplementów omega-3. 
             Nasza misja to dzielenie się wiedzą i wspieranie Cię w budowaniu swojej kariery.
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16">
           {features.map((feature, index) => (
-            <div key={index} className="text-center">
+            <div 
+              key={index} 
+              className="text-center group hover:transform hover:scale-105 transition-all duration-300"
+            >
               <div className="flex justify-center mb-6">
-                <div className="w-20 h-20 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center">
-                  <img src={dropletIcon} alt="" className="w-10 h-10" />
+                <div className="w-24 h-24 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                  <img src={dropletIcon} alt="" className="w-12 h-12" />
                 </div>
               </div>
-              <h3 className="text-xl font-semibold mb-3 text-black">{feature.title}</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
+              <h3 className="text-2xl font-bold mb-4 text-black">{feature.title}</h3>
+              <p className="text-gray-600 leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
