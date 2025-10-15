@@ -1018,8 +1018,11 @@ export const LivePreviewEditor: React.FC = () => {
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
 
-      // Reinitialize columns
-      initializeColumns(sections, newItems);
+      // NOTE: initializeColumns is NOT needed here because:
+      // - It only updates sectionColumns state which is not used in RegularSectionContent
+      // - RegularSectionContent uses items.filter() directly
+      // - Calling it here may cause unnecessary re-renders
+      // initializeColumns(sections, newItems);
       
       console.log('[handleNewElementDrop] ✅ State updated, item should be visible now');
 
