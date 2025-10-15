@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { CMSItem } from '@/types/cms';
 
 interface LearnMoreItemProps {
   item: CMSItem;
   itemIndex: number;
+  isExpanded: boolean;
+  onToggle: () => void;
 }
 
-export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, isExpanded, onToggle }) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={onToggle}
         className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors group"
       >
         <div className="flex items-center gap-5">

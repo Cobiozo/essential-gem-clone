@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { CMSContent } from '@/components/CMSContent';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
@@ -16,6 +16,8 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   children, 
   items 
 }) => {
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  
   // Jeśli brak dzieci, nie renderuj niczego
   if (!children || children.length === 0) {
     return null;
@@ -84,7 +86,15 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
               const renderItem = (item: CMSItem, index: number) => {
                 // Special rendering for multi_cell items (Learn More section)
                 if (item.type === 'multi_cell') {
-                  return <LearnMoreItem key={item.id} item={item} itemIndex={index} />;
+                  return (
+                    <LearnMoreItem 
+                      key={item.id} 
+                      item={item} 
+                      itemIndex={index}
+                      isExpanded={expandedItemId === item.id}
+                      onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                    />
+                  );
                 }
                 // Default rendering
                 return <CMSContent key={item.id} item={item} />;

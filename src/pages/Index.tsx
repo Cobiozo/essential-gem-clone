@@ -28,6 +28,7 @@ const Index = () => {
   const [nestedSections, setNestedSections] = React.useState<{[key: string]: CMSSection[]}>({});
   const [loading, setLoading] = React.useState(true);
   const [mainPageId, setMainPageId] = React.useState<string | null>(null);
+  const [expandedItemId, setExpandedItemId] = React.useState<string | null>(null);
   
   // Enable security preventions
   useSecurityPreventions();
@@ -158,7 +159,15 @@ const Index = () => {
     if (item.type === 'multi_cell') {
       const sectionItems = items.filter(i => i.section_id === section.id);
       const itemIndex = sectionItems.findIndex(i => i.id === item.id);
-      return <LearnMoreItem key={item.id} item={item} itemIndex={itemIndex} />;
+      return (
+        <LearnMoreItem 
+          key={item.id} 
+          item={item} 
+          itemIndex={itemIndex}
+          isExpanded={expandedItemId === item.id}
+          onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+        />
+      );
     }
 
     // Default rendering

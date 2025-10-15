@@ -54,6 +54,7 @@ export const LivePreviewEditor: React.FC = () => {
   const [currentDevice, setCurrentDevice] = useState<DeviceType>('desktop');
   const [responsiveSettings, setResponsiveSettings] = useState(defaultResponsiveSettings);
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   
   // Column layout state
   const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
@@ -1678,7 +1679,14 @@ export const LivePreviewEditor: React.FC = () => {
                                     // Special rendering for multi_cell items
                                     else if (item.type === 'multi_cell') {
                                       const itemIndex = columnItems.findIndex(i => i.id === item.id);
-                                      itemContent = <LearnMoreItem item={item} itemIndex={itemIndex} />;
+                                      itemContent = (
+                                        <LearnMoreItem 
+                                          item={item} 
+                                          itemIndex={itemIndex}
+                                          isExpanded={expandedItemId === item.id}
+                                          onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                                        />
+                                      );
                                     }
                                     // Default rendering
                                     else {
@@ -1717,7 +1725,14 @@ export const LivePreviewEditor: React.FC = () => {
                                 // Special rendering for multi_cell items
                                 else if (item.type === 'multi_cell') {
                                   const itemIndex = sectionItems.findIndex(i => i.id === item.id);
-                                  itemContent = <LearnMoreItem item={item} itemIndex={itemIndex} />;
+                                  itemContent = (
+                                    <LearnMoreItem 
+                                      item={item} 
+                                      itemIndex={itemIndex}
+                                      isExpanded={expandedItemId === item.id}
+                                      onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                                    />
+                                  );
                                 }
                                 // Default rendering
                                 else {
