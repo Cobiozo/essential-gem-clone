@@ -639,6 +639,8 @@ export const LivePreviewEditor: React.FC = () => {
   }, []);
 
   const createDefaultContent = (elementType: string) => {
+    console.log('[createDefaultContent] Creating content for type:', elementType);
+    
     switch (elementType) {
       case 'heading':
         return [{ type: 'heading', content: 'Nowy nagłówek', level: 2 }];
@@ -657,17 +659,21 @@ export const LivePreviewEditor: React.FC = () => {
       case 'maps':
         return [{ type: 'maps', content: '', title: 'Mapa' }];
       case 'icon':
-        return [{ type: 'icon', content: 'star' }];
+        return [{ type: 'icon', content: 'Star' }];
+      
+      // Layout elements - nie powinny być używane tutaj, ale dla bezpieczeństwa
       case 'container':
-        return [{ type: 'container', content: '' }];
+        console.warn('[createDefaultContent] WARNING: container should create section, not item');
+        return [{ type: 'container', content: 'BŁĄD: To powinno być sekcją' }];
       case 'grid':
-        return [{ type: 'grid', columns: 2 }];
+        console.warn('[createDefaultContent] WARNING: grid should create section, not item');
+        return [{ type: 'grid', content: 'BŁĄD: To powinno być sekcją' }];
       
       // Ogólne elementy
       case 'image-field':
         return [{ type: 'image-field', content: '', alt: 'Dodaj obrazek' }];
       case 'icon-field':
-        return [{ type: 'icon-field', content: 'star', color: 'currentColor' }];
+        return [{ type: 'icon-field', content: 'Star', color: 'currentColor' }];
       case 'carousel':
         return [{ type: 'carousel', images: [], autoplay: true, interval: 3000 }];
       case 'accessibility':
@@ -675,13 +681,13 @@ export const LivePreviewEditor: React.FC = () => {
       case 'gallery':
         return [{ type: 'gallery', images: [], columns: 3 }];
       case 'icon-list':
-        return [{ type: 'icon-list', items: [{ icon: 'check', text: 'Element listy' }] }];
+        return [{ type: 'icon-list', items: [{ icon: 'Check', text: 'Element listy' }] }];
       case 'counter':
-        return [{ type: 'counter', start: 0, end: 100, duration: 2000, suffix: '' }];
+        return [{ type: 'counter', start: 0, end: 100, duration: 2000, suffix: '', prefix: '' }];
       case 'progress-bar':
-        return [{ type: 'progress-bar', value: 50, max: 100, label: 'Postęp' }];
+        return [{ type: 'progress-bar', value: 50, max: 100, label: 'Postęp', showValue: true }];
       case 'testimonial':
-        return [{ type: 'testimonial', content: 'Treść referencji', author: 'Imię Nazwisko', role: 'Stanowisko' }];
+        return [{ type: 'testimonial', content: 'Treść referencji', author: 'Imię Nazwisko', role: 'Stanowisko', avatar: '' }];
       case 'cards':
         return [{ type: 'cards', items: [{ title: 'Karta', content: 'Treść karty' }] }];
       case 'accordion':
@@ -689,9 +695,9 @@ export const LivePreviewEditor: React.FC = () => {
       case 'toggle':
         return [{ type: 'toggle', title: 'Kliknij aby rozwinąć', content: 'Zawartość' }];
       case 'social-icons':
-        return [{ type: 'social-icons', icons: [{ platform: 'facebook', url: '#' }] }];
+        return [{ type: 'social-icons', icons: [{ platform: 'Facebook', url: 'https://facebook.com' }], size: 24 }];
       case 'alert':
-        return [{ type: 'alert', content: 'Wiadomość', variant: 'info' }];
+        return [{ type: 'alert', content: 'Wiadomość', variant: 'default', title: '' }];
       case 'soundcloud':
         return [{ type: 'soundcloud', url: '', height: 166 }];
       case 'shortcode':
@@ -714,7 +720,8 @@ export const LivePreviewEditor: React.FC = () => {
         return [{ type: 'text-path', text: 'Tekst na ścieżce', path: 'M0,50 Q50,0 100,50' }];
       
       default:
-        return [{ type: 'text', content: 'Nowy element' }];
+        console.warn('[createDefaultContent] Unknown element type:', elementType);
+        return [{ type: 'text', content: `Element typu: ${elementType}` }];
     }
   };
 
@@ -761,11 +768,14 @@ export const LivePreviewEditor: React.FC = () => {
   };
 
   const handleNewElementDrop = async (elementType: string, targetId: string) => {
+    console.log('[handleNewElementDrop] Element type:', elementType, 'Target:', targetId);
+    
     try {
       // Check if this is a layout element that should create a section
       const layoutElements = ['container', 'grid'];
       
       if (layoutElements.includes(elementType)) {
+        console.log('[handleNewElementDrop] Creating layout section for:', elementType);
         // Create a new section
         const topLevelSections = sections.filter(s => !s.parent_id);
         const newPosition = topLevelSections.length;
@@ -854,6 +864,14 @@ export const LivePreviewEditor: React.FC = () => {
       // Create default content based on element type
       const defaultContent = createDefaultContent(elementType);
 
+      console.log('[handleNewElementDrop] Creating item:', {
+        elementType,
+        targetSectionId,
+        columnIndex,
+        position: newPosition,
+        defaultContent
+      });
+
       // Create new item in database - using correct field names
       const { data: newItemData, error: insertError } = await supabase
         .from('cms_items')
@@ -869,7 +887,12 @@ export const LivePreviewEditor: React.FC = () => {
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('[handleNewElementDrop] Insert error:', insertError);
+        throw insertError;
+      }
+      
+      console.log('[handleNewElementDrop] Item created:', newItemData);
 
       // Update local state
       const cellsData = typeof newItemData.cells === 'string' 

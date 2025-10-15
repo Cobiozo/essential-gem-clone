@@ -494,6 +494,34 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
         </div>
       );
 
+    case 'button':
+      const buttonCell = (item.cells as any[])?.[0];
+      return (
+        <Button
+          onClick={() => buttonCell?.url && window.open(buttonCell.url, '_blank')}
+          className="w-full"
+        >
+          {buttonCell?.content || item.title || 'Kliknij'}
+        </Button>
+      );
+
+    case 'maps':
+      const mapsCell = (item.cells as any[])?.[0];
+      return mapsCell?.content ? (
+        <iframe
+          src={mapsCell.content}
+          width="100%"
+          height="450"
+          style={{ border: 0 }}
+          loading="lazy"
+          className="rounded-lg"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-64 bg-muted rounded-lg">
+          <p className="text-muted-foreground">Dodaj URL mapy Google</p>
+        </div>
+      );
+
     case 'accessibility':
     case 'shortcode':
     case 'menu-anchor':
@@ -514,7 +542,16 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
         </div>
       );
 
-    case 'button':
+    case 'container':
+    case 'grid':
+      // Te elementy nie powinny być renderowane jako itemy - powinny być sekcjami
+      return (
+        <div className="p-4 border-2 border-dashed border-warning rounded-lg bg-warning/5">
+          <p className="text-warning text-sm font-medium">⚠️ Element "{item.type}" powinien być sekcją, nie itemem</p>
+          <p className="text-xs text-muted-foreground mt-1">Usuń ten element i użyj go ponownie z panelu elementów</p>
+        </div>
+      );
+
     default:
       // Get icon component if specified
       const IconComponent = item.icon ? (icons as any)[item.icon] : null;
