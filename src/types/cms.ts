@@ -37,10 +37,6 @@ export interface CMSItem {
   padding?: number;
   style_class?: string;
   icon?: string | null;
-  custom_width?: number;
-  custom_height?: number;
-  width_type?: string;
-  height_type?: string;
 }
 
 export interface CMSSection {

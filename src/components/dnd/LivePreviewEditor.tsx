@@ -31,7 +31,6 @@ import { ElementsPanel } from './ElementsPanel';
 import { EditingPanel } from './EditingPanel';
 import { ItemControls } from './ItemControls';
 import { ItemEditor } from '@/components/cms/ItemEditor';
-import { DropZone } from './DropZone';
 // import { DndDiagnostics } from './DndDiagnostics';
 
 interface Column {
@@ -60,7 +59,6 @@ interface RegularSectionContentPropsExtended extends RegularSectionContentProps 
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
-  onElementResize?: (elementId: string, width: number, height: number) => void;
 }
 
 const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
@@ -79,37 +77,12 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
-  onElementResize,
 }) => {
   // Make the section droppable so elements can be dropped into it
   const { setNodeRef, isOver } = useDroppable({
     id: section.id,
     disabled: !editMode,
   });
-
-  // Column drop zone component
-  const ColumnDropZone: React.FC<{ sectionId: string; colIdx: number; children: React.ReactNode }> = ({ 
-    sectionId, 
-    colIdx, 
-    children 
-  }) => {
-    const { setNodeRef: setColRef, isOver: isColOver } = useDroppable({
-      id: `${sectionId}-col-${colIdx}`,
-      disabled: !editMode,
-    });
-    
-    return (
-      <div 
-        ref={setColRef}
-        className={cn(
-          "space-y-4 min-h-[100px] p-2 rounded transition-colors",
-          isColOver && editMode && "bg-blue-50 border-2 border-dashed border-blue-400"
-        )}
-      >
-        {children}
-      </div>
-    );
-  };
 
   return (
     <div 
@@ -170,57 +143,57 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 items={columnItems.filter(i => i.id).map(i => i.id as string)}
                 strategy={verticalListSortingStrategy}
               >
-                <ColumnDropZone sectionId={section.id} colIdx={colIdx}>
+                <div className="space-y-4">
                   {columnItems.map((item, itemIdx) => {
-                      let itemContent;
-                      
-                      if (item.type === 'info_text' && section.display_type === 'grid') {
-                        itemContent = <InfoTextItem item={item} />;
-                      } else if (item.type === 'multi_cell') {
-                        const itemIndex = columnItems.findIndex(i => i.id === item.id);
-                        itemContent = (
-                          <LearnMoreItem 
-                            item={item} 
-                            itemIndex={itemIndex}
-                            isExpanded={expandedItemId === item.id}
-                            onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
-                          />
-                        );
-                      } else {
-                        itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
-                      }
-                      
-                      if (editMode && item.id) {
-                        return (
-                          <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                            <div 
-                              className="relative group"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSelectElement(item.id as string);
-                              }}
-                            >
-                              {/* Item Controls - always visible in edit mode */}
-                              {onEditItem && onDeleteItem && (
-                                <ItemControls
-                                  onEdit={() => onEditItem(item.id as string)}
-                                  onDelete={() => onDeleteItem(item.id as string)}
-                                  onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                                  onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                                  onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                                  canMoveUp={itemIdx > 0}
-                                  canMoveDown={itemIdx < columnItems.length - 1}
-                                />
-                              )}
-                              {itemContent}
-                            </div>
-                          </DraggableItem>
-                        );
-                      }
+                    let itemContent;
+                    
+                    if (item.type === 'info_text' && section.display_type === 'grid') {
+                      itemContent = <InfoTextItem item={item} />;
+                    } else if (item.type === 'multi_cell') {
+                      const itemIndex = columnItems.findIndex(i => i.id === item.id);
+                      itemContent = (
+                        <LearnMoreItem 
+                          item={item} 
+                          itemIndex={itemIndex}
+                          isExpanded={expandedItemId === item.id}
+                          onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
+                        />
+                      );
+                    } else {
+                      itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
+                    }
+                    
+                    if (editMode && item.id) {
+                      return (
+                        <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                          <div 
+                            className="relative group"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectElement(item.id as string);
+                            }}
+                          >
+                            {/* Item Controls - always visible in edit mode */}
+                            {onEditItem && onDeleteItem && (
+                              <ItemControls
+                                onEdit={() => onEditItem(item.id as string)}
+                                onDelete={() => onDeleteItem(item.id as string)}
+                                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                                onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                                onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                                canMoveUp={itemIdx > 0}
+                                canMoveDown={itemIdx < columnItems.length - 1}
+                              />
+                            )}
+                            {itemContent}
+                          </div>
+                        </DraggableItem>
+                      );
+                    }
                     
                     return <div key={item.id}>{itemContent}</div>;
                   })}
-                </ColumnDropZone>
+                </div>
               </SortableContext>
             ))}
           </div>
@@ -298,13 +271,6 @@ export const LivePreviewEditor: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Log editMode changes
-  useEffect(() => {
-    console.log('[LivePreviewEditor] ========== EDIT MODE CHANGED ==========');
-    console.log('[LivePreviewEditor] editMode:', editMode);
-    console.log('[LivePreviewEditor] isAdmin:', isAdmin);
-  }, [editMode, isAdmin]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [layoutMode, setLayoutMode] = useState<'single' | 'columns' | 'grid'>('single');
@@ -666,7 +632,7 @@ export const LivePreviewEditor: React.FC = () => {
   }, [toast]);
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const draggedId = event.active.id as string;
-    console.log('[DragStart] ✅ DRAG STARTED - Element ID:', draggedId);
+    console.log('[DragStart] Element ID:', draggedId);
     console.log('[DragStart] Element data:', event.active.data.current);
     setActiveId(draggedId);
   }, []);
@@ -801,9 +767,7 @@ export const LivePreviewEditor: React.FC = () => {
   };
 
   const handleNewElementDrop = async (elementType: string, targetId: string) => {
-    console.log('[handleNewElementDrop] ========== NEW ELEMENT DROP START ==========');
-    console.log('[handleNewElementDrop] Element type:', elementType);
-    console.log('[handleNewElementDrop] Target ID:', targetId);
+    console.log('[handleNewElementDrop] Element type:', elementType, 'Target:', targetId);
     
     try {
       // Check if this is a layout element that should create a section
@@ -816,35 +780,19 @@ export const LivePreviewEditor: React.FC = () => {
         let insertPosition = 0;
         let foundTarget = false;
         
-        // Handle main drop zones (empty areas)
-        if (targetId === 'main-start') {
-          insertPosition = 0;
-          foundTarget = true;
-        } else if (targetId === 'main-end') {
-          const topLevelSections = sections.filter(s => !s.parent_id);
-          insertPosition = topLevelSections.length;
-          foundTarget = true;
-        } else if (targetId.startsWith('main-between-')) {
-          const afterId = targetId.replace('main-between-', '');
+        // Find the target section to determine insert position
+        const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
+        
+        if (targetSection) {
+          // Insert after the target section
           const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
-          const afterIndex = topLevelSections.findIndex(s => s.id === afterId);
-          insertPosition = afterIndex >= 0 ? afterIndex + 1 : topLevelSections.length;
+          const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
+          insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
           foundTarget = true;
         } else {
-          // Find the target section to determine insert position
-          const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
-          
-          if (targetSection) {
-            // Insert after the target section
-            const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
-            const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
-            insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
-            foundTarget = true;
-          } else {
-            // If no target found, add at the end
-            const topLevelSections = sections.filter(s => !s.parent_id);
-            insertPosition = topLevelSections.length;
-          }
+          // If no target found, add at the end
+          const topLevelSections = sections.filter(s => !s.parent_id);
+          insertPosition = topLevelSections.length;
         }
         
         // Determine section type and properties based on element type
@@ -931,16 +879,6 @@ export const LivePreviewEditor: React.FC = () => {
       }
       
       // Regular element creation (not layout)
-      // Handle main drop zones - cannot create regular elements there
-      if (targetId.startsWith('main-')) {
-        toast({ 
-          title: 'Informacja', 
-          description: 'Najpierw utwórz kontener lub siatkę, a następnie dodaj do nich elementy', 
-          variant: 'default' 
-        });
-        return;
-      }
-      
       // Determine target section and position
       let targetSectionId: string;
       let columnIndex = 0;
@@ -1019,24 +957,21 @@ export const LivePreviewEditor: React.FC = () => {
         cells: cellsData
       };
       
-      console.log('[handleNewElementDrop] Converting item to CMSItem:', convertedItem);
-      console.log('[handleNewElementDrop] Current items count:', items.length);
-      
       const newItems = [...items, convertedItem];
-      console.log('[handleNewElementDrop] New items count:', newItems.length);
-      
-      // Force component re-render by updating a version counter
-      setDragVersion(prev => prev + 1);
-      
       setItems(newItems);
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
+
+      // Reinitialize columns
+      initializeColumns(sections, newItems);
       
-      console.log('[handleNewElementDrop] ✅ State updated, forcing re-render with dragVersion');
+      // Automatically open sidebar editor for new element
+      setEditingItemId(newItemData.id);
+      setShowEditingPanel(true);
 
       toast({ 
         title: '✅ Element dodany', 
-        description: `Kliknij element, aby go edytować` 
+        description: `Skonfiguruj teraz element: ${getElementTypeName(elementType)}` 
       });
     } catch (error) {
       console.error('Error creating new element:', error);
@@ -1061,31 +996,22 @@ export const LivePreviewEditor: React.FC = () => {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    console.log('[DragEnd] ========== DRAG END START ==========');
     console.log('[DragEnd] Active:', active.id, 'Over:', over?.id);
     console.log('[DragEnd] Active data:', active.data.current);
-    console.log('[DragEnd] Over data:', over?.data?.current);
     setActiveId(null);
 
     if (!over) {
-      console.log('[DragEnd] ❌ No drop target - drag cancelled');
+      console.log('[DragEnd] No drop target');
       return;
     }
 
     // Check if dragging a new element from the panel
     const activeData = active.data.current;
-    console.log('[DragEnd] Checking if new element. activeData.type:', activeData?.type);
-    
     if (activeData?.type === 'new-element') {
-      console.log('[DragEnd] ✅ This is a NEW ELEMENT from panel');
-      console.log('[DragEnd] Element type:', activeData.elementType);
-      console.log('[DragEnd] Drop target ID:', over.id);
+      console.log('[DragEnd] Dropping new element:', activeData.elementType);
       await handleNewElementDrop(activeData.elementType, over.id as string);
-      console.log('[DragEnd] ========== DRAG END COMPLETE ==========');
       return;
     }
-    
-    console.log('[DragEnd] This is NOT a new element, continuing with regular drag logic...');
 
     if (active.id === over.id) {
       return;
@@ -1231,6 +1157,9 @@ export const LivePreviewEditor: React.FC = () => {
             return s;
           }));
           
+          // Refresh data to ensure consistency
+          await fetchData();
+          
           toast({ title: 'Sekcje zamienione', description: 'Pozycje sekcji zostały zamienione' });
         } catch (error) {
           console.error('Error swapping sections:', error);
@@ -1265,11 +1194,7 @@ export const LivePreviewEditor: React.FC = () => {
               .eq('id', activeId);
               
             if (error) throw error;
-            
-            // Update local state instead of refetching
-            setSections(prev => prev.map(s => 
-              s.id === activeId ? { ...s, parent_id: null } : s
-            ));
+            await fetchData();
             
             toast({
               title: 'Sekcja przeniesiona',
@@ -1523,7 +1448,6 @@ export const LivePreviewEditor: React.FC = () => {
     try {
       // Check if it's a section or item
       const section = sections.find(s => s.id === elementId);
-      const item = items.find(i => i.id === elementId);
       
       if (section) {
         // Determine width settings
@@ -1617,71 +1541,13 @@ export const LivePreviewEditor: React.FC = () => {
             }
           }
         }
-      } else if (item) {
-        // Handle item resize
-        let width_type = item.width_type || 'auto';
-        let newCustomWidth = item.custom_width;
-        
-        if (Number.isFinite(width) && width > 0) {
-          width_type = 'custom';
-          newCustomWidth = Math.round(width);
-        } else if (width === 0) {
-          width_type = 'auto';
-          newCustomWidth = undefined;
-        }
-
-        let height_type = item.height_type || 'auto';
-        let newCustomHeight = item.custom_height;
-        
-        if (Number.isFinite(height) && height > 0) {
-          height_type = 'custom';
-          newCustomHeight = Math.round(height);
-        } else if (height === 0) {
-          height_type = 'auto';
-          newCustomHeight = undefined;
-        }
-
-        // Update local state
-        setItems(prev => {
-          const updated = prev.map(i => 
-            i.id === elementId 
-              ? { 
-                  ...i, 
-                  width_type,
-                  height_type,
-                  custom_width: newCustomWidth, 
-                  custom_height: newCustomHeight,
-                }
-              : i
-          );
-          autoSave(sections, updated);
-          return updated;
-        });
-
-        // Persist immediately to DB
-        try {
-          const updates: any = { 
-            width_type, 
-            height_type, 
-            custom_width: newCustomWidth, 
-            custom_height: newCustomHeight, 
-            updated_at: new Date().toISOString() 
-          };
-          const { error: immediateErr } = await supabase
-            .from('cms_items')
-            .update(updates)
-            .eq('id', elementId);
-          if (immediateErr) {
-            console.error('Immediate item resize save failed', immediateErr);
-          }
-        } catch (e) {
-          console.error('Immediate item resize exception', e);
-        }
+      } else {
+        // TODO: Add item resize handling if needed
       }
 
         toast({
           title: 'Sukces',
-          description: 'Rozmiar elementu został zapisany',
+          description: 'Rozmiar sekcji został zapisany',
         });
     } catch (error) {
       console.error('Error saving element resize:', error);
@@ -2401,10 +2267,7 @@ export const LivePreviewEditor: React.FC = () => {
               'new-html', 'new-menu-anchor', 'new-sidebar', 'new-learn-more',
               'new-rating', 'new-trustindex', 'new-ppom', 'new-text-path'
             ]}
-            onDragStart={(e) => {
-              console.log('[DragDropProvider] onDragStart called, editMode:', editMode);
-              handleDragStart(e);
-            }}
+            onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             activeId={activeId}
@@ -2446,8 +2309,6 @@ export const LivePreviewEditor: React.FC = () => {
             {editMode && !showEditingPanel && (
               <div className="fixed left-0 top-0 h-screen z-40">
                 <ElementsPanel onElementClick={(type) => {
-                  console.log('[ElementsPanel] Element clicked:', type);
-                  console.log('[ElementsPanel] editMode:', editMode);
                   toast({ title: 'Element clicked', description: `You clicked: ${type}` });
                 }} />
               </div>
@@ -2481,32 +2342,16 @@ export const LivePreviewEditor: React.FC = () => {
               )}
               style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
             >
-              {/* Drop zone at the start */}
-              {editMode && (
-                <DropZone
-                  id="main-start"
-                  isEditMode={editMode}
-                  label="Upuść tutaj kontener lub siatkę"
-                  className="min-h-[80px]"
-                />
-              )}
-              
-              {sections.filter(s => !s.parent_id).map((section, index, arr) => {
+              {sections.filter(s => !s.parent_id).map((section) => {
                 // Render row containers
                 if (section.section_type === 'row') {
-                  // Count items in child sections to force re-render when items change
-                  const childSections = sections.filter(s => s.parent_id === section.id);
-                  const totalChildItems = childSections.reduce((count, childSec) => {
-                    return count + items.filter(it => it.section_id === childSec.id).length;
-                  }, 0);
-                  
                   return (
-                    <React.Fragment key={`${section.id}-items-${totalChildItems}`}>
-                      <DraggableSection
-                        id={section.id}
-                        isEditMode={editMode}
-                        className="w-full"
-                      >
+                    <DraggableSection
+                      key={section.id}
+                      id={section.id}
+                      isEditMode={editMode}
+                      className="w-full"
+                    >
                       <RowContainer
                         row={section}
                         sections={sections}
@@ -2518,11 +2363,7 @@ export const LivePreviewEditor: React.FC = () => {
                               .update({ ...updates, updated_at: new Date().toISOString() })
                               .eq('id', rowId);
                             if (error) throw error;
-                            
-                            // Update local state dynamically
-                            setSections(prev => prev.map(s => 
-                              s.id === rowId ? { ...s, ...updates } : s
-                            ));
+                            await fetchData();
                           } catch (error) {
                             console.error('Error updating row:', error);
                           }
@@ -2542,20 +2383,12 @@ export const LivePreviewEditor: React.FC = () => {
                               throw error;
                             }
                             
-                            // Update local state - remove row and update children
-                            setSections(prev => prev.map(s => 
-                              s.id === rowId 
-                                ? { ...s, is_active: false }
-                                : s.parent_id === rowId 
-                                  ? { ...s, parent_id: null, is_active: false }
-                                  : s
-                            ));
-                            
+                            await fetchData();
                             setInactiveRefresh((v) => v + 1);
                             toast({ title: 'Wiersz usunięty', description: 'Wiersz został usunięty, a sekcje przeniesione na główny poziom oraz przeniesiony do "Główna" jako nieaktywny' });
                           } catch (error) {
                             console.error('Error removing row:', error);
-                            toast({
+                            toast({ 
                               title: 'Błąd', 
                               description: `Nie udało się usunąć wiersza: ${error.message || 'Nieznany błąd'}`, 
                               variant: 'destructive' 
@@ -2574,24 +2407,11 @@ export const LivePreviewEditor: React.FC = () => {
                         renderVersion={dragVersion}
                       />
                     </DraggableSection>
-                    
-                    {/* Drop zone between sections */}
-                    {editMode && index < arr.length - 1 && (
-                      <DropZone
-                        id={`main-between-${section.id}`}
-                        isEditMode={editMode}
-                        label="Upuść tutaj kontener lub siatkę"
-                        className="min-h-[60px]"
-                      />
-                    )}
-                  </React.Fragment>
                   );
                 }
 
                 // Render regular sections - match homepage display with white background
                 const sectionItems = items.filter(item => item.section_id === section.id);
-                
-                console.log(`[Render] Section ${section.id} has ${sectionItems.length} items`);
                 
                 // Check if section has column layout
                 const columnMatch = section.style_class?.match(/columns-(\d+)/);
@@ -2608,12 +2428,12 @@ export const LivePreviewEditor: React.FC = () => {
                 }
                 
                 return (
-                  <React.Fragment key={`${section.id}-${sectionItems.length}`}>
-                    <DraggableSection
-                      id={section.id}
-                      isEditMode={editMode}
-                      className="w-full"
-                    >
+                  <DraggableSection
+                    key={section.id}
+                    id={section.id}
+                    isEditMode={editMode}
+                    className="w-full"
+                  >
                     <RegularSectionContent
                       section={section}
                       sectionItems={sectionItems}
@@ -2630,32 +2450,10 @@ export const LivePreviewEditor: React.FC = () => {
                       onDuplicateItem={handleDuplicateItem}
                       onMoveItemUp={handleMoveItemUp}
                       onMoveItemDown={handleMoveItemDown}
-                      onElementResize={handleElementResize}
                     />
                   </DraggableSection>
-                  
-                  {/* Drop zone between sections */}
-                  {editMode && index < arr.length - 1 && (
-                    <DropZone
-                      id={`main-between-${section.id}`}
-                      isEditMode={editMode}
-                      label="Upuść tutaj kontener lub siatkę"
-                      className="min-h-[60px]"
-                    />
-                  )}
-                </React.Fragment>
                 );
               })}
-              
-              {/* Drop zone at the end */}
-              {editMode && (
-                <DropZone
-                  id="main-end"
-                  isEditMode={editMode}
-                  label="Upuść tutaj kontener lub siatkę"
-                  className="min-h-[80px]"
-                />
-              )}
             </div>
           </SortableContext>
         </DragDropProvider>
@@ -2665,13 +2463,10 @@ export const LivePreviewEditor: React.FC = () => {
 
       <InactiveElementsManager
         onElementActivated={() => {
-          console.log('Element activated');
-          // Nie potrzebujemy fetchData - komponenty aktualizują swój lokalny stan
+          console.log('Element activated, refreshing layout...');
+          fetchData();
         }}
-        onElementDeleted={() => {
-          console.log('Element deleted');
-          // Nie potrzebujemy fetchData - komponenty aktualizują swój lokalny stan
-        }}
+        onElementDeleted={fetchData}
         refreshKey={inactiveRefresh}
       />
       

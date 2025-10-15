@@ -219,13 +219,12 @@ const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, ic
     },
   });
 
-  console.log('[DraggableElement] Rendered:', id, 'isDragging:', isDragging);
-  console.log('[DraggableElement] Listeners:', listeners ? 'PRESENT' : 'MISSING');
-  console.log('[DraggableElement] Attributes:', attributes);
-
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+    touchAction: 'none',
+  } : {
+    touchAction: 'none',
+  };
 
   return (
     <div
@@ -237,16 +236,9 @@ const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, ic
         "flex flex-col items-center justify-center gap-2 p-4",
         "rounded-lg border bg-card hover:bg-accent transition-colors",
         "cursor-grab active:cursor-grabbing group select-none",
+        "touch-none", // Zapewnia blokowanie scroll podczas drag
         isDragging && "opacity-50 z-50"
       )}
-      onClick={() => {
-        console.log('[DraggableElement] ===== CLICKED =====');
-        console.log('[DraggableElement] ID:', id);
-      }}
-      onPointerDown={() => {
-        console.log('[DraggableElement] ===== POINTER DOWN =====');
-        console.log('[DraggableElement] ID:', id);
-      }}
     >
       <div className="text-muted-foreground group-hover:text-foreground transition-colors pointer-events-none">
         {icon}
