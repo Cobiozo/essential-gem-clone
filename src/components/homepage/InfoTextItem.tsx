@@ -18,16 +18,21 @@ export const InfoTextItem: React.FC<InfoTextItemProps> = ({ item }) => {
           </div>
         </div>
       )}
-      <h3 className="text-xl font-bold mb-3 text-black">{item.title}</h3>
+      <h3 
+        className="text-xl font-bold mb-3 text-black"
+        dangerouslySetInnerHTML={{ __html: item.title || '' }}
+      />
       {item.url ? (
         <a 
           href={item.url} 
           className="text-gray-600 hover:text-[hsl(45,100%,51%)] transition-colors font-medium"
-        >
-          {item.description}
-        </a>
+          dangerouslySetInnerHTML={{ __html: item.description || '' }}
+        />
       ) : (
-        <p className="text-gray-600 leading-relaxed">{item.description}</p>
+        <p 
+          className="text-gray-600 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: item.description || '' }}
+        />
       )}
     </div>
   );

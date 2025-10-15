@@ -20,7 +20,10 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex })
           <div className="w-14 h-14 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300">
             {itemIndex + 1}
           </div>
-          <span className="text-left text-black font-semibold text-lg">{item.title}</span>
+          <span 
+            className="text-left text-black font-semibold text-lg"
+            dangerouslySetInnerHTML={{ __html: item.title || '' }}
+          />
         </div>
         <ChevronDown 
           className={`w-6 h-6 text-gray-400 group-hover:text-[hsl(45,100%,51%)] transition-all duration-300 ${
@@ -33,9 +36,10 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex })
           isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="px-6 pb-6 text-gray-600 leading-relaxed">
-          {item.description}
-        </div>
+        <div 
+          className="px-6 pb-6 text-gray-600 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: item.description || '' }}
+        />
       </div>
     </div>
   );
