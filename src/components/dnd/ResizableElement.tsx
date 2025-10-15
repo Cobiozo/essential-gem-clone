@@ -55,6 +55,8 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
   const handleMouseDown = useCallback((e: React.MouseEvent, direction: string) => {
     if (!isEditMode) return;
     
+    // Only prevent default and stop propagation for resize handles
+    // This allows DnD to work on the main element
     e.preventDefault();
     e.stopPropagation();
     

@@ -169,39 +169,27 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                     if (editMode && item.id) {
                       return (
                         <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                          <ResizableElement
-                            isSelected={selectedElement === item.id}
-                            isEditMode={editMode}
-                            onResize={(width, height) => {
-                              if (onElementResize && item.id) {
-                                onElementResize(item.id as string, width, height);
-                              }
+                          <div 
+                            className="relative group"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectElement(item.id as string);
                             }}
-                            initialWidth={item.custom_width || undefined}
-                            initialHeight={item.custom_height || undefined}
                           >
-                            <div 
-                              className="relative group"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSelectElement(item.id as string);
-                              }}
-                            >
-                              {/* Item Controls - always visible in edit mode */}
-                              {onEditItem && onDeleteItem && (
-                                <ItemControls
-                                  onEdit={() => onEditItem(item.id as string)}
-                                  onDelete={() => onDeleteItem(item.id as string)}
-                                  onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                                  onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                                  onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                                  canMoveUp={itemIdx > 0}
-                                  canMoveDown={itemIdx < columnItems.length - 1}
-                                />
-                              )}
-                              {itemContent}
-                            </div>
-                          </ResizableElement>
+                            {/* Item Controls - always visible in edit mode */}
+                            {onEditItem && onDeleteItem && (
+                              <ItemControls
+                                onEdit={() => onEditItem(item.id as string)}
+                                onDelete={() => onDeleteItem(item.id as string)}
+                                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                                onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                                onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                                canMoveUp={itemIdx > 0}
+                                canMoveDown={itemIdx < columnItems.length - 1}
+                              />
+                            )}
+                            {itemContent}
+                          </div>
                         </DraggableItem>
                       );
                     }
@@ -240,38 +228,26 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 if (editMode && item.id) {
                   return (
                     <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                      <ResizableElement
-                        isSelected={selectedElement === item.id}
-                        isEditMode={editMode}
-                        onResize={(width, height) => {
-                          if (onElementResize && item.id) {
-                            onElementResize(item.id as string, width, height);
-                          }
+                      <div 
+                        className="relative group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectElement(item.id as string);
                         }}
-                        initialWidth={item.custom_width || undefined}
-                        initialHeight={item.custom_height || undefined}
                       >
-                        <div 
-                          className="relative group"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectElement(item.id as string);
-                          }}
-                        >
-                          {onEditItem && onDeleteItem && (
-                            <ItemControls
-                              onEdit={() => onEditItem(item.id as string)}
-                              onDelete={() => onDeleteItem(item.id as string)}
-                              onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                              onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                              onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                              canMoveUp={itemIdx > 0}
-                              canMoveDown={itemIdx < sectionItems.length - 1}
-                            />
-                          )}
-                          {itemContent}
-                        </div>
-                      </ResizableElement>
+                        {onEditItem && onDeleteItem && (
+                          <ItemControls
+                            onEdit={() => onEditItem(item.id as string)}
+                            onDelete={() => onDeleteItem(item.id as string)}
+                            onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                            onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                            onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                            canMoveUp={itemIdx > 0}
+                            canMoveDown={itemIdx < sectionItems.length - 1}
+                          />
+                        )}
+                        {itemContent}
+                      </div>
                     </DraggableItem>
                   );
                 }
