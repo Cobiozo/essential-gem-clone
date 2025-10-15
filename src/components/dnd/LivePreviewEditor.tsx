@@ -794,7 +794,9 @@ export const LivePreviewEditor: React.FC = () => {
   };
 
   const handleNewElementDrop = async (elementType: string, targetId: string) => {
-    console.log('[handleNewElementDrop] Element type:', elementType, 'Target:', targetId);
+    console.log('[handleNewElementDrop] ========== NEW ELEMENT DROP START ==========');
+    console.log('[handleNewElementDrop] Element type:', elementType);
+    console.log('[handleNewElementDrop] Target ID:', targetId);
     
     try {
       // Check if this is a layout element that should create a section
@@ -1055,13 +1057,14 @@ export const LivePreviewEditor: React.FC = () => {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    console.log('[DragEnd] ========== DRAG END START ==========');
     console.log('[DragEnd] Active:', active.id, 'Over:', over?.id);
     console.log('[DragEnd] Active data:', active.data.current);
     console.log('[DragEnd] Over data:', over?.data?.current);
     setActiveId(null);
 
     if (!over) {
-      console.log('[DragEnd] No drop target');
+      console.log('[DragEnd] ❌ No drop target - drag cancelled');
       return;
     }
 
@@ -1070,10 +1073,15 @@ export const LivePreviewEditor: React.FC = () => {
     console.log('[DragEnd] Checking if new element. activeData.type:', activeData?.type);
     
     if (activeData?.type === 'new-element') {
-      console.log('[DragEnd] Dropping new element:', activeData.elementType, 'to:', over.id);
+      console.log('[DragEnd] ✅ This is a NEW ELEMENT from panel');
+      console.log('[DragEnd] Element type:', activeData.elementType);
+      console.log('[DragEnd] Drop target ID:', over.id);
       await handleNewElementDrop(activeData.elementType, over.id as string);
+      console.log('[DragEnd] ========== DRAG END COMPLETE ==========');
       return;
     }
+    
+    console.log('[DragEnd] This is NOT a new element, continuing with regular drag logic...');
 
     if (active.id === over.id) {
       return;
