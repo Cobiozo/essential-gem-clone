@@ -777,6 +777,7 @@ export const LivePreviewEditor: React.FC = () => {
         
         // Determine target position based on where it was dropped
         let insertPosition = 0;
+        let foundTarget = false;
         
         // Find the target section to determine insert position
         const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
@@ -786,6 +787,7 @@ export const LivePreviewEditor: React.FC = () => {
           const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
           const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
           insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
+          foundTarget = true;
         } else {
           // If no target found, add at the end
           const topLevelSections = sections.filter(s => !s.parent_id);
@@ -793,7 +795,6 @@ export const LivePreviewEditor: React.FC = () => {
         }
         
         // Determine section type and properties based on element type
-        let sectionType: 'row' | 'section' = 'row'; // Both should be rows now
         let rowColumnCount = 1;
         let rowLayoutType: 'equal' | 'custom' = 'equal';
         
@@ -813,13 +814,13 @@ export const LivePreviewEditor: React.FC = () => {
           .from('cms_sections')
           .insert([{
             page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
-            section_type: sectionType,
+            section_type: 'row',
             row_column_count: rowColumnCount,
             row_layout_type: rowLayoutType,
             position: insertPosition,
             parent_id: null,
             is_active: true,
-            title: elementType === 'container' ? 'Nowy kontener' : 'Nowa siatka',
+            title: '', // Bez tytułu
             width_type: 'full',
             height_type: 'auto',
           }])
@@ -871,7 +872,7 @@ export const LivePreviewEditor: React.FC = () => {
         
         toast({ 
           title: '✅ Dodano wiersz', 
-          description: `${getElementTypeName(elementType)} z ${rowColumnCount} ${rowColumnCount === 1 ? 'kolumną' : 'kolumnami'}` 
+          description: `${elementType === 'container' ? 'Kontener' : 'Siatka'} z ${rowColumnCount} ${rowColumnCount === 1 ? 'kolumną' : rowColumnCount < 5 ? 'kolumnami' : 'kolumnami'}` 
         });
         return;
       }
