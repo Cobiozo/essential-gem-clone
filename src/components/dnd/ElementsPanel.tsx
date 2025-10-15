@@ -15,7 +15,31 @@ import {
   Box,
   Grid3X3,
   Star,
-  MapPin
+  MapPin,
+  ImagePlus,
+  Smile,
+  Images,
+  Accessibility,
+  LayoutGrid,
+  List,
+  Hash,
+  BarChart3,
+  MessageSquare,
+  CreditCard,
+  ChevronDown,
+  ToggleLeft,
+  Share2,
+  AlertCircle,
+  Music,
+  Code2,
+  Code,
+  Anchor,
+  PanelLeft,
+  Info,
+  StarHalf,
+  ThumbsUp,
+  FileCode,
+  Spline
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
@@ -72,7 +96,38 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     ]
   };
 
-  const allCategories = [layoutElements, basicElements];
+  const generalElements: ElementCategory = {
+    id: 'general',
+    title: 'Ogólne',
+    items: [
+      { id: 'image-field', title: 'Pole obrazka', icon: <ImagePlus className="w-8 h-8" />, type: 'image-field' },
+      { id: 'icon-field', title: 'Pole ikonki', icon: <Smile className="w-8 h-8" />, type: 'icon-field' },
+      { id: 'carousel', title: 'Karuzela obrazków', icon: <Images className="w-8 h-8" />, type: 'carousel' },
+      { id: 'accessibility', title: 'Dostępność A11y', icon: <Accessibility className="w-8 h-8" />, type: 'accessibility' },
+      { id: 'gallery', title: 'Galeria podstawowa', icon: <LayoutGrid className="w-8 h-8" />, type: 'gallery' },
+      { id: 'icon-list', title: 'Lista ikonki', icon: <List className="w-8 h-8" />, type: 'icon-list' },
+      { id: 'counter', title: 'Licznik', icon: <Hash className="w-8 h-8" />, type: 'counter' },
+      { id: 'progress-bar', title: 'Pasek postępu', icon: <BarChart3 className="w-8 h-8" />, type: 'progress-bar' },
+      { id: 'testimonial', title: 'Referencja', icon: <MessageSquare className="w-8 h-8" />, type: 'testimonial' },
+      { id: 'cards', title: 'Karty', icon: <CreditCard className="w-8 h-8" />, type: 'cards' },
+      { id: 'accordion', title: 'Akordeon', icon: <ChevronDown className="w-8 h-8" />, type: 'accordion' },
+      { id: 'toggle', title: 'Przełącznik', icon: <ToggleLeft className="w-8 h-8" />, type: 'toggle' },
+      { id: 'social-icons', title: 'Ikonki społecznościowe', icon: <Share2 className="w-8 h-8" />, type: 'social-icons' },
+      { id: 'alert', title: 'Ostrzeżenie', icon: <AlertCircle className="w-8 h-8" />, type: 'alert' },
+      { id: 'soundcloud', title: 'SoundCloud', icon: <Music className="w-8 h-8" />, type: 'soundcloud' },
+      { id: 'shortcode', title: 'Krótki kod', icon: <Code2 className="w-8 h-8" />, type: 'shortcode' },
+      { id: 'html', title: 'HTML', icon: <Code className="w-8 h-8" />, type: 'html' },
+      { id: 'menu-anchor', title: 'Kotwica menu', icon: <Anchor className="w-8 h-8" />, type: 'menu-anchor' },
+      { id: 'sidebar', title: 'Panel boczny', icon: <PanelLeft className="w-8 h-8" />, type: 'sidebar' },
+      { id: 'learn-more', title: 'Dowiedz się więcej', icon: <Info className="w-8 h-8" />, type: 'learn-more' },
+      { id: 'rating', title: 'Ocena', icon: <StarHalf className="w-8 h-8" />, type: 'rating' },
+      { id: 'trustindex', title: 'Google Recenzje', icon: <ThumbsUp className="w-8 h-8" />, type: 'trustindex' },
+      { id: 'ppom', title: 'PPOM Shortcode', icon: <FileCode className="w-8 h-8" />, type: 'ppom' },
+      { id: 'text-path', title: 'Ścieżka tekstowa', icon: <Spline className="w-8 h-8" />, type: 'text-path' },
+    ]
+  };
+
+  const allCategories = [layoutElements, basicElements, generalElements];
 
   const filteredCategories = allCategories.map(category => ({
     ...category,

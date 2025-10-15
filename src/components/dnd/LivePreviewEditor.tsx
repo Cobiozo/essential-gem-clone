@@ -1645,17 +1645,14 @@ export const LivePreviewEditor: React.FC = () => {
               ...sections.map(s => s.id),
               ...items.filter(i => i.id).map(i => i.id as string),
               // Add all possible new elements from panel
-              'new-heading',
-              'new-image',
-              'new-text',
-              'new-video',
-              'new-button',
-              'new-divider',
-              'new-spacer',
-              'new-maps',
-              'new-icon',
-              'new-container',
-              'new-grid'
+              'new-heading', 'new-image', 'new-text', 'new-video', 'new-button',
+              'new-divider', 'new-spacer', 'new-maps', 'new-icon', 'new-container', 'new-grid',
+              'new-image-field', 'new-icon-field', 'new-carousel', 'new-accessibility',
+              'new-gallery', 'new-icon-list', 'new-counter', 'new-progress-bar',
+              'new-testimonial', 'new-cards', 'new-accordion', 'new-toggle',
+              'new-social-icons', 'new-alert', 'new-soundcloud', 'new-shortcode',
+              'new-html', 'new-menu-anchor', 'new-sidebar', 'new-learn-more',
+              'new-rating', 'new-trustindex', 'new-ppom', 'new-text-path'
             ]}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
