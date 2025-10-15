@@ -24,19 +24,19 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   // Use row_column_count as the number of columns
   const columnCount = row.row_column_count || 1;
   
+  // Sort children by position first
+  const sortedChildren = [...children].sort((a, b) => (a.position || 0) - (b.position || 0));
+  
   // Create empty columns array
   const columns: CMSSection[][] = [];
   for (let i = 0; i < columnCount; i++) {
     columns[i] = [];
   }
   
-  // Assign each child to its column using position as direct column index
-  children.forEach((child) => {
-    const colIndex = child.position || 0;
-    // Only assign if the column index is valid
-    if (colIndex >= 0 && colIndex < columnCount) {
-      columns[colIndex].push(child);
-    }
+  // Distribute children across columns sequentially
+  sortedChildren.forEach((child, index) => {
+    const colIndex = index % columnCount;
+    columns[colIndex].push(child);
   });
 
   // Style dla row container
