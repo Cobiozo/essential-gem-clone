@@ -61,7 +61,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
       items: items.filter(item => item.section_id === slotSection.id),
       width: 100,
     }];
-  }, [slotSection, sectionColumns, items]);
+  }, [slotSection, sectionColumns, items, renderVersion]);
   return (
     <div
       ref={setNodeRef}

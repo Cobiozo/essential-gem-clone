@@ -1025,22 +1025,19 @@ export const LivePreviewEditor: React.FC = () => {
       const newItems = [...items, convertedItem];
       console.log('[handleNewElementDrop] New items count:', newItems.length);
       
+      // Force component re-render by updating a version counter
+      setDragVersion(prev => prev + 1);
+      
       setItems(newItems);
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
       
-      console.log('[handleNewElementDrop] ✅ State updated, item should be visible now');
+      console.log('[handleNewElementDrop] ✅ State updated, forcing re-render with dragVersion');
 
       toast({ 
         title: '✅ Element dodany', 
         description: `Kliknij element, aby go edytować` 
       });
-      
-      // Force re-fetch to ensure UI is in sync with database
-      console.log('[handleNewElementDrop] Forcing data refetch...');
-      setTimeout(() => {
-        fetchData();
-      }, 100);
     } catch (error) {
       console.error('Error creating new element:', error);
       toast({

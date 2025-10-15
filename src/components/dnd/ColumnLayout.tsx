@@ -223,7 +223,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     column.items
       .map((item) => item.id)
       .filter(Boolean) as string[]
-  ), [column.items]);
+  ), [column.items, renderVersion]);
 
   return (
     <div
