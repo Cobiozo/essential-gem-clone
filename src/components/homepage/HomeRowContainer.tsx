@@ -90,6 +90,30 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                 return <CMSContent key={item.id} item={item} />;
               };
               
+              // Check if section contains only multi_cell items (Learn More type)
+              const hasOnlyMultiCell = sectionItems.length > 0 && sectionItems.every(item => item.type === 'multi_cell');
+              
+              // For multi_cell sections, render directly without CollapsibleSection wrapper
+              if (hasOnlyMultiCell) {
+                return (
+                  <div key={section.id} className="space-y-4 py-6">
+                    {section.title && (
+                      <h2 className="text-3xl font-bold text-center mb-8" style={{ color: section.text_color || 'inherit' }}>
+                        {section.title}
+                      </h2>
+                    )}
+                    {section.description && (
+                      <p className="text-center text-gray-600 mb-6 max-w-3xl mx-auto">
+                        {section.description}
+                      </p>
+                    )}
+                    <div className="space-y-4">
+                      {sectionItems.map((item, idx) => renderItem(item, idx))}
+                    </div>
+                  </div>
+                );
+              }
+              
               return (
                 <CollapsibleSection
                   key={section.id}
