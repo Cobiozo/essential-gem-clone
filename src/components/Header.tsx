@@ -34,19 +34,6 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
             <span className="font-bold text-base text-foreground hidden sm:inline uppercase tracking-wide">PURE LIFE</span>
           </Link>
 
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {publishedPages.map((page) => (
-              <Link 
-                key={page.id}
-                to={`/page/${page.slug}`}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary after:transition-all hover:after:w-full"
-              >
-                {page.title}
-              </Link>
-            ))}
-          </nav>
-
           {/* Right side actions */}
           <div className="flex items-center space-x-1">
             <LanguageSelector />
