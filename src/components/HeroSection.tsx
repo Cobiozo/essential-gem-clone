@@ -61,19 +61,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               dangerouslySetInnerHTML={{ __html: authorText }}
             />
           )}
-
-          {/* CTA Button */}
-          {showLoginButton && (
-            <div className="pt-6">
-              <Button 
-                size="lg"
-                className="px-8 py-3 text-base bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                onClick={scrollToContent}
-              >
-                Zaloguj się
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </section>
