@@ -1,21 +1,19 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Link } from 'react-router-dom';
-import { Settings, LogOut, BookOpen } from 'lucide-react';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
-import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { LanguageSelector } from '@/components/LanguageSelector';
 import { isExternalUrl } from '@/lib/urlUtils';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { convertSupabaseSections } from '@/lib/typeUtils';
 import { ColumnLayout } from '@/components/dnd/ColumnLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Header } from '@/components/Header';
+import { HeroSection } from '@/components/HeroSection';
 
 interface CMSSection {
   id: string;
@@ -270,113 +268,24 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background relative">
-      {/* Main Content Container with proper desktop centering */}
-      <div className="w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto px-6 sm:px-8 md:px-10 lg:px-12 xl:px-16 min-h-screen relative">
-          
-          {/* Top Left Logo - positioned within main container */}
-          <div className="absolute top-4 left-6 sm:left-8 md:left-10 lg:left-12 xl:left-16 z-50">
-            <img 
-              src={siteLogo} 
-              alt="Logo" 
-              className="w-8 h-8 sm:w-10 sm:h-10"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = newPureLifeLogo;
-              }}
-            />
-          </div>
+    <div className="min-h-screen bg-background">
+      {/* Header Navigation */}
+      <Header siteLogo={siteLogo} publishedPages={publishedPages} />
 
-          {/* Language & Theme Selector - positioned within main container */}
-          <div className="absolute top-4 right-6 sm:right-8 md:right-10 lg:right-12 xl:right-16 z-50 flex items-center gap-2">
-            <LanguageSelector />
-            <ThemeSelector />
-          </div>
-          {/* Header */}
-          <header className="text-center mb-8 py-6">
-            <div className="mb-6">
-              <img 
-                src={headerImage || niezbednikLogo} 
-                alt="Niezbędnik Pure Life" 
-                className="w-full max-w-xs sm:max-w-sm lg:max-w-md mx-auto"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = niezbednikLogo;
-                }}
-              />
-            </div>
-            
-            {/* Header text with formatting support */}
-            {headerText && (
-              <div className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-                <span dangerouslySetInnerHTML={{ __html: headerText }} />
-              </div>
-            )}
-            
-            {!headerText && (
-              <p className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed mb-6 px-2">
-                Witaj w Niezbędniku Pure Life - przestrzeni stworzonej z myślą o Tobie i Twojej codziennej pracy w zespole Pure Life. Tu znajdziesz materiały oraz zasoby, które pomogą Ci być skutecznym profesjonalistą i lekarstwem.
-              </p>
-            )}
-            
-            {/* Author text with formatting support */}
-            {authorText && (
-              <div className="text-xs sm:text-sm text-muted-foreground mb-4">
-                <span dangerouslySetInnerHTML={{ __html: authorText }} />
-              </div>
-            )}
-            
-            {!authorText && (
-              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-                Pozostałem - Dawid Kowalczyk
-              </p>
-            )}
-            
-            {/* User Controls */}
-            {user && (
-              <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
-                {isAdmin ? (
-                  <Link to="/admin">
-                    <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                      <Settings className="w-3 h-3 mr-1" />
-                      {t('nav.admin')}
-                    </Button>
-                  </Link>
-                 ) : (
-                  <Link to="/my-account">
-                    <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                      <Settings className="w-3 h-3 mr-1" />
-                      {t('nav.myAccount')}
-                    </Button>
-                  </Link>
-                 )}
-                <Link to="/training">
-                  <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                    <BookOpen className="w-3 h-3 mr-1" />
-                    Akademia
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" onClick={handleSignOut} className="text-xs w-full sm:w-auto">
-                  <LogOut className="w-3 h-3 mr-1" />
-                  {t('nav.logout')}
-                </Button>
-              </div>
-            )}
-            
-            {!user && (
-              <div className="flex justify-center mb-4">
-                <Link to="/auth">
-                  <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
-                    <Settings className="w-3 h-3 mr-1" />
-                    {t('nav.login')}
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </header>
+      {/* Hero Section */}
+      <HeroSection 
+        headerImage={headerImage || niezbednikLogo}
+        headerText={headerText}
+        authorText={authorText}
+        showLoginButton={!user}
+      />
 
-          {/* Sections Content */}
-          <main className="mb-8">
+      {/* Main Content */}
+      <main id="main-content" className="py-16 sm:py-20 lg:py-24">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto">
             <div
-              className={sectionLayoutMode === 'single' ? 'space-y-4 lg:space-y-6 w-full' : 'grid items-start gap-4 lg:gap-6 w-full'}
+              className={sectionLayoutMode === 'single' ? 'space-y-6 lg:space-y-8 w-full' : 'grid items-start gap-6 lg:gap-8 w-full'}
               style={sectionLayoutMode === 'single' ? undefined : { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, sectionColumnCount))}, minmax(0, 1fr))` }}
             >
               {sections.filter(s => (s as any).parent_id == null).map((section) => {
@@ -516,51 +425,56 @@ const Index = () => {
                 );
               })}
             </div>
-          </main>
 
-          {/* No content fallback */}
-          {sections.length === 0 && (
-            <div className="text-center text-muted-foreground py-8 sm:py-12">
-              <img 
-                src={siteLogo} 
-                alt="Logo" 
-                className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = newPureLifeLogo;
-                }}
-              />
-              <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
-              <p className="text-xs sm:text-sm px-4">
-                {user ? (
-                  <>
-                    {isAdmin ? (
-                      <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
-                    ) : (
-                      <>Skontaktuj się z administratorem aby dodać treści.</>
-                    )}
-                  </>
-                ) : (
-                  <>Skontaktuj się z administratorem aby dodać treści.</>
-                )}
-              </p>
-            </div>
-          )}
+            {/* No content fallback */}
+            {sections.length === 0 && (
+              <div className="text-center text-muted-foreground py-8 sm:py-12">
+                <img 
+                  src={siteLogo} 
+                  alt="Logo" 
+                  className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = newPureLifeLogo;
+                  }}
+                />
+                <p className="text-sm sm:text-base mb-2">Brak zawartości do wyświetlenia</p>
+                <p className="text-xs sm:text-sm px-4">
+                  {user ? (
+                    <>
+                      {isAdmin ? (
+                        <>Przejdź do <Link to="/admin" className="underline">panelu CMS</Link> aby dodać treści.</>
+                      ) : (
+                        <>Skontaktuj się z administratorem aby dodać treści.</>
+                      )}
+                    </>
+                  ) : (
+                    <>Skontaktuj się z administratorem aby dodać treści.</>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
 
-          {/* Footer Logo - properly positioned within content flow */}
-          <footer className="text-center py-6 sm:py-8 mt-8">
+      {/* Footer */}
+      <footer className="bg-muted/30 border-t border-border py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto text-center">
             <img 
               src={siteLogo} 
-              alt="Logo" 
-              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto"
+              alt="Pure Life" 
+              className="w-12 h-12 mx-auto mb-4"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = newPureLifeLogo;
               }}
             />
-            <div className="text-base sm:text-lg font-bold text-foreground mt-2">PURE LIFE</div>
-          </footer>
+            <p className="text-sm text-muted-foreground">© 2024 Pure Life. Wszystkie prawa zastrzeżone.</p>
+          </div>
         </div>
-      </div>
-    );
-  };
+      </footer>
+    </div>
+  );
+};
 
 export default Index;
