@@ -1157,9 +1157,6 @@ export const LivePreviewEditor: React.FC = () => {
             return s;
           }));
           
-          // Refresh data to ensure consistency
-          await fetchData();
-          
           toast({ title: 'Sekcje zamienione', description: 'Pozycje sekcji zostały zamienione' });
         } catch (error) {
           console.error('Error swapping sections:', error);
@@ -1194,7 +1191,11 @@ export const LivePreviewEditor: React.FC = () => {
               .eq('id', activeId);
               
             if (error) throw error;
-            await fetchData();
+            
+            // Update local state instead of refetching
+            setSections(prev => prev.map(s => 
+              s.id === activeId ? { ...s, parent_id: null } : s
+            ));
             
             toast({
               title: 'Sekcja przeniesiona',
@@ -2363,7 +2364,11 @@ export const LivePreviewEditor: React.FC = () => {
                               .update({ ...updates, updated_at: new Date().toISOString() })
                               .eq('id', rowId);
                             if (error) throw error;
-                            await fetchData();
+                            
+                            // Update local state dynamically
+                            setSections(prev => prev.map(s => 
+                              s.id === rowId ? { ...s, ...updates } : s
+                            ));
                           } catch (error) {
                             console.error('Error updating row:', error);
                           }
@@ -2383,12 +2388,20 @@ export const LivePreviewEditor: React.FC = () => {
                               throw error;
                             }
                             
-                            await fetchData();
+                            // Update local state - remove row and update children
+                            setSections(prev => prev.map(s => 
+                              s.id === rowId 
+                                ? { ...s, is_active: false }
+                                : s.parent_id === rowId 
+                                  ? { ...s, parent_id: null, is_active: false }
+                                  : s
+                            ));
+                            
                             setInactiveRefresh((v) => v + 1);
                             toast({ title: 'Wiersz usunięty', description: 'Wiersz został usunięty, a sekcje przeniesione na główny poziom oraz przeniesiony do "Główna" jako nieaktywny' });
                           } catch (error) {
                             console.error('Error removing row:', error);
-                            toast({ 
+                            toast({
                               title: 'Błąd', 
                               description: `Nie udało się usunąć wiersza: ${error.message || 'Nieznany błąd'}`, 
                               variant: 'destructive' 
@@ -2463,10 +2476,13 @@ export const LivePreviewEditor: React.FC = () => {
 
       <InactiveElementsManager
         onElementActivated={() => {
-          console.log('Element activated, refreshing layout...');
-          fetchData();
+          console.log('Element activated');
+          // Nie potrzebujemy fetchData - komponenty aktualizują swój lokalny stan
         }}
-        onElementDeleted={fetchData}
+        onElementDeleted={() => {
+          console.log('Element deleted');
+          // Nie potrzebujemy fetchData - komponenty aktualizują swój lokalny stan
+        }}
         refreshKey={inactiveRefresh}
       />
       
