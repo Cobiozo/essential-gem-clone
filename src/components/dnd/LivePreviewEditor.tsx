@@ -1594,23 +1594,42 @@ export const LivePreviewEditor: React.FC = () => {
                         </div>
                         
                         {/* Section Items - render like homepage */}
-                        <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
-                          {sectionItems.map(item => {
-                            // Special rendering for info_text in grid sections
-                            if (item.type === 'info_text' && section.display_type === 'grid') {
-                              return <InfoTextItem key={item.id} item={item} />;
-                            }
-                            
-                            // Special rendering for multi_cell items
-                            if (item.type === 'multi_cell') {
-                              const itemIndex = sectionItems.findIndex(i => i.id === item.id);
-                              return <LearnMoreItem key={item.id} item={item} itemIndex={itemIndex} />;
-                            }
-                            
-                            // Default rendering
-                            return <CMSContent key={item.id} item={item} onClick={() => {}} />;
-                          })}
-                        </div>
+                        <SortableContext
+                          items={sectionItems.filter(i => i.id).map(i => i.id as string)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
+                            {sectionItems.map(item => {
+                              // Determine the content to render
+                              let itemContent;
+                              
+                              // Special rendering for info_text in grid sections
+                              if (item.type === 'info_text' && section.display_type === 'grid') {
+                                itemContent = <InfoTextItem item={item} />;
+                              }
+                              // Special rendering for multi_cell items
+                              else if (item.type === 'multi_cell') {
+                                const itemIndex = sectionItems.findIndex(i => i.id === item.id);
+                                itemContent = <LearnMoreItem item={item} itemIndex={itemIndex} />;
+                              }
+                              // Default rendering
+                              else {
+                                itemContent = <CMSContent item={item} onClick={() => {}} />;
+                              }
+                              
+                              // Wrap in DraggableItem if in edit mode and item has ID
+                              if (editMode && item.id) {
+                                return (
+                                  <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                                    {itemContent}
+                                  </DraggableItem>
+                                );
+                              }
+                              
+                              return <div key={item.id}>{itemContent}</div>;
+                            })}
+                          </div>
+                        </SortableContext>
                       </div>
                     </div>
                   </DraggableSection>
