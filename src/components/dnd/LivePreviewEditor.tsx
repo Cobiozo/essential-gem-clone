@@ -1547,12 +1547,17 @@ export const LivePreviewEditor: React.FC = () => {
                   );
                 }
 
-                // Render regular sections - simple white sections like on homepage
+                // Render regular sections - match homepage display with white background
                 const columns = sectionColumns[section.id] || [{
                   id: `${section.id}-col-0`,
                   items: items.filter(item => item.section_id === section.id),
                   width: 100,
                 }];
+                
+                const sectionItems = items.filter(item => item.section_id === section.id);
+                const containerClasses = section.display_type === 'grid' 
+                  ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8'
+                  : 'space-y-4';
                 
                 return (
                   <DraggableSection
@@ -1571,42 +1576,43 @@ export const LivePreviewEditor: React.FC = () => {
                         setSelectedElement(section.id);
                       }}
                       className={cn(
-                        "block w-full cursor-pointer transition-all duration-200 bg-white py-12 px-4 mb-6",
+                        "block w-full cursor-pointer transition-all duration-200 bg-white mb-6",
                         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2"
                       )}
                       style={{
                         backgroundColor: section.background_color || '#ffffff',
                         color: section.text_color || '#000000',
-                        padding: section.padding ? `${section.padding}px` : '48px 16px',
+                        padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
                       }}
                     >
                       <div className="max-w-6xl mx-auto">
                         {/* Section Header - simple white style like homepage */}
                         <div className="text-center mb-10">
                           <h2 
-                            className="text-4xl font-bold mb-6 uppercase tracking-wide"
-                            style={{ color: section.text_color || '#000000' }}
-                          >
-                            {section.title}
-                          </h2>
+                            className="text-4xl font-bold mb-6 text-black uppercase tracking-wide"
+                            dangerouslySetInnerHTML={{ __html: section.title || '' }}
+                          />
                           {section.description && (
-                            <p className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed">
-                              {section.description}
-                            </p>
+                            <p 
+                              className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed"
+                              dangerouslySetInnerHTML={{ __html: section.description }}
+                            />
                           )}
                         </div>
                         
-                        {/* Section Items */}
-                        <ColumnLayout
-                          sectionId={section.id}
-                          columns={columns}
-                          isEditMode={editMode}
-                          onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
-                          onItemClick={() => {}}
-                          onSelectItem={(itemId) => setSelectedElement(itemId)}
-                          activeId={activeId}
-                          renderVersion={dragVersion}
-                        />
+                        {/* Section Items - render with proper layout */}
+                        <div className={containerClasses}>
+                          <ColumnLayout
+                            sectionId={section.id}
+                            columns={columns}
+                            isEditMode={editMode}
+                            onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
+                            onItemClick={() => {}}
+                            onSelectItem={(itemId) => setSelectedElement(itemId)}
+                            activeId={activeId}
+                            renderVersion={dragVersion}
+                          />
+                        </div>
                       </div>
                     </div>
                   </DraggableSection>
