@@ -28,6 +28,7 @@ import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
 import { ElementsPanel } from './ElementsPanel';
+import { EditingPanel } from './EditingPanel';
 import { ItemControls } from './ItemControls';
 import { ItemEditor } from '@/components/cms/ItemEditor';
 // import { DndDiagnostics } from './DndDiagnostics';
@@ -964,9 +965,9 @@ export const LivePreviewEditor: React.FC = () => {
       // Reinitialize columns
       initializeColumns(sections, newItems);
       
-      // Automatically open ItemEditor for new element
+      // Automatically open sidebar editor for new element
       setEditingItemId(newItemData.id);
-      setIsItemEditorOpen(true);
+      setShowEditingPanel(true);
 
       toast({ 
         title: '✅ Element dodany', 
@@ -1965,11 +1966,12 @@ export const LivePreviewEditor: React.FC = () => {
   // Item management handlers
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
+  const [showEditingPanel, setShowEditingPanel] = useState(false);
   
   const handleEditItem = (itemId: string) => {
     setEditingItemId(itemId);
     setSelectedElement(itemId);
-    setIsItemEditorOpen(true);
+    setShowEditingPanel(true); // Show sidebar instead of dialog
   };
 
   const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
@@ -1997,7 +1999,7 @@ export const LivePreviewEditor: React.FC = () => {
       setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
       saveToHistory(sections, items.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
       setHasUnsavedChanges(true);
-      setIsItemEditorOpen(false);
+      setShowEditingPanel(false); // Close sidebar
       setEditingItemId(null);
       
       toast({
@@ -2304,11 +2306,25 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-            {editMode && (
+            {editMode && !showEditingPanel && (
               <div className="fixed left-0 top-0 h-screen z-40">
                 <ElementsPanel onElementClick={(type) => {
                   toast({ title: 'Element clicked', description: `You clicked: ${type}` });
                 }} />
+              </div>
+            )}
+            
+            {editMode && showEditingPanel && editingItemId && (
+              <div className="fixed left-0 top-0 h-screen z-40">
+                <EditingPanel
+                  editingItem={items.find(i => i.id === editingItemId) || null}
+                  sectionId={items.find(i => i.id === editingItemId)?.section_id || null}
+                  onSave={handleSaveItem}
+                  onClose={() => {
+                    setShowEditingPanel(false);
+                    setEditingItemId(null);
+                  }}
+                />
               </div>
             )}
             
@@ -2454,8 +2470,8 @@ export const LivePreviewEditor: React.FC = () => {
         refreshKey={inactiveRefresh}
       />
       
-      {/* Item Editor Dialog */}
-      {editingItemId && (
+      {/* Item Editor Dialog - only for complex edits or when sidebar is not enough */}
+      {isItemEditorOpen && editingItemId && (
         <ItemEditor
           item={items.find(i => i.id === editingItemId)}
           sectionId={items.find(i => i.id === editingItemId)?.section_id || ''}
