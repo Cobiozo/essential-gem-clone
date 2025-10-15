@@ -706,6 +706,62 @@ export const LivePreviewEditor: React.FC = () => {
 
   const handleNewElementDrop = async (elementType: string, targetId: string) => {
     try {
+      // Check if this is a layout element that should create a section
+      const layoutElements = ['container', 'grid'];
+      
+      if (layoutElements.includes(elementType)) {
+        // Create a new section
+        const topLevelSections = sections.filter(s => !s.parent_id);
+        const newPosition = topLevelSections.length;
+        
+        // Determine section type and properties based on element type
+        let sectionType: 'row' | 'section' = 'section';
+        let layoutType = null;
+        let rowColumnCount = 1;
+        
+        if (elementType === 'container') {
+          sectionType = 'section';
+          layoutType = null;
+        } else if (elementType === 'grid') {
+          sectionType = 'section';
+          layoutType = 'columns';
+          rowColumnCount = 2; // Default 2 columns for grid
+        }
+        
+        const { data: newSectionData, error: sectionError } = await supabase
+          .from('cms_sections')
+          .insert([{
+            page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+            section_type: sectionType,
+            layout_type: layoutType,
+            row_column_count: rowColumnCount,
+            position: newPosition,
+            parent_id: null,
+            is_active: true,
+            title: elementType === 'container' ? 'Nowy kontener' : 'Nowa siatka',
+          }])
+          .select()
+          .single();
+        
+        if (sectionError) throw sectionError;
+        
+        // Update local state - cast to CMSSection since DB returns the correct type
+        const newSections = [...sections, newSectionData as any];
+        setSections(newSections);
+        saveToHistory(newSections, items);
+        setHasUnsavedChanges(true);
+        
+        // Reinitialize columns
+        initializeColumns(newSections, items);
+        
+        toast({ 
+          title: 'Dodano sekcję', 
+          description: `Dodano nowy element: ${getElementTypeName(elementType)}` 
+        });
+        return;
+      }
+      
+      // Regular element creation (not layout)
       // Determine target section and position
       let targetSectionId: string;
       let columnIndex = 0;
