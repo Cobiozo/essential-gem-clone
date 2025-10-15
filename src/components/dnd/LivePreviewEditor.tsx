@@ -159,7 +159,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                         />
                       );
                     } else {
-                      itemContent = <CMSContent item={item} onClick={() => {}} />;
+                      itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
                     }
                     
                     if (editMode && item.id) {
@@ -172,7 +172,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                               onSelectElement(item.id as string);
                             }}
                           >
-                            {/* Item Controls - show on hover */}
+                            {/* Item Controls - always visible in edit mode */}
                             {onEditItem && onDeleteItem && (
                               <ItemControls
                                 onEdit={() => onEditItem(item.id as string)}
@@ -182,7 +182,6 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                                 onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
                                 canMoveUp={itemIdx > 0}
                                 canMoveDown={itemIdx < columnItems.length - 1}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
                               />
                             )}
                             {itemContent}
@@ -219,7 +218,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                     />
                   );
                 } else {
-                  itemContent = <CMSContent item={item} onClick={() => {}} />;
+                  itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
                 }
                 
                 if (editMode && item.id) {
@@ -241,7 +240,6 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                             onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
                             canMoveUp={itemIdx > 0}
                             canMoveDown={itemIdx < sectionItems.length - 1}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
                           />
                         )}
                         {itemContent}
@@ -913,10 +911,14 @@ export const LivePreviewEditor: React.FC = () => {
 
       // Reinitialize columns
       initializeColumns(sections, newItems);
+      
+      // Automatically open ItemEditor for new element
+      setEditingItemId(newItemData.id);
+      setIsItemEditorOpen(true);
 
       toast({ 
-        title: 'Dodano element', 
-        description: `Dodano nowy element: ${getElementTypeName(elementType)}` 
+        title: '✅ Element dodany', 
+        description: `Skonfiguruj teraz element: ${getElementTypeName(elementType)}` 
       });
     } catch (error) {
       console.error('Error creating new element:', error);

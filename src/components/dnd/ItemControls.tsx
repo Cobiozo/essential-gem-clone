@@ -27,7 +27,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
   return (
     <div 
       className={cn(
-        "absolute top-2 right-2 z-10 flex gap-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-border p-1",
+        "absolute top-2 right-2 z-30 flex gap-1 bg-primary/95 backdrop-blur-sm rounded-lg shadow-lg border-2 border-primary p-1 transition-all duration-200",
         className
       )}
       onClick={(e) => e.stopPropagation()}
@@ -39,7 +39,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
           e.stopPropagation();
           onEdit();
         }}
-        className="h-7 w-7 p-0"
+        className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20"
         title="Edytuj"
       >
         <Edit3 className="w-3.5 h-3.5" />
@@ -53,7 +53,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             e.stopPropagation();
             onDuplicate();
           }}
-          className="h-7 w-7 p-0"
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20"
           title="Duplikuj"
         >
           <Copy className="w-3.5 h-3.5" />
@@ -69,7 +69,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             onMoveUp();
           }}
           disabled={!canMoveUp}
-          className="h-7 w-7 p-0"
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-30"
           title="Przesuń w górę"
         >
           <MoveUp className="w-3.5 h-3.5" />
@@ -85,7 +85,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             onMoveDown();
           }}
           disabled={!canMoveDown}
-          className="h-7 w-7 p-0"
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-30"
           title="Przesuń w dół"
         >
           <MoveDown className="w-3.5 h-3.5" />
@@ -101,7 +101,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             onDelete();
           }
         }}
-        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+        className="h-7 w-7 p-0 text-destructive hover:bg-destructive/20"
         title="Usuń"
       >
         <Trash2 className="w-3.5 h-3.5" />

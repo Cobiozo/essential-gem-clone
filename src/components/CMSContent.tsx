@@ -24,9 +24,10 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 interface CMSContentProps {
   item: CMSItem;
   onClick?: (title: string, url?: string) => void;
+  isEditMode?: boolean;
 }
 
-export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
+export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMode = false }) => {
   const handleClick = () => {
     if (onClick) {
       onClick(item.title || '', item.url || undefined);
@@ -268,6 +269,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       const headingCell = cells?.[0];
       const level = headingCell?.level || 2;
       const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+      
+      if (!headingCell?.content && !item.title && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">📝 Nagłówek H{level} - Kliknij Edytuj aby dodać treść</p>
+          </div>
+        );
+      }
+      
       return (
         <HeadingTag className={cn(
           'font-bold',
@@ -284,6 +294,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'text':
       const textCell = (item.cells as any[])?.[0];
+      
+      if (!textCell?.content && !item.description && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">📄 Tekst - Kliknij Edytuj aby dodać treść</p>
+          </div>
+        );
+      }
+      
       return (
         <FormattedText
           text={textCell?.content || item.description || ''}
@@ -304,6 +323,10 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
               alt={imageCell?.alt || item.media_alt_text || 'Image'}
               className="w-full h-auto rounded-lg"
             />
+          ) : isEditMode ? (
+            <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
+              <p className="text-sm font-medium text-primary">🖼️ Obrazek - Kliknij Edytuj aby dodać zdjęcie</p>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
               <p className="text-muted-foreground">Dodaj obrazek</p>
@@ -314,6 +337,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'video':
       const videoCell = (item.cells as any[])?.[0];
+      if (isEditMode && !item.media_url && !videoCell?.content) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">🎥 Video - Kliknij Edytuj aby dodać wideo</p>
+          </div>
+        );
+      }
       return renderMedia() || (
         <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
           <p className="text-muted-foreground">Dodaj wideo</p>
@@ -333,6 +363,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
       const iconCell = (item.cells as any[])?.[0];
       const iconName = iconCell?.content || item.icon || 'Star';
       const IconComp = (icons as any)[iconName];
+      
+      if (!IconComp && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">⭐ Ikona - Kliknij Edytuj aby wybrać ikonę</p>
+          </div>
+        );
+      }
+      
       return IconComp ? (
         <IconComp className="w-12 h-12 text-primary" style={{ color: iconCell?.color }} />
       ) : null;
@@ -340,6 +379,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
     // Ogólne elementy
     case 'carousel':
       const carouselCell = (item.cells as any[])?.[0];
+      if ((!carouselCell?.images || carouselCell.images.length === 0) && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">🎠 Karuzela - Kliknij Edytuj aby dodać slajdy</p>
+          </div>
+        );
+      }
       return (
         <CarouselElement
           images={carouselCell?.images || []}
@@ -350,6 +396,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'gallery':
       const galleryCell = (item.cells as any[])?.[0];
+      if ((!galleryCell?.images || galleryCell.images.length === 0) && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">🖼️ Galeria - Kliknij Edytuj aby dodać zdjęcia</p>
+          </div>
+        );
+      }
       return (
         <GalleryElement
           images={galleryCell?.images || []}
@@ -359,6 +412,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'accordion':
       const accordionCell = (item.cells as any[])?.[0];
+      if ((!accordionCell?.items || accordionCell.items.length === 0) && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">📋 Accordion - Kliknij Edytuj aby dodać sekcje</p>
+          </div>
+        );
+      }
       return (
         <AccordionElement items={accordionCell?.items || []} />
       );
@@ -496,6 +556,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'button':
       const buttonCell = (item.cells as any[])?.[0];
+      
+      if (!buttonCell?.content && !item.title && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">🔘 Przycisk - Kliknij Edytuj aby skonfigurować</p>
+          </div>
+        );
+      }
+      
       return (
         <Button
           onClick={() => buttonCell?.url && window.open(buttonCell.url, '_blank')}
@@ -507,6 +576,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'maps':
       const mapsCell = (item.cells as any[])?.[0];
+      if (!mapsCell?.content && isEditMode) {
+        return (
+          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
+            <p className="text-sm font-medium text-primary">🗺️ Mapa - Kliknij Edytuj aby dodać URL mapy</p>
+          </div>
+        );
+      }
       return mapsCell?.content ? (
         <iframe
           src={mapsCell.content}
@@ -545,12 +621,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
     case 'container':
     case 'grid':
       // Te elementy nie powinny być renderowane jako itemy - powinny być sekcjami
-      return (
-        <div className="p-4 border-2 border-dashed border-warning rounded-lg bg-warning/5">
-          <p className="text-warning text-sm font-medium">⚠️ Element "{item.type}" powinien być sekcją, nie itemem</p>
-          <p className="text-xs text-muted-foreground mt-1">Usuń ten element i użyj go ponownie z panelu elementów</p>
-        </div>
-      );
+      if (isEditMode) {
+        return (
+          <div className="p-4 border-2 border-dashed border-yellow-500 rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
+            <p className="text-yellow-800 dark:text-yellow-200 text-sm font-medium">⚠️ Element "{item.type}" powinien być sekcją, nie itemem</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">Usuń ten element i użyj go ponownie z panelu elementów</p>
+          </div>
+        );
+      }
+      return null;
 
     default:
       // Get icon component if specified
