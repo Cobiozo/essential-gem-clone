@@ -774,43 +774,94 @@ export const LivePreviewEditor: React.FC = () => {
       
       if (layoutElements.includes(elementType)) {
         console.log('[handleNewElementDrop] Creating layout section for:', elementType);
-        // Create a new section
-        const topLevelSections = sections.filter(s => !s.parent_id);
-        const newPosition = topLevelSections.length;
+        
+        // Determine target position based on where it was dropped
+        let insertPosition = 0;
+        
+        // Find the target section to determine insert position
+        const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
+        
+        if (targetSection) {
+          // Insert after the target section
+          const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
+          const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
+          insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
+        } else {
+          // If no target found, add at the end
+          const topLevelSections = sections.filter(s => !s.parent_id);
+          insertPosition = topLevelSections.length;
+        }
         
         // Determine section type and properties based on element type
-        let sectionType: 'row' | 'section' = 'section';
+        let sectionType: 'row' | 'section' = 'row'; // Both should be rows now
         let rowColumnCount = 1;
-        let displayType = 'block';
+        let rowLayoutType: 'equal' | 'custom' = 'equal';
         
         if (elementType === 'container') {
-          sectionType = 'section';
-          displayType = 'block';
+          // Container = simple row with 1 column
+          rowColumnCount = 1;
+          rowLayoutType = 'equal';
         } else if (elementType === 'grid') {
-          sectionType = 'section';
-          displayType = 'grid';
-          rowColumnCount = 2; // Default 2 columns for grid
+          // Grid = row with multiple columns (default 3)
+          rowColumnCount = 3;
+          rowLayoutType = 'equal';
         }
+        
+        console.log('[handleNewElementDrop] Creating row at position:', insertPosition, 'with columns:', rowColumnCount);
         
         const { data: newSectionData, error: sectionError } = await supabase
           .from('cms_sections')
           .insert([{
             page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
             section_type: sectionType,
-            display_type: displayType,
             row_column_count: rowColumnCount,
-            position: newPosition,
+            row_layout_type: rowLayoutType,
+            position: insertPosition,
             parent_id: null,
             is_active: true,
             title: elementType === 'container' ? 'Nowy kontener' : 'Nowa siatka',
+            width_type: 'full',
+            height_type: 'auto',
           }])
           .select()
           .single();
         
         if (sectionError) throw sectionError;
         
-        // Update local state - cast to CMSSection since DB returns the correct type
-        const newSections = [...sections, newSectionData as any];
+        console.log('[handleNewElementDrop] Row created:', newSectionData);
+        
+        // Update positions of sections that come after the new one
+        const sectionsToUpdate = sections
+          .filter(s => !s.parent_id && s.position >= insertPosition)
+          .map(s => ({
+            id: s.id,
+            position: s.position + 1
+          }));
+        
+        if (sectionsToUpdate.length > 0) {
+          console.log('[handleNewElementDrop] Updating positions for', sectionsToUpdate.length, 'sections');
+          
+          for (const sect of sectionsToUpdate) {
+            await supabase
+              .from('cms_sections')
+              .update({ position: sect.position, updated_at: new Date().toISOString() })
+              .eq('id', sect.id);
+          }
+        }
+        
+        // Update local state
+        const updatedSections = sections.map(s => 
+          !s.parent_id && s.position >= insertPosition 
+            ? { ...s, position: s.position + 1 }
+            : s
+        );
+        
+        const newSections = [...updatedSections, newSectionData as any].sort((a, b) => {
+          if (a.parent_id && !b.parent_id) return 1;
+          if (!a.parent_id && b.parent_id) return -1;
+          return a.position - b.position;
+        });
+        
         setSections(newSections);
         saveToHistory(newSections, items);
         setHasUnsavedChanges(true);
@@ -819,8 +870,8 @@ export const LivePreviewEditor: React.FC = () => {
         initializeColumns(newSections, items);
         
         toast({ 
-          title: 'Dodano sekcję', 
-          description: `Dodano nowy element: ${getElementTypeName(elementType)}` 
+          title: '✅ Dodano wiersz', 
+          description: `${getElementTypeName(elementType)} z ${rowColumnCount} ${rowColumnCount === 1 ? 'kolumną' : 'kolumnami'}` 
         });
         return;
       }
