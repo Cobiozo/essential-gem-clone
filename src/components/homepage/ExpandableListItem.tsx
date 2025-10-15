@@ -17,24 +17,24 @@ export const ExpandableListItem: React.FC<ExpandableListItemProps> = ({
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group",
+        "w-full flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 group",
         className
       )}
     >
       <div className="flex items-center gap-3">
-        {/* Yellow circle icon */}
-        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <Circle className="w-4 h-4 text-primary fill-primary" />
+        {/* Yellow filled circle icon */}
+        <div className="w-8 h-8 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center flex-shrink-0">
+          <Circle className="w-4 h-4 text-[hsl(45,100%,51%)] fill-[hsl(45,100%,51%)]" />
         </div>
         
         {/* Title */}
-        <span className="font-medium text-sm sm:text-base text-foreground text-left">
+        <span className="font-medium text-sm sm:text-base text-black text-left">
           {title}
         </span>
       </div>
       
       {/* Arrow */}
-      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+      <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-black group-hover:translate-x-1 transition-all flex-shrink-0" />
     </button>
   );
 };
