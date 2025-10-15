@@ -28,7 +28,6 @@ import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
 import { ElementsPanel } from './ElementsPanel';
-import { EditingPanel } from './EditingPanel';
 import { ItemControls } from './ItemControls';
 import { ItemEditor } from '@/components/cms/ItemEditor';
 // import { DndDiagnostics } from './DndDiagnostics';
@@ -778,7 +777,6 @@ export const LivePreviewEditor: React.FC = () => {
         
         // Determine target position based on where it was dropped
         let insertPosition = 0;
-        let foundTarget = false;
         
         // Find the target section to determine insert position
         const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
@@ -788,7 +786,6 @@ export const LivePreviewEditor: React.FC = () => {
           const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
           const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
           insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
-          foundTarget = true;
         } else {
           // If no target found, add at the end
           const topLevelSections = sections.filter(s => !s.parent_id);
@@ -796,6 +793,7 @@ export const LivePreviewEditor: React.FC = () => {
         }
         
         // Determine section type and properties based on element type
+        let sectionType: 'row' | 'section' = 'row'; // Both should be rows now
         let rowColumnCount = 1;
         let rowLayoutType: 'equal' | 'custom' = 'equal';
         
@@ -815,13 +813,13 @@ export const LivePreviewEditor: React.FC = () => {
           .from('cms_sections')
           .insert([{
             page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
-            section_type: 'row',
+            section_type: sectionType,
             row_column_count: rowColumnCount,
             row_layout_type: rowLayoutType,
             position: insertPosition,
             parent_id: null,
             is_active: true,
-            title: '', // Bez tytułu
+            title: elementType === 'container' ? 'Nowy kontener' : 'Nowa siatka',
             width_type: 'full',
             height_type: 'auto',
           }])
@@ -873,7 +871,7 @@ export const LivePreviewEditor: React.FC = () => {
         
         toast({ 
           title: '✅ Dodano wiersz', 
-          description: `${elementType === 'container' ? 'Kontener' : 'Siatka'} z ${rowColumnCount} ${rowColumnCount === 1 ? 'kolumną' : rowColumnCount < 5 ? 'kolumnami' : 'kolumnami'}` 
+          description: `${getElementTypeName(elementType)} z ${rowColumnCount} ${rowColumnCount === 1 ? 'kolumną' : 'kolumnami'}` 
         });
         return;
       }
@@ -965,9 +963,9 @@ export const LivePreviewEditor: React.FC = () => {
       // Reinitialize columns
       initializeColumns(sections, newItems);
       
-      // Automatically open sidebar editor for new element
+      // Automatically open ItemEditor for new element
       setEditingItemId(newItemData.id);
-      setShowEditingPanel(true);
+      setIsItemEditorOpen(true);
 
       toast({ 
         title: '✅ Element dodany', 
@@ -1966,12 +1964,11 @@ export const LivePreviewEditor: React.FC = () => {
   // Item management handlers
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
-  const [showEditingPanel, setShowEditingPanel] = useState(false);
   
   const handleEditItem = (itemId: string) => {
     setEditingItemId(itemId);
     setSelectedElement(itemId);
-    setShowEditingPanel(true); // Show sidebar instead of dialog
+    setIsItemEditorOpen(true);
   };
 
   const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
@@ -1999,7 +1996,7 @@ export const LivePreviewEditor: React.FC = () => {
       setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
       saveToHistory(sections, items.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
       setHasUnsavedChanges(true);
-      setShowEditingPanel(false); // Close sidebar
+      setIsItemEditorOpen(false);
       setEditingItemId(null);
       
       toast({
@@ -2306,25 +2303,11 @@ export const LivePreviewEditor: React.FC = () => {
             }
             disabled={!editMode}
           >
-            {editMode && !showEditingPanel && (
+            {editMode && (
               <div className="fixed left-0 top-0 h-screen z-40">
                 <ElementsPanel onElementClick={(type) => {
                   toast({ title: 'Element clicked', description: `You clicked: ${type}` });
                 }} />
-              </div>
-            )}
-            
-            {editMode && showEditingPanel && editingItemId && (
-              <div className="fixed left-0 top-0 h-screen z-40">
-                <EditingPanel
-                  editingItem={items.find(i => i.id === editingItemId) || null}
-                  sectionId={items.find(i => i.id === editingItemId)?.section_id || null}
-                  onSave={handleSaveItem}
-                  onClose={() => {
-                    setShowEditingPanel(false);
-                    setEditingItemId(null);
-                  }}
-                />
               </div>
             )}
             
@@ -2470,8 +2453,8 @@ export const LivePreviewEditor: React.FC = () => {
         refreshKey={inactiveRefresh}
       />
       
-      {/* Item Editor Dialog - only for complex edits or when sidebar is not enough */}
-      {isItemEditorOpen && editingItemId && (
+      {/* Item Editor Dialog */}
+      {editingItemId && (
         <ItemEditor
           item={items.find(i => i.id === editingItemId)}
           sectionId={items.find(i => i.id === editingItemId)?.section_id || ''}
