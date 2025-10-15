@@ -87,6 +87,30 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
     disabled: !editMode,
   });
 
+  // Column drop zone component
+  const ColumnDropZone: React.FC<{ sectionId: string; colIdx: number; children: React.ReactNode }> = ({ 
+    sectionId, 
+    colIdx, 
+    children 
+  }) => {
+    const { setNodeRef: setColRef, isOver: isColOver } = useDroppable({
+      id: `${sectionId}-col-${colIdx}`,
+      disabled: !editMode,
+    });
+    
+    return (
+      <div 
+        ref={setColRef}
+        className={cn(
+          "space-y-4 min-h-[100px] p-2 rounded transition-colors",
+          isColOver && editMode && "bg-blue-50 border-2 border-dashed border-blue-400"
+        )}
+      >
+        {children}
+      </div>
+    );
+  };
+
   return (
     <div 
       ref={setNodeRef}
@@ -140,35 +164,14 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
             gap: '48px',
             marginTop: '32px'
           }}>
-            {itemsByColumn.map((columnItems, colIdx) => {
-              // Make each column droppable
-              const ColumnDropZone = ({ children }: { children: React.ReactNode }) => {
-                const { setNodeRef, isOver } = useDroppable({
-                  id: `${section.id}-col-${colIdx}`,
-                  disabled: !editMode,
-                });
-                
-                return (
-                  <div 
-                    ref={setNodeRef}
-                    className={cn(
-                      "space-y-4 min-h-[100px] p-2 rounded transition-colors",
-                      isOver && editMode && "bg-blue-50 border-2 border-dashed border-blue-400"
-                    )}
-                  >
-                    {children}
-                  </div>
-                );
-              };
-              
-              return (
-                <SortableContext
-                  key={colIdx}
-                  items={columnItems.filter(i => i.id).map(i => i.id as string)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ColumnDropZone>
-                    {columnItems.map((item, itemIdx) => {
+            {itemsByColumn.map((columnItems, colIdx) => (
+              <SortableContext
+                key={colIdx}
+                items={columnItems.filter(i => i.id).map(i => i.id as string)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ColumnDropZone sectionId={section.id} colIdx={colIdx}>
+                  {columnItems.map((item, itemIdx) => {
                       let itemContent;
                       
                       if (item.type === 'info_text' && section.display_type === 'grid') {
@@ -214,13 +217,12 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                           </DraggableItem>
                         );
                       }
-                      
-                      return <div key={item.id}>{itemContent}</div>;
-                    })}
-                  </ColumnDropZone>
-                </SortableContext>
-              );
-            })}
+                    
+                    return <div key={item.id}>{itemContent}</div>;
+                  })}
+                </ColumnDropZone>
+              </SortableContext>
+            ))}
           </div>
         ) : (
           <SortableContext
