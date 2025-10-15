@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, Columns } from 'lucide-react';
+import { Edit3, Loader2, Layout, Columns, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
@@ -1348,12 +1348,24 @@ export const LivePreviewEditor: React.FC = () => {
               <Layout className="w-5 h-5" />
               Layout Editor
             </div>
-            {!editMode && (
-              <Button onClick={() => setEditMode(true)} className="gap-2">
-                <Edit3 className="w-4 h-4" />
-                Enable Edit Mode
+            <div className="flex gap-2">
+              <Button 
+                onClick={fetchData} 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                disabled={loading}
+              >
+                <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                Odśwież dane
               </Button>
-            )}
+              {!editMode && (
+                <Button onClick={() => setEditMode(true)} className="gap-2">
+                  <Edit3 className="w-4 h-4" />
+                  Enable Edit Mode
+                </Button>
+              )}
+            </div>
           </CardTitle>
           <CardDescription>
             {editMode 
