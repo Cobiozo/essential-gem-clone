@@ -438,6 +438,57 @@ export const LivePreviewEditor: React.FC = () => {
         return [{ type: 'container', content: '' }];
       case 'grid':
         return [{ type: 'grid', columns: 2 }];
+      
+      // Ogólne elementy
+      case 'image-field':
+        return [{ type: 'image-field', content: '', alt: 'Dodaj obrazek' }];
+      case 'icon-field':
+        return [{ type: 'icon-field', content: 'star', color: 'currentColor' }];
+      case 'carousel':
+        return [{ type: 'carousel', images: [], autoplay: true, interval: 3000 }];
+      case 'accessibility':
+        return [{ type: 'accessibility', content: 'Informacje o dostępności' }];
+      case 'gallery':
+        return [{ type: 'gallery', images: [], columns: 3 }];
+      case 'icon-list':
+        return [{ type: 'icon-list', items: [{ icon: 'check', text: 'Element listy' }] }];
+      case 'counter':
+        return [{ type: 'counter', start: 0, end: 100, duration: 2000, suffix: '' }];
+      case 'progress-bar':
+        return [{ type: 'progress-bar', value: 50, max: 100, label: 'Postęp' }];
+      case 'testimonial':
+        return [{ type: 'testimonial', content: 'Treść referencji', author: 'Imię Nazwisko', role: 'Stanowisko' }];
+      case 'cards':
+        return [{ type: 'cards', items: [{ title: 'Karta', content: 'Treść karty' }] }];
+      case 'accordion':
+        return [{ type: 'accordion', items: [{ title: 'Pytanie', content: 'Odpowiedź' }] }];
+      case 'toggle':
+        return [{ type: 'toggle', title: 'Kliknij aby rozwinąć', content: 'Zawartość' }];
+      case 'social-icons':
+        return [{ type: 'social-icons', icons: [{ platform: 'facebook', url: '#' }] }];
+      case 'alert':
+        return [{ type: 'alert', content: 'Wiadomość', variant: 'info' }];
+      case 'soundcloud':
+        return [{ type: 'soundcloud', url: '', height: 166 }];
+      case 'shortcode':
+        return [{ type: 'shortcode', content: '[shortcode]' }];
+      case 'html':
+        return [{ type: 'html', content: '<div>Twój kod HTML</div>' }];
+      case 'menu-anchor':
+        return [{ type: 'menu-anchor', id: 'anchor', label: 'Kotwica' }];
+      case 'sidebar':
+        return [{ type: 'sidebar', content: 'Zawartość panelu bocznego', position: 'right' }];
+      case 'learn-more':
+        return [{ type: 'learn-more', title: 'Dowiedz się więcej', content: 'Treść', url: '#' }];
+      case 'rating':
+        return [{ type: 'rating', value: 5, max: 5, label: 'Ocena' }];
+      case 'trustindex':
+        return [{ type: 'trustindex', widgetId: '', platform: 'google' }];
+      case 'ppom':
+        return [{ type: 'ppom', productId: '' }];
+      case 'text-path':
+        return [{ type: 'text-path', text: 'Tekst na ścieżce', path: 'M0,50 Q50,0 100,50' }];
+      
       default:
         return [{ type: 'text', content: 'Nowy element' }];
     }
@@ -456,6 +507,31 @@ export const LivePreviewEditor: React.FC = () => {
       icon: 'Ikonka',
       container: 'Kontener',
       grid: 'Siatka',
+      // Ogólne elementy
+      'image-field': 'Pole obrazka',
+      'icon-field': 'Pole ikonki',
+      carousel: 'Karuzela obrazków',
+      accessibility: 'Dostępność A11y',
+      gallery: 'Galeria podstawowa',
+      'icon-list': 'Lista ikonki',
+      counter: 'Licznik',
+      'progress-bar': 'Pasek postępu',
+      testimonial: 'Referencja',
+      cards: 'Karty',
+      accordion: 'Akordeon',
+      toggle: 'Przełącznik',
+      'social-icons': 'Ikonki społecznościowe',
+      alert: 'Ostrzeżenie',
+      soundcloud: 'SoundCloud',
+      shortcode: 'Krótki kod',
+      html: 'HTML',
+      'menu-anchor': 'Kotwica menu',
+      sidebar: 'Panel boczny',
+      'learn-more': 'Dowiedz się więcej',
+      rating: 'Ocena',
+      trustindex: 'Google Recenzje',
+      ppom: 'PPOM Shortcode',
+      'text-path': 'Ścieżka tekstowa',
     };
     return names[elementType] || 'Element';
   };

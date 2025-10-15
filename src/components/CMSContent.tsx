@@ -9,6 +9,17 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { isExternalUrl } from '@/lib/urlUtils';
 import * as icons from 'lucide-react';
 import { ChevronRight, Circle } from 'lucide-react';
+import { CarouselElement } from './elements/CarouselElement';
+import { AccordionElement } from './elements/AccordionElement';
+import { CounterElement } from './elements/CounterElement';
+import { ProgressBarElement } from './elements/ProgressBarElement';
+import { RatingElement } from './elements/RatingElement';
+import { GalleryElement } from './elements/GalleryElement';
+import { SocialIconsElement } from './elements/SocialIconsElement';
+import { AlertElement } from './elements/AlertElement';
+import { TestimonialElement } from './elements/TestimonialElement';
+import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 
 interface CMSContentProps {
   item: CMSItem;
@@ -248,6 +259,258 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
                 return null;
             }
           })}
+        </div>
+      );
+
+    // Nowe typy elementów - Podstawowe
+    case 'heading':
+      const cells = item.cells as any[];
+      const headingCell = cells?.[0];
+      const level = headingCell?.level || 2;
+      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+      return (
+        <HeadingTag className={cn(
+          'font-bold',
+          level === 1 && 'text-4xl',
+          level === 2 && 'text-3xl',
+          level === 3 && 'text-2xl',
+          level === 4 && 'text-xl',
+          level === 5 && 'text-lg',
+          level === 6 && 'text-base'
+        )}>
+          {headingCell?.content || item.title || 'Nagłówek'}
+        </HeadingTag>
+      );
+
+    case 'text':
+      const textCell = (item.cells as any[])?.[0];
+      return (
+        <FormattedText
+          text={textCell?.content || item.description || ''}
+          formatting={item.text_formatting}
+          className="text-sm leading-relaxed"
+          as="p"
+        />
+      );
+
+    case 'image':
+    case 'image-field':
+      const imageCell = (item.cells as any[])?.[0];
+      return (
+        <div className="w-full">
+          {imageCell?.content || item.media_url ? (
+            <img
+              src={imageCell?.content || item.media_url}
+              alt={imageCell?.alt || item.media_alt_text || 'Image'}
+              className="w-full h-auto rounded-lg"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
+              <p className="text-muted-foreground">Dodaj obrazek</p>
+            </div>
+          )}
+        </div>
+      );
+
+    case 'video':
+      const videoCell = (item.cells as any[])?.[0];
+      return renderMedia() || (
+        <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
+          <p className="text-muted-foreground">Dodaj wideo</p>
+        </div>
+      );
+
+    case 'divider':
+      return <Separator className="my-4" />;
+
+    case 'spacer':
+      const spacerCell = (item.cells as any[])?.[0];
+      const height = spacerCell?.height || 40;
+      return <div style={{ height: `${height}px` }} />;
+
+    case 'icon':
+    case 'icon-field':
+      const iconCell = (item.cells as any[])?.[0];
+      const iconName = iconCell?.content || item.icon || 'Star';
+      const IconComp = (icons as any)[iconName];
+      return IconComp ? (
+        <IconComp className="w-12 h-12 text-primary" style={{ color: iconCell?.color }} />
+      ) : null;
+
+    // Ogólne elementy
+    case 'carousel':
+      const carouselCell = (item.cells as any[])?.[0];
+      return (
+        <CarouselElement
+          images={carouselCell?.images || []}
+          autoplay={carouselCell?.autoplay}
+          interval={carouselCell?.interval}
+        />
+      );
+
+    case 'gallery':
+      const galleryCell = (item.cells as any[])?.[0];
+      return (
+        <GalleryElement
+          images={galleryCell?.images || []}
+          columns={galleryCell?.columns || 3}
+        />
+      );
+
+    case 'accordion':
+      const accordionCell = (item.cells as any[])?.[0];
+      return (
+        <AccordionElement items={accordionCell?.items || []} />
+      );
+
+    case 'toggle':
+      const toggleCell = (item.cells as any[])?.[0];
+      return (
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-muted rounded-lg">
+            <span className="font-medium">{toggleCell?.title || 'Kliknij aby rozwinąć'}</span>
+            <ChevronRight className="w-5 h-5 transition-transform" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4">
+            {toggleCell?.content || ''}
+          </CollapsibleContent>
+        </Collapsible>
+      );
+
+    case 'counter':
+      const counterCell = (item.cells as any[])?.[0];
+      return (
+        <CounterElement
+          start={counterCell?.start || 0}
+          end={counterCell?.end || 100}
+          duration={counterCell?.duration || 2000}
+          suffix={counterCell?.suffix || ''}
+          prefix={counterCell?.prefix || ''}
+        />
+      );
+
+    case 'progress-bar':
+      const progressCell = (item.cells as any[])?.[0];
+      return (
+        <ProgressBarElement
+          value={progressCell?.value || 50}
+          max={progressCell?.max || 100}
+          label={progressCell?.label}
+          showValue={progressCell?.showValue !== false}
+        />
+      );
+
+    case 'rating':
+      const ratingCell = (item.cells as any[])?.[0];
+      return (
+        <RatingElement
+          value={ratingCell?.value || 5}
+          max={ratingCell?.max || 5}
+          label={ratingCell?.label}
+        />
+      );
+
+    case 'testimonial':
+      const testimonialCell = (item.cells as any[])?.[0];
+      return (
+        <TestimonialElement
+          content={testimonialCell?.content || ''}
+          author={testimonialCell?.author || ''}
+          role={testimonialCell?.role}
+          avatar={testimonialCell?.avatar}
+        />
+      );
+
+    case 'social-icons':
+      const socialCell = (item.cells as any[])?.[0];
+      return (
+        <SocialIconsElement icons={socialCell?.icons || []} size={socialCell?.size || 24} />
+      );
+
+    case 'alert':
+      const alertCell = (item.cells as any[])?.[0];
+      return (
+        <AlertElement
+          content={alertCell?.content || ''}
+          title={alertCell?.title}
+          variant={alertCell?.variant || 'default'}
+        />
+      );
+
+    case 'icon-list':
+      const listCell = (item.cells as any[])?.[0];
+      const listItems = listCell?.items || [];
+      return (
+        <div className="space-y-2">
+          {listItems.map((listItem: any, idx: number) => {
+            const ListIcon = (icons as any)[listItem.icon] || Circle;
+            return (
+              <div key={idx} className="flex items-start gap-2">
+                <ListIcon className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <span>{listItem.text}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+    case 'cards':
+      const cardsCell = (item.cells as any[])?.[0];
+      const cardItems = cardsCell?.items || [];
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cardItems.map((card: any, idx: number) => (
+            <div key={idx} className="p-4 border rounded-lg bg-card">
+              <h3 className="font-semibold mb-2">{card.title}</h3>
+              <p className="text-sm text-muted-foreground">{card.content}</p>
+            </div>
+          ))}
+        </div>
+      );
+
+    case 'html':
+      const htmlCell = (item.cells as any[])?.[0];
+      return (
+        <div
+          className="prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: htmlCell?.content || '' }}
+        />
+      );
+
+    case 'soundcloud':
+      const soundcloudCell = (item.cells as any[])?.[0];
+      return soundcloudCell?.url ? (
+        <iframe
+          width="100%"
+          height={soundcloudCell?.height || 166}
+          scrolling="no"
+          frameBorder="no"
+          src={soundcloudCell.url}
+          className="rounded-lg"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-32 bg-muted rounded-lg">
+          <p className="text-muted-foreground">Dodaj URL SoundCloud</p>
+        </div>
+      );
+
+    case 'accessibility':
+    case 'shortcode':
+    case 'menu-anchor':
+    case 'sidebar':
+    case 'learn-more':
+    case 'trustindex':
+    case 'ppom':
+    case 'text-path':
+      const genericCell = (item.cells as any[])?.[0];
+      return (
+        <div className="p-4 border border-dashed rounded-lg text-center">
+          <p className="text-sm text-muted-foreground mb-1">
+            Element typu: <span className="font-medium">{item.type}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {genericCell?.content || 'Skonfiguruj ten element w edytorze'}
+          </p>
         </div>
       );
 
