@@ -21,6 +21,7 @@ interface CollapsibleSectionProps {
   isOpen?: boolean; // sterowane z zewnątrz
   onOpenChange?: (open: boolean) => void; // callback
   currentDevice?: DeviceType;
+  variant?: 'default' | 'modern'; // Visual style variant
   // Styling props from CMS Section
   sectionStyle?: {
     background_color?: string | null;
@@ -92,6 +93,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   isOpen: controlledOpen,
   onOpenChange,
   currentDevice,
+  variant = 'default',
 }) => {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   

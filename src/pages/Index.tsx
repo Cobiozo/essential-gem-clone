@@ -281,7 +281,7 @@ const Index = () => {
       />
 
       {/* Main Content */}
-      <main id="main-content" className="py-16 sm:py-20 lg:py-24">
+      <main id="main-content" className="py-12 sm:py-16 lg:py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
             <div
@@ -407,6 +407,7 @@ const Index = () => {
                     defaultOpen={section.default_expanded || false}
                     showShareButton={shouldShowShare}
                     sectionStyle={section}
+                    variant="modern"
                   >
                     <ColumnLayout
                       sectionId={section.id}
@@ -458,18 +459,25 @@ const Index = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-muted/30 border-t border-border py-12">
+      <footer className="bg-card border-t border-border py-8 sm:py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto text-center">
-            <img 
-              src={siteLogo} 
-              alt="Pure Life" 
-              className="w-12 h-12 mx-auto mb-4"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = newPureLifeLogo;
-              }}
-            />
-            <p className="text-sm text-muted-foreground">© 2024 Pure Life. Wszystkie prawa zastrzeżone.</p>
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <img 
+                  src={siteLogo} 
+                  alt="Pure Life" 
+                  className="w-8 h-8 object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = newPureLifeLogo;
+                  }}
+                />
+                <span className="text-sm font-semibold text-foreground uppercase">PURE LIFE</span>
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                © 2024 Pure Life. Wszystkie prawa zastrzeżone.
+              </p>
+            </div>
           </div>
         </div>
       </footer>

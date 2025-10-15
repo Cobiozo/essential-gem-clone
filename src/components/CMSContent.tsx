@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { ContentCell, CMSItem } from '@/types/cms';
 import { CollapsibleSection } from './CollapsibleSection';
 import { isExternalUrl } from '@/lib/urlUtils';
+import * as icons from 'lucide-react';
+import { ChevronRight, Circle } from 'lucide-react';
 
 interface CMSContentProps {
   item: CMSItem;
@@ -251,51 +253,49 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'button':
     default:
-      const hasDescription = item.description && item.description.length > 50;
+      // Get icon component if specified
+      const IconComponent = item.icon ? (icons as any)[item.icon] : null;
+      
+      // Parse title and description styles
+      const titleStyle = item.title_formatting ? JSON.parse(JSON.stringify(item.title_formatting)) : {};
+      const textStyle = item.text_formatting ? JSON.parse(JSON.stringify(item.text_formatting)) : {};
+      
       return (
         <div>
           {renderMedia()}
-          <div className="w-full">
-            <Button
-              onClick={handleClick}
-              className={cn(
-                hasDescription 
-                  ? "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-left p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border-0 flex flex-col items-start justify-center space-y-1 sm:space-y-2"
-                  : "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg shadow-sm border-0 px-3 sm:px-4 py-3 sm:py-4 text-sm sm:text-base",
-                "break-words hyphens-auto overflow-hidden whitespace-normal min-h-fit"
-              )}
-              style={{
-                wordWrap: 'break-word',
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-word',
-                whiteSpace: 'normal',
-              }}
-            >
-              {hasDescription ? (
-                <>
-                  <FormattedText
-                    text={item.title || ''}
-                    formatting={item.title_formatting}
-                    className="break-words w-full text-primary-foreground whitespace-normal font-semibold leading-snug"
-                    as="span"
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              handleClick();
+            }}
+            className="w-full p-5 sm:p-6 text-left rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] bg-card border border-border hover:border-primary/30 hover:shadow-lg group"
+          >
+            <div className="flex items-start sm:items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {item.title && (
+                  <h4 
+                    className="font-semibold text-sm sm:text-base mb-1 text-foreground group-hover:text-primary transition-colors line-clamp-2"
+                    style={titleStyle}
+                    dangerouslySetInnerHTML={{ __html: item.title }}
                   />
-                  <FormattedText
-                    text={item.description || ''}
-                    formatting={item.text_formatting}
-                    className="break-words w-full text-primary-foreground/90 whitespace-normal text-xs sm:text-sm leading-relaxed mt-1"
-                    as="span"
+                )}
+                {item.description && (
+                  <p 
+                    className="text-xs sm:text-sm text-muted-foreground line-clamp-2"
+                    style={textStyle}
+                    dangerouslySetInnerHTML={{ __html: item.description }}
                   />
-                </>
-              ) : (
-                <FormattedText
-                  text={item.title || ''}
-                  formatting={item.title_formatting}
-                  className="break-words w-full text-primary-foreground whitespace-normal text-center leading-snug"
-                  as="span"
-                />
-              )}
-            </Button>
-          </div>
+                )}
+              </div>
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                {IconComponent ? (
+                  <IconComponent className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
+                )}
+              </div>
+            </div>
+          </button>
         </div>
       );
   }

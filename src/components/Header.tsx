@@ -21,26 +21,26 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border shadow-sm">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <img 
               src={siteLogo} 
               alt="Logo" 
-              className="w-8 h-8"
+              className="w-8 h-8 object-contain"
             />
-            <span className="font-semibold text-lg text-primary hidden sm:inline">PURE LIFE</span>
+            <span className="font-bold text-base text-foreground hidden sm:inline uppercase tracking-wide">PURE LIFE</span>
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden md:flex items-center space-x-8">
             {publishedPages.map((page) => (
               <Link 
                 key={page.id}
                 to={`/page/${page.slug}`}
-                className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-primary after:transition-all hover:after:w-full"
               >
                 {page.title}
               </Link>
@@ -48,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
           </nav>
 
           {/* Right side actions */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <LanguageSelector />
             <ThemeSelector />
             
@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
               <>
                 {isAdmin && (
                   <Link to="/admin">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="hover:bg-muted">
                       <Settings className="w-4 h-4 mr-2" />
                       <span className="hidden sm:inline">{t('nav.admin')}</span>
                     </Button>
@@ -64,26 +64,26 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                 )}
                 {!isAdmin && (
                   <Link to="/my-account">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="hover:bg-muted">
                       <Settings className="w-4 h-4 mr-2" />
                       <span className="hidden sm:inline">{t('nav.myAccount')}</span>
                     </Button>
                   </Link>
                 )}
                 <Link to="/training">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="hover:bg-muted">
                     <BookOpen className="w-4 h-4 mr-2" />
                     <span className="hidden sm:inline">Akademia</span>
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <Button variant="ghost" size="sm" onClick={handleSignOut} className="hover:bg-muted">
                   <LogOut className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">{t('nav.logout')}</span>
                 </Button>
               </>
             ) : (
               <Link to="/auth">
-                <Button size="sm">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                   {t('nav.login')}
                 </Button>
               </Link>
