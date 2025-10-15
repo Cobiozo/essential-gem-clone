@@ -379,60 +379,66 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           </div>
         )}
       </button>
-      {isOpen && (
-        <div 
-          className="w-full px-6 py-6 bg-card border-t border-border"
-          style={customContentStyle}
-        >
-          {children}
-          
-          {/* Sekcje zagnieżdżone */}
-          {nestedSections && nestedSections.length > 0 && (
-            <div className="mt-6 space-y-4">
-              <h4 className="text-lg font-semibold text-card-foreground border-b border-border pb-2">
-                Sekcje zagnieżdżone
-              </h4>
-              {nestedSections.map((nestedSection) => (
-                <div key={nestedSection.id} className="bg-muted rounded-lg">
-                  <CollapsibleSection
-                    title={nestedSection.title}
-                    description={nestedSection.description || undefined}
-                    sectionStyle={nestedSection}
-                    className="border border-border"
-                  >
-                    <div className="space-y-3">
-                      {nestedItems
-                        .filter(item => item.section_id === nestedSection.id)
-                        .map((item) => (
-                          <CMSContent key={item.id} item={item} />
-                        ))}
-                      {nestedItems.filter(item => item.section_id === nestedSection.id).length === 0 && (
-                        <div className="text-center text-muted-foreground py-4 text-sm">
-                          Brak zawartości w tej sekcji
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleSection>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {showShareButton && (
-            <div className="mt-6 pt-4 border-t border-border flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShare}
-                className="text-xs sm:text-sm"
-              >
-                <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                {t('common.share')}
-              </Button>
-            </div>
-          )}
+      <div 
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div 
+            className="w-full px-6 py-6 bg-card border-t border-border"
+            style={customContentStyle}
+          >
+            {children}
+            
+            {/* Sekcje zagnieżdżone */}
+            {nestedSections && nestedSections.length > 0 && (
+              <div className="mt-6 space-y-4">
+                <h4 className="text-lg font-semibold text-card-foreground border-b border-border pb-2">
+                  Sekcje zagnieżdżone
+                </h4>
+                {nestedSections.map((nestedSection) => (
+                  <div key={nestedSection.id} className="bg-muted rounded-lg">
+                    <CollapsibleSection
+                      title={nestedSection.title}
+                      description={nestedSection.description || undefined}
+                      sectionStyle={nestedSection}
+                      className="border border-border"
+                    >
+                      <div className="space-y-3">
+                        {nestedItems
+                          .filter(item => item.section_id === nestedSection.id)
+                          .map((item) => (
+                            <CMSContent key={item.id} item={item} />
+                          ))}
+                        {nestedItems.filter(item => item.section_id === nestedSection.id).length === 0 && (
+                          <div className="text-center text-muted-foreground py-4 text-sm">
+                            Brak zawartości w tej sekcji
+                          </div>
+                        )}
+                      </div>
+                    </CollapsibleSection>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {showShareButton && (
+              <div className="mt-6 pt-4 border-t border-border flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShare}
+                  className="text-xs sm:text-sm"
+                >
+                  <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                  {t('common.share')}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
