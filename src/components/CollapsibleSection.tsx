@@ -213,7 +213,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     border: 'none',
     cursor: 'pointer',
     width: '100%',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Default gradient
+    background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)', // Default gradient
     borderRadius: isOpen ? '16px 16px 0 0' : '16px',
   };
 
@@ -379,7 +379,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       </button>
       {isOpen && (
         <div 
-          className="w-full px-6 py-6 bg-white border-t border-gray-100"
+          className="w-full px-6 py-6 bg-card border-t border-border"
           style={customContentStyle}
         >
           {children}
@@ -387,16 +387,16 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           {/* Sekcje zagnieżdżone */}
           {nestedSections && nestedSections.length > 0 && (
             <div className="mt-6 space-y-4">
-              <h4 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+              <h4 className="text-lg font-semibold text-card-foreground border-b border-border pb-2">
                 Sekcje zagnieżdżone
               </h4>
               {nestedSections.map((nestedSection) => (
-                <div key={nestedSection.id} className="bg-gray-50 rounded-lg">
+                <div key={nestedSection.id} className="bg-muted rounded-lg">
                   <CollapsibleSection
                     title={nestedSection.title}
                     description={nestedSection.description || undefined}
                     sectionStyle={nestedSection}
-                    className="border border-gray-200"
+                    className="border border-border"
                   >
                     <div className="space-y-3">
                       {nestedItems
@@ -417,12 +417,12 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           )}
           
           {showShareButton && (
-            <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center">
+            <div className="mt-6 pt-4 border-t border-border flex justify-center">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleShare}
-                className="text-gray-600 border-gray-300 text-xs sm:text-sm"
+                className="text-xs sm:text-sm"
               >
                 <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 {t('common.share')}

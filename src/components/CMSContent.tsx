@@ -41,7 +41,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed"
             as="p"
           />
         </div>
@@ -54,7 +54,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm text-gray-500"
+            className="text-xs sm:text-sm text-muted-foreground"
             as="p"
           />
         </div>
@@ -62,12 +62,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'info_text':
       return (
-        <div className="mb-3 sm:mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+        <div className="mb-3 sm:mb-4 p-3 bg-accent/10 rounded-lg border-l-4 border-accent">
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-foreground leading-relaxed"
             as="p"
           />
         </div>
@@ -75,12 +75,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'tip':
       return (
-        <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+        <div className="mt-3 sm:mt-4 p-3 bg-primary/10 rounded-lg border-l-4 border-primary">
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-foreground leading-relaxed"
             as="p"
           />
         </div>
@@ -93,7 +93,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-muted-foreground leading-relaxed"
             as="p"
           />
         </div>
@@ -101,12 +101,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'contact_info':
       return (
-        <div className="mb-3 sm:mb-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
+        <div className="mb-3 sm:mb-4 p-3 bg-accent/10 rounded-lg border-l-4 border-accent">
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-foreground leading-relaxed"
             as="p"
           />
         </div>
@@ -114,12 +114,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick }) => {
 
     case 'support_info':
       return (
-        <div className="mb-3 sm:mb-4 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-400">
+        <div className="mb-3 sm:mb-4 p-3 bg-muted rounded-lg border-l-4 border-muted-foreground">
           {renderMedia()}
           <FormattedText
             text={item.description || ''}
             formatting={item.text_formatting}
-            className="text-xs sm:text-sm lg:text-base text-gray-700 leading-relaxed"
+            className="text-xs sm:text-sm lg:text-base text-foreground leading-relaxed"
             as="p"
           />
         </div>

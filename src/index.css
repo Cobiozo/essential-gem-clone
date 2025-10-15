@@ -8,39 +8,39 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Pure Life color palette */
-    --background: 33 22% 95%;  /* Warm beige background */
-    --foreground: 0 0% 20%;    /* Dark gray text */
+    /* Pure Life clean theme - Light & minimal */
+    --background: 36 39% 96%;     /* Soft warm white */
+    --foreground: 30 8% 30%;      /* Warm dark gray text */
 
-    --card: 33 22% 95%;
-    --card-foreground: 0 0% 20%;
+    --card: 0 0% 100%;            /* Pure white cards */
+    --card-foreground: 30 8% 30%;
 
-    --popover: 33 22% 95%;
-    --popover-foreground: 0 0% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 8% 30%;
 
-    /* Primary green for buttons */
-    --primary: 145 50% 25%;     /* Deep forest green */
-    --primary-foreground: 0 0% 100%;
+    /* Primary golden - main brand color */
+    --primary: 43 96% 56%;        /* Pure Life gold */
+    --primary-foreground: 30 8% 20%;
 
-    /* Secondary light gray */
-    --secondary: 33 15% 90%;
-    --secondary-foreground: 0 0% 20%;
+    /* Secondary warm gray */
+    --secondary: 36 11% 90%;
+    --secondary-foreground: 30 8% 30%;
 
-    --muted: 33 15% 88%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 36 11% 93%;
+    --muted-foreground: 30 8% 50%;
 
-    /* Golden accent for logo */
-    --accent: 45 100% 55%;      /* Golden yellow */
-    --accent-foreground: 0 0% 20%;
+    /* Accent green for subtle touches */
+    --accent: 145 40% 50%;        /* Soft green accent */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 33 15% 85%;
-    --input: 33 15% 85%;
-    --ring: 145 50% 25%;
+    --border: 36 11% 88%;
+    --input: 36 11% 88%;
+    --ring: 43 96% 56%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -60,34 +60,34 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Dark mode color palette */
-    --background: 224 71% 4%;      /* Very dark blue-gray */
-    --foreground: 213 31% 91%;     /* Light gray text */
+    /* Dark mode - elegant dark theme */
+    --background: 30 8% 12%;       /* Warm dark background */
+    --foreground: 36 39% 92%;      /* Soft light text */
 
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
+    --card: 30 8% 15%;
+    --card-foreground: 36 39% 92%;
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 30 8% 15%;
+    --popover-foreground: 36 39% 92%;
 
-    --primary: 145 50% 35%;        /* Slightly lighter green for dark mode */
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 96% 56%;         /* Keep gold bright in dark mode */
+    --primary-foreground: 30 8% 12%;
 
-    --secondary: 215 28% 17%;      /* Dark gray */
-    --secondary-foreground: 213 31% 91%;
+    --secondary: 30 8% 20%;
+    --secondary-foreground: 36 39% 92%;
 
-    --muted: 223 47% 11%;          /* Darker muted */
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 30 8% 18%;
+    --muted-foreground: 36 11% 65%;
 
-    --accent: 45 100% 65%;         /* Brighter golden accent for dark mode */
-    --accent-foreground: 0 0% 20%;
+    --accent: 145 40% 55%;         /* Slightly brighter green for dark */
+    --accent-foreground: 30 8% 12%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 213 31% 91%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 36 39% 92%;
 
-    --border: 216 34% 17%;         /* Dark border */
-    --input: 216 34% 17%;          /* Dark input */
-    --ring: 145 50% 35%;
+    --border: 30 8% 25%;
+    --input: 30 8% 25%;
+    --ring: 43 96% 56%;
 
     --sidebar-background: 224 71% 4%;
     --sidebar-foreground: 213 31% 91%;
