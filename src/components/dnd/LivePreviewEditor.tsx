@@ -1597,6 +1597,20 @@ export const LivePreviewEditor: React.FC = () => {
                 // Render regular sections - match homepage display with white background
                 const sectionItems = items.filter(item => item.section_id === section.id);
                 
+                // Check if section has column layout
+                const columnMatch = section.style_class?.match(/columns-(\d+)/);
+                const sectionColumnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
+                
+                // Group items by column_index if columns are defined
+                let itemsByColumn: CMSItem[][] = [];
+                if (sectionColumnCount > 0) {
+                  itemsByColumn = Array.from({ length: sectionColumnCount }, () => []);
+                  sectionItems.forEach(item => {
+                    const colIdx = Math.min(sectionColumnCount - 1, Math.max(0, (item as any).column_index || 0));
+                    itemsByColumn[colIdx].push(item);
+                  });
+                }
+                
                 return (
                   <DraggableSection
                     key={section.id}
@@ -1638,43 +1652,92 @@ export const LivePreviewEditor: React.FC = () => {
                           )}
                         </div>
                         
-                        {/* Section Items - render like homepage */}
-                        <SortableContext
-                          items={sectionItems.filter(i => i.id).map(i => i.id as string)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
-                            {sectionItems.map(item => {
-                              // Determine the content to render
-                              let itemContent;
-                              
-                              // Special rendering for info_text in grid sections
-                              if (item.type === 'info_text' && section.display_type === 'grid') {
-                                itemContent = <InfoTextItem item={item} />;
-                              }
-                              // Special rendering for multi_cell items
-                              else if (item.type === 'multi_cell') {
-                                const itemIndex = sectionItems.findIndex(i => i.id === item.id);
-                                itemContent = <LearnMoreItem item={item} itemIndex={itemIndex} />;
-                              }
-                              // Default rendering
-                              else {
-                                itemContent = <CMSContent item={item} onClick={() => {}} />;
-                              }
-                              
-                              // Wrap in DraggableItem if in edit mode and item has ID
-                              if (editMode && item.id) {
-                                return (
-                                  <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                                    {itemContent}
-                                  </DraggableItem>
-                                );
-                              }
-                              
-                              return <div key={item.id}>{itemContent}</div>;
-                            })}
+                        {/* Section Items - render like homepage with column support */}
+                        {sectionColumnCount > 0 ? (
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
+                            gap: '48px',
+                            marginTop: '32px'
+                          }}>
+                            {itemsByColumn.map((columnItems, colIdx) => (
+                              <SortableContext
+                                key={colIdx}
+                                items={columnItems.filter(i => i.id).map(i => i.id as string)}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                <div className="space-y-4">
+                                  {columnItems.map(item => {
+                                    // Determine the content to render
+                                    let itemContent;
+                                    
+                                    // Special rendering for info_text in grid sections
+                                    if (item.type === 'info_text' && section.display_type === 'grid') {
+                                      itemContent = <InfoTextItem item={item} />;
+                                    }
+                                    // Special rendering for multi_cell items
+                                    else if (item.type === 'multi_cell') {
+                                      const itemIndex = columnItems.findIndex(i => i.id === item.id);
+                                      itemContent = <LearnMoreItem item={item} itemIndex={itemIndex} />;
+                                    }
+                                    // Default rendering
+                                    else {
+                                      itemContent = <CMSContent item={item} onClick={() => {}} />;
+                                    }
+                                    
+                                    // Wrap in DraggableItem if in edit mode and item has ID
+                                    if (editMode && item.id) {
+                                      return (
+                                        <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                                          {itemContent}
+                                        </DraggableItem>
+                                      );
+                                    }
+                                    
+                                    return <div key={item.id}>{itemContent}</div>;
+                                  })}
+                                </div>
+                              </SortableContext>
+                            ))}
                           </div>
-                        </SortableContext>
+                        ) : (
+                          <SortableContext
+                            items={sectionItems.filter(i => i.id).map(i => i.id as string)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
+                              {sectionItems.map(item => {
+                                // Determine the content to render
+                                let itemContent;
+                                
+                                // Special rendering for info_text in grid sections
+                                if (item.type === 'info_text' && section.display_type === 'grid') {
+                                  itemContent = <InfoTextItem item={item} />;
+                                }
+                                // Special rendering for multi_cell items
+                                else if (item.type === 'multi_cell') {
+                                  const itemIndex = sectionItems.findIndex(i => i.id === item.id);
+                                  itemContent = <LearnMoreItem item={item} itemIndex={itemIndex} />;
+                                }
+                                // Default rendering
+                                else {
+                                  itemContent = <CMSContent item={item} onClick={() => {}} />;
+                                }
+                                
+                                // Wrap in DraggableItem if in edit mode and item has ID
+                                if (editMode && item.id) {
+                                  return (
+                                    <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                                      {itemContent}
+                                    </DraggableItem>
+                                  );
+                                }
+                                
+                                return <div key={item.id}>{itemContent}</div>;
+                              })}
+                            </div>
+                          </SortableContext>
+                        )}
                       </div>
                     </div>
                   </DraggableSection>
