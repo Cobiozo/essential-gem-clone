@@ -176,9 +176,37 @@ const Index = () => {
       padding: section.padding ? `${section.padding}px` : undefined,
     };
 
-    const containerClasses = section.display_type === 'grid' 
-      ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8'
-      : 'space-y-4';
+    // Check if section has column layout defined in style_class
+    const columnMatch = section.style_class?.match(/columns-(\d+)/);
+    const columnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
+    
+    // Group items by column_index if columns are defined
+    let itemsByColumn: CMSItem[][] = [];
+    if (columnCount > 0) {
+      // Create empty columns
+      itemsByColumn = Array.from({ length: columnCount }, () => []);
+      // Distribute items by column_index
+      sectionItems.forEach(item => {
+        const colIdx = Math.min(columnCount - 1, Math.max(0, (item as any).column_index || 0));
+        itemsByColumn[colIdx].push(item);
+      });
+    }
+
+    // Container styles for columns or regular display
+    const containerStyle: React.CSSProperties = columnCount > 0 
+      ? {
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
+          gap: '48px',
+          marginTop: '32px'
+        }
+      : undefined;
+
+    const containerClasses = columnCount > 0
+      ? ''
+      : section.display_type === 'grid' 
+        ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8'
+        : 'space-y-4';
 
     return (
       <section key={section.id} style={sectionStyle} className="py-12 px-4">
@@ -196,9 +224,19 @@ const Index = () => {
           </div>
           
           {/* Section Items */}
-          <div className={containerClasses}>
-            {sectionItems.map(item => renderCMSItem(item, section))}
-          </div>
+          {columnCount > 0 ? (
+            <div style={containerStyle}>
+              {itemsByColumn.map((columnItems, colIdx) => (
+                <div key={colIdx} className="space-y-4">
+                  {columnItems.map(item => renderCMSItem(item, section))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={containerClasses}>
+              {sectionItems.map(item => renderCMSItem(item, section))}
+            </div>
+          )}
 
           {/* Special handling for Contact section - person info */}
           {section.id === '08b07156-ef06-45ba-8fcc-41c2372162dc' && sectionItems.length > 3 && (
