@@ -46,11 +46,12 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
     },
   }), []);
   const pointerSensor = useSensor(PointerSensor, pointerOptions);
-  // Improved touch sensor for mobile devices - more permissive for better mobile UX
+  
+  // Optimized touch sensor for mobile - reduced delay, increased tolerance
   const touchOptions = React.useMemo(() => ({
     activationConstraint: {
-      delay: 100,
-      tolerance: 8,
+      delay: 50, // Zmniejszony delay dla lepszej responsywności
+      tolerance: 10, // Większa tolerancja dla łatwiejszego chwytania
     },
   }), []);
   const touchSensor = useSensor(TouchSensor, touchOptions);
