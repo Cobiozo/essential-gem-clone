@@ -2490,8 +2490,14 @@ export const LivePreviewEditor: React.FC = () => {
               {sections.filter(s => !s.parent_id).map((section, index, arr) => {
                 // Render row containers
                 if (section.section_type === 'row') {
+                  // Count items in child sections to force re-render when items change
+                  const childSections = sections.filter(s => s.parent_id === section.id);
+                  const totalChildItems = childSections.reduce((count, childSec) => {
+                    return count + items.filter(it => it.section_id === childSec.id).length;
+                  }, 0);
+                  
                   return (
-                    <React.Fragment key={section.id}>
+                    <React.Fragment key={`${section.id}-items-${totalChildItems}`}>
                       <DraggableSection
                         id={section.id}
                         isEditMode={editMode}
