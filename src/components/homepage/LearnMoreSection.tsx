@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 const LearnMoreSection = () => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -47,17 +47,21 @@ const LearnMoreSection = () => {
                   </div>
                   <span className="text-left text-black font-semibold text-lg">{item.title}</span>
                 </div>
-                <ChevronRight 
+                <ChevronDown 
                   className={`w-6 h-6 text-gray-400 group-hover:text-[hsl(45,100%,51%)] transition-all duration-300 ${
-                    expandedIndex === index ? 'rotate-90' : ''
+                    expandedIndex === index ? 'rotate-180' : ''
                   }`} 
                 />
               </button>
-              {expandedIndex === index && (
-                <div className="px-6 pb-6 text-gray-600 leading-relaxed animate-fade-in">
+              <div 
+                className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                  expandedIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-6 pb-6 text-gray-600 leading-relaxed">
                   {item.content}
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>

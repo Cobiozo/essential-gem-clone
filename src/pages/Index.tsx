@@ -10,6 +10,7 @@ import { HeroSection } from '@/components/HeroSection';
 import TeamSection from '@/components/homepage/TeamSection';
 import LearnMoreSection from '@/components/homepage/LearnMoreSection';
 import ContactSection from '@/components/homepage/ContactSection';
+import Footer from '@/components/homepage/Footer';
 
 const Index = () => {
   const { user } = useAuth();
@@ -95,6 +96,9 @@ const Index = () => {
         <LearnMoreSection />
         <ContactSection />
       </main>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
