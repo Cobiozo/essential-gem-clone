@@ -411,6 +411,141 @@ export const LivePreviewEditor: React.FC = () => {
     setActiveId(event.active.id as string);
   }, []);
 
+  const createDefaultContent = (elementType: string) => {
+    switch (elementType) {
+      case 'heading':
+        return [{ type: 'heading', content: 'Nowy nagłówek', level: 2 }];
+      case 'text':
+        return [{ type: 'text', content: 'Nowy tekst' }];
+      case 'image':
+        return [{ type: 'image', content: '', alt: 'Obrazek' }];
+      case 'video':
+        return [{ type: 'video', content: '', title: 'Film' }];
+      case 'button':
+        return [{ type: 'button', content: 'Kliknij', url: '#' }];
+      case 'divider':
+        return [{ type: 'divider' }];
+      case 'spacer':
+        return [{ type: 'spacer', height: 40 }];
+      case 'maps':
+        return [{ type: 'maps', content: '', title: 'Mapa' }];
+      case 'icon':
+        return [{ type: 'icon', content: 'star' }];
+      case 'container':
+        return [{ type: 'container', content: '' }];
+      case 'grid':
+        return [{ type: 'grid', columns: 2 }];
+      default:
+        return [{ type: 'text', content: 'Nowy element' }];
+    }
+  };
+
+  const getElementTypeName = (elementType: string) => {
+    const names: { [key: string]: string } = {
+      heading: 'Nagłówek',
+      text: 'Tekst',
+      image: 'Obrazek',
+      video: 'Film',
+      button: 'Przycisk',
+      divider: 'Rozdzielacz',
+      spacer: 'Odstęp',
+      maps: 'Mapa',
+      icon: 'Ikonka',
+      container: 'Kontener',
+      grid: 'Siatka',
+    };
+    return names[elementType] || 'Element';
+  };
+
+  const handleNewElementDrop = async (elementType: string, targetId: string) => {
+    try {
+      // Determine target section and position
+      let targetSectionId: string;
+      let columnIndex = 0;
+      
+      if (targetId.includes('-col-')) {
+        // Dropped into a column
+        const match = targetId.match(/^(.+)-col-(\d+)$/);
+        if (match) {
+          targetSectionId = match[1];
+          columnIndex = parseInt(match[2], 10);
+        } else {
+          toast({ title: 'Błąd', description: 'Nieprawidłowy cel', variant: 'destructive' });
+          return;
+        }
+      } else {
+        // Dropped into a section
+        targetSectionId = targetId;
+      }
+
+      // Find the target section
+      const targetSection = sections.find(s => s.id === targetSectionId);
+      if (!targetSection) {
+        toast({ title: 'Błąd', description: 'Nie znaleziono sekcji docelowej', variant: 'destructive' });
+        return;
+      }
+
+      // Get existing items in target section/column
+      const existingItems = items.filter(it => 
+        it.section_id === targetSectionId && 
+        (it as any).column_index === columnIndex
+      );
+      const newPosition = existingItems.length;
+
+      // Create default content based on element type
+      const defaultContent = createDefaultContent(elementType);
+
+      // Create new item in database - using correct field names
+      const { data: newItemData, error: insertError } = await supabase
+        .from('cms_items')
+        .insert([{
+          section_id: targetSectionId,
+          page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+          type: elementType,
+          position: newPosition,
+          column_index: columnIndex,
+          is_active: true,
+          cells: defaultContent as any,
+        }])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Update local state
+      const cellsData = typeof newItemData.cells === 'string' 
+        ? JSON.parse(newItemData.cells) 
+        : Array.isArray(newItemData.cells) 
+          ? newItemData.cells 
+          : [];
+      
+      const convertedItem: CMSItem = {
+        ...newItemData,
+        cells: cellsData
+      };
+      
+      const newItems = [...items, convertedItem];
+      setItems(newItems);
+      saveToHistory(sections, newItems);
+      setHasUnsavedChanges(true);
+
+      // Reinitialize columns
+      initializeColumns(sections, newItems);
+
+      toast({ 
+        title: 'Dodano element', 
+        description: `Dodano nowy element: ${getElementTypeName(elementType)}` 
+      });
+    } catch (error) {
+      console.error('Error creating new element:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się dodać elementu',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -426,7 +561,18 @@ export const LivePreviewEditor: React.FC = () => {
     const { active, over } = event;
     setActiveId(null);
 
-    if (!over || active.id === over.id) {
+    if (!over) {
+      return;
+    }
+
+    // Check if dragging a new element from the panel
+    const activeData = active.data.current;
+    if (activeData?.type === 'new-element') {
+      await handleNewElementDrop(activeData.elementType, over.id as string);
+      return;
+    }
+
+    if (active.id === over.id) {
       return;
     }
 

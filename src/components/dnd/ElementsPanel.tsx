@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -119,22 +120,13 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                     >
                       <div className="grid grid-cols-2 gap-2 mt-2">
                         {category.items.map((item) => (
-                          <button
+                          <DraggableElement
                             key={item.id}
-                            onClick={() => handleElementClick(item.type)}
-                            className={cn(
-                              "flex flex-col items-center justify-center gap-2 p-4",
-                              "rounded-lg border bg-card hover:bg-accent transition-colors",
-                              "cursor-pointer group"
-                            )}
-                          >
-                            <div className="text-muted-foreground group-hover:text-foreground transition-colors">
-                              {item.icon}
-                            </div>
-                            <span className="text-xs text-center font-medium">
-                              {item.title}
-                            </span>
-                          </button>
+                            id={`new-${item.type}`}
+                            elementType={item.type}
+                            icon={item.icon}
+                            title={item.title}
+                          />
                         ))}
                       </div>
                     </CollapsibleSection>
@@ -152,5 +144,44 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
         </div>
       </CardContent>
     </Card>
+  );
+};
+
+// Draggable element component
+interface DraggableElementProps {
+  id: string;
+  elementType: string;
+  icon: React.ReactNode;
+  title: string;
+}
+
+const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, icon, title }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id,
+    data: {
+      type: 'new-element',
+      elementType,
+    },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 p-4",
+        "rounded-lg border bg-card hover:bg-accent transition-colors",
+        "cursor-grab active:cursor-grabbing group",
+        isDragging && "opacity-50"
+      )}
+    >
+      <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+        {icon}
+      </div>
+      <span className="text-xs text-center font-medium">
+        {title}
+      </span>
+    </div>
   );
 };
