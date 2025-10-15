@@ -29,6 +29,7 @@ import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
 import { ElementsPanel } from './ElementsPanel';
 import { ItemControls } from './ItemControls';
+import { ItemEditor } from '@/components/cms/ItemEditor';
 // import { DndDiagnostics } from './DndDiagnostics';
 
 interface Column {
@@ -202,7 +203,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
             strategy={verticalListSortingStrategy}
           >
             <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
-              {sectionItems.map(item => {
+              {sectionItems.map((item, itemIdx) => {
                 let itemContent;
                 
                 if (item.type === 'info_text' && section.display_type === 'grid') {
@@ -224,7 +225,27 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 if (editMode && item.id) {
                   return (
                     <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                      {itemContent}
+                      <div 
+                        className="relative group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectElement(item.id as string);
+                        }}
+                      >
+                        {onEditItem && onDeleteItem && (
+                          <ItemControls
+                            onEdit={() => onEditItem(item.id as string)}
+                            onDelete={() => onDeleteItem(item.id as string)}
+                            onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                            onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                            onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                            canMoveUp={itemIdx > 0}
+                            canMoveDown={itemIdx < sectionItems.length - 1}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          />
+                        )}
+                        {itemContent}
+                      </div>
                     </DraggableItem>
                   );
                 }
@@ -1866,10 +1887,54 @@ export const LivePreviewEditor: React.FC = () => {
 
   // Item management handlers
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
   
   const handleEditItem = (itemId: string) => {
     setEditingItemId(itemId);
     setSelectedElement(itemId);
+    setIsItemEditorOpen(true);
+  };
+
+  const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
+    if (!editingItemId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('cms_items')
+        .update({
+          type: updatedItem.type,
+          title: updatedItem.title,
+          description: updatedItem.description,
+          url: updatedItem.url,
+          icon: updatedItem.icon,
+          media_url: updatedItem.media_url,
+          media_type: updatedItem.media_type,
+          media_alt_text: updatedItem.media_alt_text,
+          cells: updatedItem.cells as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingItemId);
+      
+      if (error) throw error;
+      
+      setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
+      saveToHistory(sections, items.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
+      setHasUnsavedChanges(true);
+      setIsItemEditorOpen(false);
+      setEditingItemId(null);
+      
+      toast({
+        title: 'Sukces',
+        description: 'Element został zapisany',
+      });
+    } catch (error) {
+      console.error('Error saving item:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zapisać elementu',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDeleteItem = async (itemId: string) => {
@@ -2311,6 +2376,20 @@ export const LivePreviewEditor: React.FC = () => {
         onElementDeleted={fetchData}
         refreshKey={inactiveRefresh}
       />
+      
+      {/* Item Editor Dialog */}
+      {editingItemId && (
+        <ItemEditor
+          item={items.find(i => i.id === editingItemId)}
+          sectionId={items.find(i => i.id === editingItemId)?.section_id || ''}
+          onSave={handleSaveItem}
+          onCancel={() => {
+            setIsItemEditorOpen(false);
+            setEditingItemId(null);
+          }}
+          isOpen={isItemEditorOpen}
+        />
+      )}
     </div>
   );
 };

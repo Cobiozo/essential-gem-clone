@@ -23,6 +23,7 @@ interface ItemEditorProps {
   onCancel?: () => void;
   isNew?: boolean;
   trigger?: React.ReactNode;
+  isOpen?: boolean;
 }
 
 export const ItemEditor: React.FC<ItemEditorProps> = ({
@@ -31,7 +32,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   onSave,
   onCancel,
   isNew = false,
-  trigger
+  trigger,
+  isOpen: externalIsOpen
 }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(
     item || {
@@ -59,6 +61,13 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   );
 
   const [isOpen, setIsOpen] = useState(false);
+
+  // Sync with external control
+  React.useEffect(() => {
+    if (typeof externalIsOpen !== 'undefined') {
+      setIsOpen(externalIsOpen);
+    }
+  }, [externalIsOpen]);
 
   const itemTypes = [
     { value: 'button', label: 'Przycisk', icon: '🔘' },
@@ -104,8 +113,20 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   ];
 
   const handleSave = () => {
-    onSave(editedItem);
-    setIsOpen(false);
+    // Prepare cells data based on type
+    const cells = [{
+      id: crypto.randomUUID(),
+      content: editedItem.title || editedItem.description || '',
+      type: editedItem.type || 'text',
+      position: 0,
+      is_active: true,
+      ...editedItem.cells?.[0]
+    }];
+    
+    onSave({ ...editedItem, cells });
+    if (typeof externalIsOpen === 'undefined') {
+      setIsOpen(false);
+    }
   };
 
   const handleCancel = () => {
@@ -130,7 +151,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       style_class: '',
       cells: []
     });
-    setIsOpen(false);
+    if (typeof externalIsOpen === 'undefined') {
+      setIsOpen(false);
+    }
     onCancel?.();
   };
 
@@ -331,6 +354,238 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Type-specific fields */}
+      {editedItem.type === 'heading' && (
+        <div className="space-y-2">
+          <Label>Poziom nagłówka</Label>
+          <Select
+            value={(editedItem.cells?.[0] as any)?.type || 'h2'}
+            onValueChange={(value) => {
+              const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'h2', position: 0, is_active: true, level: 2 }];
+              cells[0] = { ...cells[0], type: value, level: parseInt(value.replace('h', '')) };
+              setEditedItem({ ...editedItem, cells });
+            }}
+          >
+            <SelectContent>
+              <SelectItem value="h1">H1</SelectItem>
+              <SelectItem value="h2">H2</SelectItem>
+              <SelectItem value="h3">H3</SelectItem>
+              <SelectItem value="h4">H4</SelectItem>
+              <SelectItem value="h5">H5</SelectItem>
+              <SelectItem value="h6">H6</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {(editedItem.type === 'heading' || editedItem.type === 'text') && (
+        <div className="space-y-2">
+          <Label>Treść</Label>
+          <Textarea
+            value={editedItem.title || ''}
+            onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+            placeholder="Wprowadź tekst..."
+            rows={editedItem.type === 'text' ? 6 : 2}
+          />
+        </div>
+      )}
+
+      {editedItem.type === 'icon' && (
+        <>
+          <div className="space-y-2">
+            <Label>Nazwa ikony (Lucide)</Label>
+            <Input
+              value={editedItem.icon || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, icon: e.target.value })}
+              placeholder="np. Star, Heart, Home"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Rozmiar (px)</Label>
+            <Input
+              type="number"
+              value={(editedItem.cells?.[0] as any)?.size || 24}
+              onChange={(e) => {
+                const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'icon', position: 0, is_active: true }];
+                cells[0] = { ...cells[0], size: parseInt(e.target.value) };
+                setEditedItem({ ...editedItem, cells });
+              }}
+              min={12}
+              max={96}
+            />
+          </div>
+        </>
+      )}
+
+      {editedItem.type === 'divider' && (
+        <div className="space-y-2">
+          <Label>Styl rozdzielacza</Label>
+          <Select
+            value={(editedItem.cells?.[0] as any)?.style || 'solid'}
+            onValueChange={(value) => {
+              const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'divider', position: 0, is_active: true }];
+              cells[0] = { ...cells[0], style: value };
+              setEditedItem({ ...editedItem, cells });
+            }}
+          >
+            <SelectContent>
+              <SelectItem value="solid">Ciągła</SelectItem>
+              <SelectItem value="dashed">Przerywana</SelectItem>
+              <SelectItem value="dotted">Kropkowana</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {editedItem.type === 'spacer' && (
+        <div className="space-y-2">
+          <Label>Wysokość (px)</Label>
+          <Input
+            type="number"
+            value={(editedItem.cells?.[0] as any)?.height || 40}
+            onChange={(e) => {
+              const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'spacer', position: 0, is_active: true }];
+              cells[0] = { ...cells[0], height: parseInt(e.target.value) };
+              setEditedItem({ ...editedItem, cells });
+            }}
+            min={0}
+            max={200}
+          />
+        </div>
+      )}
+
+      {editedItem.type === 'counter' && (
+        <>
+          <div className="space-y-2">
+            <Label>Wartość docelowa</Label>
+            <Input
+              type="number"
+              value={(editedItem.cells?.[0] as any)?.targetValue || 100}
+              onChange={(e) => {
+                const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'counter', position: 0, is_active: true }];
+                cells[0] = { ...cells[0], targetValue: parseInt(e.target.value) };
+                setEditedItem({ ...editedItem, cells });
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Czas trwania (ms)</Label>
+            <Input
+              type="number"
+              value={(editedItem.cells?.[0] as any)?.duration || 2000}
+              onChange={(e) => {
+                const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'counter', position: 0, is_active: true }];
+                cells[0] = { ...cells[0], duration: parseInt(e.target.value) };
+                setEditedItem({ ...editedItem, cells });
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {editedItem.type === 'progress-bar' && (
+        <div className="space-y-2">
+          <Label>Wartość (0-100)</Label>
+          <Input
+            type="number"
+            value={(editedItem.cells?.[0] as any)?.value || 50}
+            onChange={(e) => {
+              const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'progress-bar', position: 0, is_active: true }];
+              cells[0] = { ...cells[0], value: Math.min(100, Math.max(0, parseInt(e.target.value))) };
+              setEditedItem({ ...editedItem, cells });
+            }}
+            min={0}
+            max={100}
+          />
+        </div>
+      )}
+
+      {editedItem.type === 'rating' && (
+        <>
+          <div className="space-y-2">
+            <Label>Maksymalna ocena</Label>
+            <Input
+              type="number"
+              value={(editedItem.cells?.[0] as any)?.maxRating || 5}
+              onChange={(e) => {
+                const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'rating', position: 0, is_active: true }];
+                cells[0] = { ...cells[0], maxRating: parseInt(e.target.value) };
+                setEditedItem({ ...editedItem, cells });
+              }}
+              min={1}
+              max={10}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Aktualna wartość</Label>
+            <Input
+              type="number"
+              value={(editedItem.cells?.[0] as any)?.value || 0}
+              onChange={(e) => {
+                const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'rating', position: 0, is_active: true }];
+                const maxRating = (cells[0] as any)?.maxRating || 5;
+                cells[0] = { ...cells[0], value: Math.min(maxRating, Math.max(0, parseInt(e.target.value))) };
+                setEditedItem({ ...editedItem, cells });
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      {editedItem.type === 'alert' && (
+        <>
+          <div className="space-y-2">
+            <Label>Typ alertu</Label>
+            <Select
+              value={(editedItem.cells?.[0] as any)?.alertType || 'info'}
+              onValueChange={(value) => {
+                const cells: any = editedItem.cells || [{ id: crypto.randomUUID(), content: '', type: 'alert', position: 0, is_active: true }];
+                cells[0] = { ...cells[0], alertType: value };
+                setEditedItem({ ...editedItem, cells });
+              }}
+            >
+              <SelectContent>
+                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="success">Sukces</SelectItem>
+                <SelectItem value="warning">Ostrzeżenie</SelectItem>
+                <SelectItem value="error">Błąd</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Wiadomość</Label>
+            <Textarea
+              value={editedItem.description || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
+              placeholder="Treść alertu..."
+              rows={3}
+            />
+          </div>
+        </>
+      )}
+
+      {editedItem.type === 'testimonial' && (
+        <>
+          <div className="space-y-2">
+            <Label>Imię i nazwisko</Label>
+            <Input
+              value={editedItem.title || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+              placeholder="Jan Kowalski"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Cytat</Label>
+            <Textarea
+              value={editedItem.description || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
+              placeholder="Treść opinii..."
+              rows={4}
+            />
+          </div>
+        </>
+      )}
 
       {/* Multi-Cell Content Management */}
       {editedItem.type === 'multi_cell' && (
