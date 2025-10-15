@@ -60,6 +60,7 @@ interface RegularSectionContentPropsExtended extends RegularSectionContentProps 
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
+  onElementResize?: (elementId: string, width: number, height: number) => void;
 }
 
 const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
@@ -78,6 +79,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
+  onElementResize,
 }) => {
   // Make the section droppable so elements can be dropped into it
   const { setNodeRef, isOver } = useDroppable({
@@ -167,27 +169,39 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                     if (editMode && item.id) {
                       return (
                         <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                          <div 
-                            className="relative group"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectElement(item.id as string);
+                          <ResizableElement
+                            isSelected={selectedElement === item.id}
+                            isEditMode={editMode}
+                            onResize={(width, height) => {
+                              if (onElementResize && item.id) {
+                                onElementResize(item.id as string, width, height);
+                              }
                             }}
+                            initialWidth={item.custom_width || undefined}
+                            initialHeight={item.custom_height || undefined}
                           >
-                            {/* Item Controls - always visible in edit mode */}
-                            {onEditItem && onDeleteItem && (
-                              <ItemControls
-                                onEdit={() => onEditItem(item.id as string)}
-                                onDelete={() => onDeleteItem(item.id as string)}
-                                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                                onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                                onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                                canMoveUp={itemIdx > 0}
-                                canMoveDown={itemIdx < columnItems.length - 1}
-                              />
-                            )}
-                            {itemContent}
-                          </div>
+                            <div 
+                              className="relative group"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectElement(item.id as string);
+                              }}
+                            >
+                              {/* Item Controls - always visible in edit mode */}
+                              {onEditItem && onDeleteItem && (
+                                <ItemControls
+                                  onEdit={() => onEditItem(item.id as string)}
+                                  onDelete={() => onDeleteItem(item.id as string)}
+                                  onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                                  onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                                  onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                                  canMoveUp={itemIdx > 0}
+                                  canMoveDown={itemIdx < columnItems.length - 1}
+                                />
+                              )}
+                              {itemContent}
+                            </div>
+                          </ResizableElement>
                         </DraggableItem>
                       );
                     }
@@ -226,26 +240,38 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 if (editMode && item.id) {
                   return (
                     <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                      <div 
-                        className="relative group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectElement(item.id as string);
+                      <ResizableElement
+                        isSelected={selectedElement === item.id}
+                        isEditMode={editMode}
+                        onResize={(width, height) => {
+                          if (onElementResize && item.id) {
+                            onElementResize(item.id as string, width, height);
+                          }
                         }}
+                        initialWidth={item.custom_width || undefined}
+                        initialHeight={item.custom_height || undefined}
                       >
-                        {onEditItem && onDeleteItem && (
-                          <ItemControls
-                            onEdit={() => onEditItem(item.id as string)}
-                            onDelete={() => onDeleteItem(item.id as string)}
-                            onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                            onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                            onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                            canMoveUp={itemIdx > 0}
-                            canMoveDown={itemIdx < sectionItems.length - 1}
-                          />
-                        )}
-                        {itemContent}
-                      </div>
+                        <div 
+                          className="relative group"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectElement(item.id as string);
+                          }}
+                        >
+                          {onEditItem && onDeleteItem && (
+                            <ItemControls
+                              onEdit={() => onEditItem(item.id as string)}
+                              onDelete={() => onDeleteItem(item.id as string)}
+                              onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                              onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                              onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                              canMoveUp={itemIdx > 0}
+                              canMoveDown={itemIdx < sectionItems.length - 1}
+                            />
+                          )}
+                          {itemContent}
+                        </div>
+                      </ResizableElement>
                     </DraggableItem>
                   );
                 }
@@ -1472,6 +1498,7 @@ export const LivePreviewEditor: React.FC = () => {
     try {
       // Check if it's a section or item
       const section = sections.find(s => s.id === elementId);
+      const item = items.find(i => i.id === elementId);
       
       if (section) {
         // Determine width settings
@@ -1565,13 +1592,71 @@ export const LivePreviewEditor: React.FC = () => {
             }
           }
         }
-      } else {
-        // TODO: Add item resize handling if needed
+      } else if (item) {
+        // Handle item resize
+        let width_type = item.width_type || 'auto';
+        let newCustomWidth = item.custom_width;
+        
+        if (Number.isFinite(width) && width > 0) {
+          width_type = 'custom';
+          newCustomWidth = Math.round(width);
+        } else if (width === 0) {
+          width_type = 'auto';
+          newCustomWidth = undefined;
+        }
+
+        let height_type = item.height_type || 'auto';
+        let newCustomHeight = item.custom_height;
+        
+        if (Number.isFinite(height) && height > 0) {
+          height_type = 'custom';
+          newCustomHeight = Math.round(height);
+        } else if (height === 0) {
+          height_type = 'auto';
+          newCustomHeight = undefined;
+        }
+
+        // Update local state
+        setItems(prev => {
+          const updated = prev.map(i => 
+            i.id === elementId 
+              ? { 
+                  ...i, 
+                  width_type,
+                  height_type,
+                  custom_width: newCustomWidth, 
+                  custom_height: newCustomHeight,
+                }
+              : i
+          );
+          autoSave(sections, updated);
+          return updated;
+        });
+
+        // Persist immediately to DB
+        try {
+          const updates: any = { 
+            width_type, 
+            height_type, 
+            custom_width: newCustomWidth, 
+            custom_height: newCustomHeight, 
+            updated_at: new Date().toISOString() 
+          };
+          const { error: immediateErr } = await supabase
+            .from('cms_items')
+            .update(updates)
+            .eq('id', elementId);
+          if (immediateErr) {
+            console.error('Immediate item resize save failed', immediateErr);
+          }
+        } catch (e) {
+          console.error('Immediate item resize exception', e);
+        }
       }
 
         toast({
           title: 'Sukces',
-          description: 'Rozmiar sekcji został zapisany',
+          description: 'Rozmiar elementu został zapisany',
         });
     } catch (error) {
       console.error('Error saving element resize:', error);
@@ -2507,6 +2592,7 @@ export const LivePreviewEditor: React.FC = () => {
                       onDuplicateItem={handleDuplicateItem}
                       onMoveItemUp={handleMoveItemUp}
                       onMoveItemDown={handleMoveItemDown}
+                      onElementResize={handleElementResize}
                     />
                   </DraggableSection>
                   
