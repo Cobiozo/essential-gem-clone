@@ -1008,13 +1008,20 @@ export const LivePreviewEditor: React.FC = () => {
         cells: cellsData
       };
       
+      console.log('[handleNewElementDrop] Converting item to CMSItem:', convertedItem);
+      console.log('[handleNewElementDrop] Current items count:', items.length);
+      
       const newItems = [...items, convertedItem];
+      console.log('[handleNewElementDrop] New items count:', newItems.length);
+      
       setItems(newItems);
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
 
       // Reinitialize columns
       initializeColumns(sections, newItems);
+      
+      console.log('[handleNewElementDrop] ✅ State updated, item should be visible now');
 
       toast({ 
         title: '✅ Element dodany', 
