@@ -28,6 +28,7 @@ import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
 import { ElementsPanel } from './ElementsPanel';
+import { ItemControls } from './ItemControls';
 // import { DndDiagnostics } from './DndDiagnostics';
 
 interface Column {
@@ -50,7 +51,15 @@ interface RegularSectionContentProps {
   onToggleExpand: (id: string | null) => void;
 }
 
-const RegularSectionContent: React.FC<RegularSectionContentProps> = ({
+interface RegularSectionContentPropsExtended extends RegularSectionContentProps {
+  onEditItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
+  onDuplicateItem?: (itemId: string) => void;
+  onMoveItemUp?: (itemId: string) => void;
+  onMoveItemDown?: (itemId: string) => void;
+}
+
+const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
   section,
   sectionItems,
   sectionColumnCount,
@@ -61,6 +70,11 @@ const RegularSectionContent: React.FC<RegularSectionContentProps> = ({
   expandedItemId,
   onSelectElement,
   onToggleExpand,
+  onEditItem,
+  onDeleteItem,
+  onDuplicateItem,
+  onMoveItemUp,
+  onMoveItemDown,
 }) => {
   // Make the section droppable so elements can be dropped into it
   const { setNodeRef, isOver } = useDroppable({
@@ -128,7 +142,7 @@ const RegularSectionContent: React.FC<RegularSectionContentProps> = ({
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-4">
-                  {columnItems.map(item => {
+                  {columnItems.map((item, itemIdx) => {
                     let itemContent;
                     
                     if (item.type === 'info_text' && section.display_type === 'grid') {
@@ -150,7 +164,28 @@ const RegularSectionContent: React.FC<RegularSectionContentProps> = ({
                     if (editMode && item.id) {
                       return (
                         <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                          {itemContent}
+                          <div 
+                            className="relative group"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectElement(item.id as string);
+                            }}
+                          >
+                            {/* Item Controls - show on hover */}
+                            {onEditItem && onDeleteItem && (
+                              <ItemControls
+                                onEdit={() => onEditItem(item.id as string)}
+                                onDelete={() => onDeleteItem(item.id as string)}
+                                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                                onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                                onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                                canMoveUp={itemIdx > 0}
+                                canMoveDown={itemIdx < columnItems.length - 1}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              />
+                            )}
+                            {itemContent}
+                          </div>
                         </DraggableItem>
                       );
                     }
@@ -716,15 +751,15 @@ export const LivePreviewEditor: React.FC = () => {
         
         // Determine section type and properties based on element type
         let sectionType: 'row' | 'section' = 'section';
-        let layoutType = null;
         let rowColumnCount = 1;
+        let displayType = 'block';
         
         if (elementType === 'container') {
           sectionType = 'section';
-          layoutType = null;
+          displayType = 'block';
         } else if (elementType === 'grid') {
           sectionType = 'section';
-          layoutType = 'columns';
+          displayType = 'grid';
           rowColumnCount = 2; // Default 2 columns for grid
         }
         
@@ -733,7 +768,7 @@ export const LivePreviewEditor: React.FC = () => {
           .insert([{
             page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
             section_type: sectionType,
-            layout_type: layoutType,
+            display_type: displayType,
             row_column_count: rowColumnCount,
             position: newPosition,
             parent_id: null,
@@ -1829,6 +1864,147 @@ export const LivePreviewEditor: React.FC = () => {
     }
   };
 
+  // Item management handlers
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  
+  const handleEditItem = (itemId: string) => {
+    setEditingItemId(itemId);
+    setSelectedElement(itemId);
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      const { error } = await supabase
+        .from('cms_items')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', itemId);
+      
+      if (error) throw error;
+      
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      saveToHistory(sections, items.filter(i => i.id !== itemId));
+      setHasUnsavedChanges(true);
+      
+      toast({
+        title: 'Sukces',
+        description: 'Element został usunięty',
+      });
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można usunąć elementu',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDuplicateItem = async (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('cms_items')
+        .insert([{
+          section_id: item.section_id,
+          type: item.type,
+          title: item.title ? `${item.title} (kopia)` : null,
+          description: item.description,
+          url: item.url,
+          icon: item.icon,
+          media_url: item.media_url,
+          media_type: item.media_type,
+          media_alt_text: item.media_alt_text,
+          position: items.filter(i => i.section_id === item.section_id).length,
+          column_index: (item as any).column_index || 0,
+          cells: item.cells as any
+        }])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      setItems(prev => [...prev, data as unknown as CMSItem]);
+      saveToHistory(sections, [...items, data as unknown as CMSItem]);
+      setHasUnsavedChanges(true);
+      
+      toast({
+        title: 'Sukces',
+        description: 'Element został zduplikowany',
+      });
+    } catch (error) {
+      console.error('Error duplicating item:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zduplikować elementu',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleMoveItemUp = async (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const sectionItems = items
+      .filter(i => i.section_id === item.section_id && (i as any).column_index === (item as any).column_index)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    
+    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
+    if (currentIndex <= 0) return;
+    
+    const newItems = [...sectionItems];
+    [newItems[currentIndex], newItems[currentIndex - 1]] = [newItems[currentIndex - 1], newItems[currentIndex]];
+    
+    // Update positions in database
+    await Promise.all(newItems.map((item, idx) =>
+      supabase
+        .from('cms_items')
+        .update({ position: idx, updated_at: new Date().toISOString() })
+        .eq('id', item.id as string)
+    ));
+    
+    // Update local state
+    setItems(prev => prev.map(i => {
+      const newItem = newItems.find(ni => ni.id === i.id);
+      return newItem ? { ...i, position: newItem.position } : i;
+    }));
+    
+    setHasUnsavedChanges(true);
+  };
+
+  const handleMoveItemDown = async (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const sectionItems = items
+      .filter(i => i.section_id === item.section_id && (i as any).column_index === (item as any).column_index)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    
+    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
+    if (currentIndex >= sectionItems.length - 1) return;
+    
+    const newItems = [...sectionItems];
+    [newItems[currentIndex], newItems[currentIndex + 1]] = [newItems[currentIndex + 1], newItems[currentIndex]];
+    
+    // Update positions in database
+    await Promise.all(newItems.map((item, idx) =>
+      supabase
+        .from('cms_items')
+        .update({ position: idx, updated_at: new Date().toISOString() })
+        .eq('id', item.id as string)
+    ));
+    
+    // Update local state
+    setItems(prev => prev.map(i => {
+      const newItem = newItems.find(ni => ni.id === i.id);
+      return newItem ? { ...i, position: newItem.position } : i;
+    }));
+    
+    setHasUnsavedChanges(true);
+  };
+
   if (!isAdmin) {
     return (
       <Card>
@@ -2111,6 +2287,11 @@ export const LivePreviewEditor: React.FC = () => {
                       expandedItemId={expandedItemId}
                       onSelectElement={setSelectedElement}
                       onToggleExpand={setExpandedItemId}
+                      onEditItem={handleEditItem}
+                      onDeleteItem={handleDeleteItem}
+                      onDuplicateItem={handleDuplicateItem}
+                      onMoveItemUp={handleMoveItemUp}
+                      onMoveItemDown={handleMoveItemDown}
                     />
                   </DraggableSection>
                 );

@@ -64,10 +64,26 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     { value: 'button', label: 'Przycisk', icon: '🔘' },
     { value: 'link', label: 'Link', icon: '🔗' },
     { value: 'text', label: 'Tekst', icon: '📝' },
+    { value: 'heading', label: 'Nagłówek', icon: '📰' },
     { value: 'media', label: 'Media', icon: '🖼️' },
+    { value: 'image', label: 'Obrazek', icon: '🖼️' },
+    { value: 'video', label: 'Film', icon: '🎬' },
     { value: 'card', label: 'Karta', icon: '🃏' },
     { value: 'badge', label: 'Odznaka', icon: '🏷️' },
-    { value: 'multi_cell', label: 'Wiele komórek', icon: '📊' }
+    { value: 'multi_cell', label: 'Wiele komórek', icon: '📊' },
+    { value: 'carousel', label: 'Karuzela', icon: '🎠' },
+    { value: 'accordion', label: 'Akordeon', icon: '📋' },
+    { value: 'counter', label: 'Licznik', icon: '🔢' },
+    { value: 'progress-bar', label: 'Pasek postępu', icon: '📊' },
+    { value: 'rating', label: 'Ocena gwiazdkowa', icon: '⭐' },
+    { value: 'gallery', label: 'Galeria', icon: '🖼️' },
+    { value: 'social-icons', label: 'Ikony społeczn.', icon: '📱' },
+    { value: 'alert', label: 'Alert', icon: '⚠️' },
+    { value: 'testimonial', label: 'Opinia', icon: '💬' },
+    { value: 'divider', label: 'Rozdzielacz', icon: '➖' },
+    { value: 'spacer', label: 'Odstęp', icon: '⬜' },
+    { value: 'icon', label: 'Ikona', icon: '✨' },
+    { value: 'html', label: 'HTML', icon: '💻' }
   ];
 
   const fontWeights = [
