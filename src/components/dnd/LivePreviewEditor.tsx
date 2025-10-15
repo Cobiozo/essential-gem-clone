@@ -1028,12 +1028,6 @@ export const LivePreviewEditor: React.FC = () => {
       setItems(newItems);
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
-
-      // NOTE: initializeColumns is NOT needed here because:
-      // - It only updates sectionColumns state which is not used in RegularSectionContent
-      // - RegularSectionContent uses items.filter() directly
-      // - Calling it here may cause unnecessary re-renders
-      // initializeColumns(sections, newItems);
       
       console.log('[handleNewElementDrop] ✅ State updated, item should be visible now');
 
@@ -1041,6 +1035,12 @@ export const LivePreviewEditor: React.FC = () => {
         title: '✅ Element dodany', 
         description: `Kliknij element, aby go edytować` 
       });
+      
+      // Force re-fetch to ensure UI is in sync with database
+      console.log('[handleNewElementDrop] Forcing data refetch...');
+      setTimeout(() => {
+        fetchData();
+      }, 100);
     } catch (error) {
       console.error('Error creating new element:', error);
       toast({
