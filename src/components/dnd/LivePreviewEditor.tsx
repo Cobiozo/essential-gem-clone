@@ -140,65 +140,87 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
             gap: '48px',
             marginTop: '32px'
           }}>
-            {itemsByColumn.map((columnItems, colIdx) => (
-              <SortableContext
-                key={colIdx}
-                items={columnItems.filter(i => i.id).map(i => i.id as string)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-4">
-                  {columnItems.map((item, itemIdx) => {
-                    let itemContent;
-                    
-                    if (item.type === 'info_text' && section.display_type === 'grid') {
-                      itemContent = <InfoTextItem item={item} />;
-                    } else if (item.type === 'multi_cell') {
-                      const itemIndex = columnItems.findIndex(i => i.id === item.id);
-                      itemContent = (
-                        <LearnMoreItem 
-                          item={item} 
-                          itemIndex={itemIndex}
-                          isExpanded={expandedItemId === item.id}
-                          onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
-                        />
-                      );
-                    } else {
-                      itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
-                    }
-                    
-                    if (editMode && item.id) {
-                      return (
-                        <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                          <div 
-                            className="relative group"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectElement(item.id as string);
-                            }}
-                          >
-                            {/* Item Controls - always visible in edit mode */}
-                            {onEditItem && onDeleteItem && (
-                              <ItemControls
-                                onEdit={() => onEditItem(item.id as string)}
-                                onDelete={() => onDeleteItem(item.id as string)}
-                                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                                onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                                onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                                canMoveUp={itemIdx > 0}
-                                canMoveDown={itemIdx < columnItems.length - 1}
-                              />
-                            )}
-                            {itemContent}
-                          </div>
-                        </DraggableItem>
-                      );
-                    }
-                    
-                    return <div key={item.id}>{itemContent}</div>;
-                  })}
-                </div>
-              </SortableContext>
-            ))}
+            {itemsByColumn.map((columnItems, colIdx) => {
+              // Make each column droppable
+              const ColumnDropZone = ({ children }: { children: React.ReactNode }) => {
+                const { setNodeRef, isOver } = useDroppable({
+                  id: `${section.id}-col-${colIdx}`,
+                  disabled: !editMode,
+                });
+                
+                return (
+                  <div 
+                    ref={setNodeRef}
+                    className={cn(
+                      "space-y-4 min-h-[100px] p-2 rounded transition-colors",
+                      isOver && editMode && "bg-blue-50 border-2 border-dashed border-blue-400"
+                    )}
+                  >
+                    {children}
+                  </div>
+                );
+              };
+              
+              return (
+                <SortableContext
+                  key={colIdx}
+                  items={columnItems.filter(i => i.id).map(i => i.id as string)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ColumnDropZone>
+                    {columnItems.map((item, itemIdx) => {
+                      let itemContent;
+                      
+                      if (item.type === 'info_text' && section.display_type === 'grid') {
+                        itemContent = <InfoTextItem item={item} />;
+                      } else if (item.type === 'multi_cell') {
+                        const itemIndex = columnItems.findIndex(i => i.id === item.id);
+                        itemContent = (
+                          <LearnMoreItem 
+                            item={item} 
+                            itemIndex={itemIndex}
+                            isExpanded={expandedItemId === item.id}
+                            onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
+                          />
+                        );
+                      } else {
+                        itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
+                      }
+                      
+                      if (editMode && item.id) {
+                        return (
+                          <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                            <div 
+                              className="relative group"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectElement(item.id as string);
+                              }}
+                            >
+                              {/* Item Controls - always visible in edit mode */}
+                              {onEditItem && onDeleteItem && (
+                                <ItemControls
+                                  onEdit={() => onEditItem(item.id as string)}
+                                  onDelete={() => onDeleteItem(item.id as string)}
+                                  onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                                  onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                                  onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                                  canMoveUp={itemIdx > 0}
+                                  canMoveDown={itemIdx < columnItems.length - 1}
+                                />
+                              )}
+                              {itemContent}
+                            </div>
+                          </DraggableItem>
+                        );
+                      }
+                      
+                      return <div key={item.id}>{itemContent}</div>;
+                    })}
+                  </ColumnDropZone>
+                </SortableContext>
+              );
+            })}
           </div>
         ) : (
           <SortableContext
