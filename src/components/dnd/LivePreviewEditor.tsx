@@ -31,6 +31,7 @@ import { ElementsPanel } from './ElementsPanel';
 import { EditingPanel } from './EditingPanel';
 import { ItemControls } from './ItemControls';
 import { ItemEditor } from '@/components/cms/ItemEditor';
+import { DropZone } from './DropZone';
 // import { DndDiagnostics } from './DndDiagnostics';
 
 interface Column {
@@ -780,19 +781,35 @@ export const LivePreviewEditor: React.FC = () => {
         let insertPosition = 0;
         let foundTarget = false;
         
-        // Find the target section to determine insert position
-        const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
-        
-        if (targetSection) {
-          // Insert after the target section
-          const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
-          const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
-          insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
+        // Handle main drop zones (empty areas)
+        if (targetId === 'main-start') {
+          insertPosition = 0;
           foundTarget = true;
-        } else {
-          // If no target found, add at the end
+        } else if (targetId === 'main-end') {
           const topLevelSections = sections.filter(s => !s.parent_id);
           insertPosition = topLevelSections.length;
+          foundTarget = true;
+        } else if (targetId.startsWith('main-between-')) {
+          const afterId = targetId.replace('main-between-', '');
+          const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
+          const afterIndex = topLevelSections.findIndex(s => s.id === afterId);
+          insertPosition = afterIndex >= 0 ? afterIndex + 1 : topLevelSections.length;
+          foundTarget = true;
+        } else {
+          // Find the target section to determine insert position
+          const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
+          
+          if (targetSection) {
+            // Insert after the target section
+            const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
+            const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
+            insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
+            foundTarget = true;
+          } else {
+            // If no target found, add at the end
+            const topLevelSections = sections.filter(s => !s.parent_id);
+            insertPosition = topLevelSections.length;
+          }
         }
         
         // Determine section type and properties based on element type
@@ -879,6 +896,16 @@ export const LivePreviewEditor: React.FC = () => {
       }
       
       // Regular element creation (not layout)
+      // Handle main drop zones - cannot create regular elements there
+      if (targetId.startsWith('main-')) {
+        toast({ 
+          title: 'Informacja', 
+          description: 'Najpierw utwórz kontener lub siatkę, a następnie dodaj do nich elementy', 
+          variant: 'default' 
+        });
+        return;
+      }
+      
       // Determine target section and position
       let targetSectionId: string;
       let columnIndex = 0;
@@ -2339,16 +2366,26 @@ export const LivePreviewEditor: React.FC = () => {
               )}
               style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
             >
-              {sections.filter(s => !s.parent_id).map((section) => {
+              {/* Drop zone at the start */}
+              {editMode && (
+                <DropZone
+                  id="main-start"
+                  isEditMode={editMode}
+                  label="Upuść tutaj kontener lub siatkę"
+                  className="min-h-[80px]"
+                />
+              )}
+              
+              {sections.filter(s => !s.parent_id).map((section, index, arr) => {
                 // Render row containers
                 if (section.section_type === 'row') {
                   return (
-                    <DraggableSection
-                      key={section.id}
-                      id={section.id}
-                      isEditMode={editMode}
-                      className="w-full"
-                    >
+                    <React.Fragment key={section.id}>
+                      <DraggableSection
+                        id={section.id}
+                        isEditMode={editMode}
+                        className="w-full"
+                      >
                       <RowContainer
                         row={section}
                         sections={sections}
@@ -2416,6 +2453,17 @@ export const LivePreviewEditor: React.FC = () => {
                         renderVersion={dragVersion}
                       />
                     </DraggableSection>
+                    
+                    {/* Drop zone between sections */}
+                    {editMode && index < arr.length - 1 && (
+                      <DropZone
+                        id={`main-between-${section.id}`}
+                        isEditMode={editMode}
+                        label="Upuść tutaj kontener lub siatkę"
+                        className="min-h-[60px]"
+                      />
+                    )}
+                  </React.Fragment>
                   );
                 }
 
@@ -2437,12 +2485,12 @@ export const LivePreviewEditor: React.FC = () => {
                 }
                 
                 return (
-                  <DraggableSection
-                    key={section.id}
-                    id={section.id}
-                    isEditMode={editMode}
-                    className="w-full"
-                  >
+                  <React.Fragment key={section.id}>
+                    <DraggableSection
+                      id={section.id}
+                      isEditMode={editMode}
+                      className="w-full"
+                    >
                     <RegularSectionContent
                       section={section}
                       sectionItems={sectionItems}
@@ -2461,8 +2509,29 @@ export const LivePreviewEditor: React.FC = () => {
                       onMoveItemDown={handleMoveItemDown}
                     />
                   </DraggableSection>
+                  
+                  {/* Drop zone between sections */}
+                  {editMode && index < arr.length - 1 && (
+                    <DropZone
+                      id={`main-between-${section.id}`}
+                      isEditMode={editMode}
+                      label="Upuść tutaj kontener lub siatkę"
+                      className="min-h-[60px]"
+                    />
+                  )}
+                </React.Fragment>
                 );
               })}
+              
+              {/* Drop zone at the end */}
+              {editMode && (
+                <DropZone
+                  id="main-end"
+                  isEditMode={editMode}
+                  label="Upuść tutaj kontener lub siatkę"
+                  className="min-h-[80px]"
+                />
+              )}
             </div>
           </SortableContext>
         </DragDropProvider>
