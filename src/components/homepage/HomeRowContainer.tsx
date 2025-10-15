@@ -1,6 +1,7 @@
 import React from 'react';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { CMSContent } from '@/components/CMSContent';
+import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 
@@ -82,6 +83,16 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                 });
               }
               
+              // Render helper function for items
+              const renderItem = (item: CMSItem, index: number) => {
+                // Special rendering for multi_cell items (Learn More section)
+                if (item.type === 'multi_cell') {
+                  return <LearnMoreItem key={item.id} item={item} itemIndex={index} />;
+                }
+                // Default rendering
+                return <CMSContent key={item.id} item={item} />;
+              };
+              
               return (
                 <CollapsibleSection
                   key={section.id}
@@ -149,17 +160,13 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                     }}>
                       {itemsByColumn.map((columnItems, colIdx) => (
                         <div key={colIdx} className="space-y-4">
-                          {columnItems.map(item => (
-                            <CMSContent key={item.id} item={item} />
-                          ))}
+                          {columnItems.map((item, idx) => renderItem(item, idx))}
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {sectionItems.map(item => (
-                        <CMSContent key={item.id} item={item} />
-                      ))}
+                      {sectionItems.map((item, idx) => renderItem(item, idx))}
                     </div>
                   )}
                 </CollapsibleSection>
