@@ -288,34 +288,88 @@ const Index = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto space-y-16 sm:space-y-20">
             {sections.filter(s => !s.parent_id).map((section) => {
+              // Handle row sections first
+              if (section.section_type === 'row') {
+                const rowColumnCount = section.row_column_count || 1;
+                const childSections = sections.filter(s => s.parent_id === section.id)
+                  .sort((a, b) => a.position - b.position);
+                
+                return (
+                  <div key={`row-${section.id}`} className="w-full">
+                    <div className="grid gap-4 lg:gap-6 w-full" style={{ gridTemplateColumns: `repeat(${rowColumnCount}, minmax(0, 1fr))` }}>
+                      {Array.from({ length: rowColumnCount }, (_, colIndex) => {
+                        const childSection = childSections[colIndex];
+                        if (!childSection) return <div key={`row-${section.id}-col-${colIndex}`} />;
+                        
+                        const childItems = items
+                          .filter(item => item.section_id === childSection.id && item.type !== 'header_text' && item.type !== 'author')
+                          .sort((a, b) => a.position - b.position);
+                        
+                        const maxColIndex = childItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
+                        const columnCount = Math.max(1, maxColIndex + 1);
+                        const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({
+                          id: `${childSection.id}-col-${i}`,
+                          items: [],
+                          width: 100 / columnCount,
+                        }));
+                        childItems.forEach((item) => {
+                          const ci = Math.min(columns.length - 1, Math.max(0, item.column_index || 0));
+                          columns[ci].items.push(item);
+                        });
+                        
+                        return (
+                          <div key={`row-${section.id}-col-${colIndex}`}>
+                            <CollapsibleSection
+                              title={childSection.title}
+                              description={childSection.description}
+                              defaultOpen={childSection.default_expanded || false}
+                              sectionStyle={childSection}
+                              variant="modern"
+                            >
+                              <ColumnLayout
+                                sectionId={childSection.id}
+                                columns={columns}
+                                isEditMode={false}
+                                onColumnsChange={() => {}}
+                                onItemClick={handleButtonClick}
+                                onSelectItem={() => {}}
+                              />
+                            </CollapsibleSection>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Get section items for regular sections
               const sectionItems = items
                 .filter(item => item.section_id === section.id && item.type !== 'header_text' && item.type !== 'author')
                 .sort((a, b) => a.position - b.position);
               
-              // Check section type by title
+              // Check section type by title for special styling
               const titleLower = section.title.toLowerCase();
               const isWelcome = titleLower.includes('witamy');
               const isTeam = titleLower.includes('zespół') || titleLower.includes('zesp');
               const isLearnMore = titleLower.includes('dowiedz');
               const isContact = titleLower.includes('kontakt');
               
-              // Flat section (Welcome)
-              if (isWelcome) {
+              // Flat section (Welcome) - only if has items
+              if (isWelcome && sectionItems.length > 0) {
                 return (
                   <section key={section.id} className="text-center">
                     <SectionTitle title={section.title} subtitle={section.description || undefined} />
-                    {sectionItems.length > 0 && (
-                      <div className="max-w-3xl mx-auto space-y-4">
-                        {sectionItems.map((item) => (
-                          <CMSContent key={item.id} item={item} onClick={handleButtonClick} />
-                        ))}
-                      </div>
-                    )}
+                    <div className="max-w-3xl mx-auto space-y-4">
+                      {sectionItems.map((item) => (
+                        <CMSContent key={item.id} item={item} onClick={handleButtonClick} />
+                      ))}
+                    </div>
                   </section>
                 );
               }
               
-              // Grid section (Team or Contact)
+              // Grid section (Team or Contact) - only if has items
               if ((isTeam || isContact) && sectionItems.length > 0) {
                 return (
                   <section key={section.id}>
@@ -331,7 +385,7 @@ const Index = () => {
                 );
               }
               
-              // List section (Learn More)
+              // List section (Learn More) - only if has items
               if (isLearnMore && sectionItems.length > 0) {
                 return (
                   <section key={section.id}>
@@ -349,7 +403,7 @@ const Index = () => {
                 );
               }
               
-              // Default: Collapsible section
+              // Default: Collapsible section (for ALL other sections)
               const maxColIndex = sectionItems.reduce((max, item) => Math.max(max, item.column_index ?? 0), 0);
               const columnCount = Math.max(1, maxColIndex + 1);
               const columns: Column[] = Array.from({ length: columnCount }, (_, i) => ({
