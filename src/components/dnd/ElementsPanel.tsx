@@ -86,7 +86,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card className={cn("w-80 h-full border-r rounded-none", className)}>
+    <Card className={cn("w-80 h-full border-r rounded-none touch-none", className)}>
       <CardContent className="p-0 h-full flex flex-col">
         <div className="p-4 border-b">
           <h2 className="text-lg font-bold text-center mb-4">Elementy</h2>
@@ -169,17 +169,18 @@ const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, ic
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      style={{ touchAction: 'none' }}
       className={cn(
         "flex flex-col items-center justify-center gap-2 p-4",
         "rounded-lg border bg-card hover:bg-accent transition-colors",
-        "cursor-grab active:cursor-grabbing group",
+        "cursor-grab active:cursor-grabbing group select-none",
         isDragging && "opacity-50"
       )}
     >
-      <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+      <div className="text-muted-foreground group-hover:text-foreground transition-colors pointer-events-none">
         {icon}
       </div>
-      <span className="text-xs text-center font-medium">
+      <span className="text-xs text-center font-medium pointer-events-none">
         {title}
       </span>
     </div>

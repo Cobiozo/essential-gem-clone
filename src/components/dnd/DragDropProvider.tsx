@@ -42,15 +42,15 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
 }) => {
   const pointerOptions = React.useMemo(() => ({
     activationConstraint: {
-      distance: 4,
+      distance: 8,
     },
   }), []);
   const pointerSensor = useSensor(PointerSensor, pointerOptions);
-  // Improved touch sensor for mobile devices
+  // Improved touch sensor for mobile devices - more permissive for better mobile UX
   const touchOptions = React.useMemo(() => ({
     activationConstraint: {
-      delay: 80,
-      tolerance: 6,
+      delay: 100,
+      tolerance: 8,
     },
   }), []);
   const touchSensor = useSensor(TouchSensor, touchOptions);
@@ -75,7 +75,7 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
       onDragEnd={onDragEnd}
       modifiers={modifiers}
       measuring={measuringConfig}
-      autoScroll={false}
+      autoScroll={{ threshold: { x: 0.2, y: 0.2 } }}
     >
       {children}
     </DndContext>

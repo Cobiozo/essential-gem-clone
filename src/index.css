@@ -99,6 +99,14 @@ All colors MUST be HSL.
     min-height: 100dvh;
   }
 
+  /* Drag and drop support for touch devices */
+  [data-dnd-draggable] {
+    touch-action: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   /* Disable image dragging and context menu globally */
   img, video {
     -webkit-user-drag: none;

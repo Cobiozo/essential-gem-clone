@@ -30,6 +30,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
   return (
     <div
       ref={setNodeRef}
+      style={{ touchAction: 'none' }}
       className={cn(
         "relative min-h-[40px] transition-all duration-200",
         isOver && "bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-400 border-dashed",
