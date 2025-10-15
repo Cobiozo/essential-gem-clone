@@ -23,6 +23,8 @@ import { ResponsiveControls, defaultResponsiveSettings } from './ResponsiveContr
 import { InactiveElementsManager } from './InactiveElementsManager';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { CMSContent } from '@/components/CMSContent';
+import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
+import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
 // import { DndDiagnostics } from './DndDiagnostics';
@@ -1548,16 +1550,7 @@ export const LivePreviewEditor: React.FC = () => {
                 }
 
                 // Render regular sections - match homepage display with white background
-                const columns = sectionColumns[section.id] || [{
-                  id: `${section.id}-col-0`,
-                  items: items.filter(item => item.section_id === section.id),
-                  width: 100,
-                }];
-                
                 const sectionItems = items.filter(item => item.section_id === section.id);
-                const containerClasses = section.display_type === 'grid' 
-                  ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8'
-                  : 'space-y-4';
                 
                 return (
                   <DraggableSection
@@ -1600,18 +1593,23 @@ export const LivePreviewEditor: React.FC = () => {
                           )}
                         </div>
                         
-                        {/* Section Items - render with proper layout */}
-                        <div className={containerClasses}>
-                          <ColumnLayout
-                            sectionId={section.id}
-                            columns={columns}
-                            isEditMode={editMode}
-                            onColumnsChange={(newColumns) => handleColumnsChange(section.id, newColumns)}
-                            onItemClick={() => {}}
-                            onSelectItem={(itemId) => setSelectedElement(itemId)}
-                            activeId={activeId}
-                            renderVersion={dragVersion}
-                          />
+                        {/* Section Items - render like homepage */}
+                        <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
+                          {sectionItems.map(item => {
+                            // Special rendering for info_text in grid sections
+                            if (item.type === 'info_text' && section.display_type === 'grid') {
+                              return <InfoTextItem key={item.id} item={item} />;
+                            }
+                            
+                            // Special rendering for multi_cell items
+                            if (item.type === 'multi_cell') {
+                              const itemIndex = sectionItems.findIndex(i => i.id === item.id);
+                              return <LearnMoreItem key={item.id} item={item} itemIndex={itemIndex} />;
+                            }
+                            
+                            // Default rendering
+                            return <CMSContent key={item.id} item={item} onClick={() => {}} />;
+                          })}
                         </div>
                       </div>
                     </div>
