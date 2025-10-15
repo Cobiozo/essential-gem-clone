@@ -19,22 +19,22 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
     return null;
   }
 
-  // Sortuj dzieci po position
-  const sortedChildren = [...children].sort((a, b) => (a.position || 0) - (b.position || 0));
+  // Use row_column_count as the number of columns
+  const columnCount = row.row_column_count || 1;
   
-  // Maksymalna liczba kolumn to albo row_column_count albo liczba dzieci
-  const actualColumnCount = Math.max(row.row_column_count || 1, sortedChildren.length);
-  
-  // Grupuj dzieci w kolumny sekwencyjnie (nie używaj position jako column index!)
+  // Create empty columns array
   const columns: CMSSection[][] = [];
-  for (let i = 0; i < actualColumnCount; i++) {
+  for (let i = 0; i < columnCount; i++) {
     columns[i] = [];
   }
   
-  // Przypisz każde dziecko do kolumny sekwencyjnie
-  sortedChildren.forEach((child, index) => {
-    const colIndex = index % actualColumnCount;
-    columns[colIndex].push(child);
+  // Assign each child to its column using position as direct column index
+  children.forEach((child) => {
+    const colIndex = child.position || 0;
+    // Only assign if the column index is valid
+    if (colIndex >= 0 && colIndex < columnCount) {
+      columns[colIndex].push(child);
+    }
   });
 
   // Style dla row container
@@ -47,10 +47,10 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
     borderRadius: row.border_radius ? `${row.border_radius}px` : undefined,
   };
 
-  // Grid styles dla kolumn - używaj actualColumnCount
+  // Grid styles dla kolumn - używaj columnCount
   const gridStyles: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: `repeat(${actualColumnCount}, 1fr)`,
+    gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
     gap: row.gap ? `${row.gap}px` : '24px',
     maxWidth: row.max_width ? `${row.max_width}px` : '1200px',
     margin: '0 auto',
