@@ -103,9 +103,10 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                       </h2>
                     )}
                     {section.description && (
-                      <p className="text-center text-gray-600 mb-6 max-w-3xl mx-auto">
-                        {section.description}
-                      </p>
+                      <div 
+                        className="text-center text-gray-600 mb-6 max-w-3xl mx-auto"
+                        dangerouslySetInnerHTML={{ __html: section.description }}
+                      />
                     )}
                     <div className="space-y-4">
                       {sectionItems.map((item, idx) => renderItem(item, idx))}
