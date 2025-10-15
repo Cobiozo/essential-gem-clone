@@ -13,6 +13,7 @@ import { convertSupabaseSections } from '@/lib/typeUtils';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
+import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 
 const Index = () => {
   const { user } = useAuth();
@@ -101,32 +102,28 @@ const Index = () => {
       if (mainPage) {
         setMainPageId(mainPage.id);
 
-        // Pobierz sekcje CMS dla strony głównej (tylko sekcje główne bez parent_id)
+        // Pobierz wszystkie sekcje CMS dla strony głównej (wiersze i zwykłe sekcje)
         const { data: sectionsData, error: sectionsError } = await supabase
           .from('cms_sections')
           .select('*')
           .eq('page_id', mainPage.id)
-          .is('parent_id', null)
           .eq('is_active', true)
           .order('position', { ascending: true });
 
         if (!sectionsError && sectionsData) {
-          setSections(convertSupabaseSections(sectionsData));
+          const allSections = convertSupabaseSections(sectionsData);
+          setSections(allSections);
 
-          // Pobierz sekcje zagnieżdżone dla każdej sekcji głównej
+          // Zgrupuj dzieci według parent_id
           const nestedSectionsData: {[key: string]: CMSSection[]} = {};
-          for (const section of sectionsData) {
-            const { data: nestedData, error: nestedError } = await supabase
-              .from('cms_sections')
-              .select('*')
-              .eq('parent_id', section.id)
-              .eq('is_active', true)
-              .order('position', { ascending: true });
-            
-            if (!nestedError && nestedData && nestedData.length > 0) {
-              nestedSectionsData[section.id] = convertSupabaseSections(nestedData);
+          allSections.forEach(section => {
+            if (section.parent_id) {
+              if (!nestedSectionsData[section.parent_id]) {
+                nestedSectionsData[section.parent_id] = [];
+              }
+              nestedSectionsData[section.parent_id].push(section);
             }
-          }
+          });
           setNestedSections(nestedSectionsData);
         }
 
@@ -242,7 +239,24 @@ const Index = () => {
       {/* Main Content - CMS Sections */}
       <main id="main-content" className="bg-white">
         {sections.length > 0 ? (
-          sections.map(section => renderCMSSection(section))
+          <>
+            {/* Renderuj wiersze z zagnieżdżonymi sekcjami */}
+            {sections
+              .filter(s => s.section_type === 'row' && !s.parent_id)
+              .map(row => (
+                <HomeRowContainer 
+                  key={row.id}
+                  row={row}
+                  children={nestedSections[row.id] || []}
+                  items={items}
+                />
+              ))}
+
+            {/* Renderuj płaskie sekcje (nowe stylizowane) */}
+            {sections
+              .filter(s => s.section_type === 'section' && !s.parent_id)
+              .map(section => renderCMSSection(section))}
+          </>
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-600">Ładowanie zawartości...</p>

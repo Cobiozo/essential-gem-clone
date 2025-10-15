@@ -175,7 +175,7 @@ export const LivePreviewEditor: React.FC = () => {
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('cms_sections')
         .select('*')
-        .is('page_id', null)
+        .eq('page_id', '8f3009d3-3167-423f-8382-3eab1dce8cb1')
         .eq('is_active', true)
         .order('position');
       
@@ -185,7 +185,7 @@ export const LivePreviewEditor: React.FC = () => {
       const { data: itemsData, error: itemsError } = await supabase
         .from('cms_items')
         .select('*')
-        .is('page_id', null)
+        .eq('page_id', '8f3009d3-3167-423f-8382-3eab1dce8cb1')
         .eq('is_active', true)
         .order('position');
       
