@@ -1023,6 +1023,7 @@ export const LivePreviewEditor: React.FC = () => {
     const { active, over } = event;
     console.log('[DragEnd] Active:', active.id, 'Over:', over?.id);
     console.log('[DragEnd] Active data:', active.data.current);
+    console.log('[DragEnd] Over data:', over?.data?.current);
     setActiveId(null);
 
     if (!over) {
@@ -1032,8 +1033,10 @@ export const LivePreviewEditor: React.FC = () => {
 
     // Check if dragging a new element from the panel
     const activeData = active.data.current;
+    console.log('[DragEnd] Checking if new element. activeData.type:', activeData?.type);
+    
     if (activeData?.type === 'new-element') {
-      console.log('[DragEnd] Dropping new element:', activeData.elementType);
+      console.log('[DragEnd] Dropping new element:', activeData.elementType, 'to:', over.id);
       await handleNewElementDrop(activeData.elementType, over.id as string);
       return;
     }
