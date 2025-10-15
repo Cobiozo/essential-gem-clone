@@ -18,9 +18,9 @@ const TeamSection = () => {
   ];
 
   return (
-    <section className="py-20 px-4 bg-gray-50">
+    <section className="py-12 px-4 bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <h2 className="text-4xl font-bold mb-6 text-black uppercase tracking-wide">
             Zespół "Pure Life"
           </h2>
@@ -30,7 +30,7 @@ const TeamSection = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-8">
           {features.map((feature, index) => (
             <div 
               key={index} 
