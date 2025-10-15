@@ -19,28 +19,23 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
     return null;
   }
 
-  // Oblicz rzeczywistą liczbę kolumn na podstawie unikalnych position dzieci
-  const uniquePositions = Array.from(new Set(children.map(c => c.position || 0)));
-  const actualColumnCount = Math.max(1, uniquePositions.length);
+  // Sortuj dzieci po position
+  const sortedChildren = [...children].sort((a, b) => (a.position || 0) - (b.position || 0));
   
-  // Grupuj dzieci po position (position = column index w starym systemie)
-  const columns: { [key: number]: CMSSection[] } = {};
+  // Maksymalna liczba kolumn to albo row_column_count albo liczba dzieci
+  const actualColumnCount = Math.max(row.row_column_count || 1, sortedChildren.length);
   
-  // Inicjalizuj kolumny
-  uniquePositions.forEach(pos => {
-    columns[pos] = [];
+  // Grupuj dzieci w kolumny sekwencyjnie (nie używaj position jako column index!)
+  const columns: CMSSection[][] = [];
+  for (let i = 0; i < actualColumnCount; i++) {
+    columns[i] = [];
+  }
+  
+  // Przypisz każde dziecko do kolumny sekwencyjnie
+  sortedChildren.forEach((child, index) => {
+    const colIndex = index % actualColumnCount;
+    columns[colIndex].push(child);
   });
-  
-  // Przypisz dzieci do kolumn
-  children.forEach(child => {
-    const colIndex = child.position || 0;
-    if (columns[colIndex]) {
-      columns[colIndex].push(child);
-    }
-  });
-
-  // Sortuj pozycje kolumn
-  const sortedPositions = uniquePositions.sort((a, b) => a - b);
 
   // Style dla row container
   const rowStyles: React.CSSProperties = {
@@ -64,9 +59,9 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   return (
     <div style={rowStyles} className="w-full">
       <div style={gridStyles}>
-        {sortedPositions.map(pos => (
-          <div key={pos} className="flex flex-col gap-4">
-            {columns[pos].map(section => {
+        {columns.map((columnSections, colIndex) => (
+          <div key={colIndex} className="flex flex-col gap-4">
+            {columnSections.map(section => {
               const sectionItems = items.filter(item => item.section_id === section.id);
               
               return (

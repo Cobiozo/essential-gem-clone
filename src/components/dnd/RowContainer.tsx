@@ -311,16 +311,14 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     console.log(`Row ${row.id} has ${childSectionCount} child sections but only ${columnCount} columns. Some sections may not be visible.`);
   }
 
-  // Sort children by position and assign to fixed column slots
+  // Sort children by position and assign to columns sequentially (not by position index!)
   const childSections = [...rawChildSections].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const slotSections: (CMSSection | undefined)[] = Array.from({ length: columnCount }, () => undefined);
-  childSections.forEach((child) => {
-    const pos = typeof child.position === 'number' ? child.position : 0;
-    if (pos >= 0 && pos < columnCount && !slotSections[pos]) {
-      slotSections[pos] = child;
-    } else {
-      const freeIndex = slotSections.findIndex((s) => !s);
-      if (freeIndex !== -1) slotSections[freeIndex] = child;
+  
+  // Assign each child to the next available column slot sequentially
+  childSections.forEach((child, index) => {
+    if (index < columnCount) {
+      slotSections[index] = child;
     }
   });
   const setColumnCount = (count: 1 | 2 | 3 | 4) => {
