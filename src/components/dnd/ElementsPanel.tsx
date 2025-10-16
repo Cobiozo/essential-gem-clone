@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
+import { ItemEditor } from '@/components/cms/ItemEditor';
+import {
   Search, 
   Type, 
   Image as ImageIcon, 
@@ -64,13 +65,23 @@ interface ElementsPanelProps {
   onElementClick?: (elementType: string) => void;
   panelMode?: 'elements' | 'properties';
   onPanelModeChange?: (mode: 'elements' | 'properties') => void;
+  editingItemId?: string | null;
+  editingItem?: any;
+  isItemEditorOpen?: boolean;
+  onSaveItem?: (updatedItem: Partial<any>) => Promise<void>;
+  onCancelEdit?: () => void;
 }
 
 export const ElementsPanel: React.FC<ElementsPanelProps> = ({ 
   className,
   onElementClick,
   panelMode = 'elements',
-  onPanelModeChange
+  onPanelModeChange,
+  editingItemId,
+  editingItem,
+  isItemEditorOpen,
+  onSaveItem,
+  onCancelEdit
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>('layout');
@@ -217,10 +228,20 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground text-center">
-              Panel właściwości będzie dostępny wkrótce
-            </p>
+          <div className="h-full">
+            {editingItem && onSaveItem && onCancelEdit ? (
+              <ItemEditor
+                item={editingItem}
+                sectionId={editingItem.section_id || ''}
+                onSave={onSaveItem}
+                onCancel={onCancelEdit}
+                isOpen={isItemEditorOpen || false}
+              />
+            ) : (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                Wybierz element do edycji
+              </div>
+            )}
           </div>
         )}
         </div>

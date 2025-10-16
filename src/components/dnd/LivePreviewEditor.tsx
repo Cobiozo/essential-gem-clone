@@ -936,12 +936,15 @@ export const LivePreviewEditor: React.FC = () => {
       let targetSectionId: string;
       let columnIndex = 0;
       
+      console.log('[handleNewElementDrop] 🎯 Analyzing targetId:', targetId);
+      
       if (targetId.includes('-col-')) {
-        // Dropped into a column
+        // Format: "{sectionId}-col-{index}" - Dropped into a specific column
         const match = targetId.match(/^(.+)-col-(\d+)$/);
         if (match) {
           targetSectionId = match[1];
           columnIndex = parseInt(match[2], 10);
+          console.log('[handleNewElementDrop] ✅ Dropped into column:', { targetSectionId, columnIndex });
         } else {
           toast({ title: 'Błąd', description: 'Nieprawidłowy cel', variant: 'destructive' });
           return;
@@ -993,8 +996,11 @@ export const LivePreviewEditor: React.FC = () => {
           console.log('[handleNewElementDrop] Created new section in row:', targetSectionId);
         }
       } else {
-        // Dropped into a section
+        // Format: "{sectionId}" - Dropped directly into a section (no column)
+        // This is the most common case for regular sections
         targetSectionId = targetId;
+        columnIndex = 0;
+        console.log('[handleNewElementDrop] ✅ Dropped directly into section:', { targetSectionId, columnIndex });
       }
 
       // Find the target section
@@ -2426,7 +2432,18 @@ export const LivePreviewEditor: React.FC = () => {
                     setPanelMode(mode);
                     if (mode === 'elements') {
                       setSelectedElementForPanel(null);
+                      setIsItemEditorOpen(false);
+                      setEditingItemId(null);
                     }
+                  }}
+                  editingItemId={editingItemId}
+                  editingItem={items.find(i => i.id === editingItemId)}
+                  isItemEditorOpen={isItemEditorOpen}
+                  onSaveItem={handleSaveItem}
+                  onCancelEdit={() => {
+                    setIsItemEditorOpen(false);
+                    setEditingItemId(null);
+                    setPanelMode('elements');
                   }}
                 />
               </div>
@@ -2585,19 +2602,7 @@ export const LivePreviewEditor: React.FC = () => {
         refreshKey={inactiveRefresh}
       />
       
-      {/* Item Editor Dialog */}
-      {editingItemId && (
-        <ItemEditor
-          item={items.find(i => i.id === editingItemId)}
-          sectionId={items.find(i => i.id === editingItemId)?.section_id || ''}
-          onSave={handleSaveItem}
-          onCancel={() => {
-            setIsItemEditorOpen(false);
-            setEditingItemId(null);
-          }}
-          isOpen={isItemEditorOpen}
-        />
-      )}
+      {/* Item Editor Dialog - REMOVED, now in sidebar */}
     </div>
   );
 };
