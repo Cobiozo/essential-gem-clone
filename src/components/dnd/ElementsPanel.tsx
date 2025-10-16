@@ -84,7 +84,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   onCancelEdit
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategory, setExpandedCategory] = useState<string | null>('layout');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['layout', 'basic']);
 
   const layoutElements: ElementCategory = {
     id: 'layout',
@@ -202,8 +202,14 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                     <CollapsibleSection
                       key={category.id}
                       title={category.title}
-                      isOpen={expandedCategory === category.id}
-                      onOpenChange={(open) => setExpandedCategory(open ? category.id : null)}
+                      isOpen={expandedCategories.includes(category.id)}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          setExpandedCategories([...expandedCategories, category.id]);
+                        } else {
+                          setExpandedCategories(expandedCategories.filter(id => id !== category.id));
+                        }
+                      }}
                       className="border-b pb-2"
                     >
                       <div className="grid grid-cols-2 gap-2 mt-2">
