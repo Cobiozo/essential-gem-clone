@@ -105,6 +105,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
       { id: 'text', title: 'Edytor tekstu', icon: <AlignLeft className="w-8 h-8" />, type: 'text' },
       { id: 'video', title: 'Film', icon: <Video className="w-8 h-8" />, type: 'video' },
       { id: 'button', title: 'Przycisk', icon: <MousePointer2 className="w-8 h-8" />, type: 'button' },
+      { id: 'info-text', title: 'Tekst informacyjny', icon: <Info className="w-8 h-8" />, type: 'info_text' },
       { id: 'divider', title: 'Rozdzielacz', icon: <Minus className="w-8 h-8" />, type: 'divider' },
       { id: 'spacer', title: 'Odstęp', icon: <AlignLeft className="w-8 h-8 rotate-90" />, type: 'spacer' },
       { id: 'maps', title: 'Mapy Google', icon: <MapPin className="w-8 h-8" />, type: 'maps' },

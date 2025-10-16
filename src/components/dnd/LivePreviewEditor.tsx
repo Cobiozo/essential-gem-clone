@@ -685,6 +685,9 @@ export const LivePreviewEditor: React.FC = () => {
       case 'icon':
         return [{ type: 'lucide_icon', content: 'Star' }];
       
+      case 'info_text':
+        return [{ type: 'info_text', content: 'Nowy tekst informacyjny' }];
+      
       // Layout elements - nie powinny być używane tutaj, ale dla bezpieczeństwa
       case 'container':
         console.warn('[createDefaultContent] WARNING: container should create section, not item');
@@ -756,6 +759,7 @@ export const LivePreviewEditor: React.FC = () => {
       image: 'Obrazek',
       video: 'Film',
       button: 'Przycisk',
+      info_text: 'Tekst informacyjny',
       divider: 'Rozdzielacz',
       spacer: 'Odstęp',
       maps: 'Mapa',
@@ -1049,6 +1053,13 @@ export const LivePreviewEditor: React.FC = () => {
           column_index: columnIndex,
           is_active: true,
           cells: defaultContent as any,
+          // ✅ Dodaj domyślne wartości dla info_text
+          ...(elementType === 'info_text' && {
+            icon: 'Star',
+            title: 'Nowy tytuł',
+            description: 'Nowy opis',
+            url: ''
+          })
         }])
         .select()
         .single();
@@ -1411,12 +1422,31 @@ export const LivePreviewEditor: React.FC = () => {
     const sourceCol = newSectionColumns[activeItemLocation.sectionId][activeItemLocation.colIndex];
     const [movedItem] = sourceCol.items.splice(activeItemLocation.itemIndex, 1);
 
-    // Update item's section_id and column_index
+    console.log('[DragEnd] Moving item:', { 
+      id: movedItem.id, 
+      type: movedItem.type,
+      icon: movedItem.icon,
+      title: movedItem.title,
+      description: movedItem.description,
+      url: movedItem.url,
+      allFields: Object.keys(movedItem)
+    });
+
+    // Update item's section_id and column_index - PRESERVE ALL FIELDS
     const updatedItem: any = {
       ...movedItem,
       section_id: targetSectionId,
       column_index: targetColIndex,
     };
+    
+    console.log('[DragEnd] Updated item:', {
+      id: updatedItem.id,
+      type: updatedItem.type,
+      icon: updatedItem.icon,
+      title: updatedItem.title,
+      description: updatedItem.description,
+      url: updatedItem.url
+    });
 
     // Add to target
     const targetCol = newSectionColumns[targetSectionId]?.[targetColIndex];
