@@ -125,15 +125,72 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
         <div className="max-w-6xl mx-auto">
           <div className="space-y-4 py-6">
             {section.title && (
-              <h2 className="text-3xl font-bold text-center mb-8" style={{ color: section.text_color || 'inherit' }}>
-                {section.title}
-              </h2>
+              <div className="relative group inline-block w-full mb-8">
+                {editMode && (
+                  <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectElement(section.id);
+                      }}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                <h2 
+                  className={cn(
+                    "text-3xl font-bold text-center",
+                    editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
+                  )}
+                  style={{ color: section.text_color || 'inherit' }}
+                  onClick={(e) => {
+                    if (editMode) {
+                      e.stopPropagation();
+                      onSelectElement(section.id);
+                    }
+                  }}
+                  title={editMode ? "Kliknij aby edytować" : undefined}
+                >
+                  {section.title}
+                </h2>
+              </div>
             )}
             {section.description && (
-              <div 
-                className="text-center text-gray-600 mb-6 max-w-3xl mx-auto"
-                dangerouslySetInnerHTML={{ __html: section.description }}
-              />
+              <div className="relative group inline-block max-w-3xl mx-auto mb-6">
+                {editMode && (
+                  <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectElement(section.id);
+                      }}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                <div 
+                  className={cn(
+                    "text-center text-gray-600",
+                    editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
+                  )}
+                  dangerouslySetInnerHTML={{ __html: section.description }}
+                  onClick={(e) => {
+                    if (editMode) {
+                      e.stopPropagation();
+                      onSelectElement(section.id);
+                    }
+                  }}
+                  title={editMode ? "Kliknij aby edytować" : undefined}
+                />
+              </div>
             )}
             <div className="space-y-4">
               {sectionItems.map((item, itemIdx) => {
@@ -215,15 +272,69 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-10">
-          <h2 
-            className="text-4xl font-bold mb-6 text-black uppercase tracking-wide"
-            dangerouslySetInnerHTML={{ __html: section.title || '' }}
-          />
-          {section.description && (
-            <p 
-              className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: section.description }}
+          <div className="relative group inline-block w-full">
+            {editMode && (
+              <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectElement(section.id);
+                  }}
+                >
+                  <Edit3 className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            <h2 
+              className={cn(
+                "text-4xl font-bold mb-6 text-black uppercase tracking-wide",
+                editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
+              )}
+              dangerouslySetInnerHTML={{ __html: section.title || '' }}
+              onClick={(e) => {
+                if (editMode) {
+                  e.stopPropagation();
+                  onSelectElement(section.id);
+                }
+              }}
+              title={editMode ? "Kliknij aby edytować" : undefined}
             />
+          </div>
+          {section.description && (
+            <div className="relative group inline-block max-w-3xl mx-auto">
+              {editMode && (
+                <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectElement(section.id);
+                    }}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <p 
+                className={cn(
+                  "text-gray-600 text-lg leading-relaxed",
+                  editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
+                )}
+                dangerouslySetInnerHTML={{ __html: section.description }}
+                onClick={(e) => {
+                  if (editMode) {
+                    e.stopPropagation();
+                    onSelectElement(section.id);
+                  }
+                }}
+                title={editMode ? "Kliknij aby edytować" : undefined}
+              />
+            </div>
           )}
         </div>
         
