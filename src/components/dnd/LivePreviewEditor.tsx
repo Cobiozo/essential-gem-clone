@@ -954,12 +954,9 @@ export const LivePreviewEditor: React.FC = () => {
               targetSectionId = newSectionData.id;
               columnIndex = 0;
               
-              // Update local state and mark as newly created
+              // Update local state
               const newSection = newSectionData as any;
               setSections(prev => [...prev, newSection]);
-              
-              // Add to temporary tracking for validation below
-              sections.push(newSection);
               
               console.log('[handleNewElementDrop] ✅ Created new section in row column:', targetSectionId);
             }
@@ -1014,12 +1011,9 @@ export const LivePreviewEditor: React.FC = () => {
           targetSectionId = newSectionData.id;
           columnIndex = 0;
           
-          // Update local state and mark as newly created
+          // Update local state
           const newSection = newSectionData as any;
           setSections(prev => [...prev, newSection]);
-          
-          // Add to temporary tracking for validation below
-          sections.push(newSection);
           
           console.log('[handleNewElementDrop] Created new section in row:', targetSectionId);
         }
@@ -1031,12 +1025,14 @@ export const LivePreviewEditor: React.FC = () => {
         console.log('[handleNewElementDrop] ✅ Dropped directly into section:', { targetSectionId, columnIndex });
       }
 
-      // Find the target section
-      const targetSection = sections.find(s => s.id === targetSectionId);
-      if (!targetSection) {
+      // Validate targetSectionId exists (no need to find in array if just created)
+      if (!targetSectionId) {
+        console.error('[handleNewElementDrop] targetSectionId is undefined');
         toast({ title: 'Błąd', description: 'Nie znaleziono sekcji docelowej', variant: 'destructive' });
         return;
       }
+      
+      console.log('[handleNewElementDrop] Using target section:', targetSectionId);
 
       // Get existing items in target section/column
       const existingItems = items.filter(it => 
