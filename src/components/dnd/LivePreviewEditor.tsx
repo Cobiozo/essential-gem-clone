@@ -81,6 +81,11 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
   // Make the section droppable so elements can be dropped into it
   const { setNodeRef, isOver } = useDroppable({
     id: section.id,
+    data: {
+      type: 'section',
+      sectionId: section.id,
+      columnIndex: 0, // Default to first column
+    },
     disabled: !editMode,
   });
 
@@ -766,8 +771,8 @@ export const LivePreviewEditor: React.FC = () => {
     return names[elementType] || 'Element';
   };
 
-  const handleNewElementDrop = async (elementType: string, targetId: string) => {
-    console.log('[handleNewElementDrop] Element type:', elementType, 'Target:', targetId);
+  const handleNewElementDrop = async (elementType: string, targetId: string, overData?: any) => {
+    console.log('[handleNewElementDrop] Element type:', elementType, 'Target:', targetId, 'OverData:', overData);
     
     try {
       // Check if this is a layout element that should create a section
@@ -882,19 +887,34 @@ export const LivePreviewEditor: React.FC = () => {
       let targetSectionId: string;
       let columnIndex = 0;
       
-      if (targetId.includes('-col-')) {
-        // Dropped into a column
+      console.log('[handleNewElementDrop] Processing regular element, overData:', overData);
+      
+      if (overData?.type === 'column') {
+        // Dropped into a column in ColumnLayout
+        targetSectionId = overData.sectionId;
+        columnIndex = overData.columnIndex;
+        console.log('[handleNewElementDrop] Dropped on column:', { targetSectionId, columnIndex });
+      } else if (overData?.type === 'section') {
+        // Dropped into a regular section
+        targetSectionId = overData.sectionId;
+        columnIndex = overData.columnIndex || 0;
+        console.log('[handleNewElementDrop] Dropped on section:', { targetSectionId, columnIndex });
+      } else if (targetId.includes('-col-')) {
+        // Fallback: Parse targetId if it contains column info
         const match = targetId.match(/^(.+)-col-(\d+)$/);
         if (match) {
           targetSectionId = match[1];
           columnIndex = parseInt(match[2], 10);
+          console.log('[handleNewElementDrop] Parsed from targetId:', { targetSectionId, columnIndex });
         } else {
           toast({ title: 'Błąd', description: 'Nieprawidłowy cel', variant: 'destructive' });
           return;
         }
       } else {
-        // Dropped into a section
+        // Fallback: Use targetId as section id
         targetSectionId = targetId;
+        columnIndex = 0;
+        console.log('[handleNewElementDrop] Using targetId as sectionId:', { targetSectionId, columnIndex });
       }
 
       // Find the target section
@@ -1024,9 +1044,15 @@ export const LivePreviewEditor: React.FC = () => {
 
     // Check if dragging a new element from the panel
     const activeData = active.data.current;
+    const dropOverData = over.data?.current;
+    
+    console.log('[DragEnd] Active data:', activeData);
+    console.log('[DragEnd] Over data:', dropOverData);
+    console.log('[DragEnd] Over ID:', over.id);
+    
     if (activeData?.type === 'new-element') {
-      console.log('[DragEnd] Dropping new element:', activeData.elementType);
-      await handleNewElementDrop(activeData.elementType, over.id as string);
+      console.log('[DragEnd] Dropping new element:', activeData.elementType, 'to:', over.id);
+      await handleNewElementDrop(activeData.elementType, over.id as string, dropOverData);
       return;
     }
 
