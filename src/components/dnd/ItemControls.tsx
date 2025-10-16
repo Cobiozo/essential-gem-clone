@@ -60,38 +60,6 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
         </Button>
       )}
       
-      {onMoveUp && (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMoveUp();
-          }}
-          disabled={!canMoveUp}
-          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-30"
-          title="Przesuń w górę"
-        >
-          <MoveUp className="w-3.5 h-3.5" />
-        </Button>
-      )}
-      
-      {onMoveDown && (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMoveDown();
-          }}
-          disabled={!canMoveDown}
-          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 disabled:opacity-30"
-          title="Przesuń w dół"
-        >
-          <MoveDown className="w-3.5 h-3.5" />
-        </Button>
-      )}
-      
       <Button
         size="sm"
         variant="ghost"
