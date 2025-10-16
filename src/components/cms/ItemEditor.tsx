@@ -3,6 +3,7 @@ import { CMSItem } from '@/types/cms';
 import { ButtonEditor } from './editors/ButtonEditor';
 import { ImageEditor } from './editors/ImageEditor';
 import { InfoTextEditor } from './editors/InfoTextEditor';
+import { AccordionEditor } from './editors/AccordionEditor';
 import { GenericEditor } from './editors/GenericEditor';
 
 interface ItemEditorProps {
@@ -45,6 +46,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'info_text':
       return <InfoTextEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'accordion':
+      return <AccordionEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types

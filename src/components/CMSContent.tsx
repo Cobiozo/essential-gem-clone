@@ -411,16 +411,31 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       );
 
     case 'accordion':
-      const accordionCell = (item.cells as any[])?.[0];
-      if ((!accordionCell?.items || accordionCell.items.length === 0) && isEditMode) {
+      // Parse accordion items from cells with section_title/section_description
+      const accordionItems = item.cells?.map(cell => ({
+        title: cell.section_title || '',
+        content: cell.section_description || ''
+      })) || [];
+      
+      if (accordionItems.length === 0 && isEditMode) {
         return (
           <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
             <p className="text-sm font-medium text-primary">📋 Accordion - Kliknij Edytuj aby dodać sekcje</p>
           </div>
         );
       }
+      
+      // Render accordion with optional title and description
       return (
-        <AccordionElement items={accordionCell?.items || []} />
+        <div>
+          {item.title && (
+            <h3 className="text-2xl font-bold text-center mb-4">{item.title}</h3>
+          )}
+          {item.description && (
+            <p className="text-center text-muted-foreground mb-6">{item.description}</p>
+          )}
+          <AccordionElement items={accordionItems} />
+        </div>
       );
 
     case 'toggle':
