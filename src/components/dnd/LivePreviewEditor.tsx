@@ -1053,45 +1053,12 @@ export const LivePreviewEditor: React.FC = () => {
         cells: cellsData
       };
       
-      const newItems = [...items, convertedItem];
-      console.log('[handleNewElementDrop] Setting new items:', newItems.length, 'items');
-      setItems(newItems);
-      console.log('[handleNewElementDrop] Items state updated');
-      saveToHistory(sections, newItems);
-      setHasUnsavedChanges(true);
-
-      // Reinitialize columns and force re-render
-      console.log('[handleNewElementDrop] Initializing columns');
-      initializeColumns(sections, newItems);
-      console.log('[handleNewElementDrop] Columns initialized');
+      console.log('[handleNewElementDrop] ✅ Item created in DB, refreshing data...');
       
-      console.log('[handleNewElementDrop] Before dragVersion increment:', dragVersion);
-      setDragVersion(prev => {
-        const newVersion = prev + 1;
-        console.log('[handleNewElementDrop] Setting dragVersion to:', newVersion);
-        return newVersion;
-      });
-
-      console.log('[handleNewElementDrop] ✅ Item added successfully:', {
-        id: convertedItem.id,
-        type: convertedItem.type,
-        section_id: convertedItem.section_id,
-        column_index: columnIndex,
-        position: newPosition,
-        totalItems: newItems.length,
-        itemsInSection: newItems.filter(i => i.section_id === targetSectionId).length
-      });
-
-      console.log('[handleNewElementDrop] All items after add:', 
-        newItems.map(i => ({ id: i.id, type: i.type, section_id: i.section_id, column_index: (i as any).column_index }))
-      );
+      // Odśwież dane z bazy aby zapewnić synchronizację
+      await fetchData();
       
-      // Force a complete re-render by triggering section state update
-      console.log('[handleNewElementDrop] Forcing sections re-render');
-      setSections(prev => {
-        console.log('[handleNewElementDrop] Sections array cloned for re-render');
-        return [...prev];
-      });
+      console.log('[handleNewElementDrop] ✅ Data refreshed, element should now be visible');
 
       toast({ 
         title: '✅ Element dodany', 
