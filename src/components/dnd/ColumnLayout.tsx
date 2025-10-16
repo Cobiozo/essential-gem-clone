@@ -9,6 +9,7 @@ import { CMSContent } from '@/components/CMSContent';
 import { CMSItem } from '@/types/cms';
 import { ItemControls } from './ItemControls';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
+import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 
 interface Column {
   id: string;
@@ -31,6 +32,7 @@ interface ColumnLayoutProps {
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
+  displayType?: string | null;
 }
 
 export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
@@ -48,6 +50,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
+  displayType,
 }) => {
   
 
@@ -197,6 +200,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             onDuplicateItem={onDuplicateItem}
             onMoveItemUp={onMoveItemUp}
             onMoveItemDown={onMoveItemDown}
+            displayType={displayType}
           />
         ))}
       </div>
@@ -219,6 +223,7 @@ interface ColumnDropZoneProps {
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
+  displayType?: string | null;
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
@@ -236,6 +241,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
+  displayType,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -293,20 +299,28 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           )}
           
 {column.items.filter((item) => !!item.id).map((item, itemIdx) => {
-  // Special rendering for multi_cell items (Learn More section)
-  const itemContent = item.type === 'multi_cell' ? (
-    <LearnMoreItem 
-      item={item} 
-      itemIndex={itemIdx}
-      isExpanded={false}
-      onToggle={() => {}}
-    />
-  ) : (
-    <CMSContent
-      item={item}
-      onClick={onItemClick || (() => {})}
-    />
-  );
+  // Special rendering for info_text in grid display
+  let itemContent;
+  if (item.type === 'info_text' && displayType === 'grid') {
+    itemContent = <InfoTextItem item={item} />;
+  } else if (item.type === 'multi_cell') {
+    // Special rendering for multi_cell items (Learn More section)
+    itemContent = (
+      <LearnMoreItem 
+        item={item} 
+        itemIndex={itemIdx}
+        isExpanded={false}
+        onToggle={() => {}}
+      />
+    );
+  } else {
+    itemContent = (
+      <CMSContent
+        item={item}
+        onClick={onItemClick || (() => {})}
+      />
+    );
+  }
   
   if (isEditMode) {
     return (

@@ -13,6 +13,7 @@ import { ColumnLayout } from './ColumnLayout';
 import { CMSContent } from '@/components/CMSContent';
 import { ItemControls } from './ItemControls';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
+import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 
 // Extracted to avoid re-mount loops of inline components causing DnD measuring cascades
 interface RowColumnDropZoneProps {
@@ -38,6 +39,7 @@ interface RowColumnDropZoneProps {
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
+  rowDisplayType?: string | null;
 }
 
 const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
@@ -63,6 +65,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
+  rowDisplayType,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `${rowId}-col-${columnIndex}`,
@@ -100,17 +103,22 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
       {columnItems.length > 0 && (
         <div className="space-y-2 mb-4">
           {columnItems.map((item, itemIdx) => {
-            // Special rendering for multi_cell items (Learn More section)
-            const itemContent = item.type === 'multi_cell' ? (
-              <LearnMoreItem 
-                item={item} 
-                itemIndex={itemIdx}
-                isExpanded={false}
-                onToggle={() => {}}
-              />
-            ) : (
-              <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />
-            );
+            // Special rendering based on item type and row display_type
+            let itemContent;
+            if (item.type === 'info_text' && rowDisplayType === 'grid') {
+              itemContent = <InfoTextItem item={item} />;
+            } else if (item.type === 'multi_cell') {
+              itemContent = (
+                <LearnMoreItem 
+                  item={item} 
+                  itemIndex={itemIdx}
+                  isExpanded={false}
+                  onToggle={() => {}}
+                />
+              );
+            } else {
+              itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />;
+            }
             
             return (
               <DraggableItem
@@ -242,6 +250,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                     onDuplicateItem={onDuplicateItem}
                     onMoveItemUp={onMoveItemUp}
                     onMoveItemDown={onMoveItemDown}
+                    displayType={slotSection.display_type}
                   />
                 </CollapsibleSection>
               </DraggableSection>
@@ -322,6 +331,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                   onDuplicateItem={onDuplicateItem}
                   onMoveItemUp={onMoveItemUp}
                   onMoveItemDown={onMoveItemDown}
+                  displayType={slotSection.display_type}
                 />
             </CollapsibleSection>
           )}
@@ -561,6 +571,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 onDuplicateItem={onDuplicateItem}
                 onMoveItemUp={onMoveItemUp}
                 onMoveItemDown={onMoveItemDown}
+                rowDisplayType={row.display_type}
               />
             );
           })}
