@@ -790,6 +790,9 @@ export const LivePreviewEditor: React.FC = () => {
       case 'grid':
         console.warn('[createDefaultContent] WARNING: grid should create section, not item');
         return [{ type: 'grid', content: 'BŁĄD: To powinno być sekcją' }];
+      case 'pure-life-container':
+        console.warn('[createDefaultContent] WARNING: pure-life-container should create section, not item');
+        return [{ type: 'pure-life-container', content: 'BŁĄD: To powinno być sekcją' }];
       
       // Ogólne elementy
       case 'image-field':
@@ -861,6 +864,7 @@ export const LivePreviewEditor: React.FC = () => {
       icon: 'Ikonka',
       container: 'Kontener',
       grid: 'Siatka',
+      'pure-life-container': 'Pure Life',
       // Ogólne elementy
       'image-field': 'Pole obrazka',
       'icon-field': 'Pole ikonki',
@@ -895,7 +899,7 @@ export const LivePreviewEditor: React.FC = () => {
     
     try {
       // Check if this is a layout element that should create a section
-      const layoutElements = ['container', 'grid'];
+      const layoutElements = ['container', 'grid', 'pure-life-container'];
       
     if (layoutElements.includes(elementType)) {
       console.log('[handleNewElementDrop] Creating layout section for:', elementType);
@@ -971,15 +975,25 @@ export const LivePreviewEditor: React.FC = () => {
         let sectionType: 'row' | 'section' = 'row'; // Both should be rows now
         let rowColumnCount = 1;
         let rowLayoutType: 'equal' | 'custom' = 'equal';
+        let displayType: string | null = null;
+        let sectionTitle = 'Nowa sekcja';
         
         if (elementType === 'container') {
           // Container = simple row with 1 column
           rowColumnCount = 1;
           rowLayoutType = 'equal';
+          sectionTitle = 'Nowy kontener';
         } else if (elementType === 'grid') {
           // Grid = row with multiple columns (default 3)
           rowColumnCount = 3;
           rowLayoutType = 'equal';
+          sectionTitle = 'Nowa siatka';
+        } else if (elementType === 'pure-life-container') {
+          // Pure Life Container = grid display type with 3 columns for info_text elements
+          rowColumnCount = 3;
+          rowLayoutType = 'equal';
+          displayType = 'grid';
+          sectionTitle = 'Pure Life';
         }
         
         console.log('[handleNewElementDrop] Creating row at position:', insertPosition, 'with columns:', rowColumnCount);
@@ -994,7 +1008,8 @@ export const LivePreviewEditor: React.FC = () => {
             position: insertPosition,
             parent_id: null,
             is_active: true,
-            title: elementType === 'container' ? 'Nowy kontener' : 'Nowa siatka',
+            title: sectionTitle,
+            display_type: displayType,
             width_type: 'full',
             height_type: 'auto',
           }])

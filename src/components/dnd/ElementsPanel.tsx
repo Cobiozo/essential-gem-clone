@@ -93,6 +93,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     items: [
       { id: 'container', title: 'Kontener', icon: <Box className="w-8 h-8" />, type: 'container' },
       { id: 'grid', title: 'Siatka', icon: <Grid3X3 className="w-8 h-8" />, type: 'grid' },
+      { id: 'pure-life-container', title: 'Pure Life', icon: <Grid3X3 className="w-8 h-8 text-blue-500" />, type: 'pure-life-container' },
     ]
   };
 
