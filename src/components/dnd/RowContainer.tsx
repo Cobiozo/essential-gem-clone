@@ -78,17 +78,19 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
     }];
   }, [slotSection, sectionColumns, items]);
   
+  // Debug logging
+  React.useEffect(() => {
+    console.log(`[RowColumnDropZone] ${rowId}-col-${columnIndex}:`, { isOver, isEditMode, hasSlotSection: !!slotSection, itemsCount: columnItems.length });
+  }, [isOver, isEditMode]);
+  
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'min-h-[200px] transition-all duration-200 relative',
-        isEditMode && 'border-2 border-dashed rounded-lg p-4',
-        // Zawsze pokazuj border gdy w trybie edycji
-        isEditMode && !isOver && (slotSection || columnItems.length > 0) && 'border-border/30',
-        isEditMode && !isOver && !slotSection && columnItems.length === 0 && 'border-border/50',
-        // Wyraźne podświetlenie podczas hover
-        isEditMode && isOver && 'bg-primary/10 ring-4 ring-primary border-primary shadow-lg',
+        'min-h-[200px] transition-all duration-200',
+        isEditMode && 'border-2 border-dashed border-border/50 rounded-lg p-4',
+        isEditMode && isOver && 'bg-orange-100 ring-2 ring-orange-500 border-orange-500',
+        isEditMode && (slotSection || columnItems.length > 0) && !isOver && 'border-border/30',
         (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) && 'shrink-0'
       )}
       style={{ width: (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) ? columnWidth : undefined }}
