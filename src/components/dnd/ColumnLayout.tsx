@@ -8,6 +8,7 @@ import { DraggableItem } from './DraggableItem';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSItem } from '@/types/cms';
 import { ItemControls } from './ItemControls';
+import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 
 interface Column {
   id: string;
@@ -292,6 +293,21 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
           )}
           
 {column.items.filter((item) => !!item.id).map((item, itemIdx) => {
+  // Special rendering for multi_cell items (Learn More section)
+  const itemContent = item.type === 'multi_cell' ? (
+    <LearnMoreItem 
+      item={item} 
+      itemIndex={itemIdx}
+      isExpanded={false}
+      onToggle={() => {}}
+    />
+  ) : (
+    <CMSContent
+      item={item}
+      onClick={onItemClick || (() => {})}
+    />
+  );
+  
   if (isEditMode) {
     return (
       <DraggableItem
@@ -326,20 +342,14 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
               canMoveDown={itemIdx < column.items.length - 1}
             />
           )}
-          <CMSContent
-            item={item}
-            onClick={onItemClick || (() => {})}
-          />
+          {itemContent}
         </div>
       </DraggableItem>
     );
   } else {
     return (
       <div key={item.id}>
-        <CMSContent
-          item={item}
-          onClick={onItemClick || (() => {})}
-        />
+        {itemContent}
       </div>
     );
   }

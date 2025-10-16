@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ColumnLayout } from './ColumnLayout';
 import { CMSContent } from '@/components/CMSContent';
 import { ItemControls } from './ItemControls';
+import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 
 // Extracted to avoid re-mount loops of inline components causing DnD measuring cascades
 interface RowColumnDropZoneProps {
@@ -98,36 +99,50 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
       {/* ✅ Najpierw renderuj elementy bezpośrednio w kolumnie row - TERAZ DRAGGABLE */}
       {columnItems.length > 0 && (
         <div className="space-y-2 mb-4">
-          {columnItems.map((item, itemIdx) => (
-            <DraggableItem
-              key={item.id}
-              id={item.id as string}
-              isEditMode={isEditMode}
-            >
-              <div 
-                className="relative group"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!activeId && onSelectSection) {
-                    onSelectSection(item.id as string);
-                  }
-                }}
+          {columnItems.map((item, itemIdx) => {
+            // Special rendering for multi_cell items (Learn More section)
+            const itemContent = item.type === 'multi_cell' ? (
+              <LearnMoreItem 
+                item={item} 
+                itemIndex={itemIdx}
+                isExpanded={false}
+                onToggle={() => {}}
+              />
+            ) : (
+              <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />
+            );
+            
+            return (
+              <DraggableItem
+                key={item.id}
+                id={item.id as string}
+                isEditMode={isEditMode}
               >
-                {isEditMode && onEditItem && onDeleteItem && (
-                  <ItemControls
-                    onEdit={() => onEditItem(item.id as string)}
-                    onDelete={() => onDeleteItem(item.id as string)}
-                    onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                    onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                    onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                    canMoveUp={itemIdx > 0}
-                    canMoveDown={itemIdx < columnItems.length - 1}
-                  />
-                )}
-                <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />
-              </div>
-            </DraggableItem>
-          ))}
+                <div 
+                  className="relative group"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!activeId && onSelectSection) {
+                      onSelectSection(item.id as string);
+                    }
+                  }}
+                >
+                  {isEditMode && onEditItem && onDeleteItem && (
+                    <ItemControls
+                      onEdit={() => onEditItem(item.id as string)}
+                      onDelete={() => onDeleteItem(item.id as string)}
+                      onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                      onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                      onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                      canMoveUp={itemIdx > 0}
+                      canMoveDown={itemIdx < columnItems.length - 1}
+                    />
+                  )}
+                  {itemContent}
+                </div>
+              </DraggableItem>
+            );
+          })}
         </div>
       )}
       
