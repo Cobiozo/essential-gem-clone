@@ -973,21 +973,29 @@ export const LivePreviewEditor: React.FC = () => {
       }
 
       // Find the target section
+      console.log('[handleNewElementDrop] Looking for section:', targetSectionId, 'in', sections.length, 'sections');
       const targetSection = sections.find(s => s.id === targetSectionId);
+      console.log('[handleNewElementDrop] Found target section:', targetSection ? targetSection.title : 'NOT FOUND');
+      
       if (!targetSection) {
+        console.error('[handleNewElementDrop] Section not found!', { targetSectionId, availableSections: sections.map(s => ({ id: s.id, title: s.title })) });
         toast({ title: 'Błąd', description: 'Nie znaleziono sekcji docelowej', variant: 'destructive' });
         return;
       }
 
       // Get existing items in target section/column
+      console.log('[handleNewElementDrop] Getting existing items for section:', targetSectionId, 'column:', columnIndex);
       const existingItems = items.filter(it => 
         it.section_id === targetSectionId && 
         (it as any).column_index === columnIndex
       );
+      console.log('[handleNewElementDrop] Found existing items:', existingItems.length);
       const newPosition = existingItems.length;
 
       // Create default content based on element type
+      console.log('[handleNewElementDrop] About to create default content for:', elementType);
       const defaultContent = createDefaultContent(elementType);
+      console.log('[handleNewElementDrop] Created default content:', defaultContent);
 
       console.log('[handleNewElementDrop] Creating item:', {
         elementType,
@@ -997,6 +1005,7 @@ export const LivePreviewEditor: React.FC = () => {
         defaultContent
       });
 
+      console.log('[handleNewElementDrop] 🔵 Starting database insert...');
       // Create new item in database - using correct field names
       const { data: newItemData, error: insertError } = await supabase
         .from('cms_items')
