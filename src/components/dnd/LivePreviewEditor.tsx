@@ -963,16 +963,22 @@ export const LivePreviewEditor: React.FC = () => {
       if (targetId.includes('-col-')) {
         // Format: "{rowOrSectionId}-col-{index}"
         const match = targetId.match(/^(.+)-col-(\d+)$/);
+        console.log('[handleNewElementDrop] 🔍 Regex match result:', match);
+        
         if (match) {
           const possibleId = match[1];
           columnIndex = parseInt(match[2], 10);
+          console.log('[handleNewElementDrop] 📍 Parsed ID:', possibleId, 'Column:', columnIndex);
           
           // ✅ Sprawdź czy to row czy section
           const possibleRow = sections.find(s => s.id === possibleId && s.section_type === 'row');
+          console.log('[handleNewElementDrop] 🔎 Looking for row with ID:', possibleId);
+          console.log('[handleNewElementDrop] 🔎 Found row?', !!possibleRow, possibleRow?.id);
           
           if (possibleRow) {
             // ✅ To jest row - dodaj element BEZPOŚREDNIO do row, bez tworzenia sekcji
             targetSectionId = possibleId; // Row ID jako section_id
+            console.log('[handleNewElementDrop] ✅ CONFIRMED: Dropping into ROW', { rowId: possibleId, columnIndex });
             console.log('[handleNewElementDrop] ✅ Dropped directly into ROW column:', { rowId: possibleId, columnIndex });
           } else {
             // Regular section column
