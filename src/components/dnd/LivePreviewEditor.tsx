@@ -2501,11 +2501,6 @@ export const LivePreviewEditor: React.FC = () => {
                         onDuplicateItem={handleDuplicateItem}
                         onMoveItemUp={handleMoveItemUp}
                         onMoveItemDown={handleMoveItemDown}
-          onEditItem={handleEditItem}
-          onDeleteItem={handleDeleteItem}
-          onDuplicateItem={handleDuplicateItem}
-          onMoveItemUp={handleMoveItemUp}
-          onMoveItemDown={handleMoveItemDown}
                       />
                     </DraggableSection>
                   );
