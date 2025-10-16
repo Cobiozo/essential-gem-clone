@@ -961,69 +961,19 @@ export const LivePreviewEditor: React.FC = () => {
       console.log('[handleNewElementDrop] All sections:', sections.map(s => ({ id: s.id, type: s.section_type, parent: s.parent_id })));
       
       if (targetId.includes('-col-')) {
-        // Format: "{sectionId}-col-{index}" or "{rowId}-col-{index}"
-        // Could be a column in a section OR a column slot in a row
+        // Format: "{rowOrSectionId}-col-{index}"
         const match = targetId.match(/^(.+)-col-(\d+)$/);
         if (match) {
           const possibleId = match[1];
           columnIndex = parseInt(match[2], 10);
           
-          // Check if it's a row (section with section_type='row')
+          // ✅ Sprawdź czy to row czy section
           const possibleRow = sections.find(s => s.id === possibleId && s.section_type === 'row');
           
           if (possibleRow) {
-            // It's a row column slot - find or create child section
-            console.log('[handleNewElementDrop] 🎯 Dropped into ROW column slot:', { rowId: possibleId, columnIndex });
-            
-            const childSections = sections
-              .filter(s => s.parent_id === possibleId)
-              .sort((a, b) => a.position - b.position);
-            
-            if (childSections[columnIndex]) {
-              // Use existing section in this column
-              targetSectionId = childSections[columnIndex].id;
-              columnIndex = 0; // Reset to first column of that section
-              console.log('[handleNewElementDrop] ✅ Using existing section in row column:', targetSectionId);
-            } else {
-              // Need to create a section for this row column
-              console.log('[handleNewElementDrop] Creating new section in row column...');
-              
-              const { data: newSectionData, error: sectionError } = await supabase
-                .from('cms_sections')
-                .insert([{
-                  page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
-                  parent_id: possibleId,
-                  section_type: 'section',
-                  position: columnIndex,
-                  is_active: true,
-                  title: `Kolumna ${columnIndex + 1}`,
-                  width_type: 'full',
-                  height_type: 'auto',
-                }])
-                .select()
-                .single();
-              
-              if (sectionError) {
-                console.error('[handleNewElementDrop] Error creating section:', sectionError);
-                throw sectionError;
-              }
-              
-              if (!newSectionData) {
-                throw new Error('No section data returned after insert');
-              }
-              
-              targetSectionId = newSectionData.id;
-              columnIndex = 0;
-              
-              // Update local state
-              const newSection = newSectionData as any;
-              setSections(prev => [...prev, newSection]);
-              
-              // Wait a bit to ensure DB commit
-              await new Promise(resolve => setTimeout(resolve, 100));
-              
-              console.log('[handleNewElementDrop] ✅ Created new section in row column:', targetSectionId);
-            }
+            // ✅ To jest row - dodaj element BEZPOŚREDNIO do row, bez tworzenia sekcji
+            targetSectionId = possibleId; // Row ID jako section_id
+            console.log('[handleNewElementDrop] ✅ Dropped directly into ROW column:', { rowId: possibleId, columnIndex });
           } else {
             // Regular section column
             targetSectionId = possibleId;
@@ -1034,65 +984,19 @@ export const LivePreviewEditor: React.FC = () => {
           return;
         }
       } else if (targetId.startsWith('row-')) {
-        // Dropped directly onto a row - use first column of first section in that row
+        // ✅ Dropped directly onto a row - add element DIRECTLY to row
         const rowId = targetId.replace('row-', '');
-        const rowSection = sections.find(s => s.id === rowId);
+        const rowSection = sections.find(s => s.id === rowId && s.section_type === 'row');
         
         if (!rowSection) {
           toast({ title: 'Błąd', description: 'Nie znaleziono wiersza', variant: 'destructive' });
           return;
         }
         
-        // Find first child section in this row
-        const childSections = sections
-          .filter(s => s.parent_id === rowId)
-          .sort((a, b) => a.position - b.position);
-        
-        if (childSections.length > 0) {
-          // Use first existing section
-          targetSectionId = childSections[0].id;
-          columnIndex = 0;
-          console.log('[handleNewElementDrop] Dropping into row, using first child section:', targetSectionId);
-        } else {
-          // No child sections - create one first
-          console.log('[handleNewElementDrop] Creating new section in row...');
-          
-          const { data: newSectionData, error: sectionError } = await supabase
-            .from('cms_sections')
-            .insert([{
-              page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
-              parent_id: rowId,
-              section_type: 'section',
-              position: 0,
-              is_active: true,
-              title: 'Nowa sekcja',
-              width_type: 'full',
-              height_type: 'auto',
-            }])
-            .select()
-            .single();
-          
-          if (sectionError) {
-            console.error('[handleNewElementDrop] Error creating section:', sectionError);
-            throw sectionError;
-          }
-          
-          if (!newSectionData) {
-            throw new Error('No section data returned after insert');
-          }
-          
-          targetSectionId = newSectionData.id;
-          columnIndex = 0;
-          
-          // Update local state
-          const newSection = newSectionData as any;
-          setSections(prev => [...prev, newSection]);
-          
-          // Wait a bit to ensure DB commit
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-          console.log('[handleNewElementDrop] Created new section in row:', targetSectionId);
-        }
+        // ✅ Dodaj element bezpośrednio do row bez tworzenia sekcji
+        targetSectionId = rowId;
+        columnIndex = 0;
+        console.log('[handleNewElementDrop] ✅ Dropping directly into row:', targetSectionId);
       } else {
         // Format: "{sectionId}" - Dropped directly into a section (no column)
         // This is the most common case for regular sections

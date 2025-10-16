@@ -9,6 +9,8 @@ import { DraggableSection } from './DraggableSection';
 import { ResizableElement } from './ResizableElement';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ColumnLayout } from './ColumnLayout';
+import { CMSContent } from '@/components/CMSContent';
+import { ItemControls } from './ItemControls';
 
 // Extracted to avoid re-mount loops of inline components causing DnD measuring cascades
 interface RowColumnDropZoneProps {
@@ -16,6 +18,7 @@ interface RowColumnDropZoneProps {
   columnIndex: number;
   isEditMode: boolean;
   slotSection?: CMSSection;
+  columnItems: CMSItem[]; // ✅ Elementy przypisane bezpośrednio do kolumny row
   selectedElement?: string;
   onSelectSection?: (sectionId: string) => void;
   onElementResize: (sectionId: string, width: number, height: number) => void;
@@ -40,6 +43,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   columnIndex,
   isEditMode,
   slotSection,
+  columnItems,
   selectedElement,
   onSelectSection,
   onElementResize,
@@ -72,6 +76,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
       width: 100,
     }];
   }, [slotSection, sectionColumns, items]);
+  
   return (
     <div
       ref={setNodeRef}
@@ -80,11 +85,43 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
         isEditMode && 'border border-dashed border-border/30 rounded p-2',
         isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary',
         // Only hide border when slot has content AND we're not hovering
-        isEditMode && slotSection && !isOver && 'border-transparent',
+        isEditMode && (slotSection || columnItems.length > 0) && !isOver && 'border-transparent',
         (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) && 'shrink-0'
       )}
       style={{ width: (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) ? columnWidth : undefined }}
     >
+      {/* ✅ Najpierw renderuj elementy bezpośrednio w kolumnie row */}
+      {columnItems.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {columnItems.map((item, itemIdx) => (
+            <div 
+              key={item.id}
+              className="relative group"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!activeId && onSelectSection) {
+                  onSelectSection(item.id as string);
+                }
+              }}
+            >
+              {isEditMode && onEditItem && onDeleteItem && (
+                <ItemControls
+                  onEdit={() => onEditItem(item.id as string)}
+                  onDelete={() => onDeleteItem(item.id as string)}
+                  onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                  onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                  onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                  canMoveUp={itemIdx > 0}
+                  canMoveDown={itemIdx < columnItems.length - 1}
+                />
+              )}
+              <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Następnie renderuj child section jeśli istnieje */}
       {slotSection ? (
         <div
           onClick={(e) => {
@@ -265,11 +302,12 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
           )}
         </div>
       ) : (
-        isEditMode && (
+        // ✅ Brak child section - pokaż placeholder tylko jeśli też nie ma elementów
+        columnItems.length === 0 && isEditMode && (
           <div className="flex items-center justify-center h-full text-muted-foreground/60">
             <div className="text-center">
               <Plus className="w-6 h-6 mx-auto mb-2 opacity-50" />
-              <p className="text-xs">Drop section here</p>
+              <p className="text-xs">Przeciągnij element tutaj</p>
             </div>
           </div>
         )
@@ -335,11 +373,25 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   const rawChildSections = sections.filter(s => s.parent_id === row.id);
   const columnCount = row.row_column_count || 1;
 
-  // Check if the row has enough columns for all child sections
-  const childSectionCount = rawChildSections.length;
-  if (childSectionCount > columnCount) {
-    console.log(`Row ${row.id} has ${childSectionCount} child sections but only ${columnCount} columns. Some sections may not be visible.`);
-  }
+  // ✅ Pobierz elementy przypisane BEZPOŚREDNIO do wiersza
+  const rowItems = items.filter(it => it.section_id === row.id);
+  
+  // Grupuj elementy według column_index
+  const itemsByColumn: CMSItem[][] = Array.from({ length: columnCount }, () => []);
+  rowItems.forEach(item => {
+    const colIdx = (item as any).column_index || 0;
+    if (colIdx < columnCount) {
+      itemsByColumn[colIdx].push(item);
+    }
+  });
+
+  // Debug: log sections count
+  console.log(`[RowContainer] Row ${row.id}:`, {
+    columnCount,
+    childSections: rawChildSections.length,
+    directItems: rowItems.length,
+    itemsByColumn: itemsByColumn.map((col, i) => ({ col: i, items: col.length }))
+  });
 
   // Sort children by position and assign to columns sequentially (not by position index!)
   const childSections = [...rawChildSections].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -681,32 +733,37 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         )}
       >
         <SortableContext items={childSectionIds} strategy={columnCount > 1 ? horizontalListSortingStrategy : verticalListSortingStrategy}>
-          {Array.from({ length: columnCount }, (_, index) => (
-            <RowColumnDropZone
-              key={`${row.id}-col-${index}`}
-              rowId={row.id}
-              columnIndex={index}
-              isEditMode={isEditMode}
-              slotSection={slotSections[index]}
-              selectedElement={selectedElement}
-              onSelectSection={onSelectSection}
-              onElementResize={onElementResize}
-              sectionColumns={sectionColumns}
-              onColumnsChange={onColumnsChange}
-              items={items}
-              activeId={activeId}
-              openStates={openStates}
-              onOpenChange={onOpenChange}
-              rowLayoutType={row.row_layout_type}
-              columnWidth={getColumnWidth(index)}
-              renderVersion={renderVersion}
-              onEditItem={onEditItem}
-              onDeleteItem={onDeleteItem}
-              onDuplicateItem={onDuplicateItem}
-              onMoveItemUp={onMoveItemUp}
-              onMoveItemDown={onMoveItemDown}
-            />
-          ))}
+          {Array.from({ length: columnCount }, (_, index) => {
+            const columnItems = itemsByColumn[index] || [];
+            
+            return (
+              <RowColumnDropZone
+                key={`${row.id}-col-${index}`}
+                rowId={row.id}
+                columnIndex={index}
+                isEditMode={isEditMode}
+                slotSection={slotSections[index]}
+                columnItems={columnItems}
+                selectedElement={selectedElement}
+                onSelectSection={onSelectSection}
+                onElementResize={onElementResize}
+                sectionColumns={sectionColumns}
+                onColumnsChange={onColumnsChange}
+                items={items}
+                activeId={activeId}
+                openStates={openStates}
+                onOpenChange={onOpenChange}
+                rowLayoutType={row.row_layout_type}
+                columnWidth={getColumnWidth(index)}
+                renderVersion={renderVersion}
+                onEditItem={onEditItem}
+                onDeleteItem={onDeleteItem}
+                onDuplicateItem={onDuplicateItem}
+                onMoveItemUp={onMoveItemUp}
+                onMoveItemDown={onMoveItemDown}
+              />
+            );
+          })}
         </SortableContext>
       </div>
     </div>
