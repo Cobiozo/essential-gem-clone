@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ItemEditor } from '@/components/cms/ItemEditor';
+import { SectionEditor } from '@/components/cms/SectionEditor';
 import {
-  Search, 
+  Search,
   Type, 
   Image as ImageIcon, 
   Video, 
@@ -70,6 +71,11 @@ interface ElementsPanelProps {
   isItemEditorOpen?: boolean;
   onSaveItem?: (updatedItem: Partial<any>) => Promise<void>;
   onCancelEdit?: () => void;
+  editingSectionId?: string | null;
+  editingSection?: any;
+  isSectionEditorOpen?: boolean;
+  onSaveSection?: (updatedSection: Partial<any>) => Promise<void>;
+  onCancelSectionEdit?: () => void;
 }
 
 export const ElementsPanel: React.FC<ElementsPanelProps> = ({ 
@@ -81,7 +87,12 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   editingItem,
   isItemEditorOpen,
   onSaveItem,
-  onCancelEdit
+  onCancelEdit,
+  editingSectionId,
+  editingSection,
+  isSectionEditorOpen,
+  onSaveSection,
+  onCancelSectionEdit
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['layout', 'basic']);
@@ -248,7 +259,14 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
           <div className="flex-1 overflow-hidden flex flex-col">
             <ScrollArea className="flex-1">
               <div className="p-4">
-                {editingItem && onSaveItem && onCancelEdit ? (
+                {editingSection && onSaveSection && onCancelSectionEdit ? (
+                  <SectionEditor
+                    key={editingSectionId}
+                    section={editingSection}
+                    onSave={onSaveSection}
+                    onCancel={onCancelSectionEdit}
+                  />
+                ) : editingItem && onSaveItem && onCancelEdit ? (
                   <ItemEditor
                     key={editingItemId}
                     item={editingItem}

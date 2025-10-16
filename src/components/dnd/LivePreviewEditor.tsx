@@ -2340,6 +2340,95 @@ export const LivePreviewEditor: React.FC = () => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
   
+  // Section management handlers
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [isSectionEditorOpen, setIsSectionEditorOpen] = useState(false);
+  
+  // When selectedElement changes, check if it's a section and open editor
+  useEffect(() => {
+    if (selectedElement) {
+      const isSection = sections.find(s => s.id === selectedElement);
+      const isItem = items.find(i => i.id === selectedElement);
+      
+      if (isSection && !isItem) {
+        // It's a section - open section editor
+        setEditingSectionId(selectedElement);
+        setIsSectionEditorOpen(true);
+        setPanelMode('properties');
+        setSelectedElementForPanel(selectedElement);
+        
+        // Close item editor if open
+        setIsItemEditorOpen(false);
+        setEditingItemId(null);
+      }
+    }
+  }, [selectedElement, sections, items]);
+  
+  const handleEditSection = (sectionId: string) => {
+    console.log('[handleEditSection] Opening editor for section:', sectionId);
+    
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) {
+      console.error('[handleEditSection] Section not found:', sectionId);
+      return;
+    }
+    
+    setIsSectionEditorOpen(false);
+    setEditingSectionId(null);
+    
+    setTimeout(() => {
+      setEditingSectionId(sectionId);
+      setSelectedElement(sectionId);
+      setIsSectionEditorOpen(true);
+      setSelectedElementForPanel(sectionId);
+      setPanelMode('properties');
+    }, 50);
+  };
+
+  const handleSaveSection = async (updatedSection: Partial<CMSSection>) => {
+    if (!editingSectionId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('cms_sections')
+        .update({
+          title: updatedSection.title,
+          description: updatedSection.description,
+          background_color: updatedSection.background_color,
+          text_color: updatedSection.text_color,
+          font_size: updatedSection.font_size,
+          alignment: updatedSection.alignment,
+          padding: updatedSection.padding,
+          margin: updatedSection.margin,
+          border_radius: updatedSection.border_radius,
+          style_class: updatedSection.style_class,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingSectionId);
+      
+      if (error) throw error;
+      
+      setSections(prev => prev.map(s => s.id === editingSectionId ? { ...s, ...updatedSection } as CMSSection : s));
+      saveToHistory(sections.map(s => s.id === editingSectionId ? { ...s, ...updatedSection } as CMSSection : s), items);
+      setHasUnsavedChanges(true);
+      setIsSectionEditorOpen(false);
+      setEditingSectionId(null);
+      
+      toast({
+        title: 'Sukces',
+        description: 'Sekcja została zapisana',
+      });
+    } catch (error) {
+      console.error('Error saving section:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zapisać sekcji',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  
   const handleEditItem = (itemId: string) => {
     console.log('[handleEditItem] Opening editor for item:', itemId);
     
@@ -2783,6 +2872,8 @@ export const LivePreviewEditor: React.FC = () => {
                       setSelectedElementForPanel(null);
                       setIsItemEditorOpen(false);
                       setEditingItemId(null);
+                      setIsSectionEditorOpen(false);
+                      setEditingSectionId(null);
                     }
                   }}
                   editingItemId={editingItemId}
@@ -2792,6 +2883,15 @@ export const LivePreviewEditor: React.FC = () => {
                   onCancelEdit={() => {
                     setIsItemEditorOpen(false);
                     setEditingItemId(null);
+                    setPanelMode('elements');
+                  }}
+                  editingSectionId={editingSectionId}
+                  editingSection={sections.find(s => s.id === editingSectionId)}
+                  isSectionEditorOpen={isSectionEditorOpen}
+                  onSaveSection={handleSaveSection}
+                  onCancelSectionEdit={() => {
+                    setIsSectionEditorOpen(false);
+                    setEditingSectionId(null);
                     setPanelMode('elements');
                   }}
                 />
