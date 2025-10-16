@@ -114,6 +114,8 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     ]
   };
 
+  console.log('[ElementsPanel] basicElements items:', basicElements.items.map(i => i.title));
+
   const generalElements: ElementCategory = {
     id: 'general',
     title: 'Ogólne',
@@ -153,6 +155,13 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
       item.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
   })).filter(category => category.items.length > 0);
+
+  console.log('[ElementsPanel] Filtered categories:', filteredCategories.map(c => ({ 
+    id: c.id, 
+    title: c.title, 
+    itemCount: c.items.length,
+    items: c.items.map(i => i.title)
+  })));
 
   const handleElementClick = (elementType: string) => {
     onElementClick?.(elementType);
