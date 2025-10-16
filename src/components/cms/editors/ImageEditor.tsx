@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CMSItem } from '@/types/cms';
@@ -36,6 +37,13 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ item, onSave, onCancel
       media_url: url,
       media_type: type,
       media_alt_text: altText || '',
+    });
+  };
+
+  const handleFieldChange = (field: keyof CMSItem, value: any) => {
+    setEditedItem({
+      ...editedItem,
+      [field]: value,
     });
   };
 
@@ -75,59 +83,39 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ item, onSave, onCancel
               </div>
 
               <div className="space-y-2">
-                <Label>Rozdzielczość obrazka</Label>
-                <Select defaultValue="large">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="thumbnail">Thumbnail</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="large">Large - 1024 x 1</SelectItem>
-                    <SelectItem value="full">Full Size</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Tekst alternatywny (ALT)</Label>
+                <Input
+                  value={editedItem.media_alt_text || ''}
+                  onChange={(e) => handleFieldChange('media_alt_text', e.target.value)}
+                  placeholder="Opisz obrazek dla dostępności"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label>Podpis</Label>
-                <Select defaultValue="none">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Brak</SelectItem>
-                    <SelectItem value="caption">Caption</SelectItem>
-                    <SelectItem value="title">Title</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Tytuł obrazka</Label>
+                <Input
+                  value={editedItem.title || ''}
+                  onChange={(e) => handleFieldChange('title', e.target.value)}
+                  placeholder="Tytuł wyświetlany nad obrazkiem"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label>Połącz</Label>
-                <Select defaultValue="none">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Brak</SelectItem>
-                    <SelectItem value="media">Media File</SelectItem>
-                    <SelectItem value="custom">Custom URL</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Podpis pod obrazkiem</Label>
+                <Input
+                  value={editedItem.description || ''}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  placeholder="Tekst wyświetlany pod obrazkiem"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label>Lazy Loading</Label>
-                <Select defaultValue="lazy">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lazy">Lazy load</SelectItem>
-                    <SelectItem value="eager">Eager</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Link URL (opcjonalnie)</Label>
+                <Input
+                  value={editedItem.url || ''}
+                  onChange={(e) => handleFieldChange('url', e.target.value)}
+                  placeholder="https://example.com"
+                />
               </div>
             </div>
           </ScrollArea>
