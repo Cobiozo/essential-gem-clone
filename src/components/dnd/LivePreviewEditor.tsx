@@ -528,6 +528,57 @@ export const LivePreviewEditor: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    
+    // ✅ Dodaj realtime subscription dla cms_items
+    const channel = supabase
+      .channel('cms-items-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Wszystkie zmiany (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'cms_items',
+          filter: `page_id=eq.8f3009d3-3167-423f-8382-3eab1dce8cb1`
+        },
+        (payload) => {
+          console.log('[Realtime] cms_items change:', payload);
+          
+          if (payload.eventType === 'UPDATE') {
+            const updatedItem = payload.new as any;
+            
+            // Jeśli element został zdezaktywowany
+            if (updatedItem.is_active === false) {
+              setItems(prev => prev.filter(i => i.id !== updatedItem.id));
+              console.log('[Realtime] Item deactivated:', updatedItem.id);
+            } else {
+              // Aktualizuj istniejący element
+              setItems(prev => prev.map(i => 
+                i.id === updatedItem.id 
+                  ? { ...updatedItem, cells: Array.isArray(updatedItem.cells) ? updatedItem.cells : JSON.parse(updatedItem.cells || '[]') }
+                  : i
+              ));
+              console.log('[Realtime] Item updated:', updatedItem.id);
+            }
+          } else if (payload.eventType === 'INSERT') {
+            const newItem = payload.new as any;
+            if (newItem.is_active) {
+              setItems(prev => [...prev, { 
+                ...newItem, 
+                cells: Array.isArray(newItem.cells) ? newItem.cells : JSON.parse(newItem.cells || '[]') 
+              }]);
+              console.log('[Realtime] New item added:', newItem.id);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setItems(prev => prev.filter(i => i.id !== payload.old.id));
+            console.log('[Realtime] Item deleted:', payload.old.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const autoSave = useCallback(async (newSections: CMSSection[], newItems: CMSItem[]) => {
@@ -613,25 +664,26 @@ export const LivePreviewEditor: React.FC = () => {
   const createDefaultContent = (elementType: string) => {
     console.log('[createDefaultContent] Creating content for type:', elementType);
     
+    // ❌ WAŻNE: NIE używaj type='section' w cells - to powoduje renderowanie CollapsibleSection
     switch (elementType) {
       case 'heading':
-        return [{ type: 'heading', content: 'Nowy nagłówek', level: 2 }];
+        return [{ type: 'h2', content: 'Nowy nagłówek', level: 2 }];
       case 'text':
-        return [{ type: 'text', content: 'Nowy tekst' }];
+        return [{ type: 'paragraph', content: 'Nowy tekst' }];
       case 'image':
-        return [{ type: 'image', content: '', alt: 'Obrazek' }];
+        return [{ type: 'img', content: '', alt: 'Obrazek' }];
       case 'video':
-        return [{ type: 'video', content: '', title: 'Film' }];
+        return [{ type: 'video_embed', content: '', title: 'Film' }];
       case 'button':
-        return [{ type: 'button', content: 'Kliknij', url: '#' }];
+        return [{ type: 'btn', content: 'Kliknij', url: '#' }];
       case 'divider':
-        return [{ type: 'divider' }];
+        return [{ type: 'hr' }];
       case 'spacer':
-        return [{ type: 'spacer', height: 40 }];
+        return [{ type: 'space', height: 40 }];
       case 'maps':
-        return [{ type: 'maps', content: '', title: 'Mapa' }];
+        return [{ type: 'google_maps', content: '', title: 'Mapa' }];
       case 'icon':
-        return [{ type: 'icon', content: 'Star' }];
+        return [{ type: 'lucide_icon', content: 'Star' }];
       
       // Layout elements - nie powinny być używane tutaj, ale dla bezpieczeństwa
       case 'container':
@@ -2173,14 +2225,23 @@ export const LivePreviewEditor: React.FC = () => {
 
   const handleDeleteItem = async (itemId: string) => {
     try {
+      // ✅ Najpierw aktualizuj lokalny stan natychmiast
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      
+      // Następnie aktualizuj bazę danych
       const { error } = await supabase
         .from('cms_items')
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', itemId);
       
-      if (error) throw error;
+      if (error) {
+        // Jeśli błąd, przywróć element
+        console.error('Error deleting item:', error);
+        // Odśwież dane z bazy
+        await fetchData();
+        throw error;
+      }
       
-      setItems(prev => prev.filter(i => i.id !== itemId));
       saveToHistory(sections, items.filter(i => i.id !== itemId));
       setHasUnsavedChanges(true);
       
