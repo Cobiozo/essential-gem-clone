@@ -65,6 +65,30 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
 
   return (
     <div style={rowStyles} className="w-full">
+      {/* Row Title */}
+      {row.title && (
+        <div className="max-w-6xl mx-auto mb-6">
+          <h2 
+            className="text-3xl font-bold mb-4"
+            style={{ 
+              color: row.text_color || 'inherit',
+              textAlign: row.alignment as any || 'left'
+            }}
+            dangerouslySetInnerHTML={{ __html: row.title }}
+          />
+          {row.description && (
+            <div 
+              className="text-lg"
+              style={{ 
+                color: row.text_color || 'inherit',
+                textAlign: row.alignment as any || 'left'
+              }}
+              dangerouslySetInnerHTML={{ __html: row.description }}
+            />
+          )}
+        </div>
+      )}
+      
       <div style={gridStyles}>
         {slotSections.map((slotSection, colIndex) => {
           const columnItems = itemsByColumn[colIndex] || [];

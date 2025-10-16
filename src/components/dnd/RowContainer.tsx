@@ -545,6 +545,41 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         </div>
       )}
 
+      {/* Row Title - Display in both edit and view mode */}
+      {row.title && (
+        <div 
+          className={cn(
+            "max-w-6xl mx-auto mb-6 px-4",
+            isEditMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg transition-all"
+          )}
+          onClick={(e) => {
+            if (isEditMode) {
+              e.stopPropagation();
+              onSelectSection?.(row.id);
+            }
+          }}
+        >
+          <h2 
+            className="text-3xl font-bold mb-4"
+            style={{ 
+              color: row.text_color || 'inherit',
+              textAlign: row.alignment as any || 'left'
+            }}
+            dangerouslySetInnerHTML={{ __html: row.title }}
+          />
+          {row.description && (
+            <div 
+              className="text-lg"
+              style={{ 
+                color: row.text_color || 'inherit',
+                textAlign: row.alignment as any || 'left'
+              }}
+              dangerouslySetInnerHTML={{ __html: row.description }}
+            />
+          )}
+        </div>
+      )}
+
       {/* Layout for sections: grid by default, flex when custom widths */}
       <div
         className={cn(
