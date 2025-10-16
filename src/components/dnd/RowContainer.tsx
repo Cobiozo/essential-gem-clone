@@ -82,11 +82,13 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
     <div
       ref={setNodeRef}
       className={cn(
-        'min-h-[200px] transition-all duration-200',
-        isEditMode && 'border-2 border-dashed border-border/50 rounded-lg p-4',
-        isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary border-primary/50',
-        // Only hide border when slot has content AND we're not hovering
-        isEditMode && (slotSection || columnItems.length > 0) && !isOver && 'border-border/30',
+        'min-h-[200px] transition-all duration-200 relative',
+        isEditMode && 'border-2 border-dashed rounded-lg p-4',
+        // Zawsze pokazuj border gdy w trybie edycji
+        isEditMode && !isOver && (slotSection || columnItems.length > 0) && 'border-border/30',
+        isEditMode && !isOver && !slotSection && columnItems.length === 0 && 'border-border/50',
+        // Wyraźne podświetlenie podczas hover
+        isEditMode && isOver && 'bg-primary/10 ring-4 ring-primary border-primary shadow-lg',
         (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) && 'shrink-0'
       )}
       style={{ width: (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) ? columnWidth : undefined }}
