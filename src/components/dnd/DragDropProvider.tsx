@@ -63,6 +63,10 @@ export const DragDropProvider: React.FC<DragDropProviderProps> = ({
     droppable: { strategy: MeasuringStrategy.BeforeDragging },
   }), []);
  
+  if (disabled) {
+    return <>{children}</>;
+  }
+
   return (
     <DndContext
       sensors={sensors}
