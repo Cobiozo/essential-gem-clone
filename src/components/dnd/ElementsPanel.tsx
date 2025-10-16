@@ -164,7 +164,8 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
               {panelMode === 'elements' ? 'Elementy' : 'Właściwości'}
             </h2>
           </div>
-          
+        
+        {panelMode === 'elements' ? (
           <Tabs defaultValue="widgets" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="widgets">Widżety</TabsTrigger>
@@ -215,6 +216,13 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
               </div>
             </TabsContent>
           </Tabs>
+        ) : (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground text-center">
+              Panel właściwości będzie dostępny wkrótce
+            </p>
+          </div>
+        )}
         </div>
       </CardContent>
     </Card>

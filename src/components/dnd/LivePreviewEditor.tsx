@@ -775,38 +775,71 @@ export const LivePreviewEditor: React.FC = () => {
       // Check if this is a layout element that should create a section
       const layoutElements = ['container', 'grid'];
       
-      if (layoutElements.includes(elementType)) {
-        console.log('[handleNewElementDrop] Creating layout section for:', elementType);
-        
-        // Normalize targetId - remove 'row-' prefix if present
-        let normalizedTargetId = targetId;
-        if (targetId.startsWith('row-')) {
+    if (layoutElements.includes(elementType)) {
+      console.log('[handleNewElementDrop] Creating layout section for:', elementType);
+      
+      let insertPosition = 0;
+      let insertAfterSectionId: string | null = null;
+      
+      // 1. Normalizacja i analiza targetId
+      let normalizedTargetId = targetId;
+      
+      // Obsługa różnych formatów targetId:
+      if (targetId.startsWith('row-')) {
+        // Format: "row-{sectionId}" lub "row-{sectionId}-col-{index}"
+        if (targetId.includes('-col-')) {
+          // Dropowano na kolumnę w wierszu - wstaw PO tym wierszu
+          normalizedTargetId = targetId.split('-col-')[0].replace('row-', '');
+        } else {
+          // Dropowano na wiersz - wstaw PO tym wierszu
           normalizedTargetId = targetId.replace('row-', '');
         }
-        
-        // Determine target position based on where it was dropped
-        let insertPosition = 0;
-        
-        // Find the target section to determine insert position
-        const targetSection = sections.find(s => s.id === normalizedTargetId);
+        insertAfterSectionId = normalizedTargetId;
+      } else if (targetId.includes('-col-')) {
+        // Format: "{sectionId}-col-{index}" - sekcja w kolumnie wiersza
+        const parentSectionId = targetId.split('-col-')[0];
+        const parentSection = sections.find(s => s.id === parentSectionId);
+        if (parentSection?.parent_id) {
+          // To jest sekcja wewnątrz wiersza - wstaw PO wierszu rodzica
+          insertAfterSectionId = parentSection.parent_id;
+        } else {
+          // To jest zwykła sekcja - wstaw PO niej
+          insertAfterSectionId = parentSectionId;
+        }
+      } else {
+        // Format: "{sectionId}" - zwykła sekcja
+        insertAfterSectionId = normalizedTargetId;
+      }
+      
+      // 2. Znajdź pozycję wstawienia
+      if (insertAfterSectionId) {
+        const targetSection = sections.find(s => s.id === insertAfterSectionId);
         
         if (targetSection) {
-          // Insert after the target section
-          const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
+          const topLevelSections = sections
+            .filter(s => !s.parent_id)
+            .sort((a, b) => a.position - b.position);
           const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
+          
+          // Wstaw PO znalezionej sekcji
           insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
           
-          console.log('[handleNewElementDrop] Inserting after section:', {
+          console.log('[handleNewElementDrop] Inserting AFTER section:', {
+            targetId,
             targetTitle: targetSection.title,
             targetIndex,
             insertPosition
           });
         } else {
-          // If no target found, add at the end
-          const topLevelSections = sections.filter(s => !s.parent_id);
-          insertPosition = topLevelSections.length;
-          console.log('[handleNewElementDrop] No target found, adding at end:', insertPosition);
+          // Nie znaleziono sekcji - wstaw na końcu
+          insertPosition = sections.filter(s => !s.parent_id).length;
+          console.log('[handleNewElementDrop] Target section not found, adding at end:', insertPosition);
         }
+      } else {
+        // Brak celu - wstaw na końcu
+        insertPosition = sections.filter(s => !s.parent_id).length;
+        console.log('[handleNewElementDrop] No target, adding at end:', insertPosition);
+      }
         
         // Determine section type and properties based on element type
         let sectionType: 'row' | 'section' = 'row'; // Both should be rows now
@@ -1222,8 +1255,7 @@ export const LivePreviewEditor: React.FC = () => {
             return s;
           }));
           
-          // Refresh data to ensure consistency
-          await fetchData();
+          // ✅ REMOVED: await fetchData(); - Live updates
           
           toast({ title: 'Sekcje zamienione', description: 'Pozycje sekcji zostały zamienione' });
         } catch (error) {
@@ -1259,7 +1291,11 @@ export const LivePreviewEditor: React.FC = () => {
               .eq('id', activeId);
               
             if (error) throw error;
-            await fetchData();
+            // ✅ REMOVED: await fetchData(); - Live updates
+            // Optimistic update
+            setSections(prev => prev.map(s => 
+              s.id === activeId ? { ...s, parent_id: null, position: newIndex } : s
+            ));
             
             toast({
               title: 'Sekcja przeniesiona',
@@ -1458,8 +1494,7 @@ export const LivePreviewEditor: React.FC = () => {
         throw new Error('Save did not complete successfully');
       }
 
-      // Reload from DB to ensure persisted order/state
-      await fetchData();
+      // ✅ REMOVED: await fetchData(); - State is already current
 
       // Notify all clients (including homepage) to refresh layout
       const channel = supabase.channel('cms-live');
@@ -2406,19 +2441,24 @@ export const LivePreviewEditor: React.FC = () => {
                         row={section}
                         sections={sections}
                         isEditMode={editMode}
-                        onUpdateRow={async (rowId, updates) => {
-                          try {
-                            const { error } = await supabase
-                              .from('cms_sections')
-                              .update({ ...updates, updated_at: new Date().toISOString() })
-                              .eq('id', rowId);
-                            if (error) throw error;
-                            await fetchData();
-                          } catch (error) {
-                            console.error('Error updating row:', error);
-                          }
-                        }}
-                         onRemoveRow={async (rowId) => {
+          onUpdateRow={async (rowId, updates) => {
+            try {
+              const { error } = await supabase
+                .from('cms_sections')
+                .update({ ...updates, updated_at: new Date().toISOString() })
+                .eq('id', rowId);
+              if (error) throw error;
+              
+              // ✅ Optimistic update
+              setSections(prev => prev.map(s => 
+                s.id === rowId ? { ...s, ...updates } : s
+              ));
+              setHasUnsavedChanges(true);
+            } catch (error) {
+              console.error('Error updating row:', error);
+            }
+          }}
+                          onRemoveRow={async (rowId) => {
                           if (!isAdmin) {
                             toast({ title: 'Brak uprawnień', description: 'Tylko administrator może usuwać wiersze', variant: 'destructive' });
                             return;
@@ -2433,12 +2473,13 @@ export const LivePreviewEditor: React.FC = () => {
                               throw error;
                             }
                             
-                            await fetchData();
+                            // ✅ Optimistic update
+                            setSections(prev => prev.filter(s => s.id !== rowId));
                             setInactiveRefresh((v) => v + 1);
                             toast({ title: 'Wiersz usunięty', description: 'Wiersz został usunięty, a sekcje przeniesione na główny poziom oraz przeniesiony do "Główna" jako nieaktywny' });
                           } catch (error) {
                             console.error('Error removing row:', error);
-                            toast({ 
+                            toast({
                               title: 'Błąd', 
                               description: `Nie udało się usunąć wiersza: ${error.message || 'Nieznany błąd'}`, 
                               variant: 'destructive' 
@@ -2455,6 +2496,16 @@ export const LivePreviewEditor: React.FC = () => {
                         openStates={openSections}
                         onOpenChange={(id, open) => setOpenSections((prev) => ({ ...prev, [id]: open }))}
                         renderVersion={dragVersion}
+                        onEditItem={handleEditItem}
+                        onDeleteItem={handleDeleteItem}
+                        onDuplicateItem={handleDuplicateItem}
+                        onMoveItemUp={handleMoveItemUp}
+                        onMoveItemDown={handleMoveItemDown}
+          onEditItem={handleEditItem}
+          onDeleteItem={handleDeleteItem}
+          onDuplicateItem={handleDuplicateItem}
+          onMoveItemUp={handleMoveItemUp}
+          onMoveItemDown={handleMoveItemDown}
                       />
                     </DraggableSection>
                   );

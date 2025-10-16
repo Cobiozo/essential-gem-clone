@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { DraggableItem } from './DraggableItem';
 import { CMSContent } from '@/components/CMSContent';
 import { CMSItem } from '@/types/cms';
+import { ItemControls } from './ItemControls';
 
 interface Column {
   id: string;
@@ -21,10 +22,15 @@ interface ColumnLayoutProps {
   onColumnsChange: (columns: Column[]) => void;
   onItemClick?: (title: string, url?: string) => void;
   onSelectItem?: (itemId: string) => void;
-   className?: string;
-   activeId?: string | null;
-   renderVersion?: number;
- }
+  className?: string;
+  activeId?: string | null;
+  renderVersion?: number;
+  onEditItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
+  onDuplicateItem?: (itemId: string) => void;
+  onMoveItemUp?: (itemId: string) => void;
+  onMoveItemDown?: (itemId: string) => void;
+}
 
 export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   sectionId,
@@ -36,6 +42,11 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   className,
   activeId,
   renderVersion,
+  onEditItem,
+  onDeleteItem,
+  onDuplicateItem,
+  onMoveItemUp,
+  onMoveItemDown,
 }) => {
   
 
@@ -180,6 +191,11 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
             onSelectItem={onSelectItem}
             activeId={activeId}
             renderVersion={renderVersion}
+            onEditItem={onEditItem}
+            onDeleteItem={onDeleteItem}
+            onDuplicateItem={onDuplicateItem}
+            onMoveItemUp={onMoveItemUp}
+            onMoveItemDown={onMoveItemDown}
           />
         ))}
       </div>
@@ -197,6 +213,11 @@ interface ColumnDropZoneProps {
   onSelectItem?: (itemId: string) => void;
   activeId?: string | null;
   renderVersion?: number;
+  onEditItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
+  onDuplicateItem?: (itemId: string) => void;
+  onMoveItemUp?: (itemId: string) => void;
+  onMoveItemDown?: (itemId: string) => void;
 }
 
 const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
@@ -209,6 +230,11 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onSelectItem,
   activeId,
   renderVersion,
+  onEditItem,
+  onDeleteItem,
+  onDuplicateItem,
+  onMoveItemUp,
+  onMoveItemDown,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -265,25 +291,59 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
             </div>
           )}
           
-{column.items.filter((item) => !!item.id).map((item) => (
-  <DraggableItem
-    key={`${item.id}-${renderVersion || 0}`}
-    id={item.id as string}
-    isEditMode={isEditMode}
-  >
-    <div onClick={() => {
-      // Simple selection without complex event handling
-      if (!activeId) {
-        onSelectItem?.(item.id || '');
-      }
-    }}>
-      <CMSContent
-        item={item}
-        onClick={onItemClick || (() => {})}
-      />
-    </div>
-  </DraggableItem>
-))}
+{column.items.filter((item) => !!item.id).map((item, itemIdx) => {
+  if (isEditMode) {
+    return (
+      <DraggableItem
+        key={`${item.id}-${renderVersion || 0}`}
+        id={item.id as string}
+        isEditMode={isEditMode}
+      >
+        <div 
+          className="relative group"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!activeId) {
+              onSelectItem?.(item.id || '');
+            }
+          }}
+        >
+          {/* ✅ ItemControls dla elementów w wierszach */}
+          {onEditItem && onDeleteItem && (
+            <ItemControls
+              onEdit={() => {
+                console.log('[ItemControls] Editing item:', item.id);
+                onEditItem(item.id as string);
+              }}
+              onDelete={() => {
+                console.log('[ItemControls] Deleting item:', item.id);
+                onDeleteItem(item.id as string);
+              }}
+              onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+              onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+              onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+              canMoveUp={itemIdx > 0}
+              canMoveDown={itemIdx < column.items.length - 1}
+            />
+          )}
+          <CMSContent
+            item={item}
+            onClick={onItemClick || (() => {})}
+          />
+        </div>
+      </DraggableItem>
+    );
+  } else {
+    return (
+      <div key={item.id}>
+        <CMSContent
+          item={item}
+          onClick={onItemClick || (() => {})}
+        />
+      </div>
+    );
+  }
+})}
         </div>
       </SortableContext>
     </div>
