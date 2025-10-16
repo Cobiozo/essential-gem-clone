@@ -89,7 +89,8 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
     disabled: !editMode,
   });
 
-  console.log(`[RegularSectionContent] Rendering section ${section.id} with ${sectionItems.length} items, columns: ${sectionColumnCount}`);
+  console.log(`[RegularSectionContent] Rendering section ${section.id} (${section.title}) with ${sectionItems.length} items, columns: ${sectionColumnCount}`, 
+    sectionItems.map(i => ({ id: i.id, type: i.type })));
 
   return (
     <div 
@@ -1079,6 +1080,9 @@ export const LivePreviewEditor: React.FC = () => {
       console.log('[handleNewElementDrop] All items after add:', 
         newItems.map(i => ({ id: i.id, type: i.type, section_id: i.section_id, column_index: (i as any).column_index }))
       );
+      
+      // Force a complete re-render by triggering section state update
+      setSections(prev => [...prev]);
 
       toast({ 
         title: '✅ Element dodany', 
