@@ -170,71 +170,109 @@ const Index = () => {
       );
     }
 
-    // Default rendering
+    // Default rendering using CMSContent
     return <CMSContent key={item.id} item={item} />;
   };
 
-  // Render CMS section with custom styling
+  // Render CMS section with custom styling (matching LivePreviewEditor)
   const renderCMSSection = (section: CMSSection) => {
     const sectionItems = items.filter(item => item.section_id === section.id);
     
-    // Get section styles
-    const sectionStyle: React.CSSProperties = {
-      backgroundColor: section.background_color || undefined,
-      color: section.text_color || undefined,
-      padding: section.padding ? `${section.padding}px` : undefined,
-    };
-
     // Check if section has column layout defined in style_class
     const columnMatch = section.style_class?.match(/columns-(\d+)/);
-    const columnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
+    const sectionColumnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
     
     // Group items by column_index if columns are defined
     let itemsByColumn: CMSItem[][] = [];
-    if (columnCount > 0) {
-      // Create empty columns
-      itemsByColumn = Array.from({ length: columnCount }, () => []);
-      // Distribute items by column_index
+    if (sectionColumnCount > 0) {
+      itemsByColumn = Array.from({ length: sectionColumnCount }, () => []);
       sectionItems.forEach(item => {
-        const colIdx = Math.min(columnCount - 1, Math.max(0, (item as any).column_index || 0));
+        const colIdx = Math.min(sectionColumnCount - 1, Math.max(0, (item as any).column_index || 0));
         itemsByColumn[colIdx].push(item);
       });
     }
 
-    // Container styles for columns or regular display
-    const containerStyle: React.CSSProperties = columnCount > 0 
-      ? {
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
-          gap: '48px',
-          marginTop: '32px'
-        }
-      : undefined;
+    // Check if section contains only multi_cell items
+    const hasOnlyMultiCell = sectionItems.length > 0 && sectionItems.every(item => item.type === 'multi_cell');
 
-    const containerClasses = columnCount > 0
-      ? ''
-      : section.display_type === 'grid' 
-        ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8'
-        : 'space-y-4';
+    // Special rendering for multi_cell sections (matching LivePreviewEditor)
+    if (hasOnlyMultiCell) {
+      return (
+        <div 
+          key={section.id}
+          className="block w-full bg-white mb-6"
+          style={{
+            backgroundColor: section.background_color || '#ffffff',
+            color: section.text_color || '#000000',
+            padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
+          }}
+        >
+          <div className="max-w-6xl mx-auto">
+            <div className="space-y-4 py-6">
+              {section.title && (
+                <h2 className="text-3xl font-bold text-center mb-8" style={{ color: section.text_color || 'inherit' }}>
+                  {section.title}
+                </h2>
+              )}
+              {section.description && (
+                <div 
+                  className="text-center text-gray-600 mb-6 max-w-3xl mx-auto"
+                  dangerouslySetInnerHTML={{ __html: section.description }}
+                />
+              )}
+              <div className="space-y-4">
+                {sectionItems.map((item, itemIdx) => {
+                  const itemIndex = sectionItems.findIndex(i => i.id === item.id);
+                  return (
+                    <LearnMoreItem 
+                      key={item.id}
+                      item={item} 
+                      itemIndex={itemIndex}
+                      isExpanded={expandedItemId === item.id}
+                      onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
+    // Regular section rendering (matching LivePreviewEditor)
     return (
-      <section key={section.id} style={sectionStyle} className="py-12 px-4">
+      <div 
+        key={section.id}
+        className="block w-full bg-white mb-6"
+        style={{
+          backgroundColor: section.background_color || '#ffffff',
+          color: section.text_color || '#000000',
+          padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
+        }}
+      >
         <div className="max-w-6xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-10">
-            <h2 className="text-4xl font-bold mb-6 text-black uppercase tracking-wide">
-              {section.title}
-            </h2>
+            <h2 
+              className="text-4xl font-bold mb-6 text-black uppercase tracking-wide"
+              dangerouslySetInnerHTML={{ __html: section.title || '' }}
+            />
             {section.description && (
-              <p className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed">
-                {section.description}
-              </p>
+              <p 
+                className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: section.description }}
+              />
             )}
           </div>
           
           {/* Section Items */}
-          {columnCount > 0 ? (
-            <div style={containerStyle}>
+          {sectionColumnCount > 0 ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
+              gap: '24px'
+            }}>
               {itemsByColumn.map((columnItems, colIdx) => (
                 <div key={colIdx} className="space-y-4">
                   {columnItems.map(item => renderCMSItem(item, section))}
@@ -242,20 +280,12 @@ const Index = () => {
               ))}
             </div>
           ) : (
-            <div className={containerClasses}>
+            <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
               {sectionItems.map(item => renderCMSItem(item, section))}
             </div>
           )}
-
-          {/* Special handling for Contact section - person info */}
-          {section.id === '08b07156-ef06-45ba-8fcc-41c2372162dc' && sectionItems.length > 3 && (
-            <div className="text-center border-t border-gray-200 pt-12 mt-12">
-              <h3 className="text-xl font-bold mb-3 text-black">{sectionItems[3].title}</h3>
-              <p className="text-gray-600 text-lg">{sectionItems[3].description}</p>
-            </div>
-          )}
         </div>
-      </section>
+      </div>
     );
   };
 
