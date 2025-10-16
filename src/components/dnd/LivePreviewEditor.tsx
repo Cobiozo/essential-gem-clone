@@ -2732,6 +2732,28 @@ export const LivePreviewEditor: React.FC = () => {
               console.error('Error updating row:', error);
             }
           }}
+          onUpdateSection={async (sectionId, updates) => {
+            try {
+              const { error } = await supabase
+                .from('cms_sections')
+                .update({ ...updates, updated_at: new Date().toISOString() })
+                .eq('id', sectionId);
+              if (error) throw error;
+              
+              // ✅ Optimistic update
+              setSections(prev => prev.map(s => 
+                s.id === sectionId ? { ...s, ...updates } : s
+              ));
+              setHasUnsavedChanges(true);
+            } catch (error) {
+              console.error('Error updating section:', error);
+              toast({ 
+                title: 'Błąd', 
+                description: 'Nie udało się zaktualizować sekcji', 
+                variant: 'destructive' 
+              });
+            }
+          }}
                           onRemoveRow={async (rowId) => {
                           if (!isAdmin) {
                             toast({ title: 'Brak uprawnień', description: 'Tylko administrator może usuwać wiersze', variant: 'destructive' });

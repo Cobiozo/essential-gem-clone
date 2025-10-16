@@ -22,6 +22,9 @@ interface CollapsibleSectionProps {
   onOpenChange?: (open: boolean) => void; // callback
   currentDevice?: DeviceType;
   variant?: 'default' | 'modern'; // Visual style variant
+  isEditMode?: boolean; // Whether in edit mode
+  onTitleChange?: (newTitle: string) => void; // Callback when title changes
+  onDescriptionChange?: (newDescription: string) => void; // Callback when description changes
   // Styling props from CMS Section
   sectionStyle?: {
     background_color?: string | null;
@@ -94,7 +97,14 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   onOpenChange,
   currentDevice,
   variant = 'default',
+  isEditMode = false,
+  onTitleChange,
+  onDescriptionChange,
 }) => {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [tempTitle, setTempTitle] = useState(title);
+  const [tempDescription, setTempDescription] = useState(description || '');
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   
   // Synchronize internal state with defaultOpen prop changes
@@ -328,10 +338,46 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 className="drop-shadow-sm"
               />
             )}
-            <h3 
-              className="font-semibold leading-tight"
-              dangerouslySetInnerHTML={{ __html: title }}
-            />
+            {isEditMode && isEditingTitle ? (
+              <input
+                type="text"
+                value={tempTitle}
+                onChange={(e) => setTempTitle(e.target.value)}
+                onBlur={() => {
+                  setIsEditingTitle(false);
+                  onTitleChange?.(tempTitle);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingTitle(false);
+                    onTitleChange?.(tempTitle);
+                  }
+                  if (e.key === 'Escape') {
+                    setIsEditingTitle(false);
+                    setTempTitle(title);
+                  }
+                  e.stopPropagation();
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded px-3 py-1 text-inherit focus:outline-none focus:ring-2 focus:ring-white/50"
+                autoFocus
+              />
+            ) : (
+              <h3 
+                className={cn(
+                  "font-semibold leading-tight",
+                  isEditMode && "cursor-text hover:bg-white/10 px-2 py-1 rounded transition-colors"
+                )}
+                dangerouslySetInnerHTML={{ __html: title }}
+                onClick={(e) => {
+                  if (isEditMode) {
+                    e.stopPropagation();
+                    setIsEditingTitle(true);
+                    setTempTitle(title);
+                  }
+                }}
+              />
+            )}
             {IconComponent && sectionStyle?.icon_position === 'right' && (
               <IconComponent 
                 size={sectionStyle.icon_size || 24}
@@ -340,11 +386,46 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
               />
             )}
           </div>
-          {description && (
-            <p 
-              className="text-sm opacity-90 mt-2 leading-relaxed max-w-md"
-              dangerouslySetInnerHTML={{ __html: description }}
-            />
+          {(description || isEditMode) && (
+            <>
+              {isEditMode && isEditingDescription ? (
+                <textarea
+                  value={tempDescription}
+                  onChange={(e) => setTempDescription(e.target.value)}
+                  onBlur={() => {
+                    setIsEditingDescription(false);
+                    onDescriptionChange?.(tempDescription);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setIsEditingDescription(false);
+                      setTempDescription(description || '');
+                    }
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full bg-white/20 backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-sm text-inherit focus:outline-none focus:ring-2 focus:ring-white/50 resize-none"
+                  rows={3}
+                  autoFocus
+                />
+              ) : (
+                <p 
+                  className={cn(
+                    "text-sm opacity-90 mt-2 leading-relaxed max-w-md",
+                    isEditMode && "cursor-text hover:bg-white/10 px-2 py-1 rounded transition-colors",
+                    !description && isEditMode && "text-white/50 italic"
+                  )}
+                  dangerouslySetInnerHTML={{ __html: description || (isEditMode ? 'Kliknij aby dodać opis...' : '') }}
+                  onClick={(e) => {
+                    if (isEditMode) {
+                      e.stopPropagation();
+                      setIsEditingDescription(true);
+                      setTempDescription(description || '');
+                    }
+                  }}
+                />
+              )}
+            </>
           )}
         </div>
 

@@ -40,6 +40,7 @@ interface RowColumnDropZoneProps {
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
   rowDisplayType?: string | null;
+  onUpdateSection?: (sectionId: string, updates: Partial<CMSSection>) => void;
 }
 
 const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
@@ -66,6 +67,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   onMoveItemUp,
   onMoveItemDown,
   rowDisplayType,
+  onUpdateSection,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `${rowId}-col-${columnIndex}`,
@@ -178,6 +180,13 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                 <CollapsibleSection
                   title={slotSection.title}
                   description={slotSection.description}
+                  isEditMode={isEditMode}
+                  onTitleChange={(newTitle) => {
+                    onUpdateSection?.(slotSection.id, { title: newTitle });
+                  }}
+                  onDescriptionChange={(newDescription) => {
+                    onUpdateSection?.(slotSection.id, { description: newDescription });
+                  }}
                   sectionStyle={{
                     background_color: slotSection.background_color,
                     text_color: slotSection.text_color,
@@ -356,6 +365,7 @@ interface RowContainerProps {
   sections: CMSSection[];
   isEditMode: boolean;
   onUpdateRow: (rowId: string, updates: Partial<CMSSection>) => void;
+  onUpdateSection: (sectionId: string, updates: Partial<CMSSection>) => void;
   onRemoveRow: (rowId: string) => void;
   onSelectSection?: (sectionId: string) => void;
   selectedElement?: string;
@@ -379,6 +389,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   sections,
   isEditMode,
   onUpdateRow,
+  onUpdateSection,
   onRemoveRow,
   onSelectSection,
   selectedElement,
@@ -572,6 +583,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 onMoveItemUp={onMoveItemUp}
                 onMoveItemDown={onMoveItemDown}
                 rowDisplayType={row.display_type}
+                onUpdateSection={onUpdateSection}
               />
             );
           })}
