@@ -2241,26 +2241,47 @@ export const LivePreviewEditor: React.FC = () => {
   };
 
   const handleMoveItemUp = async (itemId: string) => {
+    console.log('[handleMoveItemUp] Starting for item:', itemId);
     const item = items.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+      console.log('[handleMoveItemUp] Item not found');
+      return;
+    }
     
     const sectionItems = items
       .filter(i => i.section_id === item.section_id && (i as any).column_index === (item as any).column_index)
       .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     
-    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
-    if (currentIndex <= 0) return;
+    console.log('[handleMoveItemUp] Section items:', sectionItems.map(i => ({ id: i.id, position: i.position })));
     
+    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
+    console.log('[handleMoveItemUp] Current index:', currentIndex);
+    
+    if (currentIndex <= 0) {
+      console.log('[handleMoveItemUp] Already at top');
+      return;
+    }
+    
+    // Swap items
     const newItems = [...sectionItems];
     [newItems[currentIndex], newItems[currentIndex - 1]] = [newItems[currentIndex - 1], newItems[currentIndex]];
     
-    // Update local state first
-    setItems(prev => prev.map(i => {
-      const itemInNew = newItems.find(ni => ni.id === i.id);
-      if (!itemInNew) return i;
-      const newIdx = newItems.indexOf(itemInNew);
-      return { ...i, position: newIdx };
-    }));
+    console.log('[handleMoveItemUp] After swap:', newItems.map(i => ({ id: i.id, position: i.position })));
+    
+    // Update local state first for immediate UI update
+    setItems(prev => {
+      const updated = prev.map(i => {
+        const itemInNew = newItems.find(ni => ni.id === i.id);
+        if (!itemInNew) return i;
+        const newIdx = newItems.indexOf(itemInNew);
+        console.log('[handleMoveItemUp] Setting position for', i.id, 'to', newIdx);
+        return { ...i, position: newIdx };
+      });
+      return updated;
+    });
+    
+    // Force re-render
+    setDragVersion(v => v + 1);
     
     // Then update database
     try {
@@ -2271,36 +2292,57 @@ export const LivePreviewEditor: React.FC = () => {
           .eq('id', item.id as string)
       ));
       
+      console.log('[handleMoveItemUp] Database updated successfully');
       setHasUnsavedChanges(true);
     } catch (error) {
-      console.error('Error moving item:', error);
+      console.error('[handleMoveItemUp] Error:', error);
       toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
-      // Restore state
       await fetchData();
     }
   };
 
   const handleMoveItemDown = async (itemId: string) => {
+    console.log('[handleMoveItemDown] Starting for item:', itemId);
     const item = items.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) {
+      console.log('[handleMoveItemDown] Item not found');
+      return;
+    }
     
     const sectionItems = items
       .filter(i => i.section_id === item.section_id && (i as any).column_index === (item as any).column_index)
       .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     
-    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
-    if (currentIndex >= sectionItems.length - 1) return;
+    console.log('[handleMoveItemDown] Section items:', sectionItems.map(i => ({ id: i.id, position: i.position })));
     
+    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
+    console.log('[handleMoveItemDown] Current index:', currentIndex, 'of', sectionItems.length);
+    
+    if (currentIndex >= sectionItems.length - 1) {
+      console.log('[handleMoveItemDown] Already at bottom');
+      return;
+    }
+    
+    // Swap items
     const newItems = [...sectionItems];
     [newItems[currentIndex], newItems[currentIndex + 1]] = [newItems[currentIndex + 1], newItems[currentIndex]];
     
-    // Update local state first
-    setItems(prev => prev.map(i => {
-      const itemInNew = newItems.find(ni => ni.id === i.id);
-      if (!itemInNew) return i;
-      const newIdx = newItems.indexOf(itemInNew);
-      return { ...i, position: newIdx };
-    }));
+    console.log('[handleMoveItemDown] After swap:', newItems.map(i => ({ id: i.id, position: i.position })));
+    
+    // Update local state first for immediate UI update
+    setItems(prev => {
+      const updated = prev.map(i => {
+        const itemInNew = newItems.find(ni => ni.id === i.id);
+        if (!itemInNew) return i;
+        const newIdx = newItems.indexOf(itemInNew);
+        console.log('[handleMoveItemDown] Setting position for', i.id, 'to', newIdx);
+        return { ...i, position: newIdx };
+      });
+      return updated;
+    });
+    
+    // Force re-render
+    setDragVersion(v => v + 1);
     
     // Then update database
     try {
@@ -2311,11 +2353,11 @@ export const LivePreviewEditor: React.FC = () => {
           .eq('id', item.id as string)
       ));
       
+      console.log('[handleMoveItemDown] Database updated successfully');
       setHasUnsavedChanges(true);
     } catch (error) {
-      console.error('Error moving item:', error);
+      console.error('[handleMoveItemDown] Error:', error);
       toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
-      // Restore state
       await fetchData();
     }
   };
