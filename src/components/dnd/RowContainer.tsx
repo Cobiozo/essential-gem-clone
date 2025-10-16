@@ -6,6 +6,7 @@ import { Plus, X, Columns, Columns2, Columns3, Grid3X3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { DraggableSection } from './DraggableSection';
+import { DraggableItem } from './DraggableItem';
 import { ResizableElement } from './ResizableElement';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ColumnLayout } from './ColumnLayout';
@@ -81,42 +82,47 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
     <div
       ref={setNodeRef}
       className={cn(
-        'min-h-[120px] transition-all duration-200',
-        isEditMode && 'border border-dashed border-border/30 rounded p-2',
-        isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary',
+        'min-h-[200px] transition-all duration-200',
+        isEditMode && 'border-2 border-dashed border-border/50 rounded-lg p-4',
+        isEditMode && isOver && 'bg-primary/10 ring-2 ring-primary border-primary/50',
         // Only hide border when slot has content AND we're not hovering
-        isEditMode && (slotSection || columnItems.length > 0) && !isOver && 'border-transparent',
+        isEditMode && (slotSection || columnItems.length > 0) && !isOver && 'border-border/30',
         (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) && 'shrink-0'
       )}
       style={{ width: (rowLayoutType === 'custom' || (slotSection && slotSection.width_type === 'custom')) ? columnWidth : undefined }}
     >
-      {/* ✅ Najpierw renderuj elementy bezpośrednio w kolumnie row */}
+      {/* ✅ Najpierw renderuj elementy bezpośrednio w kolumnie row - TERAZ DRAGGABLE */}
       {columnItems.length > 0 && (
         <div className="space-y-2 mb-4">
           {columnItems.map((item, itemIdx) => (
-            <div 
+            <DraggableItem
               key={item.id}
-              className="relative group"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!activeId && onSelectSection) {
-                  onSelectSection(item.id as string);
-                }
-              }}
+              id={item.id as string}
+              isEditMode={isEditMode}
             >
-              {isEditMode && onEditItem && onDeleteItem && (
-                <ItemControls
-                  onEdit={() => onEditItem(item.id as string)}
-                  onDelete={() => onDeleteItem(item.id as string)}
-                  onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                  onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                  onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                  canMoveUp={itemIdx > 0}
-                  canMoveDown={itemIdx < columnItems.length - 1}
-                />
-              )}
-              <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />
-            </div>
+              <div 
+                className="relative group"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!activeId && onSelectSection) {
+                    onSelectSection(item.id as string);
+                  }
+                }}
+              >
+                {isEditMode && onEditItem && onDeleteItem && (
+                  <ItemControls
+                    onEdit={() => onEditItem(item.id as string)}
+                    onDelete={() => onDeleteItem(item.id as string)}
+                    onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                    onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
+                    onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
+                    canMoveUp={itemIdx > 0}
+                    canMoveDown={itemIdx < columnItems.length - 1}
+                  />
+                )}
+                <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />
+              </div>
+            </DraggableItem>
           ))}
         </div>
       )}
