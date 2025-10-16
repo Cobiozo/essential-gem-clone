@@ -309,20 +309,65 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           </div>
         </div>
 
-        {(editedItem.type === 'button' || editedItem.type === 'link') && (
-          <div>
-            <Label htmlFor="item-url" className="text-sm font-medium">
-              URL / Link
-            </Label>
-            <Input
-              id="item-url"
-              type="url"
-              value={editedItem.url || ''}
-              onChange={(e) => setEditedItem({...editedItem, url: e.target.value})}
-              placeholder="https://example.com"
-              className="mt-1"
-            />
-          </div>
+      {(editedItem.type === 'button' || editedItem.type === 'link') && (
+          <>
+            <div>
+              <Label htmlFor="item-url" className="text-sm font-medium">
+                URL / Link
+              </Label>
+              <Input
+                id="item-url"
+                type="url"
+                value={editedItem.url || ''}
+                onChange={(e) => setEditedItem({...editedItem, url: e.target.value})}
+                placeholder="https://example.com"
+                className="mt-1"
+              />
+            </div>
+
+            {editedItem.type === 'button' && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="space-y-2">
+                  <Label>Kolor tła</Label>
+                  <Input
+                    type="text"
+                    value={editedItem.background_color || 'hsl(var(--primary))'}
+                    onChange={(e) => setEditedItem({...editedItem, background_color: e.target.value})}
+                    placeholder="hsl(var(--primary))"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Kolor tekstu</Label>
+                  <Input
+                    type="text"
+                    value={editedItem.text_color || 'hsl(var(--primary-foreground))'}
+                    onChange={(e) => setEditedItem({...editedItem, text_color: e.target.value})}
+                    placeholder="hsl(var(--primary-foreground))"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Zaokrąglenie rogów (px)</Label>
+                  <Input
+                    type="number"
+                    value={editedItem.border_radius || 8}
+                    onChange={(e) => setEditedItem({...editedItem, border_radius: parseInt(e.target.value)})}
+                    min={0}
+                    max={50}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Padding (px)</Label>
+                  <Input
+                    type="number"
+                    value={editedItem.padding || 12}
+                    onChange={(e) => setEditedItem({...editedItem, padding: parseInt(e.target.value)})}
+                    min={0}
+                    max={50}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div>
@@ -380,14 +425,83 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       )}
 
       {(editedItem.type === 'heading' || editedItem.type === 'text') && (
-        <div className="space-y-2">
-          <Label>Treść</Label>
-          <Textarea
-            value={editedItem.title || ''}
-            onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
-            placeholder="Wprowadź tekst..."
-            rows={editedItem.type === 'text' ? 6 : 2}
-          />
+        <div className="space-y-4 border-t pt-4">
+          <div className="space-y-2">
+            <Label>Treść</Label>
+            <Textarea
+              value={editedItem.title || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+              placeholder="Wprowadź tekst..."
+              rows={editedItem.type === 'text' ? 6 : 2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Rozmiar czcionki (px)</Label>
+            <Input
+              type="number"
+              value={editedItem.font_size || 16}
+              onChange={(e) => setEditedItem({ ...editedItem, font_size: parseInt(e.target.value) })}
+              min={8}
+              max={72}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Kolor tekstu</Label>
+            <Input
+              type="text"
+              value={editedItem.text_color || 'hsl(var(--foreground))'}
+              onChange={(e) => setEditedItem({ ...editedItem, text_color: e.target.value })}
+              placeholder="hsl(var(--foreground))"
+            />
+          </div>
+        </div>
+      )}
+
+      {(editedItem.type === 'image' || editedItem.type === 'media') && (
+        <div className="space-y-4 border-t pt-4">
+          <div className="space-y-2">
+            <Label>Upload obrazka</Label>
+            <MediaUpload
+              onMediaUploaded={(url, type, alt) => {
+                setEditedItem({
+                  ...editedItem,
+                  media_url: url,
+                  media_type: type === 'image' ? 'image' : type === 'video' ? 'video' : '',
+                  media_alt_text: alt || ''
+                });
+              }}
+              currentMediaUrl={editedItem.media_url}
+              currentMediaType={editedItem.media_type === 'image' ? 'image' : editedItem.media_type === 'video' ? 'video' : 'other'}
+              currentAltText={editedItem.media_alt_text}
+              allowedTypes={['image']}
+            />
+            {editedItem.media_url && (
+              <div className="mt-2">
+                <SecureMedia
+                  mediaUrl={editedItem.media_url}
+                  mediaType={editedItem.media_type === 'image' ? 'image' : editedItem.media_type === 'video' ? 'video' : 'other'}
+                  altText={editedItem.media_alt_text || 'Uploaded image'}
+                  className="w-full h-auto rounded-lg"
+                />
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Tekst alternatywny (ALT)</Label>
+            <Input
+              value={editedItem.media_alt_text || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, media_alt_text: e.target.value })}
+              placeholder="Opis obrazka dla SEO i dostępności"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>URL obrazka (opcjonalnie)</Label>
+            <Input
+              value={editedItem.media_url || ''}
+              onChange={(e) => setEditedItem({ ...editedItem, media_url: e.target.value })}
+              placeholder="https://example.com/image.jpg"
+            />
+          </div>
         </div>
       )}
 

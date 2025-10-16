@@ -906,14 +906,63 @@ export const LivePreviewEditor: React.FC = () => {
       let columnIndex = 0;
       
       console.log('[handleNewElementDrop] 🎯 Analyzing targetId:', targetId);
+      console.log('[handleNewElementDrop] All sections:', sections.map(s => ({ id: s.id, type: s.section_type, parent: s.parent_id })));
       
       if (targetId.includes('-col-')) {
-        // Format: "{sectionId}-col-{index}" - Dropped into a specific column
+        // Format: "{sectionId}-col-{index}" or "{rowId}-col-{index}"
+        // Could be a column in a section OR a column slot in a row
         const match = targetId.match(/^(.+)-col-(\d+)$/);
         if (match) {
-          targetSectionId = match[1];
+          const possibleId = match[1];
           columnIndex = parseInt(match[2], 10);
-          console.log('[handleNewElementDrop] ✅ Dropped into column:', { targetSectionId, columnIndex });
+          
+          // Check if it's a row (section with section_type='row')
+          const possibleRow = sections.find(s => s.id === possibleId && s.section_type === 'row');
+          
+          if (possibleRow) {
+            // It's a row column slot - find or create child section
+            console.log('[handleNewElementDrop] 🎯 Dropped into ROW column slot:', { rowId: possibleId, columnIndex });
+            
+            const childSections = sections
+              .filter(s => s.parent_id === possibleId)
+              .sort((a, b) => a.position - b.position);
+            
+            if (childSections[columnIndex]) {
+              // Use existing section in this column
+              targetSectionId = childSections[columnIndex].id;
+              columnIndex = 0; // Reset to first column of that section
+              console.log('[handleNewElementDrop] ✅ Using existing section in row column:', targetSectionId);
+            } else {
+              // Need to create a section for this row column
+              const { data: newSectionData, error: sectionError } = await supabase
+                .from('cms_sections')
+                .insert([{
+                  page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+                  parent_id: possibleId,
+                  section_type: 'section',
+                  position: columnIndex,
+                  is_active: true,
+                  title: `Kolumna ${columnIndex + 1}`,
+                  width_type: 'full',
+                  height_type: 'auto',
+                }])
+                .select()
+                .single();
+              
+              if (sectionError) throw sectionError;
+              
+              targetSectionId = newSectionData.id;
+              columnIndex = 0;
+              
+              // Update local state
+              setSections(prev => [...prev, newSectionData as any]);
+              console.log('[handleNewElementDrop] ✅ Created new section in row column:', targetSectionId);
+            }
+          } else {
+            // Regular section column
+            targetSectionId = possibleId;
+            console.log('[handleNewElementDrop] ✅ Dropped into section column:', { targetSectionId, columnIndex });
+          }
         } else {
           toast({ title: 'Błąd', description: 'Nieprawidłowy cel', variant: 'destructive' });
           return;
