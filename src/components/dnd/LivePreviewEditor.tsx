@@ -954,8 +954,13 @@ export const LivePreviewEditor: React.FC = () => {
               targetSectionId = newSectionData.id;
               columnIndex = 0;
               
-              // Update local state
-              setSections(prev => [...prev, newSectionData as any]);
+              // Update local state and mark as newly created
+              const newSection = newSectionData as any;
+              setSections(prev => [...prev, newSection]);
+              
+              // Add to temporary tracking for validation below
+              sections.push(newSection);
+              
               console.log('[handleNewElementDrop] ✅ Created new section in row column:', targetSectionId);
             }
           } else {
@@ -1009,8 +1014,13 @@ export const LivePreviewEditor: React.FC = () => {
           targetSectionId = newSectionData.id;
           columnIndex = 0;
           
-          // Update local state
-          setSections(prev => [...prev, newSectionData as any]);
+          // Update local state and mark as newly created
+          const newSection = newSectionData as any;
+          setSections(prev => [...prev, newSection]);
+          
+          // Add to temporary tracking for validation below
+          sections.push(newSection);
+          
           console.log('[handleNewElementDrop] Created new section in row:', targetSectionId);
         }
       } else {
@@ -2098,6 +2108,17 @@ export const LivePreviewEditor: React.FC = () => {
   const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
   
   const handleEditItem = (itemId: string) => {
+    console.log('[handleEditItem] Opening editor for item:', itemId);
+    
+    // Find full item object
+    const item = items.find(i => i.id === itemId);
+    if (!item) {
+      console.error('[handleEditItem] Item not found:', itemId);
+      return;
+    }
+    
+    console.log('[handleEditItem] Item type:', item.type, 'Full item:', item);
+    
     setEditingItemId(itemId);
     setSelectedElement(itemId);
     setIsItemEditorOpen(true);

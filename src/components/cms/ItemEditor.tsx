@@ -242,9 +242,18 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
 
   const editorContent = (
     <div className="space-y-6 p-1">
+      {/* Informacja o typie elementu */}
+      <div className="p-3 bg-muted rounded-lg border">
+        <Label className="text-sm font-medium mb-2 block">Edycja elementu</Label>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">{itemTypes.find(t => t.value === editedItem.type)?.icon}</Badge>
+          <span className="text-sm font-medium">{itemTypes.find(t => t.value === editedItem.type)?.label || editedItem.type}</span>
+        </div>
+      </div>
+
       {/* Type Selection */}
       <div>
-        <Label className="text-sm font-medium mb-3 block">Typ elementu</Label>
+        <Label className="text-sm font-medium mb-3 block">Zmień typ elementu</Label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {itemTypes.map((type) => (
             <Button
@@ -309,9 +318,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
           </div>
         </div>
 
-      {(editedItem.type === 'button' || editedItem.type === 'link') && (
+        {(editedItem.type === 'button' || editedItem.type === 'link') && (
           <>
-            <div>
+            <div className="border-t pt-4">
               <Label htmlFor="item-url" className="text-sm font-medium">
                 URL / Link
               </Label>
@@ -327,6 +336,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
 
             {editedItem.type === 'button' && (
               <div className="space-y-4 border-t pt-4">
+                <h3 className="font-medium text-sm">Stylizacja przycisku</h3>
                 <div className="space-y-2">
                   <Label>Kolor tła</Label>
                   <Input
@@ -426,6 +436,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
 
       {(editedItem.type === 'heading' || editedItem.type === 'text') && (
         <div className="space-y-4 border-t pt-4">
+          <h3 className="font-medium text-sm">Edycja {editedItem.type === 'heading' ? 'nagłówka' : 'tekstu'}</h3>
           <div className="space-y-2">
             <Label>Treść</Label>
             <Textarea
@@ -459,6 +470,7 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
 
       {(editedItem.type === 'image' || editedItem.type === 'media') && (
         <div className="space-y-4 border-t pt-4">
+          <h3 className="font-medium text-sm">Edycja obrazka</h3>
           <div className="space-y-2">
             <Label>Upload obrazka</Label>
             <MediaUpload
