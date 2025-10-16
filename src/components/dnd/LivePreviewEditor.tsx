@@ -89,6 +89,8 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
     disabled: !editMode,
   });
 
+  console.log(`[RegularSectionContent] Rendering section ${section.id} with ${sectionItems.length} items, columns: ${sectionColumnCount}`);
+
   return (
     <div 
       ref={setNodeRef}
@@ -780,22 +782,69 @@ export const LivePreviewEditor: React.FC = () => {
       
       if (layoutElements.includes(elementType)) {
         console.log('[handleNewElementDrop] Creating layout section for:', elementType);
+        console.log('[handleNewElementDrop] overData:', overData);
+        console.log('[handleNewElementDrop] targetId:', targetId);
         
         // Determine target position based on where it was dropped
         let insertPosition = 0;
+        let targetSectionIdForPosition: string | null = null;
+        
+        // Try to get section ID from overData first
+        if (overData?.type === 'row-column') {
+          // Dropped on a row column - find the parent row
+          const childSection = sections.find(s => s.id === overData.rowId);
+          if (childSection?.parent_id) {
+            targetSectionIdForPosition = childSection.parent_id;
+          }
+        } else if (overData?.type === 'section') {
+          targetSectionIdForPosition = overData.sectionId;
+        } else if (overData?.type === 'column') {
+          targetSectionIdForPosition = overData.sectionId;
+        }
+        
+        // Fallback to parsing targetId
+        if (!targetSectionIdForPosition) {
+          if (targetId.startsWith('row-')) {
+            targetSectionIdForPosition = targetId.replace('row-', '');
+          } else if (targetId.includes('-col-')) {
+            targetSectionIdForPosition = targetId.split('-col-')[0];
+          } else {
+            targetSectionIdForPosition = targetId;
+          }
+        }
+        
+        console.log('[handleNewElementDrop] Target section ID for position:', targetSectionIdForPosition);
         
         // Find the target section to determine insert position
-        const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
+        const targetSection = sections.find(s => s.id === targetSectionIdForPosition);
         
         if (targetSection) {
           // Insert after the target section
           const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
           const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
-          insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
+          
+          if (targetIndex >= 0) {
+            // Found the target - insert right after it
+            insertPosition = targetSection.position + 1;
+          } else {
+            // Target is not top-level, find its parent
+            if (targetSection.parent_id) {
+              const parentSection = sections.find(s => s.id === targetSection.parent_id);
+              if (parentSection) {
+                insertPosition = parentSection.position + 1;
+              } else {
+                insertPosition = topLevelSections.length;
+              }
+            } else {
+              insertPosition = topLevelSections.length;
+            }
+          }
+          console.log('[handleNewElementDrop] Inserting after section', targetSection.title, 'at position:', insertPosition);
         } else {
           // If no target found, add at the end
           const topLevelSections = sections.filter(s => !s.parent_id);
           insertPosition = topLevelSections.length;
+          console.log('[handleNewElementDrop] No target found, inserting at end position:', insertPosition);
         }
         
         // Determine section type and properties based on element type
@@ -1000,7 +1049,13 @@ export const LivePreviewEditor: React.FC = () => {
 
       // Reinitialize columns and force re-render
       initializeColumns(sections, newItems);
-      setDragVersion(prev => prev + 1);
+      
+      console.log('[handleNewElementDrop] Before dragVersion increment:', dragVersion);
+      setDragVersion(prev => {
+        const newVersion = prev + 1;
+        console.log('[handleNewElementDrop] After dragVersion increment:', newVersion);
+        return newVersion;
+      });
 
       console.log('[handleNewElementDrop] ✅ Item added successfully:', {
         id: convertedItem.id,
