@@ -986,6 +986,8 @@ export const LivePreviewEditor: React.FC = () => {
               console.log('[handleNewElementDrop] ✅ Using existing section in row column:', targetSectionId);
             } else {
               // Need to create a section for this row column
+              console.log('[handleNewElementDrop] Creating new section in row column...');
+              
               const { data: newSectionData, error: sectionError } = await supabase
                 .from('cms_sections')
                 .insert([{
@@ -1001,7 +1003,14 @@ export const LivePreviewEditor: React.FC = () => {
                 .select()
                 .single();
               
-              if (sectionError) throw sectionError;
+              if (sectionError) {
+                console.error('[handleNewElementDrop] Error creating section:', sectionError);
+                throw sectionError;
+              }
+              
+              if (!newSectionData) {
+                throw new Error('No section data returned after insert');
+              }
               
               targetSectionId = newSectionData.id;
               columnIndex = 0;
@@ -1009,6 +1018,9 @@ export const LivePreviewEditor: React.FC = () => {
               // Update local state
               const newSection = newSectionData as any;
               setSections(prev => [...prev, newSection]);
+              
+              // Wait a bit to ensure DB commit
+              await new Promise(resolve => setTimeout(resolve, 100));
               
               console.log('[handleNewElementDrop] ✅ Created new section in row column:', targetSectionId);
             }
@@ -1043,6 +1055,8 @@ export const LivePreviewEditor: React.FC = () => {
           console.log('[handleNewElementDrop] Dropping into row, using first child section:', targetSectionId);
         } else {
           // No child sections - create one first
+          console.log('[handleNewElementDrop] Creating new section in row...');
+          
           const { data: newSectionData, error: sectionError } = await supabase
             .from('cms_sections')
             .insert([{
@@ -1058,7 +1072,14 @@ export const LivePreviewEditor: React.FC = () => {
             .select()
             .single();
           
-          if (sectionError) throw sectionError;
+          if (sectionError) {
+            console.error('[handleNewElementDrop] Error creating section:', sectionError);
+            throw sectionError;
+          }
+          
+          if (!newSectionData) {
+            throw new Error('No section data returned after insert');
+          }
           
           targetSectionId = newSectionData.id;
           columnIndex = 0;
@@ -1066,6 +1087,9 @@ export const LivePreviewEditor: React.FC = () => {
           // Update local state
           const newSection = newSectionData as any;
           setSections(prev => [...prev, newSection]);
+          
+          // Wait a bit to ensure DB commit
+          await new Promise(resolve => setTimeout(resolve, 100));
           
           console.log('[handleNewElementDrop] Created new section in row:', targetSectionId);
         }
@@ -2225,22 +2249,22 @@ export const LivePreviewEditor: React.FC = () => {
 
   const handleDeleteItem = async (itemId: string) => {
     try {
-      // ✅ Najpierw aktualizuj lokalny stan natychmiast
-      setItems(prev => prev.filter(i => i.id !== itemId));
+      console.log('[handleDeleteItem] Deleting item:', itemId);
       
-      // Następnie aktualizuj bazę danych
+      // ✅ Update database first
       const { error } = await supabase
         .from('cms_items')
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('id', itemId);
       
       if (error) {
-        // Jeśli błąd, przywróć element
         console.error('Error deleting item:', error);
-        // Odśwież dane z bazy
-        await fetchData();
         throw error;
       }
+      
+      // ✅ Update local state after successful DB update
+      // Realtime subscription will handle the update automatically
+      console.log('[handleDeleteItem] Item marked as inactive, realtime will update UI');
       
       saveToHistory(sections, items.filter(i => i.id !== itemId));
       setHasUnsavedChanges(true);
