@@ -454,6 +454,94 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
     }
   };
 
+  const deleteBulkSections = async () => {
+    if (inactiveSections.length === 0) {
+      toast({
+        title: 'Info',
+        description: 'Brak nieaktywnych sekcji do usunięcia',
+      });
+      return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz trwale usunąć wszystkie ${inactiveSections.length} nieaktywnych sekcji? Ta operacja jest nieodwracalna.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const sectionIds = inactiveSections.map(s => s.id);
+      const { error } = await supabase
+        .from('cms_sections')
+        .delete()
+        .in('id', sectionIds);
+
+      if (error) throw error;
+
+      setInactiveSections([]);
+
+      toast({
+        title: 'Sukces',
+        description: `Usunięto ${sectionIds.length} nieaktywnych sekcji`,
+      });
+
+      onElementDeleted();
+    } catch (error) {
+      console.error('Error deleting bulk sections:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można usunąć sekcji',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteBulkItems = async () => {
+    if (inactiveItems.length === 0) {
+      toast({
+        title: 'Info',
+        description: 'Brak nieaktywnych elementów do usunięcia',
+      });
+      return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz trwale usunąć wszystkie ${inactiveItems.length} nieaktywnych elementów? Ta operacja jest nieodwracalna.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const itemIds = inactiveItems.map(i => i.id);
+      const { error } = await supabase
+        .from('cms_items')
+        .delete()
+        .in('id', itemIds);
+
+      if (error) throw error;
+
+      setInactiveItems([]);
+
+      toast({
+        title: 'Sukces',
+        description: `Usunięto ${itemIds.length} nieaktywnych elementów`,
+      });
+
+      onElementDeleted();
+    } catch (error) {
+      console.error('Error deleting bulk items:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można usunąć elementów',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInactiveElements();
   }, [refreshKey]);
@@ -508,6 +596,26 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
             className="text-xs"
           >
             Skanuj sekcje bez elementów
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={deleteBulkSections}
+            disabled={loading || inactiveSections.length === 0}
+            className="text-xs"
+          >
+            <Trash2 className="w-3 h-3 mr-1" />
+            Usuń wszystkie sekcje ({inactiveSections.length})
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={deleteBulkItems}
+            disabled={loading || inactiveItems.length === 0}
+            className="text-xs"
+          >
+            <Trash2 className="w-3 h-3 mr-1" />
+            Usuń wszystkie elementy ({inactiveItems.length})
           </Button>
         </div>
       </CardHeader>
