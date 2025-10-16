@@ -56,82 +56,88 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
           <TabsTrigger value="style">Styl</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Typ nagłówka</Label>
-              <Select
-                value={editedItem.style_class?.includes('text-') ? editedItem.style_class.match(/text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl)/)?.[1] || 'xl' : 'xl'}
-                onValueChange={(value) => {
-                  const sizeMap: Record<string, string> = {
-                    'xs': 'text-xs',
-                    'sm': 'text-sm',
-                    'base': 'text-base',
-                    'lg': 'text-lg',
-                    'xl': 'text-xl',
-                    '2xl': 'text-2xl',
-                    '3xl': 'text-3xl',
-                    '4xl': 'text-4xl',
-                    '5xl': 'text-5xl',
-                    '6xl': 'text-6xl'
-                  };
-                  const currentClass = editedItem.style_class || '';
-                  const newClass = currentClass.replace(/text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl)/g, '').trim();
-                  handleUpdate({ style_class: `${newClass} ${sizeMap[value]}`.trim() });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="xs">H6 (najmniejszy)</SelectItem>
-                  <SelectItem value="sm">H5</SelectItem>
-                  <SelectItem value="base">H4</SelectItem>
-                  <SelectItem value="lg">H3</SelectItem>
-                  <SelectItem value="xl">H2</SelectItem>
-                  <SelectItem value="2xl">H1</SelectItem>
-                  <SelectItem value="3xl">Display małe</SelectItem>
-                  <SelectItem value="4xl">Display średnie</SelectItem>
-                  <SelectItem value="5xl">Display duże</SelectItem>
-                  <SelectItem value="6xl">Display bardzo duże</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Typ nagłówka</Label>
+                <Select
+                  value={editedItem.style_class?.includes('text-') ? editedItem.style_class.match(/text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl)/)?.[1] || 'xl' : 'xl'}
+                  onValueChange={(value) => {
+                    const sizeMap: Record<string, string> = {
+                      'xs': 'text-xs',
+                      'sm': 'text-sm',
+                      'base': 'text-base',
+                      'lg': 'text-lg',
+                      'xl': 'text-xl',
+                      '2xl': 'text-2xl',
+                      '3xl': 'text-3xl',
+                      '4xl': 'text-4xl',
+                      '5xl': 'text-5xl',
+                      '6xl': 'text-6xl'
+                    };
+                    const currentClass = editedItem.style_class || '';
+                    const newClass = currentClass.replace(/text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl)/g, '').trim();
+                    handleUpdate({ style_class: `${newClass} ${sizeMap[value]}`.trim() });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="xs">H6 (najmniejszy)</SelectItem>
+                    <SelectItem value="sm">H5</SelectItem>
+                    <SelectItem value="base">H4</SelectItem>
+                    <SelectItem value="lg">H3</SelectItem>
+                    <SelectItem value="xl">H2</SelectItem>
+                    <SelectItem value="2xl">H1</SelectItem>
+                    <SelectItem value="3xl">Display małe</SelectItem>
+                    <SelectItem value="4xl">Display średnie</SelectItem>
+                    <SelectItem value="5xl">Display duże</SelectItem>
+                    <SelectItem value="6xl">Display bardzo duże</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Tekst nagłówka</Label>
-              <Input
-                value={editedItem.title || ''}
-                onChange={(e) => handleUpdate({ title: e.target.value })}
-                placeholder="Wpisz tytuł..."
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Tekst nagłówka</Label>
+                <Input
+                  value={editedItem.title || ''}
+                  onChange={(e) => handleUpdate({ title: e.target.value })}
+                  placeholder="Wpisz tytuł..."
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Poziom semantyczny HTML</Label>
-              <Select defaultValue="h2">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="h1">H1 (główny tytuł strony)</SelectItem>
-                  <SelectItem value="h2">H2 (sekcja)</SelectItem>
-                  <SelectItem value="h3">H3 (podsekcja)</SelectItem>
-                  <SelectItem value="h4">H4</SelectItem>
-                  <SelectItem value="h5">H5</SelectItem>
-                  <SelectItem value="h6">H6</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Ważne dla SEO i dostępności
-              </p>
+              <div className="space-y-2">
+                <Label>Poziom semantyczny HTML</Label>
+                <Select defaultValue="h2">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="h1">H1 (główny tytuł strony)</SelectItem>
+                    <SelectItem value="h2">H2 (sekcja)</SelectItem>
+                    <SelectItem value="h3">H3 (podsekcja)</SelectItem>
+                    <SelectItem value="h4">H4</SelectItem>
+                    <SelectItem value="h5">H5</SelectItem>
+                    <SelectItem value="h6">H6</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Ważne dla SEO i dostępności
+                </p>
+              </div>
             </div>
-          </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="style" className="p-4">
-            <StyleTab item={editedItem} onUpdate={handleUpdate} />
-          </TabsContent>
-        </ScrollArea>
+        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <StyleTab item={editedItem} onUpdate={handleUpdate} />
+            </div>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );

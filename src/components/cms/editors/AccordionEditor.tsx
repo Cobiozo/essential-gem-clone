@@ -106,9 +106,9 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
           <TabsTrigger value="style">Styl</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-4">
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
               {accordionItems.map((accordionItem, index) => (
                 <Card key={index}>
                   <CardContent className="p-4">
@@ -153,32 +153,40 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
               <Plus className="w-4 h-4 mr-2" />
               Dodaj element
             </Button>
-          </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="settings" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Nagłówek sekcji (opcjonalnie)</Label>
-              <Input
-                value={editedItem.title || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
-                placeholder="np. Witamy w Pure Life"
-              />
+        <TabsContent value="settings" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Nagłówek sekcji (opcjonalnie)</Label>
+                <Input
+                  value={editedItem.title || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+                  placeholder="np. Witamy w Pure Life"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Opis sekcji (opcjonalnie)</Label>
+                <Textarea
+                  value={editedItem.description || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
+                  placeholder="Dodatkowy tekst nad akordenem..."
+                  rows={3}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Opis sekcji (opcjonalnie)</Label>
-              <Textarea
-                value={editedItem.description || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
-                placeholder="Dodatkowy tekst nad akordenem..."
-                rows={3}
-              />
-            </div>
-          </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="style" className="p-4">
-            <div className="text-sm text-muted-foreground">Opcje stylu będą dostępne wkrótce...</div>
-          </TabsContent>
-        </ScrollArea>
+        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Opcje stylu będą dostępne wkrótce...</div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );

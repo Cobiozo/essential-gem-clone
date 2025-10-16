@@ -56,22 +56,30 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
           <TabsTrigger value="style">Styl</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Treść</Label>
-              <RichTextEditor
-                value={editedItem.description || ''}
-                onChange={(value) => handleUpdate({ description: value })}
-                placeholder="Wpisz treść..."
-              />
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Treść</Label>
+                <div className="border rounded-md overflow-hidden" style={{ height: '300px' }}>
+                  <RichTextEditor
+                    value={editedItem.description || ''}
+                    onChange={(value) => handleUpdate({ description: value })}
+                    placeholder="Wpisz treść..."
+                  />
+                </div>
+              </div>
             </div>
-          </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="style" className="p-4">
-            <StyleTab item={editedItem} onUpdate={handleUpdate} />
-          </TabsContent>
-        </ScrollArea>
+        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <StyleTab item={editedItem} onUpdate={handleUpdate} />
+            </div>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -59,74 +59,84 @@ export const InfoTextEditor: React.FC<InfoTextEditorProps> = ({ item, onSave, on
           <TabsTrigger value="advanced">Zaawansowane</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Ikonka</Label>
-              <Select
-                value={editedItem.icon || 'Heart'}
-                onValueChange={(value) => setEditedItem({ ...editedItem, icon: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {popularIcons.map((iconName) => {
-                    const IconComponent = (LucideIcons as any)[iconName];
-                    return (
-                      <SelectItem key={iconName} value={iconName}>
-                        <div className="flex items-center gap-2">
-                          {IconComponent && <IconComponent className="w-4 h-4" />}
-                          <span>{iconName}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Ikonka</Label>
+                <Select
+                  value={editedItem.icon || 'Heart'}
+                  onValueChange={(value) => setEditedItem({ ...editedItem, icon: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {popularIcons.map((iconName) => {
+                      const IconComponent = (LucideIcons as any)[iconName];
+                      return (
+                        <SelectItem key={iconName} value={iconName}>
+                          <div className="flex items-center gap-2">
+                            {IconComponent && <IconComponent className="w-4 h-4" />}
+                            <span>{iconName}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Widok</Label>
+                <Select defaultValue="default">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Domyślnie</SelectItem>
+                    <SelectItem value="simple">Simple</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tytuł</Label>
+                <Input
+                  value={editedItem.title || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+                  placeholder="Napisz do Nas"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Opis</Label>
+                <Textarea
+                  value={editedItem.description || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
+                  placeholder="+48 518 339 298..."
+                  rows={4}
+                />
+              </div>
             </div>
+          </ScrollArea>
+        </TabsContent>
 
-            <div className="space-y-2">
-              <Label>Widok</Label>
-              <Select defaultValue="default">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Domyślnie</SelectItem>
-                  <SelectItem value="simple">Simple</SelectItem>
-                </SelectContent>
-              </Select>
+        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Style options coming soon...</div>
             </div>
+          </ScrollArea>
+        </TabsContent>
 
-            <div className="space-y-2">
-              <Label>Tytuł</Label>
-              <Input
-                value={editedItem.title || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
-                placeholder="Napisz do Nas"
-              />
+        <TabsContent value="advanced" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Opis</Label>
-              <Textarea
-                value={editedItem.description || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
-                placeholder="+48 518 339 298..."
-                rows={4}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="style" className="p-4">
-            <div className="text-sm text-muted-foreground">Style options coming soon...</div>
-          </TabsContent>
-
-          <TabsContent value="advanced" className="p-4">
-            <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
-          </TabsContent>
-        </ScrollArea>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -53,83 +53,93 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
           <TabsTrigger value="advanced">Zaawansowane</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Tekst</Label>
-              <Input
-                value={editedItem.title || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
-                placeholder="Nasz sklep ->"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Link</Label>
-              <Input
-                value={editedItem.url || ''}
-                onChange={(e) => setEditedItem({ ...editedItem, url: e.target.value })}
-                placeholder="https://mobline-it.pl/sklep/"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Alignment</Label>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">←</Button>
-                <Button variant="outline" size="sm">↔</Button>
-                <Button variant="outline" size="sm">→</Button>
-                <Button variant="outline" size="sm">☰</Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Icon</Label>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">↻</Button>
-                <Button variant="outline" size="sm">⊕</Button>
-                <Button variant="outline" size="sm">🗑</Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Icon Position</Label>
-              <Select
-                value={editedItem.icon || 'before'}
-                onValueChange={(value) => setEditedItem({ ...editedItem, icon: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="before">Before</SelectItem>
-                  <SelectItem value="after">After</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Icon Spacing</Label>
-              <div className="flex gap-2 items-center">
-                <Slider
-                  value={[11]}
-                  max={50}
-                  step={1}
-                  className="flex-1"
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Tekst</Label>
+                <Input
+                  value={editedItem.title || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+                  placeholder="Nasz sklep ->"
                 />
-                <span className="text-sm w-8">11</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Link</Label>
+                <Input
+                  value={editedItem.url || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, url: e.target.value })}
+                  placeholder="https://mobline-it.pl/sklep/"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Alignment</Label>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm">←</Button>
+                  <Button variant="outline" size="sm">↔</Button>
+                  <Button variant="outline" size="sm">→</Button>
+                  <Button variant="outline" size="sm">☰</Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Icon</Label>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm">↻</Button>
+                  <Button variant="outline" size="sm">⊕</Button>
+                  <Button variant="outline" size="sm">🗑</Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Icon Position</Label>
+                <Select
+                  value={editedItem.icon || 'before'}
+                  onValueChange={(value) => setEditedItem({ ...editedItem, icon: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="before">Before</SelectItem>
+                    <SelectItem value="after">After</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Icon Spacing</Label>
+                <div className="flex gap-2 items-center">
+                  <Slider
+                    value={[11]}
+                    max={50}
+                    step={1}
+                    className="flex-1"
+                  />
+                  <span className="text-sm w-8">11</span>
+                </div>
               </div>
             </div>
-          </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="style" className="p-4">
-            <div className="text-sm text-muted-foreground">Style options coming soon...</div>
-          </TabsContent>
+        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Style options coming soon...</div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="advanced" className="p-4">
-            <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
-          </TabsContent>
-        </ScrollArea>
+        <TabsContent value="advanced" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );

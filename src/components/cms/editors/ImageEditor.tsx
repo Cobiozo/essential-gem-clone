@@ -61,83 +61,93 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ item, onSave, onCancel
           <TabsTrigger value="advanced">Zaawansowane</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Wybierz obrazek</Label>
-              <MediaUpload
-                onMediaUploaded={handleMediaUpload}
-                currentMediaUrl={editedItem.media_url || undefined}
-                currentMediaType={editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
-                currentAltText={editedItem.media_alt_text || undefined}
-              />
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Wybierz obrazek</Label>
+                <MediaUpload
+                  onMediaUploaded={handleMediaUpload}
+                  currentMediaUrl={editedItem.media_url || undefined}
+                  currentMediaType={editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
+                  currentAltText={editedItem.media_alt_text || undefined}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Rozdzielczość obrazka</Label>
+                <Select defaultValue="large">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="thumbnail">Thumbnail</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="large">Large - 1024 x 1</SelectItem>
+                    <SelectItem value="full">Full Size</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Podpis</Label>
+                <Select defaultValue="none">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak</SelectItem>
+                    <SelectItem value="caption">Caption</SelectItem>
+                    <SelectItem value="title">Title</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Połącz</Label>
+                <Select defaultValue="none">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak</SelectItem>
+                    <SelectItem value="media">Media File</SelectItem>
+                    <SelectItem value="custom">Custom URL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Lazy Loading</Label>
+                <Select defaultValue="lazy">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lazy">Lazy load</SelectItem>
+                    <SelectItem value="eager">Eager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+          </ScrollArea>
+        </TabsContent>
 
-            <div className="space-y-2">
-              <Label>Rozdzielczość obrazka</Label>
-              <Select defaultValue="large">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="thumbnail">Thumbnail</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="large">Large - 1024 x 1</SelectItem>
-                  <SelectItem value="full">Full Size</SelectItem>
-                </SelectContent>
-              </Select>
+        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Style options coming soon...</div>
             </div>
+          </ScrollArea>
+        </TabsContent>
 
-            <div className="space-y-2">
-              <Label>Podpis</Label>
-              <Select defaultValue="none">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Brak</SelectItem>
-                  <SelectItem value="caption">Caption</SelectItem>
-                  <SelectItem value="title">Title</SelectItem>
-                </SelectContent>
-              </Select>
+        <TabsContent value="advanced" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="pb-4">
+              <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Połącz</Label>
-              <Select defaultValue="none">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Brak</SelectItem>
-                  <SelectItem value="media">Media File</SelectItem>
-                  <SelectItem value="custom">Custom URL</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Lazy Loading</Label>
-              <Select defaultValue="lazy">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lazy">Lazy load</SelectItem>
-                  <SelectItem value="eager">Eager</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="style" className="p-4">
-            <div className="text-sm text-muted-foreground">Style options coming soon...</div>
-          </TabsContent>
-
-          <TabsContent value="advanced" className="p-4">
-            <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
-          </TabsContent>
-        </ScrollArea>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );

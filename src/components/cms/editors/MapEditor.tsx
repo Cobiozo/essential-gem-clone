@@ -57,40 +57,45 @@ export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) 
           <TabsTrigger value="settings">Ustawienia</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Adres lub współrzędne</Label>
-              <Input
-                value={editedItem.url || ''}
-                onChange={(e) => handleUpdate({ url: e.target.value })}
-                placeholder="np. Warszawa, Polska lub 52.2297,21.0122"
-              />
-              <p className="text-xs text-muted-foreground">
-                Wpisz adres lub współrzędne GPS (latitude,longitude)
-              </p>
-            </div>
+        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Adres lub współrzędne</Label>
+                <Input
+                  value={editedItem.url || ''}
+                  onChange={(e) => handleUpdate({ url: e.target.value })}
+                  placeholder="np. Warszawa, Polska lub 52.2297,21.0122"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Wpisz adres lub współrzędne GPS (latitude,longitude)
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Nazwa miejsca (opcjonalnie)</Label>
-              <Input
-                value={editedItem.title || ''}
-                onChange={(e) => handleUpdate({ title: e.target.value })}
-                placeholder="np. Nasze biuro"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Nazwa miejsca (opcjonalnie)</Label>
+                <Input
+                  value={editedItem.title || ''}
+                  onChange={(e) => handleUpdate({ title: e.target.value })}
+                  placeholder="np. Nasze biuro"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Opis (opcjonalnie)</Label>
-              <Input
-                value={editedItem.description || ''}
-                onChange={(e) => handleUpdate({ description: e.target.value })}
-                placeholder="np. Zapraszamy do odwiedzenia"
-              />
+              <div className="space-y-2">
+                <Label>Opis (opcjonalnie)</Label>
+                <Input
+                  value={editedItem.description || ''}
+                  onChange={(e) => handleUpdate({ description: e.target.value })}
+                  placeholder="np. Zapraszamy do odwiedzenia"
+                />
+              </div>
             </div>
-          </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-          <TabsContent value="settings" className="p-4 space-y-4">
+        <TabsContent value="settings" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pb-4">
             <div className="space-y-2">
               <Label>Wysokość mapy (px)</Label>
               <div className="flex gap-2 items-center">
@@ -143,8 +148,9 @@ export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) 
                 Mapa będzie wyświetlana z użyciem Google Maps Embed API
               </p>
             </div>
-          </TabsContent>
-        </ScrollArea>
+            </div>
+          </ScrollArea>
+        </TabsContent>
       </Tabs>
     </div>
   );
