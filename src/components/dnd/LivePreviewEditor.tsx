@@ -1012,6 +1012,10 @@ export const LivePreviewEditor: React.FC = () => {
         itemsInSection: newItems.filter(i => i.section_id === targetSectionId).length
       });
 
+      console.log('[handleNewElementDrop] All items after add:', 
+        newItems.map(i => ({ id: i.id, type: i.type, section_id: i.section_id, column_index: (i as any).column_index }))
+      );
+
       toast({ 
         title: '✅ Element dodany', 
         description: `Element ${getElementTypeName(elementType)} został dodany. Kliknij, aby edytować.` 
@@ -2451,7 +2455,7 @@ export const LivePreviewEditor: React.FC = () => {
                 if (section.section_type === 'row') {
                   return (
                     <DraggableSection
-                      key={section.id}
+                      key={`${section.id}-${dragVersion}`}
                       id={section.id}
                       isEditMode={editMode}
                       className="w-full"
@@ -2531,9 +2535,11 @@ export const LivePreviewEditor: React.FC = () => {
                   });
                 }
                 
+                console.log(`[Render] Section ${section.id} (${section.title}): ${sectionItems.length} items, dragVersion: ${dragVersion}`);
+                
                 return (
                   <DraggableSection
-                    key={section.id}
+                    key={`${section.id}-${dragVersion}`}
                     id={section.id}
                     isEditMode={editMode}
                     className="w-full"
