@@ -1053,17 +1053,21 @@ export const LivePreviewEditor: React.FC = () => {
       };
       
       const newItems = [...items, convertedItem];
+      console.log('[handleNewElementDrop] Setting new items:', newItems.length, 'items');
       setItems(newItems);
+      console.log('[handleNewElementDrop] Items state updated');
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
 
       // Reinitialize columns and force re-render
+      console.log('[handleNewElementDrop] Initializing columns');
       initializeColumns(sections, newItems);
+      console.log('[handleNewElementDrop] Columns initialized');
       
       console.log('[handleNewElementDrop] Before dragVersion increment:', dragVersion);
       setDragVersion(prev => {
         const newVersion = prev + 1;
-        console.log('[handleNewElementDrop] After dragVersion increment:', newVersion);
+        console.log('[handleNewElementDrop] Setting dragVersion to:', newVersion);
         return newVersion;
       });
 
@@ -1082,7 +1086,11 @@ export const LivePreviewEditor: React.FC = () => {
       );
       
       // Force a complete re-render by triggering section state update
-      setSections(prev => [...prev]);
+      console.log('[handleNewElementDrop] Forcing sections re-render');
+      setSections(prev => {
+        console.log('[handleNewElementDrop] Sections array cloned for re-render');
+        return [...prev];
+      });
 
       toast({ 
         title: '✅ Element dodany', 
