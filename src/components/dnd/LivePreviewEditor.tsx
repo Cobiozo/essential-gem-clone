@@ -596,6 +596,9 @@ export const LivePreviewEditor: React.FC = () => {
 
         setAutoSaveStatus('saved');
         setHasUnsavedChanges(false);
+        
+        // NO fetchData() here - keep local state for live editing
+        console.log('[AutoSave] Saved successfully - no page refresh');
       } catch (error) {
         console.error('Auto-save failed:', error);
         setAutoSaveStatus('error');
@@ -775,21 +778,34 @@ export const LivePreviewEditor: React.FC = () => {
       if (layoutElements.includes(elementType)) {
         console.log('[handleNewElementDrop] Creating layout section for:', elementType);
         
+        // Normalize targetId - remove 'row-' prefix if present
+        let normalizedTargetId = targetId;
+        if (targetId.startsWith('row-')) {
+          normalizedTargetId = targetId.replace('row-', '');
+        }
+        
         // Determine target position based on where it was dropped
         let insertPosition = 0;
         
         // Find the target section to determine insert position
-        const targetSection = sections.find(s => s.id === targetId || s.id === targetId.replace('row-', ''));
+        const targetSection = sections.find(s => s.id === normalizedTargetId);
         
         if (targetSection) {
           // Insert after the target section
           const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
           const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
           insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
+          
+          console.log('[handleNewElementDrop] Inserting after section:', {
+            targetTitle: targetSection.title,
+            targetIndex,
+            insertPosition
+          });
         } else {
           // If no target found, add at the end
           const topLevelSections = sections.filter(s => !s.parent_id);
           insertPosition = topLevelSections.length;
+          console.log('[handleNewElementDrop] No target found, adding at end:', insertPosition);
         }
         
         // Determine section type and properties based on element type
@@ -891,6 +907,52 @@ export const LivePreviewEditor: React.FC = () => {
           toast({ title: 'Błąd', description: 'Nieprawidłowy cel', variant: 'destructive' });
           return;
         }
+      } else if (targetId.startsWith('row-')) {
+        // Dropped directly onto a row - use first column of first section in that row
+        const rowId = targetId.replace('row-', '');
+        const rowSection = sections.find(s => s.id === rowId);
+        
+        if (!rowSection) {
+          toast({ title: 'Błąd', description: 'Nie znaleziono wiersza', variant: 'destructive' });
+          return;
+        }
+        
+        // Find first child section in this row
+        const childSections = sections
+          .filter(s => s.parent_id === rowId)
+          .sort((a, b) => a.position - b.position);
+        
+        if (childSections.length > 0) {
+          // Use first existing section
+          targetSectionId = childSections[0].id;
+          columnIndex = 0;
+          console.log('[handleNewElementDrop] Dropping into row, using first child section:', targetSectionId);
+        } else {
+          // No child sections - create one first
+          const { data: newSectionData, error: sectionError } = await supabase
+            .from('cms_sections')
+            .insert([{
+              page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+              parent_id: rowId,
+              section_type: 'section',
+              position: 0,
+              is_active: true,
+              title: 'Nowa sekcja',
+              width_type: 'full',
+              height_type: 'auto',
+            }])
+            .select()
+            .single();
+          
+          if (sectionError) throw sectionError;
+          
+          targetSectionId = newSectionData.id;
+          columnIndex = 0;
+          
+          // Update local state
+          setSections(prev => [...prev, newSectionData as any]);
+          console.log('[handleNewElementDrop] Created new section in row:', targetSectionId);
+        }
       } else {
         // Dropped into a section
         targetSectionId = targetId;
@@ -943,7 +1005,7 @@ export const LivePreviewEditor: React.FC = () => {
       
       console.log('[handleNewElementDrop] Item created:', newItemData);
 
-      // Update local state
+      // Update local state - NO fetchData()
       const cellsData = typeof newItemData.cells === 'string' 
         ? JSON.parse(newItemData.cells) 
         : Array.isArray(newItemData.cells) 
@@ -960,8 +1022,13 @@ export const LivePreviewEditor: React.FC = () => {
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
 
-      // Reinitialize columns
+      // Reinitialize columns for live update
       initializeColumns(sections, newItems);
+      
+      // Force re-render by incrementing drag version
+      setDragVersion(v => v + 1);
+      
+      console.log('[handleNewElementDrop] Local state updated - no page refresh');
       
       // Automatically open ItemEditor for new element
       setEditingItemId(newItemData.id);

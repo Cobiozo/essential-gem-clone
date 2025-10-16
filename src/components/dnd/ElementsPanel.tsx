@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -61,11 +62,15 @@ interface ElementCategory {
 interface ElementsPanelProps {
   className?: string;
   onElementClick?: (elementType: string) => void;
+  panelMode?: 'elements' | 'properties';
+  onPanelModeChange?: (mode: 'elements' | 'properties') => void;
 }
 
 export const ElementsPanel: React.FC<ElementsPanelProps> = ({ 
   className,
-  onElementClick 
+  onElementClick,
+  panelMode = 'elements',
+  onPanelModeChange
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>('layout');
@@ -144,7 +149,21 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     <Card className={cn("w-80 h-full border-r rounded-none", className)}>
       <CardContent className="p-0 h-full flex flex-col overflow-hidden">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-bold text-center mb-4">Elementy</h2>
+          <div className="flex items-center gap-2 mb-4">
+            {panelMode === 'properties' && onPanelModeChange && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onPanelModeChange('elements')}
+                className="px-2"
+              >
+                ← Powrót
+              </Button>
+            )}
+            <h2 className="text-lg font-bold text-center flex-1">
+              {panelMode === 'elements' ? 'Elementy' : 'Właściwości'}
+            </h2>
+          </div>
           
           <Tabs defaultValue="widgets" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
