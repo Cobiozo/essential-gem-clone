@@ -245,24 +245,26 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </TabsContent>
           </Tabs>
         ) : (
-          <ScrollArea className="h-[calc(100vh-140px)]">
-            <div className="p-4">
-              {editingItem && onSaveItem && onCancelEdit ? (
-                <ItemEditor
-                  key={editingItemId} // ✅ Force re-render przy zmianie elementu
-                  item={editingItem}
-                  sectionId={editingItem.section_id || ''}
-                  onSave={onSaveItem}
-                  onCancel={onCancelEdit}
-                  isOpen={isItemEditorOpen || false}
-                />
-              ) : (
-                <div className="text-center text-sm text-muted-foreground">
-                  Wybierz element do edycji
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-1">
+              <div className="p-4">
+                {editingItem && onSaveItem && onCancelEdit ? (
+                  <ItemEditor
+                    key={editingItemId}
+                    item={editingItem}
+                    sectionId={editingItem.section_id || ''}
+                    onSave={onSaveItem}
+                    onCancel={onCancelEdit}
+                    isOpen={isItemEditorOpen || false}
+                  />
+                ) : (
+                  <div className="text-center text-sm text-muted-foreground py-8">
+                    Wybierz element do edycji
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         )}
         </div>
       </CardContent>
