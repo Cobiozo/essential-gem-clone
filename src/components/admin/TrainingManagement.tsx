@@ -442,47 +442,118 @@ const TrainingManagement = () => {
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // A4 landscape: 297mm x 210mm
+      // Canvas in editor: 842px x 595px
+      // Conversion factor: 297/842 = 0.352729 mm/px
+      const PX_TO_MM = 0.352729;
+
+      // Helper function to load image as base64
+      const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+        try {
+          console.log('📥 Loading image:', url);
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.error('Failed to fetch image:', response.status, response.statusText);
+            return null;
+          }
+          const blob = await response.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => {
+              console.error('Failed to read image blob');
+              resolve(null);
+            };
+            reader.readAsDataURL(blob);
+          });
+        } catch (error) {
+          console.error('Error loading image:', url, error);
+          return null;
+        }
+      };
 
       // Render template elements
       if (template.layout && typeof template.layout === 'object' && 'elements' in template.layout) {
         const layoutData = template.layout as { elements: any[] };
-        layoutData.elements.forEach((element: any) => {
-          // Skip images for now as they require async loading
-          if (element.type === 'image') return;
+        
+        // Process elements sequentially to handle async image loading
+        for (const element of layoutData.elements) {
+          try {
+            // Replace variables in text content
+            let content = element.content || '';
+            content = content.replace('{userName}', userName);
+            content = content.replace('{moduleTitle}', moduleTitle);
+            content = content.replace('{completionDate}', new Date(completedDate).toLocaleDateString('pl-PL'));
 
-          // Replace variables
-          let content = element.content || '';
-          content = content.replace('{userName}', userName);
-          content = content.replace('{moduleTitle}', moduleTitle);
-          content = content.replace('{completionDate}', new Date(completedDate).toLocaleDateString('pl-PL'));
+            if (element.type === 'text') {
+              doc.setFontSize(element.fontSize || 16);
+              
+              // Convert hex color to RGB
+              const color = element.color || '#000000';
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+              doc.setTextColor(r, g, b);
 
-          if (element.type === 'text') {
-            doc.setFontSize(element.fontSize || 16);
-            
-            // Convert hex color to RGB
-            const color = element.color || '#000000';
-            const r = parseInt(color.slice(1, 3), 16);
-            const g = parseInt(color.slice(3, 5), 16);
-            const b = parseInt(color.slice(5, 7), 16);
-            doc.setTextColor(r, g, b);
+              // Convert fontWeight to jsPDF format
+              if (element.fontWeight === 'bold' || element.fontWeight === '700') {
+                doc.setFont('helvetica', 'bold');
+              } else {
+                doc.setFont('helvetica', 'normal');
+              }
 
-            // Convert fontWeight to jsPDF format
-            if (element.fontWeight === 'bold' || element.fontWeight === '700') {
-              doc.setFont('helvetica', 'bold');
-            } else {
-              doc.setFont('helvetica', 'normal');
+              // Convert position from pixels to mm
+              const x = element.x * PX_TO_MM;
+              const y = element.y * PX_TO_MM;
+
+              doc.text(content, x, y, { 
+                align: element.align || 'left',
+                maxWidth: pageWidth - 20
+              });
+            } else if (element.type === 'image' && element.imageUrl) {
+              console.log('🖼️ Processing image element:', element.imageUrl);
+              
+              // Load image as base64
+              const base64Image = await loadImageAsBase64(element.imageUrl);
+              
+              if (base64Image) {
+                try {
+                  // Convert position and dimensions from pixels to mm
+                  const x = element.x * PX_TO_MM;
+                  const y = element.y * PX_TO_MM;
+                  const width = (element.width || 100) * PX_TO_MM;
+                  const height = (element.height || 100) * PX_TO_MM;
+
+                  // Determine image format from base64 string
+                  let format = 'PNG';
+                  if (base64Image.includes('image/jpeg') || base64Image.includes('image/jpg')) {
+                    format = 'JPEG';
+                  } else if (base64Image.includes('image/png')) {
+                    format = 'PNG';
+                  }
+
+                  doc.addImage(base64Image, format, x, y, width, height);
+                  console.log('✅ Image added to PDF at', x, y, 'size', width, 'x', height);
+                } catch (imgError) {
+                  console.error('Failed to add image to PDF:', imgError);
+                  toast({
+                    title: "Ostrzeżenie",
+                    description: "Nie udało się dodać obrazu do certyfikatu",
+                    variant: "default"
+                  });
+                }
+              } else {
+                console.warn('⚠️ Skipping image - failed to load:', element.imageUrl);
+              }
+            } else if (element.type === 'shape') {
+              // Shapes are handled but not implemented in this version
+              console.log('ℹ️ Shape element skipped (not implemented in PDF generation)');
             }
-
-            // Calculate position (Fabric.js uses pixels, jsPDF uses mm at 72 DPI)
-            const x = element.x * 0.352778;
-            const y = element.y * 0.352778;
-
-            doc.text(content, x, y, { 
-              align: element.align || 'left',
-              maxWidth: pageWidth - 20
-            });
+          } catch (elementError) {
+            console.error('Error processing element:', element, elementError);
           }
-        });
+        }
       }
 
       // Convert PDF to blob

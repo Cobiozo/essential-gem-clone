@@ -345,10 +345,11 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
         };
       } else if (obj.type === 'image') {
         const imgObj = obj as FabricImage;
+        const imgSrc = (imgObj as any).getSrc();
         return {
           id: `element-${index}`,
           type: 'image' as const,
-          imageUrl: (imgObj as any).getSrc(),
+          imageUrl: imgSrc, // Store full URL for reliability
           x: obj.left || 0,
           y: obj.top || 0,
           width: (obj.width || 0) * (obj.scaleX || 1),

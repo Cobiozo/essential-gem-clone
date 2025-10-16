@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Save, Trash2, FileText } from 'lucide-react';
+import { Plus, Save, Trash2, FileText, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import TemplateDndEditor from './TemplateDndEditor';
+import jsPDF from 'jspdf';
 
 interface CertificateTemplate {
   id: string;
@@ -169,6 +170,46 @@ const CertificateEditor = () => {
   };
 
   const deleteTemplate = async (id: string) => {
+    const templateToDelete = templates.find(t => t.id === id);
+    
+    if (!templateToDelete) return;
+
+    // Check if this is the active template
+    if (templateToDelete.is_active) {
+      const otherTemplates = templates.filter(t => t.id !== id);
+      
+      if (otherTemplates.length === 0) {
+        // No other templates - warn user
+        if (!confirm('To jest jedyny szablon certyfikatu. Czy na pewno chcesz go usunąć? Bez szablonu nie będzie można generować certyfikatów.')) {
+          return;
+        }
+      } else {
+        // Ask user to select new default
+        const message = `Usuwasz domyślny szablon certyfikatu. Czy chcesz ustawić "${otherTemplates[0].name}" jako nowy domyślny szablon?`;
+        if (!confirm(message)) {
+          return;
+        }
+        
+        // Set first available template as default before deletion
+        try {
+          await setDefaultTemplate(otherTemplates[0].id);
+        } catch (error) {
+          console.error('Failed to set new default template:', error);
+          toast({
+            title: "Błąd",
+            description: "Nie udało się ustawić nowego domyślnego szablonu",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+    } else {
+      // Regular confirmation for non-active templates
+      if (!confirm('Czy na pewno chcesz usunąć ten szablon?')) {
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from('certificate_templates')
@@ -186,6 +227,15 @@ const CertificateEditor = () => {
         title: "Sukces",
         description: "Szablon został usunięty",
       });
+      
+      // Warn if no templates left
+      if (templates.length === 1) {
+        toast({
+          title: "Uwaga",
+          description: "Nie ma żadnych szablonów certyfikatów. Utwórz nowy szablon, aby móc generować certyfikaty.",
+          variant: "default"
+        });
+      }
     } catch (error) {
       console.error('Error deleting template:', error);
       toast({
@@ -254,6 +304,121 @@ const CertificateEditor = () => {
       toast({
         title: "Błąd",
         description: "Nie udało się ustawić domyślnego szablonu",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const previewCertificate = async (template: CertificateTemplate) => {
+    try {
+      console.log('🔍 Generating preview certificate for template:', template.name);
+      
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const PX_TO_MM = 0.352729; // 297/842
+
+      // Placeholder data for preview
+      const userName = "Jan Kowalski";
+      const moduleTitle = "Przykładowy Moduł Szkoleniowy";
+      const completionDate = new Date().toLocaleDateString('pl-PL');
+
+      // Helper function to load image as base64
+      const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          const blob = await response.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        } catch (error) {
+          console.error('Error loading image:', error);
+          return null;
+        }
+      };
+
+      // Render template elements
+      if (template.layout && 'elements' in template.layout) {
+        const layoutData = template.layout as { elements: any[] };
+        
+        for (const element of layoutData.elements) {
+          try {
+            let content = element.content || '';
+            content = content.replace('{userName}', userName);
+            content = content.replace('{moduleTitle}', moduleTitle);
+            content = content.replace('{completionDate}', completionDate);
+
+            if (element.type === 'text') {
+              doc.setFontSize(element.fontSize || 16);
+              
+              const color = element.color || '#000000';
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+              doc.setTextColor(r, g, b);
+
+              if (element.fontWeight === 'bold' || element.fontWeight === '700') {
+                doc.setFont('helvetica', 'bold');
+              } else {
+                doc.setFont('helvetica', 'normal');
+              }
+
+              const x = element.x * PX_TO_MM;
+              const y = element.y * PX_TO_MM;
+
+              doc.text(content, x, y, { 
+                align: element.align || 'left',
+                maxWidth: pageWidth - 20
+              });
+            } else if (element.type === 'image' && element.imageUrl) {
+              const base64Image = await loadImageAsBase64(element.imageUrl);
+              
+              if (base64Image) {
+                try {
+                  const x = element.x * PX_TO_MM;
+                  const y = element.y * PX_TO_MM;
+                  const width = (element.width || 100) * PX_TO_MM;
+                  const height = (element.height || 100) * PX_TO_MM;
+
+                  let format = 'PNG';
+                  if (base64Image.includes('image/jpeg') || base64Image.includes('image/jpg')) {
+                    format = 'JPEG';
+                  }
+
+                  doc.addImage(base64Image, format, x, y, width, height);
+                } catch (imgError) {
+                  console.error('Failed to add image to preview:', imgError);
+                }
+              }
+            }
+          } catch (elementError) {
+            console.error('Error processing element in preview:', elementError);
+          }
+        }
+      }
+
+      // Open preview in new tab
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+
+      toast({
+        title: "Sukces",
+        description: "Podgląd certyfikatu został wygenerowany",
+      });
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się wygenerować podglądu certyfikatu",
         variant: "destructive"
       });
     }
@@ -344,6 +509,14 @@ const CertificateEditor = () => {
                 onClick={() => setSelectedTemplate(template)}
               >
                 Edytuj szablon
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => previewCertificate(template)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Podgląd
               </Button>
               {!template.is_active && (
                 <Button
