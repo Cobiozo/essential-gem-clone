@@ -1593,7 +1593,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b shrink-0">
         <div className="flex items-center space-x-2">
           <Edit3 className="w-4 h-4" />
@@ -1610,11 +1610,11 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         </div>
       </div>
       
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-auto">
         <div className="p-4">
           {editorContent}
         </div>
-      </ScrollArea>
+      </div>
       
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>

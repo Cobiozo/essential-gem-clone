@@ -179,9 +179,9 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card className={cn("w-80 h-full border-r rounded-none", className)}>
-      <CardContent className="p-0 h-full flex flex-col overflow-hidden">
-        <div className="p-4 border-b">
+    <Card className={cn("w-80 h-screen border-r rounded-none", className)}>
+      <CardContent className="p-0 h-full flex flex-col">
+        <div className="p-4 border-b shrink-0">
           <div className="flex items-center gap-2 mb-4">
             {panelMode === 'properties' && onPanelModeChange && (
               <Button
@@ -197,26 +197,27 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
               {panelMode === 'elements' ? 'Elementy' : 'Właściwości'}
             </h2>
           </div>
+        </div>
         
         {panelMode === 'elements' ? (
-          <Tabs defaultValue="widgets" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="widgets">Widżety</TabsTrigger>
-              <TabsTrigger value="global">Globalne</TabsTrigger>
-            </TabsList>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="grid w-full grid-cols-2 mx-4 shrink-0">
+                <TabsTrigger value="widgets">Widżety</TabsTrigger>
+                <TabsTrigger value="global">Globalne</TabsTrigger>
+              </TabsList>
 
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Widżet wyszukiwania..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+              <div className="relative px-4 py-2 shrink-0">
+                <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Widżet wyszukiwania..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-            <TabsContent value="widgets" className="mt-0">
-              <ScrollArea className="h-[calc(100vh-240px)]">
+              <TabsContent value="widgets" className="flex-1 overflow-auto m-0 mt-2">
                 <div className="space-y-2 p-4">
                   {filteredCategories.map((category) => (
                     <CollapsibleSection
@@ -246,44 +247,40 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                     </CollapsibleSection>
                   ))}
                 </div>
-              </ScrollArea>
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="global" className="mt-4">
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                Globalne elementy będą dostępne wkrótce
-              </div>
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {/* Remove ScrollArea wrapper - editors have their own scroll areas */}
-            <div className="flex-1 overflow-hidden">
-              {editingSection && onSaveSection && onCancelSectionEdit ? (
-                <SectionEditor
-                  key={editingSectionId}
-                  section={editingSection}
-                  onSave={onSaveSection}
-                  onCancel={onCancelSectionEdit}
-                />
-              ) : editingItem && onSaveItem && onCancelEdit ? (
-                <ItemEditor
-                  key={editingItemId}
-                  item={editingItem}
-                  sectionId={editingItem.section_id || ''}
-                  onSave={onSaveItem}
-                  onCancel={onCancelEdit}
-                  isOpen={isItemEditorOpen || false}
-                />
-              ) : (
-                <div className="text-center text-sm text-muted-foreground py-8">
-                  Wybierz element do edycji
+              <TabsContent value="global" className="mt-4">
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  Globalne elementy będą dostępne wkrótce
                 </div>
-              )}
-            </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden">
+            {editingSection && onSaveSection && onCancelSectionEdit ? (
+              <SectionEditor
+                key={editingSectionId}
+                section={editingSection}
+                onSave={onSaveSection}
+                onCancel={onCancelSectionEdit}
+              />
+            ) : editingItem && onSaveItem && onCancelEdit ? (
+              <ItemEditor
+                key={editingItemId}
+                item={editingItem}
+                sectionId={editingItem.section_id || ''}
+                onSave={onSaveItem}
+                onCancel={onCancelEdit}
+                isOpen={isItemEditorOpen || false}
+              />
+            ) : (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Wybierz element do edycji
+              </div>
+            )}
           </div>
         )}
-        </div>
       </CardContent>
     </Card>
   );

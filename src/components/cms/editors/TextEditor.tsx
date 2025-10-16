@@ -36,7 +36,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b shrink-0">
         <h3 className="text-lg font-semibold">Edytuj Tekst</h3>
         <div className="flex gap-2">
@@ -50,35 +50,31 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
         </div>
       </div>
 
-      <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-4 mt-4 shrink-0">
+      <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <TabsList className="mx-4 mt-4 mb-0 shrink-0">
           <TabsTrigger value="content">Treść</TabsTrigger>
           <TabsTrigger value="style">Styl</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="content" className="flex-1 min-h-0 overflow-hidden m-0">
-          <ScrollArea className="h-full">
-            <div className="space-y-4 p-4">
-              <div className="space-y-2">
-                <Label>Treść</Label>
-                <div className="border rounded-md overflow-hidden" style={{ height: '300px' }}>
-                  <RichTextEditor
-                    value={editedItem.description || ''}
-                    onChange={(value) => handleUpdate({ description: value })}
-                    placeholder="Wpisz treść..."
-                  />
-                </div>
+        <TabsContent value="content" className="flex-1 overflow-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <div className="space-y-4 p-4">
+            <div className="space-y-2">
+              <Label>Treść</Label>
+              <div className="border rounded-md overflow-hidden" style={{ height: '400px' }}>
+                <RichTextEditor
+                  value={editedItem.description || ''}
+                  onChange={(value) => handleUpdate({ description: value })}
+                  placeholder="Wpisz treść..."
+                />
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </TabsContent>
 
-        <TabsContent value="style" className="flex-1 min-h-0 overflow-hidden m-0">
-          <ScrollArea className="h-full">
-            <div className="p-4">
-              <StyleTab item={editedItem} onUpdate={handleUpdate} />
-            </div>
-          </ScrollArea>
+        <TabsContent value="style" className="flex-1 overflow-auto m-0">
+          <div className="p-4">
+            <StyleTab item={editedItem} onUpdate={handleUpdate} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
