@@ -24,6 +24,7 @@ interface ItemEditorProps {
   isNew?: boolean;
   trigger?: React.ReactNode;
   isOpen?: boolean;
+  inline?: boolean;
 }
 
 export const ItemEditor: React.FC<ItemEditorProps> = ({
@@ -33,7 +34,8 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
   onCancel,
   isNew = false,
   trigger,
-  isOpen: externalIsOpen
+  isOpen: externalIsOpen,
+  inline = false
 }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(
     item || {
@@ -1028,6 +1030,27 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
       </div>
     </div>
   );
+
+  // Inline mode - no wrapper, just content and buttons
+  if (inline) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4">
+          {editorContent}
+        </div>
+        <div className="flex-shrink-0 p-4 border-t bg-muted/20 flex gap-2">
+          <Button onClick={handleSave} disabled={!editedItem.title?.trim()} className="flex-1">
+            <Save className="w-4 h-4 mr-2" />
+            {isNew ? 'Dodaj' : 'Zapisz'}
+          </Button>
+          <Button variant="outline" onClick={handleCancel} className="flex-1">
+            <X className="w-4 h-4 mr-2" />
+            Anuluj
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (trigger) {
     return (
