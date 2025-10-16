@@ -330,7 +330,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             textAlign: (sectionStyle?.alignment as React.CSSProperties['textAlign']) || 'center',
           }}
         >
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 relative group">
             {IconComponent && sectionStyle?.icon_position === 'left' && (
               <IconComponent 
                 size={sectionStyle.icon_size || 24}
@@ -363,20 +363,27 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 autoFocus
               />
             ) : (
-              <h3 
-                className={cn(
-                  "font-semibold leading-tight",
-                  isEditMode && "cursor-text hover:bg-white/10 px-2 py-1 rounded transition-colors"
+              <div className="relative flex items-center gap-2">
+                <h3 
+                  className={cn(
+                    "font-semibold leading-tight",
+                    isEditMode && "cursor-text hover:bg-white/10 px-3 py-2 rounded transition-colors border-2 border-dashed border-white/30"
+                  )}
+                  dangerouslySetInnerHTML={{ __html: title }}
+                  onClick={(e) => {
+                    if (isEditMode) {
+                      e.stopPropagation();
+                      setIsEditingTitle(true);
+                      setTempTitle(title);
+                    }
+                  }}
+                />
+                {isEditMode && !isEditingTitle && (
+                  <span className="absolute -top-2 -right-8 text-xs text-white/60 bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    Kliknij aby edytować
+                  </span>
                 )}
-                dangerouslySetInnerHTML={{ __html: title }}
-                onClick={(e) => {
-                  if (isEditMode) {
-                    e.stopPropagation();
-                    setIsEditingTitle(true);
-                    setTempTitle(title);
-                  }
-                }}
-              />
+              </div>
             )}
             {IconComponent && sectionStyle?.icon_position === 'right' && (
               <IconComponent 
@@ -387,7 +394,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             )}
           </div>
           {(description || isEditMode) && (
-            <>
+            <div className="relative group">
               {isEditMode && isEditingDescription ? (
                 <textarea
                   value={tempDescription}
@@ -409,23 +416,30 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                   autoFocus
                 />
               ) : (
-                <p 
-                  className={cn(
-                    "text-sm opacity-90 mt-2 leading-relaxed max-w-md",
-                    isEditMode && "cursor-text hover:bg-white/10 px-2 py-1 rounded transition-colors",
-                    !description && isEditMode && "text-white/50 italic"
+                <>
+                  <p 
+                    className={cn(
+                      "text-sm opacity-90 mt-2 leading-relaxed max-w-md",
+                      isEditMode && "cursor-text hover:bg-white/10 px-3 py-2 rounded transition-colors border-2 border-dashed border-white/30",
+                      !description && isEditMode && "text-white/50 italic"
+                    )}
+                    dangerouslySetInnerHTML={{ __html: description || (isEditMode ? 'Kliknij aby dodać opis...' : '') }}
+                    onClick={(e) => {
+                      if (isEditMode) {
+                        e.stopPropagation();
+                        setIsEditingDescription(true);
+                        setTempDescription(description || '');
+                      }
+                    }}
+                  />
+                  {isEditMode && !isEditingDescription && (
+                    <span className="absolute -top-1 right-0 text-xs text-white/60 bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      Kliknij aby edytować
+                    </span>
                   )}
-                  dangerouslySetInnerHTML={{ __html: description || (isEditMode ? 'Kliknij aby dodać opis...' : '') }}
-                  onClick={(e) => {
-                    if (isEditMode) {
-                      e.stopPropagation();
-                      setIsEditingDescription(true);
-                      setTempDescription(description || '');
-                    }
-                  }}
-                />
+                </>
               )}
-            </>
+            </div>
           )}
         </div>
 
