@@ -429,7 +429,10 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     return 'auto';
   };
 
-  const childSectionIds = React.useMemo(() => childSections.map(s => s.id), [childSections]);
+  // ✅ Zawsze używaj ID kolumn, nie tylko child sections
+  const columnIds = React.useMemo(() => 
+    Array.from({ length: columnCount }, (_, i) => `${row.id}-col-${i}`)
+  , [row.id, columnCount]);
 
   return (
     <div
@@ -504,7 +507,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
             : cn('grid gap-4', getGridClass())
         )}
       >
-        <SortableContext items={childSectionIds} strategy={columnCount > 1 ? horizontalListSortingStrategy : verticalListSortingStrategy}>
+        <SortableContext items={columnIds} strategy={columnCount > 1 ? horizontalListSortingStrategy : verticalListSortingStrategy}>
           {Array.from({ length: columnCount }, (_, index) => {
             const columnItems = itemsByColumn[index] || [];
             
