@@ -889,7 +889,13 @@ export const LivePreviewEditor: React.FC = () => {
       
       console.log('[handleNewElementDrop] Processing regular element, overData:', overData);
       
-      if (overData?.type === 'column') {
+      if (overData?.type === 'row-column') {
+        // Dropped into a row column (child section)
+        // rowId is actually the child section ID in this context
+        targetSectionId = overData.rowId;
+        columnIndex = 0; // Child sections typically have single column
+        console.log('[handleNewElementDrop] Dropped on row-column (child section):', { targetSectionId, columnIndex });
+      } else if (overData?.type === 'column') {
         // Dropped into a column in ColumnLayout
         targetSectionId = overData.sectionId;
         columnIndex = overData.columnIndex;
@@ -2217,6 +2223,68 @@ export const LivePreviewEditor: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Inactive Elements Manager - visible at top */}
+      <InactiveElementsManager
+        onElementActivated={(activatedSections, activatedItems) => {
+          console.log('Elements activated without refresh:', { 
+            sections: activatedSections.length, 
+            items: activatedItems.length 
+          });
+          
+          // Update local state without full refetch
+          if (activatedSections.length > 0) {
+            setSections(prev => {
+              const newSections = [...prev];
+              activatedSections.forEach(activated => {
+                const idx = newSections.findIndex(s => s.id === activated.id);
+                if (idx >= 0) {
+                  newSections[idx] = { ...newSections[idx], is_active: true };
+                } else {
+                  newSections.push(activated as CMSSection);
+                }
+              });
+              return newSections;
+            });
+          }
+          
+          if (activatedItems.length > 0) {
+            setItems(prev => {
+              const newItems = [...prev];
+              activatedItems.forEach(activated => {
+                const idx = newItems.findIndex(i => i.id === activated.id);
+                if (idx >= 0) {
+                  newItems[idx] = { ...newItems[idx], is_active: true };
+                } else {
+                  newItems.push(activated as CMSItem);
+                }
+              });
+              return newItems;
+            });
+          }
+          
+          setDragVersion(prev => prev + 1);
+          setInactiveRefresh(prev => prev + 1);
+        }}
+        onElementDeleted={(deletedSections, deletedItems) => {
+          console.log('Elements deleted without refresh:', { 
+            sections: deletedSections.length, 
+            items: deletedItems.length 
+          });
+          
+          // Remove from local state without full refetch
+          if (deletedSections.length > 0) {
+            setSections(prev => prev.filter(s => !deletedSections.includes(s.id)));
+          }
+          
+          if (deletedItems.length > 0) {
+            setItems(prev => prev.filter(i => !deletedItems.includes(i.id)));
+          }
+          
+          setInactiveRefresh(prev => prev + 1);
+        }}
+        refreshKey={inactiveRefresh}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -2496,67 +2564,6 @@ export const LivePreviewEditor: React.FC = () => {
         </DeviceFrame>
         </div>
       </div>
-
-      <InactiveElementsManager
-        onElementActivated={(activatedSections, activatedItems) => {
-          console.log('Elements activated without refresh:', { 
-            sections: activatedSections.length, 
-            items: activatedItems.length 
-          });
-          
-          // Update local state without full refetch
-          if (activatedSections.length > 0) {
-            setSections(prev => {
-              const newSections = [...prev];
-              activatedSections.forEach(activated => {
-                const idx = newSections.findIndex(s => s.id === activated.id);
-                if (idx >= 0) {
-                  newSections[idx] = { ...newSections[idx], is_active: true };
-                } else {
-                  newSections.push(activated as CMSSection);
-                }
-              });
-              return newSections;
-            });
-          }
-          
-          if (activatedItems.length > 0) {
-            setItems(prev => {
-              const newItems = [...prev];
-              activatedItems.forEach(activated => {
-                const idx = newItems.findIndex(i => i.id === activated.id);
-                if (idx >= 0) {
-                  newItems[idx] = { ...newItems[idx], is_active: true };
-                } else {
-                  newItems.push(activated as CMSItem);
-                }
-              });
-              return newItems;
-            });
-          }
-          
-          setDragVersion(prev => prev + 1);
-          setInactiveRefresh(prev => prev + 1);
-        }}
-        onElementDeleted={(deletedSections, deletedItems) => {
-          console.log('Elements deleted without refresh:', { 
-            sections: deletedSections.length, 
-            items: deletedItems.length 
-          });
-          
-          // Remove from local state without full refetch
-          if (deletedSections.length > 0) {
-            setSections(prev => prev.filter(s => !deletedSections.includes(s.id)));
-          }
-          
-          if (deletedItems.length > 0) {
-            setItems(prev => prev.filter(i => !deletedItems.includes(i.id)));
-          }
-          
-          setInactiveRefresh(prev => prev + 1);
-        }}
-        refreshKey={inactiveRefresh}
-      />
     </div>
   );
 };
