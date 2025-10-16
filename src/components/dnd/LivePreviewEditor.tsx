@@ -1058,12 +1058,17 @@ export const LivePreviewEditor: React.FC = () => {
       console.log('[handleNewElementDrop] New item:', convertedItem);
       console.log('[handleNewElementDrop] Total items after add:', newItems.length);
       
-      // Update state immediately
+      // Update state immediately and force complete re-render
       setItems(newItems);
       setHasUnsavedChanges(true);
       
-      // Increment version to force re-render
-      setDragVersion(prev => prev + 1);
+      // Force complete re-render by incrementing version
+      const newVersion = dragVersion + 1;
+      setDragVersion(newVersion);
+      console.log('[handleNewElementDrop] Updated dragVersion to:', newVersion);
+      
+      // Also trigger a state update to force re-computation
+      setSections(prev => [...prev]);
 
       toast({ 
         title: '✅ Element dodany', 
