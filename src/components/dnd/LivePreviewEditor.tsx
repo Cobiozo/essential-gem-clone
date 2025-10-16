@@ -77,9 +77,13 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
   onMoveItemUp,
   onMoveItemDown,
 }) => {
-  // Make the section droppable so elements can be dropped into it
+  // Make the section droppable - supporting both direct drops and column drops
   const { setNodeRef, isOver } = useDroppable({
     id: section.id,
+    data: {
+      type: 'section',
+      sectionId: section.id,
+    },
     disabled: !editMode,
   });
 
@@ -97,7 +101,8 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
       className={cn(
         "block w-full cursor-pointer transition-all duration-200 bg-white mb-6 relative",
         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
-        isOver && editMode && "ring-2 ring-green-500 ring-offset-2"
+        isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
+        editMode && "min-h-[120px]" // Ensure section has minimum height for dropping
       )}
       style={{
         backgroundColor: section.background_color || '#ffffff',
@@ -106,9 +111,9 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
       }}
     >
       {isOver && editMode && (
-        <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center">
-          <span className="text-green-700 font-semibold bg-white/90 px-4 py-2 rounded-lg">
-            Upuść tutaj
+        <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center z-10">
+          <span className="text-green-700 font-semibold bg-white/90 px-4 py-2 rounded-lg shadow-lg">
+            ⬇ Upuść element tutaj
           </span>
         </div>
       )}
@@ -130,72 +135,25 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
         
         {/* Section Items */}
         {sectionColumnCount > 0 ? (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
-            gap: '48px',
-            marginTop: '32px'
-          }}>
-            {itemsByColumn.map((columnItems, colIdx) => (
-              <SortableContext
-                key={colIdx}
-                items={columnItems.filter(i => i.id).map(i => i.id as string)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-4">
-                  {columnItems.map((item, itemIdx) => {
-                    let itemContent;
-                    
-                    if (item.type === 'info_text' && section.display_type === 'grid') {
-                      itemContent = <InfoTextItem item={item} />;
-                    } else if (item.type === 'multi_cell') {
-                      const itemIndex = columnItems.findIndex(i => i.id === item.id);
-                      itemContent = (
-                        <LearnMoreItem 
-                          item={item} 
-                          itemIndex={itemIndex}
-                          isExpanded={expandedItemId === item.id}
-                          onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
-                        />
-                      );
-                    } else {
-                      itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={editMode} />;
-                    }
-                    
-                    if (editMode && item.id) {
-                      return (
-                        <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
-                          <div 
-                            className="relative group"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectElement(item.id as string);
-                            }}
-                          >
-                            {/* Item Controls - always visible in edit mode */}
-                            {onEditItem && onDeleteItem && (
-                              <ItemControls
-                                onEdit={() => onEditItem(item.id as string)}
-                                onDelete={() => onDeleteItem(item.id as string)}
-                                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                                onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                                onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                                canMoveUp={itemIdx > 0}
-                                canMoveDown={itemIdx < columnItems.length - 1}
-                              />
-                            )}
-                            {itemContent}
-                          </div>
-                        </DraggableItem>
-                      );
-                    }
-                    
-                    return <div key={item.id}>{itemContent}</div>;
-                  })}
-                </div>
-              </SortableContext>
-            ))}
-          </div>
+          // Use ColumnLayout for sections with columns (same as RowContainer)
+          <ColumnLayout
+            sectionId={section.id}
+            columns={itemsByColumn.map((columnItems, colIdx) => ({
+              id: `${section.id}-col-${colIdx}`,
+              items: columnItems,
+              width: 100 / sectionColumnCount,
+            }))}
+            isEditMode={editMode}
+            onColumnsChange={() => {}} // Columns managed via style_class
+            onItemClick={() => {}}
+            onSelectItem={onSelectElement}
+            activeId={activeId}
+            onEditItem={onEditItem}
+            onDeleteItem={onDeleteItem}
+            onDuplicateItem={onDuplicateItem}
+            onMoveItemUp={onMoveItemUp}
+            onMoveItemDown={onMoveItemDown}
+          />
         ) : (
           <SortableContext
             items={sectionItems.filter(i => i.id).map(i => i.id as string)}
@@ -250,6 +208,17 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 
                 return <div key={item.id}>{itemContent}</div>;
               })}
+              
+              {/* Empty section placeholder in edit mode */}
+              {editMode && sectionItems.length === 0 && (
+                <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="text-4xl">📦</div>
+                    <p className="text-sm font-medium">Pusta sekcja</p>
+                    <p className="text-xs">Przeciągnij element tutaj</p>
+                  </div>
+                </div>
+              )}
             </div>
           </SortableContext>
         )}

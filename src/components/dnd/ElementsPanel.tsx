@@ -228,21 +228,23 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="h-full">
-            {editingItem && onSaveItem && onCancelEdit ? (
-              <ItemEditor
-                item={editingItem}
-                sectionId={editingItem.section_id || ''}
-                onSave={onSaveItem}
-                onCancel={onCancelEdit}
-                isOpen={isItemEditorOpen || false}
-              />
-            ) : (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                Wybierz element do edycji
-              </div>
-            )}
-          </div>
+          <ScrollArea className="h-[calc(100vh-140px)]">
+            <div className="p-4">
+              {editingItem && onSaveItem && onCancelEdit ? (
+                <ItemEditor
+                  item={editingItem}
+                  sectionId={editingItem.section_id || ''}
+                  onSave={onSaveItem}
+                  onCancel={onCancelEdit}
+                  isOpen={isItemEditorOpen || false}
+                />
+              ) : (
+                <div className="text-center text-sm text-muted-foreground">
+                  Wybierz element do edycji
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         )}
         </div>
       </CardContent>
