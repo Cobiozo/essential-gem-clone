@@ -1053,12 +1053,17 @@ export const LivePreviewEditor: React.FC = () => {
         cells: cellsData
       };
       
-      console.log('[handleNewElementDrop] ✅ Item created in DB, refreshing data...');
+      const newItems = [...items, convertedItem];
+      console.log('[handleNewElementDrop] ✅ Item created, updating local state');
+      console.log('[handleNewElementDrop] New item:', convertedItem);
+      console.log('[handleNewElementDrop] Total items after add:', newItems.length);
       
-      // Odśwież dane z bazy aby zapewnić synchronizację
-      await fetchData();
+      // Update state immediately
+      setItems(newItems);
+      setHasUnsavedChanges(true);
       
-      console.log('[handleNewElementDrop] ✅ Data refreshed, element should now be visible');
+      // Increment version to force re-render
+      setDragVersion(prev => prev + 1);
 
       toast({ 
         title: '✅ Element dodany', 
@@ -2581,6 +2586,8 @@ export const LivePreviewEditor: React.FC = () => {
                 }
                 
                 console.log(`[Render] Section ${section.id} (${section.title}): ${sectionItems.length} items, dragVersion: ${dragVersion}`);
+                console.log(`[Render] Section items:`, sectionItems.map(i => ({ id: i.id, type: i.type })));
+                console.log(`[Render] Total items in state: ${items.length}`);
                 
                 return (
                   <DraggableSection
