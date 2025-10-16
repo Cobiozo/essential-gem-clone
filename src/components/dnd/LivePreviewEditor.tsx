@@ -639,6 +639,7 @@ export const LivePreviewEditor: React.FC = () => {
     }
   }, [toast]);
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    console.log('🟢 [DragStart] TRIGGERED!', event);
     const draggedId = event.active.id as string;
     console.log('[DragStart] Element ID:', draggedId);
     console.log('[DragStart] Element data:', event.active.data.current);
@@ -1118,6 +1119,7 @@ export const LivePreviewEditor: React.FC = () => {
   }, []);
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    console.log('🔴 [DragEnd] TRIGGERED!', event);
     const { active, over } = event;
     console.log('[DragEnd] Active:', active.id, 'Over:', over?.id);
     console.log('[DragEnd] Active data:', active.data.current);
