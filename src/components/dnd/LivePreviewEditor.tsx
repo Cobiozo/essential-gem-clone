@@ -2119,13 +2119,18 @@ export const LivePreviewEditor: React.FC = () => {
     
     console.log('[handleEditItem] Item type:', item.type, 'Full item:', item);
     
-    setEditingItemId(itemId);
-    setSelectedElement(itemId);
-    setIsItemEditorOpen(true);
+    // ✅ Reset poprzedniego stanu i ustaw nowy
+    setIsItemEditorOpen(false); // Najpierw zamknij
+    setEditingItemId(null);
     
-    // ✅ Przełącz panel na właściwości
-    setSelectedElementForPanel(itemId);
-    setPanelMode('properties');
+    // Następnie otwórz dla nowego elementu
+    setTimeout(() => {
+      setEditingItemId(itemId);
+      setSelectedElement(itemId);
+      setIsItemEditorOpen(true);
+      setSelectedElementForPanel(itemId);
+      setPanelMode('properties');
+    }, 50); // Krótkie opóźnienie zapewnia re-render
   };
 
   const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {

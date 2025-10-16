@@ -232,6 +232,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             <div className="p-4">
               {editingItem && onSaveItem && onCancelEdit ? (
                 <ItemEditor
+                  key={editingItemId} // ✅ Force re-render przy zmianie elementu
                   item={editingItem}
                   sectionId={editingItem.section_id || ''}
                   onSave={onSaveItem}
