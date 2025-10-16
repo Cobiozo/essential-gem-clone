@@ -4,6 +4,9 @@ import { ButtonEditor } from './editors/ButtonEditor';
 import { ImageEditor } from './editors/ImageEditor';
 import { InfoTextEditor } from './editors/InfoTextEditor';
 import { AccordionEditor } from './editors/AccordionEditor';
+import { HeadingEditor } from './editors/HeadingEditor';
+import { TextEditor } from './editors/TextEditor';
+import { MapEditor } from './editors/MapEditor';
 import { GenericEditor } from './editors/GenericEditor';
 
 interface ItemEditorProps {
@@ -49,6 +52,15 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'accordion':
       return <AccordionEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'heading':
+      return <HeadingEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'text':
+      return <TextEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'maps':
+      return <MapEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types

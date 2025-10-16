@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDebounce } from '@/hooks/use-debounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,14 @@ const popularIcons = [
 
 export const InfoTextEditor: React.FC<InfoTextEditorProps> = ({ item, onSave, onCancel }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
+  const debouncedItem = useDebounce(editedItem, 1000);
+
+  // Auto-save on debounced changes
+  useEffect(() => {
+    if (debouncedItem && debouncedItem !== item) {
+      onSave(debouncedItem);
+    }
+  }, [debouncedItem]);
 
   const handleSave = () => {
     onSave(editedItem);
