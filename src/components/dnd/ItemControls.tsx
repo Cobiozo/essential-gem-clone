@@ -27,7 +27,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
   return (
     <div 
       className={cn(
-        "absolute top-2 right-2 z-30 flex gap-1 bg-primary/95 backdrop-blur-sm rounded-lg shadow-lg border-2 border-primary p-1 transition-all duration-200",
+        "absolute top-2 left-2 z-30 flex gap-1 bg-primary/95 backdrop-blur-sm rounded-lg shadow-lg border-2 border-primary p-1 transition-all duration-200",
         className
       )}
       onClick={(e) => e.stopPropagation()}

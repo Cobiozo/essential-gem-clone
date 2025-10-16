@@ -2161,7 +2161,10 @@ export const LivePreviewEditor: React.FC = () => {
     try {
       console.log('[handleDeleteItem] Deleting item:', itemId);
       
-      // ✅ Update database first
+      // ✅ Najpierw aktualizuj lokalnie dla natychmiastowego efektu
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      
+      // ✅ Potem update w bazie
       const { error } = await supabase
         .from('cms_items')
         .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -2169,12 +2172,12 @@ export const LivePreviewEditor: React.FC = () => {
       
       if (error) {
         console.error('Error deleting item:', error);
+        // W przypadku błędu przywróć stan
+        await fetchData();
         throw error;
       }
       
-      // ✅ Update local state after successful DB update
-      // Realtime subscription will handle the update automatically
-      console.log('[handleDeleteItem] Item marked as inactive, realtime will update UI');
+      console.log('[handleDeleteItem] Item deleted successfully');
       
       saveToHistory(sections, items.filter(i => i.id !== itemId));
       setHasUnsavedChanges(true);
@@ -2251,21 +2254,30 @@ export const LivePreviewEditor: React.FC = () => {
     const newItems = [...sectionItems];
     [newItems[currentIndex], newItems[currentIndex - 1]] = [newItems[currentIndex - 1], newItems[currentIndex]];
     
-    // Update positions in database
-    await Promise.all(newItems.map((item, idx) =>
-      supabase
-        .from('cms_items')
-        .update({ position: idx, updated_at: new Date().toISOString() })
-        .eq('id', item.id as string)
-    ));
-    
-    // Update local state
+    // Update local state first
     setItems(prev => prev.map(i => {
-      const newItem = newItems.find(ni => ni.id === i.id);
-      return newItem ? { ...i, position: newItem.position } : i;
+      const itemInNew = newItems.find(ni => ni.id === i.id);
+      if (!itemInNew) return i;
+      const newIdx = newItems.indexOf(itemInNew);
+      return { ...i, position: newIdx };
     }));
     
-    setHasUnsavedChanges(true);
+    // Then update database
+    try {
+      await Promise.all(newItems.map((item, idx) =>
+        supabase
+          .from('cms_items')
+          .update({ position: idx, updated_at: new Date().toISOString() })
+          .eq('id', item.id as string)
+      ));
+      
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
+      // Restore state
+      await fetchData();
+    }
   };
 
   const handleMoveItemDown = async (itemId: string) => {
@@ -2282,21 +2294,30 @@ export const LivePreviewEditor: React.FC = () => {
     const newItems = [...sectionItems];
     [newItems[currentIndex], newItems[currentIndex + 1]] = [newItems[currentIndex + 1], newItems[currentIndex]];
     
-    // Update positions in database
-    await Promise.all(newItems.map((item, idx) =>
-      supabase
-        .from('cms_items')
-        .update({ position: idx, updated_at: new Date().toISOString() })
-        .eq('id', item.id as string)
-    ));
-    
-    // Update local state
+    // Update local state first
     setItems(prev => prev.map(i => {
-      const newItem = newItems.find(ni => ni.id === i.id);
-      return newItem ? { ...i, position: newItem.position } : i;
+      const itemInNew = newItems.find(ni => ni.id === i.id);
+      if (!itemInNew) return i;
+      const newIdx = newItems.indexOf(itemInNew);
+      return { ...i, position: newIdx };
     }));
     
-    setHasUnsavedChanges(true);
+    // Then update database
+    try {
+      await Promise.all(newItems.map((item, idx) =>
+        supabase
+          .from('cms_items')
+          .update({ position: idx, updated_at: new Date().toISOString() })
+          .eq('id', item.id as string)
+      ));
+      
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
+      // Restore state
+      await fetchData();
+    }
   };
 
   if (!isAdmin) {
