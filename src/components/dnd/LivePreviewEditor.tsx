@@ -86,6 +86,100 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
     },
     disabled: !editMode,
   });
+  
+  // ✅ Check if section contains only multi_cell items (Learn More type) - jak na stronie głównej
+  const hasOnlyMultiCell = sectionItems.length > 0 && sectionItems.every(item => item.type === 'multi_cell');
+  
+  // ✅ Special rendering for multi_cell sections (identyczne jak na stronie głównej)
+  if (hasOnlyMultiCell) {
+    return (
+      <div 
+        ref={setNodeRef}
+        onClick={(e) => {
+          if (activeId) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onSelectElement(section.id);
+        }}
+        className={cn(
+          "block w-full cursor-pointer transition-all duration-200 bg-white mb-6 relative",
+          selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
+          isOver && editMode && "ring-2 ring-green-500 ring-offset-2"
+        )}
+        style={{
+          backgroundColor: section.background_color || '#ffffff',
+          color: section.text_color || '#000000',
+          padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
+        }}
+      >
+        {isOver && editMode && (
+          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center z-10">
+            <span className="text-green-700 font-semibold bg-white/90 px-4 py-2 rounded-lg shadow-lg">
+              ⬇ Upuść element tutaj
+            </span>
+          </div>
+        )}
+        
+        <div className="max-w-6xl mx-auto">
+          <div className="space-y-4 py-6">
+            {section.title && (
+              <h2 className="text-3xl font-bold text-center mb-8" style={{ color: section.text_color || 'inherit' }}>
+                {section.title}
+              </h2>
+            )}
+            {section.description && (
+              <div 
+                className="text-center text-gray-600 mb-6 max-w-3xl mx-auto"
+                dangerouslySetInnerHTML={{ __html: section.description }}
+              />
+            )}
+            <div className="space-y-4">
+              {sectionItems.map((item, itemIdx) => {
+                const itemIndex = sectionItems.findIndex(i => i.id === item.id);
+                const itemContent = (
+                  <LearnMoreItem 
+                    item={item} 
+                    itemIndex={itemIndex}
+                    isExpanded={expandedItemId === item.id}
+                    onToggle={() => onToggleExpand(expandedItemId === item.id ? null : item.id)}
+                  />
+                );
+                
+                if (editMode && item.id) {
+                  return (
+                    <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
+                      <div 
+                        className="relative"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectElement(item.id as string);
+                        }}
+                      >
+                        {onEditItem && onDeleteItem && (
+                          <ItemControls
+                            onEdit={() => onEditItem(item.id as string)}
+                            onDelete={() => onDeleteItem(item.id as string)}
+                            onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                            canMoveUp={itemIdx > 0}
+                            canMoveDown={itemIdx < sectionItems.length - 1}
+                          />
+                        )}
+                        {itemContent}
+                      </div>
+                    </DraggableItem>
+                  );
+                }
+                
+                return <div key={item.id}>{itemContent}</div>;
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -194,13 +288,14 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                             onEdit={() => onEditItem(item.id as string)}
                             onDelete={() => onDeleteItem(item.id as string)}
                             onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                            onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                            onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
                             canMoveUp={itemIdx > 0}
                             canMoveDown={itemIdx < sectionItems.length - 1}
                           />
                         )}
-                        {itemContent}
+                        {/* ✅ Render bez dodatkowego wrappera dla multi_cell */}
+                        {item.type === 'multi_cell' ? itemContent : (
+                          <div>{itemContent}</div>
+                        )}
                       </div>
                     </DraggableItem>
                   );
