@@ -2591,12 +2591,13 @@ export const LivePreviewEditor: React.FC = () => {
                 
                 return (
                   <DraggableSection
-                    key={`${section.id}-${dragVersion}`}
+                    key={`${section.id}-${dragVersion}-${sectionItems.length}`}
                     id={section.id}
                     isEditMode={editMode}
                     className="w-full"
                   >
                     <RegularSectionContent
+                      key={`content-${section.id}-${dragVersion}-${sectionItems.length}`}
                       section={section}
                       sectionItems={sectionItems}
                       sectionColumnCount={sectionColumnCount}
