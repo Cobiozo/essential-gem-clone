@@ -19,8 +19,8 @@ import { CMSSection, CMSItem } from '@/types/cms';
 import { convertSupabaseSections } from '@/lib/typeUtils';
 
 interface InactiveElementsManagerProps {
-  onElementActivated: () => void;
-  onElementDeleted: () => void;
+  onElementActivated: (activatedSections: any[], activatedItems: any[]) => void;
+  onElementDeleted: (deletedSectionIds: string[], deletedItemIds: string[]) => void;
   refreshKey?: number;
 }
 
@@ -179,7 +179,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
           description: `Aktywowano ${updatedItems.length} elementów w przywróconych sekcjach`,
         });
         
-        onElementActivated();
+        onElementActivated([], updatedItems);
       } else {
         toast({
           title: 'Info',
@@ -236,7 +236,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       if (insErr) throw insErr;
 
       toast({ title: 'Odtworzono', description: 'Dodano element "Terminarz" do sekcji' });
-      onElementActivated();
+      onElementActivated([], []);
     } catch (e: any) {
       console.error('recreateTerminarzItem error', e);
       toast({ title: 'Błąd', description: 'Nie udało się odtworzyć elementu: ' + e.message, variant: 'destructive' });
@@ -388,6 +388,13 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         }
       }
 
+      // Fetch the activated element(s) to return full data
+      const { data: activatedData } = await supabase
+        .from(table)
+        .select('*')
+        .eq('id', id)
+        .single();
+
       // Remove from local state
       if (type === 'section') {
         setInactiveSections(prev => prev.filter(s => s.id !== id));
@@ -400,7 +407,16 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         description: `${type === 'section' ? 'Sekcja' : 'Element'} został aktywowany i dodany na końcu listy`,
       });
 
-      onElementActivated();
+      // Return the activated data
+      if (activatedData) {
+        if (type === 'section') {
+          onElementActivated([activatedData], []);
+        } else {
+          onElementActivated([], [activatedData]);
+        }
+      } else {
+        onElementActivated([], []);
+      }
     } catch (error) {
       console.error('Error activating element:', error);
       toast({
@@ -441,7 +457,12 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         description: `${type === 'section' ? 'Sekcja' : 'Element'} został trwale usunięty`,
       });
 
-      onElementDeleted();
+      // Return deleted IDs
+      if (type === 'section') {
+        onElementDeleted([id], []);
+      } else {
+        onElementDeleted([], [id]);
+      }
     } catch (error) {
       console.error('Error deleting element:', error);
       toast({

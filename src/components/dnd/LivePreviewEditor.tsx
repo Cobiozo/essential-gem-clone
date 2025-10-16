@@ -929,10 +929,17 @@ export const LivePreviewEditor: React.FC = () => {
           section_id: targetSectionId,
           page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
           type: elementType,
+          title: `Nowy ${getElementTypeName(elementType)}`,
+          description: '',
           position: newPosition,
           column_index: columnIndex,
           is_active: true,
           cells: defaultContent as any,
+          url: '',
+          icon: '',
+          media_url: '',
+          media_type: '',
+          media_alt_text: '',
         }])
         .select()
         .single();
@@ -942,7 +949,11 @@ export const LivePreviewEditor: React.FC = () => {
         throw insertError;
       }
       
-      console.log('[handleNewElementDrop] Item created:', newItemData);
+      console.log('[handleNewElementDrop] Item created in DB:', newItemData);
+      console.log('[handleNewElementDrop] Current items count:', items.length);
+      console.log('[handleNewElementDrop] Items in target section:', 
+        items.filter(i => i.section_id === targetSectionId).length
+      );
 
       // Update local state
       const cellsData = typeof newItemData.cells === 'string' 
@@ -961,8 +972,19 @@ export const LivePreviewEditor: React.FC = () => {
       saveToHistory(sections, newItems);
       setHasUnsavedChanges(true);
 
-      // Reinitialize columns
+      // Reinitialize columns and force re-render
       initializeColumns(sections, newItems);
+      setDragVersion(prev => prev + 1);
+
+      console.log('[handleNewElementDrop] ✅ Item added successfully:', {
+        id: convertedItem.id,
+        type: convertedItem.type,
+        section_id: convertedItem.section_id,
+        column_index: columnIndex,
+        position: newPosition,
+        totalItems: newItems.length,
+        itemsInSection: newItems.filter(i => i.section_id === targetSectionId).length
+      });
 
       toast({ 
         title: '✅ Element dodany', 
@@ -2450,11 +2472,63 @@ export const LivePreviewEditor: React.FC = () => {
       </div>
 
       <InactiveElementsManager
-        onElementActivated={() => {
-          console.log('Element activated, refreshing layout...');
-          fetchData();
+        onElementActivated={(activatedSections, activatedItems) => {
+          console.log('Elements activated without refresh:', { 
+            sections: activatedSections.length, 
+            items: activatedItems.length 
+          });
+          
+          // Update local state without full refetch
+          if (activatedSections.length > 0) {
+            setSections(prev => {
+              const newSections = [...prev];
+              activatedSections.forEach(activated => {
+                const idx = newSections.findIndex(s => s.id === activated.id);
+                if (idx >= 0) {
+                  newSections[idx] = { ...newSections[idx], is_active: true };
+                } else {
+                  newSections.push(activated as CMSSection);
+                }
+              });
+              return newSections;
+            });
+          }
+          
+          if (activatedItems.length > 0) {
+            setItems(prev => {
+              const newItems = [...prev];
+              activatedItems.forEach(activated => {
+                const idx = newItems.findIndex(i => i.id === activated.id);
+                if (idx >= 0) {
+                  newItems[idx] = { ...newItems[idx], is_active: true };
+                } else {
+                  newItems.push(activated as CMSItem);
+                }
+              });
+              return newItems;
+            });
+          }
+          
+          setDragVersion(prev => prev + 1);
+          setInactiveRefresh(prev => prev + 1);
         }}
-        onElementDeleted={fetchData}
+        onElementDeleted={(deletedSections, deletedItems) => {
+          console.log('Elements deleted without refresh:', { 
+            sections: deletedSections.length, 
+            items: deletedItems.length 
+          });
+          
+          // Remove from local state without full refetch
+          if (deletedSections.length > 0) {
+            setSections(prev => prev.filter(s => !deletedSections.includes(s.id)));
+          }
+          
+          if (deletedItems.length > 0) {
+            setItems(prev => prev.filter(i => !deletedItems.includes(i.id)));
+          }
+          
+          setInactiveRefresh(prev => prev + 1);
+        }}
         refreshKey={inactiveRefresh}
       />
     </div>
