@@ -278,6 +278,8 @@ export const LivePreviewEditor: React.FC = () => {
   const [responsiveSettings, setResponsiveSettings] = useState(defaultResponsiveSettings);
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [panelMode, setPanelMode] = useState<'elements' | 'properties'>('elements');
+  const [selectedElementForPanel, setSelectedElementForPanel] = useState<string | null>(null);
   
   // Column layout state
   const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
@@ -821,24 +823,28 @@ export const LivePreviewEditor: React.FC = () => {
             .sort((a, b) => a.position - b.position);
           const targetIndex = topLevelSections.findIndex(s => s.id === targetSection.id);
           
-          // Wstaw PO znalezionej sekcji
+          // ✅ POPRAWKA: Wstaw PO znalezionej sekcji
+          // Jeśli to pierwsza sekcja (index 0), możemy wstawić przed nią lub po
+          // Domyślnie wstawiamy PO sekcji
           insertPosition = targetIndex >= 0 ? targetIndex + 1 : topLevelSections.length;
           
-          console.log('[handleNewElementDrop] Inserting AFTER section:', {
+          console.log('[handleNewElementDrop] 🎯 Inserting AFTER section:', {
             targetId,
             targetTitle: targetSection.title,
+            targetPosition: targetSection.position,
             targetIndex,
-            insertPosition
+            newInsertPosition: insertPosition,
+            totalTopLevel: topLevelSections.length
           });
         } else {
           // Nie znaleziono sekcji - wstaw na końcu
           insertPosition = sections.filter(s => !s.parent_id).length;
-          console.log('[handleNewElementDrop] Target section not found, adding at end:', insertPosition);
+          console.warn('[handleNewElementDrop] ⚠️ Target section not found, adding at end:', insertPosition);
         }
       } else {
         // Brak celu - wstaw na końcu
         insertPosition = sections.filter(s => !s.parent_id).length;
-        console.log('[handleNewElementDrop] No target, adding at end:', insertPosition);
+        console.warn('[handleNewElementDrop] ⚠️ No target, adding at end:', insertPosition);
       }
         
         // Determine section type and properties based on element type
@@ -2071,6 +2077,10 @@ export const LivePreviewEditor: React.FC = () => {
     setEditingItemId(itemId);
     setSelectedElement(itemId);
     setIsItemEditorOpen(true);
+    
+    // ✅ Przełącz panel na właściwości
+    setSelectedElementForPanel(itemId);
+    setPanelMode('properties');
   };
 
   const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
@@ -2407,9 +2417,18 @@ export const LivePreviewEditor: React.FC = () => {
           >
             {editMode && (
               <div className="fixed left-0 top-0 h-screen z-40">
-                <ElementsPanel onElementClick={(type) => {
-                  toast({ title: 'Element clicked', description: `You clicked: ${type}` });
-                }} />
+                <ElementsPanel 
+                  onElementClick={(type) => {
+                    // Don't show toast, just handle drag
+                  }}
+                  panelMode={panelMode}
+                  onPanelModeChange={(mode) => {
+                    setPanelMode(mode);
+                    if (mode === 'elements') {
+                      setSelectedElementForPanel(null);
+                    }
+                  }}
+                />
               </div>
             )}
             
