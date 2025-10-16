@@ -36,8 +36,8 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b">
+    <div className="flex flex-col h-screen">
+      <div className="flex items-center justify-between p-4 border-b shrink-0">
         <h3 className="text-lg font-semibold">Edytuj Tekst</h3>
         <div className="flex gap-2">
           <Button onClick={handleSave} size="sm">
@@ -50,15 +50,15 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
         </div>
       </div>
 
-      <Tabs defaultValue="content" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="mx-4 mt-4">
+      <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0">
+        <TabsList className="mx-4 mt-4 shrink-0">
           <TabsTrigger value="content">Treść</TabsTrigger>
           <TabsTrigger value="style">Styl</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="content" className="flex-1 overflow-hidden p-4">
+        <TabsContent value="content" className="flex-1 min-h-0 overflow-hidden m-0">
           <ScrollArea className="h-full">
-            <div className="space-y-4 pb-4">
+            <div className="space-y-4 p-4">
               <div className="space-y-2">
                 <Label>Treść</Label>
                 <div className="border rounded-md overflow-hidden" style={{ height: '300px' }}>
@@ -73,9 +73,9 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="style" className="flex-1 overflow-hidden p-4">
+        <TabsContent value="style" className="flex-1 min-h-0 overflow-hidden m-0">
           <ScrollArea className="h-full">
-            <div className="pb-4">
+            <div className="p-4">
               <StyleTab item={editedItem} onUpdate={handleUpdate} />
             </div>
           </ScrollArea>

@@ -257,31 +257,30 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
           </Tabs>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <ScrollArea className="flex-1">
-              <div className="p-4">
-                {editingSection && onSaveSection && onCancelSectionEdit ? (
-                  <SectionEditor
-                    key={editingSectionId}
-                    section={editingSection}
-                    onSave={onSaveSection}
-                    onCancel={onCancelSectionEdit}
-                  />
-                ) : editingItem && onSaveItem && onCancelEdit ? (
-                  <ItemEditor
-                    key={editingItemId}
-                    item={editingItem}
-                    sectionId={editingItem.section_id || ''}
-                    onSave={onSaveItem}
-                    onCancel={onCancelEdit}
-                    isOpen={isItemEditorOpen || false}
-                  />
-                ) : (
-                  <div className="text-center text-sm text-muted-foreground py-8">
-                    Wybierz element do edycji
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+            {/* Remove ScrollArea wrapper - editors have their own scroll areas */}
+            <div className="flex-1 overflow-hidden">
+              {editingSection && onSaveSection && onCancelSectionEdit ? (
+                <SectionEditor
+                  key={editingSectionId}
+                  section={editingSection}
+                  onSave={onSaveSection}
+                  onCancel={onCancelSectionEdit}
+                />
+              ) : editingItem && onSaveItem && onCancelEdit ? (
+                <ItemEditor
+                  key={editingItemId}
+                  item={editingItem}
+                  sectionId={editingItem.section_id || ''}
+                  onSave={onSaveItem}
+                  onCancel={onCancelEdit}
+                  isOpen={isItemEditorOpen || false}
+                />
+              ) : (
+                <div className="text-center text-sm text-muted-foreground py-8">
+                  Wybierz element do edycji
+                </div>
+              )}
+            </div>
           </div>
         )}
         </div>
