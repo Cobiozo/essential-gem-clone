@@ -2453,9 +2453,67 @@ export const LivePreviewEditor: React.FC = () => {
     if (!editingItemId) return;
     
     console.log('💾 handleSaveItem called with:', updatedItem);
-    console.log('💾 cells being saved:', updatedItem.cells);
+    console.log('💾 Original cells:', updatedItem.cells);
     
     try {
+      // Znajdź oryginalny element
+      const originalItem = items.find(i => i.id === editingItemId);
+      if (!originalItem) {
+        console.error('❌ Original item not found');
+        return;
+      }
+      
+      // SYNCHRONIZUJ cells z legacy fields PRZED zapisem
+      let finalCells = updatedItem.cells || originalItem.cells || [];
+      
+      // Dla heading: title -> cells[0].content
+      if ((updatedItem.type === 'heading' || originalItem.type === 'heading') && updatedItem.title !== undefined) {
+        const existingCell: any = (Array.isArray(finalCells) && finalCells[0]) ? finalCells[0] : {};
+        finalCells = [
+          { 
+            ...existingCell,
+            type: 'header' as const,
+            content: updatedItem.title || '',
+            position: existingCell.position || 0,
+            is_active: existingCell.is_active !== undefined ? existingCell.is_active : true
+          }
+        ];
+        console.log('📝 Synced heading cells:', finalCells);
+      }
+      
+      // Dla text: description -> cells[0].content
+      if ((updatedItem.type === 'text' || originalItem.type === 'text') && updatedItem.description !== undefined) {
+        const existingCell: any = (Array.isArray(finalCells) && finalCells[0]) ? finalCells[0] : {};
+        finalCells = [
+          { 
+            ...existingCell,
+            type: 'description' as const,
+            content: updatedItem.description || '',
+            position: existingCell.position || 0,
+            is_active: existingCell.is_active !== undefined ? existingCell.is_active : true
+          }
+        ];
+        console.log('📝 Synced text cells:', finalCells);
+      }
+      
+      // Dla button: title -> cells[0].content, url -> cells[0].url
+      if (updatedItem.type === 'button' || originalItem.type === 'button') {
+        const existingCell: any = (Array.isArray(finalCells) && finalCells[0]) ? finalCells[0] : {};
+        finalCells = [
+          {
+            ...existingCell,
+            type: 'button_external' as const,
+            content: updatedItem.title !== undefined ? updatedItem.title : (existingCell.content || ''),
+            url: updatedItem.url !== undefined ? updatedItem.url : (existingCell.url || ''),
+            position: existingCell.position || 0,
+            is_active: existingCell.is_active !== undefined ? existingCell.is_active : true
+          }
+        ];
+        console.log('📝 Synced button cells:', finalCells);
+      }
+      
+      console.log('💾 Final cells to save:', finalCells);
+      
       const { error } = await supabase
         .from('cms_items')
         .update({
@@ -2467,7 +2525,7 @@ export const LivePreviewEditor: React.FC = () => {
           media_url: updatedItem.media_url,
           media_type: updatedItem.media_type,
           media_alt_text: updatedItem.media_alt_text,
-          cells: updatedItem.cells as any,
+          cells: finalCells as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingItemId);
@@ -2477,11 +2535,25 @@ export const LivePreviewEditor: React.FC = () => {
         throw error;
       }
       
-      console.log('✅ Item saved successfully to database');
+      console.log('✅ Item saved successfully with synced cells');
       
-      // Update local state
-      setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
-      saveToHistory(sections, items.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
+      // Update local state z zsynchronizowanymi cells
+      const updatedItemWithCells = { ...updatedItem, cells: finalCells };
+      setItems(prev => prev.map(i => 
+        i.id === editingItemId 
+          ? { ...i, ...updatedItemWithCells } as CMSItem 
+          : i
+      ));
+      
+      saveToHistory(
+        sections, 
+        items.map(i => 
+          i.id === editingItemId 
+            ? { ...i, ...updatedItemWithCells } as CMSItem 
+            : i
+        )
+      );
+      
       setHasUnsavedChanges(true);
       
       // Don't close modal or reset editingItemId - let user close explicitly via Cancel/Save button
