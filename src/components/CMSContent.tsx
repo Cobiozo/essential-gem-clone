@@ -47,6 +47,23 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     );
   };
 
+  // Helper to apply item styles
+  const applyItemStyles = (item: CMSItem) => {
+    const inlineStyles: React.CSSProperties = {};
+    if (item.text_color) inlineStyles.color = item.text_color;
+    if (item.background_color) inlineStyles.backgroundColor = item.background_color;
+    if (item.font_size) inlineStyles.fontSize = `${item.font_size}px`;
+    if (item.padding) inlineStyles.padding = `${item.padding}px`;
+    if (item.border_radius) inlineStyles.borderRadius = `${item.border_radius}px`;
+    if ((item as any).opacity) inlineStyles.opacity = (item as any).opacity / 100;
+    if (item.font_weight) inlineStyles.fontWeight = item.font_weight;
+    
+    return {
+      style: inlineStyles,
+      className: item.style_class || ''
+    };
+  };
+
   switch (item.type) {
     case 'header_text':
       return (
@@ -269,6 +286,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const headingCell = cells?.[0];
       const level = headingCell?.level || 2;
       const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+      const headingStyles = applyItemStyles(item);
+      const HeadingIcon = item.icon ? (icons as any)[item.icon] : null;
       
       if (!headingCell?.content && !item.title && isEditMode) {
         return (
@@ -279,21 +298,28 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       }
       
       return (
-        <HeadingTag className={cn(
-          'font-bold',
-          level === 1 && 'text-4xl',
-          level === 2 && 'text-3xl',
-          level === 3 && 'text-2xl',
-          level === 4 && 'text-xl',
-          level === 5 && 'text-lg',
-          level === 6 && 'text-base'
-        )}>
+        <HeadingTag 
+          className={cn(
+            'font-bold flex items-center gap-2',
+            level === 1 && 'text-4xl',
+            level === 2 && 'text-3xl',
+            level === 3 && 'text-2xl',
+            level === 4 && 'text-xl',
+            level === 5 && 'text-lg',
+            level === 6 && 'text-base',
+            headingStyles.className
+          )}
+          style={headingStyles.style}
+        >
+          {HeadingIcon && <HeadingIcon className="inline-block" style={{ width: '1em', height: '1em' }} />}
           {headingCell?.content || item.title || 'Nagłówek'}
         </HeadingTag>
       );
 
     case 'text':
       const textCell = (item.cells as any[])?.[0];
+      const textStyles = applyItemStyles(item);
+      const TextIcon = item.icon ? (icons as any)[item.icon] : null;
       
       if (!textCell?.content && !item.description && isEditMode) {
         return (
@@ -304,12 +330,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       }
       
       return (
-        <FormattedText
-          text={textCell?.content || item.description || ''}
-          formatting={item.text_formatting}
-          className="text-sm leading-relaxed"
-          as="p"
-        />
+        <div className={cn('flex items-start gap-2', textStyles.className)} style={textStyles.style}>
+          {TextIcon && <TextIcon className="mt-1 flex-shrink-0" style={{ width: '1em', height: '1em' }} />}
+          <FormattedText
+            text={textCell?.content || item.description || ''}
+            formatting={item.text_formatting}
+            className="text-sm leading-relaxed flex-1"
+            as="p"
+          />
+        </div>
       );
 
     case 'image':
@@ -572,6 +601,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'button':
       const buttonCell = (item.cells as any[])?.[0];
       const buttonUrl = buttonCell?.url || item.url;
+      const buttonStyles = applyItemStyles(item);
+      const ButtonIcon = item.icon ? (icons as any)[item.icon] : null;
+      const iconPosition = (item as any).icon_position || 'before';
       
       if (!buttonCell?.content && !item.title && isEditMode) {
         return (
@@ -589,9 +621,16 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       return (
         <Button
           onClick={handleButtonClick}
-          className="w-full"
+          className={cn('w-full', buttonStyles.className)}
+          style={buttonStyles.style}
         >
+          {ButtonIcon && iconPosition === 'before' && (
+            <ButtonIcon className="w-4 h-4 mr-2" />
+          )}
           {buttonCell?.content || item.title || 'Kliknij'}
+          {ButtonIcon && iconPosition === 'after' && (
+            <ButtonIcon className="w-4 h-4 ml-2" />
+          )}
         </Button>
       );
 

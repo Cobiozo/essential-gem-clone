@@ -7,10 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { CMSItem } from '@/types/cms';
 import { X, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { IconPicker } from '../IconPicker';
+import { StyleTab } from './StyleTab';
+import * as icons from 'lucide-react';
 
 interface ButtonEditorProps {
   item: CMSItem;
@@ -32,6 +36,8 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
   const [pages, setPages] = useState<Page[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [iconSize, setIconSize] = useState((item as any).icon_size || 16);
+  const [iconSpacing, setIconSpacing] = useState((item as any).icon_spacing || 8);
 
   // Fetch pages for internal link selection
   useEffect(() => {
@@ -279,41 +285,82 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
 
               <div className="space-y-2">
                 <Label>Ikona</Label>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">↻</Button>
-                  <Button variant="outline" size="sm">⊕</Button>
-                  <Button variant="outline" size="sm">🗑</Button>
-                </div>
+                <IconPicker
+                  value={editedItem.icon}
+                  onChange={(iconName) => setEditedItem({ ...editedItem, icon: iconName })}
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start">
+                      {editedItem.icon ? (
+                        <>
+                          {(() => {
+                            const IconComp = (icons as any)[editedItem.icon];
+                            return IconComp ? <IconComp className="w-4 h-4 mr-2" /> : null;
+                          })()}
+                          <span>{editedItem.icon}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Wybierz ikonę...</span>
+                      )}
+                    </Button>
+                  }
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label>Pozycja ikony</Label>
-                <Select
-                  value={editedItem.icon || 'before'}
-                  onValueChange={(value) => setEditedItem({ ...editedItem, icon: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="before">Przed tekstem</SelectItem>
-                    <SelectItem value="after">Po tekście</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {editedItem.icon && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Pozycja ikony</Label>
+                    <Select
+                      value={(editedItem as any).icon_position || 'before'}
+                      onValueChange={(value) => setEditedItem({ ...editedItem, icon_position: value } as any)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="before">Przed tekstem</SelectItem>
+                        <SelectItem value="after">Po tekście</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Odstęp ikony</Label>
-                <div className="flex gap-2 items-center">
-                  <Slider
-                    value={[11]}
-                    max={50}
-                    step={1}
-                    className="flex-1"
-                  />
-                  <span className="text-sm w-8">11</span>
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label>Rozmiar ikony (px)</Label>
+                    <div className="flex gap-2 items-center">
+                      <Slider
+                        value={[iconSize]}
+                        onValueChange={([value]) => {
+                          setIconSize(value);
+                          setEditedItem({ ...editedItem, icon_size: value } as any);
+                        }}
+                        min={12}
+                        max={64}
+                        step={2}
+                        className="flex-1"
+                      />
+                      <span className="text-sm w-12">{iconSize}px</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Odstęp ikony (px)</Label>
+                    <div className="flex gap-2 items-center">
+                      <Slider
+                        value={[iconSpacing]}
+                        onValueChange={([value]) => {
+                          setIconSpacing(value);
+                          setEditedItem({ ...editedItem, icon_spacing: value } as any);
+                        }}
+                        min={0}
+                        max={50}
+                        step={2}
+                        className="flex-1"
+                      />
+                      <span className="text-sm w-12">{iconSpacing}px</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </ScrollArea>
         </TabsContent>
@@ -321,15 +368,65 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
         <TabsContent value="style" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
             <div className="pb-4">
-              <div className="text-sm text-muted-foreground">Opcje stylu w przygotowaniu...</div>
+              <StyleTab 
+                item={editedItem} 
+                onUpdate={(updates) => setEditedItem({ ...editedItem, ...updates })} 
+              />
             </div>
           </ScrollArea>
         </TabsContent>
 
         <TabsContent value="advanced" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
-            <div className="pb-4">
-              <div className="text-sm text-muted-foreground">Opcje zaawansowane w przygotowaniu...</div>
+            <div className="space-y-4 pb-4">
+              <div className="space-y-2">
+                <Label>Cel linku</Label>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={(editedItem as any).target === '_blank'}
+                    onCheckedChange={(checked) => 
+                      setEditedItem({ ...editedItem, target: checked ? '_blank' : '_self' } as any)
+                    }
+                  />
+                  <Label className="font-normal">Otwórz w nowej karcie</Label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Rel Attribute</Label>
+                <Input
+                  value={(editedItem as any).rel || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, rel: e.target.value } as any)}
+                  placeholder="np. nofollow noopener"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Dodaj atrybuty rel dla SEO (np. nofollow, noopener, noreferrer)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>ID elementu</Label>
+                <Input
+                  value={(editedItem as any).html_id || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, html_id: e.target.value } as any)}
+                  placeholder="custom-button-id"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Niestandardowy ID HTML dla tego przycisku
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>ARIA Label</Label>
+                <Input
+                  value={(editedItem as any).aria_label || ''}
+                  onChange={(e) => setEditedItem({ ...editedItem, aria_label: e.target.value } as any)}
+                  placeholder="Opis dla czytników ekranu"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Popraw dostępność - etykieta dla technologii asystujących
+                </p>
+              </div>
             </div>
           </ScrollArea>
         </TabsContent>

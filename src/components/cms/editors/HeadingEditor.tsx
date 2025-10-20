@@ -9,6 +9,8 @@ import { X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StyleTab } from './StyleTab';
 import { useDebounce } from '@/hooks/use-debounce';
+import { IconPicker } from '../IconPicker';
+import * as icons from 'lucide-react';
 
 interface HeadingEditorProps {
   item: CMSItem;
@@ -139,6 +141,32 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   Ważne dla SEO i dostępności
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Ikona (opcjonalnie)</Label>
+                <IconPicker
+                  value={editedItem.icon}
+                  onChange={(iconName) => handleUpdate({ icon: iconName })}
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start">
+                      {editedItem.icon ? (
+                        <>
+                          {(() => {
+                            const IconComp = (icons as any)[editedItem.icon];
+                            return IconComp ? <IconComp className="w-4 h-4 mr-2" /> : null;
+                          })()}
+                          <span>{editedItem.icon}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Wybierz ikonę...</span>
+                      )}
+                    </Button>
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Ikona pojawi się przed nagłówkiem
                 </p>
               </div>
             </div>
