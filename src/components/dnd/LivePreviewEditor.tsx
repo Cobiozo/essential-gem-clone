@@ -2441,18 +2441,12 @@ export const LivePreviewEditor: React.FC = () => {
     
     console.log('[handleEditItem] Item type:', item.type, 'Full item:', item);
     
-    // ✅ Reset poprzedniego stanu i ustaw nowy
-    setIsItemEditorOpen(false); // Najpierw zamknij
-    setEditingItemId(null);
-    
-    // Następnie otwórz dla nowego elementu
-    setTimeout(() => {
-      setEditingItemId(itemId);
-      setSelectedElement(itemId);
-      setIsItemEditorOpen(true);
-      setSelectedElementForPanel(itemId);
-      setPanelMode('properties');
-    }, 50); // Krótkie opóźnienie zapewnia re-render
+    // Set new editing state - modal stays open until user explicitly closes it
+    setEditingItemId(itemId);
+    setSelectedElement(itemId);
+    setIsItemEditorOpen(true);
+    setSelectedElementForPanel(itemId);
+    setPanelMode('properties');
   };
 
   const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
@@ -2477,16 +2471,14 @@ export const LivePreviewEditor: React.FC = () => {
       
       if (error) throw error;
       
+      // Update local state
       setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
       saveToHistory(sections, items.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
       setHasUnsavedChanges(true);
-      setIsItemEditorOpen(false);
-      setEditingItemId(null);
       
-      toast({
-        title: 'Sukces',
-        description: 'Element został zapisany',
-      });
+      // Don't close modal or reset editingItemId - let user close explicitly via Cancel/Save button
+      // Modal stays open for continuous editing
+      
     } catch (error) {
       console.error('Error saving item:', error);
       toast({

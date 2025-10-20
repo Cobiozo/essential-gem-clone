@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
 import { CMSItem } from '@/types/cms';
-import { Save, X } from 'lucide-react';
+import { Save, X, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ButtonEditorProps {
   item: CMSItem;
@@ -16,25 +19,104 @@ interface ButtonEditorProps {
   onCancel: () => void;
 }
 
+interface Page {
+  id: string;
+  title: string;
+  slug: string;
+}
+
 export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCancel }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
   const debouncedItem = useDebounce(editedItem, 1000);
+  const prevItemRef = useRef<string>(JSON.stringify(item));
+  const [linkType, setLinkType] = useState<'external' | 'internal' | 'custom'>('external');
+  const [pages, setPages] = useState<Page[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const { toast } = useToast();
+
+  // Fetch pages for internal link selection
+  useEffect(() => {
+    const fetchPages = async () => {
+      const { data } = await supabase
+        .from('pages')
+        .select('id, title, slug')
+        .eq('is_published', true)
+        .eq('is_active', true)
+        .order('position');
+      if (data) setPages(data);
+    };
+    fetchPages();
+  }, []);
+
+  // Determine initial link type based on URL
+  useEffect(() => {
+    const url = item.url || '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      setLinkType('external');
+    } else if (url.startsWith('/') && pages.some(p => `/${p.slug}` === url)) {
+      setLinkType('internal');
+    } else if (url.startsWith('/')) {
+      setLinkType('custom');
+    }
+  }, [item.url, pages]);
 
   // Auto-save on debounced changes
   useEffect(() => {
-    if (debouncedItem && debouncedItem !== item) {
+    const debouncedItemString = JSON.stringify(debouncedItem);
+    if (debouncedItem && debouncedItemString !== prevItemRef.current) {
+      setIsSaving(true);
       onSave(debouncedItem);
+      prevItemRef.current = debouncedItemString;
+      
+      setTimeout(() => {
+        setIsSaving(false);
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 2000);
+      }, 300);
     }
-  }, [debouncedItem]);
+  }, [debouncedItem, onSave]);
 
   const handleSave = () => {
     onSave(editedItem);
+    toast({
+      title: 'Zapisano',
+      description: 'Przycisk został zapisany',
+    });
   };
+
+  const handleLinkTypeChange = (newType: 'external' | 'internal' | 'custom') => {
+    setLinkType(newType);
+    // Clear URL when changing type
+    setEditedItem({ ...editedItem, url: '' });
+  };
+
+  const validateUrl = (url: string, type: 'external' | 'internal' | 'custom'): boolean => {
+    if (!url) return false;
+    if (type === 'external') {
+      return url.startsWith('http://') || url.startsWith('https://');
+    }
+    if (type === 'internal' || type === 'custom') {
+      return url.startsWith('/');
+    }
+    return false;
+  };
+
+  const isUrlValid = validateUrl(editedItem.url || '', linkType);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="text-lg font-semibold">Edytuj Button</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">Edytuj Przycisk</h3>
+          {isSaving && <span className="text-xs text-muted-foreground">Zapisywanie...</span>}
+          {justSaved && (
+            <div className="flex items-center gap-1 text-xs text-green-600">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Zapisano</span>
+            </div>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button onClick={handleSave} size="sm">
             <Save className="w-4 h-4 mr-2" />
@@ -57,25 +139,96 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
           <ScrollArea className="h-full">
             <div className="space-y-4 pb-4">
               <div className="space-y-2">
-                <Label>Tekst</Label>
+                <Label>Tekst przycisku</Label>
                 <Input
                   value={editedItem.title || ''}
                   onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
-                  placeholder="Nasz sklep ->"
+                  placeholder="Nasz sklep"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Link</Label>
-                <Input
-                  value={editedItem.url || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, url: e.target.value })}
-                  placeholder="https://mobline-it.pl/sklep/"
-                />
+              <div className="space-y-3">
+                <Label>Rodzaj linku</Label>
+                <RadioGroup value={linkType} onValueChange={handleLinkTypeChange}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="external" id="external" />
+                    <Label htmlFor="external" className="font-normal cursor-pointer">
+                      Link zewnętrzny (http/https)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="internal" id="internal" />
+                    <Label htmlFor="internal" className="font-normal cursor-pointer">
+                      Strona wewnętrzna (wybierz z listy)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="custom" id="custom" />
+                    <Label htmlFor="custom" className="font-normal cursor-pointer">
+                      Ścieżka niestandardowa (np. /kontakt)
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
 
+              {linkType === 'internal' && (
+                <div className="space-y-2">
+                  <Label>Wybierz stronę</Label>
+                  <Select 
+                    value={editedItem.url?.replace('/', '') || ''} 
+                    onValueChange={(slug) => setEditedItem({...editedItem, url: `/${slug}`})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Wybierz stronę..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pages.map(page => (
+                        <SelectItem key={page.id} value={page.slug}>
+                          {page.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {pages.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Brak opublikowanych stron</p>
+                  )}
+                </div>
+              )}
+
+              {linkType === 'external' && (
+                <div className="space-y-2">
+                  <Label>URL zewnętrzny</Label>
+                  <Input 
+                    value={editedItem.url || ''} 
+                    onChange={(e) => setEditedItem({...editedItem, url: e.target.value})}
+                    placeholder="https://example.com"
+                  />
+                  {editedItem.url && !isUrlValid && (
+                    <p className="text-xs text-destructive">
+                      URL musi zaczynać się od http:// lub https://
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {linkType === 'custom' && (
+                <div className="space-y-2">
+                  <Label>Ścieżka niestandardowa</Label>
+                  <Input 
+                    value={editedItem.url || ''} 
+                    onChange={(e) => setEditedItem({...editedItem, url: e.target.value})}
+                    placeholder="/kontakt"
+                  />
+                  {editedItem.url && !isUrlValid && (
+                    <p className="text-xs text-destructive">
+                      Ścieżka musi zaczynać się od /
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label>Alignment</Label>
+                <Label>Wyrównanie</Label>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm">←</Button>
                   <Button variant="outline" size="sm">↔</Button>
@@ -85,7 +238,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
               </div>
 
               <div className="space-y-2">
-                <Label>Icon</Label>
+                <Label>Ikona</Label>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm">↻</Button>
                   <Button variant="outline" size="sm">⊕</Button>
@@ -94,7 +247,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
               </div>
 
               <div className="space-y-2">
-                <Label>Icon Position</Label>
+                <Label>Pozycja ikony</Label>
                 <Select
                   value={editedItem.icon || 'before'}
                   onValueChange={(value) => setEditedItem({ ...editedItem, icon: value })}
@@ -103,14 +256,14 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="before">Before</SelectItem>
-                    <SelectItem value="after">After</SelectItem>
+                    <SelectItem value="before">Przed tekstem</SelectItem>
+                    <SelectItem value="after">Po tekście</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Icon Spacing</Label>
+                <Label>Odstęp ikony</Label>
                 <div className="flex gap-2 items-center">
                   <Slider
                     value={[11]}
@@ -128,7 +281,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
         <TabsContent value="style" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
             <div className="pb-4">
-              <div className="text-sm text-muted-foreground">Style options coming soon...</div>
+              <div className="text-sm text-muted-foreground">Opcje stylu w przygotowaniu...</div>
             </div>
           </ScrollArea>
         </TabsContent>
@@ -136,7 +289,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
         <TabsContent value="advanced" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
             <div className="pb-4">
-              <div className="text-sm text-muted-foreground">Advanced options coming soon...</div>
+              <div className="text-sm text-muted-foreground">Opcje zaawansowane w przygotowaniu...</div>
             </div>
           </ScrollArea>
         </TabsContent>

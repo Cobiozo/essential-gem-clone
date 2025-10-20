@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,13 +19,16 @@ interface TextEditorProps {
 export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
   const debouncedItem = useDebounce(editedItem, 1000);
+  const prevItemRef = useRef<string>(JSON.stringify(item));
 
   // Auto-save on debounced changes
   useEffect(() => {
-    if (debouncedItem && debouncedItem !== item) {
+    const debouncedItemString = JSON.stringify(debouncedItem);
+    if (debouncedItem && debouncedItemString !== prevItemRef.current) {
       onSave(debouncedItem);
+      prevItemRef.current = debouncedItemString;
     }
-  }, [debouncedItem]);
+  }, [debouncedItem, onSave]);
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
     setEditedItem({ ...editedItem, ...updates });
