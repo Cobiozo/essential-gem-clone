@@ -141,8 +141,13 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
               <div className="space-y-2">
                 <Label>Tekst przycisku</Label>
                 <Input
-                  value={editedItem.title || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+                  value={editedItem.cells?.[0]?.content || editedItem.title || ''}
+                  onChange={(e) => {
+                    const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
+                    if (!cells[0]) cells[0] = {};
+                    cells[0] = { ...cells[0], content: e.target.value, type: 'btn' };
+                    setEditedItem({ ...editedItem, title: e.target.value, cells });
+                  }}
                   placeholder="Nasz sklep"
                 />
               </div>
@@ -175,8 +180,13 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                 <div className="space-y-2">
                   <Label>Wybierz stronę</Label>
                   <Select 
-                    value={editedItem.url?.replace('/', '') || ''} 
-                    onValueChange={(slug) => setEditedItem({...editedItem, url: `/${slug}`})}
+                    value={editedItem.cells?.[0]?.url?.replace('/', '') || editedItem.url?.replace('/', '') || ''} 
+                    onValueChange={(slug) => {
+                      const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
+                      if (!cells[0]) cells[0] = {};
+                      cells[0] = { ...cells[0], url: `/${slug}`, type: 'btn' };
+                      setEditedItem({...editedItem, url: `/${slug}`, cells});
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Wybierz stronę..." />
@@ -199,8 +209,13 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                 <div className="space-y-2">
                   <Label>URL zewnętrzny</Label>
                   <Input 
-                    value={editedItem.url || ''} 
-                    onChange={(e) => setEditedItem({...editedItem, url: e.target.value})}
+                    value={editedItem.cells?.[0]?.url || editedItem.url || ''} 
+                    onChange={(e) => {
+                      const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
+                      if (!cells[0]) cells[0] = {};
+                      cells[0] = { ...cells[0], url: e.target.value, type: 'btn' };
+                      setEditedItem({...editedItem, url: e.target.value, cells});
+                    }}
                     placeholder="https://example.com"
                   />
                   {editedItem.url && !isUrlValid && (
@@ -215,8 +230,13 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                 <div className="space-y-2">
                   <Label>Ścieżka niestandardowa</Label>
                   <Input 
-                    value={editedItem.url || ''} 
-                    onChange={(e) => setEditedItem({...editedItem, url: e.target.value})}
+                    value={editedItem.cells?.[0]?.url || editedItem.url || ''} 
+                    onChange={(e) => {
+                      const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
+                      if (!cells[0]) cells[0] = {};
+                      cells[0] = { ...cells[0], url: e.target.value, type: 'btn' };
+                      setEditedItem({...editedItem, url: e.target.value, cells});
+                    }}
                     placeholder="/kontakt"
                   />
                   {editedItem.url && !isUrlValid && (

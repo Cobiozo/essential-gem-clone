@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ContentCell, CMSItem } from '@/types/cms';
 import { CollapsibleSection } from './CollapsibleSection';
-import { isExternalUrl } from '@/lib/urlUtils';
+import { isExternalUrl, openUrl } from '@/lib/urlUtils';
 import * as icons from 'lucide-react';
 import { ChevronRight, Circle } from 'lucide-react';
 import { CarouselElement } from './elements/CarouselElement';
@@ -571,6 +571,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
 
     case 'button':
       const buttonCell = (item.cells as any[])?.[0];
+      const buttonUrl = buttonCell?.url || item.url;
       
       if (!buttonCell?.content && !item.title && isEditMode) {
         return (
@@ -580,9 +581,14 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       
+      const handleButtonClick = () => {
+        if (!buttonUrl) return;
+        openUrl(buttonUrl);
+      };
+      
       return (
         <Button
-          onClick={() => buttonCell?.url && window.open(buttonCell.url, '_blank')}
+          onClick={handleButtonClick}
           className="w-full"
         >
           {buttonCell?.content || item.title || 'Kliknij'}

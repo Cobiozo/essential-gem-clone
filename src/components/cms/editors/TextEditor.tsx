@@ -31,7 +31,21 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
   }, [debouncedItem, onSave]);
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
-    setEditedItem({ ...editedItem, ...updates });
+    setEditedItem(prev => {
+      const cells = (prev.cells || [{ type: 'paragraph', content: '' }]) as any;
+      
+      // If description changes, sync to cells[0].content
+      if ('description' in updates) {
+        if (!cells[0]) cells[0] = {};
+        cells[0] = { ...cells[0], content: updates.description || '', type: 'paragraph' };
+      }
+      
+      return { 
+        ...prev, 
+        ...updates,
+        cells: cells
+      };
+    });
   };
 
   const handleSave = () => {
@@ -65,7 +79,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
               <Label>Treść</Label>
               <div className="border rounded-md overflow-hidden" style={{ height: '400px' }}>
                 <RichTextEditor
-                  value={editedItem.description || ''}
+                  value={editedItem.cells?.[0]?.content || editedItem.description || ''}
                   onChange={(value) => handleUpdate({ description: value })}
                   placeholder="Wpisz treść..."
                 />

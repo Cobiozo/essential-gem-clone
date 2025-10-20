@@ -31,7 +31,21 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
   }, [debouncedItem, onSave]);
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
-    setEditedItem({ ...editedItem, ...updates });
+    setEditedItem(prev => {
+      const cells = (prev.cells || [{ type: 'h2', level: 2, content: '' }]) as any;
+      
+      // If title changes, sync to cells[0].content
+      if ('title' in updates) {
+        if (!cells[0]) cells[0] = {};
+        cells[0] = { ...cells[0], content: updates.title || '', type: 'h2', level: 2 };
+      }
+      
+      return { 
+        ...prev, 
+        ...updates,
+        cells: cells
+      };
+    });
   };
 
   const handleSave = () => {
@@ -105,7 +119,7 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
               <div className="space-y-2">
                 <Label>Tekst nagłówka</Label>
                 <Input
-                  value={editedItem.title || ''}
+                  value={editedItem.cells?.[0]?.content || editedItem.title || ''}
                   onChange={(e) => handleUpdate({ title: e.target.value })}
                   placeholder="Wpisz tytuł..."
                 />
