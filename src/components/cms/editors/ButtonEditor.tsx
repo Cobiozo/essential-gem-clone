@@ -140,16 +140,25 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
             <div className="space-y-4 pb-4">
               <div className="space-y-2">
                 <Label>Tekst przycisku</Label>
-                <Input
-                  value={editedItem.cells?.[0]?.content || editedItem.title || ''}
-                  onChange={(e) => {
-                    const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
-                    const newCells = [...existingCells];
-                    newCells[0] = { ...(newCells[0] || {}), content: e.target.value, type: 'btn' };
-                    setEditedItem({ ...editedItem, title: e.target.value, cells: newCells });
-                  }}
-                  placeholder="Nasz sklep"
-                />
+            <Input
+              value={editedItem.cells?.[0]?.content || editedItem.title || ''}
+              onChange={(e) => {
+                console.log('🟢 Button text changed to:', e.target.value);
+                
+                const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
+                const newCells = [...existingCells];
+                newCells[0] = { 
+                  ...(newCells[0] || {}), 
+                  content: e.target.value, 
+                  type: 'btn',
+                  url: newCells[0]?.url || '' // Zachowaj URL
+                };
+                
+                console.log('✅ Updated button cells:', newCells);
+                setEditedItem({ ...editedItem, title: e.target.value, cells: newCells });
+              }}
+              placeholder="Nasz sklep"
+            />
               </div>
 
               <div className="space-y-3">
@@ -182,9 +191,18 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                   <Select 
                     value={editedItem.cells?.[0]?.url?.replace('/', '') || editedItem.url?.replace('/', '') || ''} 
                     onValueChange={(slug) => {
+                      console.log('🟢 Internal page selected:', slug);
+                      
                       const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
                       const newCells = [...existingCells];
-                      newCells[0] = { ...(newCells[0] || {}), url: `/${slug}`, type: 'btn' };
+                      newCells[0] = { 
+                        ...(newCells[0] || {}), 
+                        url: `/${slug}`, 
+                        type: 'btn',
+                        content: newCells[0]?.content || '' // Zachowaj content
+                      };
+                      
+                      console.log('✅ Updated button cells with internal URL:', newCells);
                       setEditedItem({...editedItem, url: `/${slug}`, cells: newCells});
                     }}
                   >
@@ -211,9 +229,18 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                   <Input 
                     value={editedItem.cells?.[0]?.url || editedItem.url || ''} 
                     onChange={(e) => {
+                      console.log('🟢 External URL changed to:', e.target.value);
+                      
                       const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
                       const newCells = [...existingCells];
-                      newCells[0] = { ...(newCells[0] || {}), url: e.target.value, type: 'btn' };
+                      newCells[0] = { 
+                        ...(newCells[0] || {}), 
+                        url: e.target.value, 
+                        type: 'btn',
+                        content: newCells[0]?.content || '' // Zachowaj content
+                      };
+                      
+                      console.log('✅ Updated button cells with external URL:', newCells);
                       setEditedItem({...editedItem, url: e.target.value, cells: newCells});
                     }}
                     placeholder="https://example.com"
@@ -232,9 +259,18 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                   <Input 
                     value={editedItem.cells?.[0]?.url || editedItem.url || ''} 
                     onChange={(e) => {
+                      console.log('🟢 Custom path changed to:', e.target.value);
+                      
                       const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
                       const newCells = [...existingCells];
-                      newCells[0] = { ...(newCells[0] || {}), url: e.target.value, type: 'btn' };
+                      newCells[0] = { 
+                        ...(newCells[0] || {}), 
+                        url: e.target.value, 
+                        type: 'btn',
+                        content: newCells[0]?.content || '' // Zachowaj content
+                      };
+                      
+                      console.log('✅ Updated button cells with custom path:', newCells);
                       setEditedItem({...editedItem, url: e.target.value, cells: newCells});
                     }}
                     placeholder="/kontakt"

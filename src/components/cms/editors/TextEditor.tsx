@@ -31,6 +31,8 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
   }, [debouncedItem, onSave]);
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
+    console.log('🔵 TextEditor.handleUpdate called with:', updates);
+    
     setEditedItem(prev => {
       const existingCells = (prev.cells || [{ type: 'paragraph', content: '' }]) as any[];
       
@@ -44,13 +46,17 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
           content: updates.description || '', 
           type: 'paragraph' 
         };
+        console.log('✅ Updated cells[0]:', newCells[0]);
       }
       
-      return { 
+      const result = { 
         ...prev, 
         ...updates,
         cells: newCells
       };
+      
+      console.log('📦 New editedItem state:', result);
+      return result;
     });
   };
 
@@ -86,7 +92,10 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
               <div className="border rounded-md overflow-hidden" style={{ height: '400px' }}>
                 <RichTextEditor
                   value={editedItem.cells?.[0]?.content || editedItem.description || ''}
-                  onChange={(value) => handleUpdate({ description: value })}
+                  onChange={(value) => {
+                    console.log('🟢 RichTextEditor changed to:', value.substring(0, 50) + '...');
+                    handleUpdate({ description: value });
+                  }}
                   placeholder="Wpisz treść..."
                 />
               </div>

@@ -2452,6 +2452,9 @@ export const LivePreviewEditor: React.FC = () => {
   const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
     if (!editingItemId) return;
     
+    console.log('💾 handleSaveItem called with:', updatedItem);
+    console.log('💾 cells being saved:', updatedItem.cells);
+    
     try {
       const { error } = await supabase
         .from('cms_items')
@@ -2469,7 +2472,12 @@ export const LivePreviewEditor: React.FC = () => {
         })
         .eq('id', editingItemId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Save error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Item saved successfully to database');
       
       // Update local state
       setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...updatedItem } as CMSItem : i));
