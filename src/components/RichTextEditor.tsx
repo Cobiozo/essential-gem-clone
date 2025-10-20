@@ -497,11 +497,60 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const isUserTypingRef = useRef(false);
 
+  // Save and restore cursor position
+  const saveCursorPosition = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !previewRef.current) return null;
+    
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(previewRef.current);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    const caretOffset = preCaretRange.toString().length;
+    
+    return caretOffset;
+  }, []);
+
+  const restoreCursorPosition = useCallback((caretOffset: number | null) => {
+    if (caretOffset === null || !previewRef.current) return;
+    
+    const range = document.createRange();
+    const sel = window.getSelection();
+    let charCount = 0;
+    let nodeStack: Node[] = [previewRef.current];
+    let node: Node | undefined;
+    let foundStart = false;
+
+    while (!foundStart && (node = nodeStack.pop())) {
+      if (node.nodeType === 3) { // Text node
+        const nextCharCount = charCount + (node.textContent?.length || 0);
+        if (caretOffset <= nextCharCount) {
+          range.setStart(node, caretOffset - charCount);
+          range.setEnd(node, caretOffset - charCount);
+          foundStart = true;
+        }
+        charCount = nextCharCount;
+      } else {
+        for (let i = node.childNodes.length - 1; i >= 0; i--) {
+          nodeStack.push(node.childNodes[i]);
+        }
+      }
+    }
+
+    if (foundStart && sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }, []);
+
   const handlePreviewChange = useCallback(() => {
     if (previewRef.current && isUserTypingRef.current) {
+      const cursorPos = saveCursorPosition();
       onChange(previewRef.current.innerHTML);
+      // Restore cursor position on next tick
+      setTimeout(() => restoreCursorPosition(cursorPos), 0);
     }
-  }, [onChange]);
+  }, [onChange, saveCursorPosition, restoreCursorPosition]);
 
   // Update preview content only when value changes from outside (not from user typing)
   useEffect(() => {
@@ -511,10 +560,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       
       // Only update if content actually changed (avoid unnecessary updates)
       if (currentHtml !== newHtml) {
+        const cursorPos = saveCursorPosition();
         previewRef.current.innerHTML = newHtml;
+        if (cursorPos !== null) {
+          setTimeout(() => restoreCursorPosition(cursorPos), 0);
+        }
       }
     }
-  }, [value, activeTab, placeholder]);
+  }, [value, activeTab, placeholder, saveCursorPosition, restoreCursorPosition]);
 
   const makeImageResizable = useCallback((img: HTMLImageElement) => {
     // Remove existing resize wrapper if any
