@@ -495,11 +495,26 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }, 0);
   }, [value, onChange, activeTab]);
 
+  const isUserTypingRef = useRef(false);
+
   const handlePreviewChange = useCallback(() => {
-    if (previewRef.current) {
+    if (previewRef.current && isUserTypingRef.current) {
       onChange(previewRef.current.innerHTML);
     }
   }, [onChange]);
+
+  // Update preview content only when value changes from outside (not from user typing)
+  useEffect(() => {
+    if (previewRef.current && !isUserTypingRef.current && activeTab === 'preview') {
+      const currentHtml = previewRef.current.innerHTML;
+      const newHtml = value || `<span class="text-muted-foreground">${placeholder}</span>`;
+      
+      // Only update if content actually changed (avoid unnecessary updates)
+      if (currentHtml !== newHtml) {
+        previewRef.current.innerHTML = newHtml;
+      }
+    }
+  }, [value, activeTab, placeholder]);
 
   const makeImageResizable = useCallback((img: HTMLImageElement) => {
     // Remove existing resize wrapper if any
@@ -1108,17 +1123,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             ref={previewRef}
             contentEditable
             suppressContentEditableWarning={true}
-            onInput={handlePreviewChange}
-            onBlur={handlePreviewChange}
+            onInput={() => {
+              isUserTypingRef.current = true;
+              handlePreviewChange();
+            }}
+            onBlur={() => {
+              isUserTypingRef.current = false;
+              handlePreviewChange();
+            }}
             className="p-3 min-h-[80px] prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
             style={{ 
               minHeight: `${rows * 1.5}rem`,
               direction: 'ltr',
               textAlign: 'left',
               unicodeBidi: 'normal'
-            }}
-            dangerouslySetInnerHTML={{ 
-              __html: value || `<span class="text-muted-foreground">${placeholder}</span>` 
             }}
           />
         </TabsContent>
