@@ -143,10 +143,10 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                 <Input
                   value={editedItem.cells?.[0]?.content || editedItem.title || ''}
                   onChange={(e) => {
-                    const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
-                    if (!cells[0]) cells[0] = {};
-                    cells[0] = { ...cells[0], content: e.target.value, type: 'btn' };
-                    setEditedItem({ ...editedItem, title: e.target.value, cells });
+                    const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
+                    const newCells = [...existingCells];
+                    newCells[0] = { ...(newCells[0] || {}), content: e.target.value, type: 'btn' };
+                    setEditedItem({ ...editedItem, title: e.target.value, cells: newCells });
                   }}
                   placeholder="Nasz sklep"
                 />
@@ -182,10 +182,10 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                   <Select 
                     value={editedItem.cells?.[0]?.url?.replace('/', '') || editedItem.url?.replace('/', '') || ''} 
                     onValueChange={(slug) => {
-                      const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
-                      if (!cells[0]) cells[0] = {};
-                      cells[0] = { ...cells[0], url: `/${slug}`, type: 'btn' };
-                      setEditedItem({...editedItem, url: `/${slug}`, cells});
+                      const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
+                      const newCells = [...existingCells];
+                      newCells[0] = { ...(newCells[0] || {}), url: `/${slug}`, type: 'btn' };
+                      setEditedItem({...editedItem, url: `/${slug}`, cells: newCells});
                     }}
                   >
                     <SelectTrigger>
@@ -211,10 +211,10 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                   <Input 
                     value={editedItem.cells?.[0]?.url || editedItem.url || ''} 
                     onChange={(e) => {
-                      const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
-                      if (!cells[0]) cells[0] = {};
-                      cells[0] = { ...cells[0], url: e.target.value, type: 'btn' };
-                      setEditedItem({...editedItem, url: e.target.value, cells});
+                      const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
+                      const newCells = [...existingCells];
+                      newCells[0] = { ...(newCells[0] || {}), url: e.target.value, type: 'btn' };
+                      setEditedItem({...editedItem, url: e.target.value, cells: newCells});
                     }}
                     placeholder="https://example.com"
                   />
@@ -232,10 +232,10 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                   <Input 
                     value={editedItem.cells?.[0]?.url || editedItem.url || ''} 
                     onChange={(e) => {
-                      const cells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any;
-                      if (!cells[0]) cells[0] = {};
-                      cells[0] = { ...cells[0], url: e.target.value, type: 'btn' };
-                      setEditedItem({...editedItem, url: e.target.value, cells});
+                      const existingCells = (editedItem.cells || [{ type: 'btn', content: '', url: '' }]) as any[];
+                      const newCells = [...existingCells];
+                      newCells[0] = { ...(newCells[0] || {}), url: e.target.value, type: 'btn' };
+                      setEditedItem({...editedItem, url: e.target.value, cells: newCells});
                     }}
                     placeholder="/kontakt"
                   />

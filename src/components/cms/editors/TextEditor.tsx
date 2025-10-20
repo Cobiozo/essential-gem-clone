@@ -32,18 +32,24 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
     setEditedItem(prev => {
-      const cells = (prev.cells || [{ type: 'paragraph', content: '' }]) as any;
+      const existingCells = (prev.cells || [{ type: 'paragraph', content: '' }]) as any[];
+      
+      // Create new cells array (immutable update)
+      let newCells = [...existingCells];
       
       // If description changes, sync to cells[0].content
       if ('description' in updates) {
-        if (!cells[0]) cells[0] = {};
-        cells[0] = { ...cells[0], content: updates.description || '', type: 'paragraph' };
+        newCells[0] = { 
+          ...(newCells[0] || {}), 
+          content: updates.description || '', 
+          type: 'paragraph' 
+        };
       }
       
       return { 
         ...prev, 
         ...updates,
-        cells: cells
+        cells: newCells
       };
     });
   };

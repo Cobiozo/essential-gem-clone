@@ -32,18 +32,25 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
     setEditedItem(prev => {
-      const cells = (prev.cells || [{ type: 'h2', level: 2, content: '' }]) as any;
+      const existingCells = (prev.cells || [{ type: 'h2', level: 2, content: '' }]) as any[];
+      
+      // Create new cells array (immutable update)
+      let newCells = [...existingCells];
       
       // If title changes, sync to cells[0].content
       if ('title' in updates) {
-        if (!cells[0]) cells[0] = {};
-        cells[0] = { ...cells[0], content: updates.title || '', type: 'h2', level: 2 };
+        newCells[0] = { 
+          ...(newCells[0] || {}), 
+          content: updates.title || '', 
+          type: 'h2', 
+          level: 2 
+        };
       }
       
       return { 
         ...prev, 
         ...updates,
-        cells: cells
+        cells: newCells
       };
     });
   };
