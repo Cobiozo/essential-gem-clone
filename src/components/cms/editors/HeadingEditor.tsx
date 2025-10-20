@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CMSItem } from '@/types/cms';
-import { Save, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StyleTab } from './StyleTab';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -31,15 +31,10 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
   }, [debouncedItem, onSave]);
 
   const handleUpdate = (updates: Partial<CMSItem>) => {
-    console.log('🔵 HeadingEditor.handleUpdate called with:', updates);
-    
     setEditedItem(prev => {
       const existingCells = (prev.cells || [{ type: 'h2', level: 2, content: '' }]) as any[];
-      
-      // Create new cells array (immutable update)
       let newCells = [...existingCells];
       
-      // If title changes, sync to cells[0].content
       if ('title' in updates) {
         newCells[0] = { 
           ...(newCells[0] || {}), 
@@ -47,37 +42,23 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
           type: 'h2', 
           level: 2 
         };
-        console.log('✅ Updated cells[0]:', newCells[0]);
       }
       
-      const result = { 
+      return { 
         ...prev, 
         ...updates,
         cells: newCells
       };
-      
-      console.log('📦 New editedItem state:', result);
-      return result;
     });
-  };
-
-  const handleSave = () => {
-    onSave(editedItem);
   };
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="text-lg font-semibold">Edytuj Nagłówek</h3>
-        <div className="flex gap-2">
-          <Button onClick={handleSave} size="sm">
-            <Save className="w-4 h-4 mr-2" />
-            Zapisz
-          </Button>
-          <Button onClick={onCancel} variant="outline" size="sm">
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
+        <Button onClick={onCancel} variant="ghost" size="sm">
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
       <Tabs defaultValue="content" className="flex-1 flex flex-col overflow-hidden">

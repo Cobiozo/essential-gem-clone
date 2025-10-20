@@ -8,10 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
 import { CMSItem } from '@/types/cms';
-import { Save, X, CheckCircle2 } from 'lucide-react';
+import { X, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 interface ButtonEditorProps {
   item: CMSItem;
@@ -33,7 +32,6 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
   const [pages, setPages] = useState<Page[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  const { toast } = useToast();
 
   // Fetch pages for internal link selection
   useEffect(() => {
@@ -77,14 +75,6 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
     }
   }, [debouncedItem, onSave]);
 
-  const handleSave = () => {
-    onSave(editedItem);
-    toast({
-      title: 'Zapisano',
-      description: 'Przycisk został zapisany',
-    });
-  };
-
   const handleLinkTypeChange = (newType: 'external' | 'internal' | 'custom') => {
     setLinkType(newType);
     // Clear URL when changing type
@@ -117,15 +107,9 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
             </div>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleSave} size="sm">
-            <Save className="w-4 h-4 mr-2" />
-            Zapisz
-          </Button>
-          <Button onClick={onCancel} variant="outline" size="sm">
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
+        <Button onClick={onCancel} variant="ghost" size="sm">
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
       <Tabs defaultValue="content" className="flex-1 flex flex-col overflow-hidden">
