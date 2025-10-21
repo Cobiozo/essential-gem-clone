@@ -4357,25 +4357,39 @@ const Admin = () => {
                                       sectionId={section.id}
                                       onSave={async (newItem) => {
                                         try {
-                                          const { data, error } = await supabase
-                                            .from('cms_items')
-                                            .insert([{
-                                              type: newItem.type,
-                                              title: newItem.title,
-                                              description: newItem.description,
-                                              url: newItem.url,
-                                              icon: newItem.icon,
-                                              section_id: section.id,
-                                              page_id: editingPage.id,
-                                              position: (pageItems.filter(i => i.section_id === section.id).length || 0) + 1,
-                                              is_active: newItem.is_active,
-                                              media_url: newItem.media_url,
-                                              media_type: newItem.media_type,
-                                              media_alt_text: newItem.media_alt_text,
-                                              cells: convertCellsToDatabase(newItem.cells || [])
-                                            }])
-                                            .select()
-                                            .single();
+                                           const { data, error } = await supabase
+                                             .from('cms_items')
+                                             .insert([{
+                                               type: newItem.type,
+                                               title: newItem.title,
+                                               description: newItem.description,
+                                               url: newItem.url,
+                                               icon: newItem.icon,
+                                               section_id: section.id,
+                                               page_id: editingPage.id,
+                                               position: (pageItems.filter(i => i.section_id === section.id).length || 0) + 1,
+                                               is_active: newItem.is_active,
+                                               media_url: newItem.media_url,
+                                               media_type: newItem.media_type,
+                                               media_alt_text: newItem.media_alt_text,
+                                               cells: convertCellsToDatabase(newItem.cells || []),
+                                               background_color: newItem.background_color,
+                                               text_color: newItem.text_color,
+                                               font_size: newItem.font_size,
+                                               font_weight: newItem.font_weight ? Number(newItem.font_weight) : undefined,
+                                               border_radius: newItem.border_radius,
+                                               padding: newItem.padding,
+                                               margin_top: newItem.margin_top,
+                                               margin_bottom: newItem.margin_bottom,
+                                               opacity: newItem.opacity,
+                                               icon_position: newItem.icon_position,
+                                               icon_size: newItem.icon_size,
+                                               icon_color: newItem.icon_color,
+                                               icon_spacing: newItem.icon_spacing,
+                                               style_class: newItem.style_class
+                                             }])
+                                             .select()
+                                             .single();
 
                                           if (error) {
                                             console.error('Error creating item:', error);
@@ -4446,26 +4460,41 @@ const Admin = () => {
                                          )}
                                        </div>
                                       <div className="flex items-center space-x-2">
-                                        <ItemEditor
-                                          item={{
-                                            ...item,
-                                            media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
-                                          }}
-                                          sectionId={item.section_id}
-                                          onSave={(updatedItem) => {
-                                            updatePageItem(updatedItem.id!, {
-                                              type: updatedItem.type,
-                                              title: updatedItem.title,
-                                              description: updatedItem.description,
-                                              url: updatedItem.url,
-                                              position: updatedItem.position,
-                                              is_active: updatedItem.is_active,
-                                              media_url: updatedItem.media_url,
-                                              media_type: updatedItem.media_type as any,
-                                              media_alt_text: updatedItem.media_alt_text,
-                                              cells: updatedItem.cells
-                                            });
-                                          }}
+                                         <ItemEditor
+                                           item={{
+                                             ...item,
+                                             media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
+                                           }}
+                                           sectionId={item.section_id}
+                                           onSave={(updatedItem) => {
+                                             updatePageItem(updatedItem.id!, {
+                                               type: updatedItem.type,
+                                               title: updatedItem.title,
+                                               description: updatedItem.description,
+                                               url: updatedItem.url,
+                                               position: updatedItem.position,
+                                               is_active: updatedItem.is_active,
+                                               media_url: updatedItem.media_url,
+                                               media_type: updatedItem.media_type as any,
+                                               media_alt_text: updatedItem.media_alt_text,
+                                               cells: updatedItem.cells,
+                                               background_color: updatedItem.background_color,
+                                               text_color: updatedItem.text_color,
+                                               font_size: updatedItem.font_size,
+                                               font_weight: updatedItem.font_weight,
+                                               border_radius: updatedItem.border_radius,
+                                               padding: updatedItem.padding,
+                                               margin_top: updatedItem.margin_top,
+                                               margin_bottom: updatedItem.margin_bottom,
+                                               opacity: updatedItem.opacity,
+                                               icon: updatedItem.icon,
+                                               icon_position: updatedItem.icon_position,
+                                               icon_size: updatedItem.icon_size,
+                                               icon_color: updatedItem.icon_color,
+                                               icon_spacing: updatedItem.icon_spacing,
+                                               style_class: updatedItem.style_class
+                                             });
+                                           }}
                                           trigger={
                                             <Button variant="outline" size="sm">
                                               <Pencil className="w-4 h-4" />
