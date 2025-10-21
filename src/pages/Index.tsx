@@ -61,6 +61,44 @@ const Index = () => {
 
   React.useEffect(() => {
     fetchBasicData();
+
+    // Setup realtime subscriptions for CMS changes
+    const sectionsChannel = supabase
+      .channel('cms-sections-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cms_sections'
+        },
+        () => {
+          console.log('CMS sections updated, refetching...');
+          fetchBasicData();
+        }
+      )
+      .subscribe();
+
+    const itemsChannel = supabase
+      .channel('cms-items-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cms_items'
+        },
+        () => {
+          console.log('CMS items updated, refetching...');
+          fetchBasicData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(sectionsChannel);
+      supabase.removeChannel(itemsChannel);
+    };
   }, [user]);
 
   const fetchBasicData = async () => {
