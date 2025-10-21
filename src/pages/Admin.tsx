@@ -1629,6 +1629,7 @@ const Admin = () => {
         .from('cms_items')
         .update({
           ...updates,
+          font_weight: updates.font_weight ? Number(updates.font_weight) : undefined,
           cells: updates.cells ? convertCellsToDatabase(updates.cells) : undefined
         })
         .eq('id', itemId);
@@ -2070,6 +2071,7 @@ const Admin = () => {
         .from('cms_items')
         .update({
           ...updates,
+          font_weight: updates.font_weight ? Number(updates.font_weight) : undefined,
           cells: updates.cells ? convertCellsToDatabase(updates.cells) : undefined
         })
         .eq('id', itemId);
@@ -4053,28 +4055,28 @@ const Admin = () => {
                                try {
                                  const { data, error } = await supabase
                                    .from('cms_items')
-                                   .insert([{
-                                     type: newItem.type,
-                                     title: newItem.title,
-                                     description: newItem.description,
-                                     url: newItem.url,
-                                     icon: newItem.icon,
-                                     section_id: null, // No section, directly to page
-                                     page_id: editingPage.id,
-                                     position: (pageItems.filter(i => !i.section_id).length || 0) + 1,
-                                     is_active: newItem.is_active,
-                                     media_url: newItem.media_url,
-                                     media_type: newItem.media_type,
-                                     media_alt_text: newItem.media_alt_text,
-                                     background_color: newItem.background_color,
-                                     text_color: newItem.text_color,
-                                     font_size: newItem.font_size,
-                                     font_weight: newItem.font_weight,
-                                     border_radius: newItem.border_radius,
-                                     padding: newItem.padding,
-                                     style_class: newItem.style_class,
-                                     cells: convertCellsToDatabase(newItem.cells || [])
-                                   }])
+                                    .insert([{
+                                      type: newItem.type,
+                                      title: newItem.title,
+                                      description: newItem.description,
+                                      url: newItem.url,
+                                      icon: newItem.icon,
+                                      section_id: null, // No section, directly to page
+                                      page_id: editingPage.id,
+                                      position: (pageItems.filter(i => !i.section_id).length || 0) + 1,
+                                      is_active: newItem.is_active,
+                                      media_url: newItem.media_url,
+                                      media_type: newItem.media_type,
+                                      media_alt_text: newItem.media_alt_text,
+                                      background_color: newItem.background_color,
+                                      text_color: newItem.text_color,
+                                      font_size: newItem.font_size,
+                                      font_weight: newItem.font_weight ? Number(newItem.font_weight) : undefined,
+                                      border_radius: newItem.border_radius,
+                                      padding: newItem.padding,
+                                      style_class: newItem.style_class,
+                                      cells: convertCellsToDatabase(newItem.cells || [])
+                                    }])
                                    .select()
                                    .single();
 

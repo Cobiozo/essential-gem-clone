@@ -32,11 +32,18 @@ export interface CMSItem {
   background_color?: string;
   text_color?: string;
   font_size?: number;
-  font_weight?: string;
+  font_weight?: number;
   border_radius?: number;
   padding?: number;
+  margin_top?: number;
+  margin_bottom?: number;
+  opacity?: number;
   style_class?: string;
   icon?: string | null;
+  icon_position?: string;
+  icon_size?: number;
+  icon_color?: string;
+  icon_spacing?: number;
 }
 
 export interface CMSSection {

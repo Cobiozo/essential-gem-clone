@@ -84,19 +84,33 @@ export type Database = {
       }
       cms_items: {
         Row: {
+          background_color: string | null
+          border_radius: number | null
           cells: Json | null
           column_index: number
           created_at: string
           description: string | null
+          font_size: number | null
+          font_weight: number | null
           icon: string | null
+          icon_color: string | null
+          icon_position: string | null
+          icon_size: number | null
+          icon_spacing: number | null
           id: string
           is_active: boolean
+          margin_bottom: number | null
+          margin_top: number | null
           media_alt_text: string | null
           media_type: string | null
           media_url: string | null
+          opacity: number | null
+          padding: number | null
           page_id: string | null
           position: number
           section_id: string
+          style_class: string | null
+          text_color: string | null
           text_formatting: Json | null
           title: string | null
           title_formatting: Json | null
@@ -105,19 +119,33 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          background_color?: string | null
+          border_radius?: number | null
           cells?: Json | null
           column_index?: number
           created_at?: string
           description?: string | null
+          font_size?: number | null
+          font_weight?: number | null
           icon?: string | null
+          icon_color?: string | null
+          icon_position?: string | null
+          icon_size?: number | null
+          icon_spacing?: number | null
           id?: string
           is_active?: boolean
+          margin_bottom?: number | null
+          margin_top?: number | null
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          opacity?: number | null
+          padding?: number | null
           page_id?: string | null
           position: number
           section_id: string
+          style_class?: string | null
+          text_color?: string | null
           text_formatting?: Json | null
           title?: string | null
           title_formatting?: Json | null
@@ -126,19 +154,33 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          background_color?: string | null
+          border_radius?: number | null
           cells?: Json | null
           column_index?: number
           created_at?: string
           description?: string | null
+          font_size?: number | null
+          font_weight?: number | null
           icon?: string | null
+          icon_color?: string | null
+          icon_position?: string | null
+          icon_size?: number | null
+          icon_spacing?: number | null
           id?: string
           is_active?: boolean
+          margin_bottom?: number | null
+          margin_top?: number | null
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          opacity?: number | null
+          padding?: number | null
           page_id?: string | null
           position?: number
           section_id?: string
+          style_class?: string | null
+          text_color?: string | null
           text_formatting?: Json | null
           title?: string | null
           title_formatting?: Json | null
