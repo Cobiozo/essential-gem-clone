@@ -2526,6 +2526,21 @@ export const LivePreviewEditor: React.FC = () => {
           media_type: updatedItem.media_type,
           media_alt_text: updatedItem.media_alt_text,
           cells: finalCells as any,
+          // Style properties
+          text_color: updatedItem.text_color,
+          background_color: updatedItem.background_color,
+          font_size: updatedItem.font_size,
+          font_weight: updatedItem.font_weight ? Number(updatedItem.font_weight) : undefined,
+          padding: updatedItem.padding,
+          margin_top: updatedItem.margin_top,
+          margin_bottom: updatedItem.margin_bottom,
+          border_radius: updatedItem.border_radius,
+          opacity: updatedItem.opacity,
+          icon_color: updatedItem.icon_color,
+          icon_size: updatedItem.icon_size,
+          icon_spacing: updatedItem.icon_spacing,
+          icon_position: updatedItem.icon_position,
+          style_class: updatedItem.style_class,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingItemId);
