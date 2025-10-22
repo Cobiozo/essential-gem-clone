@@ -27,6 +27,7 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
   useEffect(() => {
     const debouncedItemString = JSON.stringify(debouncedItem);
     if (debouncedItem && debouncedItemString !== prevItemRef.current) {
+      console.log('🟡 HeadingEditor auto-saving:', debouncedItem);
       onSave(debouncedItem);
       prevItemRef.current = debouncedItemString;
     }

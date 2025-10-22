@@ -2067,16 +2067,25 @@ const Admin = () => {
 
   const updatePageItem = async (itemId: string, updates: Partial<CMSItem>) => {
     try {
-      const { error } = await supabase
+      console.log('🔵 updatePageItem called with:', { itemId, updates });
+      
+      const updateData = {
+        ...updates,
+        font_weight: updates.font_weight ? Number(updates.font_weight) : undefined,
+        cells: updates.cells ? convertCellsToDatabase(updates.cells) : undefined
+      };
+      
+      console.log('🔵 Sending to database:', updateData);
+      
+      const { error, data } = await supabase
         .from('cms_items')
-        .update({
-          ...updates,
-          font_weight: updates.font_weight ? Number(updates.font_weight) : undefined,
-          cells: updates.cells ? convertCellsToDatabase(updates.cells) : undefined
-        })
-        .eq('id', itemId);
+        .update(updateData)
+        .eq('id', itemId)
+        .select();
 
       if (error) throw error;
+      
+      console.log('🟢 Database update successful:', data);
 
       setPageItems(pageItems.map(item => 
         item.id === itemId ? { ...item, ...updates } : item

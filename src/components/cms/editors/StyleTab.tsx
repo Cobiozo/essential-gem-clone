@@ -23,13 +23,19 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
             <Input
               type="color"
               value={item.text_color || '#000000'}
-              onChange={(e) => onUpdate({ text_color: e.target.value })}
+              onChange={(e) => {
+                console.log('🔴 Text color changed to:', e.target.value);
+                onUpdate({ text_color: e.target.value });
+              }}
               className="w-20 h-10"
             />
             <Input
               type="text"
               value={item.text_color || '#000000'}
-              onChange={(e) => onUpdate({ text_color: e.target.value })}
+              onChange={(e) => {
+                console.log('🔴 Text color (text input) changed to:', e.target.value);
+                onUpdate({ text_color: e.target.value });
+              }}
               placeholder="#000000"
             />
           </div>
