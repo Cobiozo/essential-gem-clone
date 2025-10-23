@@ -563,11 +563,11 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       
       console.log('[LivePreviewEditor] Found sections without page_id:', orphanSections);
       
-      // Assign them to the homepage
+      // Assign them to the current page
       const { error } = await supabase
         .from('cms_sections')
         .update({ 
-          page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+          page_id: pageId,
           updated_at: new Date().toISOString() 
         })
         .is('page_id', null)
@@ -747,14 +747,14 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     
     // ✅ Dodaj realtime subscription dla cms_items
     const channel = supabase
-      .channel('cms-items-changes')
+      .channel(`cms-items-changes-${pageId}`)
       .on(
         'postgres_changes',
         {
           event: '*', // Wszystkie zmiany (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'cms_items',
-          filter: `page_id=eq.8f3009d3-3167-423f-8382-3eab1dce8cb1`
+          filter: `page_id=eq.${pageId}`
         },
         (payload) => {
           console.log('[Realtime] cms_items change:', payload);
@@ -778,11 +778,18 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           } else if (payload.eventType === 'INSERT') {
             const newItem = payload.new as any;
             if (newItem.is_active) {
-              setItems(prev => [...prev, { 
-                ...newItem, 
-                cells: Array.isArray(newItem.cells) ? newItem.cells : JSON.parse(newItem.cells || '[]') 
-              }]);
-              console.log('[Realtime] New item added:', newItem.id);
+              setItems(prev => {
+                // Check if item already exists (prevent duplicates from local + realtime)
+                if (prev.some(i => i.id === newItem.id)) {
+                  console.log('[Realtime] Item already exists, skipping duplicate:', newItem.id);
+                  return prev;
+                }
+                console.log('[Realtime] New item added:', newItem.id);
+                return [...prev, { 
+                  ...newItem, 
+                  cells: Array.isArray(newItem.cells) ? newItem.cells : JSON.parse(newItem.cells || '[]') 
+                }];
+              });
             }
           } else if (payload.eventType === 'DELETE') {
             setItems(prev => prev.filter(i => i.id !== payload.old.id));
@@ -795,7 +802,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [pageId]);
 
   const autoSave = useCallback(async (newSections: CMSSection[], newItems: CMSItem[]) => {
     if (autoSaveTimeoutRef.current) {
@@ -1122,7 +1129,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         const { data: newSectionData, error: sectionError } = await supabase
           .from('cms_sections')
           .insert([{
-            page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+            page_id: pageId,
             section_type: sectionType,
             row_column_count: rowColumnCount,
             row_layout_type: rowLayoutType,
@@ -1278,7 +1285,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         .from('cms_items')
         .insert([{
           section_id: targetSectionId,
-          page_id: '8f3009d3-3167-423f-8382-3eab1dce8cb1',
+          page_id: pageId,
           type: elementType,
           position: newPosition,
           column_index: columnIndex,
