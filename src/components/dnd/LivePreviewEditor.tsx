@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, Columns, RefreshCw } from 'lucide-react';
+import { Edit3, Loader2, Layout, Columns, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
@@ -433,7 +433,17 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
   );
 };
 
-export const LivePreviewEditor: React.FC = () => {
+interface LivePreviewEditorProps {
+  pageId?: string;
+  pageTitle?: string;
+  onClose?: () => void;
+}
+
+export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({ 
+  pageId = '8f3009d3-3167-423f-8382-3eab1dce8cb1', 
+  pageTitle = 'Strona główna',
+  onClose 
+}) => {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -620,7 +630,7 @@ export const LivePreviewEditor: React.FC = () => {
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('cms_sections')
         .select('*')
-        .eq('page_id', '8f3009d3-3167-423f-8382-3eab1dce8cb1')
+        .eq('page_id', pageId)
         .eq('is_active', true)
         .order('position');
       
@@ -630,7 +640,7 @@ export const LivePreviewEditor: React.FC = () => {
       const { data: itemsData, error: itemsError } = await supabase
         .from('cms_items')
         .select('*')
-        .eq('page_id', '8f3009d3-3167-423f-8382-3eab1dce8cb1')
+        .eq('page_id', pageId)
         .eq('is_active', true)
         .order('position');
       
@@ -2820,9 +2830,20 @@ export const LivePreviewEditor: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layout className="w-5 h-5" />
-              Layout Editor
+              {pageTitle}
             </div>
             <div className="flex gap-2">
+              {onClose && (
+                <Button 
+                  onClick={onClose} 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Zamknij
+                </Button>
+              )}
               <Button 
                 onClick={fetchData} 
                 variant="outline" 

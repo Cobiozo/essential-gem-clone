@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -119,6 +119,7 @@ const Admin = () => {
   const [editingSection, setEditingSection] = useState<CMSSection | null>(null);
   const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [editingPageRichText, setEditingPageRichText] = useState(false);
+  const [editingPageInLayoutEditor, setEditingPageInLayoutEditor] = useState<{ id: string; title: string } | null>(null);
   const [pageContentStyle, setPageContentStyle] = useState<any>(null);
   const [pageSections, setPageSections] = useState<CMSSection[]>([]);
   const [nestedSections, setNestedSections] = useState<{[key: string]: CMSSection[]}>({});
@@ -2186,6 +2187,20 @@ const Admin = () => {
   }
 
   return (
+    <>
+      {/* Layout Editor for specific page */}
+      {editingPageInLayoutEditor && (
+        <div className="min-h-screen bg-background">
+          <LivePreviewEditor 
+            pageId={editingPageInLayoutEditor.id} 
+            pageTitle={editingPageInLayoutEditor.title}
+            onClose={() => setEditingPageInLayoutEditor(null)}
+          />
+        </div>
+      )}
+      
+      {/* Main Admin Panel */}
+      {!editingPageInLayoutEditor && (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
@@ -4023,548 +4038,51 @@ const Admin = () => {
                 <TabsContent value="cms" className="space-y-6 pb-6">
                    {/* CMS Content Management */}
                    <div className="space-y-6">
-                     <div className="flex items-center justify-between">
-                       <h3 className="text-lg font-medium">Zarządzanie zawartością CMS</h3>
-                       <p className="text-sm text-muted-foreground">
-                         Dodawaj sekcje i elementy do tej strony
-                       </p>
-                     </div>
-
-                     {/* Add New Section and Element */}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <Card>
-                         <CardHeader>
-                           <CardTitle className="text-base">Dodaj nową sekcję</CardTitle>
-                           <CardDescription>
-                             Utwórz nową sekcję z pełnym edytorem stylów i opcji
-                           </CardDescription>
-                         </CardHeader>
-                         <CardContent>
-                           <Button 
-                             onClick={() => setShowAddPageSectionEditor(true)}
-                             className="w-full"
-                           >
-                             <Plus className="w-4 h-4 mr-2" />
-                             Dodaj sekcję
-                           </Button>
-                         </CardContent>
-                       </Card>
-
-                       <Card>
-                         <CardHeader>
-                           <CardTitle className="text-base">Dodaj nowy element</CardTitle>
+                     <Card>
+                       <CardHeader>
+                         <CardTitle className="flex items-center gap-2">
+                           <Layout className="w-5 h-5" />
+                           Edytuj w Layout Editor
+                         </CardTitle>
                          <CardDescription>
-                           Dodaj element bezpośrednio do strony (bez sekcji)
+                           Otwórz zaawansowany edytor wizualny dla tej strony z funkcjami drag & drop, układem kolumn i pełną kontrolą nad sekcjami i elementami.
                          </CardDescription>
-                         </CardHeader>
-                         <CardContent>
-                           <ItemEditor
-                             sectionId="" // Empty for page-level items
-                             onSave={async (newItem) => {
-                               try {
-                                 const { data, error } = await supabase
-                                   .from('cms_items')
-                                    .insert([{
-                                      type: newItem.type,
-                                      title: newItem.title,
-                                      description: newItem.description,
-                                      url: newItem.url,
-                                      icon: newItem.icon,
-                                      section_id: null, // No section, directly to page
-                                      page_id: editingPage.id,
-                                      position: (pageItems.filter(i => !i.section_id).length || 0) + 1,
-                                      is_active: newItem.is_active,
-                                      media_url: newItem.media_url,
-                                      media_type: newItem.media_type,
-                                      media_alt_text: newItem.media_alt_text,
-                                      background_color: newItem.background_color,
-                                      text_color: newItem.text_color,
-                                      font_size: newItem.font_size,
-                                      font_weight: newItem.font_weight ? Number(newItem.font_weight) : undefined,
-                                      border_radius: newItem.border_radius,
-                                      padding: newItem.padding,
-                                      style_class: newItem.style_class,
-                                      cells: convertCellsToDatabase(newItem.cells || [])
-                                    }])
-                                   .select()
-                                   .single();
-
-                                 if (error) {
-                                   console.error('Error creating page item:', error);
-                                   toast({
-                                     title: "Błąd",
-                                     description: "Nie udało się dodać elementu",
-                                     variant: "destructive",
-                                   });
-                                 } else {
-                                   setPageItems([...pageItems, convertDatabaseItemToCMSItem(data)]);
-                                   toast({
-                                     title: "Element dodany",
-                                     description: "Element został pomyślnie dodany do strony",
-                                   });
-                                 }
-                               } catch (error) {
-                                 console.error('Error creating page item:', error);
-                                 toast({
-                                   title: "Błąd",
-                                   description: "Nie udało się dodać elementu",
-                                   variant: "destructive",
-                                 });
-                               }
-                             }}
-                             isNew={true}
-                             trigger={
-                               <Button className="w-full">
-                                 <Plus className="w-4 h-4 mr-2" />
-                                 Dodaj element
-                               </Button>
-                             }
-                           />
-                         </CardContent>
-                       </Card>
-                     </div>
-
-                     {/* Page-level Items (without sections) */}
-                     {pageItems.filter(item => !item.section_id).length > 0 && (
-                       <Card>
-                         <CardHeader>
-                           <CardTitle className="text-base">Elementy strony</CardTitle>
-                           <CardDescription>
-                             Elementy dodane bezpośrednio do strony (bez sekcji)
-                           </CardDescription>
-                         </CardHeader>
-                         <CardContent>
-                           <div className="space-y-3">
-                             {pageItems
-                               .filter(item => !item.section_id)
-                               .map((item) => (
-                                 <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                                   <div className="flex-1">
-                                     <div className="flex items-center space-x-2">
-                                       <Badge variant="outline">{item.type}</Badge>
-                                       <h5 className="font-medium">{item.title}</h5>
-                                     </div>
-                                     {item.media_url && (
-                                       <div className="mt-2 mb-2">
-                                         <SecureMedia
-                                           mediaUrl={item.media_url}
-                                           mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-                                           altText={item.media_alt_text || ''}
-                                           className="w-16 h-16 object-cover rounded border"
-                                         />
-                                       </div>
-                                     )}
-                                     {item.description && (
-                                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                         <span dangerouslySetInnerHTML={{ __html: item.description }} />
-                                       </p>
-                                     )}
-                                   </div>
-                                   <div className="flex items-center space-x-2">
-                                     <ItemEditor
-                                       item={{
-                                         ...item,
-                                         media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
-                                       }}
-                                       sectionId="" // Empty for page-level items
-                                       onSave={(updatedItem) => {
-                                         updatePageItem(updatedItem.id!, {
-                                           type: updatedItem.type,
-                                           title: updatedItem.title,
-                                           description: updatedItem.description,
-                                           url: updatedItem.url,
-                                           position: updatedItem.position,
-                                           is_active: updatedItem.is_active,
-                                           media_url: updatedItem.media_url,
-                                           media_type: updatedItem.media_type as any,
-                                           media_alt_text: updatedItem.media_alt_text,
-                                           background_color: updatedItem.background_color,
-                                           text_color: updatedItem.text_color,
-                                           font_size: updatedItem.font_size,
-                                           font_weight: updatedItem.font_weight,
-                                           border_radius: updatedItem.border_radius,
-                                           padding: updatedItem.padding,
-                                           style_class: updatedItem.style_class,
-                                           cells: updatedItem.cells
-                                         });
-                                       }}
-                                       trigger={
-                                         <Button variant="outline" size="sm">
-                                           <Pencil className="w-4 h-4" />
-                                         </Button>
-                                       }
-                                     />
-                                     <Button
-                                       variant="outline"
-                                       size="sm"
-                                       onClick={() => deletePageItem(item.id)}
-                                     >
-                                       <Trash2 className="w-4 h-4" />
-                                     </Button>
-                                   </div>
-                                 </div>
-                               ))}
-                           </div>
-                         </CardContent>
-                       </Card>
-                     )}
-
-                     {/* Existing Sections */}
-                     <div className="space-y-4">
-                       <h4 className="text-lg font-medium">Sekcje ze strukturą</h4>
-                       {pageSections.length === 0 ? (
-                         <div className="text-center py-8 text-muted-foreground">
-                           <p>Brak sekcji. Dodaj pierwszą sekcję aby rozpocząć.</p>
-                         </div>
-                       ) : (
-                         pageSections.map((section) => (
-                          <Card key={section.id}>
-                            <CardHeader>
-                              <div className="flex items-center justify-between">
-                                <CardTitle className="text-base">{section.title}</CardTitle>
-                              <div className="flex items-center space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setEditingPageSection(section)}
-                                  title="Edytuj sekcję"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => deletePageSection(section.id)}
-                                  title="Usuń sekcję"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                                <SectionEditor
-                                  onSave={async (newSection) => {
-                                    try {
-                                      const { data, error } = await supabase
-                                        .from('cms_sections')
-                                        .insert([{
-                                          ...newSection,
-                                          page_id: editingPage.id,
-                                          parent_id: section.id, // Ustawia sekcję jako zagnieżdżoną w obecnej sekcji
-                                          position: (pageSections.filter(s => s.parent_id === section.id).length || 0) + 1
-                                        }])
-                                        .select()
-                                        .single();
-
-                                      if (error) {
-                                        console.error('Error creating nested section:', error);
-                                        toast({
-                                          title: "Błąd",
-                                          description: "Nie udało się dodać sekcji zagnieżdżonej",
-                                          variant: "destructive",
-                                        });
-                                       } else {
-                                         // Aktualizuj sekcje zagnieżdżone w stanie
-                                         const currentNested = nestedSections[section.id] || [];
-                                          setNestedSections({
-                                            ...nestedSections,
-                                            [section.id]: [...currentNested, convertSupabaseSection(data)]
-                                          });
-                                         toast({
-                                           title: "Sekcja zagnieżdżona dodana",
-                                           description: "Sekcja została pomyślnie dodana jako zagnieżdżona w obecnej sekcji",
-                                         });
-                                       }
-                                    } catch (error) {
-                                      console.error('Error creating nested section:', error);
-                                      toast({
-                                        title: "Błąd",
-                                        description: "Nie udało się dodać sekcji zagnieżdżonej",
-                                        variant: "destructive",
-                                      });
-                                    }
-                                  }}
-                                  isNew={true}
-                                  allowSizeEditing={false}
-                                  trigger={
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      title="Dodaj sekcję zagnieżdżoną"
-                                    >
-                                      <Plus className="w-4 h-4 mr-1" />
-                                      Sekcja
-                                    </Button>
-                                  }
-                                />
-                                 <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => setSelectedPageSection(selectedPageSection?.id === section.id ? null : section)}
-                                   title={t('admin.addElementToSection')}
-                                 >
-                                   <Plus className="w-4 h-4 mr-1" />
-                                   {t('admin.addElement')}
-                                 </Button>
-                              </div>
-                              </div>
-                            </CardHeader>
-                            <CardContent>
-                              {/* Add Item Form */}
-                              {selectedPageSection?.id === section.id && (
-                                 <div className="mb-6 p-4 border rounded-lg bg-muted/50">
-                                   <h4 className="font-medium mb-4">{t('admin.addElementToSection')}</h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                      <Label htmlFor="new-page-item-type">Typ elementu</Label>
-                                      <Select value={newPageItem.type} onValueChange={(value) => setNewPageItem({...newPageItem, type: value})}>
-                                        <SelectTrigger>
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="button">Przycisk</SelectItem>
-                                          <SelectItem value="info_text">Tekst informacyjny</SelectItem>
-                                          <SelectItem value="tip">Wskazówka</SelectItem>
-                                          <SelectItem value="description">Opis</SelectItem>
-                                          <SelectItem value="contact_info">Informacje kontaktowe</SelectItem>
-                                          <SelectItem value="support_info">Informacje o wsparciu</SelectItem>
-                                          <SelectItem value="header_text">Tekst nagłówka</SelectItem>
-                                          <SelectItem value="author">Autor</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="new-page-item-title">Tytuł</Label>
-                                      <Input
-                                        id="new-page-item-title"
-                                        value={newPageItem.title}
-                                        onChange={(e) => setNewPageItem({...newPageItem, title: e.target.value})}
-                                        placeholder="Tytuł elementu"
-                                      />
-                                    </div>
-                                  </div>
-                                   <div className="mt-4">
-                                     <Label htmlFor="new-page-item-description">Opis Elementu</Label>
-                                     <RichTextEditor
-                                       value={newPageItem.description}
-                                       onChange={(value) => setNewPageItem({...newPageItem, description: value})}
-                                       placeholder="Opis elementu"
-                                       rows={3}
-                                       className="mt-1"
-                                     />
-                                   </div>
-                                  {newPageItem.type === 'button' && (
-                                    <div className="mt-4">
-                                      <Label htmlFor="new-page-item-url">URL</Label>
-                                      <Input
-                                        id="new-page-item-url"
-                                        value={newPageItem.url}
-                                        onChange={(e) => setNewPageItem({...newPageItem, url: e.target.value})}
-                                        placeholder="https://example.com"
-                                      />
-                                    </div>
-                                  )}
-                                  <div className="flex gap-2 mt-4">
-                                    <ItemEditor
-                                      sectionId={section.id}
-                                      onSave={async (newItem) => {
-                                        try {
-                                           const { data, error } = await supabase
-                                             .from('cms_items')
-                                             .insert([{
-                                               type: newItem.type,
-                                               title: newItem.title,
-                                               description: newItem.description,
-                                               url: newItem.url,
-                                               icon: newItem.icon,
-                                               section_id: section.id,
-                                               page_id: editingPage.id,
-                                               position: (pageItems.filter(i => i.section_id === section.id).length || 0) + 1,
-                                               is_active: newItem.is_active,
-                                               media_url: newItem.media_url,
-                                               media_type: newItem.media_type,
-                                               media_alt_text: newItem.media_alt_text,
-                                               cells: convertCellsToDatabase(newItem.cells || []),
-                                               background_color: newItem.background_color,
-                                               text_color: newItem.text_color,
-                                               font_size: newItem.font_size,
-                                               font_weight: newItem.font_weight ? Number(newItem.font_weight) : undefined,
-                                               border_radius: newItem.border_radius,
-                                               padding: newItem.padding,
-                                               margin_top: newItem.margin_top,
-                                               margin_bottom: newItem.margin_bottom,
-                                               opacity: newItem.opacity,
-                                               icon_position: newItem.icon_position,
-                                               icon_size: newItem.icon_size,
-                                               icon_color: newItem.icon_color,
-                                               icon_spacing: newItem.icon_spacing,
-                                               style_class: newItem.style_class
-                                             }])
-                                             .select()
-                                             .single();
-
-                                          if (error) {
-                                            console.error('Error creating item:', error);
-                                            toast({
-                                              title: "Błąd",
-                                              description: "Nie udało się dodać elementu",
-                                              variant: "destructive",
-                                            });
-                                          } else {
-                                            setPageItems([...pageItems, convertDatabaseItemToCMSItem(data)]);
-                                            toast({
-                                              title: "Element dodany",
-                                              description: "Element został pomyślnie dodany do sekcji",
-                                            });
-                                          }
-                                        } catch (error) {
-                                          console.error('Error creating item:', error);
-                                          toast({
-                                            title: "Błąd",
-                                            description: "Nie udało się dodać elementu",
-                                            variant: "destructive",
-                                          });
-                                        }
-                                      }}
-                                      isNew={true}
-                                       trigger={
-                                         <Button disabled={false}>
-                                           <Plus className="w-4 h-4 mr-2" />
-                                           {t('admin.addElementWithCells')}
-                                         </Button>
-                                       }
-                                    />
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => setSelectedPageSection(null)}
-                                    >
-                                      Anuluj
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Section Items */}
-                              <div className="space-y-3">
-                                {pageItems
-                                  .filter(item => item.section_id === section.id)
-                                  .map((item) => (
-                                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                       <div className="flex-1">
-                                         <div className="flex items-center space-x-2">
-                                           <Badge variant="outline">{item.type}</Badge>
-                                           <h5 className="font-medium">{item.title}</h5>
-                                         </div>
-                                         {item.media_url && (
-                                           <div className="mt-2 mb-2">
-                                             <SecureMedia
-                                               mediaUrl={item.media_url}
-                                               mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-                                               altText={item.media_alt_text || ''}
-                                               className="w-16 h-16 object-cover rounded border"
-                                             />
-                                           </div>
-                                         )}
-                                         {item.description && (
-                                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                             {item.description}
-                                           </p>
-                                         )}
-                                       </div>
-                                      <div className="flex items-center space-x-2">
-                                         <ItemEditor
-                                           item={{
-                                             ...item,
-                                             media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
-                                           }}
-                                           sectionId={item.section_id}
-                                           onSave={(updatedItem) => {
-                                             updatePageItem(updatedItem.id!, {
-                                               type: updatedItem.type,
-                                               title: updatedItem.title,
-                                               description: updatedItem.description,
-                                               url: updatedItem.url,
-                                               position: updatedItem.position,
-                                               is_active: updatedItem.is_active,
-                                               media_url: updatedItem.media_url,
-                                               media_type: updatedItem.media_type as any,
-                                               media_alt_text: updatedItem.media_alt_text,
-                                               cells: updatedItem.cells,
-                                               background_color: updatedItem.background_color,
-                                               text_color: updatedItem.text_color,
-                                               font_size: updatedItem.font_size,
-                                               font_weight: updatedItem.font_weight,
-                                               border_radius: updatedItem.border_radius,
-                                               padding: updatedItem.padding,
-                                               margin_top: updatedItem.margin_top,
-                                               margin_bottom: updatedItem.margin_bottom,
-                                               opacity: updatedItem.opacity,
-                                               icon: updatedItem.icon,
-                                               icon_position: updatedItem.icon_position,
-                                               icon_size: updatedItem.icon_size,
-                                               icon_color: updatedItem.icon_color,
-                                               icon_spacing: updatedItem.icon_spacing,
-                                               style_class: updatedItem.style_class
-                                             });
-                                           }}
-                                          trigger={
-                                            <Button variant="outline" size="sm">
-                                              <Pencil className="w-4 h-4" />
-                                            </Button>
-                                          }
-                                        />
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => deletePageItem(item.id)}
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                               </div>
-                               
-                                {/* Sekcje zagnieżdżone */}
-                                {nestedSections[section.id] && nestedSections[section.id].length > 0 && (
-                                  <div className="mt-6 pl-4 border-l-2 border-muted">
-                                    <h5 className="font-medium mb-3 text-sm text-muted-foreground">{t('admin.nestedSections')}:</h5>
-                                   <div className="space-y-2">
-                                     {nestedSections[section.id].map((nestedSection) => (
-                                       <div key={nestedSection.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
-                                         <div className="flex-1">
-                                           <h6 className="font-medium text-sm">{nestedSection.title}</h6>
-                                           {nestedSection.description && (
-                                             <p className="text-xs text-muted-foreground">{nestedSection.description}</p>
-                                           )}
-                                         </div>
-                                         <div className="flex items-center space-x-1">
-                                             <Button
-                                               variant="ghost"
-                                               size="sm"
-                                               onClick={() => setEditingPageSection(nestedSection)}
-                                               title={t('admin.editNestedSection')}
-                                             >
-                                               <Pencil className="w-3 h-3" />
-                                             </Button>
-                                             <Button
-                                               variant="ghost"
-                                               size="sm"
-                                               onClick={() => deletePageSection(nestedSection.id)}
-                                               title={t('admin.deleteNestedSection')}
-                                             >
-                                               <Trash2 className="w-3 h-3" />
-                                             </Button>
-                                         </div>
-                                       </div>
-                                     ))}
-                                   </div>
-                                 </div>
-                               )}
-                             </CardContent>
-                          </Card>
-                        ))
-                       )}
+                       </CardHeader>
+                       <CardContent>
+                         <Button 
+                           onClick={() => {
+                             setEditingPageInLayoutEditor({ 
+                               id: editingPage.id, 
+                               title: editingPage.title 
+                             });
+                             setEditingPage(null);
+                             setPageSections([]);
+                             setPageItems([]);
+                             setSelectedPageSection(null);
+                             setEditingPageItem(null);
+                             setEditingPageSection(null);
+                           }}
+                           className="w-full gap-2"
+                           size="lg"
+                         >
+                           <Layout className="w-5 h-5" />
+                           Otwórz Layout Editor
+                         </Button>
+                       </CardContent>
+                     </Card>
+                     
+                     <div className="text-sm text-muted-foreground space-y-2">
+                       <p><strong>Layout Editor</strong> pozwala na:</p>
+                       <ul className="list-disc list-inside space-y-1 ml-2">
+                         <li>Wizualne układanie sekcji i elementów (drag & drop)</li>
+                         <li>Tworzenie układów wielokolumnowych</li>
+                         <li>Zaawansowane ustawienia stylów i właściwości</li>
+                         <li>Podgląd responsywny (desktop, tablet, mobile)</li>
+                         <li>Automatyczne zapisywanie zmian</li>
+                       </ul>
                      </div>
                    </div>
-                </TabsContent>
+                 </TabsContent>
               </Tabs>
             </div>
             
@@ -4729,6 +4247,8 @@ const Admin = () => {
         </Dialog>
       )}
     </div>
+    )}
+    </>
   );
 };
 
