@@ -1571,6 +1571,17 @@ const Admin = () => {
 
   const createItem = async (sectionId: string) => {
     try {
+      // Get page_id from the section
+      const section = sections.find(s => s.id === sectionId);
+      if (!section?.page_id) {
+        toast({
+          title: t('toast.error'),
+          description: 'Sekcja nie ma przypisanej strony',
+          variant: "destructive",
+        });
+        return;
+      }
+
       const maxPosition = Math.max(...items.filter(i => i.section_id === sectionId).map(i => i.position), 0);
       
       console.log('Creating item with formatting:', {
@@ -1582,6 +1593,7 @@ const Admin = () => {
       const { data, error } = await supabase
         .from('cms_items')
         .insert({
+          page_id: section.page_id,
           section_id: sectionId,
           ...newItem,
           position: maxPosition + 1,
@@ -2515,6 +2527,7 @@ const Admin = () => {
                               const { data, error } = await supabase
                                 .from('cms_items')
                                 .insert([{
+                                  page_id: section.page_id,
                                   type: newItem.type,
                                   title: newItem.title,
                                   description: newItem.description,

@@ -5,10 +5,12 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SimpleRowDemoProps {
+  pageId: string;
   onRowCreated?: () => void;
 }
 
 export const SimpleRowDemo: React.FC<SimpleRowDemoProps> = ({
+  pageId,
   onRowCreated
 }) => {
   const handleAddRow = async (columns: number) => {
@@ -16,6 +18,7 @@ export const SimpleRowDemo: React.FC<SimpleRowDemoProps> = ({
       const { data, error } = await supabase
         .from('cms_sections')
         .insert({
+          page_id: pageId,
           title: `Wiersz ${columns}-kolumnowy`,
           description: `Wiersz z ${columns} kolumnami`,
           position: 999, // Will be reordered later

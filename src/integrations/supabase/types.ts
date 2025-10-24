@@ -106,7 +106,7 @@ export type Database = {
           media_url: string | null
           opacity: number | null
           padding: number | null
-          page_id: string | null
+          page_id: string
           position: number
           section_id: string
           style_class: string | null
@@ -141,7 +141,7 @@ export type Database = {
           media_url?: string | null
           opacity?: number | null
           padding?: number | null
-          page_id?: string | null
+          page_id: string
           position: number
           section_id: string
           style_class?: string | null
@@ -176,7 +176,7 @@ export type Database = {
           media_url?: string | null
           opacity?: number | null
           padding?: number | null
-          page_id?: string | null
+          page_id?: string
           position?: number
           section_id?: string
           style_class?: string | null
@@ -255,7 +255,7 @@ export type Database = {
           opacity: number | null
           overflow_behavior: string | null
           padding: number | null
-          page_id: string | null
+          page_id: string
           parent_id: string | null
           position: number
           row_column_count: number | null
@@ -325,7 +325,7 @@ export type Database = {
           opacity?: number | null
           overflow_behavior?: string | null
           padding?: number | null
-          page_id?: string | null
+          page_id: string
           parent_id?: string | null
           position: number
           row_column_count?: number | null
@@ -395,7 +395,7 @@ export type Database = {
           opacity?: number | null
           overflow_behavior?: string | null
           padding?: number | null
-          page_id?: string | null
+          page_id?: string
           parent_id?: string | null
           position?: number
           row_column_count?: number | null
@@ -837,10 +837,7 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: boolean
       }
-      admin_remove_row: {
-        Args: { row_id: string }
-        Returns: boolean
-      }
+      admin_remove_row: { Args: { row_id: string }; Returns: boolean }
       admin_toggle_user_status: {
         Args: { new_status: boolean; target_user_id: string }
         Returns: boolean
@@ -850,23 +847,17 @@ export type Database = {
         Returns: boolean
       }
       debug_user_access: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           current_user_id: string
           has_profile: boolean
           user_role: string
         }[]
       }
-      email_exists: {
-        Args: { email_param: string }
-        Returns: boolean
-      }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      email_exists: { Args: { email_param: string }; Returns: boolean }
+      get_current_user_role: { Args: never; Returns: string }
       get_user_profiles_with_confirmation: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           confirmation_sent_at: string
           created_at: string
@@ -889,10 +880,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      is_admin: { Args: never; Returns: boolean }
       is_role_update: {
         Args: { new_role: string; user_id_param: string }
         Returns: boolean

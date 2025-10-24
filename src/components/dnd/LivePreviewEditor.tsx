@@ -2082,6 +2082,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         const { data, error } = await supabase
           .from('cms_sections')
           .insert({
+            page_id: pageId,
             title: `${isSection.title} (kopia)`,
             description: isSection.description,
             position: sections.length,
@@ -2117,6 +2118,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         const { data, error } = await supabase
           .from('cms_items')
           .insert({
+            page_id: pageId,
             section_id: isItem.section_id,
             type: isItem.type,
             title: isItem.title ? `${isItem.title} (kopia)` : null,
@@ -2648,6 +2650,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       const { data, error } = await supabase
         .from('cms_items')
         .insert([{
+          page_id: pageId,
           section_id: item.section_id,
           type: item.type,
           title: item.title ? `${item.title} (kopia)` : null,
@@ -3018,7 +3021,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             strategy={verticalListSortingStrategy}
           >
             {/* Row Containers Demo - visible only in edit mode */}
-            {editMode && <SimpleRowDemo onRowCreated={fetchData} />}
+            {editMode && <SimpleRowDemo pageId={pageId} onRowCreated={fetchData} />}
             
             <div
               className={cn(
