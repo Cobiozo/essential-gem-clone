@@ -29,6 +29,8 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [altText, setAltText] = useState(currentAltText || '');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
   const { toast } = useToast();
 
   const compressFile = async (file: File): Promise<File> => {
@@ -369,6 +371,41 @@ Supabase ma limit ~50MB. Sugestie:
   const removeMedia = () => {
     onMediaUploaded('', 'image', '');
     setAltText('');
+    setUrlInput('');
+  };
+
+  const handleUrlSubmit = () => {
+    if (!urlInput.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Wprowadź URL pliku",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Detect media type from URL
+    const url = urlInput.toLowerCase();
+    let mediaType: 'image' | 'video' | 'document' | 'audio' | 'other' = 'other';
+    
+    if (url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
+      mediaType = 'image';
+    } else if (url.match(/\.(mp4|mov|avi|webm|mkv)$/)) {
+      mediaType = 'video';
+    } else if (url.match(/\.(mp3|wav|ogg|m4a)$/)) {
+      mediaType = 'audio';
+    } else if (url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/)) {
+      mediaType = 'document';
+    }
+
+    onMediaUploaded(urlInput, mediaType, altText);
+    setShowUrlInput(false);
+    setUrlInput('');
+    
+    toast({
+      title: "Sukces",
+      description: "URL został dodany",
+    });
   };
 
   const getAcceptString = () => {
@@ -418,16 +455,73 @@ Supabase ma limit ~50MB. Sugestie:
     <div className="space-y-4">
       <div>
         <Label htmlFor="media-upload">Plik multimedialny</Label>
-        <div className="mt-2">
-          <Input
-            id="media-upload"
-            type="file"
-            accept={getAcceptString()}
-            onChange={handleFileSelect}
-            disabled={uploading}
-            className="cursor-pointer"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
+        <div className="mt-2 space-y-3">
+          {!showUrlInput ? (
+            <>
+              <Input
+                id="media-upload"
+                type="file"
+                accept={getAcceptString()}
+                onChange={handleFileSelect}
+                disabled={uploading}
+                className="cursor-pointer"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUrlInput(true)}
+                className="w-full"
+              >
+                Lub wklej URL pliku
+              </Button>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleUrlSubmit();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  onClick={handleUrlSubmit}
+                  size="sm"
+                >
+                  Dodaj
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowUrlInput(false);
+                    setUrlInput('');
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUrlInput(false)}
+                className="w-full"
+              >
+                Lub prześlij plik z urządzenia
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
             {getHelpText()}
           </p>
         </div>

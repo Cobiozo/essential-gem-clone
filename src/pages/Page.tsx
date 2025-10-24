@@ -14,6 +14,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
+import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 
 interface Page {
   id: string;
@@ -276,30 +277,46 @@ const PageComponent = () => {
         {/* CMS Content */}
         {sections.length > 0 && (
           <div className="space-y-6 sm:space-y-8">
-            {sections.map((section) => (
-              <CollapsibleSection 
-                key={section.id} 
-                title={section.title}
-                description={section.description}
-                 className="mb-6 sm:mb-8"
-                 sectionStyle={section}
-                 nestedSections={nestedSections[section.id] || []}
-                 nestedItems={items}
-              >
-                <div className="space-y-3 sm:space-y-4">
-                  {items
-                    .filter(item => item.section_id === section.id)
-                    .map((item) => (
-                      <CMSContent key={item.id} item={item} />
-                    ))}
-                  {items.filter(item => item.section_id === section.id).length === 0 && (
-                    <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
-                      {t('common.noContent')}
-                    </div>
-                  )}
-                </div>
-              </CollapsibleSection>
-            ))}
+            {sections.map((section) => {
+              // Handle row-type sections differently
+              if (section.section_type === 'row') {
+                const rowChildren = nestedSections[section.id] || [];
+                return (
+                  <HomeRowContainer
+                    key={section.id}
+                    row={section}
+                    children={rowChildren}
+                    items={items}
+                  />
+                );
+              }
+              
+              // Regular collapsible sections
+              return (
+                <CollapsibleSection 
+                  key={section.id} 
+                  title={section.title}
+                  description={section.description}
+                  className="mb-6 sm:mb-8"
+                  sectionStyle={section}
+                  nestedSections={nestedSections[section.id] || []}
+                  nestedItems={items}
+                >
+                  <div className="space-y-3 sm:space-y-4">
+                    {items
+                      .filter(item => item.section_id === section.id)
+                      .map((item) => (
+                        <CMSContent key={item.id} item={item} />
+                      ))}
+                    {items.filter(item => item.section_id === section.id).length === 0 && (
+                      <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
+                        {t('common.noContent')}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleSection>
+              );
+            })}
           </div>
         )}
 
