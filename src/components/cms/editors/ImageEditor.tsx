@@ -73,12 +73,14 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ item, onSave, onCancel
           <ScrollArea className="h-full">
             <div className="space-y-4 pb-4">
               <div className="space-y-2">
-                <Label>Wybierz obrazek</Label>
+                <Label>Wybierz obrazek lub film</Label>
                 <MediaUpload
                   onMediaUploaded={handleMediaUpload}
                   currentMediaUrl={editedItem.media_url || undefined}
                   currentMediaType={editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
                   currentAltText={editedItem.media_alt_text || undefined}
+                  allowedTypes={['image', 'video']}
+                  maxSizeMB={null}
                 />
               </div>
 

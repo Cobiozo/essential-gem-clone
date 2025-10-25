@@ -58,7 +58,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
     const url = item.url || '';
     if (url.startsWith('http://') || url.startsWith('https://')) {
       setLinkType('external');
-    } else if (url.startsWith('/') && pages.some(p => `/${p.slug}` === url)) {
+    } else if (url.startsWith('/page/') && pages.some(p => `/page/${p.slug}` === url)) {
       setLinkType('internal');
     } else if (url.startsWith('/')) {
       setLinkType('custom');
@@ -179,7 +179,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                 <div className="space-y-2">
                   <Label>Wybierz stronę</Label>
                   <Select 
-                    value={editedItem.cells?.[0]?.url?.replace('/', '') || editedItem.url?.replace('/', '') || ''} 
+                    value={editedItem.cells?.[0]?.url?.replace('/page/', '') || editedItem.url?.replace('/page/', '') || ''}
                     onValueChange={(slug) => {
                       console.log('🟢 Internal page selected:', slug);
                       
@@ -187,13 +187,13 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
                       const newCells = [...existingCells];
                       newCells[0] = { 
                         ...(newCells[0] || {}), 
-                        url: `/${slug}`, 
+                        url: `/page/${slug}`, 
                         type: 'btn',
                         content: newCells[0]?.content || '' // Zachowaj content
                       };
                       
                       console.log('✅ Updated button cells with internal URL:', newCells);
-                      setEditedItem({...editedItem, url: `/${slug}`, cells: newCells});
+                      setEditedItem({...editedItem, url: `/page/${slug}`, cells: newCells});
                     }}
                   >
                     <SelectTrigger>
