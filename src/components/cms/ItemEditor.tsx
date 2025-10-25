@@ -2,6 +2,7 @@ import React from 'react';
 import { CMSItem } from '@/types/cms';
 import { ButtonEditor } from './editors/ButtonEditor';
 import { ImageEditor } from './editors/ImageEditor';
+import { VideoEditor } from './editors/VideoEditor';
 import { InfoTextEditor } from './editors/InfoTextEditor';
 import { AccordionEditor } from './editors/AccordionEditor';
 import { HeadingEditor } from './editors/HeadingEditor';
@@ -46,6 +47,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'image':
       return <ImageEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'video':
+      return <VideoEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     case 'info_text':
       return <InfoTextEditor item={item} onSave={onSave} onCancel={handleCancel} />;
