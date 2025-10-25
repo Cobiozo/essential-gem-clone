@@ -86,6 +86,9 @@ All colors MUST be HSL.
 
   html {
     overflow-y: scroll; /* Prevent layout shift when modals open */
+    /* Better font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
@@ -97,6 +100,19 @@ All colors MUST be HSL.
     /* Force cache refresh for mobile responsiveness */
     min-height: 100vh;
     min-height: 100dvh;
+    /* Better text rendering on mobile */
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Safe area for mobile devices (notch support) */
+  @supports (padding: env(safe-area-inset-top)) {
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
   }
 
   /* Drag and drop support for touch devices */
@@ -138,4 +154,30 @@ All colors MUST be HSL.
     height: auto;
   }
 
+  /* Responsive typography base */
+  @media (max-width: 640px) {
+    html {
+      font-size: 14px;
+    }
+  }
+
+  @media (min-width: 641px) and (max-width: 1024px) {
+    html {
+      font-size: 15px;
+    }
+  }
+
+  @media (min-width: 1025px) {
+    html {
+      font-size: 16px;
+    }
+  }
+
+  /* Ensure interactive elements are large enough on touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    button, a, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }

@@ -54,22 +54,25 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
     borderRadius: row.border_radius ? `${row.border_radius}px` : undefined,
   };
 
-  // Grid styles dla kolumn - używaj columnCount
-  const gridStyles: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
-    gap: row.gap ? `${row.gap}px` : '24px',
-    maxWidth: row.max_width ? `${row.max_width}px` : '1200px',
-    margin: '0 auto',
+  // Responsive grid class based on column count
+  const getGridClass = () => {
+    if (columnCount === 1) return 'grid-cols-1';
+    if (columnCount === 2) return 'grid-cols-1 md:grid-cols-2';
+    if (columnCount === 3) return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+    if (columnCount >= 4) return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+    return 'grid-cols-1';
   };
+
+  // Grid styles dla kolumn
+  const gridGap = row.gap ? `${row.gap}px` : '24px';
 
   return (
     <div style={rowStyles} className="w-full">
       {/* Row Title */}
       {row.title && (
-        <div className="max-w-6xl mx-auto mb-6">
+        <div className="max-w-6xl mx-auto mb-4 md:mb-6 px-4">
           <h2 
-            className="text-3xl font-bold mb-4"
+            className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4"
             style={{ 
               color: row.text_color || 'inherit',
               textAlign: row.alignment as any || 'left'
@@ -78,7 +81,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
           />
           {row.description && (
             <div 
-              className="text-lg"
+              className="text-base md:text-lg"
               style={{ 
                 color: row.text_color || 'inherit',
                 textAlign: row.alignment as any || 'left'
@@ -89,7 +92,14 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
         </div>
       )}
       
-      <div style={gridStyles}>
+      <div 
+        className={cn('grid w-full px-4', getGridClass())}
+        style={{ 
+          gap: gridGap,
+          maxWidth: row.max_width ? `${row.max_width}px` : '1200px',
+          margin: '0 auto'
+        }}
+      >
         {slotSections.map((slotSection, colIndex) => {
           const columnItems = itemsByColumn[colIndex] || [];
           

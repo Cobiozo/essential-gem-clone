@@ -14,6 +14,7 @@ import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
+import { cn } from '@/lib/utils';
 
 const Index = () => {
   const { user } = useAuth();
@@ -238,27 +239,27 @@ const Index = () => {
       return (
         <div 
           key={section.id}
-          className="block w-full bg-white mb-6"
+          className="block w-full bg-white mb-4 md:mb-6"
           style={{
             backgroundColor: section.background_color || '#ffffff',
             color: section.text_color || '#000000',
-            padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
+            padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
           }}
         >
-          <div className="max-w-6xl mx-auto">
-            <div className="space-y-4 py-6">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="space-y-3 md:space-y-4 py-4 md:py-6">
               {section.title && (
-                <h2 className="text-3xl font-bold text-center mb-8" style={{ color: section.text_color || 'inherit' }}>
+                <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8" style={{ color: section.text_color || 'inherit' }}>
                   {section.title}
                 </h2>
               )}
               {section.description && (
                 <div 
-                  className="text-center text-gray-600 mb-6 max-w-3xl mx-auto"
+                  className="text-center text-gray-600 text-sm md:text-base mb-4 md:mb-6 max-w-3xl mx-auto"
                   dangerouslySetInnerHTML={{ __html: section.description }}
                 />
               )}
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {sectionItems.map((item, itemIdx) => {
                   const itemIndex = sectionItems.findIndex(i => i.id === item.id);
                   return (
@@ -278,27 +279,36 @@ const Index = () => {
       );
     }
 
+    // Helper for responsive grid
+    const getColumnGridClass = (colCount: number) => {
+      if (colCount === 1) return 'grid-cols-1';
+      if (colCount === 2) return 'grid-cols-1 md:grid-cols-2';
+      if (colCount === 3) return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+      if (colCount >= 4) return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+      return 'grid-cols-1';
+    };
+
     // Regular section rendering (matching LivePreviewEditor)
     return (
       <div 
         key={section.id}
-        className="block w-full bg-white mb-6"
+        className="block w-full bg-white mb-4 md:mb-6"
         style={{
           backgroundColor: section.background_color || '#ffffff',
           color: section.text_color || '#000000',
-          padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
+          padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
         }}
       >
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto px-4">
           {/* Section Header */}
-          <div className="text-center mb-10">
+          <div className="text-center mb-6 md:mb-10">
             <h2 
-              className="text-4xl font-bold mb-6 text-black uppercase tracking-wide"
+              className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-black uppercase tracking-wide"
               dangerouslySetInnerHTML={{ __html: section.title || '' }}
             />
             {section.description && (
               <p 
-                className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed"
+                className="text-gray-600 text-sm md:text-base lg:text-lg max-w-3xl mx-auto leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: section.description }}
               />
             )}
@@ -306,19 +316,15 @@ const Index = () => {
           
           {/* Section Items */}
           {sectionColumnCount > 0 ? (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
-              gap: '24px'
-            }}>
+            <div className={cn('grid gap-4 md:gap-6', getColumnGridClass(sectionColumnCount))}>
               {itemsByColumn.map((columnItems, colIdx) => (
-                <div key={colIdx} className="space-y-4">
+                <div key={colIdx} className="space-y-3 md:space-y-4">
                   {columnItems.map(item => renderCMSItem(item, section))}
                 </div>
               ))}
             </div>
           ) : (
-            <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 gap-12 mt-8' : 'space-y-4'}>
+            <div className={section.display_type === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 lg:gap-12 mt-6 md:mt-8' : 'space-y-3 md:space-y-4'}>
               {sectionItems.map(item => renderCMSItem(item, section))}
             </div>
           )}

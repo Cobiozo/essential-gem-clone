@@ -186,10 +186,10 @@ const PageComponent = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">{t('common.loading')}...</p>
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground text-sm sm:text-base">{t('common.loading')}...</p>
         </div>
       </div>
     );
@@ -203,26 +203,26 @@ const PageComponent = () => {
           <ThemeSelector />
         </div>
         
-        <div className="container mx-auto px-4 py-16">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-12 sm:py-16">
           <div className="max-w-2xl mx-auto text-center">
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold text-foreground mb-4">403</h1>
-              <h2 className="text-2xl font-semibold text-foreground mb-4">{t('error.forbidden')}</h2>
-              <p className="text-muted-foreground mb-8">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 sm:mb-4">403</h1>
+              <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-3 sm:mb-4">{t('error.forbidden')}</h2>
+              <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 px-4">
                 Ta strona jest dostępna tylko dla użytkowników z odpowiednimi uprawnieniami. 
                 Skontaktuj się z administratorem aby uzyskać dostęp.
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
+              <Button asChild size="sm" className="h-9 sm:h-10">
                 <Link to="/">
-                  <Home className="w-4 h-4 mr-2" />
+                  <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
                   {t('nav.home')}
                 </Link>
               </Button>
-              <Button variant="outline" onClick={() => window.history.back()}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="sm" className="h-9 sm:h-10" onClick={() => window.history.back()}>
+                <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
                 Wstecz
               </Button>
             </div>
@@ -235,40 +235,38 @@ const PageComponent = () => {
   return (
     <div className="min-h-screen bg-background relative">
       {/* Language & Theme Selector */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+      <div className="fixed top-2 sm:top-4 right-2 sm:right-4 z-50 flex items-center gap-1 sm:gap-2">
         <LanguageSelector />
         <ThemeSelector />
       </div>
       
       {/* Navigation */}
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" asChild>
+            <Button variant="ghost" asChild size="sm" className="h-8 sm:h-9">
               <Link to="/">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {t('nav.home')}
+                <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="text-xs sm:text-sm">{t('nav.home')}</span>
               </Link>
             </Button>
-            
-            <h1 className="text-lg font-semibold text-foreground truncate mx-4">
-              {page.title}
-            </h1>
-            
-            <div className="w-[120px]"></div> {/* Spacer for layout balance */}
+            <img 
+              src={newPureLifeLogo} 
+              alt="Pure Life" 
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
+            />
           </div>
         </div>
       </nav>
-
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
-        {/* Page Header */}
-        <div className="text-center mb-8">
-          <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" />
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4">
+      
+      {/* Page Header */}
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8 md:py-12">
+        <div className="text-center mb-6 sm:mb-8 md:mb-12">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 text-foreground px-2">
             {page.title}
           </h1>
           {page.meta_description && (
-            <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-3xl mx-auto">
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4">
               {page.meta_description}
             </p>
           )}
@@ -276,7 +274,7 @@ const PageComponent = () => {
 
         {/* CMS Content */}
         {sections.length > 0 && (
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-4 sm:space-y-6 md:space-y-8">
             {sections.map((section) => {
               // Handle row-type sections differently
               if (section.section_type === 'row') {
@@ -339,15 +337,15 @@ const PageComponent = () => {
 
         {/* Empty state */}
         {sections.length === 0 && !page.content && (
-          <div className="text-center py-12">
-            <img src={newPureLifeLogo} alt="Pure Life" className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-lg mb-2">Ta strona nie ma jeszcze zawartości</p>
-            <p className="text-muted-foreground">
+          <div className="text-center py-8 sm:py-12 px-4">
+            <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-base sm:text-lg mb-2">Ta strona nie ma jeszcze zawartości</p>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Zawartość zostanie dodana wkrótce.
             </p>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
