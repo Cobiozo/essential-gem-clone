@@ -9,6 +9,14 @@ import { HeadingEditor } from './editors/HeadingEditor';
 import { TextEditor } from './editors/TextEditor';
 import { MapEditor } from './editors/MapEditor';
 import { GenericEditor } from './editors/GenericEditor';
+import { ProgressBarEditor } from './editors/ProgressBarEditor';
+import { CounterEditor } from './editors/CounterEditor';
+import { CarouselEditor } from './editors/CarouselEditor';
+import { GalleryEditor } from './editors/GalleryEditor';
+import { RatingEditor } from './editors/RatingEditor';
+import { TestimonialEditor } from './editors/TestimonialEditor';
+import { AlertEditor } from './editors/AlertEditor';
+import { SocialIconsEditor } from './editors/SocialIconsEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -65,6 +73,30 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'maps':
       return <MapEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'progress-bar':
+      return <ProgressBarEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'counter':
+      return <CounterEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'carousel':
+      return <CarouselEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'gallery':
+      return <GalleryEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'rating':
+      return <RatingEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'testimonial':
+      return <TestimonialEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'alert':
+      return <AlertEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'social-icons':
+      return <SocialIconsEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types

@@ -17,23 +17,82 @@ interface MapEditorProps {
 }
 
 export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) => {
+  const mapCell = (item.cells as any[])?.[0] || {};
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
-  const [mapHeight, setMapHeight] = useState(400);
+  const [mapHeight, setMapHeight] = useState(mapCell.height || 450);
+  const [zoom, setZoom] = useState(mapCell.zoom || 15);
+  const [mapType, setMapType] = useState(mapCell.mapType || 'roadmap');
   const debouncedItem = useDebounce(editedItem, 1000);
 
   // Auto-save on debounced changes
   useEffect(() => {
-    if (debouncedItem && debouncedItem !== item) {
+    if (debouncedItem && JSON.stringify(debouncedItem) !== JSON.stringify(item)) {
       onSave(debouncedItem);
     }
-  }, [debouncedItem]);
+  }, [debouncedItem, onSave]);
 
-  const handleUpdate = (updates: Partial<CMSItem>) => {
-    setEditedItem({ ...editedItem, ...updates });
+  const updateCell = (updates: any) => {
+    const updatedCells = [{
+      type: 'google_maps',
+      content: editedItem.url || '',
+      height: mapHeight,
+      zoom: zoom,
+      mapType: mapType,
+      position: 0,
+      is_active: true,
+      ...updates
+    }] as any;
+    
+    setEditedItem({
+      ...editedItem,
+      cells: updatedCells
+    });
+  };
+
+  const handleUpdate = (field: string, value: any) => {
+    const newItem = {
+      ...editedItem,
+      [field]: value
+    };
+    setEditedItem(newItem);
+    
+    if (field === 'url') {
+      updateCell({ content: value });
+    }
+  };
+
+  const handleMapHeightChange = (value: number) => {
+    setMapHeight(value);
+    updateCell({ height: value });
+  };
+
+  const handleZoomChange = (value: string) => {
+    const zoomNum = parseInt(value);
+    setZoom(zoomNum);
+    updateCell({ zoom: zoomNum });
+  };
+
+  const handleMapTypeChange = (value: string) => {
+    setMapType(value);
+    updateCell({ mapType: value });
   };
 
   const handleSave = () => {
-    onSave(editedItem);
+    // Ensure cells are updated before saving
+    const updatedCells = [{
+      type: 'google_maps',
+      content: editedItem.url || '',
+      height: mapHeight,
+      zoom: zoom,
+      mapType: mapType,
+      position: 0,
+      is_active: true
+    }] as any;
+    
+    onSave({
+      ...editedItem,
+      cells: updatedCells
+    });
   };
 
   return (
@@ -61,33 +120,33 @@ export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) 
           <ScrollArea className="h-full">
             <div className="space-y-4 pb-4">
               <div className="space-y-2">
-                <Label>Adres lub współrzędne</Label>
-                <Input
-                  value={editedItem.url || ''}
-                  onChange={(e) => handleUpdate({ url: e.target.value })}
-                  placeholder="np. Warszawa, Polska lub 52.2297,21.0122"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Wpisz adres lub współrzędne GPS (latitude,longitude)
-                </p>
+              <Label>Adres lub współrzędne</Label>
+              <Input
+                value={editedItem.url || ''}
+                onChange={(e) => handleUpdate('url', e.target.value)}
+                placeholder="https://www.google.com/maps/embed?pb=..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Wklej pełny URL z Google Maps Embed (kliknij "Udostępnij" → "Osadź mapę" w Google Maps)
+              </p>
               </div>
 
               <div className="space-y-2">
                 <Label>Nazwa miejsca (opcjonalnie)</Label>
-                <Input
-                  value={editedItem.title || ''}
-                  onChange={(e) => handleUpdate({ title: e.target.value })}
-                  placeholder="np. Nasze biuro"
-                />
+              <Input
+                value={editedItem.title || ''}
+                onChange={(e) => handleUpdate('title', e.target.value)}
+                placeholder="np. Nasze biuro"
+              />
               </div>
 
               <div className="space-y-2">
                 <Label>Opis (opcjonalnie)</Label>
-                <Input
-                  value={editedItem.description || ''}
-                  onChange={(e) => handleUpdate({ description: e.target.value })}
-                  placeholder="np. Zapraszamy do odwiedzenia"
-                />
+              <Input
+                value={editedItem.description || ''}
+                onChange={(e) => handleUpdate('description', e.target.value)}
+                placeholder="np. Zapraszamy do odwiedzenia"
+              />
               </div>
             </div>
           </ScrollArea>
@@ -101,7 +160,7 @@ export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) 
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[mapHeight]}
-                  onValueChange={([value]) => setMapHeight(value)}
+                  onValueChange={([value]) => handleMapHeightChange(value)}
                   min={200}
                   max={800}
                   step={50}
@@ -113,7 +172,7 @@ export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) 
 
             <div className="space-y-2">
               <Label>Poziom przybliżenia</Label>
-              <Select defaultValue="15">
+              <Select value={zoom.toString()} onValueChange={handleZoomChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -129,7 +188,7 @@ export const MapEditor: React.FC<MapEditorProps> = ({ item, onSave, onCancel }) 
 
             <div className="space-y-2">
               <Label>Typ mapy</Label>
-              <Select defaultValue="roadmap">
+              <Select value={mapType} onValueChange={handleMapTypeChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
