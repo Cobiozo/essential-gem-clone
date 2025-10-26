@@ -2152,6 +2152,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     if (!selectedElement) return;
     
     const isSection = sections.find(s => s.id === selectedElement);
+    const isItem = items.find(i => i.id === selectedElement);
     
     if (isSection) {
       try {
@@ -2162,6 +2163,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             custom_height: null,
             width_type: 'full',
             height_type: 'auto',
+            alignment: null,
+            justify_content: null,
+            align_items: null,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedElement);
@@ -2170,99 +2174,71 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         
         setSections(prev => prev.map(s => 
           s.id === selectedElement 
-            ? { ...s, custom_width: null, custom_height: null, width_type: 'full', height_type: 'auto' }
+            ? { ...s, custom_width: null, custom_height: null, width_type: 'full', height_type: 'auto', alignment: null, justify_content: null, align_items: null }
             : s
         ));
         
         toast({
           title: 'Sukces',
-          description: 'Rozmiar elementu został zresetowany',
+          description: 'Styl sekcji został zresetowany',
         });
       } catch (error) {
-        console.error('Error resetting element:', error);
+        console.error('Error resetting section:', error);
         toast({
           title: 'Błąd',
-          description: 'Nie można zresetować rozmiaru elementu',
+          description: 'Nie można zresetować stylu sekcji',
+          variant: 'destructive',
+        });
+      }
+    } else if (isItem) {
+      try {
+        const { error } = await supabase
+          .from('cms_items')
+          .update({ 
+            width: null,
+            text_align: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedElement);
+        
+        if (error) throw error;
+        
+        setItems(prev => prev.map(i => 
+          i.id === selectedElement 
+            ? { ...i, width: null, text_align: null }
+            : i
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: 'Styl elementu został zresetowany',
+        });
+      } catch (error) {
+        console.error('Error resetting item:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zresetować stylu elementu',
           variant: 'destructive',
         });
       }
     }
   };
 
-  const handleElementSettings = async () => {
+  const handleElementSettings = () => {
     if (!selectedElement) return;
     
     const isSection = sections.find(s => s.id === selectedElement);
     const isItem = items.find(i => i.id === selectedElement);
     
     if (isSection) {
-      // For now, show a simple prompt to change section title
-      const newTitle = prompt('Zmień tytuł sekcji:', isSection.title);
-      if (newTitle && newTitle !== isSection.title) {
-        try {
-          const { error } = await supabase
-            .from('cms_sections')
-            .update({ 
-              title: newTitle,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', selectedElement);
-          
-          if (error) throw error;
-          
-          setSections(prev => prev.map(s => 
-            s.id === selectedElement 
-              ? { ...s, title: newTitle }
-              : s
-          ));
-          
-          toast({
-            title: 'Sukces',
-            description: 'Tytuł sekcji został zmieniony',
-          });
-        } catch (error) {
-          console.error('Error updating section title:', error);
-          toast({
-            title: 'Błąd',
-            description: 'Nie można zmienić tytułu sekcji',
-            variant: 'destructive',
-          });
-        }
-      }
+      // Open section editor in sidebar
+      setEditingSectionId(selectedElement);
+      setIsSectionEditorOpen(true);
+      setPanelMode('properties');
+      setSelectedElementForPanel(selectedElement);
     } else if (isItem) {
-      // For items, show a simple prompt to change item title
-      const newTitle = prompt('Zmień tytuł elementu:', isItem.title || '');
-      if (newTitle && newTitle !== isItem.title) {
-        try {
-          const { error } = await supabase
-            .from('cms_items')
-            .update({ 
-              title: newTitle,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', selectedElement);
-          
-          if (error) throw error;
-          
-          setItems(prev => prev.map(i => 
-            i.id === selectedElement 
-              ? { ...i, title: newTitle }
-              : i
-          ));
-          
-          toast({
-            title: 'Sukces',
-            description: 'Tytuł elementu został zmieniony',
-          });
-        } catch (error) {
-          console.error('Error updating item title:', error);
-          toast({
-            title: 'Błąd',
-            description: 'Nie można zmienić tytułu elementu',
-            variant: 'destructive',
-          });
-        }
-      }
+      // Open item editor in sidebar
+      handleEditItem(selectedElement);
     }
   };
 
@@ -2270,6 +2246,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     if (!selectedElement) return;
     
     const isSection = sections.find(s => s.id === selectedElement);
+    const isItem = items.find(i => i.id === selectedElement);
     
     if (isSection) {
       try {
@@ -2300,10 +2277,47 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         
         toast({
           title: 'Sukces',
-          description: `Wyrównanie ustawione na ${alignment}`,
+          description: `Wyrównanie sekcji ustawione na ${alignment}`,
         });
       } catch (error) {
-        console.error('Error aligning element:', error);
+        console.error('Error aligning section:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zmienić wyrównania sekcji',
+          variant: 'destructive',
+        });
+      }
+    } else if (isItem) {
+      try {
+        const alignmentMap: Record<string, string> = {
+          left: 'left',
+          center: 'center',
+          right: 'right',
+          justify: 'justify',
+        };
+        
+        const { error } = await supabase
+          .from('cms_items')
+          .update({ 
+            text_align: alignmentMap[alignment],
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedElement);
+        
+        if (error) throw error;
+        
+        setItems(prev => prev.map(i => 
+          i.id === selectedElement 
+            ? { ...i, text_align: alignmentMap[alignment] }
+            : i
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: `Wyrównanie elementu ustawione na ${alignment}`,
+        });
+      } catch (error) {
+        console.error('Error aligning item:', error);
         toast({
           title: 'Błąd',
           description: 'Nie można zmienić wyrównania elementu',
@@ -2317,6 +2331,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     if (!selectedElement) return;
     
     const isSection = sections.find(s => s.id === selectedElement);
+    const isItem = items.find(i => i.id === selectedElement);
     
     if (isSection) {
       try {
@@ -2342,10 +2357,42 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         
         toast({
           title: 'Sukces',
-          description: `Rozmiar ustawiony na ${sizeType === 'fit' ? 'dopasowany' : 'pełna szerokość'}`,
+          description: `Rozmiar sekcji: ${sizeType === 'fit' ? 'dopasowany' : 'pełna szerokość'}`,
         });
       } catch (error) {
-        console.error('Error sizing element:', error);
+        console.error('Error sizing section:', error);
+        toast({
+          title: 'Błąd',
+          description: 'Nie można zmienić rozmiaru sekcji',
+          variant: 'destructive',
+        });
+      }
+    } else if (isItem) {
+      try {
+        const width_setting = sizeType === 'fit' ? 'auto' : '100%';
+        
+        const { error } = await supabase
+          .from('cms_items')
+          .update({ 
+            width: width_setting,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedElement);
+        
+        if (error) throw error;
+        
+        setItems(prev => prev.map(i => 
+          i.id === selectedElement 
+            ? { ...i, width: width_setting }
+            : i
+        ));
+        
+        toast({
+          title: 'Sukces',
+          description: `Rozmiar elementu: ${sizeType === 'fit' ? 'dopasowany' : 'pełna szerokość'}`,
+        });
+      } catch (error) {
+        console.error('Error sizing item:', error);
         toast({
           title: 'Błąd',
           description: 'Nie można zmienić rozmiaru elementu',
