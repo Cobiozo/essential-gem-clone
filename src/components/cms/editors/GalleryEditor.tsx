@@ -17,7 +17,9 @@ interface GalleryEditorProps {
 
 export const GalleryEditor: React.FC<GalleryEditorProps> = ({ item, onSave, onCancel }) => {
   const galleryCell = (item.cells as any[])?.[0] || {};
-  const [images, setImages] = useState<string[]>(galleryCell.images || []);
+  const [images, setImages] = useState<Array<{ url: string; alt?: string; title?: string }>>(
+    galleryCell.images || []
+  );
   const [columns, setColumns] = useState(galleryCell.columns || 3);
   
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
@@ -59,7 +61,7 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({ item, onSave, onCa
   };
 
   const handleAddImage = () => {
-    const newImages = [...images, ''];
+    const newImages = [...images, { url: '', alt: '', title: '' }];
     setImages(newImages);
     updateCell({ images: newImages });
   };
@@ -70,9 +72,9 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({ item, onSave, onCa
     updateCell({ images: newImages });
   };
 
-  const handleImageChange = (index: number, url: string) => {
+  const handleImageChange = (index: number, field: 'url' | 'alt' | 'title', value: string) => {
     const newImages = [...images];
-    newImages[index] = url;
+    newImages[index] = { ...newImages[index], [field]: value };
     setImages(newImages);
     updateCell({ images: newImages });
   };
@@ -108,21 +110,35 @@ export const GalleryEditor: React.FC<GalleryEditorProps> = ({ item, onSave, onCa
           </TabsList>
 
           <TabsContent value="content" className="p-4 space-y-4">
-            <div className="space-y-3">
+            <div className="space-y-4">
               {images.map((img, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={img}
-                    onChange={(e) => handleImageChange(index, e.target.value)}
-                    placeholder="URL obrazu"
-                  />
-                  <Button
-                    onClick={() => handleRemoveImage(index)}
-                    variant="destructive"
-                    size="icon"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                <div key={index} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        value={img.url}
+                        onChange={(e) => handleImageChange(index, 'url', e.target.value)}
+                        placeholder="URL obrazu"
+                      />
+                      <Input
+                        value={img.alt || ''}
+                        onChange={(e) => handleImageChange(index, 'alt', e.target.value)}
+                        placeholder="Tekst alternatywny (alt)"
+                      />
+                      <Input
+                        value={img.title || ''}
+                        onChange={(e) => handleImageChange(index, 'title', e.target.value)}
+                        placeholder="Tytuł (wyświetlany przy hover)"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleRemoveImage(index)}
+                      variant="destructive"
+                      size="icon"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

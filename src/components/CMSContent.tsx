@@ -560,9 +560,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
 
     case 'cards':
       const cardsCell = (item.cells as any[])?.[0];
-      const cardItems = cardsCell?.items || [];
+      const cardItems = cardsCell?.cards || [];
+      const cardColumns = cardsCell?.columns || 3;
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div 
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: `repeat(${cardColumns}, minmax(0, 1fr))`
+          }}
+        >
           {cardItems.map((card: any, idx: number) => (
             <div key={idx} className="p-4 border rounded-lg bg-card">
               <h3 className="font-semibold mb-2">{card.title}</h3>

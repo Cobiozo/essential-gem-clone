@@ -17,6 +17,12 @@ import { RatingEditor } from './editors/RatingEditor';
 import { TestimonialEditor } from './editors/TestimonialEditor';
 import { AlertEditor } from './editors/AlertEditor';
 import { SocialIconsEditor } from './editors/SocialIconsEditor';
+import { IconListEditor } from './editors/IconListEditor';
+import { CardsEditor } from './editors/CardsEditor';
+import { ToggleEditor } from './editors/ToggleEditor';
+import { SoundCloudEditor } from './editors/SoundCloudEditor';
+import { HtmlEditor } from './editors/HtmlEditor';
+import { IconFieldEditor } from './editors/IconFieldEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -97,6 +103,25 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'social-icons':
       return <SocialIconsEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'icon-list':
+      return <IconListEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'cards':
+      return <CardsEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'toggle':
+      return <ToggleEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'soundcloud':
+      return <SoundCloudEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'html':
+      return <HtmlEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'icon-field':
+    case 'icon':
+      return <IconFieldEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types
