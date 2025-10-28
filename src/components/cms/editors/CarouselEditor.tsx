@@ -9,6 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { CMSItem } from '@/types/cms';
 import { X, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { MediaUpload } from '@/components/MediaUpload';
 
 interface CarouselEditorProps {
   item: CMSItem;
@@ -123,10 +124,14 @@ export const CarouselEditor: React.FC<CarouselEditorProps> = ({ item, onSave, on
                 <div key={index} className="border rounded-lg p-3 space-y-2">
                   <div className="flex gap-2 items-start">
                     <div className="flex-1 space-y-2">
-                      <Input
-                        value={img.url}
-                        onChange={(e) => handleImageChange(index, 'url', e.target.value)}
-                        placeholder="URL obrazu"
+                      <MediaUpload
+                        onMediaUploaded={(url, type, altText) => {
+                          handleImageChange(index, 'url', url);
+                          if (altText) handleImageChange(index, 'alt', altText);
+                        }}
+                        currentMediaUrl={img.url || undefined}
+                        currentMediaType="image"
+                        allowedTypes={['image']}
                       />
                       <Input
                         value={img.alt || ''}
