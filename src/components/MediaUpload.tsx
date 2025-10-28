@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, Image, Video, Loader2, FileText, Music, File } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Upload, X, Image, Video, Loader2, FileText, Music, File, FolderOpen, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SecureMedia } from './SecureMedia';
@@ -29,8 +31,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [altText, setAltText] = useState(currentAltText || '');
-  const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const [libraryFiles, setLibraryFiles] = useState<Array<{name: string, url: string, type: string}>>([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
   const { toast } = useToast();
 
   const compressFile = async (file: File): Promise<File> => {
@@ -368,6 +371,60 @@ Supabase ma limit ~50MB. Sugestie:
     }
   };
 
+  const loadLibraryFiles = async () => {
+    setLoadingLibrary(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('training-media')
+        .list('', {
+          limit: 100,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+      if (error) throw error;
+
+      const files = data?.map(file => {
+        const { data: urlData } = supabase.storage
+          .from('training-media')
+          .getPublicUrl(file.name);
+        
+        // Detect type from file extension
+        const ext = file.name.split('.').pop()?.toLowerCase() || '';
+        let type = 'other';
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) type = 'image';
+        else if (['mp4', 'mov', 'avi', 'webm', 'mkv'].includes(ext)) type = 'video';
+        else if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) type = 'audio';
+        else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) type = 'document';
+
+        return {
+          name: file.name,
+          url: urlData.publicUrl,
+          type
+        };
+      }) || [];
+
+      setLibraryFiles(files);
+    } catch (error) {
+      console.error('Error loading library:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się załadować biblioteki plików",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  const selectFromLibrary = (file: {name: string, url: string, type: string}) => {
+    const mediaType = file.type as 'image' | 'video' | 'document' | 'audio' | 'other';
+    onMediaUploaded(file.url, mediaType, altText);
+    toast({
+      title: "Sukces",
+      description: "Plik został wybrany z biblioteki",
+    });
+  };
+
   const removeMedia = () => {
     onMediaUploaded('', 'image', '');
     setAltText('');
@@ -399,7 +456,6 @@ Supabase ma limit ~50MB. Sugestie:
     }
 
     onMediaUploaded(urlInput, mediaType, altText);
-    setShowUrlInput(false);
     setUrlInput('');
     
     toast({
@@ -454,77 +510,116 @@ Supabase ma limit ~50MB. Sugestie:
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="media-upload">Plik multimedialny</Label>
-        <div className="mt-2 space-y-3">
-          {!showUrlInput ? (
-            <>
+        <Label>Plik multimedialny</Label>
+        <Tabs defaultValue="upload" className="mt-2">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="upload" className="text-xs">
+              <Upload className="w-3 h-3 mr-1" />
+              Upload
+            </TabsTrigger>
+            <TabsTrigger value="url" className="text-xs">
+              <LinkIcon className="w-3 h-3 mr-1" />
+              URL
+            </TabsTrigger>
+            <TabsTrigger value="library" className="text-xs" onClick={loadLibraryFiles}>
+              <FolderOpen className="w-3 h-3 mr-1" />
+              Biblioteka
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="upload" className="space-y-3">
+            <Input
+              id="media-upload"
+              type="file"
+              accept={getAcceptString()}
+              onChange={handleFileSelect}
+              disabled={uploading}
+              className="cursor-pointer"
+            />
+            <p className="text-xs text-muted-foreground">
+              {getHelpText()}
+            </p>
+          </TabsContent>
+
+          <TabsContent value="url" className="space-y-3">
+            <div className="flex gap-2">
               <Input
-                id="media-upload"
-                type="file"
-                accept={getAcceptString()}
-                onChange={handleFileSelect}
-                disabled={uploading}
-                className="cursor-pointer"
+                type="url"
+                placeholder="https://example.com/image.jpg"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleUrlSubmit();
+                  }
+                }}
               />
               <Button
                 type="button"
-                variant="outline"
+                onClick={handleUrlSubmit}
                 size="sm"
-                onClick={() => setShowUrlInput(true)}
-                className="w-full"
               >
-                Lub wklej URL pliku
-              </Button>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleUrlSubmit();
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={handleUrlSubmit}
-                  size="sm"
-                >
-                  Dodaj
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowUrlInput(false);
-                    setUrlInput('');
-                  }}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowUrlInput(false)}
-                className="w-full"
-              >
-                Lub prześlij plik z urządzenia
+                Dodaj
               </Button>
             </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            {getHelpText()}
-          </p>
-        </div>
+            <p className="text-xs text-muted-foreground">
+              Wklej URL obrazu, filmu lub innego pliku
+            </p>
+          </TabsContent>
+
+          <TabsContent value="library" className="space-y-3">
+            {loadingLibrary ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin" />
+              </div>
+            ) : libraryFiles.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Brak plików w bibliotece
+              </div>
+            ) : (
+              <ScrollArea className="h-64 border rounded-md p-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {libraryFiles.map((file, index) => (
+                    <Card 
+                      key={index} 
+                      className="cursor-pointer hover:border-primary transition-colors overflow-hidden"
+                      onClick={() => selectFromLibrary(file)}
+                    >
+                      <CardContent className="p-2">
+                        {file.type === 'image' ? (
+                          <img 
+                            src={file.url} 
+                            alt={file.name}
+                            className="w-full h-20 object-cover rounded"
+                          />
+                        ) : file.type === 'video' ? (
+                          <div className="w-full h-20 bg-secondary rounded flex items-center justify-center">
+                            <Video className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        ) : file.type === 'audio' ? (
+                          <div className="w-full h-20 bg-secondary rounded flex items-center justify-center">
+                            <Music className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <div className="w-full h-20 bg-secondary rounded flex items-center justify-center">
+                            <FileText className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
+                        <p className="text-xs mt-1 truncate" title={file.name}>
+                          {file.name}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Kliknij na plik aby go wybrać
+            </p>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {uploading && (
