@@ -28,12 +28,12 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
 
   return (
     <div 
-      className="rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+      className="rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border bg-card"
       style={containerStyle}
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors group"
+        className="w-full flex items-center justify-between p-6 hover:bg-muted/30 transition-colors group"
       >
         <div className="flex items-center gap-5">
           <div 
@@ -49,7 +49,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           />
         </div>
         <ChevronDown 
-          className={`w-6 h-6 text-gray-400 transition-all duration-300 ${
+          className={`w-6 h-6 text-muted-foreground transition-all duration-300 ${
             isExpanded ? 'rotate-180' : ''
           }`} 
         />

@@ -239,23 +239,23 @@ const Index = () => {
       return (
         <div 
           key={section.id}
-          className="block w-full bg-white mb-4 md:mb-6"
+          className="block w-full bg-card mb-4 md:mb-6"
           style={{
-            backgroundColor: section.background_color || '#ffffff',
-            color: section.text_color || '#000000',
+            backgroundColor: section.background_color || undefined,
+            color: section.text_color || undefined,
             padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
           }}
         >
           <div className="max-w-6xl mx-auto px-4">
             <div className="space-y-3 md:space-y-4 py-4 md:py-6">
               {section.title && (
-                <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8" style={{ color: section.text_color || 'inherit' }}>
+                <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8" style={{ color: section.text_color || undefined }}>
                   {section.title}
                 </h2>
               )}
               {section.description && (
                 <div 
-                  className="text-center text-gray-600 text-sm md:text-base mb-4 md:mb-6 max-w-3xl mx-auto"
+                  className="text-center text-muted-foreground text-sm md:text-base mb-4 md:mb-6 max-w-3xl mx-auto"
                   dangerouslySetInnerHTML={{ __html: section.description }}
                 />
               )}
@@ -292,10 +292,10 @@ const Index = () => {
     return (
       <div 
         key={section.id}
-        className="block w-full bg-white mb-4 md:mb-6"
+        className="block w-full bg-card mb-4 md:mb-6"
         style={{
-          backgroundColor: section.background_color || '#ffffff',
-          color: section.text_color || '#000000',
+          backgroundColor: section.background_color || undefined,
+          color: section.text_color || undefined,
           padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
         }}
       >
@@ -303,12 +303,12 @@ const Index = () => {
           {/* Section Header */}
           <div className="text-center mb-6 md:mb-10">
             <h2 
-              className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-black uppercase tracking-wide"
+              className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-foreground uppercase tracking-wide"
               dangerouslySetInnerHTML={{ __html: section.title || '' }}
             />
             {section.description && (
               <p 
-                className="text-gray-600 text-sm md:text-base lg:text-lg max-w-3xl mx-auto leading-relaxed"
+                className="text-muted-foreground text-sm md:text-base lg:text-lg max-w-3xl mx-auto leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: section.description }}
               />
             )}
@@ -358,7 +358,7 @@ const Index = () => {
       />
 
       {/* Main Content - CMS Sections */}
-      <main id="main-content" className="bg-white">
+      <main id="main-content" className="bg-background">
         {sections.length > 0 ? (
           <>
             {/* Renderuj wiersze z zagnieżdżonymi sekcjami */}
@@ -380,7 +380,7 @@ const Index = () => {
           </>
         ) : (
           <div className="text-center py-12">
-            <p className="text-gray-600">Ładowanie zawartości...</p>
+            <p className="text-muted-foreground">Ładowanie zawartości...</p>
           </div>
         )}
       </main>
