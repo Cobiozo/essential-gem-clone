@@ -87,16 +87,16 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
   if (loading) {
     return (
-      <div className="animate-pulse bg-gray-200 rounded-lg w-full h-48 flex items-center justify-center">
-        <span className="text-gray-500">Ładowanie...</span>
+      <div className="animate-pulse bg-muted rounded-lg w-full h-48 flex items-center justify-center">
+        <span className="text-muted-foreground">Ładowanie...</span>
       </div>
     );
   }
 
   if (!signedUrl) {
     return (
-      <div className="bg-gray-100 rounded-lg w-full h-48 flex items-center justify-center">
-        <span className="text-gray-500">Nie można załadować mediów</span>
+      <div className="bg-muted rounded-lg w-full h-48 flex items-center justify-center">
+        <span className="text-muted-foreground">Nie można załadować mediów</span>
       </div>
     );
   }
@@ -163,7 +163,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
   if (mediaType === 'audio') {
     return (
-      <div className={`w-full p-4 border rounded-lg bg-gray-50 ${className || ''}`}>
+      <div className={`w-full p-4 border rounded-lg bg-card ${className || ''}`}>
         <audio
           {...securityProps}
           src={signedUrl}
@@ -174,7 +174,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         >
           Twoja przeglądarka nie obsługuje odtwarzania audio.
         </audio>
-        <p className="text-sm text-gray-600 mt-2">{altText || 'Plik audio'}</p>
+        <p className="text-sm text-muted-foreground mt-2">{altText || 'Plik audio'}</p>
       </div>
     );
   }
@@ -184,17 +184,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const extension = fileName.split('.').pop()?.toUpperCase() || '';
     
     return (
-      <div className={`w-full p-4 border rounded-lg bg-gray-50 flex items-center gap-3 ${className || ''}`}>
-        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-          <span className="text-blue-600 font-semibold text-xs">{extension}</span>
+      <div className={`w-full p-4 border rounded-lg bg-card flex items-center gap-3 ${className || ''}`}>
+        <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+          <span className="text-primary font-semibold text-xs">{extension}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{altText || fileName}</p>
-          <p className="text-xs text-gray-500">Dokument • {extension}</p>
+          <p className="text-sm font-medium text-foreground truncate">{altText || fileName}</p>
+          <p className="text-xs text-muted-foreground">Dokument • {extension}</p>
         </div>
         <button
           onClick={() => window.open(signedUrl, '_blank')}
-          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
         >
           Otwórz
         </button>

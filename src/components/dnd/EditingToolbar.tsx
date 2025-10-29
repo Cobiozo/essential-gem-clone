@@ -57,7 +57,7 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
   return (
     <div className={cn(
       "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
-      "bg-white dark:bg-gray-800 border border-border rounded-lg shadow-xl",
+      "bg-card border border-border rounded-lg shadow-xl",
       "flex items-center gap-2 px-4 py-2",
       "animate-fade-in",
       className

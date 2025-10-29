@@ -104,7 +104,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
           onSelectElement(section.id);
         }}
         className={cn(
-          "block w-full cursor-pointer transition-all duration-200 bg-white mb-6 relative",
+          "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative",
           selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
           isOver && editMode && "ring-2 ring-green-500 ring-offset-2"
         )}
@@ -116,7 +116,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
       >
         {isOver && editMode && (
           <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center z-10">
-            <span className="text-green-700 font-semibold bg-white/90 px-4 py-2 rounded-lg shadow-lg">
+            <span className="text-green-700 font-semibold bg-card/90 px-4 py-2 rounded-lg shadow-lg">
               ⬇ Upuść element tutaj
             </span>
           </div>
@@ -131,7 +131,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectElement(section.id);
@@ -166,7 +166,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectElement(section.id);
@@ -178,7 +178,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 )}
                 <div 
                   className={cn(
-                    "text-center text-gray-600",
+                    "text-center text-muted-foreground",
                     editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
                   )}
                   dangerouslySetInnerHTML={{ __html: section.description }}
@@ -249,12 +249,12 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
         }
         onSelectElement(section.id);
       }}
-      className={cn(
-        "block w-full cursor-pointer transition-all duration-200 bg-white mb-6 relative",
-        selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
-        isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
-        editMode && "min-h-[120px]" // Ensure section has minimum height for dropping
-      )}
+        className={cn(
+          "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative",
+          selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
+          isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
+          editMode && "min-h-[120px]" // Ensure section has minimum height for dropping
+        )}
       style={{
         backgroundColor: section.background_color || '#ffffff',
         color: section.text_color || '#000000',
@@ -262,11 +262,11 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
       }}
     >
       {isOver && editMode && (
-        <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center z-10">
-          <span className="text-green-700 font-semibold bg-white/90 px-4 py-2 rounded-lg shadow-lg">
-            ⬇ Upuść element tutaj
-          </span>
-        </div>
+          <div className="absolute inset-0 bg-green-500/10 pointer-events-none rounded-lg border-2 border-green-500 border-dashed flex items-center justify-center z-10">
+            <span className="text-green-700 font-semibold bg-card/90 px-4 py-2 rounded-lg shadow-lg">
+              ⬇ Upuść element tutaj
+            </span>
+          </div>
       )}
       
       <div className="max-w-6xl mx-auto">
@@ -278,7 +278,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectElement(section.id);
@@ -290,7 +290,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
             )}
             <h2 
               className={cn(
-                "text-4xl font-bold mb-6 text-black uppercase tracking-wide",
+                "text-4xl font-bold mb-6 text-foreground uppercase tracking-wide",
                 editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
               )}
               dangerouslySetInnerHTML={{ __html: section.title || '' }}
@@ -310,7 +310,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectElement(section.id);
@@ -322,7 +322,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
               )}
               <p 
                 className={cn(
-                  "text-gray-600 text-lg leading-relaxed",
+                  "text-muted-foreground text-lg leading-relaxed",
                   editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
                 )}
                 dangerouslySetInnerHTML={{ __html: section.description }}
@@ -417,7 +417,7 @@ const RegularSectionContent: React.FC<RegularSectionContentPropsExtended> = ({
               
               {/* Empty section placeholder in edit mode */}
               {editMode && sectionItems.length === 0 && (
-                <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50">
+                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border rounded-lg bg-muted/50">
                   <div className="flex flex-col items-center gap-3">
                     <div className="text-4xl">📦</div>
                     <p className="text-sm font-medium">Pusta sekcja</p>

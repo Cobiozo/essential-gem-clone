@@ -42,23 +42,23 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
       style={{...style, position: 'relative'}}
       className={cn(
         "group w-full mb-6 clear-both",
-        isOver && "ring-2 ring-blue-400 ring-offset-2",
+        isOver && "ring-2 ring-primary ring-offset-2",
         isDragging && "opacity-50 scale-105 z-50",
         className
       )}
     >
       {/* Hover overlay with drag handle */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-        <div className="absolute top-2 left-2 bg-blue-500 text-white p-1 rounded shadow-lg pointer-events-auto">
+        <div className="absolute top-2 left-2 bg-primary text-primary-foreground p-1 rounded shadow-lg pointer-events-auto">
           <div
-            className="cursor-grab active:cursor-grabbing p-1 hover:bg-blue-600 rounded transition-colors"
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-primary/90 rounded transition-colors"
             {...attributes}
             {...listeners}
           >
             <GripVertical className="w-4 h-4" />
           </div>
         </div>
-        <div className="absolute inset-0 border-2 border-blue-400 border-dashed rounded-md"></div>
+        <div className="absolute inset-0 border-2 border-primary border-dashed rounded-md"></div>
       </div>
       
       {/* Content */}

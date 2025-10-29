@@ -359,7 +359,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                   e.stopPropagation();
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded px-3 py-1 text-inherit focus:outline-none focus:ring-2 focus:ring-white/50"
+                className="flex-1 bg-muted/50 backdrop-blur-sm border border-border rounded px-3 py-1 text-inherit focus:outline-none focus:ring-2 focus:ring-ring"
                 autoFocus
               />
             ) : (
@@ -367,7 +367,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 <h3 
                   className={cn(
                     "font-semibold leading-tight",
-                    isEditMode && "cursor-text hover:bg-white/10 px-3 py-2 rounded transition-colors border-2 border-dashed border-white/30"
+                    isEditMode && "cursor-text hover:bg-muted/30 px-3 py-2 rounded transition-colors border-2 border-dashed border-border"
                   )}
                   dangerouslySetInnerHTML={{ __html: title }}
                   onClick={(e) => {
@@ -379,7 +379,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                   }}
                 />
                 {isEditMode && !isEditingTitle && (
-                  <span className="absolute -top-2 -right-8 text-xs text-white/60 bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  <span className="absolute -top-2 -right-8 text-xs text-muted-foreground bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                     Kliknij aby edytować
                   </span>
                 )}
@@ -411,7 +411,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                     e.stopPropagation();
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full bg-white/20 backdrop-blur-sm border border-white/30 rounded px-3 py-2 text-sm text-inherit focus:outline-none focus:ring-2 focus:ring-white/50 resize-none"
+                  className="w-full bg-muted/50 backdrop-blur-sm border border-border rounded px-3 py-2 text-sm text-inherit focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                   rows={3}
                   autoFocus
                 />
@@ -420,8 +420,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                   <p 
                     className={cn(
                       "text-sm opacity-90 mt-2 leading-relaxed max-w-md",
-                      isEditMode && "cursor-text hover:bg-white/10 px-3 py-2 rounded transition-colors border-2 border-dashed border-white/30",
-                      !description && isEditMode && "text-white/50 italic"
+                      isEditMode && "cursor-text hover:bg-muted/30 px-3 py-2 rounded transition-colors border-2 border-dashed border-border",
+                      !description && isEditMode && "text-muted-foreground italic"
                     )}
                     dangerouslySetInnerHTML={{ __html: description || (isEditMode ? 'Kliknij aby dodać opis...' : '') }}
                     onClick={(e) => {
@@ -433,7 +433,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                     }}
                   />
                   {isEditMode && !isEditingDescription && (
-                    <span className="absolute -top-1 right-0 text-xs text-white/60 bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    <span className="absolute -top-1 right-0 text-xs text-muted-foreground bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                       Kliknij aby edytować
                     </span>
                   )}
@@ -449,12 +449,12 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             <div 
               onClick={handleShare}
               aria-label={t('share.section')}
-              className="p-2 rounded-full hover:bg-white/20 cursor-pointer transition-colors"
+              className="p-2 rounded-full hover:bg-muted/30 cursor-pointer transition-colors"
             >
               <Share2 className="w-4 h-4" />
             </div>
           )}
-          <div className="p-2 rounded-full hover:bg-white/20 transition-colors">
+          <div className="p-2 rounded-full hover:bg-muted/30 transition-colors">
             {isOpen ? (
               <ChevronUp className="w-4 h-4" />
             ) : (

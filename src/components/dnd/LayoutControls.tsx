@@ -79,7 +79,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
   return (
     <div className={cn(
       "fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50",
-      "bg-white dark:bg-gray-800 border border-border rounded-lg shadow-xl",
+      "bg-card border border-border rounded-lg shadow-xl",
       "flex items-center gap-2 px-4 py-2",
       "animate-fade-in",
       className
@@ -206,7 +206,7 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
               variant="ghost"
               size="sm"
               onClick={onDeleteElement}
-              className="px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               title="Delete Element"
             >
               <Trash2 className="w-4 h-4" />

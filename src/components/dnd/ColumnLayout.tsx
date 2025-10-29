@@ -126,7 +126,7 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
     <div className={cn("w-full", className)}>
       {/* Column controls in edit mode */}
       {isEditMode && (
-        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300">
+        <div className="mb-4 p-3 bg-muted rounded-lg border-2 border-dashed border-border">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">Columns:</span>
@@ -264,15 +264,15 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       className={cn(
         "min-h-[100px] p-3 rounded-lg transition-all duration-200",
         isEditMode && "border border-dashed",
-        isEditMode && !isOver && "border-gray-300 bg-gray-50/50 dark:bg-gray-800/50",
-        isEditMode && isOver && "border-gray-300 bg-blue-50 dark:bg-blue-950/20 ring-2 ring-blue-400",
+        isEditMode && !isOver && "border-border bg-muted/50",
+        isEditMode && isOver && "border-border bg-primary/10 ring-2 ring-primary",
         !isEditMode && "bg-background"
       )}
     >
       {/* Column header in edit mode */}
       {isEditMode && (
-        <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b">
+          <span className="text-sm font-medium text-muted-foreground">
             Column {column.id.split('-col-')[1] ? parseInt(column.id.split('-col-')[1]) + 1 : 1}
           </span>
           {canRemove && (
@@ -280,7 +280,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
               variant="ghost"
               size="sm"
               onClick={onRemove}
-              className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -292,7 +292,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-3">
           {column.items.length === 0 && isEditMode && (
-            <div className="text-center py-8 text-gray-400">
+            <div className="text-center py-8 text-muted-foreground">
               <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">Drop items here</p>
             </div>

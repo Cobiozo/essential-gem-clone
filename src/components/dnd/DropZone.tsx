@@ -33,7 +33,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
       style={{ touchAction: 'none' }}
       className={cn(
         "relative min-h-[40px] transition-all duration-200",
-        isOver && "bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-400 border-dashed",
+        isOver && "bg-primary/10 border-2 border-primary border-dashed",
         !isOver && children && "opacity-100",
         !isOver && !children && "border border-border border-dashed opacity-50 hover:opacity-100",
         className
@@ -45,7 +45,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
       {!children && (
         <div className={cn(
           "absolute inset-0 flex items-center justify-center text-muted-foreground transition-opacity",
-          isOver && "text-blue-600 font-medium"
+          isOver && "text-primary font-medium"
         )}>
           <div className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
@@ -56,8 +56,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
       
       {/* Overlay indicator when dragging over */}
       {isOver && children && (
-        <div className="absolute inset-0 bg-blue-400/10 border-2 border-blue-400 border-dashed rounded flex items-center justify-center">
-          <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm font-medium shadow-lg">
+        <div className="absolute inset-0 bg-primary/10 border-2 border-primary border-dashed rounded flex items-center justify-center">
+          <div className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium shadow-lg">
             Drop here
           </div>
         </div>

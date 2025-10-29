@@ -17,11 +17,11 @@ export const RowControls: React.FC<RowControlsProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className={cn("mb-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border-2 border-dashed border-blue-300", className)}>
+    <div className={cn("mb-4 p-4 bg-primary/10 rounded-lg border-2 border-dashed border-primary/30", className)}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <Grid3X3 className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+          <Grid3X3 className="w-5 h-5 text-primary" />
+          <span className="text-sm font-semibold text-foreground">
             Add Row Container
           </span>
         </div>
@@ -31,7 +31,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             variant="outline"
             size="sm"
             onClick={() => onAddRow(1)}
-            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+            className="gap-2"
           >
             <Columns className="w-3 h-3" />
             <span className="text-xs">1 Col</span>
@@ -40,7 +40,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             variant="outline"
             size="sm"
             onClick={() => onAddRow(2)}
-            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+            className="gap-2"
           >
             <Columns2 className="w-3 h-3" />
             <span className="text-xs">2 Col</span>
@@ -49,7 +49,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             variant="outline"
             size="sm"
             onClick={() => onAddRow(3)}
-            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+            className="gap-2"
           >
             <Columns3 className="w-3 h-3" />
             <span className="text-xs">3 Col</span>
@@ -58,7 +58,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             variant="outline"
             size="sm"
             onClick={() => onAddRow(4)}
-            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+            className="gap-2"
           >
             <Grid3X3 className="w-3 h-3" />
             <span className="text-xs">4 Col</span>
@@ -66,7 +66,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
         </div>
       </div>
       
-      <p className="text-xs text-blue-600 dark:text-blue-300 mt-2">
+      <p className="text-xs text-muted-foreground mt-2">
         Row containers let you organize sections in columns with resizable widths and heights.
       </p>
     </div>

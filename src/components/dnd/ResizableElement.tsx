@@ -261,61 +261,61 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
       )}>
         {/* Corner handles */}
         <div
-          className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-nw-resize pointer-events-auto z-20"
+          className="absolute -top-1 -left-1 w-3 h-3 bg-primary border border-card rounded-sm cursor-nw-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'top-left')}
           onTouchStart={(e) => handleTouchStart(e, 'top-left')}
         />
         <div
-          className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-ne-resize pointer-events-auto z-20"
+          className="absolute -top-1 -right-1 w-3 h-3 bg-primary border border-card rounded-sm cursor-ne-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'top-right')}
           onTouchStart={(e) => handleTouchStart(e, 'top-right')}
         />
         <div
-          className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-sw-resize pointer-events-auto z-20"
+          className="absolute -bottom-1 -left-1 w-3 h-3 bg-primary border border-card rounded-sm cursor-sw-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'bottom-left')}
           onTouchStart={(e) => handleTouchStart(e, 'bottom-left')}
         />
         <div
-          className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-sm cursor-se-resize pointer-events-auto z-20"
+          className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary border border-card rounded-sm cursor-se-resize pointer-events-auto z-20"
           onMouseDown={(e) => handleMouseDown(e, 'bottom-right')}
           onTouchStart={(e) => handleTouchStart(e, 'bottom-right')}
         />
         
         {/* Edge handles */}
         <div
-          className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-6 h-2 bg-blue-500 border border-white rounded-sm cursor-n-resize pointer-events-auto z-20 flex items-center justify-center"
+          className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-6 h-2 bg-primary border border-card rounded-sm cursor-n-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'top')}
           onTouchStart={(e) => handleTouchStart(e, 'top')}
         >
-          <MoreHorizontal className="w-3 h-3 text-white" />
+          <MoreHorizontal className="w-3 h-3 text-primary-foreground" />
         </div>
         <div
-          className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-2 bg-blue-500 border border-white rounded-sm cursor-s-resize pointer-events-auto z-20 flex items-center justify-center"
+          className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-6 h-2 bg-primary border border-card rounded-sm cursor-s-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'bottom')}
           onTouchStart={(e) => handleTouchStart(e, 'bottom')}
         >
-          <MoreHorizontal className="w-3 h-3 text-white" />
+          <MoreHorizontal className="w-3 h-3 text-primary-foreground" />
         </div>
         <div
-          className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-6 bg-blue-500 border border-white rounded-sm cursor-w-resize pointer-events-auto z-20 flex items-center justify-center"
+          className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-6 bg-primary border border-card rounded-sm cursor-w-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'left')}
           onTouchStart={(e) => handleTouchStart(e, 'left')}
         >
-          <MoreVertical className="w-3 h-3 text-white" />
+          <MoreVertical className="w-3 h-3 text-primary-foreground" />
         </div>
         <div
-          className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-6 bg-blue-500 border border-white rounded-sm cursor-e-resize pointer-events-auto z-20 flex items-center justify-center"
+          className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-6 bg-primary border border-card rounded-sm cursor-e-resize pointer-events-auto z-20 flex items-center justify-center"
           onMouseDown={(e) => handleMouseDown(e, 'right')}
           onTouchStart={(e) => handleTouchStart(e, 'right')}
         >
-          <MoreVertical className="w-3 h-3 text-white" />
+          <MoreVertical className="w-3 h-3 text-primary-foreground" />
         </div>
 
         {/* Reset button */}
         <div className="absolute -top-8 -right-1 pointer-events-auto">
           <button
             onClick={resetSize}
-            className="bg-gray-600 hover:bg-gray-700 text-white p-1 rounded text-xs flex items-center gap-1"
+            className="bg-muted hover:bg-muted/80 text-foreground p-1 rounded text-xs flex items-center gap-1"
             title="Reset size"
           >
             <RotateCcw className="w-3 h-3" />
@@ -324,13 +324,13 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
         
         {/* Move handle */}
         <div className="absolute -top-8 -left-1 pointer-events-auto">
-          <div className="bg-green-500 text-white p-1 rounded text-xs flex items-center gap-1">
+          <div className="bg-primary text-primary-foreground p-1 rounded text-xs flex items-center gap-1">
             <Move className="w-3 h-3" />
           </div>
         </div>
 
         {/* Size display */}
-        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/75 text-white px-2 py-1 rounded text-xs whitespace-nowrap pointer-events-none">
+        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-popover/95 text-popover-foreground px-2 py-1 rounded text-xs whitespace-nowrap pointer-events-none border border-border">
           {typeof dimensions.width === 'number' ? `${Math.round(dimensions.width)}` : 'auto'} × {typeof dimensions.height === 'number' ? `${Math.round(dimensions.height)}` : 'auto'}
         </div>
       </div>
