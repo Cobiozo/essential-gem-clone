@@ -20,13 +20,13 @@ const LearnMoreSection = () => {
   ];
 
   return (
-    <section className="py-20 px-4 bg-white">
+    <section className="py-20 px-4 bg-background">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-6 text-black uppercase tracking-wide">
+          <h2 className="text-4xl font-bold mb-6 text-foreground uppercase tracking-wide">
             Dowiedz się więcej
           </h2>
-          <p className="text-gray-600 text-lg">
+          <p className="text-muted-foreground text-lg">
             Tu znajdziesz materiały dla wszystkich zainteresowanych omega-3
           </p>
         </div>
@@ -35,20 +35,20 @@ const LearnMoreSection = () => {
           {items.map((item, index) => (
             <div 
               key={index} 
-              className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+              className="bg-card rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border"
             >
               <button
                 onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                className="w-full flex items-center justify-between p-6 hover:bg-gray-50 transition-colors group"
+                className="w-full flex items-center justify-between p-6 hover:bg-muted transition-colors group"
               >
                 <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 rounded-full bg-[hsl(45,100%,51%)] flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300">
                     {index + 1}
                   </div>
-                  <span className="text-left text-black font-semibold text-lg">{item.title}</span>
+                  <span className="text-left text-foreground font-semibold text-lg">{item.title}</span>
                 </div>
                 <ChevronDown 
-                  className={`w-6 h-6 text-gray-400 group-hover:text-[hsl(45,100%,51%)] transition-all duration-300 ${
+                  className={`w-6 h-6 text-muted-foreground group-hover:text-primary transition-all duration-300 ${
                     expandedIndex === index ? 'rotate-180' : ''
                   }`} 
                 />
@@ -58,7 +58,7 @@ const LearnMoreSection = () => {
                   expandedIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
-                <div className="px-6 pb-6 text-gray-600 leading-relaxed">
+                <div className="px-6 pb-6 text-muted-foreground leading-relaxed">
                   {item.content}
                 </div>
               </div>
