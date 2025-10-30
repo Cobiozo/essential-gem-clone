@@ -23,6 +23,10 @@ import { ToggleEditor } from './editors/ToggleEditor';
 import { SoundCloudEditor } from './editors/SoundCloudEditor';
 import { HtmlEditor } from './editors/HtmlEditor';
 import { IconFieldEditor } from './editors/IconFieldEditor';
+import { AccessibilityEditor } from './editors/AccessibilityEditor';
+import { SidebarEditor } from './editors/SidebarEditor';
+import { PpomEditor } from './editors/PpomEditor';
+import { TextPathEditor } from './editors/TextPathEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -122,6 +126,18 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     case 'icon-field':
     case 'icon':
       return <IconFieldEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'accessibility':
+      return <AccessibilityEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'sidebar':
+      return <SidebarEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'ppom':
+      return <PpomEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'text-path':
+      return <TextPathEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types
