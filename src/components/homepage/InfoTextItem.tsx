@@ -23,9 +23,6 @@ export const InfoTextItem: React.FC<InfoTextItemProps> = ({ item }) => {
   if (item.font_size) titleStyle.fontSize = `${item.font_size}px`;
   if (item.font_weight) titleStyle.fontWeight = item.font_weight;
 
-  const iconBgColor = item.background_color || 'hsl(45,100%,51%)';
-  const iconColor = item.icon_color || '#ffffff';
-
   return (
     <div 
       className="text-center group hover:transform hover:scale-105 transition-all duration-300"
@@ -34,29 +31,32 @@ export const InfoTextItem: React.FC<InfoTextItemProps> = ({ item }) => {
       {IconComponent && (
         <div className="flex justify-center mb-6">
           <div 
-            className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300"
-            style={{ backgroundColor: iconBgColor }}
+            className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300 bg-primary"
+            style={item.background_color ? { backgroundColor: item.background_color } : undefined}
           >
-            <IconComponent className="w-10 h-10" style={{ color: iconColor }} />
+            <IconComponent 
+              className="w-10 h-10 text-primary-foreground" 
+              style={item.icon_color ? { color: item.icon_color } : undefined}
+            />
           </div>
         </div>
       )}
       <h3 
-        className="text-xl font-bold mb-3"
+        className="text-xl font-bold mb-3 text-foreground"
         style={titleStyle}
         dangerouslySetInnerHTML={{ __html: item.title || '' }}
       />
       {item.url ? (
         <a 
           href={item.url} 
-          className="hover:opacity-80 transition-colors font-medium"
-          style={{ color: item.text_color || '#6b7280' }}
+          className="hover:opacity-80 transition-colors font-medium text-muted-foreground"
+          style={item.text_color ? { color: item.text_color } : undefined}
           dangerouslySetInnerHTML={{ __html: item.description || '' }}
         />
       ) : (
         <p 
-          className="leading-relaxed"
-          style={{ color: item.text_color || '#6b7280' }}
+          className="leading-relaxed text-muted-foreground"
+          style={item.text_color ? { color: item.text_color } : undefined}
           dangerouslySetInnerHTML={{ __html: item.description || '' }}
         />
       )}
