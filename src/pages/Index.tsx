@@ -15,10 +15,14 @@ import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/components/ThemeProvider';
+import { isProblematicColor } from '@/lib/colorUtils';
 
 const Index = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [headerText, setHeaderText] = React.useState<string>('');
   const [authorText, setAuthorText] = React.useState<string>('');
   const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
@@ -241,15 +245,19 @@ const Index = () => {
           key={section.id}
           className="block w-full bg-card mb-4 md:mb-6"
           style={{
-            backgroundColor: section.background_color || undefined,
-            color: section.text_color || undefined,
+            backgroundColor: (section.background_color && !isProblematicColor(section.background_color, isDarkMode, 'background')) 
+                            ? section.background_color : undefined,
+            color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
+                  ? section.text_color : undefined,
             padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
           }}
         >
           <div className="max-w-6xl mx-auto px-4">
             <div className="space-y-3 md:space-y-4 py-4 md:py-6">
               {section.title && (
-                <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8" style={{ color: section.text_color || undefined }}>
+                <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8" 
+                    style={{ color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
+                                    ? section.text_color : undefined }}>
                   {section.title}
                 </h2>
               )}
@@ -294,8 +302,10 @@ const Index = () => {
         key={section.id}
         className="block w-full bg-card mb-4 md:mb-6"
         style={{
-          backgroundColor: section.background_color || undefined,
-          color: section.text_color || undefined,
+          backgroundColor: (section.background_color && !isProblematicColor(section.background_color, isDarkMode, 'background')) 
+                          ? section.background_color : undefined,
+          color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
+                ? section.text_color : undefined,
           padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
         }}
       >

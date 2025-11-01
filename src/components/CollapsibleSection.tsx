@@ -8,6 +8,8 @@ import { CMSContent } from '@/components/CMSContent';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { DeviceType } from '@/components/dnd/DevicePreview';
+import { useTheme } from '@/components/ThemeProvider';
+import { isProblematicColor } from '@/lib/colorUtils';
 interface CollapsibleSectionProps {
   title: string;
   description?: string;
@@ -122,6 +124,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   };
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -180,7 +184,9 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   // Header styles - modern card header design
   const customHeaderStyle = sectionStyle ? {
     flex: 'none',
-    backgroundColor: sectionStyle.background_gradient ? 'transparent' : sectionStyle.background_color || 'white',
+    backgroundColor: sectionStyle.background_gradient ? 'transparent' : 
+                     (sectionStyle.background_color && !isProblematicColor(sectionStyle.background_color, isDarkMode, 'background')) 
+                     ? sectionStyle.background_color : undefined,
     backgroundImage: sectionStyle.background_gradient ? sectionStyle.background_gradient : 
                       sectionStyle.background_image ? `url(${sectionStyle.background_image})` : 'none',
     backgroundPosition: sectionStyle.background_image_position || 'center',
@@ -196,7 +202,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     justifyContent: sectionStyle.justify_content || 'center',
     alignItems: sectionStyle.align_items || 'center',
     gap: `${sectionStyle.gap || 16}px`,
-    color: sectionStyle.text_color || 'white',
+    color: (sectionStyle.text_color && !isProblematicColor(sectionStyle.text_color, isDarkMode, 'text')) 
+           ? sectionStyle.text_color : undefined,
     fontSize: `${sectionStyle.font_size || 20}px`,
     fontWeight: sectionStyle.font_weight || 600,
     lineHeight: sectionStyle.line_height || 1.5,

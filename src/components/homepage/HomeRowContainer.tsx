@@ -5,6 +5,8 @@ import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { useTheme } from '@/components/ThemeProvider';
+import { isProblematicColor } from '@/lib/colorUtils';
 
 interface HomeRowContainerProps {
   row: CMSSection;
@@ -18,6 +20,8 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   items 
 }) => {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   
   const columnCount = row.row_column_count || 1;
   
@@ -46,13 +50,19 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
 
   // Style dla row container
   const rowStyles: React.CSSProperties = {
-    backgroundColor: row.background_color || 'transparent',
-    color: row.text_color || 'inherit',
     padding: row.padding ? `${row.padding}px 20px` : '40px 20px',
     marginTop: row.section_margin_top ? `${row.section_margin_top}px` : undefined,
     marginBottom: row.section_margin_bottom ? `${row.section_margin_bottom}px` : undefined,
     borderRadius: row.border_radius ? `${row.border_radius}px` : undefined,
   };
+  
+  // Apply colors only if they're not problematic
+  if (row.background_color && !isProblematicColor(row.background_color, isDarkMode, 'background')) {
+    rowStyles.backgroundColor = row.background_color;
+  }
+  if (row.text_color && !isProblematicColor(row.text_color, isDarkMode, 'text')) {
+    rowStyles.color = row.text_color;
+  }
 
   // Responsive grid class based on column count
   const getGridClass = () => {
@@ -74,7 +84,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
           <h2 
             className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4"
             style={{ 
-              color: row.text_color || 'inherit',
+              color: (row.text_color && !isProblematicColor(row.text_color, isDarkMode, 'text')) ? row.text_color : undefined,
               textAlign: row.alignment as any || 'left'
             }}
             dangerouslySetInnerHTML={{ __html: row.title }}
@@ -83,7 +93,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
             <div 
               className="text-base md:text-lg"
               style={{ 
-                color: row.text_color || 'inherit',
+                color: (row.text_color && !isProblematicColor(row.text_color, isDarkMode, 'text')) ? row.text_color : undefined,
                 textAlign: row.alignment as any || 'left'
               }}
               dangerouslySetInnerHTML={{ __html: row.description }}
@@ -172,7 +182,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                   return (
                     <div key={slotSection.id} className="space-y-4 py-6">
                       {slotSection.title && (
-                        <h2 className="text-3xl font-bold text-center mb-8" style={{ color: slotSection.text_color || 'inherit' }}>
+                        <h2 className="text-3xl font-bold text-center mb-8" style={{ color: (slotSection.text_color && !isProblematicColor(slotSection.text_color, isDarkMode, 'text')) ? slotSection.text_color : undefined }}>
                           {slotSection.title}
                         </h2>
                       )}
