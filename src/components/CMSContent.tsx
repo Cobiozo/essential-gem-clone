@@ -20,6 +20,8 @@ import { AlertElement } from './elements/AlertElement';
 import { TestimonialElement } from './elements/TestimonialElement';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { useTheme } from '@/components/ThemeProvider';
+import { isProblematicColor } from '@/lib/colorUtils';
 
 interface CMSContentProps {
   item: CMSItem;
@@ -28,6 +30,9 @@ interface CMSContentProps {
 }
 
 export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMode = false }) => {
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   const handleClick = () => {
     if (onClick) {
       onClick(item.title || '', item.url || undefined);
@@ -47,11 +52,20 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     );
   };
 
-  // Helper to apply item styles
+  // Helper to apply item styles with dark mode detection
   const applyItemStyles = (item: CMSItem) => {
     const inlineStyles: React.CSSProperties = {};
-    if (item.text_color) inlineStyles.color = item.text_color;
-    if (item.background_color) inlineStyles.backgroundColor = item.background_color;
+    
+    // Conditionally apply text color if not problematic
+    if (item.text_color && !isProblematicColor(item.text_color, isDarkMode, 'text')) {
+      inlineStyles.color = item.text_color;
+    }
+    
+    // Conditionally apply background color if not problematic
+    if (item.background_color && !isProblematicColor(item.background_color, isDarkMode, 'background')) {
+      inlineStyles.backgroundColor = item.background_color;
+    }
+    
     if (item.font_size) inlineStyles.fontSize = `${item.font_size}px`;
     if (item.padding) inlineStyles.padding = `${item.padding}px`;
     if (item.border_radius) inlineStyles.borderRadius = `${item.border_radius}px`;
