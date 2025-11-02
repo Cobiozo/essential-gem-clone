@@ -60,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                 <Link to="/training">
                   <Button variant="ghost" size="sm" className="hover:bg-muted h-8 sm:h-9 px-2 sm:px-3">
                     <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
-                    <span className="hidden md:inline text-xs sm:text-sm">Akademia</span>
+                    <span className="hidden md:inline text-xs sm:text-sm">{t('training.title')}</span>
                   </Button>
                 </Link>
                 <Button variant="ghost" size="sm" onClick={handleSignOut} className="hover:bg-muted h-8 sm:h-9 px-2 sm:px-3">

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft, Award, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface TrainingModule {
   id: string;
@@ -30,6 +31,7 @@ const Training = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadData = async () => {
@@ -102,15 +104,15 @@ const Training = () => {
         window.URL.revokeObjectURL(url);
         
         toast({
-          title: "Sukces",
-          description: "Certyfikat został pobrany",
+          title: t('common.success'),
+          description: t('training.downloadSuccess'),
         });
       }
     } catch (error) {
       console.error('Error downloading certificate:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać certyfikatu",
+        title: t('common.error'),
+        description: t('training.downloadError'),
         variant: "destructive"
       });
     }
@@ -215,8 +217,8 @@ const Training = () => {
     } catch (error) {
       console.error('Error fetching training modules:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można załadować modułów szkoleniowych",
+        title: t('common.error'),
+        description: t('training.loadError'),
         variant: "destructive"
       });
     }
@@ -228,10 +230,10 @@ const Training = () => {
   };
 
   const getModuleStatus = (completed: number, total: number) => {
-    if (total === 0) return { text: "Brak lekcji", variant: "secondary" as const };
-    if (completed === 0) return { text: "Nierozpoczęty", variant: "default" as const };
-    if (completed === total) return { text: "Ukończony", variant: "success" as const };
-    return { text: "W trakcie", variant: "warning" as const };
+    if (total === 0) return { text: t('training.statusNoLessons'), variant: "secondary" as const };
+    if (completed === 0) return { text: t('training.statusNotStarted'), variant: "default" as const };
+    if (completed === total) return { text: t('training.statusCompleted'), variant: "success" as const };
+    return { text: t('training.statusInProgress'), variant: "warning" as const };
   };
 
   if (loading) {
@@ -239,7 +241,7 @@ const Training = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Ładowanie Akademii...</p>
+          <p className="text-muted-foreground">{t('training.loadingAcademy')}</p>
         </div>
       </div>
     );
@@ -257,18 +259,18 @@ const Training = () => {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Strona główna
+            {t('training.backToHome')}
           </Button>
           <Separator orientation="vertical" className="h-6" />
-          <h1 className="text-xl font-semibold">Akademia</h1>
+          <h1 className="text-xl font-semibold">{t('training.title')}</h1>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Akademia</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('training.title')}</h1>
           <p className="text-muted-foreground">
-            Ukończ wszystkie wymagane szkolenia, aby zdobyć niezbędną wiedzę i certyfikaty.
+            {t('training.description')}
           </p>
         </div>
 
@@ -277,9 +279,9 @@ const Training = () => {
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Brak dostępnych szkoleń</h3>
+                <h3 className="text-lg font-medium mb-2">{t('training.noTrainings')}</h3>
                 <p className="text-muted-foreground">
-                  Obecnie nie ma żadnych szkoleń dostępnych dla Twojej roli.
+                  {t('training.noTrainingsDescription')}
                 </p>
               </div>
             </CardContent>
@@ -307,9 +309,9 @@ const Training = () => {
                       {/* Progress */}
                       <div>
                         <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium">Postęp</span>
+                          <span className="text-sm font-medium">{t('training.progress')}</span>
                           <span className="text-sm text-muted-foreground">
-                            {module.completed_lessons}/{module.lessons_count} lekcji
+                            {module.completed_lessons}/{module.lessons_count} {t('training.lessons')}
                           </span>
                         </div>
                         <Progress value={progress} className="h-2" />
@@ -319,12 +321,12 @@ const Training = () => {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <BookOpen className="h-4 w-4" />
-                          <span>{module.lessons_count} lekcji</span>
+                          <span>{module.lessons_count} {t('training.lessons')}</span>
                         </div>
                         {module.total_time_minutes > 0 && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
-                            <span>{module.total_time_minutes} min</span>
+                            <span>{module.total_time_minutes} {t('training.minutes')}</span>
                           </div>
                         )}
                       </div>
@@ -335,7 +337,7 @@ const Training = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Award className="h-5 w-5 text-primary" />
-                              <span className="text-sm font-medium">Certyfikat ukończenia</span>
+                              <span className="text-sm font-medium">{t('training.certificateCompleted')}</span>
                             </div>
                             <Button
                               size="sm"
@@ -357,12 +359,12 @@ const Training = () => {
                         {progress === 100 ? (
                           <>
                             <CheckCircle className="h-4 w-4 mr-2" />
-                            Przejrzyj ponownie
+                            {t('training.reviewAgain')}
                           </>
                         ) : progress > 0 ? (
-                          "Kontynuuj szkolenie"
+                          t('training.continueTraining')
                         ) : (
-                          "Rozpocznij szkolenie"
+                          t('training.startTraining')
                         )}
                       </Button>
                     </div>

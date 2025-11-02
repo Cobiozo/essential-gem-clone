@@ -1,7 +1,10 @@
 import React from 'react';
 import dropletIcon from '@/assets/pure-life-droplet.png';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const Footer = () => {
+  const { t } = useLanguage();
+  
   return (
     <footer className="bg-muted border-t border-border py-6">
       <div className="max-w-6xl mx-auto px-4">
@@ -14,17 +17,17 @@ const Footer = () => {
           
           {/* Copyright */}
           <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} Pure Life. Wszystkie prawa zastrzeżone.
+            © {new Date().getFullYear()} Pure Life. {t('footer.allRightsReserved')}
           </p>
           
           {/* Links */}
           <div className="flex items-center gap-4 text-sm">
             <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-              Polityka prywatności
+              {t('footer.privacyPolicy')}
             </a>
             <span className="text-muted-foreground/50">•</span>
             <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-              Regulamin
+              {t('footer.terms')}
             </a>
           </div>
         </div>
