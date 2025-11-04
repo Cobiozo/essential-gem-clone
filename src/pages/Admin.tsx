@@ -260,6 +260,17 @@ const Admin = () => {
   const [headerImageLoading, setHeaderImageLoading] = useState(false);
   const [headerImageUploadLoading, setHeaderImageUploadLoading] = useState(false);
   
+  // Favicon and OG Image management state
+  const [faviconUrl, setFaviconUrl] = useState('');
+  const [faviconUrlInput, setFaviconUrlInput] = useState('');
+  const [faviconLoading, setFaviconLoading] = useState(false);
+  const [faviconUploadLoading, setFaviconUploadLoading] = useState(false);
+  
+  const [ogImageUrl, setOgImageUrl] = useState('');
+  const [ogImageUrlInput, setOgImageUrlInput] = useState('');
+  const [ogImageLoading, setOgImageLoading] = useState(false);
+  const [ogImageUploadLoading, setOgImageUploadLoading] = useState(false);
+  
    // Password change state
    const [passwordData, setPasswordData] = useState({
      currentPassword: '',
@@ -1104,6 +1115,202 @@ const Admin = () => {
     }
   };
 
+  // Page Settings (Favicon & OG Image) Management
+  const loadPageSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('page_settings')
+        .select('favicon_url, og_image_url')
+        .eq('page_type', 'homepage')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setFaviconUrl(data.favicon_url || '');
+        setOgImageUrl(data.og_image_url || '');
+      }
+    } catch (error) {
+      console.error('Error loading page settings:', error);
+    }
+  };
+
+  const updatePageSettings = async (updates: { favicon_url?: string; og_image_url?: string }) => {
+    try {
+      const { data: existing } = await supabase
+        .from('page_settings')
+        .select('id')
+        .eq('page_type', 'homepage')
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('page_settings')
+          .update(updates)
+          .eq('id', existing.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('page_settings')
+          .insert({
+            page_type: 'homepage',
+            ...updates
+          });
+        
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Sukces",
+        description: "Ustawienia zostały zaktualizowane",
+      });
+    } catch (error: any) {
+      console.error('Error updating page settings:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zaktualizować ustawień",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateFavicon = async (url: string) => {
+    try {
+      setFaviconLoading(true);
+      await updatePageSettings({ favicon_url: url });
+      setFaviconUrl(url);
+      setFaviconUrlInput('');
+    } finally {
+      setFaviconLoading(false);
+    }
+  };
+
+  const handleFaviconUpload = async (file: File) => {
+    try {
+      setFaviconUploadLoading(true);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `favicon-${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cms-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('cms-images')
+        .getPublicUrl(fileName);
+
+      await updateFavicon(publicUrl);
+      
+    } catch (error: any) {
+      console.error('Error uploading favicon:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się przesłać favicon",
+        variant: "destructive",
+      });
+    } finally {
+      setFaviconUploadLoading(false);
+    }
+  };
+
+  const handleFaviconFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const validTypes = ['image/x-icon', 'image/png', 'image/svg+xml'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Błąd",
+          description: "Obsługiwane formaty: ICO, PNG, SVG",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (file.size > 1 * 1024 * 1024) {
+        toast({
+          title: "Błąd",
+          description: "Rozmiar pliku nie może przekraczać 1MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      handleFaviconUpload(file);
+    }
+  };
+
+  const updateOgImage = async (url: string) => {
+    try {
+      setOgImageLoading(true);
+      await updatePageSettings({ og_image_url: url });
+      setOgImageUrl(url);
+      setOgImageUrlInput('');
+    } finally {
+      setOgImageLoading(false);
+    }
+  };
+
+  const handleOgImageUpload = async (file: File) => {
+    try {
+      setOgImageUploadLoading(true);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `og-image-${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cms-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('cms-images')
+        .getPublicUrl(fileName);
+
+      await updateOgImage(publicUrl);
+      
+    } catch (error: any) {
+      console.error('Error uploading OG image:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się przesłać obrazu OG",
+        variant: "destructive",
+      });
+    } finally {
+      setOgImageUploadLoading(false);
+    }
+  };
+
+  const handleOgImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Błąd",
+          description: "Obsługiwane formaty: JPG, PNG, GIF, WEBP",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Błąd",
+          description: "Rozmiar pliku nie może przekraczać 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      handleOgImageUpload(file);
+    }
+  };
+
   // Sort users function
   const sortedUsers = [...users].sort((a, b) => {
     let aValue: any = a[userSortBy];
@@ -1288,6 +1495,7 @@ const Admin = () => {
      if (activeTab === 'settings' && isAdmin) {
        loadSiteLogo();
        loadHeaderImage();
+       loadPageSettings();
      }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
@@ -2930,6 +3138,172 @@ const Admin = () => {
                       </div>
                     </div>
                   )}
+                 </CardContent>
+               </Card>
+             </div>
+             
+             {/* Favicon Management */}
+             <div className="mb-8">
+               <Card>
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <Layout className="w-5 h-5" />
+                     Favicon strony
+                   </CardTitle>
+                   <CardDescription>
+                     Zarządzaj favicon wyświetlaną w zakładce przeglądarki
+                   </CardDescription>
+                 </CardHeader>
+                 <CardContent className="space-y-6">
+                   {faviconUrl && (
+                     <div>
+                       <Label className="text-sm font-medium">Aktualna favicon</Label>
+                       <div className="mt-2 p-4 border border-border rounded-lg bg-muted/50 flex items-center justify-center">
+                         <img 
+                           src={faviconUrl} 
+                           alt="Current Favicon" 
+                           className="max-w-[32px] max-h-[32px] object-contain"
+                         />
+                       </div>
+                     </div>
+                   )}
+
+                   <div>
+                     <Label className="text-sm font-medium">Prześlij z urządzenia</Label>
+                     <div className="mt-2">
+                       <input
+                         type="file"
+                         accept="image/x-icon,image/png,image/svg+xml"
+                         onChange={handleFaviconFileChange}
+                         disabled={faviconUploadLoading}
+                         className="block w-full text-sm text-muted-foreground
+                           file:mr-4 file:py-2 file:px-4
+                           file:rounded-md file:border-0
+                           file:text-sm file:font-medium
+                           file:bg-primary file:text-primary-foreground
+                           hover:file:bg-primary/90
+                           file:disabled:opacity-50 file:disabled:cursor-not-allowed"
+                       />
+                       <p className="text-xs text-muted-foreground mt-1">
+                         Obsługiwane formaty: ICO, PNG, SVG (max 1MB, zalecane: 32x32px)
+                       </p>
+                     </div>
+                   </div>
+
+                   <div>
+                     <Label htmlFor="favicon-url" className="text-sm font-medium">
+                       Lub podaj adres URL
+                     </Label>
+                     <div className="mt-2 flex gap-2">
+                       <Input
+                         id="favicon-url"
+                         type="url"
+                         value={faviconUrlInput}
+                         onChange={(e) => setFaviconUrlInput(e.target.value)}
+                         placeholder="https://example.com/favicon.ico"
+                         disabled={faviconLoading}
+                       />
+                       <Button
+                         onClick={() => updateFavicon(faviconUrlInput)}
+                         disabled={faviconLoading || !faviconUrlInput.trim()}
+                         className="flex items-center gap-2"
+                       >
+                         <Save className="w-4 h-4" />
+                         {faviconLoading ? 'Zapisywanie...' : 'Ustaw'}
+                       </Button>
+                     </div>
+                   </div>
+
+                   {(faviconUploadLoading || faviconLoading) && (
+                     <div className="text-center text-sm text-muted-foreground">
+                       <div className="animate-pulse">
+                         {faviconUploadLoading ? 'Przesyłanie favicon...' : 'Zapisywanie...'}
+                       </div>
+                     </div>
+                   )}
+                 </CardContent>
+               </Card>
+             </div>
+
+             {/* OG Image Management */}
+             <div className="mb-8">
+               <Card>
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                     <Layout className="w-5 h-5" />
+                     Open Graph Image
+                   </CardTitle>
+                   <CardDescription>
+                     Zarządzaj obrazem wyświetlanym przy udostępnianiu w mediach społecznościowych
+                   </CardDescription>
+                 </CardHeader>
+                 <CardContent className="space-y-6">
+                   {ogImageUrl && (
+                     <div>
+                       <Label className="text-sm font-medium">Aktualny obraz OG</Label>
+                       <div className="mt-2 p-4 border border-border rounded-lg bg-muted/50 flex items-center justify-center">
+                         <img 
+                           src={ogImageUrl} 
+                           alt="Current OG Image" 
+                           className="max-w-full h-auto max-h-48 object-contain"
+                         />
+                       </div>
+                     </div>
+                   )}
+
+                   <div>
+                     <Label className="text-sm font-medium">Prześlij z urządzenia</Label>
+                     <div className="mt-2">
+                       <input
+                         type="file"
+                         accept="image/*"
+                         onChange={handleOgImageFileChange}
+                         disabled={ogImageUploadLoading}
+                         className="block w-full text-sm text-muted-foreground
+                           file:mr-4 file:py-2 file:px-4
+                           file:rounded-md file:border-0
+                           file:text-sm file:font-medium
+                           file:bg-primary file:text-primary-foreground
+                           hover:file:bg-primary/90
+                           file:disabled:opacity-50 file:disabled:cursor-not-allowed"
+                       />
+                       <p className="text-xs text-muted-foreground mt-1">
+                         Obsługiwane formaty: JPG, PNG, GIF, WEBP (max 5MB, zalecane: 1200x630px)
+                       </p>
+                     </div>
+                   </div>
+
+                   <div>
+                     <Label htmlFor="og-image-url" className="text-sm font-medium">
+                       Lub podaj adres URL
+                     </Label>
+                     <div className="mt-2 flex gap-2">
+                       <Input
+                         id="og-image-url"
+                         type="url"
+                         value={ogImageUrlInput}
+                         onChange={(e) => setOgImageUrlInput(e.target.value)}
+                         placeholder="https://example.com/og-image.jpg"
+                         disabled={ogImageLoading}
+                       />
+                       <Button
+                         onClick={() => updateOgImage(ogImageUrlInput)}
+                         disabled={ogImageLoading || !ogImageUrlInput.trim()}
+                         className="flex items-center gap-2"
+                       >
+                         <Save className="w-4 h-4" />
+                         {ogImageLoading ? 'Zapisywanie...' : 'Ustaw'}
+                       </Button>
+                     </div>
+                   </div>
+
+                   {(ogImageUploadLoading || ogImageLoading) && (
+                     <div className="text-center text-sm text-muted-foreground">
+                       <div className="animate-pulse">
+                         {ogImageUploadLoading ? 'Przesyłanie obrazu OG...' : 'Zapisywanie...'}
+                       </div>
+                     </div>
+                   )}
                  </CardContent>
                </Card>
              </div>

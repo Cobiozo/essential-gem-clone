@@ -437,8 +437,10 @@ export type Database = {
         Row: {
           column_count: number
           created_at: string
+          favicon_url: string | null
           id: string
           layout_mode: string
+          og_image_url: string | null
           page_alignment: string | null
           page_margin: number | null
           page_type: string
@@ -447,8 +449,10 @@ export type Database = {
         Insert: {
           column_count?: number
           created_at?: string
+          favicon_url?: string | null
           id?: string
           layout_mode?: string
+          og_image_url?: string | null
           page_alignment?: string | null
           page_margin?: number | null
           page_type?: string
@@ -457,8 +461,10 @@ export type Database = {
         Update: {
           column_count?: number
           created_at?: string
+          favicon_url?: string | null
           id?: string
           layout_mode?: string
+          og_image_url?: string | null
           page_alignment?: string | null
           page_margin?: number | null
           page_type?: string
