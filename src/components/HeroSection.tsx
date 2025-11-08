@@ -9,6 +9,17 @@ interface HeroSectionProps {
   showLoginButton?: boolean;
 }
 
+// Helper function to remove problematic inline color styles
+const cleanInlineColors = (html: string): string => {
+  if (!html) return html;
+  // Remove color styles from inline styles
+  return html.replace(/color:\s*rgb\([^)]+\);?/gi, '')
+             .replace(/color:\s*#[0-9a-f]{3,6};?/gi, '')
+             .replace(/color:\s*[a-z]+;?/gi, '')
+             .replace(/style=""/gi, '')
+             .replace(/style=''/gi, '');
+};
+
 export const HeroSection: React.FC<HeroSectionProps> = ({
   headerImage,
   headerText,
@@ -44,7 +55,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {headerText ? (
             <div 
               className="text-xs sm:text-sm md:text-base text-foreground max-w-3xl mx-auto leading-relaxed px-4"
-              dangerouslySetInnerHTML={{ __html: headerText }}
+              dangerouslySetInnerHTML={{ __html: cleanInlineColors(headerText) }}
             />
           ) : (
             <p className="text-xs sm:text-sm md:text-base text-foreground max-w-3xl mx-auto leading-relaxed px-4">
@@ -58,7 +69,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {authorText && (
             <div 
               className="text-xs sm:text-sm text-foreground/90 px-4"
-              dangerouslySetInnerHTML={{ __html: authorText }}
+              dangerouslySetInnerHTML={{ __html: cleanInlineColors(authorText) }}
             />
           )}
         </div>
