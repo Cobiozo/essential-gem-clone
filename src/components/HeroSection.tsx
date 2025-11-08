@@ -43,11 +43,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Description */}
           {headerText ? (
             <div 
-              className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4"
+              className="text-xs sm:text-sm md:text-base text-foreground max-w-3xl mx-auto leading-relaxed px-4"
               dangerouslySetInnerHTML={{ __html: headerText }}
             />
           ) : (
-            <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4">
+            <p className="text-xs sm:text-sm md:text-base text-foreground max-w-3xl mx-auto leading-relaxed px-4">
               Cieszymy się, że możesz dołączyć do zespołu Pure Life. Tutaj znajdziesz wszystkie potrzebne informacje, 
               narzędzia i materiały edukacyjne. Poniżej znajdziesz odpowiednie sekcje z zasobami oraz szkoleniami. 
               Życzymy owocnej pracy!
@@ -57,7 +57,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Author */}
           {authorText && (
             <div 
-              className="text-xs sm:text-sm text-muted-foreground/80 px-4"
+              className="text-xs sm:text-sm text-foreground/90 px-4"
               dangerouslySetInnerHTML={{ __html: authorText }}
             />
           )}
