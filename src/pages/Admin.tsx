@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -150,6 +150,8 @@ const Admin = () => {
   const [pageItemTitleStyle, setPageItemTitleStyle] = useState<any>(null);
   const [newPageItemTextStyle, setNewPageItemTextStyle] = useState<any>(null);
   const [newPageItemTitleStyle, setNewPageItemTitleStyle] = useState<any>(null);
+  const [sectionSearchQuery, setSectionSearchQuery] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [newItem, setNewItem] = useState({
     type: 'button',
     title: '',
@@ -443,6 +445,38 @@ const Admin = () => {
         description: t('error.confirmEmail'),
         variant: "destructive",
       });
+    }
+  };
+
+  const deleteUser = async (userId: string, userEmail: string) => {
+    if (!confirm(`${t('admin.confirmDeleteUser')} ${userEmail}?`)) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: t('toast.success'),
+        description: t('admin.deleteUserSuccess'),
+      });
+
+      await fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: t('toast.error'),
+        description: error.message || t('admin.deleteUserError'),
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -2524,6 +2558,30 @@ const Admin = () => {
             <div className="mb-6 sm:mb-8">
           <div className="flex flex-col gap-4 mb-4">
             <h2 className="text-lg sm:text-xl font-semibold">{t('admin.sectionManagement')}</h2>
+            
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={t('admin.searchSections')}
+                value={sectionSearchQuery}
+                onChange={(e) => setSectionSearchQuery(e.target.value)}
+                className="pl-10 pr-20"
+              />
+              {sectionSearchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSectionSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 text-xs"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  {t('admin.clearSearch')}
+                </Button>
+              )}
+            </div>
+            
             <Dialog>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto">
@@ -2621,7 +2679,23 @@ const Admin = () => {
         </div>
 
         <div className="grid gap-4 sm:gap-6 lg:gap-8">
-          {sections.map((section) => {
+          {(() => {
+            const filteredSections = sections.filter((section) =>
+              section.title.toLowerCase().includes(sectionSearchQuery.toLowerCase()) ||
+              (section.description && section.description.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
+            );
+
+            if (filteredSections.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-8">
+                    <p className="text-center text-muted-foreground">{t('admin.noSectionsFound')}</p>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return filteredSections.map((section) => {
             const sectionItems = items.filter(i => i.section_id === section.id);
             
             return (
@@ -2885,7 +2959,8 @@ const Admin = () => {
                 </CardContent>
               </Card>
             );
-          })}
+          });
+          })()}
             </div>
           </TabsContent>
 
@@ -3832,16 +3907,29 @@ const Admin = () => {
                                    {passwordLoading ? 'Generowanie...' : 'Resetuj hasło'}
                                  </Button>
                                  
-                                 {userProfile.user_id !== user?.id && (
-                                   <Button
-                                     variant={userProfile.is_active ? "destructive" : "default"}
-                                     size="sm"
-                                     onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
-                                     className="text-xs"
-                                   >
-                                     {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
-                                   </Button>
-                                 )}
+                                  {userProfile.user_id !== user?.id && (
+                                    <>
+                                      <Button
+                                        variant={userProfile.is_active ? "destructive" : "default"}
+                                        size="sm"
+                                        onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
+                                        className="text-xs"
+                                      >
+                                        {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
+                                      </Button>
+                                      
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => deleteUser(userProfile.user_id, userProfile.email)}
+                                        disabled={deleteLoading}
+                                        className="text-xs"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-1" />
+                                        {t('admin.deleteUser')}
+                                      </Button>
+                                    </>
+                                  )}
                                 
                                 {userProfile.role === 'user' || userProfile.role === 'client' ? (
                                   <>

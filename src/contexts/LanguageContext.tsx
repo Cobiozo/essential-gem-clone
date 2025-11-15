@@ -171,6 +171,13 @@ const translations = {
     'admin.editPage': 'Edytuj stronę',
     'admin.editPageSection': 'Edytuj sekcję strony',
     'admin.editPageElement': 'Edytuj element strony',
+    'admin.deleteUser': 'Usuń użytkownika',
+    'admin.confirmDeleteUser': 'Czy na pewno chcesz usunąć tego użytkownika?',
+    'admin.deleteUserSuccess': 'Użytkownik został usunięty',
+    'admin.deleteUserError': 'Błąd podczas usuwania użytkownika',
+    'admin.searchSections': 'Szukaj sekcji...',
+    'admin.clearSearch': 'Wyczyść',
+    'admin.noSectionsFound': 'Nie znaleziono sekcji pasujących do wyszukiwania',
     
     // Dialog titles
     'dialog.addSection': 'Dodaj nową sekcję',
@@ -591,6 +598,13 @@ const translations = {
     'admin.editPage': 'Seite bearbeiten',
     'admin.editPageSection': 'Seitenbereich bearbeiten',
     'admin.editPageElement': 'Seitenelement bearbeiten',
+    'admin.deleteUser': 'Benutzer löschen',
+    'admin.confirmDeleteUser': 'Möchten Sie diesen Benutzer wirklich löschen?',
+    'admin.deleteUserSuccess': 'Benutzer wurde gelöscht',
+    'admin.deleteUserError': 'Fehler beim Löschen des Benutzers',
+    'admin.searchSections': 'Abschnitte suchen...',
+    'admin.clearSearch': 'Löschen',
+    'admin.noSectionsFound': 'Keine passenden Abschnitte gefunden',
     
     // Dialog titles
     'dialog.addSection': 'Neuen Bereich hinzufügen',
@@ -1011,6 +1025,13 @@ const translations = {
     'admin.editPage': 'Edit Page',
     'admin.editPageSection': 'Edit Page Section',
     'admin.editPageElement': 'Edit Page Element',
+    'admin.deleteUser': 'Delete User',
+    'admin.confirmDeleteUser': 'Are you sure you want to delete this user?',
+    'admin.deleteUserSuccess': 'User deleted successfully',
+    'admin.deleteUserError': 'Error deleting user',
+    'admin.searchSections': 'Search sections...',
+    'admin.clearSearch': 'Clear',
+    'admin.noSectionsFound': 'No sections found matching your search',
     
     // Dialog titles
     'dialog.addSection': 'Add New Section',
