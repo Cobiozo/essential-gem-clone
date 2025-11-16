@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -151,6 +151,7 @@ const Admin = () => {
   const [newPageItemTextStyle, setNewPageItemTextStyle] = useState<any>(null);
   const [newPageItemTitleStyle, setNewPageItemTitleStyle] = useState<any>(null);
   const [sectionSearchQuery, setSectionSearchQuery] = useState('');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [newItem, setNewItem] = useState({
     type: 'button',
@@ -1345,28 +1346,43 @@ const Admin = () => {
     }
   };
 
-  // Sort users function
-  const sortedUsers = [...users].sort((a, b) => {
-    let aValue: any = a[userSortBy];
-    let bValue: any = b[userSortBy];
+  // Sort and filter users function
+  const filteredAndSortedUsers = useMemo(() => {
+    // First filter
+    const filtered = users.filter((user) => {
+      if (!userSearchQuery) return true;
+      const searchLower = userSearchQuery.toLowerCase();
+      return (
+        user.email.toLowerCase().includes(searchLower) ||
+        (user.first_name && user.first_name.toLowerCase().includes(searchLower)) ||
+        (user.last_name && user.last_name.toLowerCase().includes(searchLower)) ||
+        (user.eq_id && user.eq_id.toLowerCase().includes(searchLower))
+      );
+    });
+    
+    // Then sort
+    return filtered.sort((a, b) => {
+      let aValue: any = a[userSortBy];
+      let bValue: any = b[userSortBy];
 
-    if (userSortBy === 'created_at') {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
-    } else if (userSortBy === 'is_active') {
-      aValue = aValue ? 1 : 0;
-      bValue = bValue ? 1 : 0;
-    } else if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
+      if (userSortBy === 'created_at') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      } else if (userSortBy === 'is_active') {
+        aValue = aValue ? 1 : 0;
+        bValue = bValue ? 1 : 0;
+      } else if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
 
-    if (userSortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
+      if (userSortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [users, userSearchQuery, userSortBy, userSortOrder]);
 
   // Export functions
   const getRoleDisplayName = (role: string) => {
@@ -3728,9 +3744,9 @@ const Admin = () => {
                               </div>
                             </div>
                           </CardContent>
-                        </Card>
+                      </Card>
                       ))}
-                    </div>
+                  </div>
                   )}
                 </div>
               </CardContent>
@@ -3758,14 +3774,40 @@ const Admin = () => {
                   <div className="flex justify-center items-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Action Bar */}
-                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                      <div className="flex items-center gap-4">
-                        <p className="text-sm text-muted-foreground">
-                          Łączna liczba klientów: {users.length}
-                        </p>
+                 ) : (
+                   <div className="space-y-4">
+                     {/* Search Bar */}
+                     <div className="relative">
+                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                       <Input
+                         type="text"
+                         placeholder={t('admin.searchUsers')}
+                         value={userSearchQuery}
+                         onChange={(e) => setUserSearchQuery(e.target.value)}
+                         className="pl-10 pr-20"
+                       />
+                       {userSearchQuery && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => setUserSearchQuery('')}
+                           className="absolute right-2 top-1/2 -translate-y-1/2 h-7 text-xs"
+                         >
+                           <X className="w-3 h-3 mr-1" />
+                           {t('admin.clearSearch')}
+                         </Button>
+                       )}
+                     </div>
+                     
+                     {/* Action Bar */}
+                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                       <div className="flex items-center gap-4">
+                         <p className="text-sm text-muted-foreground">
+                           {userSearchQuery 
+                             ? `${t('admin.showing')} ${filteredAndSortedUsers.length} ${t('admin.of')} ${users.length}`
+                             : `${t('admin.totalUsers')}: ${users.length}`
+                           }
+                         </p>
                         <Button variant="outline" size="sm" onClick={fetchUsers}>
                           Odśwież listę
                         </Button>
@@ -3826,10 +3868,22 @@ const Admin = () => {
                           <SelectItem value="desc">Malejąco</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {sortedUsers.map((userProfile) => (
+                     </div>
+                     
+                     {filteredAndSortedUsers.length === 0 ? (
+                       <Card>
+                         <CardContent className="py-8">
+                           <p className="text-center text-muted-foreground">
+                             {userSearchQuery 
+                               ? t('admin.noUsersFound') 
+                               : t('admin.noUsers')
+                             }
+                           </p>
+                         </CardContent>
+                       </Card>
+                     ) : (
+                       <div className="space-y-3">
+                         {filteredAndSortedUsers.map((userProfile) => (
                         <Card key={userProfile.id} className="p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div className="space-y-1">
@@ -3978,20 +4032,14 @@ const Admin = () => {
                                       Zmień na Klienta
                                     </Button>
                                   )
-                                ) : null}
-                              </div>
-                          </div>
-                        </Card>
-                      ))}
-                      
-                      {users.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                          <p>Brak klientów w systemie</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                                 ) : null}
+                               </div>
+                           </div>
+                         </Card>
+                       ))}
+                     </div>
+                   )}
+                   </div>
                 )}
               </CardContent>
             </Card>
