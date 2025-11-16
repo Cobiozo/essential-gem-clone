@@ -178,6 +178,11 @@ const translations = {
     'admin.searchSections': 'Szukaj sekcji...',
     'admin.clearSearch': 'Wyczyść',
     'admin.noSectionsFound': 'Nie znaleziono sekcji pasujących do wyszukiwania',
+    'admin.searchUsers': 'Szukaj użytkowników...',
+    'admin.noUsersFound': 'Nie znaleziono użytkowników',
+    'admin.showing': 'Wyświetlane',
+    'admin.of': 'z',
+    'admin.totalUsers': 'Łączna liczba klientów',
     
     // Dialog titles
     'dialog.addSection': 'Dodaj nową sekcję',
@@ -605,6 +610,11 @@ const translations = {
     'admin.searchSections': 'Abschnitte suchen...',
     'admin.clearSearch': 'Löschen',
     'admin.noSectionsFound': 'Keine passenden Abschnitte gefunden',
+    'admin.searchUsers': 'Benutzer suchen...',
+    'admin.noUsersFound': 'Keine Benutzer gefunden',
+    'admin.showing': 'Anzeigen',
+    'admin.of': 'von',
+    'admin.totalUsers': 'Gesamtzahl der Kunden',
     
     // Dialog titles
     'dialog.addSection': 'Neuen Bereich hinzufügen',
@@ -1032,6 +1042,11 @@ const translations = {
     'admin.searchSections': 'Search sections...',
     'admin.clearSearch': 'Clear',
     'admin.noSectionsFound': 'No sections found matching your search',
+    'admin.searchUsers': 'Search users...',
+    'admin.noUsersFound': 'No users found',
+    'admin.showing': 'Showing',
+    'admin.of': 'of',
+    'admin.totalUsers': 'Total clients',
     
     // Dialog titles
     'dialog.addSection': 'Add New Section',
