@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
@@ -2530,7 +2531,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 mb-6 gap-1">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
@@ -2729,7 +2730,7 @@ const Admin = () => {
                             <CardDescription className="text-xs sm:text-sm mt-1">
                               {t('common.position')}: {section.position} | Elementów: {sectionItems.length}
                             </CardDescription>
-                           <div className="flex flex-wrap gap-2 mt-2">
+                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
                              <div className="flex items-center space-x-2">
                                <input
                                  type="checkbox"
@@ -3823,29 +3824,37 @@ const Admin = () => {
                           Dodaj klienta
                         </Button>
                         
-                        <div className="flex gap-1">
-                          <Button variant="outline" size="sm" onClick={exportToPDF}>
-                            <Download className="w-4 h-4 mr-1" />
-                            PDF
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={exportToXLSX}>
-                            <Download className="w-4 h-4 mr-1" />
-                            XLS
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={exportToXML}>
-                            <Download className="w-4 h-4 mr-1" />
-                            XML
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={exportToZIP}>
-                            <Download className="w-4 h-4 mr-1" />
-                            ZIP
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Download className="w-4 h-4 mr-2" />
+                              Eksportuj
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-background">
+                            <DropdownMenuItem onClick={exportToPDF}>
+                              <Download className="w-4 h-4 mr-2" />
+                              PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={exportToXLSX}>
+                              <Download className="w-4 h-4 mr-2" />
+                              Excel (XLS)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={exportToXML}>
+                              <Download className="w-4 h-4 mr-2" />
+                              XML
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={exportToZIP}>
+                              <Download className="w-4 h-4 mr-2" />
+                              ZIP
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
 
                     {/* Sorting Controls */}
-                    <div className="flex flex-wrap gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <SortAsc className="w-4 h-4" />
                       <span className="text-sm font-medium">Sortuj według:</span>
                       <Select value={userSortBy} onValueChange={(value: any) => setUserSortBy(value)}>
@@ -3937,15 +3946,15 @@ const Admin = () => {
                                 </p>
                              </div>
                             
-                              <div className="flex flex-col sm:flex-row gap-2">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2 w-full sm:w-auto">
                                 {!userProfile.email_confirmed_at && (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => confirmUserEmail(userProfile.user_id)}
-                                    className="text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                    className="text-sm min-h-[44px] sm:min-h-auto border-green-200 text-green-700 hover:bg-green-50"
                                   >
-                                    <Mail className="w-3 h-3 mr-1" />
+                                    <Mail className="w-4 h-4 mr-1" />
                                     Potwierdź email
                                   </Button>
                                 )}
@@ -3955,9 +3964,9 @@ const Admin = () => {
                                    size="sm"
                                    onClick={() => resetUserPassword(userProfile.email)}
                                    disabled={passwordLoading}
-                                   className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                   className="text-sm min-h-[44px] sm:min-h-auto border-blue-200 text-blue-700 hover:bg-blue-50"
                                  >
-                                   <Key className="w-3 h-3 mr-1" />
+                                   <Key className="w-4 h-4 mr-1" />
                                    {passwordLoading ? 'Generowanie...' : 'Resetuj hasło'}
                                  </Button>
                                  
@@ -3967,7 +3976,7 @@ const Admin = () => {
                                         variant={userProfile.is_active ? "destructive" : "default"}
                                         size="sm"
                                         onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
-                                        className="text-xs"
+                                        className="text-sm min-h-[44px] sm:min-h-auto"
                                       >
                                         {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
                                       </Button>
@@ -3977,9 +3986,9 @@ const Admin = () => {
                                         size="sm"
                                         onClick={() => deleteUser(userProfile.user_id, userProfile.email)}
                                         disabled={deleteLoading}
-                                        className="text-xs"
+                                        className="text-sm min-h-[44px] sm:min-h-auto"
                                       >
-                                        <Trash2 className="w-3 h-3 mr-1" />
+                                        <Trash2 className="w-4 h-4 mr-1" />
                                         {t('admin.deleteUser')}
                                       </Button>
                                     </>
@@ -3991,18 +4000,18 @@ const Admin = () => {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => updateUserRole(userProfile.user_id, 'admin')}
-                                      className="text-xs"
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
                                     >
-                                      <Users className="w-3 h-3 mr-1" />
+                                      <Users className="w-4 h-4 mr-1" />
                                       Awansuj na Admin
                                     </Button>
                                     <Button
                                       variant="outline"
                                       size="sm"
                                       onClick={() => updateUserRole(userProfile.user_id, 'partner')}
-                                      className="text-xs"
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
                                     >
-                                      <Users className="w-3 h-3 mr-1" />
+                                      <Users className="w-4 h-4 mr-1" />
                                       Ustaw jako Partner
                                     </Button>
                                   </>
@@ -4011,9 +4020,9 @@ const Admin = () => {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => updateUserRole(userProfile.user_id, 'user')}
-                                    className="text-xs"
+                                    className="text-sm min-h-[44px] sm:min-h-auto"
                                   >
-                                    <Users className="w-3 h-3 mr-1" />
+                                    <Users className="w-4 h-4 mr-1" />
                                     Zmień na Klienta
                                   </Button>
                                 ) : userProfile.role === 'admin' ? (
@@ -4026,9 +4035,9 @@ const Admin = () => {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => updateUserRole(userProfile.user_id, 'user')}
-                                      className="text-xs"
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
                                     >
-                                      <Users className="w-3 h-3 mr-1" />
+                                      <Users className="w-4 h-4 mr-1" />
                                       Zmień na Klienta
                                     </Button>
                                   )
