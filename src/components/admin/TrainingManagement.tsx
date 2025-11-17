@@ -401,16 +401,29 @@ const TrainingManagement = () => {
       console.log('=== GENERATING CERTIFICATE ===');
       console.log('User:', userName, 'Module:', moduleTitle);
       
-      // Fetch the default certificate template (only one should be active)
+      // STEP 1: Fetch user role
+      const { data: userRoles, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
+      }
+
+      const userRole = userRoles?.role || 'user'; // Default to 'user' if not found
+      console.log('✅ User role:', userRole);
+
+      // STEP 2: Fetch all active templates
       const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
         .select('*')
         .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1);
+        .order('updated_at', { ascending: false });
 
       if (templateError) {
-        console.error('Error fetching template:', templateError);
+        console.error('Error fetching templates:', templateError);
         toast({
           title: "Błąd",
           description: "Błąd podczas pobierania szablonu certyfikatu",
@@ -429,8 +442,18 @@ const TrainingManagement = () => {
         return;
       }
 
-      const template = templates[0]; // Use the default active template
-      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id);
+      // STEP 3: Find template matching user role
+      let template = templates.find(t => 
+        t.roles && Array.isArray(t.roles) && t.roles.includes(userRole)
+      );
+
+      // STEP 4: Use first active template as fallback if no role-specific template found
+      if (!template) {
+        console.warn(`⚠️ No template found for role '${userRole}', using fallback`);
+        template = templates[0];
+      }
+
+      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id, 'for role:', userRole);
       const layoutData = template.layout as { elements?: any[] };
       console.log('Template layout elements count:', layoutData?.elements?.length || 0);
 

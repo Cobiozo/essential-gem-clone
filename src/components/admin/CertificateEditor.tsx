@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Save, Trash2, FileText, Eye } from 'lucide-react';
@@ -18,6 +19,7 @@ interface CertificateTemplate {
     elements: TemplateElement[];
   };
   is_active: boolean;
+  roles: Array<'admin' | 'partner' | 'client' | 'specjalista' | 'user'>;
   created_at: string;
   updated_at: string;
 }
@@ -60,7 +62,11 @@ const CertificateEditor = () => {
       console.log('Fetched templates:', data);
       console.log('Active template:', data?.find(t => t.is_active));
       
-      setTemplates((data || []) as unknown as CertificateTemplate[]);
+      setTemplates((data || []).map(t => ({
+        ...t,
+        layout: t.layout as unknown as { elements: TemplateElement[] },
+        roles: (t.roles || []) as Array<'admin' | 'partner' | 'client' | 'specjalista' | 'user'>
+      })));
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast({
@@ -309,6 +315,42 @@ const CertificateEditor = () => {
     }
   };
 
+  const handleRoleToggle = async (templateId: string, role: string, checked: boolean) => {
+    try {
+      const template = templates.find(t => t.id === templateId);
+      if (!template) return;
+
+      const currentRoles = template.roles || [];
+      const newRoles = checked
+        ? [...currentRoles, role as 'admin' | 'partner' | 'client' | 'specjalista' | 'user']
+        : currentRoles.filter(r => r !== role);
+
+      const { error } = await supabase
+        .from('certificate_templates')
+        .update({ roles: newRoles, updated_at: new Date().toISOString() })
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      // Update local state
+      setTemplates(templates.map(t => 
+        t.id === templateId ? { ...t, roles: newRoles } : t
+      ));
+
+      toast({
+        title: "Sukces",
+        description: `Role zostały zaktualizowane dla szablonu "${template.name}"`,
+      });
+    } catch (error) {
+      console.error('Error updating template roles:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie można zaktualizować ról szablonu",
+        variant: "destructive"
+      });
+    }
+  };
+
   const previewCertificate = async (template: CertificateTemplate) => {
     try {
       console.log('🔍 Generating preview certificate for template:', template.name);
@@ -497,12 +539,42 @@ const CertificateEditor = () => {
                 {template.layout.elements.length} elementów
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center gap-2 mb-2">
-                {template.is_active && (
-                  <Badge variant="default">Domyślny</Badge>
-                )}
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  {template.is_active && (
+                    <Badge variant="default">Domyślny</Badge>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Przypisane role</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-muted/50 rounded-lg">
+                    {(['admin', 'partner', 'client', 'specjalista', 'user'] as const).map((role) => (
+                      <div key={role} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`role-${template.id}-${role}`}
+                          checked={template.roles?.includes(role) || false}
+                          onCheckedChange={(checked) => handleRoleToggle(template.id, role, checked as boolean)}
+                        />
+                        <Label
+                          htmlFor={`role-${template.id}-${role}`}
+                          className="text-xs cursor-pointer capitalize"
+                        >
+                          {role === 'admin' ? 'Administrator' : 
+                           role === 'partner' ? 'Partner' :
+                           role === 'client' ? 'Klient' :
+                           role === 'specjalista' ? 'Specjalista' : 'Użytkownik'}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Wybierz role użytkowników, które będą używać tego szablonu
+                  </p>
+                </div>
               </div>
+              
               <Button
                 variant="outline"
                 className="w-full"
