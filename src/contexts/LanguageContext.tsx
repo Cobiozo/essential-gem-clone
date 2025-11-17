@@ -395,6 +395,19 @@ const translations = {
     'trainingModule.next': 'Następna',
     'trainingModule.finish': 'Zakończ',
     'trainingModule.lessonCompleted': 'Lekcja ukończona!',
+    
+    // Certificates
+    'certificates.assignedRoles': 'Przypisane role',
+    'certificates.rolesDescription': 'Wybierz role użytkowników, które będą używać tego szablonu certyfikatu',
+    'certificates.noRolesAssigned': 'Brak przypisanych ról',
+    'certificates.roleUpdated': 'Role zostały zaktualizowane',
+    
+    // Roles
+    'roles.admin': 'Administrator',
+    'roles.partner': 'Partner',
+    'roles.client': 'Klient',
+    'roles.specjalista': 'Specjalista',
+    'roles.user': 'Użytkownik',
     'trainingModule.lessonCompletedDescription': 'Pomyślnie ukończyłeś lekcję',
     'trainingModule.moduleCompleted': 'Moduł ukończony!',
     'trainingModule.moduleCompletedDescription': 'Gratulacje! Ukończyłeś wszystkie lekcje w tym module.',
@@ -827,6 +840,20 @@ const translations = {
     'trainingModule.next': 'Nächste',
     'trainingModule.finish': 'Beenden',
     'trainingModule.lessonCompleted': 'Lektion abgeschlossen!',
+    
+    // Certificates
+    'certificates.assignedRoles': 'Zugewiesene Rollen',
+    'certificates.rolesDescription': 'Wählen Sie Benutzerrollen aus, die diese Zertifikatsvorlage verwenden',
+    'certificates.noRolesAssigned': 'Keine Rollen zugewiesen',
+    'certificates.roleUpdated': 'Rollen wurden aktualisiert',
+    
+    // Roles
+    'roles.admin': 'Administrator',
+    'roles.partner': 'Partner',
+    'roles.client': 'Kunde',
+    'roles.specjalista': 'Spezialist',
+    'roles.user': 'Benutzer',
+    
     'trainingModule.lessonCompletedDescription': 'Sie haben die Lektion erfolgreich abgeschlossen',
     'trainingModule.moduleCompleted': 'Modul abgeschlossen!',
     'trainingModule.moduleCompletedDescription': 'Herzlichen Glückwunsch! Sie haben alle Lektionen in diesem Modul abgeschlossen.',
@@ -1259,6 +1286,20 @@ const translations = {
     'trainingModule.next': 'Next',
     'trainingModule.finish': 'Finish',
     'trainingModule.lessonCompleted': 'Lesson completed!',
+    
+    // Certificates
+    'certificates.assignedRoles': 'Assigned Roles',
+    'certificates.rolesDescription': 'Select user roles that will use this certificate template',
+    'certificates.noRolesAssigned': 'No roles assigned',
+    'certificates.roleUpdated': 'Roles updated successfully',
+    
+    // Roles
+    'roles.admin': 'Administrator',
+    'roles.partner': 'Partner',
+    'roles.client': 'Client',
+    'roles.specjalista': 'Specialist',
+    'roles.user': 'User',
+    
     'trainingModule.lessonCompletedDescription': 'You have successfully completed the lesson',
     'trainingModule.moduleCompleted': 'Module completed!',
     'trainingModule.moduleCompletedDescription': 'Congratulations! You have completed all lessons in this module.',
