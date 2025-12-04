@@ -442,18 +442,41 @@ const TrainingManagement = () => {
         return;
       }
 
-      // STEP 3: Find template matching user role
-      let template = templates.find(t => 
-        t.roles && Array.isArray(t.roles) && t.roles.includes(userRole)
-      );
+      // STEP 3: Find template matching role AND module (highest priority)
+      let template = templates.find(t => {
+        const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
+        const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
+        return hasRole && hasModule;
+      });
 
-      // STEP 4: Use first active template as fallback if no role-specific template found
+      // STEP 4: Fallback - match only module (any role)
       if (!template) {
-        console.warn(`⚠️ No template found for role '${userRole}', using fallback`);
-        template = templates[0];
+        template = templates.find(t => {
+          const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
+          const noRoleRestriction = !t.roles || t.roles.length === 0;
+          return hasModule && noRoleRestriction;
+        });
       }
 
-      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id, 'for role:', userRole);
+      // STEP 5: Fallback - match only role (any module)
+      if (!template) {
+        template = templates.find(t => {
+          const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
+          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
+          return hasRole && noModuleRestriction;
+        });
+      }
+
+      // STEP 6: Fallback - first active template with no restrictions
+      if (!template) {
+        template = templates.find(t => {
+          const noRoleRestriction = !t.roles || t.roles.length === 0;
+          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
+          return noRoleRestriction && noModuleRestriction;
+        }) || templates[0];
+      }
+
+      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id, 'for role:', userRole, 'module:', moduleId);
       const layoutData = template.layout as { elements?: any[] };
       console.log('Template layout elements count:', layoutData?.elements?.length || 0);
 

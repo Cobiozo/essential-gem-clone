@@ -20,6 +20,7 @@ export type Database = {
           id: string
           is_active: boolean
           layout: Json
+          module_ids: string[] | null
           name: string
           roles: Database["public"]["Enums"]["app_role"][] | null
           updated_at: string
@@ -29,6 +30,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           layout?: Json
+          module_ids?: string[] | null
           name: string
           roles?: Database["public"]["Enums"]["app_role"][] | null
           updated_at?: string
@@ -38,6 +40,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           layout?: Json
+          module_ids?: string[] | null
           name?: string
           roles?: Database["public"]["Enums"]["app_role"][] | null
           updated_at?: string

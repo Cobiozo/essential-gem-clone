@@ -401,6 +401,10 @@ const translations = {
     'certificates.rolesDescription': 'Wybierz role użytkowników, które będą używać tego szablonu certyfikatu',
     'certificates.noRolesAssigned': 'Brak przypisanych ról',
     'certificates.roleUpdated': 'Role zostały zaktualizowane',
+    'certificates.assignedModules': 'Przypisane moduły szkoleniowe',
+    'certificates.modulesDescription': 'Wybierz moduły szkoleniowe, dla których będzie używany ten szablon',
+    'certificates.noModulesAssigned': 'Wszystkie moduły',
+    'certificates.modulesUpdated': 'Moduły zostały zaktualizowane',
     
     // Roles
     'roles.admin': 'Administrator',
