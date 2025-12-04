@@ -60,6 +60,7 @@ export const useSectionManager = ({
           margin: updatedSection.margin,
           border_radius: updatedSection.border_radius,
           style_class: updatedSection.style_class,
+          show_title: updatedSection.show_title,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingSectionId);

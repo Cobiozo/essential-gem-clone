@@ -80,6 +80,7 @@ interface Section {
   hover_scale?: number | null;
   hover_transition_duration?: number | null;
   default_expanded?: boolean | null;
+  show_title?: boolean | null;
 }
 
 interface SectionEditorProps {
@@ -507,6 +508,22 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             <ChevronDown className="w-4 h-4 text-blue-600" />
           ) : (
             <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="section-show-title"
+            checked={editedSection.show_title !== false}
+            onCheckedChange={(checked) => setEditedSection({...editedSection, show_title: checked})}
+          />
+          <Label htmlFor="section-show-title" className="text-sm font-medium">
+            Pokaż tytuł sekcji
+          </Label>
+          {editedSection.show_title !== false ? (
+            <Eye className="w-4 h-4 text-green-600" />
+          ) : (
+            <EyeOff className="w-4 h-4 text-muted-foreground" />
           )}
         </div>
       </div>

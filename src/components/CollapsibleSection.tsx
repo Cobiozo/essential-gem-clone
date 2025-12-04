@@ -81,6 +81,7 @@ interface CollapsibleSectionProps {
     hover_opacity?: number | null;
     hover_scale?: number | null;
     hover_transition_duration?: number | null;
+    show_title?: boolean | null;
   };
 }
 
@@ -371,20 +372,22 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
               />
             ) : (
               <div className="relative flex items-center gap-2">
-                <h3 
-                  className={cn(
-                    "font-semibold leading-tight",
-                    isEditMode && "cursor-text hover:bg-muted/30 px-3 py-2 rounded transition-colors border-2 border-dashed border-border"
-                  )}
-                  dangerouslySetInnerHTML={{ __html: title }}
-                  onClick={(e) => {
-                    if (isEditMode) {
-                      e.stopPropagation();
-                      setIsEditingTitle(true);
-                      setTempTitle(title);
-                    }
-                  }}
-                />
+                {sectionStyle?.show_title !== false && (
+                  <h3 
+                    className={cn(
+                      "font-semibold leading-tight",
+                      isEditMode && "cursor-text hover:bg-muted/30 px-3 py-2 rounded transition-colors border-2 border-dashed border-border"
+                    )}
+                    dangerouslySetInnerHTML={{ __html: title }}
+                    onClick={(e) => {
+                      if (isEditMode) {
+                        e.stopPropagation();
+                        setIsEditingTitle(true);
+                        setTempTitle(title);
+                      }
+                    }}
+                  />
+                )}
                 {isEditMode && !isEditingTitle && (
                   <span className="absolute -top-2 -right-8 text-xs text-muted-foreground bg-primary/80 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                     Kliknij aby edytować
