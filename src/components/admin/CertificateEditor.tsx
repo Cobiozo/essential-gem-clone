@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -81,7 +81,15 @@ const CertificateEditor = () => {
   const [createMode, setCreateMode] = useState<'manual' | 'ai'>('manual');
   const [selectedFormat, setSelectedFormat] = useState(CERTIFICATE_FORMATS[0]);
   const [selectedLanguage, setSelectedLanguage] = useState<'pl' | 'en' | 'de'>('pl');
+  const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const handleEditTemplate = (template: CertificateTemplate) => {
+    setSelectedTemplate(template);
+    setTimeout(() => {
+      editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
   useEffect(() => {
     fetchTemplates();
@@ -946,7 +954,7 @@ const CertificateEditor = () => {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setSelectedTemplate(template)}
+                onClick={() => handleEditTemplate(template)}
               >
                 Edytuj szablon
               </Button>
@@ -991,8 +999,9 @@ const CertificateEditor = () => {
       </div>
 
       {selectedTemplate && (
-        <Card>
-          <CardHeader>
+        <div ref={editorRef}>
+          <Card className="animate-in fade-in duration-300">
+            <CardHeader>
             <CardTitle>Edytor szablonu: {selectedTemplate.name}</CardTitle>
             <CardDescription>
               Przeciągnij i upuść elementy, aby dostosować szablon certyfikatu
@@ -1005,7 +1014,8 @@ const CertificateEditor = () => {
               onClose={() => setSelectedTemplate(null)}
             />
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       )}
     </div>
   );
