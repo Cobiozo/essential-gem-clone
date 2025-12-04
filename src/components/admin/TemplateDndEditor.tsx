@@ -532,20 +532,44 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       if (error) throw error;
 
       const placements = data?.suggestedPlacements || [];
+      const clearZone = data?.clearZone;
+      
+      console.log('Received placements:', placements);
+      console.log('Received clear zone:', clearZone);
       
       if (placements.length === 0) {
         applyDefaultPlacements();
         return;
       }
 
+      // Validate and adjust X positions - use clear zone center if available
+      const validateX = (x: number): number => {
+        // Use clear zone center if available
+        if (clearZone?.centerX) {
+          return Math.round(clearZone.centerX);
+        }
+        
+        // If x is too close to edges, use canvas center
+        const minX = CANVAS_WIDTH * 0.15;
+        const maxX = CANVAS_WIDTH * 0.85;
+        if (x < minX || x > maxX) {
+          console.log(`Correcting X from ${x} to center ${CANVAS_WIDTH / 2}`);
+          return Math.round(CANVAS_WIDTH / 2);
+        }
+        return Math.round(x);
+      };
+
       // Remove existing text elements
       const textObjects = objects.filter(obj => obj.type === 'i-text' || obj.type === 'text');
       textObjects.forEach(obj => fabricCanvas.remove(obj));
 
-      // Add new text elements based on AI suggestions
+      // Add new text elements based on AI suggestions with validated positions
       placements.forEach((placement: any, index: number) => {
+        const validatedX = validateX(placement.x);
+        console.log(`Placement ${placement.placeholder}: original x=${placement.x}, validated x=${validatedX}`);
+        
         const text = new IText(placement.label || placement.placeholder, {
-          left: placement.x,
+          left: validatedX,
           top: placement.y,
           fontSize: placement.fontSize || 20,
           fontWeight: placement.fontWeight || 'normal',
