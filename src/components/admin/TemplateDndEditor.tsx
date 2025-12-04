@@ -46,13 +46,59 @@ interface Props {
   onClose: () => void;
 }
 
-const AI_STYLE_PRESETS = [
-  { name: 'Elegancki', prompt: 'Elegant certificate with gold ornamental borders, cream background, subtle floral patterns' },
-  { name: 'Nowoczesny', prompt: 'Modern minimalist certificate, clean geometric shapes, blue gradient accent' },
-  { name: 'Korporacyjny', prompt: 'Professional corporate certificate, navy blue header, silver trim' },
-  { name: 'Naturalny', prompt: 'Nature-inspired certificate with watercolor leaves, soft green tones' },
-  { name: 'Klasyczny', prompt: 'Classic diploma style, parchment texture, red ribbon seal, traditional frame' },
-];
+const AI_STYLE_PRESETS: Record<'pl' | 'en' | 'de', Array<{ name: string; prompt: string }>> = {
+  pl: [
+    { name: 'Elegancki', prompt: 'Elegancki certyfikat ze złotymi ozdobnymi ramkami, kremowe tło, subtelne motywy kwiatowe' },
+    { name: 'Nowoczesny', prompt: 'Nowoczesny minimalistyczny certyfikat, czyste geometryczne kształty, niebieski gradient' },
+    { name: 'Korporacyjny', prompt: 'Profesjonalny korporacyjny certyfikat, granatowy nagłówek, srebrne wykończenie' },
+    { name: 'Naturalny', prompt: 'Certyfikat inspirowany naturą z akwarelowymi liśćmi, delikatne zielone tony' },
+    { name: 'Klasyczny', prompt: 'Klasyczny dyplom, tekstura pergaminu, czerwona pieczęć z wstążką, tradycyjna ramka' },
+  ],
+  en: [
+    { name: 'Elegant', prompt: 'Elegant certificate with gold ornamental borders, cream background, subtle floral patterns' },
+    { name: 'Modern', prompt: 'Modern minimalist certificate, clean geometric shapes, blue gradient accent' },
+    { name: 'Corporate', prompt: 'Professional corporate certificate, navy blue header, silver trim' },
+    { name: 'Natural', prompt: 'Nature-inspired certificate with watercolor leaves, soft green tones' },
+    { name: 'Classic', prompt: 'Classic diploma style, parchment texture, red ribbon seal, traditional frame' },
+  ],
+  de: [
+    { name: 'Elegant', prompt: 'Elegantes Zertifikat mit goldenen Zierrahmen, cremefarbenem Hintergrund, dezenten Blumenmustern' },
+    { name: 'Modern', prompt: 'Modernes minimalistisches Zertifikat, klare geometrische Formen, blauer Farbverlauf' },
+    { name: 'Korporativ', prompt: 'Professionelles Firmenzertifikat, marineblaue Kopfzeile, silberne Verzierung' },
+    { name: 'Natürlich', prompt: 'Naturinspiriertes Zertifikat mit Aquarellblättern, sanften Grüntönen' },
+    { name: 'Klassisch', prompt: 'Klassisches Diplom, Pergamenttextur, rotes Bandsiegel, traditioneller Rahmen' },
+  ],
+};
+
+const AI_UI_LABELS: Record<'pl' | 'en' | 'de', { 
+  generateNewBg: string; 
+  placeholder: string;
+  generating: string;
+  analyzing: string;
+  autoArrange: string;
+}> = {
+  pl: {
+    generateNewBg: 'Generuj nowe tło AI',
+    placeholder: 'Opisz styl tła certyfikatu...',
+    generating: 'Generowanie...',
+    analyzing: 'Analizowanie...',
+    autoArrange: 'Auto-rozmieść elementy',
+  },
+  en: {
+    generateNewBg: 'Generate new AI background',
+    placeholder: 'Describe the certificate background style...',
+    generating: 'Generating...',
+    analyzing: 'Analyzing...',
+    autoArrange: 'Auto-arrange elements',
+  },
+  de: {
+    generateNewBg: 'Neuen AI-Hintergrund generieren',
+    placeholder: 'Beschreiben Sie den Zertifikat-Hintergrundstil...',
+    generating: 'Wird generiert...',
+    analyzing: 'Wird analysiert...',
+    autoArrange: 'Elemente automatisch anordnen',
+  },
+};
 
 const CERTIFICATE_LANGUAGES = [
   { code: 'pl', name: 'Polski', labels: { title: 'Certyfikat Ukończenia', userName: 'Imię i Nazwisko', moduleTitle: 'Tytuł Szkolenia', completionDate: 'Data ukończenia' } },
@@ -810,17 +856,17 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
               </div>
 
               <div className="space-y-2">
-                <Label>Generuj nowe tło AI</Label>
+                <Label>{AI_UI_LABELS[selectedLanguage].generateNewBg}</Label>
                 <Textarea
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="Opisz styl tła certyfikatu..."
+                  placeholder={AI_UI_LABELS[selectedLanguage].placeholder}
                   className="min-h-[60px]"
                 />
               </div>
               
               <div className="flex flex-wrap gap-1">
-                {AI_STYLE_PRESETS.map((preset) => (
+                {AI_STYLE_PRESETS[selectedLanguage].map((preset) => (
                   <Button
                     key={preset.name}
                     variant="outline"
@@ -841,12 +887,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                 {aiGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generowanie...
+                    {AI_UI_LABELS[selectedLanguage].generating}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Generuj nowe tło
+                    {AI_UI_LABELS[selectedLanguage].generateNewBg}
                   </>
                 )}
               </Button>
@@ -861,12 +907,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                   {autoArranging ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Analizowanie...
+                      {AI_UI_LABELS[selectedLanguage].analyzing}
                     </>
                   ) : (
                     <>
                       <Wand2 className="h-4 w-4 mr-2" />
-                      Auto-rozmieść elementy
+                      {AI_UI_LABELS[selectedLanguage].autoArrange}
                     </>
                   )}
                 </Button>

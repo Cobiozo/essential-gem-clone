@@ -47,13 +47,55 @@ interface TemplateElement {
   align?: 'left' | 'center' | 'right';
 }
 
-const AI_STYLE_PRESETS = [
-  { name: 'Elegancki', prompt: 'Elegant certificate with gold ornamental borders, cream background, subtle floral patterns' },
-  { name: 'Nowoczesny', prompt: 'Modern minimalist certificate, clean geometric shapes, blue gradient accent, white background' },
-  { name: 'Korporacyjny', prompt: 'Professional corporate certificate, navy blue header, silver trim, formal layout' },
-  { name: 'Naturalny', prompt: 'Nature-inspired certificate with watercolor leaves, soft green tones, organic shapes' },
-  { name: 'Klasyczny', prompt: 'Classic diploma style certificate, parchment texture, red ribbon seal, traditional ornate frame' },
-];
+const AI_STYLE_PRESETS: Record<'pl' | 'en' | 'de', Array<{ name: string; prompt: string }>> = {
+  pl: [
+    { name: 'Elegancki', prompt: 'Elegancki certyfikat ze złotymi ozdobnymi ramkami, kremowe tło, subtelne motywy kwiatowe' },
+    { name: 'Nowoczesny', prompt: 'Nowoczesny minimalistyczny certyfikat, czyste geometryczne kształty, niebieski gradient, białe tło' },
+    { name: 'Korporacyjny', prompt: 'Profesjonalny korporacyjny certyfikat, granatowy nagłówek, srebrne wykończenie, formalny układ' },
+    { name: 'Naturalny', prompt: 'Certyfikat inspirowany naturą z akwarelowymi liśćmi, delikatne zielone tony, organiczne kształty' },
+    { name: 'Klasyczny', prompt: 'Klasyczny dyplom, tekstura pergaminu, czerwona pieczęć z wstążką, tradycyjna ozdobna ramka' },
+  ],
+  en: [
+    { name: 'Elegant', prompt: 'Elegant certificate with gold ornamental borders, cream background, subtle floral patterns' },
+    { name: 'Modern', prompt: 'Modern minimalist certificate, clean geometric shapes, blue gradient accent, white background' },
+    { name: 'Corporate', prompt: 'Professional corporate certificate, navy blue header, silver trim, formal layout' },
+    { name: 'Natural', prompt: 'Nature-inspired certificate with watercolor leaves, soft green tones, organic shapes' },
+    { name: 'Classic', prompt: 'Classic diploma style certificate, parchment texture, red ribbon seal, traditional ornate frame' },
+  ],
+  de: [
+    { name: 'Elegant', prompt: 'Elegantes Zertifikat mit goldenen Zierrahmen, cremefarbenem Hintergrund, dezenten Blumenmustern' },
+    { name: 'Modern', prompt: 'Modernes minimalistisches Zertifikat, klare geometrische Formen, blauer Farbverlauf, weißer Hintergrund' },
+    { name: 'Korporativ', prompt: 'Professionelles Firmenzertifikat, marineblaue Kopfzeile, silberne Verzierung, formelles Layout' },
+    { name: 'Natürlich', prompt: 'Naturinspiriertes Zertifikat mit Aquarellblättern, sanften Grüntönen, organischen Formen' },
+    { name: 'Klassisch', prompt: 'Klassisches Diplom, Pergamenttextur, rotes Bandsiegel, traditioneller verzierter Rahmen' },
+  ],
+};
+
+const AI_UI_LABELS: Record<'pl' | 'en' | 'de', { 
+  describeStyle: string; 
+  placeholder: string; 
+  quickStyles: string;
+  labelLanguage: string;
+}> = {
+  pl: {
+    describeStyle: 'Opisz styl certyfikatu',
+    placeholder: 'np. Elegancki certyfikat ze złotymi ramkami i kremowym tłem...',
+    quickStyles: 'Szybkie style:',
+    labelLanguage: 'Język etykiet',
+  },
+  en: {
+    describeStyle: 'Describe certificate style',
+    placeholder: 'e.g., Elegant certificate with gold borders and cream background...',
+    quickStyles: 'Quick styles:',
+    labelLanguage: 'Label language',
+  },
+  de: {
+    describeStyle: 'Zertifikatstil beschreiben',
+    placeholder: 'z.B. Elegantes Zertifikat mit goldenen Rahmen und cremefarbenem Hintergrund...',
+    quickStyles: 'Schnelle Stile:',
+    labelLanguage: 'Etikettensprache',
+  },
+};
 
 const CERTIFICATE_FORMATS = [
   { name: 'A4 Poziomo', width: 842, height: 595 },
@@ -796,7 +838,7 @@ const CertificateEditor = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="ai-language">Język etykiet</Label>
+                    <Label htmlFor="ai-language">{AI_UI_LABELS[selectedLanguage].labelLanguage}</Label>
                     <Select value={selectedLanguage} onValueChange={(v) => setSelectedLanguage(v as 'pl' | 'en' | 'de')}>
                       <SelectTrigger id="ai-language">
                         <SelectValue />
@@ -813,20 +855,20 @@ const CertificateEditor = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="ai-prompt">Opisz styl certyfikatu</Label>
+                  <Label htmlFor="ai-prompt">{AI_UI_LABELS[selectedLanguage].describeStyle}</Label>
                   <Textarea
                     id="ai-prompt"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="np. Elegancki certyfikat ze złotymi ramkami i kremowym tłem..."
+                    placeholder={AI_UI_LABELS[selectedLanguage].placeholder}
                     className="min-h-[80px]"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Szybkie style:</Label>
+                  <Label className="text-sm text-muted-foreground">{AI_UI_LABELS[selectedLanguage].quickStyles}</Label>
                   <div className="flex flex-wrap gap-2">
-                    {AI_STYLE_PRESETS.map((preset) => (
+                    {AI_STYLE_PRESETS[selectedLanguage].map((preset) => (
                       <Button
                         key={preset.name}
                         variant="outline"
