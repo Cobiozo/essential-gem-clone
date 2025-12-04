@@ -254,7 +254,7 @@ const Index = () => {
         >
           <div className="max-w-6xl mx-auto px-4">
             <div className="space-y-3 md:space-y-4 py-4 md:py-6">
-              {section.title && (
+              {section.title && section.show_title !== false && (
                 <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8" 
                     style={{ color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
                                     ? section.text_color : undefined }}>
@@ -311,18 +311,22 @@ const Index = () => {
       >
         <div className="max-w-6xl mx-auto px-4">
           {/* Section Header */}
-          <div className="text-center mb-6 md:mb-10">
-            <h2 
-              className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-foreground uppercase tracking-wide"
-              dangerouslySetInnerHTML={{ __html: section.title || '' }}
-            />
-            {section.description && (
-              <p 
-                className="text-muted-foreground text-sm md:text-base lg:text-lg max-w-3xl mx-auto leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: section.description }}
-              />
-            )}
-          </div>
+          {(section.title && section.show_title !== false) || section.description ? (
+            <div className="text-center mb-6 md:mb-10">
+              {section.title && section.show_title !== false && (
+                <h2 
+                  className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6 text-foreground uppercase tracking-wide"
+                  dangerouslySetInnerHTML={{ __html: section.title }}
+                />
+              )}
+              {section.description && (
+                <p 
+                  className="text-muted-foreground text-sm md:text-base lg:text-lg max-w-3xl mx-auto leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: section.description }}
+                />
+              )}
+            </div>
+          ) : null}
           
           {/* Section Items */}
           {sectionColumnCount > 0 ? (
