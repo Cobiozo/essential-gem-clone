@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Edit3, Trash2, Copy, MoveUp, MoveDown } from 'lucide-react';
+import { Trash2, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ItemControlsProps {
@@ -18,33 +18,17 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
   onEdit,
   onDelete,
   onDuplicate,
-  onMoveUp,
-  onMoveDown,
-  canMoveUp = true,
-  canMoveDown = true,
   className
 }) => {
   return (
     <div 
       className={cn(
-        "absolute top-2 left-2 z-30 flex gap-1 bg-primary/95 backdrop-blur-sm rounded-lg shadow-lg border-2 border-primary p-1 transition-all duration-200",
+        "absolute top-2 right-2 z-30 flex gap-1 bg-background/95 backdrop-blur-sm rounded-md shadow-md border border-border p-1 transition-all duration-200",
+        "opacity-0 group-hover:opacity-100",
         className
       )}
       onClick={(e) => e.stopPropagation()}
     >
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit();
-        }}
-        className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20"
-        title="Edytuj"
-      >
-        <Edit3 className="w-3.5 h-3.5" />
-      </Button>
-      
       {onDuplicate && (
         <Button
           size="sm"
@@ -53,10 +37,10 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             e.stopPropagation();
             onDuplicate();
           }}
-          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20"
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
           title="Duplikuj"
         >
-          <Copy className="w-3.5 h-3.5" />
+          <Copy className="w-3 h-3" />
         </Button>
       )}
       
@@ -69,10 +53,10 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             onDelete();
           }
         }}
-        className="h-7 w-7 p-0 text-destructive hover:bg-destructive/20"
+        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
         title="Usuń"
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="w-3 h-3" />
       </Button>
     </div>
   );
