@@ -181,7 +181,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                 if (hasOnlyMultiCell) {
                   return (
                     <div key={slotSection.id} className="space-y-4 py-6">
-                      {slotSection.title && (
+                      {slotSection.title && slotSection.show_title !== false && (
                         <h2 className="text-3xl font-bold text-center mb-8" style={{ color: (slotSection.text_color && !isProblematicColor(slotSection.text_color, isDarkMode, 'text')) ? slotSection.text_color : undefined }}>
                           {slotSection.title}
                         </h2>
