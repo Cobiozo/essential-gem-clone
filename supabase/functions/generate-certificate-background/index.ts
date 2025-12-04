@@ -114,39 +114,55 @@ ${labels.promptSuffix}`;
         throw new Error('No image generated');
       }
 
-      // Analyze image for optimal text placements
-      const analysisPrompt = `Analyze this certificate background image (${width}x${height} pixels, ${orientation}).
+      // Analyze image for optimal text placements using stronger model
+      const analysisPrompt = `TASK: Analyze this certificate background image (${width}x${height} pixels) and find the EXACT boundaries of the clear/content zone.
 
-TASK: Find optimal positions for certificate text that AVOID all decorative/graphic elements.
+STEP 1 - SCAN FOR DECORATIVE ELEMENTS:
+Carefully scan the ENTIRE image and identify ALL:
+- Borders and frames (ornate, geometric, simple lines)
+- Patterns and textures (floral, geometric, abstract)
+- Ornaments and decorations (corners, header/footer graphics)
+- Logos, seals, or watermarks
+- Color gradients that might reduce text contrast
 
-ANALYSIS STEPS:
-1. Identify ALL decorative elements (borders, patterns, ornaments, logos, graphics)
-2. Map out the CLEAR ZONES where no decorative elements exist
-3. Place text elements ONLY in clear zones with good contrast
+STEP 2 - MAP DECORATIVE ELEMENT BOUNDARIES:
+For each decorative element found, note its approximate bounding box:
+- left_edge, right_edge, top_edge, bottom_edge in pixels
 
-PLACEMENT RULES:
-- title: Should be in the upper-middle clear area, BELOW any top decorative border (approximately y = ${Math.round(height * 0.12)} to ${Math.round(height * 0.18)})
-- {userName}: Centered vertically, in the largest clear zone (approximately y = ${Math.round(height * 0.35)} to ${Math.round(height * 0.45)})
-- {moduleTitle}: Below user name, in the clear zone (approximately y = ${Math.round(height * 0.50)} to ${Math.round(height * 0.58)})
-- {completionDate}: Lower area, ABOVE any bottom decorative elements (approximately y = ${Math.round(height * 0.78)} to ${Math.round(height * 0.85)})
+STEP 3 - CALCULATE THE LARGEST CLEAR ZONE:
+Find the largest rectangular area that:
+- Has NO decorative elements overlapping
+- Has uniform or near-uniform background for good text contrast
+- Calculate: left, right, top, bottom boundaries
+- Calculate CENTER: centerX = (left + right) / 2, centerY = (top + bottom) / 2
 
-Return ONLY valid JSON with coordinates that AVOID ALL graphic elements:
+STEP 4 - POSITION TEXT ELEMENTS:
+Place ALL text elements horizontally centered at clearZone.centerX (NOT at ${Math.round(width / 2)} unless that matches the clear zone center).
+
+Return ONLY valid JSON:
 {
+  "clearZone": {
+    "left": <pixel value>,
+    "right": <pixel value>,
+    "top": <pixel value>,
+    "bottom": <pixel value>,
+    "centerX": <calculated horizontal center of clear zone>,
+    "centerY": <calculated vertical center of clear zone>
+  },
+  "decorativeElements": [
+    {"type": "border/pattern/ornament", "location": "top/bottom/left/right/corner", "boundingBox": {"left": ?, "right": ?, "top": ?, "bottom": ?}}
+  ],
   "suggestedPlacements": [
-    {"placeholder": "title", "label": "${labels.title}", "x": ${Math.round(width / 2)}, "y": ${Math.round(height * 0.15)}, "fontSize": ${Math.round(36 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
-    {"placeholder": "{userName}", "label": "${labels.userName}", "x": ${Math.round(width / 2)}, "y": ${Math.round(height * 0.40)}, "fontSize": ${Math.round(28 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
-    {"placeholder": "{moduleTitle}", "label": "${labels.moduleTitle}", "x": ${Math.round(width / 2)}, "y": ${Math.round(height * 0.54)}, "fontSize": ${Math.round(20 * (width / 842))}, "fontWeight": "normal", "color": "#333333", "align": "center"},
-    {"placeholder": "{completionDate}", "label": "${labels.completionDate}", "x": ${Math.round(width / 2)}, "y": ${Math.round(height * 0.82)}, "fontSize": ${Math.round(14 * (width / 842))}, "fontWeight": "normal", "color": "#666666", "align": "center"}
-  ],
-  "safeZones": [
-    {"x": ${Math.round(width * 0.15)}, "y": ${Math.round(height * 0.12)}, "width": ${Math.round(width * 0.70)}, "height": ${Math.round(height * 0.76)}, "description": "main content area"}
-  ],
-  "avoidedElements": ["description of decorative elements detected"]
+    {"placeholder": "title", "label": "${labels.title}", "x": <clearZone.centerX>, "y": <within top third of clearZone>, "fontSize": ${Math.round(36 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
+    {"placeholder": "{userName}", "label": "${labels.userName}", "x": <clearZone.centerX>, "y": <slightly above center of clearZone>, "fontSize": ${Math.round(28 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
+    {"placeholder": "{moduleTitle}", "label": "${labels.moduleTitle}", "x": <clearZone.centerX>, "y": <slightly below center of clearZone>, "fontSize": ${Math.round(20 * (width / 842))}, "fontWeight": "normal", "color": "#333333", "align": "center"},
+    {"placeholder": "{completionDate}", "label": "${labels.completionDate}", "x": <clearZone.centerX>, "y": <within bottom third of clearZone>, "fontSize": ${Math.round(14 * (width / 842))}, "fontWeight": "normal", "color": "#666666", "align": "center"}
+  ]
 }
 
-IMPORTANT: Adjust Y positions based on ACTUAL clear zones in the image. Do not use default positions if they overlap decorations.`;
+CRITICAL: The "x" value for ALL placements MUST be clearZone.centerX, NOT the canvas center (${Math.round(width / 2)}) unless they happen to be the same.`;
 
-      console.log('Analyzing image for placements');
+      console.log('Analyzing image for placements with gemini-2.5-pro');
 
       const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -155,7 +171,7 @@ IMPORTANT: Adjust Y positions based on ACTUAL clear zones in the image. Do not u
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-pro',
           messages: [
             {
               role: 'user',
@@ -176,30 +192,79 @@ IMPORTANT: Adjust Y positions based on ACTUAL clear zones in the image. Do not u
         { placeholder: "{completionDate}", label: labels.completionDate, x: Math.round(width / 2), y: Math.round(height * 0.82), fontSize: Math.round(14 * (width / 842)), fontWeight: "normal", color: "#666666", align: "center" }
       ];
 
+      let clearZone = null;
+
       if (analysisResponse.ok) {
         try {
           const analysisData = await analysisResponse.json();
           const content = analysisData.choices?.[0]?.message?.content;
           
+          console.log('AI analysis raw response:', content?.substring(0, 500));
+          
           if (content) {
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
+              
+              // Extract clear zone info
+              if (parsed.clearZone) {
+                clearZone = parsed.clearZone;
+                console.log('Detected clear zone:', clearZone);
+              }
+              
+              // Log detected decorative elements
+              if (parsed.decorativeElements) {
+                console.log('Detected decorative elements:', JSON.stringify(parsed.decorativeElements));
+              }
+              
               if (parsed.suggestedPlacements && Array.isArray(parsed.suggestedPlacements)) {
-                suggestedPlacements = parsed.suggestedPlacements;
-                console.log('Using AI-suggested placements');
+                // Validate and adjust placements based on clear zone
+                suggestedPlacements = parsed.suggestedPlacements.map((placement: any) => {
+                  let adjustedX = placement.x;
+                  
+                  // If we have a clear zone, use its center
+                  if (clearZone?.centerX) {
+                    adjustedX = clearZone.centerX;
+                  }
+                  
+                  // Validate X is not too close to edges (within 10-90% of width)
+                  const minX = width * 0.10;
+                  const maxX = width * 0.90;
+                  if (adjustedX < minX || adjustedX > maxX) {
+                    console.log(`Correcting X from ${adjustedX} to center ${width / 2}`);
+                    adjustedX = Math.round(width / 2);
+                  }
+                  
+                  // Validate Y is within reasonable bounds
+                  let adjustedY = placement.y;
+                  const minY = height * 0.05;
+                  const maxY = height * 0.95;
+                  if (adjustedY < minY) adjustedY = minY;
+                  if (adjustedY > maxY) adjustedY = maxY;
+                  
+                  return {
+                    ...placement,
+                    x: Math.round(adjustedX),
+                    y: Math.round(adjustedY)
+                  };
+                });
+                
+                console.log('Final adjusted placements:', JSON.stringify(suggestedPlacements));
               }
             }
           }
         } catch (parseError) {
           console.log('Using default placements, parse error:', parseError);
         }
+      } else {
+        console.log('Analysis response not OK, status:', analysisResponse.status);
       }
 
       return new Response(JSON.stringify({
         success: true,
         imageUrl: generatedImageUrl,
         suggestedPlacements,
+        clearZone,
         format: { width, height },
         language: lang
       }), {
@@ -211,26 +276,47 @@ IMPORTANT: Adjust Y positions based on ACTUAL clear zones in the image. Do not u
         throw new Error('Image URL is required for analysis');
       }
 
-      const analysisPrompt = `Analyze this certificate background image (${width}x${height} pixels).
+      const analysisPrompt = `TASK: Analyze this certificate background image (${width}x${height} pixels) and find the EXACT boundaries of the clear/content zone.
 
-TASK: Find optimal positions for certificate text that AVOID all decorative/graphic elements.
+STEP 1 - SCAN FOR DECORATIVE ELEMENTS:
+Carefully scan the ENTIRE image and identify ALL:
+- Borders and frames (ornate, geometric, simple lines)
+- Patterns and textures (floral, geometric, abstract)
+- Ornaments and decorations (corners, header/footer graphics)
+- Logos, seals, or watermarks
+- Colored areas that might reduce text contrast
 
-ANALYSIS STEPS:
-1. Identify ALL decorative elements (borders, patterns, ornaments, logos, graphics)
-2. Map out the CLEAR ZONES where no decorative elements exist
-3. Place text elements ONLY in clear zones with good contrast
+STEP 2 - CALCULATE THE LARGEST CLEAR ZONE:
+Find the largest rectangular area that:
+- Has NO decorative elements overlapping
+- Has uniform or near-uniform background for good text contrast
+- Calculate: left, right, top, bottom boundaries in pixels
+- Calculate CENTER: centerX = (left + right) / 2
+
+STEP 3 - POSITION TEXT ELEMENTS:
+All text elements MUST be horizontally centered at clearZone.centerX.
 
 Return ONLY valid JSON:
 {
+  "clearZone": {
+    "left": <pixel>,
+    "right": <pixel>,
+    "top": <pixel>,
+    "bottom": <pixel>,
+    "centerX": <calculated center>,
+    "centerY": <calculated center>
+  },
   "suggestedPlacements": [
-    {"placeholder": "title", "label": "${labels.title}", "x": ${Math.round(width / 2)}, "y": ??, "fontSize": ${Math.round(36 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
-    {"placeholder": "{userName}", "label": "${labels.userName}", "x": ${Math.round(width / 2)}, "y": ??, "fontSize": ${Math.round(28 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
-    {"placeholder": "{moduleTitle}", "label": "${labels.moduleTitle}", "x": ${Math.round(width / 2)}, "y": ??, "fontSize": ${Math.round(20 * (width / 842))}, "fontWeight": "normal", "color": "#333333", "align": "center"},
-    {"placeholder": "{completionDate}", "label": "${labels.completionDate}", "x": ${Math.round(width / 2)}, "y": ??, "fontSize": ${Math.round(14 * (width / 842))}, "fontWeight": "normal", "color": "#666666", "align": "center"}
+    {"placeholder": "title", "label": "${labels.title}", "x": <clearZone.centerX>, "y": <top third>, "fontSize": ${Math.round(36 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
+    {"placeholder": "{userName}", "label": "${labels.userName}", "x": <clearZone.centerX>, "y": <upper middle>, "fontSize": ${Math.round(28 * (width / 842))}, "fontWeight": "bold", "color": "#1a1a2e", "align": "center"},
+    {"placeholder": "{moduleTitle}", "label": "${labels.moduleTitle}", "x": <clearZone.centerX>, "y": <lower middle>, "fontSize": ${Math.round(20 * (width / 842))}, "fontWeight": "normal", "color": "#333333", "align": "center"},
+    {"placeholder": "{completionDate}", "label": "${labels.completionDate}", "x": <clearZone.centerX>, "y": <bottom third>, "fontSize": ${Math.round(14 * (width / 842))}, "fontWeight": "normal", "color": "#666666", "align": "center"}
   ]
 }
 
-Replace ?? with actual Y positions based on clear zones in the image.`;
+CRITICAL: x values MUST equal clearZone.centerX, NOT ${Math.round(width / 2)} unless the clear zone is centered.`;
+
+      console.log('Analyzing existing image with gemini-2.5-pro');
 
       const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -239,7 +325,7 @@ Replace ?? with actual Y positions based on clear zones in the image.`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.5-pro',
           messages: [
             {
               role: 'user',
@@ -260,6 +346,7 @@ Replace ?? with actual Y positions based on clear zones in the image.`;
       ];
 
       if (!analysisResponse.ok) {
+        console.log('Analysis failed, using defaults');
         return new Response(JSON.stringify({
           success: true,
           suggestedPlacements: defaultPlacements
@@ -272,14 +359,52 @@ Replace ?? with actual Y positions based on clear zones in the image.`;
         const analysisData = await analysisResponse.json();
         const content = analysisData.choices?.[0]?.message?.content;
         
+        console.log('Analyze-and-arrange raw response:', content?.substring(0, 500));
+        
         if (content) {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed.suggestedPlacements) {
+            
+            let clearZone = parsed.clearZone;
+            console.log('Detected clear zone:', clearZone);
+            
+            if (parsed.suggestedPlacements && Array.isArray(parsed.suggestedPlacements)) {
+              // Validate and adjust placements
+              const adjustedPlacements = parsed.suggestedPlacements.map((placement: any) => {
+                let adjustedX = placement.x;
+                
+                // Use clear zone center if available
+                if (clearZone?.centerX) {
+                  adjustedX = clearZone.centerX;
+                }
+                
+                // Validate X bounds
+                const minX = width * 0.10;
+                const maxX = width * 0.90;
+                if (adjustedX < minX || adjustedX > maxX) {
+                  console.log(`Correcting X from ${adjustedX} to center`);
+                  adjustedX = Math.round(width / 2);
+                }
+                
+                // Validate Y bounds
+                let adjustedY = placement.y;
+                if (adjustedY < height * 0.05) adjustedY = height * 0.05;
+                if (adjustedY > height * 0.95) adjustedY = height * 0.95;
+                
+                return {
+                  ...placement,
+                  x: Math.round(adjustedX),
+                  y: Math.round(adjustedY)
+                };
+              });
+              
+              console.log('Final adjusted placements:', JSON.stringify(adjustedPlacements));
+              
               return new Response(JSON.stringify({
                 success: true,
-                suggestedPlacements: parsed.suggestedPlacements
+                suggestedPlacements: adjustedPlacements,
+                clearZone
               }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
               });
@@ -287,7 +412,7 @@ Replace ?? with actual Y positions based on clear zones in the image.`;
           }
         }
       } catch (e) {
-        console.log('Parse error, using defaults');
+        console.log('Parse error, using defaults:', e);
       }
 
       return new Response(JSON.stringify({
