@@ -305,8 +305,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       if (!headingCell?.content && !item.title && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">📝 Nagłówek H{level} - Kliknij Edytuj aby dodać treść</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-3 text-center">
+            <p className="text-xs text-muted-foreground">Nagłówek H{level}</p>
           </div>
         );
       }
@@ -337,8 +337,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       if (!textCell?.content && !item.description && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">📄 Tekst - Kliknij Edytuj aby dodać treść</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-3 text-center">
+            <p className="text-xs text-muted-foreground">Tekst</p>
           </div>
         );
       }
@@ -367,8 +367,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
               className="w-full h-auto rounded-lg"
             />
           ) : isEditMode ? (
-            <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
-              <p className="text-sm font-medium text-primary">🖼️ Obrazek - Kliknij Edytuj aby dodać zdjęcie</p>
+            <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
+              <p className="text-xs text-muted-foreground">Obrazek</p>
             </div>
           ) : (
             <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
@@ -382,8 +382,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const videoCell = (item.cells as any[])?.[0];
       if (isEditMode && !item.media_url && !videoCell?.content) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">🎥 Video - Kliknij Edytuj aby dodać wideo</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
+            <p className="text-xs text-muted-foreground">Video</p>
           </div>
         );
       }
@@ -409,8 +409,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       if (!IconComp && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">⭐ Ikona - Kliknij Edytuj aby wybrać ikonę</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-3 text-center">
+            <p className="text-xs text-muted-foreground">Ikona</p>
           </div>
         );
       }
@@ -424,8 +424,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const carouselCell = (item.cells as any[])?.[0];
       if ((!carouselCell?.images || carouselCell.images.length === 0) && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">🎠 Karuzela - Kliknij Edytuj aby dodać slajdy</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
+            <p className="text-xs text-muted-foreground">Karuzela</p>
           </div>
         );
       }
@@ -441,8 +441,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const galleryCell = (item.cells as any[])?.[0];
       if ((!galleryCell?.images || galleryCell.images.length === 0) && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">🖼️ Galeria - Kliknij Edytuj aby dodać zdjęcia</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
+            <p className="text-xs text-muted-foreground">Galeria</p>
           </div>
         );
       }
@@ -462,8 +462,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       if (accordionItems.length === 0 && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">📋 Accordion - Kliknij Edytuj aby dodać sekcje</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
+            <p className="text-xs text-muted-foreground">Accordion</p>
           </div>
         );
       }
@@ -627,8 +627,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       if (!buttonCell?.content && !item.title && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-4 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">🔘 Przycisk - Kliknij Edytuj aby skonfigurować</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-3 text-center">
+            <p className="text-xs text-muted-foreground">Przycisk</p>
           </div>
         );
       }
@@ -658,8 +658,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const mapsCell = (item.cells as any[])?.[0];
       if (!mapsCell?.content && isEditMode) {
         return (
-          <div className="border-2 border-dashed border-primary/50 rounded-lg p-8 text-center bg-primary/5">
-            <p className="text-sm font-medium text-primary">🗺️ Mapa - Kliknij Edytuj aby dodać URL mapy</p>
+          <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
+            <p className="text-xs text-muted-foreground">Mapa</p>
           </div>
         );
       }

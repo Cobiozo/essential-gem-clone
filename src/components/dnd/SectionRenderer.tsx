@@ -2,7 +2,6 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
-import { Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DraggableItem } from './DraggableItem';
 import { ColumnLayout } from './ColumnLayout';
@@ -269,40 +268,23 @@ interface SectionTitleProps {
 }
 
 const SectionTitle: React.FC<SectionTitleProps> = ({ section, editMode, onSelectElement, variant = 'default' }) => (
-  <div className="relative group inline-block w-full mb-8">
-    {editMode && (
-      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <Button
-          size="sm"
-          variant="secondary"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectElement(section.id);
-          }}
-        >
-          <Edit3 className="w-4 h-4" />
-        </Button>
-      </div>
+  <h2 
+    className={cn(
+      variant === 'large' 
+        ? "text-4xl font-bold mb-6 text-foreground uppercase tracking-wide"
+        : "text-3xl font-bold text-center mb-8",
+      editMode && "cursor-pointer hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
     )}
-    <h2 
-      className={cn(
-        variant === 'large' 
-          ? "text-4xl font-bold mb-6 text-foreground uppercase tracking-wide"
-          : "text-3xl font-bold text-center",
-        editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
-      )}
-      style={{ color: section.text_color || 'inherit' }}
-      dangerouslySetInnerHTML={{ __html: section.title || '' }}
-      onClick={(e) => {
-        if (editMode) {
-          e.stopPropagation();
-          onSelectElement(section.id);
-        }
-      }}
-      title={editMode ? "Kliknij aby edytować" : undefined}
-    />
-  </div>
+    style={{ color: section.text_color || 'inherit' }}
+    dangerouslySetInnerHTML={{ __html: section.title || '' }}
+    onClick={(e) => {
+      if (editMode) {
+        e.stopPropagation();
+        onSelectElement(section.id);
+      }
+    }}
+    title={editMode ? "Kliknij aby edytować" : undefined}
+  />
 );
 
 interface SectionDescriptionProps {
@@ -312,37 +294,20 @@ interface SectionDescriptionProps {
 }
 
 const SectionDescription: React.FC<SectionDescriptionProps> = ({ section, editMode, onSelectElement }) => (
-  <div className="relative group inline-block max-w-3xl mx-auto">
-    {editMode && (
-      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <Button
-          size="sm"
-          variant="secondary"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectElement(section.id);
-          }}
-        >
-          <Edit3 className="w-4 h-4" />
-        </Button>
-      </div>
+  <p 
+    className={cn(
+      "text-muted-foreground text-lg leading-relaxed max-w-3xl mx-auto",
+      editMode && "cursor-pointer hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
     )}
-    <p 
-      className={cn(
-        "text-muted-foreground text-lg leading-relaxed",
-        editMode && "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:ring-offset-2 rounded-lg px-4 py-2 transition-all"
-      )}
-      dangerouslySetInnerHTML={{ __html: section.description || '' }}
-      onClick={(e) => {
-        if (editMode) {
-          e.stopPropagation();
-          onSelectElement(section.id);
-        }
-      }}
-      title={editMode ? "Kliknij aby edytować" : undefined}
-    />
-  </div>
+    dangerouslySetInnerHTML={{ __html: section.description || '' }}
+    onClick={(e) => {
+      if (editMode) {
+        e.stopPropagation();
+        onSelectElement(section.id);
+      }
+    }}
+    title={editMode ? "Kliknij aby edytować" : undefined}
+  />
 );
 
 interface ItemRendererProps {
