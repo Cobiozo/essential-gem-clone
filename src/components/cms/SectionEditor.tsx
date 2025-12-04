@@ -171,6 +171,15 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [originalSection, setOriginalSection] = useState<Section | null>(null);
 
+  // Sync internal state when section prop changes (for switching between sections)
+  useEffect(() => {
+    if (section) {
+      setEditedSection(section);
+      setOriginalSection(section);
+      setHasUnsavedChanges(false);
+    }
+  }, [section?.id]);
+
   // Track changes to detect unsaved changes
   useEffect(() => {
     if (!originalSection) {

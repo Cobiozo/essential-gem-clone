@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { DraggableItem } from './DraggableItem';
 import { ColumnLayout } from './ColumnLayout';
 import { ItemControls } from './ItemControls';
+import { SectionControls } from './SectionControls';
 import { CMSContent } from '@/components/CMSContent';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
@@ -33,6 +34,9 @@ interface SectionRendererProps {
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
+  onEditSection?: (sectionId: string) => void;
+  onDuplicateSection?: (sectionId: string) => void;
+  onDeactivateSection?: (sectionId: string) => void;
 }
 
 export const SectionRenderer: React.FC<SectionRendererProps> = ({
@@ -51,6 +55,9 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
+  onEditSection,
+  onDuplicateSection,
+  onDeactivateSection,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: section.id,
@@ -76,8 +83,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
           }
           onSelectElement(section.id);
         }}
+        onDoubleClick={(e) => {
+          if (editMode) {
+            e.stopPropagation();
+            onEditSection?.(section.id);
+          }
+        }}
         className={cn(
-          "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative",
+          "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative group/section",
           selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
           isOver && editMode && "ring-2 ring-green-500 ring-offset-2"
         )}
@@ -87,6 +100,13 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
           padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
         }}
       >
+        {editMode && (
+          <SectionControls
+            onEdit={() => onEditSection?.(section.id)}
+            onDuplicate={() => onDuplicateSection?.(section.id)}
+            onDeactivate={() => onDeactivateSection?.(section.id)}
+          />
+        )}
         {isOver && editMode && (
           <DropZoneIndicator />
         )}
@@ -167,8 +187,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
         }
         onSelectElement(section.id);
       }}
+      onDoubleClick={(e) => {
+        if (editMode) {
+          e.stopPropagation();
+          onEditSection?.(section.id);
+        }
+      }}
       className={cn(
-        "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative",
+        "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative group/section",
         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
         isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
         editMode && "min-h-[120px]"
@@ -179,6 +205,13 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
         padding: section.padding ? `${section.padding}px 16px` : '48px 16px',
       }}
     >
+      {editMode && (
+        <SectionControls
+          onEdit={() => onEditSection?.(section.id)}
+          onDuplicate={() => onDuplicateSection?.(section.id)}
+          onDeactivate={() => onDeactivateSection?.(section.id)}
+        />
+      )}
       {isOver && editMode && (
         <DropZoneIndicator />
       )}
