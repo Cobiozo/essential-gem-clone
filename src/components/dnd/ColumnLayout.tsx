@@ -330,10 +330,15 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
               onSelectItem?.(item.id || '');
             }
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onEditItem?.(item.id as string);
+          }}
         >
           {/* ItemControls dla elementów w wierszach */}
           {onDeleteItem && (
             <ItemControls
+              onEdit={() => onEditItem?.(item.id as string)}
               onDelete={() => onDeleteItem(item.id as string)}
               onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
             />

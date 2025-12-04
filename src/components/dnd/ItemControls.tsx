@@ -1,15 +1,17 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Trash2, Copy } from 'lucide-react';
+import { Trash2, Copy, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ItemControlsProps {
+  onEdit?: () => void;
   onDelete: () => void;
   onDuplicate?: () => void;
   className?: string;
 }
 
 export const ItemControls: React.FC<ItemControlsProps> = ({
+  onEdit,
   onDelete,
   onDuplicate,
   className
@@ -23,6 +25,21 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
       )}
       onClick={(e) => e.stopPropagation()}
     >
+      {onEdit && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+          title="Edytuj"
+        >
+          <Edit3 className="w-3 h-3" />
+        </Button>
+      )}
+      
       {onDuplicate && (
         <Button
           size="sm"
