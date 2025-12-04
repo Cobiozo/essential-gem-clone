@@ -69,13 +69,37 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     if (item.font_size) inlineStyles.fontSize = `${item.font_size}px`;
     if (item.padding) inlineStyles.padding = `${item.padding}px`;
     if (item.border_radius) inlineStyles.borderRadius = `${item.border_radius}px`;
-    if ((item as any).opacity) inlineStyles.opacity = (item as any).opacity / 100;
+    if (item.opacity !== undefined && item.opacity !== 100) inlineStyles.opacity = item.opacity / 100;
     if (item.font_weight) inlineStyles.fontWeight = item.font_weight;
     if (item.text_align) inlineStyles.textAlign = item.text_align as React.CSSProperties['textAlign'];
     
+    // Marginesy
+    if (item.margin_top) inlineStyles.marginTop = `${item.margin_top}px`;
+    if (item.margin_bottom) inlineStyles.marginBottom = `${item.margin_bottom}px`;
+    
+    // Box shadow
+    if (item.box_shadow && item.box_shadow !== 'none') inlineStyles.boxShadow = item.box_shadow;
+    
+    // Max dimensions
+    if (item.max_width) inlineStyles.maxWidth = `${item.max_width}px`;
+    if (item.max_height) inlineStyles.maxHeight = `${item.max_height}px`;
+    
+    // Border
+    if (item.border_width && item.border_width > 0) {
+      inlineStyles.borderWidth = `${item.border_width}px`;
+      inlineStyles.borderStyle = (item.border_style || 'solid') as React.CSSProperties['borderStyle'];
+      inlineStyles.borderColor = item.border_color || 'hsl(var(--border))';
+    }
+    
+    // Object fit (for images/videos)
+    if (item.object_fit) inlineStyles.objectFit = item.object_fit as React.CSSProperties['objectFit'];
+    
     return {
       style: inlineStyles,
-      className: item.style_class || ''
+      className: item.style_class || '',
+      hoverScale: item.hover_scale,
+      hoverOpacity: item.hover_opacity,
+      lazyLoading: item.lazy_loading
     };
   };
 
@@ -369,13 +393,35 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'image':
     case 'image-field':
       const imageCell = (item.cells as any[])?.[0];
+      const imageStyles = applyItemStyles(item);
+      const hasHoverEffect = (imageStyles.hoverScale && imageStyles.hoverScale !== 1) || 
+                             (imageStyles.hoverOpacity && imageStyles.hoverOpacity !== 100);
+      const alignmentClass = item.text_align === 'center' ? 'mx-auto' 
+        : item.text_align === 'right' ? 'ml-auto' : '';
+      
       return (
-        <div className="w-full">
+        <div 
+          className="w-full" 
+          style={{ marginTop: imageStyles.style.marginTop, marginBottom: imageStyles.style.marginBottom }}
+        >
           {imageCell?.content || item.media_url ? (
             <img
               src={imageCell?.content || item.media_url}
               alt={imageCell?.alt || item.media_alt_text || 'Image'}
-              className="w-full h-auto rounded-lg"
+              className={cn(
+                'h-auto transition-all duration-300',
+                hasHoverEffect && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
+                alignmentClass,
+                imageStyles.className
+              )}
+              style={{
+                ...imageStyles.style,
+                marginTop: undefined,
+                marginBottom: undefined,
+                '--hover-scale': imageStyles.hoverScale || 1,
+                '--hover-opacity': (imageStyles.hoverOpacity || 100) / 100,
+              } as React.CSSProperties}
+              loading={imageStyles.lazyLoading !== false ? 'lazy' : 'eager'}
             />
           ) : isEditMode ? (
             <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
@@ -391,6 +437,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
 
     case 'video':
       const videoCell = (item.cells as any[])?.[0];
+      const videoStyles = applyItemStyles(item);
       if (isEditMode && !item.media_url && !videoCell?.content) {
         return (
           <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
@@ -398,9 +445,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
           </div>
         );
       }
-      return renderMedia() || (
-        <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
-          <p className="text-muted-foreground">Dodaj wideo</p>
+      return (
+        <div style={videoStyles.style} className={videoStyles.className}>
+          {renderMedia() || (
+            <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
+              <p className="text-muted-foreground">Dodaj wideo</p>
+            </div>
+          )}
         </div>
       );
 
@@ -433,6 +484,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     // Ogólne elementy
     case 'carousel':
       const carouselCell = (item.cells as any[])?.[0];
+      const carouselStyles = applyItemStyles(item);
       if ((!carouselCell?.images || carouselCell.images.length === 0) && isEditMode) {
         return (
           <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
@@ -441,15 +493,18 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       return (
-        <CarouselElement
-          images={carouselCell?.images || []}
-          autoplay={carouselCell?.autoplay}
-          interval={carouselCell?.interval}
-        />
+        <div style={carouselStyles.style} className={carouselStyles.className}>
+          <CarouselElement
+            images={carouselCell?.images || []}
+            autoplay={carouselCell?.autoplay}
+            interval={carouselCell?.interval}
+          />
+        </div>
       );
 
     case 'gallery':
       const galleryCell = (item.cells as any[])?.[0];
+      const galleryStyles = applyItemStyles(item);
       if ((!galleryCell?.images || galleryCell.images.length === 0) && isEditMode) {
         return (
           <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
@@ -458,10 +513,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       return (
-        <GalleryElement
-          images={galleryCell?.images || []}
-          columns={galleryCell?.columns || 3}
-        />
+        <div style={galleryStyles.style} className={galleryStyles.className}>
+          <GalleryElement
+            images={galleryCell?.images || []}
+            columns={galleryCell?.columns || 3}
+          />
+        </div>
       );
 
     case 'accordion':
@@ -470,6 +527,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         title: cell.section_title || '',
         content: cell.section_description || ''
       })) || [];
+      const accordionStyles = applyItemStyles(item);
       
       if (accordionItems.length === 0 && isEditMode) {
         return (
@@ -481,7 +539,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       // Render accordion with optional title and description
       return (
-        <div>
+        <div style={accordionStyles.style} className={accordionStyles.className}>
           {item.title && (
             <h3 className="text-2xl font-bold text-center mb-4">{item.title}</h3>
           )}
@@ -558,12 +616,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
 
     case 'alert':
       const alertCell = (item.cells as any[])?.[0];
+      const alertStyles = applyItemStyles(item);
       return (
-        <AlertElement
-          content={alertCell?.content || ''}
-          title={alertCell?.title}
-          variant={alertCell?.variant || 'default'}
-        />
+        <div style={alertStyles.style} className={alertStyles.className}>
+          <AlertElement
+            content={alertCell?.content || ''}
+            title={alertCell?.title}
+            variant={alertCell?.variant || 'default'}
+          />
+        </div>
       );
 
     case 'icon-list':
