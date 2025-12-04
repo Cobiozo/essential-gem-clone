@@ -44,6 +44,7 @@ export interface CMSItem {
   icon_size?: number;
   icon_color?: string;
   icon_spacing?: number;
+  text_align?: string;
 }
 
 export interface CMSSection {

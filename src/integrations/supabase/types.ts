@@ -116,6 +116,7 @@ export type Database = {
           position: number
           section_id: string
           style_class: string | null
+          text_align: string | null
           text_color: string | null
           text_formatting: Json | null
           title: string | null
@@ -151,6 +152,7 @@ export type Database = {
           position: number
           section_id: string
           style_class?: string | null
+          text_align?: string | null
           text_color?: string | null
           text_formatting?: Json | null
           title?: string | null
@@ -186,6 +188,7 @@ export type Database = {
           position?: number
           section_id?: string
           style_class?: string | null
+          text_align?: string | null
           text_color?: string | null
           text_formatting?: Json | null
           title?: string | null
