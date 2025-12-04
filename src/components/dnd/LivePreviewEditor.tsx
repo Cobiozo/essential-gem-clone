@@ -57,81 +57,69 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  const [sections, setSections] = useState<CMSSection[]>([]);
-  const [items, setItems] = useState<CMSItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use centralized data manager hook
+  const dataManager = useLayoutDataManager({ pageId, isAdmin });
+  const {
+    sections, items, loading, isSaving, hasUnsavedChanges, autoSaveStatus,
+    layoutMode, columnCount, sectionColumns, openSections, history, historyIndex,
+    setSections, setItems, setHasUnsavedChanges, setSectionColumns, setOpenSections,
+    fetchData, autoSave, handleSave, handleUndo, handleRedo,
+    handleLayoutModeChange, handleColumnCountChange, saveToHistory, initializeColumns,
+    canUndo, canRedo,
+  } = dataManager;
+
+  // Use item manager hook
+  const itemManager = useItemManager({
+    pageId,
+    items,
+    sections,
+    setItems,
+    saveToHistory,
+    setHasUnsavedChanges,
+    fetchData,
+  });
+  const {
+    editingItemId, isItemEditorOpen, setEditingItemId, setIsItemEditorOpen,
+    handleEditItem, handleSaveItem, handleDeleteItem, handleDuplicateItem,
+    handleMoveItemUp, handleMoveItemDown, closeItemEditor,
+  } = itemManager;
+
+  // Use section manager hook
+  const sectionManager = useSectionManager({
+    pageId,
+    sections,
+    items,
+    setSections,
+    saveToHistory,
+    setHasUnsavedChanges,
+  });
+  const {
+    editingSectionId, isSectionEditorOpen, setEditingSectionId, setIsSectionEditorOpen,
+    handleEditSection, handleSaveSection, handleDuplicateSection, handleDeactivateSection,
+    handleResetSection, handleAlignSection, handleSizeSection, closeSectionEditor,
+  } = sectionManager;
+  
+  // Local UI state
   const [editMode, setEditMode] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const [layoutMode, setLayoutMode] = useState<'single' | 'columns' | 'grid'>('single');
-  const [columnCount, setColumnCount] = useState(2);
   const [currentDevice, setCurrentDevice] = useState<DeviceType>('desktop');
   const [responsiveSettings, setResponsiveSettings] = useState(defaultResponsiveSettings);
-  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<'elements' | 'properties'>('elements');
   const [selectedElementForPanel, setSelectedElementForPanel] = useState<string | null>(null);
-  
-  // Column layout state
-  const [sectionColumns, setSectionColumns] = useState<{ [sectionId: string]: Column[] }>({});
-  // Controlled open states for sections (persist during re-renders)
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [dragVersion, setDragVersion] = useState(0);
   const [inactiveRefresh, setInactiveRefresh] = useState(0);
-  
-  // History for undo/redo
-  const [history, setHistory] = useState<{ sections: CMSSection[], items: CMSItem[] }[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-
-  // Auto-save functionality
-  const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
-  const hasFixedNestedRowsRef = React.useRef(false);
-  
-  // Clipboard for copy/paste
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
-  
-  const saveToHistory = useCallback((newSections: CMSSection[], newItems: CMSItem[]) => {
-    setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push({ sections: newSections, items: newItems });
-      return newHistory.slice(-20); // Keep last 20 changes
-    });
-    setHistoryIndex(prev => Math.min(prev + 1, 19));
-  }, [historyIndex]);
 
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
     enabled: editMode,
-    onUndo: () => {
-      if (historyIndex > 0) {
-        const prevState = history[historyIndex - 1];
-        setSections(prevState.sections);
-        setItems(prevState.items);
-        setHistoryIndex(historyIndex - 1);
-        setHasUnsavedChanges(true);
-      }
-    },
-    onRedo: () => {
-      if (historyIndex < history.length - 1) {
-        const nextState = history[historyIndex + 1];
-        setSections(nextState.sections);
-        setItems(nextState.items);
-        setHistoryIndex(historyIndex + 1);
-        setHasUnsavedChanges(true);
-      }
-    },
+    onUndo: handleUndo,
+    onRedo: handleRedo,
     onDelete: () => {
       if (selectedElement) {
-        // Will be handled by handleDeactivateElement
-        const section = sections.find(s => s.id === selectedElement);
-        const item = items.find(i => i.id === selectedElement);
-        if (section || item) {
-          // Trigger delete via existing handler
-          handleDeactivateElement(selectedElement);
-        }
+        handleDeactivateElement(selectedElement);
       }
     },
     onDuplicate: () => {
@@ -143,9 +131,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       setSelectedElement(null);
       setPanelMode('elements');
     },
-    onSave: () => {
-      handleSave();
-    },
+    onSave: handleSave,
     onCopy: () => {
       if (selectedElement) {
         const section = sections.find(s => s.id === selectedElement);
@@ -161,24 +147,17 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     },
     onPaste: () => {
       if (copiedElement) {
-        // For now just show message - full paste would require more complex logic
         toast({ title: 'Info', description: 'Użyj przycisku duplikuj aby skopiować element' });
       }
     },
     onMoveUp: () => {
-      if (selectedElement) {
-        const item = items.find(i => i.id === selectedElement);
-        if (item) {
-          handleMoveItemUp(selectedElement);
-        }
+      if (selectedElement && items.find(i => i.id === selectedElement)) {
+        handleMoveItemUp(selectedElement);
       }
     },
     onMoveDown: () => {
-      if (selectedElement) {
-        const item = items.find(i => i.id === selectedElement);
-        if (item) {
-          handleMoveItemDown(selectedElement);
-        }
+      if (selectedElement && items.find(i => i.id === selectedElement)) {
+        handleMoveItemDown(selectedElement);
       }
     },
     onToggleEditMode: () => {
@@ -188,49 +167,20 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         handleCancel();
       }
     },
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < history.length - 1,
+    canUndo,
+    canRedo,
     selectedElement,
   });
 
-  // Initialize columns for sections
-  const initializeColumns = (sections: CMSSection[], items: CMSItem[]) => {
-    const columnData: { [sectionId: string]: Column[] } = {};
-    
-    sections.forEach(section => {
-      const sectionItems = items.filter(item => item.section_id === section.id);
-      
-      // Check if section has saved column count from style_class or derive from items
-      const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
-      const derivedFromItems = sectionItems.reduce((max, it: any) => {
-        const ci = typeof it.column_index === 'number' ? it.column_index : 0;
-        return Math.max(max, ci);
-      }, 0) + 1;
-      const columnCount = savedColumnCount ? parseInt(savedColumnCount, 10) : Math.max(1, derivedFromItems);
-      
-      // Prepare columns
-      const columns: Column[] = Array.from({ length: Math.max(1, columnCount) }, (_, i) => ({
-        id: `${section.id}-col-${i}`,
-        items: [],
-        width: 100 / Math.max(1, columnCount),
-      }));
-      
-      // Distribute items by stored column_index
-      sectionItems.forEach((it: any) => {
-        const idx = Math.min(columns.length - 1, Math.max(0, typeof it.column_index === 'number' ? it.column_index : 0));
-        columns[idx].items.push(it);
-      });
-      
-      columnData[section.id] = columns;
-    });
-    
-    setSectionColumns(columnData);
-  };
+  // Repair refs for one-time fixes
+  const hasFixedNestedRowsRef = React.useRef(false);
+  const hasFixedMissingPageIdRef = React.useRef(false);
+  const hasRepairedInvisibleRef = React.useRef(false);
 
   // Safety: bring any rows that accidentally got nested back to top-level
-   const fixNestedRows = async (sectionsList: CMSSection[]) => {
-     if (hasFixedNestedRowsRef.current) return;
-     if (!isAdmin) return;
+  const fixNestedRows = async (sectionsList: CMSSection[]) => {
+    if (hasFixedNestedRowsRef.current) return;
+    if (!isAdmin) return;
     const nested = sectionsList.filter(s => s.section_type === 'row' && s.parent_id);
     if (nested.length === 0) return;
     try {
@@ -241,7 +191,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         .in('id', ids);
       if (error) throw error;
       hasFixedNestedRowsRef.current = true;
-      // Update local state without triggering a refetch loop
       setSections(prev => prev.map(s => ids.includes(s.id) ? { ...s, parent_id: null } : s));
       toast({ title: 'Naprawiono układ', description: 'Zagnieżdżone wiersze przeniesiono na poziom główny' });
     } catch (e) {
@@ -250,12 +199,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   };
 
   // Fix sections without page_id
-  const hasFixedMissingPageIdRef = React.useRef(false);
   const fixMissingPageId = async () => {
     if (hasFixedMissingPageIdRef.current) return;
     if (!isAdmin) return;
     try {
-      // Find sections without page_id
       const { data: orphanSections } = await supabase
         .from('cms_sections')
         .select('id, title')
@@ -264,295 +211,34 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       
       if (!orphanSections || orphanSections.length === 0) return;
       
-      console.log('[LivePreviewEditor] Found sections without page_id:', orphanSections);
-      
-      // Assign them to the current page
       const { error } = await supabase
         .from('cms_sections')
-        .update({ 
-          page_id: pageId,
-          updated_at: new Date().toISOString() 
-        })
+        .update({ page_id: pageId, updated_at: new Date().toISOString() })
         .is('page_id', null)
         .eq('is_active', true);
       
       if (error) throw error;
-      
       hasFixedMissingPageIdRef.current = true;
-      toast({ 
-        title: 'Naprawiono', 
-        description: `Przypisano ${orphanSections.length} sekcji do strony głównej` 
-      });
-      
-      // Refetch data to show the fixed sections
+      toast({ title: 'Naprawiono', description: `Przypisano ${orphanSections.length} sekcji do strony` });
       await fetchData();
     } catch (e) {
       console.error('fixMissingPageId error', e);
     }
   };
 
-  // Repair helper: if a section is active but shows 0 items while DB has items, reactivate them
-  const hasRepairedInvisibleRef = React.useRef(false);
-  const repairInvisibleItems = async (sectionsList: CMSSection[], itemsList: CMSItem[]) => {
-    if (hasRepairedInvisibleRef.current) return false;
-    try {
-      // Sections with zero visible items
-      const zeroItemSections = sectionsList.filter(sec => itemsList.filter(it => it.section_id === sec.id).length === 0);
-      if (zeroItemSections.length === 0) return false;
-
-      // Check DB for any items for these sections (admin policy allows seeing inactive)
-      const idsToCheck = zeroItemSections.map(s => s.id);
-      const { data: hiddenItems } = await supabase
-        .from('cms_items')
-        .select('id, section_id, is_active, page_id')
-        .in('section_id', idsToCheck);
-
-      if (!hiddenItems || hiddenItems.length === 0) return false;
-
-      const sectionIdsNeedingActivation = Array.from(new Set(hiddenItems.map(it => it.section_id)));
-      const { error } = await supabase
-        .from('cms_items')
-        .update({ is_active: true, page_id: null, updated_at: new Date().toISOString() })
-        .in('section_id', sectionIdsNeedingActivation);
-
-      if (error) throw error;
-      hasRepairedInvisibleRef.current = true;
-      console.log('Repaired invisible items for sections:', sectionIdsNeedingActivation);
-      return true;
-    } catch (e) {
-      console.error('repairInvisibleItems error', e);
-      return false;
+  // Run one-time repairs on load
+  useEffect(() => {
+    if (sections.length > 0) {
+      fixNestedRows(sections);
+      fixMissingPageId();
     }
-  };
+  }, [sections.length]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch all sections (including rows and their children)
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('cms_sections')
-        .select('*')
-        .eq('page_id', pageId)
-        .eq('is_active', true)
-        .order('position');
-      
-      if (sectionsError) throw sectionsError;
-      
-      // Fetch items
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('cms_items')
-        .select('*')
-        .eq('page_id', pageId)
-        .eq('is_active', true)
-        .order('position');
-      
-      if (itemsError) throw itemsError;
-      
-      // Convert database data to proper types
-      const convertedSections = convertSupabaseSections(sectionsData || []);
-      const convertedItems = (itemsData || []).map((item: any) => ({
-        ...item,
-        cells: item.cells ? (Array.isArray(item.cells) ? item.cells : JSON.parse(item.cells)) : []
-      }));
-      
-      setSections(convertedSections);
-      setItems(convertedItems);
-
-      // Debug: log size fields for sections
-      try {
-        const sizeSnapshot = convertedSections.map(s => ({ id: s.id, title: s.title, width_type: s.width_type, custom_width: s.custom_width, height_type: s.height_type, custom_height: s.custom_height }));
-        console.log('[DEBUG] Sections size snapshot:', sizeSnapshot);
-      } catch (e) {
-        // ignore
-      }
-
-      // Initialize open sections based on default_expanded values
-      const initialOpenSections: Record<string, boolean> = {};
-      convertedSections.forEach(section => {
-        // Dla płaskich sekcji (nie-rows) domyślnie rozwijaj w edytorze
-        initialOpenSections[section.id] = section.section_type === 'section' && !section.parent_id 
-          ? true 
-          : (section.default_expanded || false);
-      });
-      setOpenSections(initialOpenSections);
-
-      // Debug: log sections count
-      console.log('[LivePreviewEditor] Loaded sections:', {
-        total: convertedSections.length,
-        rows: convertedSections.filter(s => s.section_type === 'row').length,
-        flatSections: convertedSections.filter(s => s.section_type === 'section' && !s.parent_id).length,
-        childSections: convertedSections.filter(s => s.parent_id).length,
-        items: convertedItems.length
-      });
-
-      // Debug counts for key sections
-      try {
-        const names = ['Witamy w Pure Life', 'DOWIEDZ SIĘ WIĘCEJ'];
-        names.forEach((name) => {
-          const sec = convertedSections.find(s => s.title?.trim().toLowerCase() === name.toLowerCase());
-          if (sec) {
-            const cnt = convertedItems.filter(it => it.section_id === sec.id).length;
-            console.log(`[DEBUG] Section "${name}" items:`, cnt, { sectionId: sec.id });
-          } else {
-            console.log(`[DEBUG] Section not found by title: ${name}`);
-          }
-        });
-      } catch (e) {
-        console.warn('Debug logging failed', e);
-      }
-      
-      // Initialize history
-      if (convertedSections && convertedItems) {
-        setHistory([{ sections: convertedSections, items: convertedItems }]);
-        setHistoryIndex(0);
-        initializeColumns(convertedSections, convertedItems);
-
-        // Attempt auto-repair of invisible items once
-        const repaired = await repairInvisibleItems(convertedSections, convertedItems);
-        if (repaired) {
-          console.log('Auto-repair completed, refetching data...');
-          await fetchData();
-          return;
-        }
-      }
-
-      // Safety: ensure no rows are nested inside rows
-      await fixNestedRows(convertedSections);
-      
-      // Fix sections without page_id
-      await fixMissingPageId();
-
-      // Load page layout settings (sections grid)
-      const { data: settings } = await supabase
-        .from('page_settings')
-        .select('layout_mode, column_count')
-        .eq('page_type', 'homepage')
-        .maybeSingle();
-      if (settings) {
-        setLayoutMode((settings.layout_mode as any) || 'single');
-        setColumnCount(settings.column_count || 1);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load content',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Initial data fetch
   useEffect(() => {
     fetchData();
-    
-    // ✅ Dodaj realtime subscription dla cms_items
-    const channel = supabase
-      .channel(`cms-items-changes-${pageId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Wszystkie zmiany (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'cms_items',
-          filter: `page_id=eq.${pageId}`
-        },
-        (payload) => {
-          console.log('[Realtime] cms_items change:', payload);
-          
-          if (payload.eventType === 'UPDATE') {
-            const updatedItem = payload.new as any;
-            
-            // Jeśli element został zdezaktywowany
-            if (updatedItem.is_active === false) {
-              setItems(prev => prev.filter(i => i.id !== updatedItem.id));
-              console.log('[Realtime] Item deactivated:', updatedItem.id);
-            } else {
-              // Aktualizuj istniejący element
-              setItems(prev => prev.map(i => 
-                i.id === updatedItem.id 
-                  ? { ...updatedItem, cells: Array.isArray(updatedItem.cells) ? updatedItem.cells : JSON.parse(updatedItem.cells || '[]') }
-                  : i
-              ));
-              console.log('[Realtime] Item updated:', updatedItem.id);
-            }
-          } else if (payload.eventType === 'INSERT') {
-            const newItem = payload.new as any;
-            if (newItem.is_active) {
-              setItems(prev => {
-                // Check if item already exists (prevent duplicates from local + realtime)
-                if (prev.some(i => i.id === newItem.id)) {
-                  console.log('[Realtime] Item already exists, skipping duplicate:', newItem.id);
-                  return prev;
-                }
-                console.log('[Realtime] New item added:', newItem.id);
-                return [...prev, { 
-                  ...newItem, 
-                  cells: Array.isArray(newItem.cells) ? newItem.cells : JSON.parse(newItem.cells || '[]') 
-                }];
-              });
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setItems(prev => prev.filter(i => i.id !== payload.old.id));
-            console.log('[Realtime] Item deleted:', payload.old.id);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [pageId]);
 
-  const autoSave = useCallback(async (newSections: CMSSection[], newItems: CMSItem[]) => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-
-    autoSaveTimeoutRef.current = setTimeout(async () => {
-      setAutoSaveStatus('saving');
-      try {
-        // Build payload for edge function - include size fields and row layout so latest widths persist
-        const sectionsPayload = newSections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null, row_layout_type: (s as any).row_layout_type ?? null }));
-
-        const itemsBySection: { [key: string]: CMSItem[] } = {};
-        newItems.forEach((it) => {
-          const sid = (it.section_id as string) || '';
-          if (!sid) return; // skip invalid
-          if (!itemsBySection[sid]) itemsBySection[sid] = [];
-          itemsBySection[sid].push(it);
-        });
-
-        const itemsPayload: { id: string; section_id: string; position: number; column_index?: number }[] = [];
-        Object.entries(itemsBySection).forEach(([sid, arr]) => {
-          arr.forEach((it: any, idx) => {
-            itemsPayload.push({ id: it.id as string, section_id: sid, position: idx, column_index: typeof it.column_index === 'number' ? it.column_index : 0 });
-          });
-        });
-
-        const { data, error } = await supabase.functions.invoke('save-cms-layout', {
-          body: { sections: sectionsPayload, items: itemsPayload },
-        });
-        if (error) throw error;
-        if (!data?.ok) {
-          console.error('Auto-save returned non-ok response:', data);
-          throw new Error('Auto-save did not complete successfully');
-        }
-
-        setAutoSaveStatus('saved');
-        setHasUnsavedChanges(false);
-        
-        // NO fetchData() here - keep local state for live editing
-        console.log('[AutoSave] Saved successfully - no page refresh');
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-        setAutoSaveStatus('error');
-      }
-    }, 2000);
-  }, []);
 
   // Save page-level layout settings (sections grid)
   const savePageSettings = useCallback(async (mode: 'single' | 'columns' | 'grid', count: number) => {
@@ -1433,97 +1119,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     setDragVersion((v) => v + 1);
   };
 
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const prevState = history[historyIndex - 1];
-      setSections(prevState.sections);
-      setItems(prevState.items);
-      setHistoryIndex(historyIndex - 1);
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      const nextState = history[historyIndex + 1];
-      setSections(nextState.sections);
-      setItems(nextState.items);
-      setHistoryIndex(historyIndex + 1);
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      // Cancel any pending autosave to avoid race conditions overriding latest sizes
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-      // Build payload for edge function - include size fields and row layout so latest widths persist
-      const sectionsPayload = sections.map((s) => ({ id: s.id, position: s.position, width_type: s.width_type, height_type: s.height_type, custom_width: s.custom_width ?? null, custom_height: s.custom_height ?? null, row_layout_type: (s as any).row_layout_type ?? null }));
-
-      const itemsBySection: { [key: string]: CMSItem[] } = {};
-      items.forEach((it) => {
-        const sid = (it.section_id as string) || '';
-        if (!sid) return;
-        if (!itemsBySection[sid]) itemsBySection[sid] = [];
-        itemsBySection[sid].push(it);
-      });
-
-      const itemsPayload: { id: string; section_id: string; position: number; column_index?: number }[] = [];
-      Object.entries(itemsBySection).forEach(([sid, arr]) => {
-        arr.forEach((it: any, idx) => {
-          itemsPayload.push({ id: it.id as string, section_id: sid, position: idx, column_index: typeof it.column_index === 'number' ? it.column_index : 0 });
-        });
-      });
-
-      const { data, error } = await supabase.functions.invoke('save-cms-layout', {
-        body: { sections: sectionsPayload, items: itemsPayload },
-      });
-      if (error) throw error;
-      if (!data?.ok) {
-        console.error('Save returned non-ok response:', data);
-        throw new Error('Save did not complete successfully');
-      }
-
-      // ✅ REMOVED: await fetchData(); - State is already current
-
-      // Notify all clients (including homepage) to refresh layout
-      const channel = supabase.channel('cms-live');
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.send({
-            type: 'broadcast',
-            event: 'layout-updated',
-            payload: { at: Date.now() },
-          });
-          supabase.removeChannel(channel);
-        }
-      });
-
-      setHasUnsavedChanges(false);
-      setAutoSaveStatus('saved');
-      toast({
-        title: 'Sukces',
-        description: 'Układ został zapisany poprawnie',
-      });
-    } catch (error) {
-      console.error('Save failed:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save layout',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleCancel = () => {
     if (hasUnsavedChanges) {
       if (confirm('You have unsaved changes. Are you sure you want to cancel?')) {
-        fetchData(); // Reload original data
+        fetchData();
         setEditMode(false);
         setHasUnsavedChanges(false);
         setSelectedElement(null);
@@ -1539,11 +1138,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     setHasUnsavedChanges(true);
     
     try {
-      // Check if it's a section or item
       const section = sections.find(s => s.id === elementId);
       
       if (section) {
-        // Determine width settings
         let width_type = section.width_type || 'full';
         let newCustomWidth = section.custom_width;
         
@@ -1551,14 +1148,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           width_type = 'custom';
           newCustomWidth = Math.round(width);
         } else if (width === 0) {
-          // Reset to auto width
           width_type = 'full';
           newCustomWidth = null;
-        } else {
-          console.warn(`Ignored width resize for ${elementId}: invalid width (${width}). Keeping previous width settings.`);
         }
 
-        // Determine height settings  
         let height_type = section.height_type || 'auto';
         let newCustomHeight = section.custom_height;
         
@@ -1566,104 +1159,48 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           height_type = 'custom';
           newCustomHeight = Math.round(height);
         } else if (height === 0) {
-          // Reset to auto height
           height_type = 'auto';
           newCustomHeight = null;
-        } else {
-          console.warn(`Ignored height resize for ${elementId}: invalid height (${height}). Keeping previous height settings.`);
         }
 
-        console.log(`Updating section ${elementId} with width_type: ${width_type}, height_type: ${height_type}, custom_width: ${newCustomWidth}, custom_height: ${newCustomHeight}`);
-
-        // Update local state and persist via Edge Function autosave (service role)
         setSections(prev => {
           const updated = prev.map(s => 
             s.id === elementId 
-              ? { 
-                  ...s, 
-                  width_type,
-                  height_type,
-                  custom_width: newCustomWidth, 
-                  custom_height: newCustomHeight,
-                }
+              ? { ...s, width_type, height_type, custom_width: newCustomWidth, custom_height: newCustomHeight }
               : s
           ).map(s => {
-            // If resized section is inside a row, ensure that row uses custom layout so widths take effect
             if (section.parent_id && s.id === section.parent_id && s.section_type === 'row' && s.row_layout_type !== 'custom') {
               return { ...s, row_layout_type: 'custom' } as any;
             }
             return s;
           });
-
-          // Schedule autosave to persist sizes and ordering reliably
           autoSave(updated, items);
           return updated;
         });
 
-        // Persist immediately to DB to avoid debounce race conditions
         try {
-          const updates: any = { 
-            width_type, 
-            height_type, 
-            custom_width: newCustomWidth, 
-            custom_height: newCustomHeight, 
-            updated_at: new Date().toISOString() 
-          };
-          const { error: immediateErr } = await supabase
-            .from('cms_sections')
-            .update(updates)
-            .eq('id', elementId);
-          if (immediateErr) {
-            console.error('Immediate resize save failed', immediateErr);
-          }
+          const updates: any = { width_type, height_type, custom_width: newCustomWidth, custom_height: newCustomHeight, updated_at: new Date().toISOString() };
+          await supabase.from('cms_sections').update(updates).eq('id', elementId);
         } catch (e) {
-          console.error('Immediate width save exception', e);
+          console.error('Immediate resize save failed', e);
         }
 
-        // If section is in a row, switch row to custom layout so custom widths are visible
         if (section.parent_id) {
           const parentRow = sections.find(s => s.id === section.parent_id && s.section_type === 'row');
           if (parentRow && parentRow.row_layout_type !== 'custom') {
             try {
-              await supabase
-                .from('cms_sections')
-                .update({ row_layout_type: 'custom', updated_at: new Date().toISOString() })
-                .eq('id', parentRow.id);
+              await supabase.from('cms_sections').update({ row_layout_type: 'custom', updated_at: new Date().toISOString() }).eq('id', parentRow.id);
             } catch (e) {
               console.error('Parent row layout switch failed', e);
             }
           }
         }
-      } else {
-        // TODO: Add item resize handling if needed
       }
-
-        toast({
-          title: 'Sukces',
-          description: 'Rozmiar sekcji został zapisany',
-        });
+      toast({ title: 'Sukces', description: 'Rozmiar sekcji został zapisany' });
     } catch (error) {
       console.error('Error saving element resize:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie można zapisać rozmiaru elementu',
-        variant: 'destructive',
-      });
+      toast({ title: 'Błąd', description: 'Nie można zapisać rozmiaru elementu', variant: 'destructive' });
     }
-  };
-
-  const handleLayoutModeChange = (mode: 'single' | 'columns' | 'grid') => {
-    setLayoutMode(mode);
-    setHasUnsavedChanges(true);
-    // Persist page-level sections grid layout
-    savePageSettings(mode, columnCount);
-  };
-
-  const handleColumnCountChange = (count: number) => {
-    setColumnCount(count);
-    setHasUnsavedChanges(true);
-    // Persist page-level sections grid layout
-    savePageSettings(layoutMode, count);
   };
   const handleColumnsChange = async (sectionId: string, columns: Column[]) => {
     setSectionColumns(prev => ({
@@ -2105,459 +1642,29 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     }
   };
 
-  // Item management handlers
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [isItemEditorOpen, setIsItemEditorOpen] = useState(false);
-  
-  // Section management handlers
-  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
-  const [isSectionEditorOpen, setIsSectionEditorOpen] = useState(false);
-  
-  // When selectedElement changes, check if it's a section and open editor
+  // Sync selectedElement with editors
   useEffect(() => {
     if (selectedElement) {
       const isSection = sections.find(s => s.id === selectedElement);
       const isItem = items.find(i => i.id === selectedElement);
       
       if (isSection && !isItem) {
-        // It's a section - open section editor
         setEditingSectionId(selectedElement);
         setIsSectionEditorOpen(true);
         setPanelMode('properties');
         setSelectedElementForPanel(selectedElement);
-        
-        // Close item editor if open
         setIsItemEditorOpen(false);
         setEditingItemId(null);
+      } else if (isItem) {
+        setEditingItemId(selectedElement);
+        setIsItemEditorOpen(true);
+        setPanelMode('properties');
+        setSelectedElementForPanel(selectedElement);
+        setIsSectionEditorOpen(false);
+        setEditingSectionId(null);
       }
     }
-  }, [selectedElement, sections, items]);
-  
-  const handleEditSection = (sectionId: string) => {
-    console.log('[handleEditSection] Opening editor for section:', sectionId);
-    
-    const section = sections.find(s => s.id === sectionId);
-    if (!section) {
-      console.error('[handleEditSection] Section not found:', sectionId);
-      return;
-    }
-    
-    setIsSectionEditorOpen(false);
-    setEditingSectionId(null);
-    
-    setTimeout(() => {
-      setEditingSectionId(sectionId);
-      setSelectedElement(sectionId);
-      setIsSectionEditorOpen(true);
-      setSelectedElementForPanel(sectionId);
-      setPanelMode('properties');
-    }, 50);
-  };
-
-  const handleSaveSection = async (updatedSection: Partial<CMSSection>) => {
-    if (!editingSectionId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('cms_sections')
-        .update({
-          title: updatedSection.title,
-          description: updatedSection.description,
-          background_color: updatedSection.background_color,
-          text_color: updatedSection.text_color,
-          font_size: updatedSection.font_size,
-          alignment: updatedSection.alignment,
-          padding: updatedSection.padding,
-          margin: updatedSection.margin,
-          border_radius: updatedSection.border_radius,
-          style_class: updatedSection.style_class,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', editingSectionId);
-      
-      if (error) throw error;
-      
-      setSections(prev => prev.map(s => s.id === editingSectionId ? { ...s, ...updatedSection } as CMSSection : s));
-      saveToHistory(sections.map(s => s.id === editingSectionId ? { ...s, ...updatedSection } as CMSSection : s), items);
-      setHasUnsavedChanges(true);
-      setIsSectionEditorOpen(false);
-      setEditingSectionId(null);
-      
-      toast({
-        title: 'Sukces',
-        description: 'Sekcja została zapisana',
-      });
-    } catch (error) {
-      console.error('Error saving section:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie można zapisać sekcji',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  
-  const handleEditItem = (itemId: string) => {
-    console.log('[handleEditItem] Opening editor for item:', itemId);
-    
-    // Find full item object
-    const item = items.find(i => i.id === itemId);
-    if (!item) {
-      console.error('[handleEditItem] Item not found:', itemId);
-      return;
-    }
-    
-    console.log('[handleEditItem] Item type:', item.type, 'Full item:', item);
-    
-    // Set new editing state - modal stays open until user explicitly closes it
-    setEditingItemId(itemId);
-    setSelectedElement(itemId);
-    setIsItemEditorOpen(true);
-    setSelectedElementForPanel(itemId);
-    setPanelMode('properties');
-  };
-
-  const handleSaveItem = async (updatedItem: Partial<CMSItem>) => {
-    if (!editingItemId) return;
-    
-    console.log('💾 handleSaveItem called with:', updatedItem);
-    console.log('💾 Original cells:', updatedItem.cells);
-    
-    try {
-      // Znajdź oryginalny element
-      const originalItem = items.find(i => i.id === editingItemId);
-      if (!originalItem) {
-        console.error('❌ Original item not found');
-        return;
-      }
-      
-      // SYNCHRONIZUJ cells z legacy fields PRZED zapisem
-      let finalCells = updatedItem.cells || originalItem.cells || [];
-      
-      // Dla heading: title -> cells[0].content
-      if ((updatedItem.type === 'heading' || originalItem.type === 'heading') && updatedItem.title !== undefined) {
-        const existingCell: any = (Array.isArray(finalCells) && finalCells[0]) ? finalCells[0] : {};
-        finalCells = [
-          { 
-            ...existingCell,
-            type: 'header' as const,
-            content: updatedItem.title || '',
-            position: existingCell.position || 0,
-            is_active: existingCell.is_active !== undefined ? existingCell.is_active : true
-          }
-        ];
-        console.log('📝 Synced heading cells:', finalCells);
-      }
-      
-      // Dla text: description -> cells[0].content
-      if ((updatedItem.type === 'text' || originalItem.type === 'text') && updatedItem.description !== undefined) {
-        const existingCell: any = (Array.isArray(finalCells) && finalCells[0]) ? finalCells[0] : {};
-        finalCells = [
-          { 
-            ...existingCell,
-            type: 'description' as const,
-            content: updatedItem.description || '',
-            position: existingCell.position || 0,
-            is_active: existingCell.is_active !== undefined ? existingCell.is_active : true
-          }
-        ];
-        console.log('📝 Synced text cells:', finalCells);
-      }
-      
-      // Dla button: title -> cells[0].content, url -> cells[0].url
-      if (updatedItem.type === 'button' || originalItem.type === 'button') {
-        const existingCell: any = (Array.isArray(finalCells) && finalCells[0]) ? finalCells[0] : {};
-        finalCells = [
-          {
-            ...existingCell,
-            type: 'button_external' as const,
-            content: updatedItem.title !== undefined ? updatedItem.title : (existingCell.content || ''),
-            url: updatedItem.url !== undefined ? updatedItem.url : (existingCell.url || ''),
-            position: existingCell.position || 0,
-            is_active: existingCell.is_active !== undefined ? existingCell.is_active : true
-          }
-        ];
-        console.log('📝 Synced button cells:', finalCells);
-      }
-      
-      console.log('💾 Final cells to save:', finalCells);
-      
-      const { error } = await supabase
-        .from('cms_items')
-        .update({
-          type: updatedItem.type,
-          title: updatedItem.title,
-          description: updatedItem.description,
-          url: updatedItem.url,
-          icon: updatedItem.icon,
-          media_url: updatedItem.media_url,
-          media_type: updatedItem.media_type,
-          media_alt_text: updatedItem.media_alt_text,
-          cells: finalCells as any,
-          // Style properties
-          text_color: updatedItem.text_color,
-          background_color: updatedItem.background_color,
-          font_size: updatedItem.font_size,
-          font_weight: updatedItem.font_weight ? Number(updatedItem.font_weight) : undefined,
-          padding: updatedItem.padding,
-          margin_top: updatedItem.margin_top,
-          margin_bottom: updatedItem.margin_bottom,
-          border_radius: updatedItem.border_radius,
-          opacity: updatedItem.opacity,
-          icon_color: updatedItem.icon_color,
-          icon_size: updatedItem.icon_size,
-          icon_spacing: updatedItem.icon_spacing,
-          icon_position: updatedItem.icon_position,
-          style_class: updatedItem.style_class,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', editingItemId);
-      
-      if (error) {
-        console.error('❌ Save error:', error);
-        throw error;
-      }
-      
-      console.log('✅ Item saved successfully with synced cells');
-      
-      // Update local state z zsynchronizowanymi cells
-      const updatedItemWithCells = { ...updatedItem, cells: finalCells };
-      setItems(prev => prev.map(i => 
-        i.id === editingItemId 
-          ? { ...i, ...updatedItemWithCells } as CMSItem 
-          : i
-      ));
-      
-      saveToHistory(
-        sections, 
-        items.map(i => 
-          i.id === editingItemId 
-            ? { ...i, ...updatedItemWithCells } as CMSItem 
-            : i
-        )
-      );
-      
-      setHasUnsavedChanges(true);
-      
-      // Don't close modal or reset editingItemId - let user close explicitly via Cancel/Save button
-      // Modal stays open for continuous editing
-      
-    } catch (error) {
-      console.error('Error saving item:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie można zapisać elementu',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeleteItem = async (itemId: string) => {
-    try {
-      console.log('[handleDeleteItem] Deleting item:', itemId);
-      
-      // ✅ Najpierw aktualizuj lokalnie dla natychmiastowego efektu
-      setItems(prev => prev.filter(i => i.id !== itemId));
-      
-      // ✅ Potem update w bazie
-      const { error } = await supabase
-        .from('cms_items')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', itemId);
-      
-      if (error) {
-        console.error('Error deleting item:', error);
-        // W przypadku błędu przywróć stan
-        await fetchData();
-        throw error;
-      }
-      
-      console.log('[handleDeleteItem] Item deleted successfully');
-      
-      saveToHistory(sections, items.filter(i => i.id !== itemId));
-      setHasUnsavedChanges(true);
-      
-      toast({
-        title: 'Sukces',
-        description: 'Element został usunięty',
-      });
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie można usunąć elementu',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDuplicateItem = async (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('cms_items')
-        .insert([{
-          page_id: pageId,
-          section_id: item.section_id,
-          type: item.type,
-          title: item.title ? `${item.title} (kopia)` : null,
-          description: item.description,
-          url: item.url,
-          icon: item.icon,
-          media_url: item.media_url,
-          media_type: item.media_type,
-          media_alt_text: item.media_alt_text,
-          position: items.filter(i => i.section_id === item.section_id).length,
-          column_index: (item as any).column_index || 0,
-          cells: item.cells as any
-        }])
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      setItems(prev => [...prev, data as unknown as CMSItem]);
-      saveToHistory(sections, [...items, data as unknown as CMSItem]);
-      setHasUnsavedChanges(true);
-      
-      toast({
-        title: 'Sukces',
-        description: 'Element został zduplikowany',
-      });
-    } catch (error) {
-      console.error('Error duplicating item:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie można zduplikować elementu',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleMoveItemUp = async (itemId: string) => {
-    console.log('[handleMoveItemUp] Starting for item:', itemId);
-    const item = items.find(i => i.id === itemId);
-    if (!item) {
-      console.log('[handleMoveItemUp] Item not found');
-      return;
-    }
-    
-    const sectionItems = items
-      .filter(i => i.section_id === item.section_id && (i as any).column_index === (item as any).column_index)
-      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-    
-    console.log('[handleMoveItemUp] Section items:', sectionItems.map(i => ({ id: i.id, position: i.position })));
-    
-    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
-    console.log('[handleMoveItemUp] Current index:', currentIndex);
-    
-    if (currentIndex <= 0) {
-      console.log('[handleMoveItemUp] Already at top');
-      return;
-    }
-    
-    // Swap items
-    const newItems = [...sectionItems];
-    [newItems[currentIndex], newItems[currentIndex - 1]] = [newItems[currentIndex - 1], newItems[currentIndex]];
-    
-    console.log('[handleMoveItemUp] After swap:', newItems.map(i => ({ id: i.id, position: i.position })));
-    
-    // Update local state first for immediate UI update
-    setItems(prev => {
-      const updated = prev.map(i => {
-        const itemInNew = newItems.find(ni => ni.id === i.id);
-        if (!itemInNew) return i;
-        const newIdx = newItems.indexOf(itemInNew);
-        console.log('[handleMoveItemUp] Setting position for', i.id, 'to', newIdx);
-        return { ...i, position: newIdx };
-      });
-      return updated;
-    });
-    
-    // Force re-render
-    setDragVersion(v => v + 1);
-    
-    // Then update database
-    try {
-      await Promise.all(newItems.map((item, idx) =>
-        supabase
-          .from('cms_items')
-          .update({ position: idx, updated_at: new Date().toISOString() })
-          .eq('id', item.id as string)
-      ));
-      
-      console.log('[handleMoveItemUp] Database updated successfully');
-      setHasUnsavedChanges(true);
-    } catch (error) {
-      console.error('[handleMoveItemUp] Error:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
-      await fetchData();
-    }
-  };
-
-  const handleMoveItemDown = async (itemId: string) => {
-    console.log('[handleMoveItemDown] Starting for item:', itemId);
-    const item = items.find(i => i.id === itemId);
-    if (!item) {
-      console.log('[handleMoveItemDown] Item not found');
-      return;
-    }
-    
-    const sectionItems = items
-      .filter(i => i.section_id === item.section_id && (i as any).column_index === (item as any).column_index)
-      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-    
-    console.log('[handleMoveItemDown] Section items:', sectionItems.map(i => ({ id: i.id, position: i.position })));
-    
-    const currentIndex = sectionItems.findIndex(i => i.id === itemId);
-    console.log('[handleMoveItemDown] Current index:', currentIndex, 'of', sectionItems.length);
-    
-    if (currentIndex >= sectionItems.length - 1) {
-      console.log('[handleMoveItemDown] Already at bottom');
-      return;
-    }
-    
-    // Swap items
-    const newItems = [...sectionItems];
-    [newItems[currentIndex], newItems[currentIndex + 1]] = [newItems[currentIndex + 1], newItems[currentIndex]];
-    
-    console.log('[handleMoveItemDown] After swap:', newItems.map(i => ({ id: i.id, position: i.position })));
-    
-    // Update local state first for immediate UI update
-    setItems(prev => {
-      const updated = prev.map(i => {
-        const itemInNew = newItems.find(ni => ni.id === i.id);
-        if (!itemInNew) return i;
-        const newIdx = newItems.indexOf(itemInNew);
-        console.log('[handleMoveItemDown] Setting position for', i.id, 'to', newIdx);
-        return { ...i, position: newIdx };
-      });
-      return updated;
-    });
-    
-    // Force re-render
-    setDragVersion(v => v + 1);
-    
-    // Then update database
-    try {
-      await Promise.all(newItems.map((item, idx) =>
-        supabase
-          .from('cms_items')
-          .update({ position: idx, updated_at: new Date().toISOString() })
-          .eq('id', item.id as string)
-      ));
-      
-      console.log('[handleMoveItemDown] Database updated successfully');
-      setHasUnsavedChanges(true);
-    } catch (error) {
-      console.error('[handleMoveItemDown] Error:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
-      await fetchData();
-    }
-  };
+  }, [selectedElement, sections, items, setEditingSectionId, setIsSectionEditorOpen, setEditingItemId, setIsItemEditorOpen]);
 
   if (!isAdmin) {
     return (
