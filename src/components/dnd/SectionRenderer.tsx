@@ -123,14 +123,19 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
                   return (
                     <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
                       <div 
-                        className="relative"
+                        className="relative group"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectElement(item.id as string);
                         }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          onEditItem?.(item.id as string);
+                        }}
                       >
                         {onDeleteItem && (
                           <ItemControls
+                            onEdit={() => onEditItem?.(item.id as string)}
                             onDelete={() => onDeleteItem(item.id as string)}
                             onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
                           />
@@ -361,9 +366,14 @@ const ItemRenderer: React.FC<ItemRendererProps> = ({
             e.stopPropagation();
             onSelectElement(item.id as string);
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onEditItem?.(item.id as string);
+          }}
         >
           {onDeleteItem && (
             <ItemControls
+              onEdit={() => onEditItem?.(item.id as string)}
               onDelete={() => onDeleteItem(item.id as string)}
               onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
             />

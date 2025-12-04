@@ -131,9 +131,14 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                       onSelectSection(item.id as string);
                     }
                   }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onEditItem?.(item.id as string);
+                  }}
                 >
                   {isEditMode && onDeleteItem && (
                     <ItemControls
+                      onEdit={() => onEditItem?.(item.id as string)}
                       onDelete={() => onDeleteItem(item.id as string)}
                       onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
                     />
