@@ -7,14 +7,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, Columns, RefreshCw, X } from 'lucide-react';
+import { Edit3, Loader2, Layout, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { SimpleRowDemo } from './SimpleRowDemo';
 import { DraggableItem } from './DraggableItem';
-import { ResizableElement } from './ResizableElement';
 import { ColumnLayout } from './ColumnLayout';
 import { EditingToolbar } from './EditingToolbar';
 import { LayoutControls } from './LayoutControls';
@@ -30,7 +29,8 @@ import { RowContainer } from './RowContainer';
 import { ElementsPanel } from './ElementsPanel';
 import { ItemControls } from './ItemControls';
 import { ItemEditor } from '@/components/cms/ItemEditor';
-// import { DndDiagnostics } from './DndDiagnostics';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { createDefaultContent, getElementTypeName, initializeSectionColumns, log, warn } from './utils/layoutHelpers';
 
 interface Column {
   id: string;
@@ -481,6 +481,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const autoSaveTimeoutRef = React.useRef<NodeJS.Timeout>();
   const hasFixedNestedRowsRef = React.useRef(false);
   
+  // Clipboard for copy/paste
+  const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
+  
   const saveToHistory = useCallback((newSections: CMSSection[], newItems: CMSItem[]) => {
     setHistory(prev => {
       const newHistory = prev.slice(0, historyIndex + 1);
@@ -489,6 +492,97 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     });
     setHistoryIndex(prev => Math.min(prev + 1, 19));
   }, [historyIndex]);
+
+  // Keyboard shortcuts integration
+  useKeyboardShortcuts({
+    enabled: editMode,
+    onUndo: () => {
+      if (historyIndex > 0) {
+        const prevState = history[historyIndex - 1];
+        setSections(prevState.sections);
+        setItems(prevState.items);
+        setHistoryIndex(historyIndex - 1);
+        setHasUnsavedChanges(true);
+      }
+    },
+    onRedo: () => {
+      if (historyIndex < history.length - 1) {
+        const nextState = history[historyIndex + 1];
+        setSections(nextState.sections);
+        setItems(nextState.items);
+        setHistoryIndex(historyIndex + 1);
+        setHasUnsavedChanges(true);
+      }
+    },
+    onDelete: () => {
+      if (selectedElement) {
+        // Will be handled by handleDeactivateElement
+        const section = sections.find(s => s.id === selectedElement);
+        const item = items.find(i => i.id === selectedElement);
+        if (section || item) {
+          // Trigger delete via existing handler
+          handleDeactivateElement(selectedElement);
+        }
+      }
+    },
+    onDuplicate: () => {
+      if (selectedElement) {
+        handleDuplicateElement();
+      }
+    },
+    onDeselect: () => {
+      setSelectedElement(null);
+      setPanelMode('elements');
+    },
+    onSave: () => {
+      handleSave();
+    },
+    onCopy: () => {
+      if (selectedElement) {
+        const section = sections.find(s => s.id === selectedElement);
+        const item = items.find(i => i.id === selectedElement);
+        if (section) {
+          setCopiedElement({ type: 'section', data: section });
+          toast({ title: 'Skopiowano', description: 'Sekcja skopiowana do schowka' });
+        } else if (item) {
+          setCopiedElement({ type: 'item', data: item });
+          toast({ title: 'Skopiowano', description: 'Element skopiowany do schowka' });
+        }
+      }
+    },
+    onPaste: () => {
+      if (copiedElement) {
+        // For now just show message - full paste would require more complex logic
+        toast({ title: 'Info', description: 'Użyj przycisku duplikuj aby skopiować element' });
+      }
+    },
+    onMoveUp: () => {
+      if (selectedElement) {
+        const item = items.find(i => i.id === selectedElement);
+        if (item) {
+          handleMoveItemUp(selectedElement);
+        }
+      }
+    },
+    onMoveDown: () => {
+      if (selectedElement) {
+        const item = items.find(i => i.id === selectedElement);
+        if (item) {
+          handleMoveItemDown(selectedElement);
+        }
+      }
+    },
+    onToggleEditMode: () => {
+      if (!editMode) {
+        setEditMode(true);
+      } else {
+        handleCancel();
+      }
+    },
+    canUndo: historyIndex > 0,
+    canRedo: historyIndex < history.length - 1,
+    selectedElement,
+  });
 
   // Initialize columns for sections
   const initializeColumns = (sections: CMSSection[], items: CMSItem[]) => {
@@ -2964,6 +3058,15 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         onElementSettings={handleElementSettings}
         onAlignElement={handleAlignElement}
         onSizeElement={handleSizeElement}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onSave={handleSave}
+        onTogglePreview={() => setEditMode(!editMode)}
+        canUndo={historyIndex > 0}
+        canRedo={historyIndex < history.length - 1}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isPreviewMode={!editMode}
+        autoSaveStatus={autoSaveStatus}
         sections={sections}
         items={items}
       />

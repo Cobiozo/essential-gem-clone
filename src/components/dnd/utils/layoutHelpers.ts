@@ -14,15 +14,17 @@ export const error = console.error; // Always log errors
 
 // Create default content based on element type
 export const createDefaultContent = (elementType: string): any[] => {
+  log('[createDefaultContent] Creating content for type:', elementType);
+  
   switch (elementType) {
     case 'heading':
-      return [{ type: 'h2', content: 'Nowy nagłówek' }];
+      return [{ type: 'h2', content: 'Nowy nagłówek', level: 2 }];
     case 'text':
       return [{ type: 'paragraph', content: 'Nowy tekst' }];
     case 'image':
-      return [{ type: 'img', src: '/placeholder.svg', alt: 'Placeholder' }];
+      return [{ type: 'img', content: '', alt: 'Obrazek' }];
     case 'video':
-      return [{ type: 'video', src: '', poster: '' }];
+      return [{ type: 'video_embed', content: '', title: 'Film' }];
     case 'button':
       return [{ type: 'btn', content: 'Kliknij', url: '#' }];
     case 'divider':
