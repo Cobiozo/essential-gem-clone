@@ -404,7 +404,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'icon':
     case 'icon-field':
       const iconCell = (item.cells as any[])?.[0];
-      const iconName = iconCell?.content || item.icon || 'Star';
+      const iconName = iconCell?.icon || iconCell?.content || item.icon || 'Star';
       const IconComp = (icons as any)[iconName];
       
       if (!IconComp && isEditMode) {

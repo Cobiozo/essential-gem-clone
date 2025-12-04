@@ -115,6 +115,7 @@ export const useItemManager = ({
           icon_spacing: updatedItem.icon_spacing,
           icon_position: updatedItem.icon_position,
           style_class: updatedItem.style_class,
+          text_align: updatedItem.text_align,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingItemId);
