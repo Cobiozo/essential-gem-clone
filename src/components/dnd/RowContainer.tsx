@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Columns, Columns2, Columns3, Grid3X3 } from 'lucide-react';
+import { Plus, X, Columns, Columns2, Columns3, Grid3X3, Edit3, Copy, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { DraggableSection } from './DraggableSection';
@@ -402,6 +402,10 @@ interface RowContainerProps {
   onEditSection?: (sectionId: string) => void;
   onDuplicateSection?: (sectionId: string) => void;
   onDeactivateSection?: (sectionId: string) => void;
+  // Row editing props
+  onEditRow?: (rowId: string) => void;
+  onDuplicateRow?: (rowId: string) => void;
+  onHideRow?: (rowId: string) => void;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -429,6 +433,9 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   onEditSection,
   onDuplicateSection,
   onDeactivateSection,
+  onEditRow,
+  onDuplicateRow,
+  onHideRow,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
@@ -510,6 +517,12 @@ export const RowContainer: React.FC<RowContainerProps> = ({
         "w-full transition-all duration-200",
         isEditMode && isOver && "bg-primary/5 ring-2 ring-primary rounded-lg"
       )}
+      onDoubleClick={(e) => {
+        if (isEditMode) {
+          e.stopPropagation();
+          onEditRow?.(row.id);
+        }
+      }}
     >
       {/* Row controls in edit mode */}
       {isEditMode && (
@@ -521,14 +534,44 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 Row ({columnCount} {columnCount === 1 ? 'col' : 'cols'})
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemoveRow(row.id)}
-              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-            >
-              <X className="w-3 h-3" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEditRow?.(row.id)}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                title="Edytuj wiersz"
+              >
+                <Edit3 className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDuplicateRow?.(row.id)}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                title="Duplikuj wiersz"
+              >
+                <Copy className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onHideRow?.(row.id)}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-yellow-500"
+                title="Ukryj wiersz"
+              >
+                <EyeOff className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemoveRow(row.id)}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                title="Usuń wiersz"
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-1">
