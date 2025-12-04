@@ -116,6 +116,18 @@ export const useItemManager = ({
           icon_position: updatedItem.icon_position,
           style_class: updatedItem.style_class,
           text_align: updatedItem.text_align,
+          // Dodatkowe pola stylów
+          object_fit: updatedItem.object_fit,
+          max_width: updatedItem.max_width,
+          max_height: updatedItem.max_height,
+          box_shadow: updatedItem.box_shadow,
+          border_width: updatedItem.border_width,
+          border_color: updatedItem.border_color,
+          border_style: updatedItem.border_style,
+          link_target: updatedItem.link_target,
+          lazy_loading: updatedItem.lazy_loading,
+          hover_scale: updatedItem.hover_scale,
+          hover_opacity: updatedItem.hover_opacity,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingItemId);
