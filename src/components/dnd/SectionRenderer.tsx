@@ -129,13 +129,10 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
                           onSelectElement(item.id as string);
                         }}
                       >
-                        {onEditItem && onDeleteItem && (
+                        {onDeleteItem && (
                           <ItemControls
-                            onEdit={() => onEditItem(item.id as string)}
                             onDelete={() => onDeleteItem(item.id as string)}
                             onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                            canMoveUp={itemIdx > 0}
-                            canMoveDown={itemIdx < sectionItems.length - 1}
                           />
                         )}
                         {itemContent}
@@ -365,13 +362,10 @@ const ItemRenderer: React.FC<ItemRendererProps> = ({
             onSelectElement(item.id as string);
           }}
         >
-          {onEditItem && onDeleteItem && (
+          {onDeleteItem && (
             <ItemControls
-              onEdit={() => onEditItem(item.id as string)}
               onDelete={() => onDeleteItem(item.id as string)}
               onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-              canMoveUp={itemIdx > 0}
-              canMoveDown={itemIdx < sectionItems.length - 1}
             />
           )}
           {item.type === 'multi_cell' ? itemContent : (

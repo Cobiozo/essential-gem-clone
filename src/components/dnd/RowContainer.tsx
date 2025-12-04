@@ -84,11 +84,6 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
     }];
   }, [slotSection, sectionColumns, items]);
   
-  // Debug logging
-  React.useEffect(() => {
-    console.log(`[RowColumnDropZone] ${rowId}-col-${columnIndex}:`, { isOver, isEditMode, hasSlotSection: !!slotSection, itemsCount: columnItems.length });
-  }, [isOver, isEditMode]);
-  
   return (
     <div
       ref={setNodeRef}
@@ -137,15 +132,10 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                     }
                   }}
                 >
-                  {isEditMode && onEditItem && onDeleteItem && (
+                  {isEditMode && onDeleteItem && (
                     <ItemControls
-                      onEdit={() => onEditItem(item.id as string)}
                       onDelete={() => onDeleteItem(item.id as string)}
                       onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                      onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-                      onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-                      canMoveUp={itemIdx > 0}
-                      canMoveDown={itemIdx < columnItems.length - 1}
                     />
                   )}
                   {itemContent}

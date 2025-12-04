@@ -58,7 +58,7 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
       </div>
       
       {/* Drag handle - left side to avoid overlap with ItemControls on right */}
-      <div className="absolute top-1 left-1 bg-primary text-primary-foreground p-0.5 rounded shadow z-20 transition-opacity duration-200 pointer-events-auto">
+      <div className="absolute top-1 left-1 bg-primary text-primary-foreground p-0.5 rounded shadow z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
         <div
           ref={setActivatorNodeRef}
           className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-primary/90 rounded transition-colors touch-none"

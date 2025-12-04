@@ -123,52 +123,45 @@ export const ColumnLayout: React.FC<ColumnLayoutProps> = ({
   }
 
   return (
-    <div className={cn("w-full", className)}>
-      {/* Column controls in edit mode */}
+    <div className={cn("w-full group/columns", className)}>
+      {/* Column controls in edit mode - visible only on hover */}
       {isEditMode && (
-        <div className="mb-4 p-3 bg-muted rounded-lg border-2 border-dashed border-border">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">Columns:</span>
-              <Button
-                variant={columns.length === 1 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setColumnCount(1)}
-                className="p-2"
-              >
-                <Columns className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">1</span>
-              </Button>
-              <Button
-                variant={columns.length === 2 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setColumnCount(2)}
-                className="p-2"
-              >
-                <Columns2 className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">2</span>
-              </Button>
-              <Button
-                variant={columns.length === 3 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setColumnCount(3)}
-                className="p-2"
-              >
-                <Columns3 className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">3</span>
-              </Button>
-            </div>
-            
+        <div className="mb-4 p-2 bg-muted/50 rounded-lg border border-dashed border-border/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Kolumny:</span>
+            <Button
+              variant={columns.length === 1 ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setColumnCount(1)}
+              className="h-7 w-7 p-0"
+            >
+              <Columns className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant={columns.length === 2 ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setColumnCount(2)}
+              className="h-7 w-7 p-0"
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant={columns.length === 3 ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setColumnCount(3)}
+              className="h-7 w-7 p-0"
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+            </Button>
             {columns.length < 4 && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={addColumn}
-                className="gap-1 w-full sm:w-auto"
+                className="h-7 px-2 gap-1"
               >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Column</span>
-                <span className="sm:hidden">Add</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span className="text-xs">Dodaj</span>
               </Button>
             )}
           </div>
@@ -271,18 +264,18 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
     >
       {/* Column header in edit mode */}
       {isEditMode && (
-        <div className="flex items-center justify-between mb-3 pb-2 border-b">
-          <span className="text-sm font-medium text-muted-foreground">
-            Column {column.id.split('-col-')[1] ? parseInt(column.id.split('-col-')[1]) + 1 : 1}
+        <div className="flex items-center justify-between mb-2 pb-1 border-b border-border/30">
+          <span className="text-xs font-medium text-muted-foreground">
+            Kolumna {column.id.split('-col-')[1] ? parseInt(column.id.split('-col-')[1]) + 1 : 1}
           </span>
           {canRemove && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onRemove}
-              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3 h-3" />
             </Button>
           )}
         </div>
@@ -292,9 +285,9 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-3">
           {column.items.length === 0 && isEditMode && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Drop items here</p>
+            <div className="text-center py-6 text-muted-foreground/60">
+              <Plus className="w-6 h-6 mx-auto mb-1 opacity-40" />
+              <p className="text-xs">Upuść elementy tutaj</p>
             </div>
           )}
           
@@ -338,22 +331,11 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
             }
           }}
         >
-          {/* ✅ ItemControls dla elementów w wierszach */}
-          {onEditItem && onDeleteItem && (
+          {/* ItemControls dla elementów w wierszach */}
+          {onDeleteItem && (
             <ItemControls
-              onEdit={() => {
-                console.log('[ItemControls] Editing item:', item.id);
-                onEditItem(item.id as string);
-              }}
-              onDelete={() => {
-                console.log('[ItemControls] Deleting item:', item.id);
-                onDeleteItem(item.id as string);
-              }}
+              onDelete={() => onDeleteItem(item.id as string)}
               onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-              onMoveUp={onMoveItemUp ? () => onMoveItemUp(item.id as string) : undefined}
-              onMoveDown={onMoveItemDown ? () => onMoveItemDown(item.id as string) : undefined}
-              canMoveUp={itemIdx > 0}
-              canMoveDown={itemIdx < column.items.length - 1}
             />
           )}
           {itemContent}
