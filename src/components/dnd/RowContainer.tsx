@@ -12,6 +12,7 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ColumnLayout } from './ColumnLayout';
 import { CMSContent } from '@/components/CMSContent';
 import { ItemControls } from './ItemControls';
+import { SectionControls } from './SectionControls';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 
@@ -41,6 +42,10 @@ interface RowColumnDropZoneProps {
   onMoveItemDown?: (itemId: string) => void;
   rowDisplayType?: string | null;
   onUpdateSection?: (sectionId: string, updates: Partial<CMSSection>) => void;
+  // Section editing props
+  onEditSection?: (sectionId: string) => void;
+  onDuplicateSection?: (sectionId: string) => void;
+  onDeactivateSection?: (sectionId: string) => void;
 }
 
 const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
@@ -68,6 +73,9 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   onMoveItemDown,
   rowDisplayType,
   onUpdateSection,
+  onEditSection,
+  onDuplicateSection,
+  onDeactivateSection,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `${rowId}-col-${columnIndex}`,
@@ -154,6 +162,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
       {/* Następnie renderuj child section jeśli istnieje */}
       {slotSection ? (
         <div
+          className="relative group/section"
           onClick={(e) => {
             if (activeId) {
               e.preventDefault();
@@ -162,7 +171,19 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
             }
             onSelectSection?.(slotSection.id);
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onEditSection?.(slotSection.id);
+          }}
         >
+          {/* Section Controls */}
+          {isEditMode && (
+            <SectionControls
+              onEdit={() => onEditSection?.(slotSection.id)}
+              onDuplicate={() => onDuplicateSection?.(slotSection.id)}
+              onDeactivate={() => onDeactivateSection?.(slotSection.id)}
+            />
+          )}
           {isEditMode ? (
             <ResizableElement
               isSelected={selectedElement === slotSection.id}
@@ -377,6 +398,10 @@ interface RowContainerProps {
   onDuplicateItem?: (itemId: string) => void;
   onMoveItemUp?: (itemId: string) => void;
   onMoveItemDown?: (itemId: string) => void;
+  // Section editing props
+  onEditSection?: (sectionId: string) => void;
+  onDuplicateSection?: (sectionId: string) => void;
+  onDeactivateSection?: (sectionId: string) => void;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -401,6 +426,9 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   onDuplicateItem,
   onMoveItemUp,
   onMoveItemDown,
+  onEditSection,
+  onDuplicateSection,
+  onDeactivateSection,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
@@ -614,6 +642,9 @@ export const RowContainer: React.FC<RowContainerProps> = ({
                 onMoveItemDown={onMoveItemDown}
                 rowDisplayType={row.display_type}
                 onUpdateSection={onUpdateSection}
+                onEditSection={onEditSection}
+                onDuplicateSection={onDuplicateSection}
+                onDeactivateSection={onDeactivateSection}
               />
             );
           })}
