@@ -4,18 +4,12 @@ import { Trash2, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ItemControlsProps {
-  onEdit: () => void;
   onDelete: () => void;
   onDuplicate?: () => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  canMoveUp?: boolean;
-  canMoveDown?: boolean;
   className?: string;
 }
 
 export const ItemControls: React.FC<ItemControlsProps> = ({
-  onEdit,
   onDelete,
   onDuplicate,
   className
