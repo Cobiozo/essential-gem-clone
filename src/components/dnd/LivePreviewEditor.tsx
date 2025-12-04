@@ -1992,6 +1992,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                         onDuplicateItem={handleDuplicateItem}
                         onMoveItemUp={handleMoveItemUp}
                         onMoveItemDown={handleMoveItemDown}
+                        onEditSection={handleEditSection}
+                        onDuplicateSection={handleDuplicateSection}
+                        onDeactivateSection={handleDeactivateSection}
                       />
                     </DraggableSection>
                   );
