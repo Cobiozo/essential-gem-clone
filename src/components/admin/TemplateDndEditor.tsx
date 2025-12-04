@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, Upload, ArrowUp, ArrowDown, MoveUp, MoveDown } from 'lucide-react';
+import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, Upload, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,6 +43,14 @@ interface Props {
   onClose: () => void;
 }
 
+const AI_STYLE_PRESETS = [
+  { name: 'Elegancki', prompt: 'Elegant certificate with gold ornamental borders, cream background, subtle floral patterns' },
+  { name: 'Nowoczesny', prompt: 'Modern minimalist certificate, clean geometric shapes, blue gradient accent' },
+  { name: 'Korporacyjny', prompt: 'Professional corporate certificate, navy blue header, silver trim' },
+  { name: 'Naturalny', prompt: 'Nature-inspired certificate with watercolor leaves, soft green tones' },
+  { name: 'Klasyczny', prompt: 'Classic diploma style, parchment texture, red ribbon seal, traditional frame' },
+];
+
 const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +60,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [fontSize, setFontSize] = useState(20);
   const [fontWeight, setFontWeight] = useState<'normal' | 'bold'>('normal');
   const [uploading, setUploading] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [autoArranging, setAutoArranging] = useState(false);
   const { toast } = useToast();
 
   // A4 landscape dimensions at 72 DPI (standard for certificates)
@@ -325,6 +337,218 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
     fabricCanvas.renderAll();
   };
 
+  const generateNewBackground = async () => {
+    if (!fabricCanvas || !aiPrompt.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Wprowadź opis stylu tła",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setAiGenerating(true);
+
+    try {
+      toast({
+        title: "Generowanie...",
+        description: "AI tworzy nowe tło. To może potrwać kilka sekund.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-certificate-background', {
+        body: { 
+          prompt: aiPrompt,
+          action: 'generate-background'
+        }
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Generation failed');
+
+      let storedImageUrl = data.imageUrl;
+      
+      // Upload to storage if base64
+      if (data.imageUrl.startsWith('data:')) {
+        try {
+          const base64Data = data.imageUrl.split(',')[1];
+          const byteArray = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          const blob = new Blob([byteArray], { type: 'image/png' });
+          
+          const fileName = `ai-bg-${Date.now()}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from('cms-images')
+            .upload(`certificate-backgrounds/${fileName}`, blob);
+
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('cms-images')
+              .getPublicUrl(`certificate-backgrounds/${fileName}`);
+            storedImageUrl = urlData.publicUrl;
+          }
+        } catch (e) {
+          console.log('Using base64 directly');
+        }
+      }
+
+      // Remove existing background images
+      const objects = fabricCanvas.getObjects();
+      const bgImages = objects.filter(obj => obj.type === 'image' && obj.left === 0 && obj.top === 0);
+      bgImages.forEach(img => fabricCanvas.remove(img));
+
+      // Add new background
+      const img = await FabricImage.fromURL(storedImageUrl);
+      img.set({
+        left: 0,
+        top: 0,
+        scaleX: CANVAS_WIDTH / (img.width || 1),
+        scaleY: CANVAS_HEIGHT / (img.height || 1),
+        selectable: true,
+        evented: true
+      });
+      
+      fabricCanvas.add(img);
+      fabricCanvas.sendObjectToBack(img);
+      fabricCanvas.renderAll();
+
+      toast({
+        title: "Sukces",
+        description: "Nowe tło zostało wygenerowane!",
+      });
+    } catch (error) {
+      console.error('Error generating background:', error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się wygenerować tła",
+        variant: "destructive"
+      });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const autoArrangePlaceholders = async () => {
+    if (!fabricCanvas) return;
+
+    setAutoArranging(true);
+
+    try {
+      // Find background image
+      const objects = fabricCanvas.getObjects();
+      const bgImage = objects.find(obj => 
+        obj.type === 'image' && 
+        obj.left === 0 && 
+        obj.top === 0 &&
+        ((obj.width || 0) * (obj.scaleX || 1)) >= CANVAS_WIDTH * 0.9
+      );
+
+      let imageUrl = '';
+      if (bgImage) {
+        imageUrl = (bgImage as any).getSrc?.() || '';
+      }
+
+      if (!imageUrl) {
+        // Use default placements without AI analysis
+        toast({
+          title: "Info",
+          description: "Brak obrazu tła do analizy. Używam domyślnego rozmieszczenia.",
+        });
+        
+        applyDefaultPlacements();
+        return;
+      }
+
+      toast({
+        title: "Analizowanie...",
+        description: "AI analizuje tło i oblicza optymalne pozycje.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-certificate-background', {
+        body: { 
+          action: 'analyze-and-arrange',
+          imageUrl
+        }
+      });
+
+      if (error) throw error;
+
+      const placements = data?.suggestedPlacements || [];
+      
+      if (placements.length === 0) {
+        applyDefaultPlacements();
+        return;
+      }
+
+      // Remove existing text elements
+      const textObjects = objects.filter(obj => obj.type === 'i-text' || obj.type === 'text');
+      textObjects.forEach(obj => fabricCanvas.remove(obj));
+
+      // Add new text elements based on AI suggestions
+      placements.forEach((placement: any, index: number) => {
+        const text = new IText(placement.label || placement.placeholder, {
+          left: placement.x,
+          top: placement.y,
+          fontSize: placement.fontSize || 20,
+          fontWeight: placement.fontWeight || 'normal',
+          fill: placement.color || '#000000',
+          fontFamily: 'Arial',
+          originX: 'center',
+          originY: 'center'
+        });
+        fabricCanvas.add(text);
+      });
+
+      fabricCanvas.renderAll();
+
+      toast({
+        title: "Sukces",
+        description: "Elementy zostały automatycznie rozmieszczone!",
+      });
+    } catch (error) {
+      console.error('Error auto-arranging:', error);
+      applyDefaultPlacements();
+    } finally {
+      setAutoArranging(false);
+    }
+  };
+
+  const applyDefaultPlacements = () => {
+    if (!fabricCanvas) return;
+
+    const defaultPlacements = [
+      { content: 'Certyfikat Ukończenia', x: 421, y: 60, fontSize: 36, fontWeight: 'bold', color: '#1a1a2e' },
+      { content: '{userName}', x: 421, y: 200, fontSize: 28, fontWeight: 'bold', color: '#1a1a2e' },
+      { content: '{moduleTitle}', x: 421, y: 280, fontSize: 20, fontWeight: 'normal', color: '#333333' },
+      { content: '{completionDate}', x: 421, y: 520, fontSize: 14, fontWeight: 'normal', color: '#666666' }
+    ];
+
+    // Remove existing text elements
+    const objects = fabricCanvas.getObjects();
+    const textObjects = objects.filter(obj => obj.type === 'i-text' || obj.type === 'text');
+    textObjects.forEach(obj => fabricCanvas.remove(obj));
+
+    // Add default elements
+    defaultPlacements.forEach((placement) => {
+      const text = new IText(placement.content, {
+        left: placement.x,
+        top: placement.y,
+        fontSize: placement.fontSize,
+        fontWeight: placement.fontWeight as 'normal' | 'bold',
+        fill: placement.color,
+        fontFamily: 'Arial',
+        originX: 'center',
+        originY: 'center'
+      });
+      fabricCanvas.add(text);
+    });
+
+    fabricCanvas.renderAll();
+    
+    toast({
+      title: "Gotowe",
+      description: "Zastosowano domyślne rozmieszczenie elementów.",
+    });
+  };
+
   const handleSave = async () => {
     if (!fabricCanvas) return;
 
@@ -349,7 +573,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
         return {
           id: `element-${index}`,
           type: 'image' as const,
-          imageUrl: imgSrc, // Store full URL for reliability
+          imageUrl: imgSrc,
           x: obj.left || 0,
           y: obj.top || 0,
           width: (obj.width || 0) * (obj.scaleX || 1),
@@ -399,10 +623,14 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       {/* Toolbar */}
       <Card className="p-4 sticky top-0 z-10 bg-background shadow-md">
         <Tabs defaultValue="add" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="add">Dodaj</TabsTrigger>
             <TabsTrigger value="edit" disabled={!selectedObject}>Edytuj</TabsTrigger>
             <TabsTrigger value="layers" disabled={!selectedObject}>Warstwy</TabsTrigger>
+            <TabsTrigger value="ai">
+              <Sparkles className="h-4 w-4 mr-1" />
+              AI
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="add" className="space-y-4">
@@ -543,6 +771,76 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="ai" className="space-y-4">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Generuj nowe tło AI</Label>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Opisz styl tła certyfikatu..."
+                  className="min-h-[60px]"
+                />
+              </div>
+              
+              <div className="flex flex-wrap gap-1">
+                {AI_STYLE_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.name}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiPrompt(preset.prompt)}
+                    className="text-xs"
+                  >
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
+
+              <Button 
+                onClick={generateNewBackground} 
+                disabled={aiGenerating || !aiPrompt.trim()}
+                className="w-full"
+              >
+                {aiGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generowanie...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generuj nowe tło
+                  </>
+                )}
+              </Button>
+
+              <div className="border-t pt-3 mt-3">
+                <Button 
+                  onClick={autoArrangePlaceholders} 
+                  disabled={autoArranging}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  {autoArranging ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analizowanie...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Auto-rozmieść elementy
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  AI przeanalizuje tło i zasugeruje optymalne pozycje dla tekstu
+                </p>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </Card>
