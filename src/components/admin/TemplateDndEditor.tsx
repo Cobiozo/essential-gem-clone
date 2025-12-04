@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2 } from 'lucide-react';
+import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2, Lock, Unlock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,6 +119,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [autoArranging, setAutoArranging] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<'pl' | 'en' | 'de'>(template.layout.language || 'pl');
+  const [backgroundLocked, setBackgroundLocked] = useState(true);
   const { toast } = useToast();
 
   // Get dimensions from template or use A4 landscape defaults
@@ -153,12 +154,25 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           } else if (element.type === 'image' && element.imageUrl) {
             try {
               const img = await FabricImage.fromURL(element.imageUrl);
+              // Check if this is a background image (position 0,0 and covers most of canvas)
+              const isBackground = element.x === 0 && element.y === 0 && 
+                (element.width || 0) >= CANVAS_WIDTH * 0.9 && 
+                (element.height || 0) >= CANVAS_HEIGHT * 0.9;
+              
               img.set({
                 left: element.x,
                 top: element.y,
                 scaleX: (element.width || 100) / (img.width || 1),
                 scaleY: (element.height || 100) / (img.height || 1),
+                selectable: !isBackground,
+                evented: !isBackground,
+                hasControls: !isBackground,
+                hasBorders: !isBackground,
+                lockMovementX: isBackground,
+                lockMovementY: isBackground,
+                hoverCursor: isBackground ? 'default' : 'move',
               });
+              (img as any).isBackground = isBackground;
               canvas.add(img);
             } catch (error) {
               console.error('Error loading image:', error);
@@ -371,26 +385,66 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
 
   const bringToFront = () => {
     if (!fabricCanvas || !selectedObject) return;
+    if ((selectedObject as any).isBackground && backgroundLocked) {
+      toast({ title: "Info", description: "Tło jest zablokowane. Odblokuj je w zakładce AI." });
+      return;
+    }
     fabricCanvas.bringObjectToFront(selectedObject);
     fabricCanvas.renderAll();
   };
 
   const sendToBack = () => {
     if (!fabricCanvas || !selectedObject) return;
+    if ((selectedObject as any).isBackground && backgroundLocked) {
+      toast({ title: "Info", description: "Tło jest zablokowane. Odblokuj je w zakładce AI." });
+      return;
+    }
     fabricCanvas.sendObjectToBack(selectedObject);
     fabricCanvas.renderAll();
   };
 
   const bringForward = () => {
     if (!fabricCanvas || !selectedObject) return;
+    if ((selectedObject as any).isBackground && backgroundLocked) {
+      toast({ title: "Info", description: "Tło jest zablokowane. Odblokuj je w zakładce AI." });
+      return;
+    }
     fabricCanvas.bringObjectForward(selectedObject);
     fabricCanvas.renderAll();
   };
 
   const sendBackward = () => {
     if (!fabricCanvas || !selectedObject) return;
+    if ((selectedObject as any).isBackground && backgroundLocked) {
+      toast({ title: "Info", description: "Tło jest zablokowane. Odblokuj je w zakładce AI." });
+      return;
+    }
     fabricCanvas.sendObjectBackwards(selectedObject);
     fabricCanvas.renderAll();
+  };
+
+  const toggleBackgroundLock = () => {
+    if (!fabricCanvas) return;
+    const bgImage = fabricCanvas.getObjects().find(obj => (obj as any).isBackground);
+    if (bgImage) {
+      const newLocked = !backgroundLocked;
+      bgImage.set({
+        selectable: !newLocked,
+        evented: !newLocked,
+        hasControls: !newLocked,
+        hasBorders: !newLocked,
+        hoverCursor: newLocked ? 'default' : 'move',
+      });
+      setBackgroundLocked(newLocked);
+      fabricCanvas.discardActiveObject();
+      fabricCanvas.renderAll();
+      toast({
+        title: newLocked ? "Tło zablokowane" : "Tło odblokowane",
+        description: newLocked ? "Tło jest teraz chronione przed edycją" : "Możesz teraz edytować tło",
+      });
+    } else {
+      toast({ title: "Info", description: "Brak obrazu tła do zablokowania/odblokowania" });
+    }
   };
 
   const generateNewBackground = async () => {
@@ -453,16 +507,23 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       const bgImages = objects.filter(obj => obj.type === 'image' && obj.left === 0 && obj.top === 0);
       bgImages.forEach(img => fabricCanvas.remove(img));
 
-      // Add new background
+      // Add new background - locked by default
       const img = await FabricImage.fromURL(storedImageUrl);
       img.set({
         left: 0,
         top: 0,
         scaleX: CANVAS_WIDTH / (img.width || 1),
         scaleY: CANVAS_HEIGHT / (img.height || 1),
-        selectable: true,
-        evented: true
+        selectable: false,
+        evented: false,
+        hasControls: false,
+        hasBorders: false,
+        lockMovementX: true,
+        lockMovementY: true,
+        hoverCursor: 'default',
       });
+      (img as any).isBackground = true;
+      setBackgroundLocked(true);
       
       fabricCanvas.add(img);
       fabricCanvas.sendObjectToBack(img);
@@ -942,6 +1003,31 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                 </Button>
                 <p className="text-xs text-muted-foreground mt-2">
                   AI przeanalizuje tło i zasugeruje optymalne pozycje dla tekstu
+                </p>
+              </div>
+
+              <div className="border-t pt-3 mt-3">
+                <Button 
+                  onClick={toggleBackgroundLock} 
+                  variant="outline"
+                  className="w-full"
+                >
+                  {backgroundLocked ? (
+                    <>
+                      <Unlock className="h-4 w-4 mr-2" />
+                      Odblokuj tło do edycji
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Zablokuj tło
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {backgroundLocked 
+                    ? "Tło jest zablokowane - kliknij aby umożliwić jego edycję" 
+                    : "Tło jest odblokowane - kliknij aby je zabezpieczyć"}
                 </p>
               </div>
             </div>
