@@ -312,10 +312,20 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       
+      const getJustifyClass = (align: string | undefined) => {
+        switch(align) {
+          case 'center': return 'justify-center';
+          case 'right': return 'justify-end';
+          case 'justify': return 'justify-between';
+          default: return 'justify-start';
+        }
+      };
+      
       return (
         <HeadingTag 
           className={cn(
-            'font-bold flex items-center gap-2',
+            'font-bold flex items-center gap-2 w-full',
+            getJustifyClass(item.text_align),
             level === 1 && 'text-4xl',
             level === 2 && 'text-3xl',
             level === 3 && 'text-2xl',

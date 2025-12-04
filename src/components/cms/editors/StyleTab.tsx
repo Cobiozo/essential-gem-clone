@@ -102,11 +102,9 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
         <div className="space-y-2">
           <Label>Wyrównanie</Label>
           <Select
-            value={item.style_class?.includes('text-') ? item.style_class.match(/text-(left|center|right|justify)/)?.[1] || 'left' : 'left'}
+            value={item.text_align || 'left'}
             onValueChange={(value) => {
-              const currentClass = item.style_class || '';
-              const newClass = currentClass.replace(/text-(left|center|right|justify)/g, '').trim();
-              onUpdate({ style_class: `${newClass} text-${value}`.trim() });
+              onUpdate({ text_align: value });
             }}
           >
             <SelectTrigger>
