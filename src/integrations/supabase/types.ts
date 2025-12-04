@@ -91,13 +91,19 @@ export type Database = {
       cms_items: {
         Row: {
           background_color: string | null
+          border_color: string | null
           border_radius: number | null
+          border_style: string | null
+          border_width: number | null
+          box_shadow: string | null
           cells: Json | null
           column_index: number
           created_at: string
           description: string | null
           font_size: number | null
           font_weight: number | null
+          hover_opacity: number | null
+          hover_scale: number | null
           icon: string | null
           icon_color: string | null
           icon_position: string | null
@@ -105,11 +111,16 @@ export type Database = {
           icon_spacing: number | null
           id: string
           is_active: boolean
+          lazy_loading: boolean | null
+          link_target: string | null
           margin_bottom: number | null
           margin_top: number | null
+          max_height: number | null
+          max_width: number | null
           media_alt_text: string | null
           media_type: string | null
           media_url: string | null
+          object_fit: string | null
           opacity: number | null
           padding: number | null
           page_id: string
@@ -127,13 +138,19 @@ export type Database = {
         }
         Insert: {
           background_color?: string | null
+          border_color?: string | null
           border_radius?: number | null
+          border_style?: string | null
+          border_width?: number | null
+          box_shadow?: string | null
           cells?: Json | null
           column_index?: number
           created_at?: string
           description?: string | null
           font_size?: number | null
           font_weight?: number | null
+          hover_opacity?: number | null
+          hover_scale?: number | null
           icon?: string | null
           icon_color?: string | null
           icon_position?: string | null
@@ -141,11 +158,16 @@ export type Database = {
           icon_spacing?: number | null
           id?: string
           is_active?: boolean
+          lazy_loading?: boolean | null
+          link_target?: string | null
           margin_bottom?: number | null
           margin_top?: number | null
+          max_height?: number | null
+          max_width?: number | null
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          object_fit?: string | null
           opacity?: number | null
           padding?: number | null
           page_id: string
@@ -163,13 +185,19 @@ export type Database = {
         }
         Update: {
           background_color?: string | null
+          border_color?: string | null
           border_radius?: number | null
+          border_style?: string | null
+          border_width?: number | null
+          box_shadow?: string | null
           cells?: Json | null
           column_index?: number
           created_at?: string
           description?: string | null
           font_size?: number | null
           font_weight?: number | null
+          hover_opacity?: number | null
+          hover_scale?: number | null
           icon?: string | null
           icon_color?: string | null
           icon_position?: string | null
@@ -177,11 +205,16 @@ export type Database = {
           icon_spacing?: number | null
           id?: string
           is_active?: boolean
+          lazy_loading?: boolean | null
+          link_target?: string | null
           margin_bottom?: number | null
           margin_top?: number | null
+          max_height?: number | null
+          max_width?: number | null
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          object_fit?: string | null
           opacity?: number | null
           padding?: number | null
           page_id?: string

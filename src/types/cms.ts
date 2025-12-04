@@ -45,6 +45,18 @@ export interface CMSItem {
   icon_color?: string;
   icon_spacing?: number;
   text_align?: string;
+  // Image styling properties
+  object_fit?: string;
+  max_width?: number | null;
+  max_height?: number | null;
+  box_shadow?: string;
+  border_width?: number;
+  border_color?: string;
+  border_style?: string;
+  link_target?: string;
+  lazy_loading?: boolean;
+  hover_scale?: number;
+  hover_opacity?: number;
 }
 
 export interface CMSSection {
