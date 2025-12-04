@@ -20,7 +20,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
     <div 
       className={cn(
         "absolute top-2 right-2 z-30 flex gap-1 bg-background/95 backdrop-blur-sm rounded-md shadow-md border border-border p-1 transition-all duration-200",
-        "opacity-0 group-hover:opacity-100",
+        "opacity-0 group-hover/item:opacity-100",
         className
       )}
       onClick={(e) => e.stopPropagation()}

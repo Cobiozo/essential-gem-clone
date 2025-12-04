@@ -123,7 +123,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
                   return (
                     <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
                       <div 
-                        className="relative group"
+                        className="relative group/item"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectElement(item.id as string);
@@ -361,7 +361,7 @@ const ItemRenderer: React.FC<ItemRendererProps> = ({
     return (
       <DraggableItem key={item.id} id={item.id as string} isEditMode={editMode}>
         <div 
-          className="relative group"
+          className="relative group/item"
           onClick={(e) => {
             e.stopPropagation();
             onSelectElement(item.id as string);
