@@ -93,11 +93,11 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
         
         <div className="max-w-6xl mx-auto">
           <div className="space-y-4 py-6">
-            {section.title && (
+            {section.title && section.show_title !== false && (
               <SectionTitle 
                 section={section} 
                 editMode={editMode} 
-                onSelectElement={onSelectElement} 
+                onSelectElement={onSelectElement}
               />
             )}
             {section.description && (
@@ -185,12 +185,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
       
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
-          <SectionTitle 
-            section={section} 
-            editMode={editMode} 
-            onSelectElement={onSelectElement}
-            variant="large"
-          />
+          {section.show_title !== false && (
+            <SectionTitle 
+              section={section} 
+              editMode={editMode} 
+              onSelectElement={onSelectElement}
+              variant="large"
+            />
+          )}
           {section.description && (
             <SectionDescription 
               section={section} 

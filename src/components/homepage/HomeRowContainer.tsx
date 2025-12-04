@@ -79,7 +79,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   return (
     <div style={rowStyles} className="w-full">
       {/* Row Title */}
-      {row.title && (
+      {row.title && row.show_title !== false && (
         <div className="max-w-6xl mx-auto mb-4 md:mb-6 px-4">
           <h2 
             className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4"

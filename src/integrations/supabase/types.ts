@@ -306,6 +306,7 @@ export type Database = {
           section_margin_top: number | null
           section_type: string | null
           show_icon: boolean | null
+          show_title: boolean | null
           style_class: string | null
           text_color: string | null
           text_transform: string | null
@@ -376,6 +377,7 @@ export type Database = {
           section_margin_top?: number | null
           section_type?: string | null
           show_icon?: boolean | null
+          show_title?: boolean | null
           style_class?: string | null
           text_color?: string | null
           text_transform?: string | null
@@ -446,6 +448,7 @@ export type Database = {
           section_margin_top?: number | null
           section_type?: string | null
           show_icon?: boolean | null
+          show_title?: boolean | null
           style_class?: string | null
           text_color?: string | null
           text_transform?: string | null
