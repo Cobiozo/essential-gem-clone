@@ -466,6 +466,15 @@ const translations = {
     'errors.signupError': 'Błąd rejestracji',
     'errors.passwordResetError': 'Błąd',
     'errors.passwordResetSuccess': 'Sukces',
+    
+    // Chat Widget
+    'chat.title': 'Asystent Pure Life',
+    'chat.open': 'Otwórz czat',
+    'chat.close': 'Zamknij czat',
+    'chat.clear': 'Wyczyść historię',
+    'chat.placeholder': 'Napisz wiadomość...',
+    'chat.send': 'Wyślij',
+    'chat.welcome': 'Cześć! Jestem asystentem Pure Life. Jak mogę Ci pomóc?',
   },
   de: {
     // Navigation
@@ -912,6 +921,15 @@ const translations = {
     'errors.signupError': 'Registrierungsfehler',
     'errors.passwordResetError': 'Fehler',
     'errors.passwordResetSuccess': 'Erfolg',
+    
+    // Chat Widget
+    'chat.title': 'Pure Life Assistent',
+    'chat.open': 'Chat öffnen',
+    'chat.close': 'Chat schließen',
+    'chat.clear': 'Verlauf löschen',
+    'chat.placeholder': 'Nachricht schreiben...',
+    'chat.send': 'Senden',
+    'chat.welcome': 'Hallo! Ich bin der Pure Life Assistent. Wie kann ich Ihnen helfen?',
   },
   en: {
     // Navigation
@@ -1358,6 +1376,15 @@ const translations = {
     'errors.signupError': 'Signup error',
     'errors.passwordResetError': 'Error',
     'errors.passwordResetSuccess': 'Success',
+    
+    // Chat Widget
+    'chat.title': 'Pure Life Assistant',
+    'chat.open': 'Open chat',
+    'chat.close': 'Close chat',
+    'chat.clear': 'Clear history',
+    'chat.placeholder': 'Type a message...',
+    'chat.send': 'Send',
+    'chat.welcome': 'Hello! I am the Pure Life Assistant. How can I help you?',
   }
 };
 
