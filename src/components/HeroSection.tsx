@@ -46,10 +46,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             />
           </div>
 
-          {/* Title */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground tracking-tight uppercase px-4">
-            WITAMY
-          </h1>
 
           {/* Description */}
           {headerText ? (
