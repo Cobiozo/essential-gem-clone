@@ -20,8 +20,14 @@ interface CertificateTemplate {
   };
   is_active: boolean;
   roles: Array<'admin' | 'partner' | 'client' | 'specjalista' | 'user'>;
+  module_ids: string[];
   created_at: string;
   updated_at: string;
+}
+
+interface TrainingModuleOption {
+  id: string;
+  title: string;
 }
 
 interface TemplateElement {
@@ -40,6 +46,7 @@ interface TemplateElement {
 
 const CertificateEditor = () => {
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
+  const [trainingModules, setTrainingModules] = useState<TrainingModuleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<CertificateTemplate | null>(null);
   const [newTemplateName, setNewTemplateName] = useState('');
@@ -48,7 +55,23 @@ const CertificateEditor = () => {
 
   useEffect(() => {
     fetchTemplates();
+    fetchTrainingModules();
   }, []);
+
+  const fetchTrainingModules = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('training_modules')
+        .select('id, title')
+        .eq('is_active', true)
+        .order('position');
+      
+      if (error) throw error;
+      setTrainingModules(data || []);
+    } catch (error) {
+      console.error('Error fetching training modules:', error);
+    }
+  };
 
   const fetchTemplates = async () => {
     try {
@@ -65,7 +88,8 @@ const CertificateEditor = () => {
       setTemplates((data || []).map(t => ({
         ...t,
         layout: t.layout as unknown as { elements: TemplateElement[] },
-        roles: (t.roles || []) as Array<'admin' | 'partner' | 'client' | 'specjalista' | 'user'>
+        roles: (t.roles || []) as Array<'admin' | 'partner' | 'client' | 'specjalista' | 'user'>,
+        module_ids: (t.module_ids || []) as string[]
       })));
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -351,6 +375,42 @@ const CertificateEditor = () => {
     }
   };
 
+  const handleModuleToggle = async (templateId: string, moduleId: string, checked: boolean) => {
+    try {
+      const template = templates.find(t => t.id === templateId);
+      if (!template) return;
+
+      const currentModuleIds = template.module_ids || [];
+      const newModuleIds = checked
+        ? [...currentModuleIds, moduleId]
+        : currentModuleIds.filter(id => id !== moduleId);
+
+      const { error } = await supabase
+        .from('certificate_templates')
+        .update({ module_ids: newModuleIds, updated_at: new Date().toISOString() })
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      // Update local state
+      setTemplates(templates.map(t => 
+        t.id === templateId ? { ...t, module_ids: newModuleIds } : t
+      ));
+
+      toast({
+        title: "Sukces",
+        description: `Moduły zostały zaktualizowane dla szablonu "${template.name}"`,
+      });
+    } catch (error) {
+      console.error('Error updating template modules:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie można zaktualizować modułów szablonu",
+        variant: "destructive"
+      });
+    }
+  };
+
   const previewCertificate = async (template: CertificateTemplate) => {
     try {
       console.log('🔍 Generating preview certificate for template:', template.name);
@@ -570,7 +630,33 @@ const CertificateEditor = () => {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Wybierz role użytkowników, które będą używać tego szablonu
+                    Puste = wszystkie role
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Przypisane moduły szkoleniowe</Label>
+                  <div className="grid grid-cols-1 gap-2 p-3 bg-muted/50 rounded-lg max-h-40 overflow-y-auto">
+                    {trainingModules.length > 0 ? trainingModules.map((module) => (
+                      <div key={module.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`module-${template.id}-${module.id}`}
+                          checked={template.module_ids?.includes(module.id) || false}
+                          onCheckedChange={(checked) => handleModuleToggle(template.id, module.id, checked as boolean)}
+                        />
+                        <Label
+                          htmlFor={`module-${template.id}-${module.id}`}
+                          className="text-xs cursor-pointer"
+                        >
+                          {module.title}
+                        </Label>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-muted-foreground">Brak dostępnych modułów</p>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Puste = wszystkie moduły
                   </p>
                 </div>
               </div>
