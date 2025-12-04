@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, Upload, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2 } from 'lucide-react';
+import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,6 +32,8 @@ interface CertificateTemplate {
   name: string;
   layout: {
     elements: TemplateElement[];
+    format?: { width: number; height: number };
+    language?: 'pl' | 'en' | 'de';
   };
   is_active: boolean;
   created_at: string;
@@ -51,6 +54,12 @@ const AI_STYLE_PRESETS = [
   { name: 'Klasyczny', prompt: 'Classic diploma style, parchment texture, red ribbon seal, traditional frame' },
 ];
 
+const CERTIFICATE_LANGUAGES = [
+  { code: 'pl', name: 'Polski', labels: { title: 'Certyfikat Ukończenia', userName: 'Imię i Nazwisko', moduleTitle: 'Tytuł Szkolenia', completionDate: 'Data ukończenia' } },
+  { code: 'en', name: 'English', labels: { title: 'Certificate of Completion', userName: 'Full Name', moduleTitle: 'Training Title', completionDate: 'Completion Date' } },
+  { code: 'de', name: 'Deutsch', labels: { title: 'Abschlusszertifikat', userName: 'Vollständiger Name', moduleTitle: 'Schulungstitel', completionDate: 'Abschlussdatum' } },
+];
+
 const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,11 +72,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [autoArranging, setAutoArranging] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<'pl' | 'en' | 'de'>(template.layout.language || 'pl');
   const { toast } = useToast();
 
-  // A4 landscape dimensions at 72 DPI (standard for certificates)
-  const CANVAS_WIDTH = 842;
-  const CANVAS_HEIGHT = 595;
+  // Get dimensions from template or use A4 landscape defaults
+  const CANVAS_WIDTH = template.layout.format?.width || 842;
+  const CANVAS_HEIGHT = template.layout.format?.height || 595;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -358,7 +368,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       const { data, error } = await supabase.functions.invoke('generate-certificate-background', {
         body: { 
           prompt: aiPrompt,
-          action: 'generate-background'
+          action: 'generate-background',
+          format: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+          language: selectedLanguage
         }
       });
 
@@ -465,7 +477,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       const { data, error } = await supabase.functions.invoke('generate-certificate-background', {
         body: { 
           action: 'analyze-and-arrange',
-          imageUrl
+          imageUrl,
+          format: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+          language: selectedLanguage
         }
       });
 
@@ -514,11 +528,15 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const applyDefaultPlacements = () => {
     if (!fabricCanvas) return;
 
+    const langConfig = CERTIFICATE_LANGUAGES.find(l => l.code === selectedLanguage) || CERTIFICATE_LANGUAGES[0];
+    const labels = langConfig.labels;
+    const centerX = Math.round(CANVAS_WIDTH / 2);
+
     const defaultPlacements = [
-      { content: 'Certyfikat Ukończenia', x: 421, y: 60, fontSize: 36, fontWeight: 'bold', color: '#1a1a2e' },
-      { content: '{userName}', x: 421, y: 200, fontSize: 28, fontWeight: 'bold', color: '#1a1a2e' },
-      { content: '{moduleTitle}', x: 421, y: 280, fontSize: 20, fontWeight: 'normal', color: '#333333' },
-      { content: '{completionDate}', x: 421, y: 520, fontSize: 14, fontWeight: 'normal', color: '#666666' }
+      { content: labels.title, x: centerX, y: Math.round(CANVAS_HEIGHT * 0.15), fontSize: Math.round(36 * (CANVAS_WIDTH / 842)), fontWeight: 'bold', color: '#1a1a2e' },
+      { content: '{userName}', x: centerX, y: Math.round(CANVAS_HEIGHT * 0.40), fontSize: Math.round(28 * (CANVAS_WIDTH / 842)), fontWeight: 'bold', color: '#1a1a2e' },
+      { content: '{moduleTitle}', x: centerX, y: Math.round(CANVAS_HEIGHT * 0.54), fontSize: Math.round(20 * (CANVAS_WIDTH / 842)), fontWeight: 'normal', color: '#333333' },
+      { content: '{completionDate}', x: centerX, y: Math.round(CANVAS_HEIGHT * 0.82), fontSize: Math.round(14 * (CANVAS_WIDTH / 842)), fontWeight: 'normal', color: '#666666' }
     ];
 
     // Remove existing text elements
@@ -776,6 +794,22 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           <TabsContent value="ai" className="space-y-4">
             <div className="space-y-3">
               <div className="space-y-2">
+                <Label>Język etykiet</Label>
+                <Select value={selectedLanguage} onValueChange={(v) => setSelectedLanguage(v as 'pl' | 'en' | 'de')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CERTIFICATE_LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Generuj nowe tło AI</Label>
                 <Textarea
                   value={aiPrompt}
@@ -847,9 +881,14 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
 
       {/* Info card */}
       <Card className="p-4 bg-muted">
-        <p className="text-sm text-muted-foreground mb-2">
-          <strong>Dostępne zmienne:</strong> Możesz używać zmiennych w tekście, które zostaną automatycznie zastąpione danymi:
-        </p>
+        <div className="flex justify-between items-start mb-2">
+          <p className="text-sm text-muted-foreground">
+            <strong>Dostępne zmienne:</strong> Możesz używać zmiennych w tekście, które zostaną automatycznie zastąpione danymi:
+          </p>
+          <Badge variant="outline" className="text-xs">
+            {CANVAS_WIDTH}×{CANVAS_HEIGHT}px
+          </Badge>
+        </div>
         <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
           <li><code>{'{userName}'}</code> - Imię i nazwisko użytkownika</li>
           <li><code>{'{moduleTitle}'}</code> - Tytuł modułu szkolenia</li>

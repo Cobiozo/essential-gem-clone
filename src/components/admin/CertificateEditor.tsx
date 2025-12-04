@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2 } from 'lucide-react';
@@ -54,6 +55,20 @@ const AI_STYLE_PRESETS = [
   { name: 'Klasyczny', prompt: 'Classic diploma style certificate, parchment texture, red ribbon seal, traditional ornate frame' },
 ];
 
+const CERTIFICATE_FORMATS = [
+  { name: 'A4 Poziomo', width: 842, height: 595 },
+  { name: 'A4 Pionowo', width: 595, height: 842 },
+  { name: 'Letter Poziomo', width: 792, height: 612 },
+  { name: 'Letter Pionowo', width: 612, height: 792 },
+  { name: 'Kwadratowy', width: 700, height: 700 },
+];
+
+const CERTIFICATE_LANGUAGES = [
+  { code: 'pl', name: 'Polski' },
+  { code: 'en', name: 'English' },
+  { code: 'de', name: 'Deutsch' },
+];
+
 const CertificateEditor = () => {
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [trainingModules, setTrainingModules] = useState<TrainingModuleOption[]>([]);
@@ -64,6 +79,8 @@ const CertificateEditor = () => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [createMode, setCreateMode] = useState<'manual' | 'ai'>('manual');
+  const [selectedFormat, setSelectedFormat] = useState(CERTIFICATE_FORMATS[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState<'pl' | 'en' | 'de'>('pl');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -242,7 +259,13 @@ const CertificateEditor = () => {
       const { data: aiData, error: aiError } = await supabase.functions.invoke('generate-certificate-background', {
         body: { 
           prompt: aiPrompt,
-          action: 'generate-background'
+          action: 'generate-background',
+          format: {
+            width: selectedFormat.width,
+            height: selectedFormat.height,
+            name: selectedFormat.name
+          },
+          language: selectedLanguage
         }
       });
 
@@ -283,8 +306,8 @@ const CertificateEditor = () => {
           imageUrl: storedImageUrl,
           x: 0,
           y: 0,
-          width: 842,
-          height: 595
+          width: selectedFormat.width,
+          height: selectedFormat.height
         },
         ...suggestedPlacements.map((placement: any, index: number) => ({
           id: `ai-${index + 1}`,
@@ -312,7 +335,11 @@ const CertificateEditor = () => {
         .insert({
           name: newTemplateName,
           is_active: !hasActiveTemplate,
-          layout: { elements }
+          layout: { 
+            elements,
+            format: { width: selectedFormat.width, height: selectedFormat.height },
+            language: selectedLanguage
+          }
         })
         .select()
         .single();
@@ -736,6 +763,45 @@ const CertificateEditor = () => {
                     onChange={(e) => setNewTemplateName(e.target.value)}
                     placeholder="np. Elegancki certyfikat"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-format">Format certyfikatu</Label>
+                    <Select 
+                      value={selectedFormat.name} 
+                      onValueChange={(name) => {
+                        const format = CERTIFICATE_FORMATS.find(f => f.name === name);
+                        if (format) setSelectedFormat(format);
+                      }}
+                    >
+                      <SelectTrigger id="ai-format">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CERTIFICATE_FORMATS.map((format) => (
+                          <SelectItem key={format.name} value={format.name}>
+                            {format.name} ({format.width}×{format.height})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-language">Język etykiet</Label>
+                    <Select value={selectedLanguage} onValueChange={(v) => setSelectedLanguage(v as 'pl' | 'en' | 'de')}>
+                      <SelectTrigger id="ai-language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CERTIFICATE_LANGUAGES.map((lang) => (
+                          <SelectItem key={lang.code} value={lang.code}>
+                            {lang.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
