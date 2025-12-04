@@ -5,6 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { CMSItem } from '@/types/cms';
 import { Save, X, Plus, Trash2, GripVertical } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,17 +28,14 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
   const debouncedItem = useDebounce(editedItem, 1000);
 
-  // Auto-save on debounced changes
   useEffect(() => {
     if (debouncedItem && debouncedItem !== item) {
       onSave(debouncedItem);
     }
   }, [debouncedItem]);
   
-  // Parse accordion items from cells or create default structure
   const getAccordionItems = (): AccordionItem[] => {
     if (editedItem.cells && editedItem.cells.length > 0) {
-      // Parse pairs: header (title) followed by description (content)
       const items: AccordionItem[] = [];
       for (let i = 0; i < editedItem.cells.length; i++) {
         const cell = editedItem.cells[i];
@@ -52,6 +52,13 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
   };
 
   const [accordionItems, setAccordionItems] = useState<AccordionItem[]>(getAccordionItems());
+
+  const handleFieldChange = (field: keyof CMSItem, value: any) => {
+    setEditedItem({
+      ...editedItem,
+      [field]: value,
+    });
+  };
 
   const handleSave = () => {
     const updatedItem = {
@@ -104,6 +111,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
           <TabsTrigger value="content">Elementy</TabsTrigger>
           <TabsTrigger value="settings">Ustawienia</TabsTrigger>
           <TabsTrigger value="style">Styl</TabsTrigger>
+          <TabsTrigger value="advanced">Zaawansowane</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content" className="flex-1 overflow-hidden p-4">
@@ -163,7 +171,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
                 <Label>Nagłówek sekcji (opcjonalnie)</Label>
                 <Input
                   value={editedItem.title || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, title: e.target.value })}
+                  onChange={(e) => handleFieldChange('title', e.target.value)}
                   placeholder="np. Witamy w Pure Life"
                 />
               </div>
@@ -171,7 +179,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
                 <Label>Opis sekcji (opcjonalnie)</Label>
                 <Textarea
                   value={editedItem.description || ''}
-                  onChange={(e) => setEditedItem({ ...editedItem, description: e.target.value })}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
                   placeholder="Dodatkowy tekst nad akordenem..."
                   rows={3}
                 />
@@ -182,8 +190,189 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({ item, onSave, 
 
         <TabsContent value="style" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
-            <div className="pb-4">
-              <div className="text-sm text-muted-foreground">Opcje stylu będą dostępne wkrótce...</div>
+            <div className="space-y-6 pb-4">
+              {/* Colors */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Kolory</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Kolor tła nagłówka</Label>
+                    <Input
+                      type="color"
+                      value={editedItem.background_color || '#ffffff'}
+                      onChange={(e) => handleFieldChange('background_color', e.target.value)}
+                      className="h-10 w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Kolor tekstu</Label>
+                    <Input
+                      type="color"
+                      value={editedItem.text_color || '#000000'}
+                      onChange={(e) => handleFieldChange('text_color', e.target.value)}
+                      className="h-10 w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Border */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Obramowanie</h4>
+                <div className="space-y-2">
+                  <Label>Zaokrąglenie rogów (px)</Label>
+                  <Slider
+                    value={[editedItem.border_radius || 0]}
+                    onValueChange={([value]) => handleFieldChange('border_radius', value)}
+                    min={0}
+                    max={24}
+                    step={2}
+                  />
+                  <span className="text-sm text-muted-foreground">{editedItem.border_radius || 0}px</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2">
+                    <Label>Szerokość</Label>
+                    <Input
+                      type="number"
+                      value={editedItem.border_width || 0}
+                      onChange={(e) => handleFieldChange('border_width', parseInt(e.target.value) || 0)}
+                      min={0}
+                      max={10}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Styl</Label>
+                    <Select
+                      value={editedItem.border_style || 'solid'}
+                      onValueChange={(value) => handleFieldChange('border_style', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="solid">Ciągły</SelectItem>
+                        <SelectItem value="dashed">Przerywany</SelectItem>
+                        <SelectItem value="dotted">Kropkowany</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Kolor</Label>
+                    <Input
+                      type="color"
+                      value={editedItem.border_color || '#e5e7eb'}
+                      onChange={(e) => handleFieldChange('border_color', e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Spacing */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Odstępy</h4>
+                <div className="space-y-2">
+                  <Label>Padding (px)</Label>
+                  <Slider
+                    value={[editedItem.padding || 0]}
+                    onValueChange={([value]) => handleFieldChange('padding', value)}
+                    min={0}
+                    max={32}
+                    step={4}
+                  />
+                  <span className="text-sm text-muted-foreground">{editedItem.padding || 0}px</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Margines górny (px)</Label>
+                    <Slider
+                      value={[editedItem.margin_top || 0]}
+                      onValueChange={([value]) => handleFieldChange('margin_top', value)}
+                      min={0}
+                      max={100}
+                      step={4}
+                    />
+                    <span className="text-sm text-muted-foreground">{editedItem.margin_top || 0}px</span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Margines dolny (px)</Label>
+                    <Slider
+                      value={[editedItem.margin_bottom || 0]}
+                      onValueChange={([value]) => handleFieldChange('margin_bottom', value)}
+                      min={0}
+                      max={100}
+                      step={4}
+                    />
+                    <span className="text-sm text-muted-foreground">{editedItem.margin_bottom || 0}px</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Shadow */}
+              <div className="space-y-2">
+                <Label>Cień</Label>
+                <Select
+                  value={editedItem.box_shadow || 'none'}
+                  onValueChange={(value) => handleFieldChange('box_shadow', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Brak</SelectItem>
+                    <SelectItem value="0 1px 3px rgba(0,0,0,0.12)">Lekki</SelectItem>
+                    <SelectItem value="0 4px 6px rgba(0,0,0,0.1)">Średni</SelectItem>
+                    <SelectItem value="0 10px 25px rgba(0,0,0,0.15)">Mocny</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="advanced" className="flex-1 overflow-hidden p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-6 pb-4">
+              {/* Hover Effects */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Efekty przy najechaniu</h4>
+                <div className="space-y-2">
+                  <Label>Skalowanie przy hover</Label>
+                  <Slider
+                    value={[editedItem.hover_scale ? editedItem.hover_scale * 100 : 100]}
+                    onValueChange={([value]) => handleFieldChange('hover_scale', value / 100)}
+                    min={100}
+                    max={110}
+                    step={1}
+                  />
+                  <span className="text-sm text-muted-foreground">{editedItem.hover_scale ? Math.round(editedItem.hover_scale * 100) : 100}%</span>
+                </div>
+                <div className="space-y-2">
+                  <Label>Przezroczystość przy hover (%)</Label>
+                  <Slider
+                    value={[editedItem.hover_opacity || 100]}
+                    onValueChange={([value]) => handleFieldChange('hover_opacity', value)}
+                    min={50}
+                    max={100}
+                    step={5}
+                  />
+                  <span className="text-sm text-muted-foreground">{editedItem.hover_opacity || 100}%</span>
+                </div>
+              </div>
+
+              {/* Custom CSS */}
+              <div className="space-y-2">
+                <Label>Niestandardowa klasa CSS</Label>
+                <Input
+                  value={editedItem.style_class || ''}
+                  onChange={(e) => handleFieldChange('style_class', e.target.value)}
+                  placeholder="np. shadow-lg divide-y"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Dodaj niestandardowe klasy Tailwind lub CSS
+                </p>
+              </div>
             </div>
           </ScrollArea>
         </TabsContent>
