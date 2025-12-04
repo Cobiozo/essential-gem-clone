@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Save, Trash2, FileText, Eye } from 'lucide-react';
+import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TemplateDndEditor from './TemplateDndEditor';
 import jsPDF from 'jspdf';
 
@@ -44,6 +46,14 @@ interface TemplateElement {
   align?: 'left' | 'center' | 'right';
 }
 
+const AI_STYLE_PRESETS = [
+  { name: 'Elegancki', prompt: 'Elegant certificate with gold ornamental borders, cream background, subtle floral patterns' },
+  { name: 'Nowoczesny', prompt: 'Modern minimalist certificate, clean geometric shapes, blue gradient accent, white background' },
+  { name: 'Korporacyjny', prompt: 'Professional corporate certificate, navy blue header, silver trim, formal layout' },
+  { name: 'Naturalny', prompt: 'Nature-inspired certificate with watercolor leaves, soft green tones, organic shapes' },
+  { name: 'Klasyczny', prompt: 'Classic diploma style certificate, parchment texture, red ribbon seal, traditional ornate frame' },
+];
+
 const CertificateEditor = () => {
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [trainingModules, setTrainingModules] = useState<TrainingModuleOption[]>([]);
@@ -51,6 +61,9 @@ const CertificateEditor = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<CertificateTemplate | null>(null);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [createMode, setCreateMode] = useState<'manual' | 'ai'>('manual');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -126,15 +139,15 @@ const CertificateEditor = () => {
         .from('certificate_templates')
         .insert({
           name: newTemplateName,
-          is_active: !hasActiveTemplate, // Only set as active if no active template exists
+          is_active: !hasActiveTemplate,
           layout: {
             elements: [
               {
                 id: '1',
                 type: 'text',
                 content: 'Certyfikat Ukończenia',
-                x: 148,
-                y: 40,
+                x: 421,
+                y: 60,
                 fontSize: 32,
                 fontWeight: 'bold',
                 color: '#282828',
@@ -144,8 +157,8 @@ const CertificateEditor = () => {
                 id: '2',
                 type: 'text',
                 content: '{userName}',
-                x: 148,
-                y: 90,
+                x: 421,
+                y: 200,
                 fontSize: 24,
                 fontWeight: 'bold',
                 color: '#282828',
@@ -155,8 +168,8 @@ const CertificateEditor = () => {
                 id: '3',
                 type: 'text',
                 content: '{moduleTitle}',
-                x: 148,
-                y: 130,
+                x: 421,
+                y: 280,
                 fontSize: 20,
                 fontWeight: 'bold',
                 color: '#282828',
@@ -166,8 +179,8 @@ const CertificateEditor = () => {
                 id: '4',
                 type: 'text',
                 content: 'Data: {completionDate}',
-                x: 148,
-                y: 160,
+                x: 421,
+                y: 520,
                 fontSize: 14,
                 fontWeight: 'normal',
                 color: '#282828',
@@ -196,6 +209,135 @@ const CertificateEditor = () => {
         description: "Nie udało się utworzyć szablonu",
         variant: "destructive"
       });
+    }
+  };
+
+  const createTemplateWithAI = async () => {
+    if (!newTemplateName.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Nazwa szablonu jest wymagana",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!aiPrompt.trim()) {
+      toast({
+        title: "Błąd",
+        description: "Opisz styl certyfikatu",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setAiGenerating(true);
+
+    try {
+      toast({
+        title: "Generowanie...",
+        description: "AI tworzy tło certyfikatu. To może potrwać kilka sekund.",
+      });
+
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('generate-certificate-background', {
+        body: { 
+          prompt: aiPrompt,
+          action: 'generate-background'
+        }
+      });
+
+      if (aiError) throw aiError;
+      if (!aiData?.success) throw new Error(aiData?.error || 'AI generation failed');
+
+      const { imageUrl, suggestedPlacements } = aiData;
+
+      // Upload the generated image to storage
+      let storedImageUrl = imageUrl;
+      if (imageUrl.startsWith('data:')) {
+        try {
+          const base64Data = imageUrl.split(',')[1];
+          const byteArray = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          const blob = new Blob([byteArray], { type: 'image/png' });
+          
+          const fileName = `ai-certificate-bg-${Date.now()}.png`;
+          const { error: uploadError } = await supabase.storage
+            .from('cms-images')
+            .upload(`certificate-backgrounds/${fileName}`, blob);
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('cms-images')
+              .getPublicUrl(`certificate-backgrounds/${fileName}`);
+            storedImageUrl = publicUrl;
+          }
+        } catch (uploadErr) {
+          console.log('Using base64 image directly:', uploadErr);
+        }
+      }
+
+      // Create elements from AI suggestions
+      const elements = [
+        {
+          id: 'bg-0',
+          type: 'image' as const,
+          imageUrl: storedImageUrl,
+          x: 0,
+          y: 0,
+          width: 842,
+          height: 595
+        },
+        ...suggestedPlacements.map((placement: any, index: number) => ({
+          id: `ai-${index + 1}`,
+          type: 'text' as const,
+          content: placement.label || placement.placeholder,
+          x: placement.x,
+          y: placement.y,
+          fontSize: placement.fontSize,
+          fontWeight: placement.fontWeight,
+          color: placement.color,
+          align: placement.align
+        }))
+      ];
+
+      // Check for active templates
+      const { data: activeTemplates } = await supabase
+        .from('certificate_templates')
+        .select('id')
+        .eq('is_active', true);
+
+      const hasActiveTemplate = activeTemplates && activeTemplates.length > 0;
+
+      const { data, error } = await supabase
+        .from('certificate_templates')
+        .insert({
+          name: newTemplateName,
+          is_active: !hasActiveTemplate,
+          layout: { elements }
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTemplates([data as unknown as CertificateTemplate, ...templates]);
+      setNewTemplateName('');
+      setAiPrompt('');
+      setShowCreateDialog(false);
+      setCreateMode('manual');
+
+      toast({
+        title: "Sukces",
+        description: "Szablon AI został utworzony! Możesz go teraz edytować.",
+      });
+    } catch (error) {
+      console.error('Error creating AI template:', error);
+      toast({
+        title: "Błąd",
+        description: error instanceof Error ? error.message : "Nie udało się wygenerować szablonu AI",
+        variant: "destructive"
+      });
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -543,36 +685,110 @@ const CertificateEditor = () => {
             Zarządzaj szablonami certyfikatów dla ukończonych szkoleń
           </p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={showCreateDialog} onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) {
+            setCreateMode('manual');
+            setAiPrompt('');
+          }
+        }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Nowy szablon
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Utwórz nowy szablon certyfikatu</DialogTitle>
               <DialogDescription>
-                Wprowadź nazwę dla nowego szablonu certyfikatu
+                Utwórz szablon ręcznie lub wygeneruj z pomocą AI
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="template-name">Nazwa szablonu</Label>
-                <Input
-                  id="template-name"
-                  value={newTemplateName}
-                  onChange={(e) => setNewTemplateName(e.target.value)}
-                  placeholder="np. Szablon podstawowy"
-                />
-              </div>
-            </div>
+            
+            <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as 'manual' | 'ai')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manual">Ręcznie</TabsTrigger>
+                <TabsTrigger value="ai">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generuj z AI
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="manual" className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="template-name">Nazwa szablonu</Label>
+                  <Input
+                    id="template-name"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder="np. Szablon podstawowy"
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="ai" className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ai-template-name">Nazwa szablonu</Label>
+                  <Input
+                    id="ai-template-name"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder="np. Elegancki certyfikat"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="ai-prompt">Opisz styl certyfikatu</Label>
+                  <Textarea
+                    id="ai-prompt"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="np. Elegancki certyfikat ze złotymi ramkami i kremowym tłem..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Szybkie style:</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {AI_STYLE_PRESETS.map((preset) => (
+                      <Button
+                        key={preset.name}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAiPrompt(preset.prompt)}
+                        className="text-xs"
+                      >
+                        {preset.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+            
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                 Anuluj
               </Button>
-              <Button onClick={createTemplate}>Utwórz szablon</Button>
+              {createMode === 'manual' ? (
+                <Button onClick={createTemplate}>Utwórz szablon</Button>
+              ) : (
+                <Button onClick={createTemplateWithAI} disabled={aiGenerating}>
+                  {aiGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generowanie...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generuj z AI
+                    </>
+                  )}
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
