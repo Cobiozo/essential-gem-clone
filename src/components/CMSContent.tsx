@@ -71,6 +71,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     if (item.border_radius) inlineStyles.borderRadius = `${item.border_radius}px`;
     if ((item as any).opacity) inlineStyles.opacity = (item as any).opacity / 100;
     if (item.font_weight) inlineStyles.fontWeight = item.font_weight;
+    if (item.text_align) inlineStyles.textAlign = item.text_align as React.CSSProperties['textAlign'];
     
     return {
       style: inlineStyles,
