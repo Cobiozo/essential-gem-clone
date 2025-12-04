@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2, AlertTriangle, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TemplateDndEditor from './TemplateDndEditor';
@@ -558,6 +559,35 @@ const CertificateEditor = () => {
     }
   };
 
+  // Check for combination conflicts
+  const checkCombinationConflict = (templateId: string, newRoles: string[], newModuleIds: string[]) => {
+    const conflictingTemplates = templates.filter(t => {
+      if (t.id === templateId) return false;
+      
+      const tRoles = t.roles || [];
+      const tModuleIds = t.module_ids || [];
+      
+      // Check if there's any overlap in both roles AND modules
+      const hasRoleOverlap = newRoles.some(r => tRoles.includes(r as any));
+      const hasModuleOverlap = newModuleIds.some(m => tModuleIds.includes(m));
+      
+      // Conflict exists if both have overlapping roles AND modules
+      // Or if one has specific roles/modules and the other is a catch-all
+      if (hasRoleOverlap && hasModuleOverlap) return true;
+      
+      // Check for catch-all conflicts
+      if (newRoles.length > 0 && newModuleIds.length > 0) {
+        // This template has specific role+module, check if other is catch-all for same
+        if (tRoles.length === 0 && hasModuleOverlap) return true;
+        if (tModuleIds.length === 0 && hasRoleOverlap) return true;
+      }
+      
+      return false;
+    });
+    
+    return conflictingTemplates;
+  };
+
   const handleRoleToggle = async (templateId: string, role: string, checked: boolean) => {
     try {
       const template = templates.find(t => t.id === templateId);
@@ -567,6 +597,18 @@ const CertificateEditor = () => {
       const newRoles = checked
         ? [...currentRoles, role as 'admin' | 'partner' | 'client' | 'specjalista' | 'user']
         : currentRoles.filter(r => r !== role);
+
+      // Check for conflicts
+      const conflicts = checkCombinationConflict(templateId, newRoles, template.module_ids || []);
+      if (conflicts.length > 0) {
+        const conflictNames = conflicts.map(c => c.name).join(', ');
+        const confirmed = window.confirm(
+          `Uwaga! Ta kombinacja ról i modułów koliduje z szablonem: ${conflictNames}.\n\n` +
+          `System użyje tego szablonu z najwyższym priorytetem (rola+moduł > moduł > rola).\n\n` +
+          `Czy na pewno chcesz kontynuować?`
+        );
+        if (!confirmed) return;
+      }
 
       const { error } = await supabase
         .from('certificate_templates')
@@ -604,6 +646,18 @@ const CertificateEditor = () => {
         ? [...currentModuleIds, moduleId]
         : currentModuleIds.filter(id => id !== moduleId);
 
+      // Check for conflicts
+      const conflicts = checkCombinationConflict(templateId, template.roles || [], newModuleIds);
+      if (conflicts.length > 0) {
+        const conflictNames = conflicts.map(c => c.name).join(', ');
+        const confirmed = window.confirm(
+          `Uwaga! Ta kombinacja ról i modułów koliduje z szablonem: ${conflictNames}.\n\n` +
+          `System użyje tego szablonu z najwyższym priorytetem (rola+moduł > moduł > rola).\n\n` +
+          `Czy na pewno chcesz kontynuować?`
+        );
+        if (!confirmed) return;
+      }
+
       const { error } = await supabase
         .from('certificate_templates')
         .update({ module_ids: newModuleIds, updated_at: new Date().toISOString() })
@@ -628,6 +682,46 @@ const CertificateEditor = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Get template assignment summary
+  const getTemplateAssignmentSummary = (template: CertificateTemplate) => {
+    const roles = template.roles || [];
+    const moduleIds = template.module_ids || [];
+    const moduleNames = moduleIds.map(id => 
+      trainingModules.find(m => m.id === id)?.title || 'Nieznany moduł'
+    );
+
+    if (roles.length > 0 && moduleIds.length > 0) {
+      return {
+        type: 'specific',
+        text: `Role: ${roles.join(', ')} + Moduły: ${moduleNames.join(', ')}`,
+        priority: 1
+      };
+    } else if (moduleIds.length > 0) {
+      return {
+        type: 'module-only',
+        text: `Wszystkie role dla modułów: ${moduleNames.join(', ')}`,
+        priority: 2
+      };
+    } else if (roles.length > 0) {
+      return {
+        type: 'role-only',
+        text: `Wszystkie moduły dla ról: ${roles.join(', ')}`,
+        priority: 3
+      };
+    } else {
+      return {
+        type: 'fallback',
+        text: 'Domyślny szablon (fallback)',
+        priority: 4
+      };
+    }
+  };
+
+  // Check if template has conflicts
+  const getTemplateConflicts = (template: CertificateTemplate) => {
+    return checkCombinationConflict(template.id, template.roles || [], template.module_ids || []);
   };
 
   const previewCertificate = async (template: CertificateTemplate) => {
@@ -933,11 +1027,59 @@ const CertificateEditor = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {template.is_active && (
                     <Badge variant="default">Domyślny</Badge>
                   )}
+                  {(() => {
+                    const conflicts = getTemplateConflicts(template);
+                    if (conflicts.length > 0) {
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Konflikt
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Koliduje z: {conflicts.map(c => c.name).join(', ')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
+                
+                {/* Assignment Summary */}
+                {(() => {
+                  const summary = getTemplateAssignmentSummary(template);
+                  return (
+                    <div className={`p-2 rounded-lg text-xs flex items-start gap-2 ${
+                      summary.type === 'specific' ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' :
+                      summary.type === 'module-only' ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800' :
+                      summary.type === 'role-only' ? 'bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800' :
+                      'bg-muted border border-border'
+                    }`}>
+                      <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium">Obsługuje: </span>
+                        <span>{summary.text}</span>
+                        <div className="text-muted-foreground mt-1">
+                          Priorytet: {summary.priority} ({
+                            summary.priority === 1 ? 'najwyższy - rola+moduł' :
+                            summary.priority === 2 ? 'wysoki - tylko moduł' :
+                            summary.priority === 3 ? 'średni - tylko rola' :
+                            'niski - fallback'
+                          })
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Przypisane role</Label>

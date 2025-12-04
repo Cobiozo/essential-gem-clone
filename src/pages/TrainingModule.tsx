@@ -214,10 +214,64 @@ const TrainingModule = () => {
     if (currentLessonIndex < lessons.length - 1) {
       setCurrentLessonIndex(currentLessonIndex + 1);
     } else {
-      toast({
-        title: "Moduł ukończony!",
-        description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
+      // Check if all lessons are completed
+      const allCompleted = lessons.every(lesson => {
+        const lessonProgress = progress[lesson.id];
+        if (lesson.id === lessons[currentLessonIndex].id) {
+          // Current lesson - check if it will be completed after save
+          const totalTime = (lessonProgress?.time_spent_seconds || 0) + timeSpent;
+          return totalTime >= (lesson.min_time_seconds || 0);
+        }
+        return lessonProgress?.is_completed;
       });
+
+      if (allCompleted && user) {
+        // Auto-generate certificate
+        toast({
+          title: "Generowanie certyfikatu...",
+          description: "Trwa automatyczne wystawianie certyfikatu.",
+        });
+
+        try {
+          const { data, error } = await supabase.functions.invoke('auto-generate-certificate', {
+            body: { userId: user.id, moduleId }
+          });
+
+          if (error) throw error;
+
+          if (data?.success) {
+            if (data.alreadyExists) {
+              toast({
+                title: "Moduł ukończony!",
+                description: "Certyfikat został już wcześniej wystawiony.",
+              });
+            } else {
+              toast({
+                title: "🎉 Certyfikat wystawiony!",
+                description: `Gratulacje! Ukończyłeś "${data.moduleTitle}" i otrzymałeś certyfikat.`,
+              });
+            }
+          } else {
+            console.error('Certificate generation failed:', data?.error);
+            toast({
+              title: "Moduł ukończony!",
+              description: "Gratulacje! Ukończyłeś wszystkie lekcje.",
+            });
+          }
+        } catch (certError) {
+          console.error('Error generating certificate:', certError);
+          toast({
+            title: "Moduł ukończony!",
+            description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
+          });
+        }
+      } else {
+        toast({
+          title: "Moduł ukończony!",
+          description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
+        });
+      }
+      
       navigate('/training');
     }
   };
