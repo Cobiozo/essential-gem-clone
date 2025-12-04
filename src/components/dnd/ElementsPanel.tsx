@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ItemEditor } from '@/components/cms/ItemEditor';
 import { SectionEditor } from '@/components/cms/SectionEditor';
+import { ElementPreview } from './ElementPreview';
 import {
   Search,
   Type, 
@@ -42,7 +44,9 @@ import {
   StarHalf,
   ThumbsUp,
   FileCode,
-  Spline
+  Spline,
+  Clock,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
@@ -52,6 +56,8 @@ interface ElementItem {
   title: string;
   icon: React.ReactNode;
   type: string;
+  description?: string;
+  tags?: string[];
 }
 
 interface ElementCategory {
@@ -76,7 +82,11 @@ interface ElementsPanelProps {
   isSectionEditorOpen?: boolean;
   onSaveSection?: (updatedSection: Partial<any>) => Promise<void>;
   onCancelSectionEdit?: () => void;
+  recentlyUsed?: string[];
 }
+
+// Recently used elements storage key
+const RECENTLY_USED_KEY = 'layout-editor-recently-used';
 
 export const ElementsPanel: React.FC<ElementsPanelProps> = ({ 
   className,
@@ -92,19 +102,26 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   editingSection,
   isSectionEditorOpen,
   onSaveSection,
-  onCancelSectionEdit
+  onCancelSectionEdit,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['layout', 'basic']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['recently-used', 'layout', 'basic']);
+  const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(RECENTLY_USED_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   const layoutElements: ElementCategory = {
     id: 'layout',
     title: 'Układ',
     defaultOpen: true,
     items: [
-      { id: 'container', title: 'Kontener', icon: <Box className="w-8 h-8" />, type: 'container' },
-      { id: 'grid', title: 'Siatka', icon: <Grid3X3 className="w-8 h-8" />, type: 'grid' },
-      { id: 'pure-life-container', title: 'Pure Life', icon: <Grid3X3 className="w-8 h-8 text-blue-500" />, type: 'pure-life-container' },
+      { id: 'container', title: 'Kontener', icon: <Box className="w-5 h-5" />, type: 'container', description: 'Prosty kontener na elementy', tags: ['layout', 'box'] },
+      { id: 'grid', title: 'Siatka', icon: <Grid3X3 className="w-5 h-5" />, type: 'grid', description: 'Siatka z wieloma kolumnami', tags: ['layout', 'columns', 'grid'] },
+      { id: 'pure-life-container', title: 'Pure Life', icon: <Grid3X3 className="w-5 h-5 text-blue-500" />, type: 'pure-life-container', description: 'Kontener w stylu Pure Life', tags: ['layout', 'branded'] },
     ]
   };
 
@@ -112,83 +129,109 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     id: 'basic',
     title: 'Podstawowe',
     items: [
-      { id: 'heading', title: 'Nagłówek', icon: <Type className="w-8 h-8" />, type: 'heading' },
-      { id: 'image', title: 'Obrazek', icon: <ImageIcon className="w-8 h-8" />, type: 'image' },
-      { id: 'text', title: 'Edytor tekstu', icon: <AlignLeft className="w-8 h-8" />, type: 'text' },
-      { id: 'video', title: 'Film', icon: <Video className="w-8 h-8" />, type: 'video' },
-      { id: 'button', title: 'Przycisk', icon: <MousePointer2 className="w-8 h-8" />, type: 'button' },
-      { id: 'info-text', title: 'Tekst informacyjny', icon: <Info className="w-8 h-8" />, type: 'info_text' },
-      { id: 'divider', title: 'Rozdzielacz', icon: <Minus className="w-8 h-8" />, type: 'divider' },
-      { id: 'spacer', title: 'Odstęp', icon: <AlignLeft className="w-8 h-8 rotate-90" />, type: 'spacer' },
-      { id: 'maps', title: 'Mapy Google', icon: <MapPin className="w-8 h-8" />, type: 'maps' },
-      { id: 'icon', title: 'Ikonka', icon: <Star className="w-8 h-8" />, type: 'icon' },
+      { id: 'heading', title: 'Nagłówek', icon: <Type className="w-5 h-5" />, type: 'heading', description: 'Nagłówek H1-H6', tags: ['text', 'title'] },
+      { id: 'image', title: 'Obrazek', icon: <ImageIcon className="w-5 h-5" />, type: 'image', description: 'Obraz z alternatywnym tekstem', tags: ['media', 'photo'] },
+      { id: 'text', title: 'Edytor tekstu', icon: <AlignLeft className="w-5 h-5" />, type: 'text', description: 'Tekst z formatowaniem', tags: ['text', 'paragraph'] },
+      { id: 'video', title: 'Film', icon: <Video className="w-5 h-5" />, type: 'video', description: 'Wideo YouTube lub lokalne', tags: ['media', 'embed'] },
+      { id: 'button', title: 'Przycisk', icon: <MousePointer2 className="w-5 h-5" />, type: 'button', description: 'Przycisk z linkiem', tags: ['cta', 'link'] },
+      { id: 'info-text', title: 'Tekst informacyjny', icon: <Info className="w-5 h-5" />, type: 'info_text', description: 'Ikona z tekstem', tags: ['icon', 'text'] },
+      { id: 'divider', title: 'Rozdzielacz', icon: <Minus className="w-5 h-5" />, type: 'divider', description: 'Linia pozioma', tags: ['separator', 'line'] },
+      { id: 'spacer', title: 'Odstęp', icon: <AlignLeft className="w-5 h-5 rotate-90" />, type: 'spacer', description: 'Pusta przestrzeń', tags: ['space', 'margin'] },
+      { id: 'maps', title: 'Mapy Google', icon: <MapPin className="w-5 h-5" />, type: 'maps', description: 'Interaktywna mapa', tags: ['location', 'embed'] },
+      { id: 'icon', title: 'Ikonka', icon: <Star className="w-5 h-5" />, type: 'icon', description: 'Ikona Lucide', tags: ['icon', 'symbol'] },
     ]
   };
-
-  console.log('[ElementsPanel] basicElements items:', basicElements.items.map(i => i.title));
 
   const generalElements: ElementCategory = {
     id: 'general',
     title: 'Ogólne',
     items: [
-      { id: 'image-field', title: 'Pole obrazka', icon: <ImagePlus className="w-8 h-8" />, type: 'image-field' },
-      { id: 'icon-field', title: 'Pole ikonki', icon: <Smile className="w-8 h-8" />, type: 'icon-field' },
-      { id: 'carousel', title: 'Karuzela obrazków', icon: <Images className="w-8 h-8" />, type: 'carousel' },
-      { id: 'accessibility', title: 'Dostępność A11y', icon: <Accessibility className="w-8 h-8" />, type: 'accessibility' },
-      { id: 'gallery', title: 'Galeria podstawowa', icon: <LayoutGrid className="w-8 h-8" />, type: 'gallery' },
-      { id: 'icon-list', title: 'Lista ikonki', icon: <List className="w-8 h-8" />, type: 'icon-list' },
-      { id: 'counter', title: 'Licznik', icon: <Hash className="w-8 h-8" />, type: 'counter' },
-      { id: 'progress-bar', title: 'Pasek postępu', icon: <BarChart3 className="w-8 h-8" />, type: 'progress-bar' },
-      { id: 'testimonial', title: 'Referencja', icon: <MessageSquare className="w-8 h-8" />, type: 'testimonial' },
-      { id: 'cards', title: 'Karty', icon: <CreditCard className="w-8 h-8" />, type: 'cards' },
-      { id: 'accordion', title: 'Akordeon', icon: <ChevronDown className="w-8 h-8" />, type: 'accordion' },
-      { id: 'toggle', title: 'Przełącznik', icon: <ToggleLeft className="w-8 h-8" />, type: 'toggle' },
-      { id: 'social-icons', title: 'Ikonki społecznościowe', icon: <Share2 className="w-8 h-8" />, type: 'social-icons' },
-      { id: 'alert', title: 'Ostrzeżenie', icon: <AlertCircle className="w-8 h-8" />, type: 'alert' },
-      { id: 'soundcloud', title: 'SoundCloud', icon: <Music className="w-8 h-8" />, type: 'soundcloud' },
-      { id: 'shortcode', title: 'Krótki kod', icon: <Code2 className="w-8 h-8" />, type: 'shortcode' },
-      { id: 'html', title: 'HTML', icon: <Code className="w-8 h-8" />, type: 'html' },
-      { id: 'menu-anchor', title: 'Kotwica menu', icon: <Anchor className="w-8 h-8" />, type: 'menu-anchor' },
-      { id: 'sidebar', title: 'Panel boczny', icon: <PanelLeft className="w-8 h-8" />, type: 'sidebar' },
-      { id: 'learn-more', title: 'Dowiedz się więcej', icon: <Info className="w-8 h-8" />, type: 'learn-more' },
-      { id: 'rating', title: 'Ocena', icon: <StarHalf className="w-8 h-8" />, type: 'rating' },
-      { id: 'trustindex', title: 'Google Recenzje', icon: <ThumbsUp className="w-8 h-8" />, type: 'trustindex' },
-      { id: 'ppom', title: 'PPOM Shortcode', icon: <FileCode className="w-8 h-8" />, type: 'ppom' },
-      { id: 'text-path', title: 'Ścieżka tekstowa', icon: <Spline className="w-8 h-8" />, type: 'text-path' },
+      { id: 'image-field', title: 'Pole obrazka', icon: <ImagePlus className="w-5 h-5" />, type: 'image-field', description: 'Pole do wgrania obrazka', tags: ['media', 'upload'] },
+      { id: 'icon-field', title: 'Pole ikonki', icon: <Smile className="w-5 h-5" />, type: 'icon-field', description: 'Pole z wyborem ikony', tags: ['icon', 'picker'] },
+      { id: 'carousel', title: 'Karuzela', icon: <Images className="w-5 h-5" />, type: 'carousel', description: 'Slider obrazków', tags: ['gallery', 'slider'] },
+      { id: 'accessibility', title: 'Dostępność A11y', icon: <Accessibility className="w-5 h-5" />, type: 'accessibility', description: 'Informacje o dostępności', tags: ['a11y', 'aria'] },
+      { id: 'gallery', title: 'Galeria', icon: <LayoutGrid className="w-5 h-5" />, type: 'gallery', description: 'Siatka obrazków', tags: ['images', 'grid'] },
+      { id: 'icon-list', title: 'Lista ikonki', icon: <List className="w-5 h-5" />, type: 'icon-list', description: 'Lista z ikonami', tags: ['list', 'bullets'] },
+      { id: 'counter', title: 'Licznik', icon: <Hash className="w-5 h-5" />, type: 'counter', description: 'Animowany licznik', tags: ['animation', 'stats'] },
+      { id: 'progress-bar', title: 'Pasek postępu', icon: <BarChart3 className="w-5 h-5" />, type: 'progress-bar', description: 'Pasek postępu', tags: ['progress', 'bar'] },
+      { id: 'testimonial', title: 'Referencja', icon: <MessageSquare className="w-5 h-5" />, type: 'testimonial', description: 'Cytat z autorem', tags: ['quote', 'review'] },
+      { id: 'cards', title: 'Karty', icon: <CreditCard className="w-5 h-5" />, type: 'cards', description: 'Karty z treścią', tags: ['card', 'content'] },
+      { id: 'accordion', title: 'Akordeon', icon: <ChevronDown className="w-5 h-5" />, type: 'accordion', description: 'Rozwijane sekcje', tags: ['faq', 'collapse'] },
+      { id: 'toggle', title: 'Przełącznik', icon: <ToggleLeft className="w-5 h-5" />, type: 'toggle', description: 'Rozwijany element', tags: ['switch', 'expand'] },
+      { id: 'social-icons', title: 'Social Icons', icon: <Share2 className="w-5 h-5" />, type: 'social-icons', description: 'Ikonki społecznościowe', tags: ['social', 'links'] },
+      { id: 'alert', title: 'Ostrzeżenie', icon: <AlertCircle className="w-5 h-5" />, type: 'alert', description: 'Komunikat ostrzegawczy', tags: ['notice', 'warning'] },
+      { id: 'soundcloud', title: 'SoundCloud', icon: <Music className="w-5 h-5" />, type: 'soundcloud', description: 'Odtwarzacz audio', tags: ['audio', 'embed'] },
+      { id: 'shortcode', title: 'Krótki kod', icon: <Code2 className="w-5 h-5" />, type: 'shortcode', description: 'Shortcode', tags: ['code', 'embed'] },
+      { id: 'html', title: 'HTML', icon: <Code className="w-5 h-5" />, type: 'html', description: 'Własny kod HTML', tags: ['code', 'custom'] },
+      { id: 'menu-anchor', title: 'Kotwica menu', icon: <Anchor className="w-5 h-5" />, type: 'menu-anchor', description: 'Kotwica nawigacji', tags: ['anchor', 'navigation'] },
+      { id: 'sidebar', title: 'Panel boczny', icon: <PanelLeft className="w-5 h-5" />, type: 'sidebar', description: 'Boczny panel', tags: ['sidebar', 'layout'] },
+      { id: 'learn-more', title: 'Dowiedz się więcej', icon: <Info className="w-5 h-5" />, type: 'learn-more', description: 'Rozwijana sekcja', tags: ['expand', 'info'] },
+      { id: 'rating', title: 'Ocena', icon: <StarHalf className="w-5 h-5" />, type: 'rating', description: 'Ocena gwiazdkowa', tags: ['stars', 'rating'] },
+      { id: 'trustindex', title: 'Google Recenzje', icon: <ThumbsUp className="w-5 h-5" />, type: 'trustindex', description: 'Widget recenzji', tags: ['reviews', 'embed'] },
+      { id: 'ppom', title: 'PPOM Shortcode', icon: <FileCode className="w-5 h-5" />, type: 'ppom', description: 'PPOM produkt', tags: ['product', 'woo'] },
+      { id: 'text-path', title: 'Ścieżka tekstowa', icon: <Spline className="w-5 h-5" />, type: 'text-path', description: 'Tekst na krzywej SVG', tags: ['svg', 'animation'] },
     ]
   };
 
   const allCategories = [layoutElements, basicElements, generalElements];
+  const allItems = allCategories.flatMap(c => c.items);
 
-  const filteredCategories = allCategories.map(category => ({
-    ...category,
-    items: category.items.filter(item => 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  })).filter(category => category.items.length > 0);
+  // Create recently used category
+  const recentlyUsedCategory: ElementCategory | null = useMemo(() => {
+    if (recentlyUsed.length === 0) return null;
+    const items = recentlyUsed
+      .map(type => allItems.find(i => i.type === type))
+      .filter((item): item is ElementItem => item !== undefined)
+      .slice(0, 6);
+    
+    if (items.length === 0) return null;
+    
+    return {
+      id: 'recently-used',
+      title: 'Ostatnio używane',
+      defaultOpen: true,
+      items,
+    };
+  }, [recentlyUsed, allItems]);
 
-  console.log('[ElementsPanel] Filtered categories:', filteredCategories.map(c => ({ 
-    id: c.id, 
-    title: c.title, 
-    itemCount: c.items.length,
-    items: c.items.map(i => i.title)
-  })));
+  const filteredCategories = useMemo(() => {
+    const categories = recentlyUsedCategory 
+      ? [recentlyUsedCategory, ...allCategories] 
+      : allCategories;
 
-  const handleElementClick = (elementType: string) => {
-    onElementClick?.(elementType);
+    if (!searchQuery) return categories;
+
+    return categories.map(category => ({
+      ...category,
+      items: category.items.filter(item => 
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    })).filter(category => category.items.length > 0);
+  }, [searchQuery, recentlyUsedCategory, allCategories]);
+
+  const handleElementDrag = (elementType: string) => {
+    // Update recently used
+    setRecentlyUsed(prev => {
+      const newRecent = [elementType, ...prev.filter(t => t !== elementType)].slice(0, 10);
+      localStorage.setItem(RECENTLY_USED_KEY, JSON.stringify(newRecent));
+      return newRecent;
+    });
   };
 
   return (
-    <Card className={cn("w-80 h-screen border-r rounded-none", className)}>
+    <Card className={cn("w-80 h-screen border-r rounded-none flex flex-col", className)}>
       <CardContent className="p-0 h-full flex flex-col">
-        <div className="p-4 border-b shrink-0">
-          <div className="flex items-center gap-2 mb-4">
+        {/* Header */}
+        <div className="p-4 border-b shrink-0 bg-gradient-to-r from-background to-muted/30">
+          <div className="flex items-center gap-2 mb-2">
             {panelMode === 'properties' && onPanelModeChange && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onPanelModeChange('elements')}
-                className="px-2"
+                className="px-2 hover:bg-background"
               >
                 ← Powrót
               </Button>
@@ -202,27 +245,38 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
         {panelMode === 'elements' ? (
           <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-2 mx-4 shrink-0">
-                <TabsTrigger value="widgets">Widżety</TabsTrigger>
-                <TabsTrigger value="global">Globalne</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mx-4 mt-2 shrink-0">
+                <TabsTrigger value="widgets" className="text-sm">Widżety</TabsTrigger>
+                <TabsTrigger value="global" className="text-sm">Globalne</TabsTrigger>
               </TabsList>
 
-              <div className="relative px-4 py-2 shrink-0">
+              {/* Search */}
+              <div className="relative px-4 py-3 shrink-0">
                 <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Widżet wyszukiwania..."
+                  placeholder="Szukaj widżetu..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 pr-8 bg-muted/50 border-0 focus-visible:ring-1"
                 />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                )}
               </div>
 
-              <TabsContent value="widgets" className="flex-1 overflow-auto m-0 mt-2">
-                <div className="space-y-2 p-4">
+              <TabsContent value="widgets" className="flex-1 overflow-auto m-0">
+                <div className="space-y-1 p-3">
                   {filteredCategories.map((category) => (
                     <CollapsibleSection
                       key={category.id}
-                      title={category.title}
+                      title={`${category.title} (${category.items.length})`}
                       isOpen={expandedCategories.includes(category.id)}
                       onOpenChange={(open) => {
                         if (open) {
@@ -231,26 +285,36 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                           setExpandedCategories(expandedCategories.filter(id => id !== category.id));
                         }
                       }}
-                      className="border-b pb-2"
+                      className="mb-1"
                     >
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="grid grid-cols-2 gap-2 mt-2 pb-2">
                         {category.items.map((item) => (
                           <DraggableElement
-                            key={item.id}
+                            key={`${category.id}-${item.id}`}
                             id={`new-${item.type}`}
                             elementType={item.type}
                             icon={item.icon}
                             title={item.title}
+                            description={item.description}
+                            onDragStart={() => handleElementDrag(item.type)}
                           />
                         ))}
                       </div>
                     </CollapsibleSection>
                   ))}
+                  
+                  {filteredCategories.length === 0 && searchQuery && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Brak wyników dla "{searchQuery}"</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="global" className="mt-4">
                 <div className="p-4 text-center text-sm text-muted-foreground">
+                  <Box className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   Globalne elementy będą dostępne wkrótce
                 </div>
               </TabsContent>
@@ -286,15 +350,24 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   );
 };
 
-// Draggable element component
+// Draggable element component with preview on hover
 interface DraggableElementProps {
   id: string;
   elementType: string;
   icon: React.ReactNode;
   title: string;
+  description?: string;
+  onDragStart?: () => void;
 }
 
-const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, icon, title }) => {
+const DraggableElement: React.FC<DraggableElementProps> = ({ 
+  id, 
+  elementType, 
+  icon, 
+  title, 
+  description,
+  onDragStart 
+}) => {
   const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
     id,
     data: {
@@ -310,26 +383,51 @@ const DraggableElement: React.FC<DraggableElementProps> = ({ id, elementType, ic
     touchAction: 'none',
   };
 
+  // Call onDragStart when dragging begins
+  React.useEffect(() => {
+    if (isDragging && onDragStart) {
+      onDragStart();
+    }
+  }, [isDragging, onDragStart]);
+
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={style}
-      className={cn(
-        "flex flex-col items-center justify-center gap-2 p-4",
-        "rounded-lg border bg-card hover:bg-accent transition-colors",
-        "cursor-grab active:cursor-grabbing group select-none",
-        "touch-none", // Zapewnia blokowanie scroll podczas drag
-        isDragging && "opacity-50 z-50"
-      )}
-    >
-      <div className="text-muted-foreground group-hover:text-foreground transition-colors pointer-events-none">
-        {icon}
-      </div>
-      <span className="text-xs text-center font-medium pointer-events-none">
-        {title}
-      </span>
-    </div>
+    <TooltipProvider delayDuration={500}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            ref={setNodeRef}
+            {...listeners}
+            {...attributes}
+            style={style}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1.5 p-3",
+              "rounded-lg border bg-card hover:bg-accent/50 transition-all duration-200",
+              "cursor-grab active:cursor-grabbing group select-none",
+              "touch-none hover:shadow-md hover:border-primary/30",
+              "hover:scale-[1.02] active:scale-[0.98]",
+              isDragging && "opacity-50 z-50 shadow-lg ring-2 ring-primary"
+            )}
+          >
+            <div className="text-muted-foreground group-hover:text-primary transition-colors pointer-events-none">
+              {icon}
+            </div>
+            <span className="text-xs text-center font-medium pointer-events-none line-clamp-1">
+              {title}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[200px] p-0 overflow-hidden">
+          <div className="bg-popover border rounded-lg shadow-lg">
+            <ElementPreview type={elementType} className="bg-muted/50" />
+            <div className="p-2 border-t">
+              <p className="font-medium text-sm">{title}</p>
+              {description && (
+                <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+              )}
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
