@@ -50,17 +50,93 @@ export const useSectionManager = ({
       const { error } = await supabase
         .from('cms_sections')
         .update({
+          // Podstawowe
           title: updatedSection.title,
           description: updatedSection.description,
+          is_active: updatedSection.is_active,
+          show_title: updatedSection.show_title,
+          default_expanded: updatedSection.default_expanded,
+          
+          // Kolory
           background_color: updatedSection.background_color,
           text_color: updatedSection.text_color,
-          font_size: updatedSection.font_size,
-          alignment: updatedSection.alignment,
+          background_gradient: updatedSection.background_gradient,
+          
+          // Marginesy i padding
           padding: updatedSection.padding,
           margin: updatedSection.margin,
+          section_margin_top: updatedSection.section_margin_top,
+          section_margin_bottom: updatedSection.section_margin_bottom,
+          
+          // Obramowanie
           border_radius: updatedSection.border_radius,
+          border_width: updatedSection.border_width,
+          border_color: updatedSection.border_color,
+          border_style: updatedSection.border_style,
+          box_shadow: updatedSection.box_shadow,
+          opacity: updatedSection.opacity,
+          
+          // Rozmiar
+          width_type: updatedSection.width_type,
+          custom_width: updatedSection.custom_width,
+          height_type: updatedSection.height_type,
+          custom_height: updatedSection.custom_height,
+          max_width: updatedSection.max_width,
+          min_height: updatedSection.min_height,
+          
+          // Typografia
+          font_size: updatedSection.font_size,
+          font_weight: updatedSection.font_weight,
+          line_height: updatedSection.line_height,
+          letter_spacing: updatedSection.letter_spacing,
+          text_transform: updatedSection.text_transform,
+          alignment: updatedSection.alignment,
+          
+          // Layout
+          display_type: updatedSection.display_type,
+          justify_content: updatedSection.justify_content,
+          align_items: updatedSection.align_items,
+          gap: updatedSection.gap,
+          content_direction: updatedSection.content_direction,
+          content_wrap: updatedSection.content_wrap,
+          overflow_behavior: updatedSection.overflow_behavior,
+          
+          // Obraz tła
+          background_image: updatedSection.background_image,
+          background_image_opacity: updatedSection.background_image_opacity,
+          background_image_position: updatedSection.background_image_position,
+          background_image_size: updatedSection.background_image_size,
+          
+          // Ikona
+          icon_name: updatedSection.icon_name,
+          icon_position: updatedSection.icon_position,
+          icon_size: updatedSection.icon_size,
+          icon_color: updatedSection.icon_color,
+          show_icon: updatedSection.show_icon,
+          
+          // Efekty hover
+          hover_background_color: updatedSection.hover_background_color,
+          hover_background_gradient: updatedSection.hover_background_gradient,
+          hover_text_color: updatedSection.hover_text_color,
+          hover_border_color: updatedSection.hover_border_color,
+          hover_box_shadow: updatedSection.hover_box_shadow,
+          hover_opacity: updatedSection.hover_opacity,
+          hover_scale: updatedSection.hover_scale,
+          hover_transition_duration: updatedSection.hover_transition_duration,
+          
+          // Klasy CSS i widoczność
           style_class: updatedSection.style_class,
-          show_title: updatedSection.show_title,
+          visible_to_everyone: updatedSection.visible_to_everyone,
+          visible_to_clients: updatedSection.visible_to_clients,
+          visible_to_partners: updatedSection.visible_to_partners,
+          visible_to_specjalista: updatedSection.visible_to_specjalista,
+          visible_to_anonymous: updatedSection.visible_to_anonymous,
+          
+          // Wiersze
+          section_type: updatedSection.section_type,
+          row_layout_type: updatedSection.row_layout_type,
+          row_column_count: updatedSection.row_column_count,
+          
           updated_at: new Date().toISOString()
         })
         .eq('id', editingSectionId);
@@ -99,14 +175,90 @@ export const useSectionManager = ({
           title: `${section.title} (kopia)`,
           description: section.description,
           position: sections.length,
+          
+          // Widoczność
           visible_to_everyone: section.visible_to_everyone,
           visible_to_clients: section.visible_to_clients,
           visible_to_partners: section.visible_to_partners,
           visible_to_specjalista: section.visible_to_specjalista,
           visible_to_anonymous: section.visible_to_anonymous,
+          
+          // Kolory
           background_color: section.background_color,
           text_color: section.text_color,
-          style_class: section.style_class
+          background_gradient: section.background_gradient,
+          
+          // Marginesy i padding
+          padding: section.padding,
+          margin: section.margin,
+          section_margin_top: section.section_margin_top,
+          section_margin_bottom: section.section_margin_bottom,
+          
+          // Obramowanie
+          border_radius: section.border_radius,
+          border_width: section.border_width,
+          border_color: section.border_color,
+          border_style: section.border_style,
+          box_shadow: section.box_shadow,
+          opacity: section.opacity,
+          
+          // Rozmiar
+          width_type: section.width_type,
+          custom_width: section.custom_width,
+          height_type: section.height_type,
+          custom_height: section.custom_height,
+          max_width: section.max_width,
+          min_height: section.min_height,
+          
+          // Typografia
+          font_size: section.font_size,
+          font_weight: section.font_weight,
+          line_height: section.line_height,
+          letter_spacing: section.letter_spacing,
+          text_transform: section.text_transform,
+          alignment: section.alignment,
+          
+          // Layout
+          display_type: section.display_type,
+          justify_content: section.justify_content,
+          align_items: section.align_items,
+          gap: section.gap,
+          content_direction: section.content_direction,
+          content_wrap: section.content_wrap,
+          overflow_behavior: section.overflow_behavior,
+          
+          // Obraz tła
+          background_image: section.background_image,
+          background_image_opacity: section.background_image_opacity,
+          background_image_position: section.background_image_position,
+          background_image_size: section.background_image_size,
+          
+          // Ikona
+          icon_name: section.icon_name,
+          icon_position: section.icon_position,
+          icon_size: section.icon_size,
+          icon_color: section.icon_color,
+          show_icon: section.show_icon,
+          
+          // Efekty hover
+          hover_background_color: section.hover_background_color,
+          hover_background_gradient: section.hover_background_gradient,
+          hover_text_color: section.hover_text_color,
+          hover_border_color: section.hover_border_color,
+          hover_box_shadow: section.hover_box_shadow,
+          hover_opacity: section.hover_opacity,
+          hover_scale: section.hover_scale,
+          hover_transition_duration: section.hover_transition_duration,
+          
+          // Klasy CSS
+          style_class: section.style_class,
+          default_expanded: section.default_expanded,
+          show_title: section.show_title,
+          
+          // Wiersze
+          section_type: section.section_type,
+          row_layout_type: section.row_layout_type,
+          row_column_count: section.row_column_count,
         })
         .select()
         .single();
