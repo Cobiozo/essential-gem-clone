@@ -236,12 +236,12 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
             onEditSection?.(section.id);
           }
         }}
-        className={cn(
-          "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative group/section hover-section",
-          selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
-          isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
-          section.style_class
-        )}
+      className={cn(
+        "block w-full cursor-pointer transition-all duration-200 bg-card relative group/section hover-section",
+        selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
+        isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
+        section.style_class
+      )}
         style={combinedStyles}
       >
         {editMode && (
@@ -338,7 +338,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
         }
       }}
       className={cn(
-        "block w-full cursor-pointer transition-all duration-200 bg-card mb-6 relative group/section hover-section",
+        "block w-full cursor-pointer transition-all duration-200 bg-card relative group/section hover-section",
         selectedElement === section.id && "ring-2 ring-blue-400 ring-offset-2",
         isOver && editMode && "ring-2 ring-green-500 ring-offset-2",
         editMode && "min-h-[120px]",
