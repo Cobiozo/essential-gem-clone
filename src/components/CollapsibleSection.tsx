@@ -272,7 +272,6 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
         ...customContainerStyle,
         ...hoverStyles,
         display: 'block',
-        marginBottom: '2rem',
       }}
       onMouseEnter={(e) => {
         if (sectionStyle?.hover_scale && sectionStyle.hover_scale !== 1) {
