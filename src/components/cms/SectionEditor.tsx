@@ -331,6 +331,8 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
     // Clean up numeric fields to ensure they're valid for database
     const cleanedSection = {
       ...editedSection,
+      // Ensure ID is always passed
+      id: editedSection.id || section?.id,
       // Ensure numeric fields are properly converted or set to null
       hover_opacity: editedSection.hover_opacity !== null && editedSection.hover_opacity !== undefined 
         ? Math.round(Number(editedSection.hover_opacity)) 
