@@ -44,7 +44,27 @@ export const useSectionManager = ({
   }, [sections]);
 
   const handleSaveSection = useCallback(async (updatedSection: Partial<CMSSection>) => {
-    if (!editingSectionId) return;
+    // Use updatedSection.id as fallback when editingSectionId is null
+    const sectionId = editingSectionId || updatedSection.id;
+    
+    console.log('[handleSaveSection] Called with:', {
+      editingSectionId,
+      sectionIdFromObject: updatedSection.id,
+      finalSectionId: sectionId,
+      padding: updatedSection.padding,
+      section_margin_top: updatedSection.section_margin_top,
+      section_margin_bottom: updatedSection.section_margin_bottom,
+    });
+    
+    if (!sectionId) {
+      console.error('[handleSaveSection] No section ID available!');
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zapisać sekcji - brak ID',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
       const { error } = await supabase
@@ -139,12 +159,14 @@ export const useSectionManager = ({
           
           updated_at: new Date().toISOString()
         })
-        .eq('id', editingSectionId);
+        .eq('id', sectionId);
       
       if (error) throw error;
       
-      setSections(prev => prev.map(s => s.id === editingSectionId ? { ...s, ...updatedSection } as CMSSection : s));
-      saveToHistory(sections.map(s => s.id === editingSectionId ? { ...s, ...updatedSection } as CMSSection : s), items);
+      console.log('[handleSaveSection] Successfully saved section:', sectionId);
+      
+      setSections(prev => prev.map(s => s.id === sectionId ? { ...s, ...updatedSection } as CMSSection : s));
+      saveToHistory(sections.map(s => s.id === sectionId ? { ...s, ...updatedSection } as CMSSection : s), items);
       setHasUnsavedChanges(true);
       setIsSectionEditorOpen(false);
       setEditingSectionId(null);
