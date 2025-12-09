@@ -17,7 +17,7 @@ import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/ThemeProvider';
 import { isProblematicColor } from '@/lib/colorUtils';
-import { isSectionVisible } from '@/lib/visibilityUtils';
+import { isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
 
 const Index = () => {
   const { user, userRole } = useAuth();
@@ -236,7 +236,9 @@ const Index = () => {
 
   // Render CMS section with custom styling (matching LivePreviewEditor)
   const renderCMSSection = (section: CMSSection) => {
-    const sectionItems = items.filter(item => item.section_id === section.id);
+    const sectionItems = items
+      .filter(item => item.section_id === section.id)
+      .filter(item => isItemVisible(item, user, userRole?.role || null));
     
     // Check if section has column layout defined in style_class
     const columnMatch = section.style_class?.match(/columns-(\d+)/);

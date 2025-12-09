@@ -128,6 +128,12 @@ export const useItemManager = ({
           lazy_loading: updatedItem.lazy_loading,
           hover_scale: updatedItem.hover_scale,
           hover_opacity: updatedItem.hover_opacity,
+          // Visibility fields
+          visible_to_everyone: updatedItem.visible_to_everyone,
+          visible_to_clients: updatedItem.visible_to_clients,
+          visible_to_partners: updatedItem.visible_to_partners,
+          visible_to_specjalista: updatedItem.visible_to_specjalista,
+          visible_to_anonymous: updatedItem.visible_to_anonymous,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingItemId);
@@ -206,7 +212,13 @@ export const useItemManager = ({
           media_alt_text: item.media_alt_text,
           position: items.filter(i => i.section_id === item.section_id).length,
           column_index: (item as any).column_index || 0,
-          cells: item.cells as any
+          cells: item.cells as any,
+          // Copy visibility settings
+          visible_to_everyone: (item as any).visible_to_everyone ?? true,
+          visible_to_clients: (item as any).visible_to_clients ?? false,
+          visible_to_partners: (item as any).visible_to_partners ?? false,
+          visible_to_specjalista: (item as any).visible_to_specjalista ?? false,
+          visible_to_anonymous: (item as any).visible_to_anonymous ?? false,
         }])
         .select()
         .single();

@@ -16,7 +16,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 import { useAuth } from '@/contexts/AuthContext';
-import { isSectionVisible } from '@/lib/visibilityUtils';
+import { isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
 
 interface Page {
   id: string;
@@ -310,10 +310,11 @@ const PageComponent = () => {
                   <div className="space-y-3 sm:space-y-4">
                     {items
                       .filter(item => item.section_id === section.id)
+                      .filter(item => isItemVisible(item, user, userRole?.role || null))
                       .map((item) => (
                         <CMSContent key={item.id} item={item} />
                       ))}
-                    {items.filter(item => item.section_id === section.id).length === 0 && (
+                    {items.filter(item => item.section_id === section.id).filter(item => isItemVisible(item, user, userRole?.role || null)).length === 0 && (
                       <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
                         {t('common.noContent')}
                       </div>

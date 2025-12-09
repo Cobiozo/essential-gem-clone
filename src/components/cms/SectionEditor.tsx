@@ -1505,6 +1505,91 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         </div>
       </div>
 
+      {/* Visibility Settings */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center space-x-2 mb-3">
+          <Eye className="w-4 h-4" />
+          <h4 className="font-medium">Widoczność dla ról</h4>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${(editedSection as any).visible_to_everyone !== false ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+            <Switch
+              checked={(editedSection as any).visible_to_everyone !== false}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  setEditedSection({
+                    ...editedSection,
+                    visible_to_everyone: true,
+                    visible_to_clients: false,
+                    visible_to_partners: false,
+                    visible_to_specjalista: false,
+                    visible_to_anonymous: false,
+                  } as any);
+                } else {
+                  setEditedSection({ ...editedSection, visible_to_everyone: false } as any);
+                }
+              }}
+              className="mt-0.5"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm">Wszyscy</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Widoczne dla wszystkich użytkowników</p>
+            </div>
+          </label>
+          
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${(editedSection as any).visible_to_clients ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+            <Switch
+              checked={(editedSection as any).visible_to_clients || false}
+              onCheckedChange={(checked) => setEditedSection({ ...editedSection, visible_to_everyone: false, visible_to_clients: checked } as any)}
+              className="mt-0.5"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm">Klienci</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Widoczne dla klientów</p>
+            </div>
+          </label>
+          
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${(editedSection as any).visible_to_partners ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+            <Switch
+              checked={(editedSection as any).visible_to_partners || false}
+              onCheckedChange={(checked) => setEditedSection({ ...editedSection, visible_to_everyone: false, visible_to_partners: checked } as any)}
+              className="mt-0.5"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm">Partnerzy</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Widoczne dla partnerów</p>
+            </div>
+          </label>
+          
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${(editedSection as any).visible_to_specjalista ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+            <Switch
+              checked={(editedSection as any).visible_to_specjalista || false}
+              onCheckedChange={(checked) => setEditedSection({ ...editedSection, visible_to_everyone: false, visible_to_specjalista: checked } as any)}
+              className="mt-0.5"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm">Specjaliści</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Widoczne dla specjalistów</p>
+            </div>
+          </label>
+          
+          <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${(editedSection as any).visible_to_anonymous ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+            <Switch
+              checked={(editedSection as any).visible_to_anonymous || false}
+              onCheckedChange={(checked) => setEditedSection({ ...editedSection, visible_to_everyone: false, visible_to_anonymous: checked } as any)}
+              className="mt-0.5"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-sm">Niezalogowani</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Widoczne dla niezalogowanych</p>
+            </div>
+          </label>
+        </div>
+        
+        <p className="text-xs text-muted-foreground">💡 Administratorzy zawsze widzą wszystkie sekcje.</p>
+      </div>
+
       {/* Enhanced Preview */}
       <div className="space-y-4 border-t pt-4">
         <div className="flex items-center space-x-2 mb-3">
