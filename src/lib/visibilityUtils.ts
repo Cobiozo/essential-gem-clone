@@ -1,6 +1,8 @@
 import { CMSSection, CMSItem } from '@/types/cms';
 import { User } from '@supabase/supabase-js';
 
+export type PreviewRole = 'admin' | 'client' | 'partner' | 'specjalista' | 'anonymous' | 'real';
+
 interface VisibilityFields {
   visible_to_everyone?: boolean;
   visible_to_clients?: boolean;
@@ -8,6 +10,32 @@ interface VisibilityFields {
   visible_to_specjalista?: boolean;
   visible_to_anonymous?: boolean;
 }
+
+/**
+ * Zwraca symulowane parametry widoczności dla podglądu jako inna rola
+ */
+export const getSimulatedVisibilityParams = (
+  previewRole: PreviewRole,
+  realUser: User | null,
+  realUserRole: string | null
+): { user: User | null; userRole: string | null } => {
+  // Rzeczywisty widok - bez symulacji
+  if (previewRole === 'real') {
+    return { user: realUser, userRole: realUserRole };
+  }
+  
+  // Symulacja niezalogowanego użytkownika
+  if (previewRole === 'anonymous') {
+    return { user: null, userRole: null };
+  }
+  
+  // Symuluj zalogowanego użytkownika z wybraną rolą
+  // Używamy realUser żeby sprawdzić "zalogowany", ale nadpisujemy rolę
+  return { 
+    user: realUser, 
+    userRole: previewRole 
+  };
+};
 
 /**
  * Generyczna funkcja sprawdzająca widoczność na podstawie pól visible_to_*

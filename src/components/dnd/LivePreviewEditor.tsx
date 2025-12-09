@@ -34,7 +34,9 @@ import { useLayoutDataManager } from './hooks/useLayoutDataManager';
 import { useItemManager } from './hooks/useItemManager';
 import { useSectionManager } from './hooks/useSectionManager';
 import { SectionRenderer } from './SectionRenderer';
+import { RolePreviewBanner, PreviewRole } from './RolePreview';
 import { createDefaultContent, getElementTypeName, initializeSectionColumns, log, warn } from './utils/layoutHelpers';
+import { getSimulatedVisibilityParams, isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
 
 interface Column {
   id: string;
@@ -53,7 +55,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   pageTitle = 'Strona główna',
   onClose 
 }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, userRole } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
@@ -113,6 +115,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const [dragVersion, setDragVersion] = useState(0);
   const [inactiveRefresh, setInactiveRefresh] = useState(0);
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
+  const [previewRole, setPreviewRole] = useState<PreviewRole>('real');
+
+  // Calculate simulated visibility params for role preview
+  const visibilityParams = getSimulatedVisibilityParams(previewRole, user ?? null, userRole?.role ?? null);
 
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
@@ -1761,6 +1767,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             autoSaveStatus={autoSaveStatus}
             currentDevice={currentDevice}
             onDeviceChange={setCurrentDevice}
+            previewRole={previewRole}
+            onPreviewRoleChange={setPreviewRole}
           />
         </>
       )}
@@ -1890,6 +1898,14 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
               </div>
             )}
             
+          {/* Role Preview Banner */}
+          {previewRole !== 'real' && (
+            <RolePreviewBanner 
+              previewRole={previewRole} 
+              onReset={() => setPreviewRole('real')} 
+            />
+          )}
+          
           <SortableContext
             items={sections.filter(s => !s.parent_id).map(s => s.id)} 
             strategy={verticalListSortingStrategy}
@@ -1900,11 +1916,20 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             <div
               className={cn(
                 layoutMode === 'single' && 'flex flex-col gap-6',
-                layoutMode !== 'single' && 'grid gap-6'
+                layoutMode !== 'single' && 'grid gap-6',
+                previewRole !== 'real' && 'pt-12' // Add padding for banner
               )}
               style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
             >
-              {sections.filter(s => !s.parent_id).map((section) => {
+              {sections
+                .filter(s => !s.parent_id)
+                .filter(s => {
+                  // In edit mode with 'real' preview, always show all sections for admin
+                  if (editMode && previewRole === 'real') return true;
+                  // Apply visibility filtering for role preview
+                  return isSectionVisible(s, visibilityParams.user, visibilityParams.userRole);
+                })
+                .map((section) => {
                 // Render row containers
                 if (section.section_type === 'row') {
                   return (
