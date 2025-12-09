@@ -51,26 +51,41 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
     const columnData: { [sectionId: string]: Column[] } = {};
     
     sections.forEach(section => {
-      const sectionItems = items.filter(item => item.section_id === section.id);
-      const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
-      const derivedFromItems = sectionItems.reduce((max, it: any) => {
-        const ci = typeof it.column_index === 'number' ? it.column_index : 0;
-        return Math.max(max, ci);
-      }, 0) + 1;
-      const colCount = savedColumnCount ? parseInt(savedColumnCount, 10) : Math.max(1, derivedFromItems);
-      
-      const columns: Column[] = Array.from({ length: Math.max(1, colCount) }, (_, i) => ({
-        id: `${section.id}-col-${i}`,
-        items: [],
-        width: 100 / Math.max(1, colCount),
-      }));
-      
-      sectionItems.forEach((it: any) => {
-        const idx = Math.min(columns.length - 1, Math.max(0, typeof it.column_index === 'number' ? it.column_index : 0));
-        columns[idx].items.push(it);
-      });
-      
-      columnData[section.id] = columns;
+      // ✅ For rows (section_type === 'row'), create columns based on row_column_count
+      if (section.section_type === 'row') {
+        const rowColumnCount = section.row_column_count || 1;
+        const rowItems = items.filter(item => item.section_id === section.id);
+        
+        const columns: Column[] = Array.from({ length: Math.max(1, rowColumnCount) }, (_, i) => ({
+          id: `${section.id}-col-${i}`,
+          items: rowItems.filter((it: any) => (it.column_index ?? 0) === i),
+          width: 100 / Math.max(1, rowColumnCount),
+        }));
+        
+        columnData[section.id] = columns;
+      } else {
+        // Regular sections
+        const sectionItems = items.filter(item => item.section_id === section.id);
+        const savedColumnCount = section.style_class?.match(/columns-(\d+)/)?.[1];
+        const derivedFromItems = sectionItems.reduce((max, it: any) => {
+          const ci = typeof it.column_index === 'number' ? it.column_index : 0;
+          return Math.max(max, ci);
+        }, 0) + 1;
+        const colCount = savedColumnCount ? parseInt(savedColumnCount, 10) : Math.max(1, derivedFromItems);
+        
+        const columns: Column[] = Array.from({ length: Math.max(1, colCount) }, (_, i) => ({
+          id: `${section.id}-col-${i}`,
+          items: [],
+          width: 100 / Math.max(1, colCount),
+        }));
+        
+        sectionItems.forEach((it: any) => {
+          const idx = Math.min(columns.length - 1, Math.max(0, typeof it.column_index === 'number' ? it.column_index : 0));
+          columns[idx].items.push(it);
+        });
+        
+        columnData[section.id] = columns;
+      }
     });
     
     setSectionColumns(columnData);

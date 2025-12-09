@@ -1015,16 +1015,16 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 
     // Check if dropping on a column
     const overData = (over as any).data?.current;
-    // Handle dropping items on row columns
+    // Handle dropping items on row columns - use rowId, not sectionId!
     if (overData?.type === 'row-column') {
-      targetSectionId = overData.sectionId;
+      targetSectionId = overData.rowId; // ✅ Fixed: was overData.sectionId
       targetColIndex = overData.columnIndex ?? 0;
-      console.log('Dropping on row-column:', { targetSectionId, targetColIndex });
+      console.log('Dropping on row-column:', { targetSectionId, targetColIndex, overData });
     } else if (overData?.type === 'row-container') {
       // For row container, treat as dropping in first column of that row
-      targetSectionId = overData.sectionId;
+      targetSectionId = overData.rowId; // ✅ Fixed: was overData.sectionId
       targetColIndex = 0;
-      console.log('Dropping on row-container:', { targetSectionId, targetColIndex });
+      console.log('Dropping on row-container:', { targetSectionId, targetColIndex, overData });
     } else if (overData?.type === 'column') {
       targetSectionId = overData.sectionId;
       targetColIndex = overData.columnIndex;
