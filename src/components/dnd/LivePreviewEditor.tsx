@@ -82,6 +82,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     editingItemId, isItemEditorOpen, setEditingItemId, setIsItemEditorOpen,
     handleEditItem, handleSaveItem, handleDeleteItem, handleDuplicateItem,
     handleMoveItemUp, handleMoveItemDown, closeItemEditor,
+    updateItemVisibility,
   } = itemManager;
 
   // Use section manager hook
@@ -97,6 +98,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     editingSectionId, isSectionEditorOpen, setEditingSectionId, setIsSectionEditorOpen,
     handleEditSection, handleSaveSection, handleDuplicateSection, handleDeactivateSection,
     handleResetSection, handleAlignSection, handleSizeSection, closeSectionEditor,
+    updateSectionVisibility,
   } = sectionManager;
   
   // Local UI state
@@ -2052,6 +2054,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                       onEditSection={handleEditSection}
                       onDuplicateSection={handleDuplicateSection}
                       onDeactivateSection={handleDeactivateSection}
+                      onItemVisibilityChange={updateItemVisibility}
+                      onSectionVisibilityChange={updateSectionVisibility}
                     />
                   </DraggableSection>
                 );
