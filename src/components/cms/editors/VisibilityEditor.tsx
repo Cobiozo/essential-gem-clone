@@ -2,6 +2,7 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, Users, UserCheck, Briefcase, GraduationCap, UserX } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface VisibilitySettings {
   visible_to_everyone?: boolean;
@@ -15,12 +16,14 @@ interface VisibilityEditorProps {
   value: VisibilitySettings;
   onChange: (settings: VisibilitySettings) => void;
   className?: string;
+  compact?: boolean;
 }
 
 export const VisibilityEditor: React.FC<VisibilityEditorProps> = ({
   value,
   onChange,
-  className = ''
+  className = '',
+  compact = false
 }) => {
   const handleChange = (field: keyof VisibilitySettings, checked: boolean) => {
     // If "everyone" is checked, uncheck all others
@@ -80,8 +83,45 @@ export const VisibilityEditor: React.FC<VisibilityEditorProps> = ({
     },
   ];
 
+  if (compact) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <div className="flex items-center gap-2 mb-2">
+          <Eye className="h-4 w-4 text-muted-foreground" />
+          <Label className="text-sm font-medium">Widoczność</Label>
+        </div>
+        <div className="space-y-1">
+          {visibilityOptions.map((option) => {
+            const Icon = option.icon;
+            const isChecked = value[option.key] ?? (option.key === 'visible_to_everyone');
+            
+            return (
+              <label
+                key={option.key}
+                className={cn(
+                  "flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors text-sm",
+                  isChecked 
+                    ? 'bg-primary/10 text-primary' 
+                    : 'hover:bg-muted/50'
+                )}
+              >
+                <Checkbox
+                  checked={isChecked}
+                  onCheckedChange={(checked) => handleChange(option.key, !!checked)}
+                  className="h-3.5 w-3.5"
+                />
+                <Icon className="h-3.5 w-3.5" />
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={cn("space-y-4", className)}>
       <div className="flex items-center gap-2 mb-4">
         <Eye className="h-5 w-5 text-muted-foreground" />
         <Label className="text-base font-semibold">Widoczność</Label>
@@ -95,13 +135,12 @@ export const VisibilityEditor: React.FC<VisibilityEditorProps> = ({
           return (
             <label
               key={option.key}
-              className={`
-                flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors
-                ${isChecked 
+              className={cn(
+                "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                isChecked 
                   ? 'border-primary bg-primary/5' 
                   : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                }
-              `}
+              )}
             >
               <Checkbox
                 checked={isChecked}

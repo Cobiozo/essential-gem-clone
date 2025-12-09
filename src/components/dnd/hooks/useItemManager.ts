@@ -322,6 +322,40 @@ export const useItemManager = ({
     setEditingItemId(null);
   }, []);
 
+  // Quick visibility update without opening full editor
+  const updateItemVisibility = useCallback(async (itemId: string, visibility: {
+    visible_to_everyone?: boolean;
+    visible_to_clients?: boolean;
+    visible_to_partners?: boolean;
+    visible_to_specjalista?: boolean;
+    visible_to_anonymous?: boolean;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('cms_items')
+        .update({
+          ...visibility,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', itemId);
+      
+      if (error) throw error;
+      
+      setItems(prev => prev.map(i => 
+        i.id === itemId ? { ...i, ...visibility } as CMSItem : i
+      ));
+      
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error('Error updating item visibility:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zaktualizować widoczności',
+        variant: 'destructive',
+      });
+    }
+  }, [setItems, setHasUnsavedChanges, toast]);
+
   return {
     editingItemId,
     isItemEditorOpen,
@@ -334,5 +368,6 @@ export const useItemManager = ({
     handleMoveItemUp,
     handleMoveItemDown,
     closeItemEditor,
+    updateItemVisibility,
   };
 };

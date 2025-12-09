@@ -17,6 +17,14 @@ interface Column {
   width?: number;
 }
 
+interface VisibilitySettings {
+  visible_to_everyone?: boolean;
+  visible_to_clients?: boolean;
+  visible_to_partners?: boolean;
+  visible_to_specjalista?: boolean;
+  visible_to_anonymous?: boolean;
+}
+
 interface SectionRendererProps {
   section: CMSSection;
   sectionItems: CMSItem[];
@@ -36,6 +44,8 @@ interface SectionRendererProps {
   onEditSection?: (sectionId: string) => void;
   onDuplicateSection?: (sectionId: string) => void;
   onDeactivateSection?: (sectionId: string) => void;
+  onItemVisibilityChange?: (itemId: string, visibility: VisibilitySettings) => void;
+  onSectionVisibilityChange?: (sectionId: string, visibility: VisibilitySettings) => void;
 }
 
 // Helper function to apply all section styles
@@ -195,7 +205,17 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
   onEditSection,
   onDuplicateSection,
   onDeactivateSection,
+  onItemVisibilityChange,
+  onSectionVisibilityChange,
 }) => {
+  const sectionVisibility: VisibilitySettings = {
+    visible_to_everyone: section.visible_to_everyone,
+    visible_to_clients: section.visible_to_clients,
+    visible_to_partners: section.visible_to_partners,
+    visible_to_specjalista: section.visible_to_specjalista,
+    visible_to_anonymous: section.visible_to_anonymous,
+  };
+  const isSectionRestricted = !section.visible_to_everyone;
   const { setNodeRef, isOver } = useDroppable({
     id: section.id,
     data: {
@@ -249,6 +269,8 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
             onEdit={() => onEditSection?.(section.id)}
             onDuplicate={() => onDuplicateSection?.(section.id)}
             onDeactivate={() => onDeactivateSection?.(section.id)}
+            visibilityValues={sectionVisibility}
+            onVisibilityChange={onSectionVisibilityChange ? (v) => onSectionVisibilityChange(section.id, v) : undefined}
           />
         )}
         {isOver && editMode && (
@@ -351,6 +373,8 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
           onEdit={() => onEditSection?.(section.id)}
           onDuplicate={() => onDuplicateSection?.(section.id)}
           onDeactivate={() => onDeactivateSection?.(section.id)}
+          visibilityValues={sectionVisibility}
+          onVisibilityChange={onSectionVisibilityChange ? (v) => onSectionVisibilityChange(section.id, v) : undefined}
         />
       )}
       {isOver && editMode && (
