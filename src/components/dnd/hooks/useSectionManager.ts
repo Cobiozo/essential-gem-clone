@@ -457,6 +457,40 @@ export const useSectionManager = ({
     setEditingSectionId(null);
   }, []);
 
+  // Quick visibility update without opening full editor
+  const updateSectionVisibility = useCallback(async (sectionId: string, visibility: {
+    visible_to_everyone?: boolean;
+    visible_to_clients?: boolean;
+    visible_to_partners?: boolean;
+    visible_to_specjalista?: boolean;
+    visible_to_anonymous?: boolean;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('cms_sections')
+        .update({
+          ...visibility,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sectionId);
+      
+      if (error) throw error;
+      
+      setSections(prev => prev.map(s => 
+        s.id === sectionId ? { ...s, ...visibility } as CMSSection : s
+      ));
+      
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error('Error updating section visibility:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie można zaktualizować widoczności',
+        variant: 'destructive',
+      });
+    }
+  }, [setSections, setHasUnsavedChanges, toast]);
+
   return {
     editingSectionId,
     isSectionEditorOpen,
@@ -470,5 +504,6 @@ export const useSectionManager = ({
     handleAlignSection,
     handleSizeSection,
     closeSectionEditor,
+    updateSectionVisibility,
   };
 };

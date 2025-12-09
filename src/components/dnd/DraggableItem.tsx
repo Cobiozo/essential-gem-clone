@@ -1,14 +1,21 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface DraggableItemProps {
   id: string;
   children: React.ReactNode;
   isEditMode: boolean;
   className?: string;
+  isRestricted?: boolean;
+  restrictedTooltip?: string;
 }
 
 export const DraggableItem: React.FC<DraggableItemProps> = ({
@@ -16,6 +23,8 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
   children,
   isEditMode,
   className,
+  isRestricted,
+  restrictedTooltip,
 }) => {
   const {
     attributes,
@@ -58,14 +67,30 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
       </div>
       
       {/* Drag handle - left side to avoid overlap with ItemControls on right */}
-      <div className="absolute top-1 left-1 bg-primary text-primary-foreground p-0.5 rounded shadow z-20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-200 pointer-events-auto">
-        <div
-          ref={setActivatorNodeRef}
-          className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-primary/90 rounded transition-colors touch-none"
-          {...listeners}
-        >
-          <GripVertical className="w-3 h-3" />
+      <div className="absolute top-1 left-1 flex items-center gap-1 z-20">
+        <div className="bg-primary text-primary-foreground p-0.5 rounded shadow opacity-0 group-hover/item:opacity-100 transition-opacity duration-200 pointer-events-auto">
+          <div
+            ref={setActivatorNodeRef}
+            className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-primary/90 rounded transition-colors touch-none"
+            {...listeners}
+          >
+            <GripVertical className="w-3 h-3" />
+          </div>
         </div>
+        
+        {/* Restricted visibility badge */}
+        {isRestricted && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="bg-amber-500 text-white p-1 rounded shadow pointer-events-auto">
+                <Lock className="w-3 h-3" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              {restrictedTooltip || 'Ograniczona widoczność'}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
       
       {/* Content */}
