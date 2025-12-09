@@ -475,6 +475,17 @@ const translations = {
     'chat.placeholder': 'Napisz wiadomość...',
     'chat.send': 'Wyślij',
     'chat.welcome': 'Cześć! Jestem asystentem Pure Life. Jak mogę Ci pomóc?',
+    
+    // Role Preview
+    'rolePreview.title': 'Podgląd jako rola',
+    'rolePreview.real': 'Rzeczywisty widok',
+    'rolePreview.admin': 'Administrator',
+    'rolePreview.client': 'Klient',
+    'rolePreview.partner': 'Partner',
+    'rolePreview.specjalista': 'Specjalista',
+    'rolePreview.anonymous': 'Niezalogowany',
+    'rolePreview.viewingAs': 'Podgląd jako',
+    'rolePreview.reset': 'Powrót',
   },
   de: {
     // Navigation
@@ -930,6 +941,17 @@ const translations = {
     'chat.placeholder': 'Nachricht schreiben...',
     'chat.send': 'Senden',
     'chat.welcome': 'Hallo! Ich bin der Pure Life Assistent. Wie kann ich Ihnen helfen?',
+    
+    // Role Preview
+    'rolePreview.title': 'Vorschau als Rolle',
+    'rolePreview.real': 'Echte Ansicht',
+    'rolePreview.admin': 'Administrator',
+    'rolePreview.client': 'Kunde',
+    'rolePreview.partner': 'Partner',
+    'rolePreview.specjalista': 'Spezialist',
+    'rolePreview.anonymous': 'Nicht angemeldet',
+    'rolePreview.viewingAs': 'Vorschau als',
+    'rolePreview.reset': 'Zurück',
   },
   en: {
     // Navigation
@@ -1385,6 +1407,17 @@ const translations = {
     'chat.placeholder': 'Type a message...',
     'chat.send': 'Send',
     'chat.welcome': 'Hello! I am the Pure Life Assistant. How can I help you?',
+    
+    // Role Preview
+    'rolePreview.title': 'Preview as role',
+    'rolePreview.real': 'Real view',
+    'rolePreview.admin': 'Administrator',
+    'rolePreview.client': 'Client',
+    'rolePreview.partner': 'Partner',
+    'rolePreview.specjalista': 'Specialist',
+    'rolePreview.anonymous': 'Anonymous',
+    'rolePreview.viewingAs': 'Viewing as',
+    'rolePreview.reset': 'Back',
   }
 };
 

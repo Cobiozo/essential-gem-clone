@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { DeviceType } from './DevicePreview';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { RolePreview, PreviewRole } from './RolePreview';
 
 interface EditingToolbarProps {
   isVisible: boolean;
@@ -31,6 +32,8 @@ interface EditingToolbarProps {
   autoSaveStatus?: 'saved' | 'saving' | 'error';
   currentDevice?: DeviceType;
   onDeviceChange?: (device: DeviceType) => void;
+  previewRole?: PreviewRole;
+  onPreviewRoleChange?: (role: PreviewRole) => void;
   className?: string;
 }
 
@@ -48,6 +51,8 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
   autoSaveStatus = 'saved',
   currentDevice = 'desktop',
   onDeviceChange,
+  previewRole = 'real',
+  onPreviewRoleChange,
   className,
 }) => {
   const { t } = useLanguage();
@@ -146,7 +151,15 @@ export const EditingToolbar: React.FC<EditingToolbarProps> = ({
 
       <Separator orientation="vertical" className="h-6" />
 
-      {/* Preview mode */}
+      {/* Role preview */}
+      {onPreviewRoleChange && (
+        <RolePreview 
+          currentRole={previewRole} 
+          onRoleChange={onPreviewRoleChange} 
+        />
+      )}
+
+      <Separator orientation="vertical" className="h-6" />
       {onPreview && (
         <>
           <Button
