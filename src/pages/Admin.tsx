@@ -2644,413 +2644,256 @@ const Admin = () => {
           </TabsList>
 
           <TabsContent value="content">
-            {/* Section Management */}
+            {/* Section Visibility Management - Simplified */}
             <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col gap-4 mb-4">
-            <h2 className="text-lg sm:text-xl font-semibold">{t('admin.sectionManagement')}</h2>
-            
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder={t('admin.searchSections')}
-                value={sectionSearchQuery}
-                onChange={(e) => setSectionSearchQuery(e.target.value)}
-                className="pl-10 pr-20"
-              />
-              {sectionSearchQuery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSectionSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 text-xs"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  {t('admin.clearSearch')}
-                </Button>
-              )}
-            </div>
-            
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('admin.addSection')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-md mx-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-base sm:text-lg">{t('admin.addSection')}</DialogTitle>
-                  <DialogDescription className="text-sm">
-                    Utwórz nową sekcję CMS
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div>
-                    <Label htmlFor="section-title" className="text-sm font-medium">{t('admin.sectionTitle')}</Label>
-                    <Input
-                      id="section-title"
-                      value={newSection.title}
-                      onChange={(e) => setNewSection({...newSection, title: e.target.value})}
-                      placeholder="Nazwa sekcji"
-                      className="mt-1 h-10"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-medium">{t('admin.pageVisibility')}:</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="new-section-partners"
-                          checked={newSection.visible_to_partners}
-                          onChange={(e) => setNewSection({...newSection, visible_to_partners: e.target.checked})}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <Label htmlFor="new-section-partners">{t('admin.visibleToPartners')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="new-section-clients"
-                          checked={newSection.visible_to_clients}
-                          onChange={(e) => setNewSection({...newSection, visible_to_clients: e.target.checked})}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <Label htmlFor="new-section-clients">{t('admin.visibleToClients')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="new-section-everyone"
-                          checked={newSection.visible_to_everyone}
-                          onChange={(e) => setNewSection({...newSection, visible_to_everyone: e.target.checked})}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <Label htmlFor="new-section-everyone">{t('admin.visibleToEveryone')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="new-section-specjalista"
-                          checked={newSection.visible_to_specjalista}
-                          onChange={(e) => setNewSection({...newSection, visible_to_specjalista: e.target.checked})}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <Label htmlFor="new-section-specjalista">{t('admin.visibleToSpecialists')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="new-section-anonymous"
-                          checked={newSection.visible_to_anonymous}
-                          onChange={(e) => setNewSection({...newSection, visible_to_anonymous: e.target.checked})}
-                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <Label htmlFor="new-section-anonymous">Widoczny dla niezalogowanych</Label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
+              <div className="flex flex-col gap-4 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h2 className="text-lg sm:text-xl font-semibold">{t('admin.sectionManagement')}</h2>
                   <Button 
-                    onClick={createSection} 
-                    disabled={!newSection.title.trim()}
+                    onClick={() => setActiveTab('layout')} 
+                    variant="default"
                     className="w-full sm:w-auto"
                   >
-                    <Save className="w-4 h-4 mr-2" />
-                    {t('admin.save')}
+                    <Type className="w-4 h-4 mr-2" />
+                    Otwórz Layout Editor
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:gap-6 lg:gap-8">
-          {(() => {
-            const filteredSections = sections.filter((section) =>
-              (section.title || '').toLowerCase().includes(sectionSearchQuery.toLowerCase()) ||
-              (section.description && section.description.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
-            );
-
-            if (filteredSections.length === 0) {
-              return (
-                <Card>
-                  <CardContent className="py-8">
-                    <p className="text-center text-muted-foreground">{t('admin.noSectionsFound')}</p>
-                  </CardContent>
-                </Card>
-              );
-            }
-
-            return filteredSections.map((section) => {
-            const sectionItems = items.filter(i => i.section_id === section.id);
-            
-            return (
-              <Card key={section.id}>
-                <CardHeader className="p-4 sm:p-6">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex-1">
-                           <CardTitle className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 text-base sm:text-lg">
-                             <span className="break-words">{section.title}</span>
-                              <Badge variant={section.is_active ? "default" : "secondary"} className="w-fit">
-                                {section.is_active ? t('admin.active') : t('admin.inactive')}
-                              </Badge>
-                            </CardTitle>
-                            <CardDescription className="text-xs sm:text-sm mt-1">
-                              {t('common.position')}: {section.position} | Elementów: {sectionItems.length}
-                            </CardDescription>
-                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-                             <div className="flex items-center space-x-2">
-                               <input
-                                 type="checkbox"
-                                 id={`section-partner-${section.id}`}
-                                 checked={section.visible_to_partners}
-                                 onChange={(e) => updateSectionVisibility(section.id, { visible_to_partners: e.target.checked })}
-                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                               />
-                                <label htmlFor={`section-partner-${section.id}`} className="text-sm">{t('admin.visibleToPartners')}</label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`section-client-${section.id}`}
-                                  checked={section.visible_to_clients}
-                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_clients: e.target.checked })}
-                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                />
-                                <label htmlFor={`section-client-${section.id}`} className="text-sm">{t('admin.visibleToClients')}</label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`section-everyone-${section.id}`}
-                                  checked={section.visible_to_everyone}
-                                  onChange={(e) => updateSectionVisibility(section.id, { visible_to_everyone: e.target.checked })}
-                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                />
-                                <label htmlFor={`section-everyone-${section.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
-                              </div>
-                               <div className="flex items-center space-x-2">
-                                 <input
-                                   type="checkbox"
-                                   id={`section-specjalista-${section.id}`}
-                                   checked={section.visible_to_specjalista}
-                                   onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
-                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                 />
-                                 <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
-                               </div>
-                               <div className="flex items-center space-x-2">
-                                 <input
-                                   type="checkbox"
-                                   id={`section-anonymous-${section.id}`}
-                                   checked={section.visible_to_anonymous}
-                                   onChange={(e) => updateSectionVisibility(section.id, { visible_to_anonymous: e.target.checked })}
-                                   className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                 />
-                                 <label htmlFor={`section-anonymous-${section.id}`} className="text-sm">Widoczny dla niezalogowanych</label>
-                               </div>
-                           </div>
-                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-3">
-                          <div className="flex items-center gap-1">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => moveSectionUp(section.id)}
-                              disabled={sections.findIndex(s => s.id === section.id) === 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              <ChevronUp className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => moveSectionDown(section.id)}
-                              disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
-                              className="h-8 w-8 p-0"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </Button>
+                </div>
+                
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={t('admin.searchSections')}
+                    value={sectionSearchQuery}
+                    onChange={(e) => setSectionSearchQuery(e.target.value)}
+                    className="pl-10 pr-20"
+                  />
+                  {sectionSearchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSectionSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 text-xs"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      {t('admin.clearSearch')}
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Add Section Dialog - Simplified */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-auto">
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t('admin.addSection')}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[95vw] max-w-md mx-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-base sm:text-lg">{t('admin.addSection')}</DialogTitle>
+                      <DialogDescription className="text-sm">
+                        Utwórz nową sekcję - edycja treści w Layout Editor
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div>
+                        <Label htmlFor="section-title" className="text-sm font-medium">{t('admin.sectionTitle')}</Label>
+                        <Input
+                          id="section-title"
+                          value={newSection.title}
+                          onChange={(e) => setNewSection({...newSection, title: e.target.value})}
+                          placeholder="Nazwa sekcji"
+                          className="mt-1 h-10"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-medium">{t('admin.pageVisibility')}:</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="new-section-partners"
+                              checked={newSection.visible_to_partners}
+                              onChange={(e) => setNewSection({...newSection, visible_to_partners: e.target.checked})}
+                              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                            <Label htmlFor="new-section-partners">{t('admin.visibleToPartners')}</Label>
                           </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="new-section-clients"
+                              checked={newSection.visible_to_clients}
+                              onChange={(e) => setNewSection({...newSection, visible_to_clients: e.target.checked})}
+                              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                            <Label htmlFor="new-section-clients">{t('admin.visibleToClients')}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="new-section-everyone"
+                              checked={newSection.visible_to_everyone}
+                              onChange={(e) => setNewSection({...newSection, visible_to_everyone: e.target.checked})}
+                              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                            <Label htmlFor="new-section-everyone">{t('admin.visibleToEveryone')}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="new-section-specjalista"
+                              checked={newSection.visible_to_specjalista}
+                              onChange={(e) => setNewSection({...newSection, visible_to_specjalista: e.target.checked})}
+                              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                            <Label htmlFor="new-section-specjalista">{t('admin.visibleToSpecialists')}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="new-section-anonymous"
+                              checked={newSection.visible_to_anonymous}
+                              onChange={(e) => setNewSection({...newSection, visible_to_anonymous: e.target.checked})}
+                              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                            />
+                            <Label htmlFor="new-section-anonymous">Widoczny dla niezalogowanych</Label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                      <Button 
+                        onClick={createSection} 
+                        disabled={!newSection.title.trim()}
+                        className="w-full sm:w-auto"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {t('admin.save')}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+
+            {/* Sections List - Only Visibility Controls */}
+            <div className="grid gap-4">
+              {(() => {
+                const filteredSections = sections.filter((section) =>
+                  (section.title || '').toLowerCase().includes(sectionSearchQuery.toLowerCase()) ||
+                  (section.description && section.description.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
+                );
+
+                if (filteredSections.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="py-8">
+                        <p className="text-center text-muted-foreground">{t('admin.noSectionsFound')}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
+                return filteredSections.map((section) => (
+                  <Card key={section.id} className="p-4">
+                    <div className="flex flex-col gap-4">
+                      {/* Header: Title + Badge + Controls */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-base">{section.title}</span>
+                          <Badge variant={section.is_active ? "default" : "secondary"} className="text-xs">
+                            {section.is_active ? t('admin.active') : t('admin.inactive')}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            ({t('common.position')}: {section.position})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => moveSectionUp(section.id)}
+                            disabled={sections.findIndex(s => s.id === section.id) === 0}
+                            className="h-8 w-8 p-0"
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => moveSectionDown(section.id)}
+                            disabled={sections.findIndex(s => s.id === section.id) === sections.length - 1}
+                            className="h-8 w-8 p-0"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </Button>
                           <Switch
                             checked={section.is_active}
                             onCheckedChange={(checked) => updateSection(section.id, { is_active: checked })}
                           />
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                        <Button variant="outline" size="sm" onClick={() => setEditingSection(section)} className="flex-1 sm:flex-none">
-                          <Pencil className="w-4 h-4 sm:mr-2" />
-                          <span className="hidden sm:inline">{t('admin.edit')}</span>
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => deleteSection(section.id)} className="flex-1 sm:flex-none">
-                          <Trash2 className="w-4 h-4 sm:mr-2" />
-                          <span className="hidden sm:inline">{t('admin.delete')}</span>
-                        </Button>
-                        <ItemEditor
-                          sectionId={section.id}
-                          onSave={async (newItem) => {
-                            try {
-                              const { data, error } = await supabase
-                                .from('cms_items')
-                                .insert([{
-                                  page_id: section.page_id,
-                                  type: newItem.type,
-                                  title: newItem.title,
-                                  description: newItem.description,
-                                  url: newItem.url,
-                                  icon: newItem.icon,
-                                  section_id: section.id,
-                                  position: (items.filter(i => i.section_id === section.id).length || 0) + 1,
-                                  is_active: newItem.is_active,
-                                  media_url: newItem.media_url,
-                                  media_type: newItem.media_type,
-                                  media_alt_text: newItem.media_alt_text,
-                                  cells: convertCellsToDatabase(newItem.cells || [])
-                                }])
-                                .select()
-                                .single();
 
-                              if (error) {
-                                console.error('Error creating item:', error);
-                                toast({
-                                  title: "Błąd",
-                                  description: "Nie udało się dodać elementu",
-                                  variant: "destructive",
-                                });
-                              } else {
-                                setItems([...items, convertDatabaseItemToCMSItem(data)]);
-                                toast({
-                                  title: "Element dodany",
-                                  description: "Element został pomyślnie dodany do sekcji",
-                                });
-                              }
-                            } catch (error) {
-                              console.error('Error creating item:', error);
-                              toast({
-                                title: "Błąd",
-                                description: "Nie udało się dodać elementu",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                          isNew={true}
-                          trigger={
-                              <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                                <Plus className="w-4 h-4 sm:mr-2" />
-                                <span className="hidden sm:inline">{t('admin.addItem')}</span>
-                                <span className="sm:hidden">{t('admin.addItem')}</span>
-                              </Button>
-                          }
-                        />
+                      {/* Visibility Checkboxes */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`section-partner-${section.id}`}
+                            checked={section.visible_to_partners}
+                            onChange={(e) => updateSectionVisibility(section.id, { visible_to_partners: e.target.checked })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`section-partner-${section.id}`} className="text-sm">{t('admin.visibleToPartners')}</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`section-client-${section.id}`}
+                            checked={section.visible_to_clients}
+                            onChange={(e) => updateSectionVisibility(section.id, { visible_to_clients: e.target.checked })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`section-client-${section.id}`} className="text-sm">{t('admin.visibleToClients')}</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`section-everyone-${section.id}`}
+                            checked={section.visible_to_everyone}
+                            onChange={(e) => updateSectionVisibility(section.id, { visible_to_everyone: e.target.checked })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`section-everyone-${section.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`section-specjalista-${section.id}`}
+                            checked={section.visible_to_specjalista}
+                            onChange={(e) => updateSectionVisibility(section.id, { visible_to_specjalista: e.target.checked })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`section-specjalista-${section.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`section-anonymous-${section.id}`}
+                            checked={section.visible_to_anonymous}
+                            onChange={(e) => updateSectionVisibility(section.id, { visible_to_anonymous: e.target.checked })}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`section-anonymous-${section.id}`} className="text-sm">Niezalogowani</label>
+                        </div>
                       </div>
                     </div>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  <div className="space-y-3 sm:space-y-4">
-                    {sectionItems.map((item) => (
-                       <div key={item.id} className="flex flex-col gap-3 p-3 sm:p-4 border rounded-lg bg-gray-50/50">
-                           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                             <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <Badge variant="outline" className="text-xs">{item.type}</Badge>
-                              <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
-                                {item.is_active ? t('admin.active') : t('admin.inactive')}
-                              </Badge>
-                            </div>
-                           <h4 className="font-medium text-sm sm:text-base text-gray-900 mb-1 break-words">
-                             {item.title || 'Bez tytułu'}
-                           </h4>
-                                {item.media_url && (
-                                  <div className="mt-2 mb-2">
-                                    <SecureMedia
-                                      mediaUrl={item.media_url}
-                                      mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-                                      altText={item.media_alt_text || ''}
-                                      className="w-20 h-20 object-cover rounded border"
-                                    />
-                                  </div>
-                                )}
-                                {item.description && (
-                                  <p className="text-xs sm:text-sm text-gray-600 break-words line-clamp-3">
-                                    {item.description.length > 100 
-                                      ? `${item.description.substring(0, 100)}...` 
-                                      : item.description
-                                    }
-                                  </p>
-                                )}
-                               {item.url && (
-                                 <p className="text-xs text-blue-600 mt-1 break-all">
-                                   {item.url.length > 50 ? `${item.url.substring(0, 50)}...` : item.url}
-                                 </p>
-                               )}
-                             </div>
-                           </div>
-                           <div className="flex flex-wrap gap-2">
-                             <Switch
-                               checked={item.is_active}
-                               onCheckedChange={(checked) => updateItem(item.id, { is_active: checked })}
-                               className="mr-2"
-                             />
-                              <ItemEditor
-                                item={{
-                                  ...item,
-                                  media_type: item.media_type as "" | "audio" | "video" | "image" | "document" | "other"
-                                }}
-                                sectionId={item.section_id}
-                                onSave={(updatedItem) => {
-                                  updateItem(updatedItem.id!, {
-                                    type: updatedItem.type,
-                                    title: updatedItem.title,
-                                    description: updatedItem.description,
-                                    url: updatedItem.url,
-                                    position: updatedItem.position,
-                                    is_active: updatedItem.is_active,
-                                    media_url: updatedItem.media_url,
-                                    media_type: updatedItem.media_type as any,
-                                    media_alt_text: updatedItem.media_alt_text,
-                                    cells: updatedItem.cells
-                                  });
-                                }}
-                                trigger={
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm" 
-                                   className="flex-1 sm:flex-none"
-                                 >
-                                   <Pencil className="w-4 h-4 sm:mr-2" />
-                                   <span className="hidden sm:inline">{t('admin.edit')}</span>
-                                 </Button>
-                                }
-                              />
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
-                              onClick={() => deleteItem(item.id)}
-                              className="flex-1 sm:flex-none"
-                            >
-                              <Trash2 className="w-4 h-4 sm:mr-2" />
-                              <span className="hidden sm:inline">{t('admin.delete')}</span>
-                            </Button>
-                           </div>
-                       </div>
-                     ))}
-                      {sectionItems.length === 0 && (
-                        <p className="text-center text-muted-foreground py-8">
-                          {t('admin.noElementsInSection')}
-                        </p>
-                      )}
-                   </div>
-                </CardContent>
-              </Card>
-            );
-          });
-          })()}
+                  </Card>
+                ));
+              })()}
             </div>
           </TabsContent>
 
