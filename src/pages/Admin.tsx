@@ -1373,8 +1373,8 @@ const Admin = () => {
         aValue = aValue ? 1 : 0;
         bValue = bValue ? 1 : 0;
       } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+        aValue = (aValue || '').toLowerCase();
+        bValue = (bValue || '').toLowerCase();
       }
 
       if (userSortOrder === 'asc') {
@@ -2698,7 +2698,7 @@ const Admin = () => {
         <div className="grid gap-4 sm:gap-6 lg:gap-8">
           {(() => {
             const filteredSections = sections.filter((section) =>
-              section.title.toLowerCase().includes(sectionSearchQuery.toLowerCase()) ||
+              (section.title || '').toLowerCase().includes(sectionSearchQuery.toLowerCase()) ||
               (section.description && section.description.toLowerCase().includes(sectionSearchQuery.toLowerCase()))
             );
 
