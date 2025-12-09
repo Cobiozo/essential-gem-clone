@@ -2,11 +2,16 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronDown } from 'lucide-react';
 
+type ImageSize = 'small' | 'medium' | 'large' | 'xlarge' | 'custom';
+
 interface HeroSectionProps {
   headerImage: string;
   headerText: string;
   authorText: string;
   showLoginButton?: boolean;
+  imageSize?: ImageSize;
+  customImageWidth?: number;
+  customImageHeight?: number;
 }
 
 // Helper function to remove problematic inline color styles
@@ -20,11 +25,22 @@ const cleanInlineColors = (html: string): string => {
              .replace(/style=''/gi, '');
 };
 
+const sizeClasses: Record<ImageSize, string> = {
+  small: 'w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24',
+  medium: 'w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32',
+  large: 'w-28 h-28 sm:w-36 sm:h-36 md:w-48 md:h-48',
+  xlarge: 'w-36 h-36 sm:w-48 sm:h-48 md:w-64 md:h-64',
+  custom: '',
+};
+
 export const HeroSection: React.FC<HeroSectionProps> = ({
   headerImage,
   headerText,
   authorText,
   showLoginButton = false,
+  imageSize = 'medium',
+  customImageWidth,
+  customImageHeight,
 }) => {
   const scrollToContent = () => {
     const mainContent = document.getElementById('main-content');
@@ -42,7 +58,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <img 
               src={headerImage} 
               alt="Pure Life" 
-              className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 object-contain"
+              className={`object-contain ${imageSize !== 'custom' ? sizeClasses[imageSize] : ''}`}
+              style={imageSize === 'custom' ? { 
+                width: customImageWidth || 128, 
+                height: customImageHeight || 128 
+              } : undefined}
             />
           </div>
 

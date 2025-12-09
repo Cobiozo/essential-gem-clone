@@ -263,6 +263,9 @@ const Admin = () => {
   const [headerImageUrl, setHeaderImageUrl] = useState('');
   const [headerImageLoading, setHeaderImageLoading] = useState(false);
   const [headerImageUploadLoading, setHeaderImageUploadLoading] = useState(false);
+  const [headerImageSize, setHeaderImageSize] = useState<'small' | 'medium' | 'large' | 'xlarge' | 'custom'>('medium');
+  const [headerImageCustomWidth, setHeaderImageCustomWidth] = useState<number>(128);
+  const [headerImageCustomHeight, setHeaderImageCustomHeight] = useState<number>(128);
   
   // Favicon and OG Image management state
   const [faviconUrl, setFaviconUrl] = useState('');
@@ -1151,6 +1154,75 @@ const Admin = () => {
     }
   };
 
+  // Header image size management
+  const loadHeaderImageSize = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_texts')
+        .select('content')
+        .eq('type', 'header_image_size')
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (data?.content) {
+        try {
+          const parsed = JSON.parse(data.content);
+          setHeaderImageSize(parsed.size || 'medium');
+          setHeaderImageCustomWidth(parsed.customWidth || 128);
+          setHeaderImageCustomHeight(parsed.customHeight || 128);
+        } catch {
+          // Invalid JSON, use defaults
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching header image size:', error);
+    }
+  };
+
+  const updateHeaderImageSize = async () => {
+    try {
+      setHeaderImageLoading(true);
+      
+      const sizeSettings = JSON.stringify({
+        size: headerImageSize,
+        customWidth: headerImageCustomWidth,
+        customHeight: headerImageCustomHeight
+      });
+      
+      const { data: existing } = await supabase
+        .from('system_texts')
+        .select('id')
+        .eq('type', 'header_image_size')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('system_texts')
+          .update({ content: sizeSettings, updated_at: new Date().toISOString() })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('system_texts')
+          .insert({ type: 'header_image_size', content: sizeSettings, is_active: true });
+      }
+
+      toast({
+        title: "Sukces",
+        description: "Rozmiar zdjęcia nagłówka został zaktualizowany",
+      });
+    } catch (error: any) {
+      console.error('Error updating header image size:', error);
+      toast({
+        title: "Błąd",
+        description: error.message || "Nie udało się zaktualizować rozmiaru",
+        variant: "destructive",
+      });
+    } finally {
+      setHeaderImageLoading(false);
+    }
+  };
+
   // Page Settings (Favicon & OG Image) Management
   const loadPageSettings = async () => {
     try {
@@ -1546,6 +1618,7 @@ const Admin = () => {
      if (activeTab === 'settings' && isAdmin) {
        loadSiteLogo();
        loadHeaderImage();
+       loadHeaderImageSize();
        loadPageSettings();
      }
     if (activeTab === 'users' && isAdmin) {
@@ -3140,6 +3213,62 @@ const Admin = () => {
                         <p className="text-sm text-blue-600 mt-2">Przesyłanie zdjęcia nagłówka...</p>
                       )}
                     </div>
+                  </div>
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="space-y-4">
+                    <Label>Rozmiar zdjęcia</Label>
+                    <Select value={headerImageSize} onValueChange={(value: 'small' | 'medium' | 'large' | 'xlarge' | 'custom') => setHeaderImageSize(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz rozmiar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small">Mały (64-96px)</SelectItem>
+                        <SelectItem value="medium">Średni (80-128px) - domyślny</SelectItem>
+                        <SelectItem value="large">Duży (112-192px)</SelectItem>
+                        <SelectItem value="xlarge">Bardzo duży (144-256px)</SelectItem>
+                        <SelectItem value="custom">Własny rozmiar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {headerImageSize === 'custom' && (
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <Label htmlFor="custom-width">Szerokość (px)</Label>
+                          <Input
+                            id="custom-width"
+                            type="number"
+                            min={32}
+                            max={512}
+                            value={headerImageCustomWidth}
+                            onChange={(e) => setHeaderImageCustomWidth(Number(e.target.value))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor="custom-height">Wysokość (px)</Label>
+                          <Input
+                            id="custom-height"
+                            type="number"
+                            min={32}
+                            max={512}
+                            value={headerImageCustomHeight}
+                            onChange={(e) => setHeaderImageCustomHeight(Number(e.target.value))}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      onClick={updateHeaderImageSize}
+                      disabled={headerImageLoading}
+                      className="w-full"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {headerImageLoading ? 'Zapisywanie...' : 'Zapisz rozmiar'}
+                    </Button>
                   </div>
                 </div>
               </CardContent>

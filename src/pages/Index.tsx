@@ -28,6 +28,9 @@ const Index = () => {
   const [authorText, setAuthorText] = React.useState<string>('');
   const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
   const [headerImage, setHeaderImage] = React.useState<string>(niezbednikLogo);
+  const [headerImageSize, setHeaderImageSize] = React.useState<'small' | 'medium' | 'large' | 'xlarge' | 'custom'>('medium');
+  const [headerImageCustomWidth, setHeaderImageCustomWidth] = React.useState<number>(128);
+  const [headerImageCustomHeight, setHeaderImageCustomHeight] = React.useState<number>(128);
   const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
   const [sections, setSections] = React.useState<CMSSection[]>([]);
   const [items, setItems] = React.useState<CMSItem[]>([]);
@@ -114,17 +117,30 @@ const Index = () => {
         .from('system_texts')
         .select('type, content, text_formatting')
         .eq('is_active', true)
-        .in('type', ['header_text', 'author', 'site_logo', 'header_image']);
+        .in('type', ['header_text', 'author', 'site_logo', 'header_image', 'header_image_size']);
       
       const headerSystemText = systemTexts?.find((item: any) => item.type === 'header_text');
       const authorSystemText = systemTexts?.find((item: any) => item.type === 'author');
       const logoSystemText = systemTexts?.find((item: any) => item.type === 'site_logo');
       const headerImageSystemText = systemTexts?.find((item: any) => item.type === 'header_image');
+      const headerImageSizeSystemText = systemTexts?.find((item: any) => item.type === 'header_image_size');
       
       if (headerSystemText?.content) setHeaderText(headerSystemText.content);
       if (authorSystemText?.content) setAuthorText(authorSystemText.content);
       if (logoSystemText?.content) setSiteLogo(logoSystemText.content);
       if (headerImageSystemText?.content) setHeaderImage(headerImageSystemText.content);
+      
+      // Parse header image size settings
+      if (headerImageSizeSystemText?.content) {
+        try {
+          const parsed = JSON.parse(headerImageSizeSystemText.content);
+          setHeaderImageSize(parsed.size || 'medium');
+          setHeaderImageCustomWidth(parsed.customWidth || 128);
+          setHeaderImageCustomHeight(parsed.customHeight || 128);
+        } catch {
+          // Invalid JSON, use defaults
+        }
+      }
       
       // Pobierz opublikowane strony
       const { data: pagesData } = await supabase
@@ -370,6 +386,9 @@ const Index = () => {
         headerText={headerText}
         authorText={authorText}
         showLoginButton={!user}
+        imageSize={headerImageSize}
+        customImageWidth={headerImageCustomWidth}
+        customImageHeight={headerImageCustomHeight}
       />
 
       {/* Main Content - CMS Sections */}
