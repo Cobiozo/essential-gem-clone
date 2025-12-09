@@ -41,7 +41,7 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
       ref={setNodeRef}
       style={{...style, position: 'relative'}}
       className={cn(
-        "group w-full mb-6 clear-both",
+        "group w-full clear-both",
         isOver && "ring-2 ring-primary ring-offset-2",
         isDragging && "opacity-50 scale-105 z-50",
         className
@@ -58,7 +58,7 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
             <GripVertical className="w-4 h-4" />
           </div>
         </div>
-        <div className="absolute inset-0 border-2 border-primary border-dashed rounded-md"></div>
+        <div className="absolute inset-0 border-2 border-primary border-dashed rounded-md pointer-events-none"></div>
       </div>
       
       {/* Content */}
