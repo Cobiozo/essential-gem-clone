@@ -28,7 +28,7 @@ import { CMSSection, CMSItem } from '@/types/cms';
 import { RowContainer } from './RowContainer';
 import { ElementsPanel } from './ElementsPanel';
 import { ItemControls } from './ItemControls';
-import { ItemEditor } from '@/components/cms/ItemEditor';
+import { ItemEditorWrapper } from '@/components/cms/ItemEditorWrapper';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useLayoutDataManager } from './hooks/useLayoutDataManager';
 import { useItemManager } from './hooks/useItemManager';

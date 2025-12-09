@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { useTheme } from '@/components/ThemeProvider';
 import { isProblematicColor } from '@/lib/colorUtils';
+import { isItemVisible } from '@/lib/visibilityUtils';
 import { User } from '@supabase/supabase-js';
 
 interface HomeRowContainerProps {
@@ -30,8 +31,10 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
   
   const columnCount = row.row_column_count || 1;
   
-  // ✅ Pobierz elementy przypisane BEZPOŚREDNIO do wiersza
-  const rowItems = items.filter(it => it.section_id === row.id);
+  // ✅ Pobierz elementy przypisane BEZPOŚREDNIO do wiersza i filtruj przez widoczność
+  const rowItems = items
+    .filter(it => it.section_id === row.id)
+    .filter(it => isItemVisible(it, user || null, userRole || null));
   
   // Grupuj elementy według column_index
   const itemsByColumn: CMSItem[][] = Array.from({ length: columnCount }, () => []);
@@ -145,7 +148,9 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
               
               {/* Następnie renderuj sekcję w slocie jeśli istnieje */}
               {slotSection && (() => {
-                const sectionItems = items.filter(item => item.section_id === slotSection.id);
+                const sectionItems = items
+                  .filter(item => item.section_id === slotSection.id)
+                  .filter(item => isItemVisible(item, user || null, userRole || null));
                 
                 // Check if section has column layout
                 const columnMatch = slotSection.style_class?.match(/columns-(\d+)/);

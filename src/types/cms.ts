@@ -57,6 +57,12 @@ export interface CMSItem {
   lazy_loading?: boolean;
   hover_scale?: number;
   hover_opacity?: number;
+  // Visibility fields
+  visible_to_everyone?: boolean;
+  visible_to_clients?: boolean;
+  visible_to_partners?: boolean;
+  visible_to_specjalista?: boolean;
+  visible_to_anonymous?: boolean;
 }
 
 export interface CMSSection {

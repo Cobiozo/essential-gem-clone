@@ -135,6 +135,11 @@ export type Database = {
           type: string
           updated_at: string
           url: string | null
+          visible_to_anonymous: boolean
+          visible_to_clients: boolean
+          visible_to_everyone: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
         }
         Insert: {
           background_color?: string | null
@@ -182,6 +187,11 @@ export type Database = {
           type: string
           updated_at?: string
           url?: string | null
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
         }
         Update: {
           background_color?: string | null
@@ -229,6 +239,11 @@ export type Database = {
           type?: string
           updated_at?: string
           url?: string | null
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
         }
         Relationships: [
           {

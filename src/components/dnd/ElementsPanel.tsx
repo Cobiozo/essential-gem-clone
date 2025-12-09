@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ItemEditor } from '@/components/cms/ItemEditor';
+import { ItemEditorWrapper } from '@/components/cms/ItemEditorWrapper';
 import { SectionEditor } from '@/components/cms/SectionEditor';
 import { ElementPreview } from './ElementPreview';
 import {
@@ -330,13 +330,12 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                 onCancel={onCancelSectionEdit}
               />
             ) : editingItem && onSaveItem && onCancelEdit ? (
-              <ItemEditor
+              <ItemEditorWrapper
                 key={editingItemId}
                 item={editingItem}
                 sectionId={editingItem.section_id || ''}
                 onSave={onSaveItem}
                 onCancel={onCancelEdit}
-                isOpen={isItemEditorOpen || false}
               />
             ) : (
               <div className="text-center text-sm text-muted-foreground py-8">
