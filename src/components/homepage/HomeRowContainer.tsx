@@ -7,17 +7,22 @@ import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { useTheme } from '@/components/ThemeProvider';
 import { isProblematicColor } from '@/lib/colorUtils';
+import { User } from '@supabase/supabase-js';
 
 interface HomeRowContainerProps {
   row: CMSSection;
   children: CMSSection[];
   items: CMSItem[];
+  user?: User | null;
+  userRole?: string | null;
 }
 
 export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({ 
   row, 
   children, 
-  items 
+  items,
+  user,
+  userRole
 }) => {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const { theme } = useTheme();
