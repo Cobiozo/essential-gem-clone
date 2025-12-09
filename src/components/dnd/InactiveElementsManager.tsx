@@ -122,7 +122,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       if (childSectionIds.length > 0) {
         const { error: childActivateErr } = await supabase
           .from('cms_sections')
-          .update({ is_active: true, page_id: null, updated_at: new Date().toISOString() })
+          .update({ is_active: true, updated_at: new Date().toISOString() })
           .in('id', childSectionIds);
         if (childActivateErr) console.error('Error activating child sections (bulk):', childActivateErr);
       }
@@ -156,7 +156,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
         .from('cms_items')
         .update({ 
           is_active: true,
-          page_id: null,
           updated_at: new Date().toISOString() 
         })
         .in('section_id', allSectionIdsForItems)
@@ -283,8 +282,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       // For sections, we need to set a proper position when activating
       let updateData: any = { 
         is_active: true, 
-        updated_at: new Date().toISOString(),
-        page_id: null  // Ensure it's on the main page
+        updated_at: new Date().toISOString()
       };
       
       if (type === 'section') {
@@ -338,7 +336,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
           .from('cms_items')
           .update({ 
             is_active: true,
-            page_id: null,
             updated_at: new Date().toISOString() 
           })
           .eq('section_id', id);
@@ -363,7 +360,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
             .from('cms_sections')
             .update({ 
               is_active: true,
-              page_id: null,
               updated_at: new Date().toISOString()
             })
             .in('id', childIds);
@@ -377,7 +373,6 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
             .from('cms_items')
             .update({ 
               is_active: true,
-              page_id: null,
               updated_at: new Date().toISOString()
             })
             .in('section_id', childIds);
