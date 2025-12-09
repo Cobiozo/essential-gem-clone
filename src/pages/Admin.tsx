@@ -3520,8 +3520,8 @@ const Admin = () => {
                    </div>
                    <div className="space-y-3">
                      <h4 className="text-sm font-medium">{t('admin.pageVisibility')}:</h4>
-                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-2 sm:space-y-0">
-                       <div className="flex items-center space-x-2">
+                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                       <div className="flex items-center space-x-2 min-h-[44px]">
                          <input
                            type="checkbox"
                            id="new-page-partners"
@@ -3531,7 +3531,7 @@ const Admin = () => {
                          />
                          <Label htmlFor="new-page-partners">{t('admin.visibleToPartners')}</Label>
                        </div>
-                       <div className="flex items-center space-x-2">
+                       <div className="flex items-center space-x-2 min-h-[44px]">
                          <input
                            type="checkbox"
                            id="new-page-clients"
@@ -3541,7 +3541,7 @@ const Admin = () => {
                          />
                          <Label htmlFor="new-page-clients">{t('admin.visibleToClients')}</Label>
                        </div>
-                       <div className="flex items-center space-x-2">
+                       <div className="flex items-center space-x-2 min-h-[44px]">
                          <input
                            type="checkbox"
                            id="new-page-everyone"
@@ -3551,7 +3551,7 @@ const Admin = () => {
                          />
                           <Label htmlFor="new-page-everyone">{t('admin.visibleToEveryone')}</Label>
                          </div>
-                         <div className="flex items-center space-x-2">
+                         <div className="flex items-center space-x-2 min-h-[44px]">
                            <input
                              type="checkbox"
                              id="new-page-specjalista"
@@ -3561,7 +3561,7 @@ const Admin = () => {
                            />
                            <Label htmlFor="new-page-specjalista">{t('admin.visibleToSpecialists')}</Label>
                          </div>
-                         <div className="flex items-center space-x-2">
+                         <div className="flex items-center space-x-2 min-h-[44px]">
                            <input
                              type="checkbox"
                              id="new-page-anonymous"
@@ -3641,8 +3641,8 @@ const Admin = () => {
                                      {page.meta_description}
                                    </p>
                                  )}
-                                 <div className="flex flex-wrap gap-2 mt-2">
-                                   <div className="flex items-center space-x-2">
+                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-2">
+                                   <div className="flex items-center space-x-2 min-h-[44px]">
                                      <input
                                        type="checkbox"
                                        id={`partner-${page.id}`}
@@ -3652,7 +3652,7 @@ const Admin = () => {
                                      />
                                      <label htmlFor={`partner-${page.id}`} className="text-sm">{t('admin.visibleToPartners')}</label>
                                    </div>
-                                   <div className="flex items-center space-x-2">
+                                   <div className="flex items-center space-x-2 min-h-[44px]">
                                      <input
                                        type="checkbox"
                                        id={`client-${page.id}`}
@@ -3662,7 +3662,7 @@ const Admin = () => {
                                      />
                                      <label htmlFor={`client-${page.id}`} className="text-sm">{t('admin.visibleToClients')}</label>
                                    </div>
-                                   <div className="flex items-center space-x-2">
+                                   <div className="flex items-center space-x-2 min-h-[44px]">
                                      <input
                                        type="checkbox"
                                        id={`everyone-${page.id}`}
@@ -3672,7 +3672,7 @@ const Admin = () => {
                                      />
                                       <label htmlFor={`everyone-${page.id}`} className="text-sm">{t('admin.visibleToEveryone')}</label>
                                      </div>
-                                     <div className="flex items-center space-x-2">
+                                     <div className="flex items-center space-x-2 min-h-[44px]">
                                        <input
                                          type="checkbox"
                                          id={`specjalista-${page.id}`}
@@ -3682,7 +3682,7 @@ const Admin = () => {
                                        />
                                        <label htmlFor={`specjalista-${page.id}`} className="text-sm">{t('admin.visibleToSpecialists')}</label>
                                      </div>
-                                     <div className="flex items-center space-x-2">
+                                     <div className="flex items-center space-x-2 min-h-[44px]">
                                        <input
                                          type="checkbox"
                                          id={`anonymous-${page.id}`}
@@ -3826,29 +3826,33 @@ const Admin = () => {
                     </div>
 
                     {/* Sorting Controls */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <SortAsc className="w-4 h-4" />
-                      <span className="text-sm font-medium">Sortuj według:</span>
-                      <Select value={userSortBy} onValueChange={(value: any) => setUserSortBy(value)}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="email">Email</SelectItem>
-                          <SelectItem value="role">Rola</SelectItem>
-                          <SelectItem value="is_active">Status</SelectItem>
-                          <SelectItem value="created_at">Data utworzenia</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select value={userSortOrder} onValueChange={(value: any) => setUserSortOrder(value)}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="asc">Rosnąco</SelectItem>
-                          <SelectItem value="desc">Malejąco</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-start sm:items-center p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <SortAsc className="w-4 h-4" />
+                        <span className="text-sm font-medium">Sortuj według:</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Select value={userSortBy} onValueChange={(value: any) => setUserSortBy(value)}>
+                          <SelectTrigger className="w-full sm:w-40 min-h-[44px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="role">Rola</SelectItem>
+                            <SelectItem value="is_active">Status</SelectItem>
+                            <SelectItem value="created_at">Data utworzenia</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={userSortOrder} onValueChange={(value: any) => setUserSortOrder(value)}>
+                          <SelectTrigger className="w-full sm:w-32 min-h-[44px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="asc">Rosnąco</SelectItem>
+                            <SelectItem value="desc">Malejąco</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                      </div>
                      
                      {filteredAndSortedUsers.length === 0 ? (
