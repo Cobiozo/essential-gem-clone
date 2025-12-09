@@ -15,6 +15,8 @@ import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
+import { useAuth } from '@/contexts/AuthContext';
+import { isSectionVisible } from '@/lib/visibilityUtils';
 
 interface Page {
   id: string;
@@ -35,6 +37,7 @@ const PageComponent = () => {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { user, userRole } = useAuth();
   const [page, setPage] = useState<Page | null>(null);
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [nestedSections, setNestedSections] = useState<{[key: string]: CMSSection[]}>({});
@@ -275,23 +278,27 @@ const PageComponent = () => {
         {/* CMS Content */}
         {sections.length > 0 && (
           <div className="space-y-4 sm:space-y-6 md:space-y-8">
-            {sections.map((section) => {
+            {sections
+              .filter(section => isSectionVisible(section, user, userRole?.role || null))
+              .map((section) => {
               // Handle row-type sections differently
               if (section.section_type === 'row') {
-                const rowChildren = nestedSections[section.id] || [];
+                const rowChildren = (nestedSections[section.id] || []).filter(child => isSectionVisible(child, user, userRole?.role || null));
                 return (
                   <HomeRowContainer
                     key={section.id}
                     row={section}
                     children={rowChildren}
                     items={items}
+                    user={user}
+                    userRole={userRole?.role || null}
                   />
                 );
               }
               
               // Regular collapsible sections
               return (
-                <CollapsibleSection 
+                <CollapsibleSection
                   key={section.id} 
                   title={section.title}
                   description={section.description}
