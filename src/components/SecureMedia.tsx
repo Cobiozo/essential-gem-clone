@@ -207,7 +207,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       {...securityProps}
       src={signedUrl}
       alt={altText || 'Zabezpieczone zdjęcie'}
-      className={`w-full h-auto rounded-lg ${className || ''}`}
+      className={`max-w-full h-auto rounded-lg ${className || ''}`}
       loading="lazy"
     />
   );
