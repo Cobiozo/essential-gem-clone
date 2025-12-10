@@ -63,6 +63,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   return (
     <section className={cn(
       "relative bg-background",
+      "mt-14 sm:mt-16",
       hasTextContent 
         ? "py-16 sm:py-20 md:py-24" 
         : "py-2 sm:py-3 md:py-4"
