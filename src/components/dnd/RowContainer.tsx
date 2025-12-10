@@ -510,9 +510,18 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     Array.from({ length: columnCount }, (_, i) => `${row.id}-col-${i}`)
   , [row.id, columnCount]);
 
+  const rowStyles: React.CSSProperties = {
+    marginTop: row.section_margin_top ? `${row.section_margin_top}px` : undefined,
+    marginBottom: row.section_margin_bottom ? `${row.section_margin_bottom}px` : undefined,
+    padding: row.padding ? `${row.padding}px` : undefined,
+    backgroundColor: row.background_color || undefined,
+    borderRadius: row.border_radius ? `${row.border_radius}px` : undefined,
+  };
+
   return (
     <div
       ref={setNodeRef}
+      style={rowStyles}
       className={cn(
         "w-full transition-all duration-200",
         isEditMode && isOver && "bg-primary/5 ring-2 ring-primary rounded-lg"
