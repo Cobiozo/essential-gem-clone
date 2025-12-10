@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -266,6 +267,13 @@ const Admin = () => {
   const [headerImageSize, setHeaderImageSize] = useState<'small' | 'medium' | 'large' | 'xlarge' | 'custom'>('medium');
   const [headerImageCustomWidth, setHeaderImageCustomWidth] = useState<number>(128);
   const [headerImageCustomHeight, setHeaderImageCustomHeight] = useState<number>(128);
+  const headerImageSizeInitialized = useRef(false);
+  
+  // Debounced header image size for auto-save
+  const debouncedHeaderImageSize = useDebounce(
+    { size: headerImageSize, customWidth: headerImageCustomWidth, customHeight: headerImageCustomHeight },
+    1000
+  );
   
   // Favicon and OG Image management state
   const [faviconUrl, setFaviconUrl] = useState('');
@@ -1174,20 +1182,20 @@ const Admin = () => {
           // Invalid JSON, use defaults
         }
       }
+      // Mark as initialized after loading to prevent immediate auto-save
+      setTimeout(() => {
+        headerImageSizeInitialized.current = true;
+      }, 1500);
     } catch (error) {
       console.error('Error fetching header image size:', error);
     }
   };
 
-  const updateHeaderImageSize = async () => {
+  const saveHeaderImageSize = useCallback(async (sizeData: { size: string; customWidth: number; customHeight: number }) => {
     try {
       setHeaderImageLoading(true);
       
-      const sizeSettings = JSON.stringify({
-        size: headerImageSize,
-        customWidth: headerImageCustomWidth,
-        customHeight: headerImageCustomHeight
-      });
+      const sizeSettings = JSON.stringify(sizeData);
       
       const { data: existing } = await supabase
         .from('system_texts')
@@ -1208,7 +1216,7 @@ const Admin = () => {
       }
 
       toast({
-        title: "Sukces",
+        title: "Zapisano",
         description: "Rozmiar zdjęcia nagłówka został zaktualizowany",
       });
     } catch (error: any) {
@@ -1221,7 +1229,14 @@ const Admin = () => {
     } finally {
       setHeaderImageLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Auto-save header image size when values change
+  useEffect(() => {
+    if (!headerImageSizeInitialized.current) return;
+    
+    saveHeaderImageSize(debouncedHeaderImageSize);
+  }, [debouncedHeaderImageSize, saveHeaderImageSize]);
 
   // Page Settings (Favicon & OG Image) Management
   const loadPageSettings = async () => {
@@ -3104,14 +3119,12 @@ const Admin = () => {
                       </div>
                     )}
                     
-                    <Button 
-                      onClick={updateHeaderImageSize}
-                      disabled={headerImageLoading}
-                      className="w-full"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      {headerImageLoading ? 'Zapisywanie...' : 'Zapisz rozmiar'}
-                    </Button>
+                    {headerImageLoading && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Save className="w-4 h-4 animate-pulse" />
+                        Zapisywanie...
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
