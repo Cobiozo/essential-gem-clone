@@ -101,6 +101,8 @@ export const useItemManager = ({
           media_type: updatedItem.media_type,
           media_alt_text: updatedItem.media_alt_text,
           cells: finalCells as any,
+          // Preserve column_index - critical to prevent elements jumping columns
+          column_index: (updatedItem as any).column_index ?? (originalItem as any).column_index ?? 0,
           text_color: updatedItem.text_color,
           background_color: updatedItem.background_color,
           font_size: updatedItem.font_size,
