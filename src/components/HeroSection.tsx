@@ -13,6 +13,23 @@ interface HeroSectionProps {
   customImageHeight?: number;
 }
 
+// Helper function to check if HTML content has actual visible text
+const hasVisibleText = (html: string): boolean => {
+  if (!html) return false;
+  
+  // Remove HTML tags and check if any text remains
+  const textOnly = html
+    .replace(/<[^>]*>/g, '')      // remove HTML tags
+    .replace(/&nbsp;/g, ' ')       // replace &nbsp; with space
+    .replace(/&amp;/g, '&')        // decode common entities
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')          // collapse whitespace
+    .trim();
+  
+  return textOnly.length > 0;
+};
+
 // Helper function to remove problematic inline color styles
 const cleanInlineColors = (html: string): string => {
   if (!html) return html;
@@ -41,14 +58,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   customImageWidth,
   customImageHeight,
 }) => {
-  const hasTextContent = headerText || authorText;
+  const hasTextContent = hasVisibleText(headerText) || hasVisibleText(authorText);
 
   return (
     <section className={cn(
       "relative bg-background",
       hasTextContent 
         ? "py-16 sm:py-20 md:py-24" 
-        : "py-6 sm:py-8 md:py-10"
+        : "py-2 sm:py-3 md:py-4"
     )}>
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className={cn(
@@ -71,8 +88,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             />
           </div>
 
-          {/* Description - tylko gdy jest treść */}
-          {headerText && (
+          {/* Description - tylko gdy jest rzeczywista treść */}
+          {hasVisibleText(headerText) && (
             <div 
               className="text-xs sm:text-sm md:text-base text-foreground max-w-3xl mx-auto leading-relaxed px-4"
               dangerouslySetInnerHTML={{ __html: cleanInlineColors(headerText) }}
@@ -80,7 +97,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           )}
 
           {/* Author */}
-          {authorText && (
+          {hasVisibleText(authorText) && (
             <div 
               className="text-xs sm:text-sm text-foreground/90 px-4"
               dangerouslySetInnerHTML={{ __html: cleanInlineColors(authorText) }}
