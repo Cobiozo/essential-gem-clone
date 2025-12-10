@@ -1915,8 +1915,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             
             <div
               className={cn(
-                layoutMode === 'single' && 'flex flex-col gap-6',
-                layoutMode !== 'single' && 'grid gap-6',
+                layoutMode === 'single' && 'flex flex-col',
+                layoutMode !== 'single' && 'grid',
                 previewRole !== 'real' && 'pt-12' // Add padding for banner
               )}
               style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
