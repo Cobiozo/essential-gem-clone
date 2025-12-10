@@ -268,12 +268,17 @@ const Admin = () => {
   const [headerImageCustomWidth, setHeaderImageCustomWidth] = useState<number>(128);
   const [headerImageCustomHeight, setHeaderImageCustomHeight] = useState<number>(128);
   const headerImageSizeInitialized = useRef(false);
+  const prevHeaderSizeRef = useRef<string | null>(null);
+  
+  // Memoize header image size data to prevent unnecessary re-renders
+  const headerImageSizeData = useMemo(() => ({
+    size: headerImageSize,
+    customWidth: headerImageCustomWidth,
+    customHeight: headerImageCustomHeight
+  }), [headerImageSize, headerImageCustomWidth, headerImageCustomHeight]);
   
   // Debounced header image size for auto-save
-  const debouncedHeaderImageSize = useDebounce(
-    { size: headerImageSize, customWidth: headerImageCustomWidth, customHeight: headerImageCustomHeight },
-    1000
-  );
+  const debouncedHeaderImageSize = useDebounce(headerImageSizeData, 1000);
   
   // Favicon and OG Image management state
   const [faviconUrl, setFaviconUrl] = useState('');
@@ -1235,6 +1240,11 @@ const Admin = () => {
   useEffect(() => {
     if (!headerImageSizeInitialized.current) return;
     
+    // Compare with previous value to prevent unnecessary saves
+    const currentValue = JSON.stringify(debouncedHeaderImageSize);
+    if (prevHeaderSizeRef.current === currentValue) return;
+    
+    prevHeaderSizeRef.current = currentValue;
     saveHeaderImageSize(debouncedHeaderImageSize);
   }, [debouncedHeaderImageSize, saveHeaderImageSize]);
 
