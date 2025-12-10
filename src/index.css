@@ -86,6 +86,7 @@ All colors MUST be HSL.
 
   html {
     overflow-y: scroll; /* Prevent layout shift when modals open */
+    overflow-x: hidden; /* Prevent horizontal scroll on mobile */
     /* Better font rendering */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -103,6 +104,23 @@ All colors MUST be HSL.
     /* Better text rendering on mobile */
     text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+  
+  /* Responsywne tabele */
+  table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  
+  @media (max-width: 640px) {
+    table {
+      font-size: 12px;
+    }
+    th, td {
+      padding: 0.5rem 0.25rem;
+    }
   }
 
   /* Safe area for mobile devices (notch support) */

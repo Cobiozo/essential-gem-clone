@@ -648,13 +648,14 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const cardsCell = (item.cells as any[])?.[0];
       const cardItems = cardsCell?.cards || [];
       const cardColumns = cardsCell?.columns || 3;
+      const getCardsGridClass = (cols: number) => {
+        if (cols === 1) return 'grid-cols-1';
+        if (cols === 2) return 'grid-cols-1 sm:grid-cols-2';
+        if (cols === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+      };
       return (
-        <div 
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: `repeat(${cardColumns}, minmax(0, 1fr))`
-          }}
-        >
+        <div className={cn("grid gap-4", getCardsGridClass(cardColumns))}>
           {cardItems.map((card: any, idx: number) => (
             <div key={idx} className="p-4 border rounded-lg bg-card">
               <h3 className="font-semibold mb-2">{card.title}</h3>
@@ -668,7 +669,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const htmlCell = (item.cells as any[])?.[0];
       return (
         <div
-          className="prose prose-sm max-w-none"
+          className="prose prose-sm max-w-none overflow-x-auto [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full"
           dangerouslySetInnerHTML={{ __html: htmlCell?.content || '' }}
         />
       );
