@@ -409,7 +409,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
               src={imageCell?.content || item.media_url}
               alt={imageCell?.alt || item.media_alt_text || 'Image'}
               className={cn(
-                'h-auto transition-all duration-300',
+                'h-auto max-w-full transition-all duration-300',
                 hasHoverEffect && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
                 alignmentClass,
                 imageStyles.className
