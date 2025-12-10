@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useDebounce } from '@/hooks/use-debounce';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { icons } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit3, Save, X, Plus, Palette, Type, Layout, Eye, EyeOff, Maximize, Settings, Sparkles, Image, Star, ChevronDown, ChevronUp, CheckCircle2, Loader2 } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { MediaUpload } from '../MediaUpload';
 import { RichTextEditor } from '../RichTextEditor';
@@ -170,6 +171,11 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [originalSection, setOriginalSection] = useState<Section | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  
+  const prevSectionRef = useRef<string>(JSON.stringify(section));
+  const debouncedSection = useDebounce(editedSection, 1000);
 
   // Sync internal state when section prop changes (for switching between sections)
   useEffect(() => {
@@ -177,8 +183,57 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
       setEditedSection(section);
       setOriginalSection(section);
       setHasUnsavedChanges(false);
+      prevSectionRef.current = JSON.stringify(section);
     }
   }, [section?.id]);
+
+  // Auto-save when debounced section changes
+  useEffect(() => {
+    const debouncedSectionString = JSON.stringify(debouncedSection);
+    if (debouncedSection && debouncedSectionString !== prevSectionRef.current) {
+      setIsSaving(true);
+      
+      // Clean up numeric fields to ensure they're valid for database
+      const cleanedSection = {
+        ...debouncedSection,
+        id: debouncedSection.id || section?.id,
+        hover_opacity: debouncedSection.hover_opacity !== null && debouncedSection.hover_opacity !== undefined 
+          ? Math.round(Number(debouncedSection.hover_opacity)) 
+          : null,
+        hover_scale: debouncedSection.hover_scale !== null && debouncedSection.hover_scale !== undefined 
+          ? Number(debouncedSection.hover_scale) 
+          : null,
+        hover_transition_duration: debouncedSection.hover_transition_duration !== null && debouncedSection.hover_transition_duration !== undefined 
+          ? Math.round(Number(debouncedSection.hover_transition_duration)) 
+          : null,
+        hover_background_color: debouncedSection.hover_background_color?.trim() || null,
+        hover_background_gradient: debouncedSection.hover_background_gradient?.trim() || null,
+        hover_text_color: debouncedSection.hover_text_color?.trim() || null,
+        hover_border_color: debouncedSection.hover_border_color?.trim() || null,
+        hover_box_shadow: debouncedSection.hover_box_shadow?.trim() || null,
+      };
+
+      const finalSection = (!allowSizeEditing && section)
+        ? {
+          ...cleanedSection,
+          width_type: section.width_type,
+          custom_width: section.custom_width,
+          height_type: section.height_type,
+          custom_height: section.custom_height,
+          max_width: section.max_width,
+        }
+        : cleanedSection;
+      
+      onSave(finalSection);
+      prevSectionRef.current = debouncedSectionString;
+      
+      setTimeout(() => {
+        setIsSaving(false);
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 2000);
+      }, 300);
+    }
+  }, [debouncedSection, onSave, section, allowSizeEditing]);
 
   // Track changes to detect unsaved changes
   useEffect(() => {
