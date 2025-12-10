@@ -269,11 +269,13 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                     defaultOpen={slotSection.default_expanded || false}
                   >
                     {sectionColumnCount > 0 ? (
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${sectionColumnCount}, 1fr)`,
-                        gap: '24px'
-                      }}>
+                      <div className={cn(
+                        "grid gap-6",
+                        sectionColumnCount === 1 ? "grid-cols-1" :
+                        sectionColumnCount === 2 ? "grid-cols-1 md:grid-cols-2" :
+                        sectionColumnCount === 3 ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" :
+                        "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                      )}>
                         {sectionItemsByColumn.map((columnItems, colIdx) => (
                           <div key={colIdx} className="space-y-4">
                             {columnItems.map((item, idx) => renderItem(item, idx))}
