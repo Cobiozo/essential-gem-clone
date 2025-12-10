@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CMSItem } from '@/types/cms';
-import { Save, X } from 'lucide-react';
+import { Save, X, Loader2, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface GenericEditorProps {
   item: CMSItem;
@@ -17,6 +18,27 @@ interface GenericEditorProps {
 
 export const GenericEditor: React.FC<GenericEditorProps> = ({ item, sectionId, onSave, onCancel }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
+  const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  
+  const prevItemRef = useRef<string>(JSON.stringify(item));
+  const debouncedItem = useDebounce(editedItem, 1000);
+
+  // Auto-save when debounced item changes
+  useEffect(() => {
+    const debouncedItemString = JSON.stringify(debouncedItem);
+    if (debouncedItem && debouncedItemString !== prevItemRef.current) {
+      setIsSaving(true);
+      onSave(debouncedItem);
+      prevItemRef.current = debouncedItemString;
+      
+      setTimeout(() => {
+        setIsSaving(false);
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 2000);
+      }, 300);
+    }
+  }, [debouncedItem, onSave]);
 
   const handleSave = () => {
     onSave(editedItem);
@@ -25,11 +47,25 @@ export const GenericEditor: React.FC<GenericEditorProps> = ({ item, sectionId, o
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="text-lg font-semibold">Edytuj Element</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">Edytuj Element</h3>
+          {isSaving && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Zapisywanie...</span>
+            </div>
+          )}
+          {justSaved && (
+            <div className="flex items-center gap-1 text-xs text-green-600">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Zapisano</span>
+            </div>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button onClick={handleSave} size="sm">
             <Save className="w-4 h-4 mr-2" />
-            Zapisz
+            Zapisz teraz
           </Button>
           <Button onClick={onCancel} variant="outline" size="sm">
             <X className="w-4 h-4" />
