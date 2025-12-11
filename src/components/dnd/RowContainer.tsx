@@ -106,57 +106,62 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
     >
       {/* ✅ Najpierw renderuj elementy bezpośrednio w kolumnie row - TERAZ DRAGGABLE */}
       {columnItems.length > 0 && (
-        <div className="space-y-2 mb-4">
-          {columnItems.map((item, itemIdx) => {
-            // Special rendering based on item type and row display_type
-            let itemContent;
-            if (item.type === 'info_text' && rowDisplayType === 'grid') {
-              itemContent = <InfoTextItem item={item} />;
-            } else if (item.type === 'multi_cell') {
-              itemContent = (
-                <LearnMoreItem 
-                  item={item} 
-                  itemIndex={itemIdx}
-                  isExpanded={false}
-                  onToggle={() => {}}
-                />
-              );
-            } else {
-              itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />;
-            }
-            
-            return (
-              <DraggableItem
-                key={item.id}
-                id={item.id as string}
-                isEditMode={isEditMode}
-              >
-                <div 
-                  className="relative group/item"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!activeId && onSelectSection) {
-                      onSelectSection(item.id as string);
-                    }
-                  }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    onEditItem?.(item.id as string);
-                  }}
+        <SortableContext 
+          items={columnItems.map(item => item.id).filter(Boolean) as string[]} 
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2 mb-4">
+            {columnItems.map((item, itemIdx) => {
+              // Special rendering based on item type and row display_type
+              let itemContent;
+              if (item.type === 'info_text' && rowDisplayType === 'grid') {
+                itemContent = <InfoTextItem item={item} />;
+              } else if (item.type === 'multi_cell') {
+                itemContent = (
+                  <LearnMoreItem 
+                    item={item} 
+                    itemIndex={itemIdx}
+                    isExpanded={false}
+                    onToggle={() => {}}
+                  />
+                );
+              } else {
+                itemContent = <CMSContent item={item} onClick={() => {}} isEditMode={isEditMode} />;
+              }
+              
+              return (
+                <DraggableItem
+                  key={item.id}
+                  id={item.id as string}
+                  isEditMode={isEditMode}
                 >
-                  {isEditMode && onDeleteItem && (
-                    <ItemControls
-                      onEdit={() => onEditItem?.(item.id as string)}
-                      onDelete={() => onDeleteItem(item.id as string)}
-                      onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-                    />
-                  )}
-                  {itemContent}
-                </div>
-              </DraggableItem>
-            );
-          })}
-        </div>
+                  <div 
+                    className="relative group/item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!activeId && onSelectSection) {
+                        onSelectSection(item.id as string);
+                      }
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      onEditItem?.(item.id as string);
+                    }}
+                  >
+                    {isEditMode && onDeleteItem && (
+                      <ItemControls
+                        onEdit={() => onEditItem?.(item.id as string)}
+                        onDelete={() => onDeleteItem(item.id as string)}
+                        onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+                      />
+                    )}
+                    {itemContent}
+                  </div>
+                </DraggableItem>
+              );
+            })}
+          </div>
+        </SortableContext>
       )}
       
       {/* Następnie renderuj child section jeśli istnieje */}
