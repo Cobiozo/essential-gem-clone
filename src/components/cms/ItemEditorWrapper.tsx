@@ -60,13 +60,13 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="mx-4 mt-2 grid grid-cols-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-auto">
+        <TabsList className="mx-4 mt-2 grid grid-cols-2 shrink-0">
           <TabsTrigger value="content">Edycja</TabsTrigger>
           <TabsTrigger value="visibility">Widoczność</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="content" className="flex-1 overflow-hidden m-0 data-[state=active]:flex data-[state=active]:flex-col">
+        <TabsContent value="content" className="flex-1 overflow-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
           <ItemEditor
             item={editedItem}
             sectionId={sectionId}
@@ -76,7 +76,7 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
           />
         </TabsContent>
 
-        <TabsContent value="visibility" className="flex-1 overflow-hidden m-0">
+        <TabsContent value="visibility" className="flex-1 overflow-auto m-0">
           <ScrollArea className="h-full">
             <div className="p-4">
               <VisibilityEditor
