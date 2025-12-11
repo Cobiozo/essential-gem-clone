@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const MedicalChatWidget: React.FC = () => {
-  const { user, userRole, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
+  const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const { messages, isLoading, error, sendMessage, clearMessages } = useMedicalChatStream();
@@ -18,10 +18,6 @@ export const MedicalChatWidget: React.FC = () => {
 
   // Only show widget for partner, client, specjalista or admin roles
   const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
-
-  if (!hasAccess) {
-    return null;
-  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -39,6 +35,11 @@ export const MedicalChatWidget: React.FC = () => {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Early return AFTER all hooks
+  if (!hasAccess) {
+    return null;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
