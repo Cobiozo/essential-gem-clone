@@ -111,13 +111,13 @@ function translateQueryToEnglish(query: string): string {
   return translatedQuery;
 }
 
-async function searchPubMed(query: string): Promise<PubMedArticle[]> {
+async function searchPubMed(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
   try {
     // Translate query to English for better PubMed results
     const englishQuery = translateQueryToEnglish(query);
     
     // Step 1: Search for article IDs - use relevance and date sort
-    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(englishQuery)}&retmax=6&sort=relevance&retmode=json`;
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(englishQuery)}&retmax=${maxResults}&sort=relevance&retmode=json`;
     
     console.log('Searching PubMed:', searchUrl);
     const searchResponse = await fetch(searchUrl);
@@ -128,7 +128,7 @@ async function searchPubMed(query: string): Promise<PubMedArticle[]> {
     
     if (pmids.length === 0) {
       // Fallback: try original query if translation didn't help
-      const fallbackUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=6&sort=relevance&retmode=json`;
+      const fallbackUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${maxResults}&sort=relevance&retmode=json`;
       console.log('Fallback search:', fallbackUrl);
       const fallbackResponse = await fetch(fallbackUrl);
       const fallbackData = await fallbackResponse.json();
@@ -370,7 +370,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, language = 'pl' } = await req.json();
+    const { messages, language = 'pl', resultsCount = 10 } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -383,9 +383,10 @@ serve(async (req) => {
     
     console.log('User query:', userQuery);
     console.log('Language:', language);
+    console.log('Results count:', resultsCount);
 
     // Search PubMed for relevant articles
-    const articles = await searchPubMed(userQuery);
+    const articles = await searchPubMed(userQuery, resultsCount);
     console.log('Found articles:', articles.length);
 
     // Build context from PubMed results

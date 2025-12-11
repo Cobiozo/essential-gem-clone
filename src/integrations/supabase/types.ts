@@ -493,6 +493,33 @@ export type Database = {
           },
         ]
       }
+      medical_chat_history: {
+        Row: {
+          created_at: string
+          id: string
+          query: string
+          response: string
+          results_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query: string
+          response: string
+          results_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string
+          response?: string
+          results_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       page_settings: {
         Row: {
           column_count: number

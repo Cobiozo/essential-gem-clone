@@ -1,17 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stethoscope, Send, X, Trash2, ExternalLink } from 'lucide-react';
+import { Stethoscope, Send, X, Trash2, ExternalLink, Download, History, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMedicalChatStream } from '@/hooks/useMedicalChatStream';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from '@/components/ui/popover';
+import jsPDF from 'jspdf';
 
 export const MedicalChatWidget: React.FC = () => {
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const { messages, isLoading, error, sendMessage, clearMessages } = useMedicalChatStream();
+  const { 
+    messages, 
+    isLoading, 
+    error, 
+    sendMessage, 
+    clearMessages,
+    resultsCount,
+    setResultsCount,
+    chatHistory,
+    loadFromHistory,
+  } = useMedicalChatStream();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { t, language } = useLanguage();
@@ -78,8 +100,88 @@ export const MedicalChatWidget: React.FC = () => {
         de: 'Analysiere wissenschaftliche Literatur...',
         en: 'Analyzing scientific literature...',
       },
+      results: {
+        pl: 'Wyniki',
+        de: 'Ergebnisse',
+        en: 'Results',
+      },
+      max: {
+        pl: 'Maks.',
+        de: 'Max.',
+        en: 'Max.',
+      },
+      downloadPdf: {
+        pl: 'Pobierz PDF',
+        de: 'PDF herunterladen',
+        en: 'Download PDF',
+      },
+      history: {
+        pl: 'Historia',
+        de: 'Verlauf',
+        en: 'History',
+      },
+      noHistory: {
+        pl: 'Brak historii',
+        de: 'Kein Verlauf',
+        en: 'No history',
+      },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
+  };
+
+  const exportToPdf = () => {
+    if (messages.length === 0) return;
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxWidth = pageWidth - 2 * margin;
+    let yPos = 20;
+
+    // Title
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(getTranslation('title'), margin, yPos);
+    yPos += 10;
+
+    // Date
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(new Date().toLocaleDateString(language), margin, yPos);
+    yPos += 15;
+
+    // Messages
+    pdf.setFontSize(11);
+    messages.forEach((message) => {
+      const prefix = message.role === 'user' ? 'Q: ' : 'A: ';
+      const text = prefix + message.content.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+      
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      
+      // Check if we need a new page
+      if (yPos + lines.length * 5 > pdf.internal.pageSize.getHeight() - 20) {
+        pdf.addPage();
+        yPos = 20;
+      }
+      
+      pdf.setFont('helvetica', message.role === 'user' ? 'bold' : 'normal');
+      pdf.text(lines, margin, yPos);
+      yPos += lines.length * 5 + 8;
+    });
+
+    // Disclaimer
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'italic');
+    const disclaimer = getTranslation('disclaimer').replace('⚠️ ', '');
+    const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
+    
+    if (yPos + disclaimerLines.length * 4 > pdf.internal.pageSize.getHeight() - 10) {
+      pdf.addPage();
+      yPos = 20;
+    }
+    pdf.text(disclaimerLines, margin, yPos);
+
+    pdf.save(`medical-assistant-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // Convert markdown links to clickable HTML
@@ -137,6 +239,13 @@ export const MedicalChatWidget: React.FC = () => {
     );
   };
 
+  const resultsOptions = [
+    { value: 10, label: '10' },
+    { value: 20, label: '20' },
+    { value: 50, label: '50' },
+    { value: 0, label: getTranslation('max') },
+  ];
+
   return (
     <>
       {/* Toggle Button - positioned above the support chat */}
@@ -161,15 +270,91 @@ export const MedicalChatWidget: React.FC = () => {
               <Stethoscope className="w-5 h-5" />
               <span className="font-medium">{getTranslation('title')}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
-              onClick={clearMessages}
-              title={t('clear')}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {/* History */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                    title={getTranslation('history')}
+                  >
+                    <History className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="end">
+                  <div className="p-2 border-b font-medium text-sm">{getTranslation('history')}</div>
+                  <ScrollArea className="max-h-60">
+                    {chatHistory.length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">
+                        {getTranslation('noHistory')}
+                      </div>
+                    ) : (
+                      chatHistory.map((entry) => (
+                        <button
+                          key={entry.id}
+                          className="w-full text-left p-2 hover:bg-muted text-sm border-b last:border-0"
+                          onClick={() => loadFromHistory(entry)}
+                        >
+                          <div className="font-medium truncate">{entry.query}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(entry.created_at).toLocaleDateString(language)}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+
+              {/* Download PDF */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                onClick={exportToPdf}
+                disabled={messages.length === 0}
+                title={getTranslation('downloadPdf')}
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+
+              {/* Clear */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                onClick={clearMessages}
+                title={t('clear')}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Settings bar */}
+          <div className="bg-muted/50 px-3 py-2 flex items-center justify-between text-xs border-b shrink-0">
+            <span className="text-muted-foreground">{getTranslation('results')}:</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                  {resultsCount === 0 ? getTranslation('max') : resultsCount}
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {resultsOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setResultsCount(option.value)}
+                    className={resultsCount === option.value ? 'bg-accent' : ''}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Disclaimer */}
