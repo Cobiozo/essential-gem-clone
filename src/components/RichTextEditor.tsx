@@ -753,9 +753,22 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   return (
     <div className={`border rounded-md flex flex-col h-full ${className}`}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
-        <div className="flex items-center justify-between border-b bg-muted/20 shrink-0">
+        <div className="flex flex-col border-b bg-muted/20 shrink-0">
+          {/* Tab Triggers */}
+          <div className="flex items-center justify-between p-2 border-b">
+            <TabsList className="grid w-44 grid-cols-2 shrink-0">
+              <TabsTrigger value="edit" className="text-xs">
+                <Code className="h-3 w-3 mr-1" />
+                Edytuj
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="text-xs">
+                <Eye className="h-3 w-3 mr-1" />
+                Podgląd
+              </TabsTrigger>
+            </TabsList>
+          </div>
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-1 p-2 overflow-x-auto flex-1 min-w-0">
+          <div className="flex items-center gap-1 p-2 overflow-x-auto">
             {/* Font Controls */}
             <Select onValueChange={applyFontFamily}>
               <SelectTrigger className="w-32 h-8 text-xs">
@@ -1146,18 +1159,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               <RotateCcw className="h-4 w-4" />
             </Button>
           </div>
-
-          {/* Tab Triggers */}
-          <TabsList className="grid w-44 grid-cols-2 mr-2 shrink-0">
-            <TabsTrigger value="edit" className="text-xs">
-              <Code className="h-3 w-3 mr-1" />
-              Edytuj
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="text-xs">
-              <Eye className="h-3 w-3 mr-1" />
-              Podgląd
-            </TabsTrigger>
-          </TabsList>
         </div>
 
         <TabsContent value="edit" className="m-0 flex-1 flex flex-col min-h-0">
