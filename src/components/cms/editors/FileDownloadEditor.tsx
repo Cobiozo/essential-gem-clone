@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CMSItem } from '@/types/cms';
-import { X, CheckCircle2, Download, Upload, Loader2 } from 'lucide-react';
+import { X, CheckCircle2, Download, Upload, Loader2, Link, ExternalLink } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { StyleTab } from './StyleTab';
@@ -95,7 +96,9 @@ export const FileDownloadEditor: React.FC<FileDownloadEditorProps> = ({ item, on
       fileName: cell?.fileName || '',
       fileSize: cell?.fileSize || 0,
       fileType: cell?.fileType || '',
-      url: cell?.url || editedItem.url || ''
+      url: cell?.url || editedItem.url || '',
+      externalUrl: cell?.externalUrl || '',
+      openMode: cell?.openMode || 'download' // 'download' or 'newTab'
     };
   };
 
@@ -182,6 +185,67 @@ export const FileDownloadEditor: React.FC<FileDownloadEditorProps> = ({ item, on
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* External URL */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Link className="w-4 h-4" />
+                  Lub wklej link do pliku
+                </Label>
+                <Input
+                  value={fileInfo.externalUrl}
+                  onChange={(e) => {
+                    const existingCells = (editedItem.cells || [{ type: 'file-download', content: '', url: '' }]) as any[];
+                    const newCells = [...existingCells];
+                    newCells[0] = { 
+                      ...(newCells[0] || {}), 
+                      externalUrl: e.target.value,
+                      type: 'file-download'
+                    };
+                    setEditedItem({ ...editedItem, cells: newCells });
+                  }}
+                  placeholder="https://example.com/plik.pdf"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Wprowadź URL do zewnętrznego pliku (PDF, DOCX, JPG, itp.)
+                </p>
+              </div>
+
+              {/* Open Mode */}
+              <div className="space-y-2">
+                <Label>Akcja po kliknięciu</Label>
+                <Select
+                  value={fileInfo.openMode}
+                  onValueChange={(value) => {
+                    const existingCells = (editedItem.cells || [{ type: 'file-download', content: '', url: '' }]) as any[];
+                    const newCells = [...existingCells];
+                    newCells[0] = { 
+                      ...(newCells[0] || {}), 
+                      openMode: value,
+                      type: 'file-download'
+                    };
+                    setEditedItem({ ...editedItem, cells: newCells });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz akcję" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="download">
+                      <div className="flex items-center gap-2">
+                        <Download className="w-4 h-4" />
+                        <span>Pobierz plik</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="newTab">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="w-4 h-4" />
+                        <span>Otwórz w nowej karcie</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Button Text */}

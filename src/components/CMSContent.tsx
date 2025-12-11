@@ -730,8 +730,10 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'file-download':
       const fileCell = (item.cells as any[])?.[0];
       const fileStyles = applyItemStyles(item);
-      const fileUrl = fileCell?.url || item.url;
+      // Priority: external URL > uploaded file URL
+      const fileUrl = fileCell?.externalUrl || fileCell?.url || item.url;
       const fileName = fileCell?.fileName || 'Plik';
+      const fileOpenMode = fileCell?.openMode || 'download';
       const FileIcon = item.icon ? (icons as any)[item.icon] : (icons as any).Download;
       const fileIconPosition = (item as any).icon_position || 'before';
       
@@ -745,13 +747,20 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       const handleFileDownload = () => {
         if (!fileUrl) return;
-        const link = document.createElement('a');
-        link.href = fileUrl;
-        link.download = fileName;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        
+        if (fileOpenMode === 'newTab') {
+          // Open in new tab
+          window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          // Download file
+          const link = document.createElement('a');
+          link.href = fileUrl;
+          link.download = fileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
       };
       
       return (
