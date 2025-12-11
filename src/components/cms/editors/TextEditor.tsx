@@ -62,7 +62,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
         </Button>
       </div>
 
-      <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <Tabs defaultValue="content" className="flex-1 flex flex-col min-h-0 overflow-auto">
         <TabsList className="mx-4 mt-4 mb-0 shrink-0">
           <TabsTrigger value="content">Treść</TabsTrigger>
           <TabsTrigger value="style">Styl</TabsTrigger>
@@ -72,7 +72,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
           <div className="space-y-4 p-4">
             <div className="space-y-2">
               <Label>Treść</Label>
-              <div className="border rounded-md overflow-auto" style={{ minHeight: '200px', maxHeight: 'calc(100vh - 400px)' }}>
+              <div className="border rounded-md overflow-auto flex flex-col flex-1" style={{ minHeight: '200px' }}>
                 <RichTextEditor
                   value={editedItem.cells?.[0]?.content || editedItem.description || ''}
                   onChange={(value) => {

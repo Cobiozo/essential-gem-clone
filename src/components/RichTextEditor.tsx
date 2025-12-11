@@ -751,9 +751,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }, [activeTab, makeImageResizable]);
 
   return (
-    <div className={`border rounded-md ${className}`}>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between border-b bg-muted/20">
+    <div className={`border rounded-md flex flex-col h-full ${className}`}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
+        <div className="flex items-center justify-between border-b bg-muted/20 shrink-0">
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-1 p-2 overflow-x-auto">
             {/* Font Controls */}
@@ -1160,18 +1160,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </TabsList>
         </div>
 
-        <TabsContent value="edit" className="m-0 flex-1">
+        <TabsContent value="edit" className="m-0 flex-1 flex flex-col min-h-0">
           <Textarea
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             rows={rows}
-            className="border-0 resize-y focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] max-h-[60vh] overflow-auto"
+            className="border-0 resize-y focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 min-h-[150px] overflow-auto"
           />
         </TabsContent>
 
-        <TabsContent value="preview" className="m-0 flex-1">
+        <TabsContent value="preview" className="m-0 flex-1 flex flex-col min-h-0">
           <div 
             ref={previewRef}
             contentEditable
@@ -1184,7 +1184,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               isUserTypingRef.current = false;
               handlePreviewChange();
             }}
-            className="p-3 min-h-[100px] max-h-[60vh] overflow-auto prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+            className="p-3 flex-1 min-h-[150px] overflow-auto prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
             style={{ 
               minHeight: `${rows * 1.5}rem`,
               direction: 'ltr',
