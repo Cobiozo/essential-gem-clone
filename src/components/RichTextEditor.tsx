@@ -755,7 +755,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
         <div className="flex items-center justify-between border-b bg-muted/20 shrink-0">
           {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-1 p-2 overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-1 p-2 overflow-x-auto flex-1 min-w-0">
             {/* Font Controls */}
             <Select onValueChange={applyFontFamily}>
               <SelectTrigger className="w-32 h-8 text-xs">
@@ -1148,7 +1148,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
 
           {/* Tab Triggers */}
-          <TabsList className="grid w-32 grid-cols-2 mr-2">
+          <TabsList className="grid w-44 grid-cols-2 mr-2 shrink-0">
             <TabsTrigger value="edit" className="text-xs">
               <Code className="h-3 w-3 mr-1" />
               Edytuj
