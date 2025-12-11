@@ -1,9 +1,19 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface MedicalChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+export interface ChatHistoryEntry {
+  id: string;
+  query: string;
+  response: string;
+  results_count: number;
+  created_at: string;
 }
 
 const MEDICAL_CHAT_URL = 'https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/medical-assistant';
@@ -12,7 +22,56 @@ export const useMedicalChatStream = () => {
   const [messages, setMessages] = useState<MedicalChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resultsCount, setResultsCount] = useState<number>(10);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const { language } = useLanguage();
+  const { user } = useAuth();
+
+  // Load chat history on mount
+  useEffect(() => {
+    if (user) {
+      loadChatHistory();
+    }
+  }, [user]);
+
+  const loadChatHistory = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('medical_chat_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      setChatHistory(data || []);
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    }
+  };
+
+  const saveChatHistory = async (query: string, response: string) => {
+    if (!user) return;
+    
+    try {
+      // Insert new entry
+      await supabase
+        .from('medical_chat_history')
+        .insert({
+          user_id: user.id,
+          query,
+          response,
+          results_count: resultsCount,
+        });
+      
+      // Reload history to get updated list (keeps only last 10)
+      await loadChatHistory();
+    } catch (err) {
+      console.error('Failed to save chat history:', err);
+    }
+  };
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim()) return;
@@ -31,6 +90,7 @@ export const useMedicalChatStream = () => {
         body: JSON.stringify({
           messages: [...messages, userMsg],
           language,
+          resultsCount: resultsCount === 0 ? 100 : resultsCount, // 0 = max = 100
         }),
       });
 
@@ -123,6 +183,11 @@ export const useMedicalChatStream = () => {
           } catch { /* ignore */ }
         }
       }
+
+      // Save to history
+      if (assistantContent) {
+        await saveChatHistory(userMessage, assistantContent);
+      }
     } catch (err) {
       console.error('Medical chat error:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił błąd');
@@ -131,12 +196,29 @@ export const useMedicalChatStream = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, language]);
+  }, [messages, language, resultsCount, user]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
   }, []);
 
-  return { messages, isLoading, error, sendMessage, clearMessages };
+  const loadFromHistory = useCallback((entry: ChatHistoryEntry) => {
+    setMessages([
+      { role: 'user', content: entry.query },
+      { role: 'assistant', content: entry.response },
+    ]);
+  }, []);
+
+  return { 
+    messages, 
+    isLoading, 
+    error, 
+    sendMessage, 
+    clearMessages, 
+    resultsCount, 
+    setResultsCount,
+    chatHistory,
+    loadFromHistory,
+  };
 };
