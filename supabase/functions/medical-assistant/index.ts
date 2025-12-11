@@ -12,6 +12,9 @@ interface PubMedArticle {
   pubdate: string;
   source: string;
   fulljournalname: string;
+  doi?: string;
+  pmc?: string;
+  abstract?: string;
 }
 
 // Simple translation map for common medical terms (Polish/German -> English)
@@ -47,6 +50,23 @@ const medicalTermsTranslation: Record<string, string> = {
   'odporność': 'immunity immune system',
   'alergia': 'allergy',
   'astma': 'asthma',
+  'alzheimer': 'alzheimer disease',
+  'parkinson': 'parkinson disease',
+  'miażdżyca': 'atherosclerosis',
+  'arytmia': 'arrhythmia cardiac',
+  'cukrzyca typu 2': 'type 2 diabetes',
+  'kwasy tłuszczowe': 'fatty acids',
+  'kwasy omega': 'omega fatty acids',
+  'suplementy': 'supplements dietary',
+  'witamina d': 'vitamin D',
+  'witamina c': 'vitamin C',
+  'magnez': 'magnesium',
+  'żelazo': 'iron deficiency',
+  'cynk': 'zinc',
+  'probiotyki': 'probiotics',
+  'prebiotyki': 'prebiotics',
+  'mikrobiom': 'microbiome gut',
+  'jelita': 'intestinal gut',
   // German terms
   'zucker': 'diabetes sugar',
   'herz': 'heart cardiovascular',
@@ -67,13 +87,14 @@ const medicalTermsTranslation: Record<string, string> = {
   'knochen': 'bones osteoporosis',
   'immunität': 'immunity immune system',
   'allergie': 'allergy',
+  'fettsäuren': 'fatty acids',
 };
 
 function translateQueryToEnglish(query: string): string {
   let translatedQuery = query.toLowerCase();
   
   // Remove common Polish/German stopwords
-  const stopwords = ['a', 'i', 'w', 'na', 'z', 'do', 'o', 'czy', 'jak', 'und', 'oder', 'mit', 'für', 'bei', 'auf'];
+  const stopwords = ['a', 'i', 'w', 'na', 'z', 'do', 'o', 'czy', 'jak', 'und', 'oder', 'mit', 'für', 'bei', 'auf', 'wpływ', 'działanie', 'efekty'];
   stopwords.forEach(word => {
     translatedQuery = translatedQuery.replace(new RegExp(`\\b${word}\\b`, 'gi'), ' ');
   });
@@ -95,8 +116,8 @@ async function searchPubMed(query: string): Promise<PubMedArticle[]> {
     // Translate query to English for better PubMed results
     const englishQuery = translateQueryToEnglish(query);
     
-    // Step 1: Search for article IDs
-    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(englishQuery)}&retmax=8&sort=relevance&retmode=json`;
+    // Step 1: Search for article IDs - use relevance and date sort
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(englishQuery)}&retmax=6&sort=relevance&retmode=json`;
     
     console.log('Searching PubMed:', searchUrl);
     const searchResponse = await fetch(searchUrl);
@@ -107,7 +128,7 @@ async function searchPubMed(query: string): Promise<PubMedArticle[]> {
     
     if (pmids.length === 0) {
       // Fallback: try original query if translation didn't help
-      const fallbackUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=8&sort=relevance&retmode=json`;
+      const fallbackUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=6&sort=relevance&retmode=json`;
       console.log('Fallback search:', fallbackUrl);
       const fallbackResponse = await fetch(fallbackUrl);
       const fallbackData = await fallbackResponse.json();
@@ -117,18 +138,103 @@ async function searchPubMed(query: string): Promise<PubMedArticle[]> {
         return [];
       }
       
-      return await fetchArticleSummaries(fallbackPmids);
+      return await fetchArticleDetails(fallbackPmids);
     }
     
-    return await fetchArticleSummaries(pmids);
+    return await fetchArticleDetails(pmids);
   } catch (error) {
     console.error('PubMed search error:', error);
     return [];
   }
 }
 
+async function fetchArticleDetails(pmids: string[]): Promise<PubMedArticle[]> {
+  // Use efetch to get full article details including DOI and abstract
+  const fetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`;
+  
+  console.log('Fetching article details:', fetchUrl);
+  const fetchResponse = await fetch(fetchUrl);
+  const xmlText = await fetchResponse.text();
+  
+  const articles: PubMedArticle[] = [];
+  
+  // Parse each article from XML
+  for (const pmid of pmids) {
+    try {
+      // Extract article data using regex (simpler than full XML parsing in Deno)
+      const articleRegex = new RegExp(`<PubmedArticle[^>]*>([\\s\\S]*?)<\\/PubmedArticle>`, 'g');
+      const matches = xmlText.matchAll(articleRegex);
+      
+      for (const match of matches) {
+        const articleXml = match[1];
+        
+        // Check if this is the right article
+        const pmidMatch = articleXml.match(/<PMID[^>]*>(\d+)<\/PMID>/);
+        if (!pmidMatch || pmidMatch[1] !== pmid) continue;
+        
+        // Extract title
+        const titleMatch = articleXml.match(/<ArticleTitle>([^<]+)<\/ArticleTitle>/);
+        const title = titleMatch ? titleMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') : '';
+        
+        if (!title) continue;
+        
+        // Extract authors
+        const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>([^<]+)<\/LastName>[\s\S]*?<ForeName>([^<]*)<\/ForeName>[\s\S]*?<\/Author>/g);
+        const authors: { name: string }[] = [];
+        for (const authorMatch of authorMatches) {
+          authors.push({ name: `${authorMatch[1]} ${authorMatch[2]}`.trim() });
+        }
+        
+        // Extract publication date
+        const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(\d{4})<\/Year>/);
+        const pubdate = yearMatch ? yearMatch[1] : '';
+        
+        // Extract journal
+        const journalMatch = articleXml.match(/<Title>([^<]+)<\/Title>/);
+        const journal = journalMatch ? journalMatch[1] : '';
+        
+        // Extract DOI
+        const doiMatch = articleXml.match(/<ArticleId IdType="doi">([^<]+)<\/ArticleId>/);
+        const doi = doiMatch ? doiMatch[1] : undefined;
+        
+        // Extract PMC ID
+        const pmcMatch = articleXml.match(/<ArticleId IdType="pmc">([^<]+)<\/ArticleId>/);
+        const pmc = pmcMatch ? pmcMatch[1] : undefined;
+        
+        // Extract abstract
+        const abstractMatch = articleXml.match(/<AbstractText[^>]*>([^<]+)<\/AbstractText>/);
+        let abstract = abstractMatch ? abstractMatch[1] : undefined;
+        if (abstract && abstract.length > 300) {
+          abstract = abstract.substring(0, 300) + '...';
+        }
+        
+        articles.push({
+          uid: pmid,
+          title,
+          authors,
+          pubdate,
+          source: journal,
+          fulljournalname: journal,
+          doi,
+          pmc,
+          abstract,
+        });
+        break;
+      }
+    } catch (err) {
+      console.error('Error parsing article:', pmid, err);
+    }
+  }
+  
+  // If XML parsing failed, fall back to esummary
+  if (articles.length === 0) {
+    return await fetchArticleSummaries(pmids);
+  }
+  
+  return articles;
+}
+
 async function fetchArticleSummaries(pmids: string[]): Promise<PubMedArticle[]> {
-  // Step 2: Get article summaries
   const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json&version=2.0`;
   
   console.log('Fetching summaries:', summaryUrl);
@@ -141,6 +247,10 @@ async function fetchArticleSummaries(pmids: string[]): Promise<PubMedArticle[]> 
   for (const pmid of pmids) {
     const article = result[pmid];
     if (article && article.title) {
+      // Extract DOI from articleids
+      const doiObj = article.articleids?.find((id: any) => id.idtype === 'doi');
+      const pmcObj = article.articleids?.find((id: any) => id.idtype === 'pmc');
+      
       articles.push({
         uid: pmid,
         title: article.title,
@@ -148,6 +258,8 @@ async function fetchArticleSummaries(pmids: string[]): Promise<PubMedArticle[]> 
         pubdate: article.pubdate || '',
         source: article.source || '',
         fulljournalname: article.fulljournalname || article.source || '',
+        doi: doiObj?.value,
+        pmc: pmcObj?.value,
       });
     }
   }
@@ -179,7 +291,18 @@ function buildPubMedContext(articles: PubMedArticle[], language: string): string
     context += `   Autorzy: ${authorNames}${authorSuffix}\n`;
     context += `   Rok: ${year}\n`;
     context += `   Czasopismo: ${article.fulljournalname}\n`;
-    context += `   Link: https://pubmed.ncbi.nlm.nih.gov/${article.uid}/\n\n`;
+    context += `   PubMed: https://pubmed.ncbi.nlm.nih.gov/${article.uid}/\n`;
+    
+    if (article.doi) {
+      context += `   DOI: https://doi.org/${article.doi}\n`;
+    }
+    if (article.pmc) {
+      context += `   PMC: https://www.ncbi.nlm.nih.gov/pmc/articles/${article.pmc}/\n`;
+    }
+    if (article.abstract) {
+      context += `   Abstrakt: ${article.abstract}\n`;
+    }
+    context += '\n';
   });
   
   return context;
@@ -187,50 +310,55 @@ function buildPubMedContext(articles: PubMedArticle[], language: string): string
 
 function getSystemPrompt(language: string): string {
   const prompts = {
-    pl: `Jesteś medycznym asystentem AI specjalizującym się w analizie literatury naukowej. 
+    pl: `Jesteś medycznym asystentem AI specjalizującym się w analizie literatury naukowej z PubMed.
 
 ZASADY:
-1. Odpowiadaj WYŁĄCZNIE na podstawie dostarczonych badań naukowych z PubMed
-2. Cytuj konkretne badania, podając autorów i rok
-3. Zawsze podawaj linki do PubMed dla każdego cytowanego badania
-4. Odpowiadaj jasno, konkretnie i w języku polskim
-5. Jeśli nie ma wystarczających danych naukowych, powiedz o tym wprost
-6. ZAWSZE dodawaj na końcu disclaimer: "⚠️ Te informacje mają charakter edukacyjny i nie zastępują konsultacji z lekarzem."
+1. Odpowiadaj WYŁĄCZNIE na podstawie dostarczonych badań naukowych
+2. Dla KAŻDEGO badania podaj:
+   - Tytuł badania (pogrubiony)
+   - Autorów i rok publikacji
+   - Krótkie podsumowanie wniosków z abstraktu
+   - WSZYSTKIE dostępne linki: PubMed, DOI, PMC (jako klikalne linki markdown)
+3. Odpowiadaj jasno i konkretnie w języku polskim
+4. Jeśli nie ma wystarczających badań, powiedz o tym wprost
+5. ZAWSZE dodawaj na końcu: "⚠️ Te informacje mają charakter edukacyjny i nie zastępują konsultacji z lekarzem."
 
 FORMAT ODPOWIEDZI:
-- Zacznij od krótkiego podsumowania głównych wniosków
-- Następnie przedstaw szczegóły z poszczególnych badań
-- Zakończ disclaimerem`,
+**Podsumowanie:**
+[Krótkie podsumowanie głównych wniosków z badań]
+
+**Badania naukowe:**
+1. **[Tytuł badania]** (Autor et al., Rok)
+   [Krótki opis wniosków]
+   - [PubMed](link) | [DOI](link) | [PMC](link)
+
+[Disclaimer]`,
     
-    de: `Sie sind ein medizinischer KI-Assistent, spezialisiert auf die Analyse wissenschaftlicher Literatur.
+    de: `Sie sind ein medizinischer KI-Assistent für wissenschaftliche Literaturanalyse aus PubMed.
 
 REGELN:
-1. Antworten Sie NUR auf Basis der bereitgestellten wissenschaftlichen Studien aus PubMed
-2. Zitieren Sie konkrete Studien mit Autoren und Jahr
-3. Geben Sie immer PubMed-Links für jede zitierte Studie an
-4. Antworten Sie klar, präzise und auf Deutsch
-5. Wenn nicht genügend wissenschaftliche Daten vorhanden sind, sagen Sie dies direkt
-6. Fügen Sie IMMER am Ende einen Disclaimer hinzu: "⚠️ Diese Informationen dienen Bildungszwecken und ersetzen keine ärztliche Beratung."
-
-ANTWORTFORMAT:
-- Beginnen Sie mit einer kurzen Zusammenfassung der Hauptergebnisse
-- Präsentieren Sie dann Details aus einzelnen Studien
-- Schließen Sie mit dem Disclaimer ab`,
+1. Antworten Sie NUR basierend auf den bereitgestellten Studien
+2. Für JEDE Studie geben Sie an:
+   - Studientitel (fett)
+   - Autoren und Erscheinungsjahr
+   - Kurze Zusammenfassung der Ergebnisse
+   - ALLE verfügbaren Links: PubMed, DOI, PMC (als klickbare Markdown-Links)
+3. Antworten Sie klar auf Deutsch
+4. Wenn keine Studien verfügbar sind, sagen Sie es direkt
+5. IMMER am Ende: "⚠️ Diese Informationen dienen Bildungszwecken und ersetzen keine ärztliche Beratung."`,
     
-    en: `You are a medical AI assistant specializing in scientific literature analysis.
+    en: `You are a medical AI assistant specializing in PubMed scientific literature analysis.
 
 RULES:
-1. Respond ONLY based on the provided scientific studies from PubMed
-2. Cite specific studies, providing authors and year
-3. Always provide PubMed links for each cited study
-4. Respond clearly, concisely, and in English
-5. If there is insufficient scientific data, say so directly
-6. ALWAYS add a disclaimer at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."
-
-RESPONSE FORMAT:
-- Start with a brief summary of main conclusions
-- Then present details from individual studies
-- End with the disclaimer`
+1. Respond ONLY based on provided scientific studies
+2. For EACH study provide:
+   - Study title (bold)
+   - Authors and publication year
+   - Brief summary of findings from abstract
+   - ALL available links: PubMed, DOI, PMC (as clickable markdown links)
+3. Respond clearly in English
+4. If no studies are available, say so directly
+5. ALWAYS add at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."`
   };
   
   return prompts[language as keyof typeof prompts] || prompts.en;
