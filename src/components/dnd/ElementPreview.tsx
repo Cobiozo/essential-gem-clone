@@ -166,6 +166,14 @@ export const ElementPreview: React.FC<ElementPreviewProps> = ({ type, className 
             <div className="w-2 h-3 bg-red-500/60 rounded-t-full" />
           </div>
         );
+      case 'file-download':
+        return (
+          <div className="flex justify-center">
+            <div className="px-3 py-1 bg-primary/20 border border-primary/30 rounded text-[6px] text-primary font-medium flex items-center gap-1">
+              <span>↓</span> Pobierz
+            </div>
+          </div>
+        );
       case 'html':
       case 'shortcode':
         return (
