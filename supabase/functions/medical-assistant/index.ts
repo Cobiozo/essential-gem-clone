@@ -14,10 +14,89 @@ interface PubMedArticle {
   fulljournalname: string;
 }
 
+// Simple translation map for common medical terms (Polish/German -> English)
+const medicalTermsTranslation: Record<string, string> = {
+  // Polish terms
+  'cukrzyca': 'diabetes',
+  'omega3': 'omega-3 fatty acids',
+  'omega 3': 'omega-3 fatty acids',
+  'omega-3': 'omega-3 fatty acids',
+  'serce': 'heart cardiovascular',
+  'nadciśnienie': 'hypertension blood pressure',
+  'otyłość': 'obesity',
+  'depresja': 'depression',
+  'mózg': 'brain cognitive',
+  'pamięć': 'memory cognitive',
+  'zapalenie': 'inflammation',
+  'rak': 'cancer',
+  'cholesterol': 'cholesterol',
+  'insulina': 'insulin',
+  'wątroba': 'liver hepatic',
+  'nerki': 'kidney renal',
+  'tarczyca': 'thyroid',
+  'witamina': 'vitamin',
+  'suplementacja': 'supplementation',
+  'dieta': 'diet nutrition',
+  'ciąża': 'pregnancy',
+  'dziecko': 'child pediatric',
+  'stres': 'stress anxiety',
+  'sen': 'sleep',
+  'skóra': 'skin dermatology',
+  'stawy': 'joints arthritis',
+  'kości': 'bones osteoporosis',
+  'odporność': 'immunity immune system',
+  'alergia': 'allergy',
+  'astma': 'asthma',
+  // German terms
+  'zucker': 'diabetes sugar',
+  'herz': 'heart cardiovascular',
+  'blutdruck': 'blood pressure hypertension',
+  'fettleibigkeit': 'obesity',
+  'gehirn': 'brain cognitive',
+  'gedächtnis': 'memory',
+  'entzündung': 'inflammation',
+  'krebs': 'cancer',
+  'leber': 'liver hepatic',
+  'niere': 'kidney renal',
+  'schilddrüse': 'thyroid',
+  'schwangerschaft': 'pregnancy',
+  'kind': 'child pediatric',
+  'schlaf': 'sleep',
+  'haut': 'skin dermatology',
+  'gelenke': 'joints arthritis',
+  'knochen': 'bones osteoporosis',
+  'immunität': 'immunity immune system',
+  'allergie': 'allergy',
+};
+
+function translateQueryToEnglish(query: string): string {
+  let translatedQuery = query.toLowerCase();
+  
+  // Remove common Polish/German stopwords
+  const stopwords = ['a', 'i', 'w', 'na', 'z', 'do', 'o', 'czy', 'jak', 'und', 'oder', 'mit', 'für', 'bei', 'auf'];
+  stopwords.forEach(word => {
+    translatedQuery = translatedQuery.replace(new RegExp(`\\b${word}\\b`, 'gi'), ' ');
+  });
+  
+  // Translate known medical terms
+  for (const [term, translation] of Object.entries(medicalTermsTranslation)) {
+    translatedQuery = translatedQuery.replace(new RegExp(term, 'gi'), translation);
+  }
+  
+  // Clean up extra spaces
+  translatedQuery = translatedQuery.replace(/\s+/g, ' ').trim();
+  
+  console.log('Translated query:', query, '->', translatedQuery);
+  return translatedQuery;
+}
+
 async function searchPubMed(query: string): Promise<PubMedArticle[]> {
   try {
+    // Translate query to English for better PubMed results
+    const englishQuery = translateQueryToEnglish(query);
+    
     // Step 1: Search for article IDs
-    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=6&sort=relevance&retmode=json`;
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(englishQuery)}&retmax=8&sort=relevance&retmode=json`;
     
     console.log('Searching PubMed:', searchUrl);
     const searchResponse = await fetch(searchUrl);
@@ -27,38 +106,53 @@ async function searchPubMed(query: string): Promise<PubMedArticle[]> {
     console.log('Found PMIDs:', pmids);
     
     if (pmids.length === 0) {
-      return [];
-    }
-    
-    // Step 2: Get article summaries
-    const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json&version=2.0`;
-    
-    console.log('Fetching summaries:', summaryUrl);
-    const summaryResponse = await fetch(summaryUrl);
-    const summaryData = await summaryResponse.json();
-    
-    const articles: PubMedArticle[] = [];
-    const result = summaryData.result || {};
-    
-    for (const pmid of pmids) {
-      const article = result[pmid];
-      if (article && article.title) {
-        articles.push({
-          uid: pmid,
-          title: article.title,
-          authors: article.authors || [],
-          pubdate: article.pubdate || '',
-          source: article.source || '',
-          fulljournalname: article.fulljournalname || article.source || '',
-        });
+      // Fallback: try original query if translation didn't help
+      const fallbackUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=8&sort=relevance&retmode=json`;
+      console.log('Fallback search:', fallbackUrl);
+      const fallbackResponse = await fetch(fallbackUrl);
+      const fallbackData = await fallbackResponse.json();
+      const fallbackPmids = fallbackData.esearchresult?.idlist || [];
+      
+      if (fallbackPmids.length === 0) {
+        return [];
       }
+      
+      return await fetchArticleSummaries(fallbackPmids);
     }
     
-    return articles;
+    return await fetchArticleSummaries(pmids);
   } catch (error) {
     console.error('PubMed search error:', error);
     return [];
   }
+}
+
+async function fetchArticleSummaries(pmids: string[]): Promise<PubMedArticle[]> {
+  // Step 2: Get article summaries
+  const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json&version=2.0`;
+  
+  console.log('Fetching summaries:', summaryUrl);
+  const summaryResponse = await fetch(summaryUrl);
+  const summaryData = await summaryResponse.json();
+  
+  const articles: PubMedArticle[] = [];
+  const result = summaryData.result || {};
+  
+  for (const pmid of pmids) {
+    const article = result[pmid];
+    if (article && article.title) {
+      articles.push({
+        uid: pmid,
+        title: article.title,
+        authors: article.authors || [],
+        pubdate: article.pubdate || '',
+        source: article.source || '',
+        fulljournalname: article.fulljournalname || article.source || '',
+      });
+    }
+  }
+  
+  return articles;
 }
 
 function buildPubMedContext(articles: PubMedArticle[], language: string): string {
