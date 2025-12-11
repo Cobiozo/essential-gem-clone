@@ -727,6 +727,50 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         </Button>
       );
 
+    case 'file-download':
+      const fileCell = (item.cells as any[])?.[0];
+      const fileStyles = applyItemStyles(item);
+      const fileUrl = fileCell?.url || item.url;
+      const fileName = fileCell?.fileName || 'Plik';
+      const FileIcon = item.icon ? (icons as any)[item.icon] : (icons as any).Download;
+      const fileIconPosition = (item as any).icon_position || 'before';
+      
+      if (!fileUrl && isEditMode) {
+        return (
+          <div className="border border-dashed border-muted-foreground/30 rounded p-3 text-center">
+            <p className="text-xs text-muted-foreground">Pobierz plik</p>
+          </div>
+        );
+      }
+      
+      const handleFileDownload = () => {
+        if (!fileUrl) return;
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      
+      return (
+        <Button
+          onClick={handleFileDownload}
+          className={cn('w-full', fileStyles.className)}
+          style={fileStyles.style}
+          variant="outline"
+        >
+          {FileIcon && fileIconPosition === 'before' && (
+            <FileIcon className="w-4 h-4 mr-2" />
+          )}
+          {fileCell?.content || item.title || 'Pobierz plik'}
+          {FileIcon && fileIconPosition === 'after' && (
+            <FileIcon className="w-4 h-4 ml-2" />
+          )}
+        </Button>
+      );
+
     case 'maps':
       const mapsCell = (item.cells as any[])?.[0];
       if (!mapsCell?.content && isEditMode) {

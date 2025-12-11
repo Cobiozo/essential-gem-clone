@@ -27,6 +27,7 @@ import { AccessibilityEditor } from './editors/AccessibilityEditor';
 import { SidebarEditor } from './editors/SidebarEditor';
 import { PpomEditor } from './editors/PpomEditor';
 import { TextPathEditor } from './editors/TextPathEditor';
+import { FileDownloadEditor } from './editors/FileDownloadEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -138,6 +139,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'text-path':
       return <TextPathEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'file-download':
+      return <FileDownloadEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types
