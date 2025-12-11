@@ -1160,18 +1160,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </TabsList>
         </div>
 
-        <TabsContent value="edit" className="m-0">
+        <TabsContent value="edit" className="m-0 flex-1">
           <Textarea
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             rows={rows}
-            className="border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="border-0 resize-y focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] max-h-[60vh] overflow-auto"
           />
         </TabsContent>
 
-        <TabsContent value="preview" className="m-0">
+        <TabsContent value="preview" className="m-0 flex-1">
           <div 
             ref={previewRef}
             contentEditable
@@ -1184,7 +1184,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               isUserTypingRef.current = false;
               handlePreviewChange();
             }}
-            className="p-3 min-h-[80px] prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+            className="p-3 min-h-[100px] max-h-[60vh] overflow-auto prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
             style={{ 
               minHeight: `${rows * 1.5}rem`,
               direction: 'ltr',

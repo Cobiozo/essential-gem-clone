@@ -72,7 +72,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
           <div className="space-y-4 p-4">
             <div className="space-y-2">
               <Label>Treść</Label>
-              <div className="border rounded-md overflow-hidden" style={{ height: '400px' }}>
+              <div className="border rounded-md overflow-auto" style={{ minHeight: '200px', maxHeight: 'calc(100vh - 400px)' }}>
                 <RichTextEditor
                   value={editedItem.cells?.[0]?.content || editedItem.description || ''}
                   onChange={(value) => {
