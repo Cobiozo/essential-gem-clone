@@ -5,14 +5,23 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMedicalChatStream } from '@/hooks/useMedicalChatStream';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const MedicalChatWidget: React.FC = () => {
+  const { user, userRole, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const { messages, isLoading, error, sendMessage, clearMessages } = useMedicalChatStream();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { t, language } = useLanguage();
+
+  // Only show widget for partner, client, specjalista or admin roles
+  const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
+
+  if (!hasAccess) {
+    return null;
+  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
