@@ -17,128 +17,215 @@ interface PubMedArticle {
   abstract?: string;
 }
 
-// Simple translation map for common medical terms (Polish/German -> English)
-const medicalTermsTranslation: Record<string, string> = {
+// Medical terms with synonyms and MeSH terms for better PubMed search
+const medicalTermsWithSynonyms: Record<string, { english: string; synonyms: string[]; mesh?: string }> = {
   // Polish terms
-  'cukrzyca': 'diabetes',
-  'omega3': 'omega-3 fatty acids',
-  'omega 3': 'omega-3 fatty acids',
-  'omega-3': 'omega-3 fatty acids',
-  'serce': 'heart cardiovascular',
-  'nadciśnienie': 'hypertension blood pressure',
-  'otyłość': 'obesity',
-  'depresja': 'depression',
-  'mózg': 'brain cognitive',
-  'pamięć': 'memory cognitive',
-  'zapalenie': 'inflammation',
-  'rak': 'cancer',
-  'cholesterol': 'cholesterol',
-  'insulina': 'insulin',
-  'wątroba': 'liver hepatic',
-  'nerki': 'kidney renal',
-  'tarczyca': 'thyroid',
-  'witamina': 'vitamin',
-  'suplementacja': 'supplementation',
-  'dieta': 'diet nutrition',
-  'ciąża': 'pregnancy',
-  'dziecko': 'child pediatric',
-  'stres': 'stress anxiety',
-  'sen': 'sleep',
-  'skóra': 'skin dermatology',
-  'stawy': 'joints arthritis',
-  'kości': 'bones osteoporosis',
-  'odporność': 'immunity immune system',
-  'alergia': 'allergy',
-  'astma': 'asthma',
-  'alzheimer': 'alzheimer disease',
-  'parkinson': 'parkinson disease',
-  'miażdżyca': 'atherosclerosis',
-  'arytmia': 'arrhythmia cardiac',
-  'cukrzyca typu 2': 'type 2 diabetes',
-  'kwasy tłuszczowe': 'fatty acids',
-  'kwasy omega': 'omega fatty acids',
-  'suplementy': 'supplements dietary',
-  'witamina d': 'vitamin D',
-  'witamina c': 'vitamin C',
-  'magnez': 'magnesium',
-  'żelazo': 'iron deficiency',
-  'cynk': 'zinc',
-  'probiotyki': 'probiotics',
-  'prebiotyki': 'prebiotics',
-  'mikrobiom': 'microbiome gut',
-  'jelita': 'intestinal gut',
+  'cukrzyca': { english: 'diabetes', synonyms: ['diabetes mellitus', 'diabetic'], mesh: 'Diabetes Mellitus' },
+  'cukrzyca typu 2': { english: 'type 2 diabetes', synonyms: ['diabetes mellitus type 2', 'T2DM', 'non-insulin dependent'], mesh: 'Diabetes Mellitus, Type 2' },
+  'omega3': { english: 'omega-3', synonyms: ['omega-3 fatty acids', 'n-3 fatty acids', 'fish oil', 'EPA', 'DHA', 'docosahexaenoic', 'eicosapentaenoic'], mesh: 'Fatty Acids, Omega-3' },
+  'omega 3': { english: 'omega-3', synonyms: ['omega-3 fatty acids', 'n-3 fatty acids', 'fish oil', 'EPA', 'DHA'], mesh: 'Fatty Acids, Omega-3' },
+  'omega-3': { english: 'omega-3', synonyms: ['omega-3 fatty acids', 'n-3 fatty acids', 'fish oil', 'EPA', 'DHA'], mesh: 'Fatty Acids, Omega-3' },
+  'serce': { english: 'heart', synonyms: ['cardiovascular', 'cardiac', 'coronary'], mesh: 'Heart' },
+  'nadciśnienie': { english: 'hypertension', synonyms: ['high blood pressure', 'arterial hypertension', 'elevated blood pressure'], mesh: 'Hypertension' },
+  'otyłość': { english: 'obesity', synonyms: ['overweight', 'adiposity', 'body mass index', 'BMI'], mesh: 'Obesity' },
+  'depresja': { english: 'depression', synonyms: ['major depression', 'depressive disorder', 'mood disorder'], mesh: 'Depression' },
+  'mózg': { english: 'brain', synonyms: ['cerebral', 'neurological', 'cognitive', 'neural'], mesh: 'Brain' },
+  'pamięć': { english: 'memory', synonyms: ['cognitive function', 'cognition', 'memory performance'], mesh: 'Memory' },
+  'zapalenie': { english: 'inflammation', synonyms: ['inflammatory', 'inflammatory response', 'cytokines'], mesh: 'Inflammation' },
+  'rak': { english: 'cancer', synonyms: ['neoplasm', 'tumor', 'carcinoma', 'malignancy', 'oncology'], mesh: 'Neoplasms' },
+  'cholesterol': { english: 'cholesterol', synonyms: ['LDL', 'HDL', 'lipid', 'hypercholesterolemia', 'dyslipidemia'], mesh: 'Cholesterol' },
+  'insulina': { english: 'insulin', synonyms: ['insulin resistance', 'insulin sensitivity', 'glycemic'], mesh: 'Insulin' },
+  'wątroba': { english: 'liver', synonyms: ['hepatic', 'hepatocyte', 'fatty liver', 'NAFLD'], mesh: 'Liver' },
+  'nerki': { english: 'kidney', synonyms: ['renal', 'nephropathy', 'chronic kidney disease', 'CKD'], mesh: 'Kidney' },
+  'tarczyca': { english: 'thyroid', synonyms: ['thyroid gland', 'hypothyroid', 'hyperthyroid', 'TSH'], mesh: 'Thyroid Gland' },
+  'witamina': { english: 'vitamin', synonyms: ['vitamins', 'micronutrient'], mesh: 'Vitamins' },
+  'witamina d': { english: 'vitamin D', synonyms: ['cholecalciferol', '25-hydroxyvitamin D', 'calciferol'], mesh: 'Vitamin D' },
+  'witamina c': { english: 'vitamin C', synonyms: ['ascorbic acid', 'ascorbate'], mesh: 'Ascorbic Acid' },
+  'suplementacja': { english: 'supplementation', synonyms: ['dietary supplement', 'nutritional supplement'], mesh: 'Dietary Supplements' },
+  'dieta': { english: 'diet', synonyms: ['nutrition', 'dietary', 'nutritional intake', 'food intake'], mesh: 'Diet' },
+  'ciąża': { english: 'pregnancy', synonyms: ['pregnant', 'prenatal', 'maternal', 'gestation'], mesh: 'Pregnancy' },
+  'dziecko': { english: 'child', synonyms: ['pediatric', 'children', 'infant', 'adolescent'], mesh: 'Child' },
+  'stres': { english: 'stress', synonyms: ['psychological stress', 'anxiety', 'cortisol'], mesh: 'Stress, Psychological' },
+  'sen': { english: 'sleep', synonyms: ['sleep quality', 'insomnia', 'sleep disorder', 'circadian'], mesh: 'Sleep' },
+  'skóra': { english: 'skin', synonyms: ['dermatology', 'dermal', 'cutaneous', 'epidermis'], mesh: 'Skin' },
+  'stawy': { english: 'joints', synonyms: ['arthritis', 'articular', 'osteoarthritis', 'rheumatoid'], mesh: 'Joints' },
+  'kości': { english: 'bones', synonyms: ['bone', 'osteoporosis', 'bone density', 'skeletal'], mesh: 'Bone and Bones' },
+  'odporność': { english: 'immunity', synonyms: ['immune system', 'immune function', 'immunology'], mesh: 'Immunity' },
+  'alergia': { english: 'allergy', synonyms: ['allergic', 'hypersensitivity', 'atopic'], mesh: 'Hypersensitivity' },
+  'astma': { english: 'asthma', synonyms: ['asthmatic', 'bronchial asthma', 'airway'], mesh: 'Asthma' },
+  'alzheimer': { english: 'alzheimer', synonyms: ['alzheimer disease', 'dementia', 'cognitive decline', 'neurodegeneration'], mesh: 'Alzheimer Disease' },
+  'parkinson': { english: 'parkinson', synonyms: ['parkinson disease', 'parkinsonian', 'dopamine'], mesh: 'Parkinson Disease' },
+  'miażdżyca': { english: 'atherosclerosis', synonyms: ['arteriosclerosis', 'plaque', 'arterial disease'], mesh: 'Atherosclerosis' },
+  'arytmia': { english: 'arrhythmia', synonyms: ['cardiac arrhythmia', 'atrial fibrillation', 'heart rhythm'], mesh: 'Arrhythmias, Cardiac' },
+  'magnez': { english: 'magnesium', synonyms: ['Mg', 'magnesium deficiency'], mesh: 'Magnesium' },
+  'żelazo': { english: 'iron', synonyms: ['iron deficiency', 'ferritin', 'anemia'], mesh: 'Iron' },
+  'cynk': { english: 'zinc', synonyms: ['Zn', 'zinc deficiency'], mesh: 'Zinc' },
+  'probiotyki': { english: 'probiotics', synonyms: ['probiotic', 'lactobacillus', 'bifidobacterium'], mesh: 'Probiotics' },
+  'prebiotyki': { english: 'prebiotics', synonyms: ['prebiotic', 'fiber', 'inulin'], mesh: 'Prebiotics' },
+  'mikrobiom': { english: 'microbiome', synonyms: ['gut microbiota', 'intestinal flora', 'microbiota'], mesh: 'Gastrointestinal Microbiome' },
+  'jelita': { english: 'intestinal', synonyms: ['gut', 'gastrointestinal', 'bowel', 'digestive'], mesh: 'Intestines' },
+  'kwasy tłuszczowe': { english: 'fatty acids', synonyms: ['lipids', 'polyunsaturated fatty acids', 'PUFA'], mesh: 'Fatty Acids' },
   // German terms
-  'zucker': 'diabetes sugar',
-  'herz': 'heart cardiovascular',
-  'blutdruck': 'blood pressure hypertension',
-  'fettleibigkeit': 'obesity',
-  'gehirn': 'brain cognitive',
-  'gedächtnis': 'memory',
-  'entzündung': 'inflammation',
-  'krebs': 'cancer',
-  'leber': 'liver hepatic',
-  'niere': 'kidney renal',
-  'schilddrüse': 'thyroid',
-  'schwangerschaft': 'pregnancy',
-  'kind': 'child pediatric',
-  'schlaf': 'sleep',
-  'haut': 'skin dermatology',
-  'gelenke': 'joints arthritis',
-  'knochen': 'bones osteoporosis',
-  'immunität': 'immunity immune system',
-  'allergie': 'allergy',
-  'fettsäuren': 'fatty acids',
+  'zucker': { english: 'diabetes', synonyms: ['diabetes mellitus', 'blood sugar', 'glucose'], mesh: 'Diabetes Mellitus' },
+  'herz': { english: 'heart', synonyms: ['cardiovascular', 'cardiac', 'coronary'], mesh: 'Heart' },
+  'blutdruck': { english: 'blood pressure', synonyms: ['hypertension', 'arterial pressure'], mesh: 'Blood Pressure' },
+  'fettleibigkeit': { english: 'obesity', synonyms: ['overweight', 'adiposity', 'BMI'], mesh: 'Obesity' },
+  'gehirn': { english: 'brain', synonyms: ['cerebral', 'neurological', 'cognitive'], mesh: 'Brain' },
+  'gedächtnis': { english: 'memory', synonyms: ['cognitive function', 'cognition'], mesh: 'Memory' },
+  'entzündung': { english: 'inflammation', synonyms: ['inflammatory', 'cytokines'], mesh: 'Inflammation' },
+  'krebs': { english: 'cancer', synonyms: ['neoplasm', 'tumor', 'carcinoma'], mesh: 'Neoplasms' },
+  'leber': { english: 'liver', synonyms: ['hepatic', 'fatty liver'], mesh: 'Liver' },
+  'niere': { english: 'kidney', synonyms: ['renal', 'nephropathy'], mesh: 'Kidney' },
+  'schilddrüse': { english: 'thyroid', synonyms: ['thyroid gland'], mesh: 'Thyroid Gland' },
+  'schwangerschaft': { english: 'pregnancy', synonyms: ['pregnant', 'prenatal'], mesh: 'Pregnancy' },
+  'schlaf': { english: 'sleep', synonyms: ['sleep quality', 'insomnia'], mesh: 'Sleep' },
+  'haut': { english: 'skin', synonyms: ['dermatology', 'dermal'], mesh: 'Skin' },
+  'gelenke': { english: 'joints', synonyms: ['arthritis', 'articular'], mesh: 'Joints' },
+  'knochen': { english: 'bones', synonyms: ['osteoporosis', 'bone density'], mesh: 'Bone and Bones' },
+  'immunität': { english: 'immunity', synonyms: ['immune system', 'immune function'], mesh: 'Immunity' },
+  'allergie': { english: 'allergy', synonyms: ['allergic', 'hypersensitivity'], mesh: 'Hypersensitivity' },
+  'fettsäuren': { english: 'fatty acids', synonyms: ['lipids', 'PUFA'], mesh: 'Fatty Acids' },
 };
 
-function translateQueryToEnglish(query: string): string {
-  let translatedQuery = query.toLowerCase();
+// Stopwords to remove from queries
+const stopwords = new Set([
+  'a', 'i', 'w', 'na', 'z', 'do', 'o', 'czy', 'jak', 'und', 'oder', 'mit', 'für', 'bei', 'auf',
+  'wpływ', 'działanie', 'efekty', 'the', 'and', 'or', 'of', 'in', 'on', 'for', 'to', 'is', 'are',
+  'co', 'jakie', 'jaki', 'jaka', 'które', 'który', 'która', 'przy', 'po', 'przed', 'za', 'nad',
+  'was', 'wie', 'welche', 'welcher', 'kann', 'können', 'ist', 'sind', 'die', 'der', 'das', 'ein', 'eine'
+]);
+
+interface ParsedTerm {
+  original: string;
+  english: string;
+  synonyms: string[];
+  mesh?: string;
+}
+
+function parseQueryTerms(query: string): ParsedTerm[] {
+  const terms: ParsedTerm[] = [];
+  let lowerQuery = query.toLowerCase().trim();
   
-  // Remove common Polish/German stopwords
-  const stopwords = ['a', 'i', 'w', 'na', 'z', 'do', 'o', 'czy', 'jak', 'und', 'oder', 'mit', 'für', 'bei', 'auf', 'wpływ', 'działanie', 'efekty'];
-  stopwords.forEach(word => {
-    translatedQuery = translatedQuery.replace(new RegExp(`\\b${word}\\b`, 'gi'), ' ');
-  });
+  // First, find and extract known multi-word terms
+  const sortedTerms = Object.entries(medicalTermsWithSynonyms)
+    .sort((a, b) => b[0].length - a[0].length); // Longest first
   
-  // Translate known medical terms
-  for (const [term, translation] of Object.entries(medicalTermsTranslation)) {
-    translatedQuery = translatedQuery.replace(new RegExp(term, 'gi'), translation);
+  for (const [term, data] of sortedTerms) {
+    if (lowerQuery.includes(term)) {
+      terms.push({
+        original: term,
+        english: data.english,
+        synonyms: data.synonyms,
+        mesh: data.mesh
+      });
+      lowerQuery = lowerQuery.replace(new RegExp(term, 'gi'), ' ');
+    }
   }
   
-  // Clean up extra spaces
-  translatedQuery = translatedQuery.replace(/\s+/g, ' ').trim();
+  // Then split remaining words
+  const remainingWords = lowerQuery.split(/\s+/).filter(w => w.length > 2 && !stopwords.has(w));
   
-  console.log('Translated query:', query, '->', translatedQuery);
-  return translatedQuery;
+  for (const word of remainingWords) {
+    // Check if word is a known term
+    const termData = medicalTermsWithSynonyms[word];
+    if (termData) {
+      if (!terms.some(t => t.original === word)) {
+        terms.push({
+          original: word,
+          english: termData.english,
+          synonyms: termData.synonyms,
+          mesh: termData.mesh
+        });
+      }
+    } else {
+      // Unknown term - use as is
+      if (!terms.some(t => t.original === word || t.english === word)) {
+        terms.push({
+          original: word,
+          english: word,
+          synonyms: [],
+          mesh: undefined
+        });
+      }
+    }
+  }
+  
+  return terms;
+}
+
+function buildAdvancedPubMedQuery(terms: ParsedTerm[]): string {
+  if (terms.length === 0) return '';
+  
+  const termClauses = terms.map(term => {
+    const allVariants = [term.english, ...term.synonyms];
+    if (term.mesh) {
+      allVariants.push(`"${term.mesh}"[MeSH Terms]`);
+    }
+    
+    // Remove duplicates and create OR clause
+    const uniqueVariants = [...new Set(allVariants)];
+    const quotedVariants = uniqueVariants.map(v => 
+      v.includes('[MeSH') ? v : `"${v}"`
+    );
+    
+    return `(${quotedVariants.join(' OR ')})`;
+  });
+  
+  // Join with AND for multi-term queries
+  return termClauses.join(' AND ');
+}
+
+function buildSimplePubMedQuery(terms: ParsedTerm[]): string {
+  // Simpler fallback query without MeSH
+  return terms.map(t => t.english).join(' AND ');
 }
 
 async function searchPubMed(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
   try {
-    // Translate query to English for better PubMed results
-    const englishQuery = translateQueryToEnglish(query);
+    // Parse query into terms with synonyms and MeSH
+    const parsedTerms = parseQueryTerms(query);
+    console.log('Parsed terms:', JSON.stringify(parsedTerms, null, 2));
     
-    // Step 1: Search for article IDs - use relevance and date sort
-    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(englishQuery)}&retmax=${maxResults}&sort=relevance&retmode=json`;
+    if (parsedTerms.length === 0) {
+      console.log('No valid terms found in query');
+      return [];
+    }
     
-    console.log('Searching PubMed:', searchUrl);
-    const searchResponse = await fetch(searchUrl);
-    const searchData = await searchResponse.json();
+    // Build advanced query with synonyms and MeSH terms
+    const advancedQuery = buildAdvancedPubMedQuery(parsedTerms);
+    console.log('Advanced PubMed query:', advancedQuery);
     
-    const pmids = searchData.esearchresult?.idlist || [];
+    // Step 1: Try advanced query first
+    let pmids = await searchPubMedIds(advancedQuery, maxResults);
+    
+    // Step 2: If no results, try simpler query
+    if (pmids.length === 0) {
+      const simpleQuery = buildSimplePubMedQuery(parsedTerms);
+      console.log('Fallback to simple query:', simpleQuery);
+      pmids = await searchPubMedIds(simpleQuery, maxResults);
+    }
+    
+    // Step 3: If still no results, try related/broader search
+    if (pmids.length === 0 && parsedTerms.length > 1) {
+      // Try searching for each term separately and combine results
+      console.log('Trying individual term search...');
+      const allPmids: string[] = [];
+      
+      for (const term of parsedTerms) {
+        const termQuery = term.mesh 
+          ? `"${term.mesh}"[MeSH Terms]`
+          : `"${term.english}"`;
+        const termPmids = await searchPubMedIds(termQuery, Math.ceil(maxResults / parsedTerms.length));
+        allPmids.push(...termPmids);
+      }
+      
+      pmids = [...new Set(allPmids)].slice(0, maxResults);
+    }
+    
     console.log('Found PMIDs:', pmids);
     
     if (pmids.length === 0) {
-      // Fallback: try original query if translation didn't help
-      const fallbackUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${maxResults}&sort=relevance&retmode=json`;
-      console.log('Fallback search:', fallbackUrl);
-      const fallbackResponse = await fetch(fallbackUrl);
-      const fallbackData = await fallbackResponse.json();
-      const fallbackPmids = fallbackData.esearchresult?.idlist || [];
-      
-      if (fallbackPmids.length === 0) {
-        return [];
-      }
-      
-      return await fetchArticleDetails(fallbackPmids);
+      return [];
     }
     
     return await fetchArticleDetails(pmids);
@@ -146,6 +233,16 @@ async function searchPubMed(query: string, maxResults: number = 10): Promise<Pub
     console.error('PubMed search error:', error);
     return [];
   }
+}
+
+async function searchPubMedIds(query: string, maxResults: number): Promise<string[]> {
+  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${maxResults}&sort=relevance&retmode=json`;
+  
+  console.log('PubMed search URL:', searchUrl);
+  const searchResponse = await fetch(searchUrl);
+  const searchData = await searchResponse.json();
+  
+  return searchData.esearchresult?.idlist || [];
 }
 
 async function fetchArticleDetails(pmids: string[]): Promise<PubMedArticle[]> {
