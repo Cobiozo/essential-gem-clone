@@ -199,3 +199,29 @@ All colors MUST be HSL.
     }
   }
 }
+
+/* Section hover effects - using CSS variables from SectionRenderer */
+@layer components {
+  .hover-section {
+    transition: all var(--hover-duration, 300ms) ease-in-out;
+  }
+  
+  .hover-section:hover {
+    background: var(--hover-bg, var(--hover-bg-gradient));
+    color: var(--hover-text);
+    border-color: var(--hover-border);
+    box-shadow: var(--hover-shadow);
+    opacity: var(--hover-opacity);
+    transform: scale(var(--hover-scale, 1));
+  }
+  
+  /* Item hover effects using CSS variables */
+  .hover-item {
+    transition: all 300ms ease-in-out;
+  }
+  
+  .hover-item:hover {
+    transform: scale(var(--hover-scale, 1));
+    opacity: var(--hover-opacity, 1);
+  }
+}

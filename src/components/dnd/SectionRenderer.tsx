@@ -175,15 +175,24 @@ const applySectionStyles = (section: CMSSection): React.CSSProperties => {
 
 // Get CSS variables for hover effects
 const getSectionHoverVars = (section: CMSSection): Record<string, string | undefined> => {
-  return {
-    '--hover-bg': section.hover_background_color || undefined,
-    '--hover-bg-gradient': section.hover_background_gradient || undefined,
-    '--hover-text': section.hover_text_color || undefined,
-    '--hover-border': section.hover_border_color || undefined,
-    '--hover-shadow': section.hover_box_shadow || undefined,
-    '--hover-opacity': section.hover_opacity ? String(section.hover_opacity / 100) : undefined,
-    '--hover-scale': section.hover_scale ? String(section.hover_scale) : undefined,
-  };
+  const vars: Record<string, string | undefined> = {};
+  
+  if (section.hover_background_color) vars['--hover-bg'] = section.hover_background_color;
+  if (section.hover_background_gradient) vars['--hover-bg-gradient'] = section.hover_background_gradient;
+  if (section.hover_text_color) vars['--hover-text'] = section.hover_text_color;
+  if (section.hover_border_color) vars['--hover-border'] = section.hover_border_color;
+  if (section.hover_box_shadow) vars['--hover-shadow'] = section.hover_box_shadow;
+  if (section.hover_opacity !== undefined && section.hover_opacity !== null && section.hover_opacity !== 100) {
+    vars['--hover-opacity'] = String(section.hover_opacity / 100);
+  }
+  if (section.hover_scale !== undefined && section.hover_scale !== null && section.hover_scale !== 1) {
+    vars['--hover-scale'] = String(section.hover_scale);
+  }
+  if (section.hover_transition_duration) {
+    vars['--hover-duration'] = `${section.hover_transition_duration}ms`;
+  }
+  
+  return vars;
 };
 
 export const SectionRenderer: React.FC<SectionRendererProps> = ({

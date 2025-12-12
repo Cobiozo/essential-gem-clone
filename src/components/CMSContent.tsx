@@ -351,17 +351,23 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         }
       };
       
+      // Nie używaj font-bold gdy font_weight jest ustawione ręcznie
+      const hasFontWeight = item.font_weight && item.font_weight !== 400;
+      // Nie używaj domyślnych rozmiarów gdy font_size jest ustawione
+      const hasFontSize = item.font_size && item.font_size > 0;
+      
       return (
         <HeadingTag 
           className={cn(
-            'font-bold flex items-center gap-2 w-full',
+            'flex items-center gap-2 w-full',
+            !hasFontWeight && 'font-bold',
             getJustifyClass(item.text_align),
-            level === 1 && 'text-4xl',
-            level === 2 && 'text-3xl',
-            level === 3 && 'text-2xl',
-            level === 4 && 'text-xl',
-            level === 5 && 'text-lg',
-            level === 6 && 'text-base',
+            !hasFontSize && level === 1 && 'text-4xl',
+            !hasFontSize && level === 2 && 'text-3xl',
+            !hasFontSize && level === 3 && 'text-2xl',
+            !hasFontSize && level === 4 && 'text-xl',
+            !hasFontSize && level === 5 && 'text-lg',
+            !hasFontSize && level === 6 && 'text-base',
             headingStyles.className
           )}
           style={headingStyles.style}
@@ -454,16 +460,37 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'video':
       const videoCell = (item.cells as any[])?.[0];
       const videoStyles = applyItemStyles(item);
-      if (isEditMode && !item.media_url && !videoCell?.content) {
+      const videoUrl = videoCell?.content || item.media_url;
+      const videoAutoplay = videoCell?.autoplay ?? false;
+      const videoLoop = videoCell?.loop ?? false;
+      const videoMuted = videoCell?.muted ?? true;
+      const videoControls = videoCell?.controls ?? true;
+      
+      if (isEditMode && !videoUrl) {
         return (
           <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
             <p className="text-xs text-muted-foreground">Video</p>
           </div>
         );
       }
+      
       return (
-        <div style={videoStyles.style} className={videoStyles.className}>
-          {renderMedia() || (
+        <div style={videoStyles.style} className={cn('w-full', videoStyles.className)}>
+          {videoUrl ? (
+            <video
+              src={videoUrl}
+              controls={videoControls}
+              autoPlay={videoAutoplay}
+              loop={videoLoop}
+              muted={videoMuted}
+              className="w-full max-w-full rounded-lg"
+              style={{ 
+                objectFit: (item.object_fit as React.CSSProperties['objectFit']) || 'cover',
+                maxWidth: item.max_width ? `${item.max_width}px` : undefined,
+                maxHeight: item.max_height ? `${item.max_height}px` : undefined,
+              }}
+            />
+          ) : (
             <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
               <p className="text-muted-foreground">Dodaj wideo</p>
             </div>
