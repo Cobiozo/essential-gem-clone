@@ -34,6 +34,7 @@ import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import { GroupEmailSender } from '@/components/GroupEmailSender';
 import TrainingManagement from '@/components/admin/TrainingManagement';
 import CertificateEditor from '@/components/admin/CertificateEditor';
+import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -3397,9 +3398,14 @@ const Admin = () => {
                    )}
                  </CardContent>
                </Card>
-             </div>
-             
-           </TabsContent>
+              </div>
+
+              {/* Reflinks Management */}
+              <div className="mb-8">
+                <ReflinksManagement />
+              </div>
+              
+            </TabsContent>
 
           <TabsContent value="account">
             <Card>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Settings, LogOut, BookOpen } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { ReflinksDropdown } from '@/components/ReflinksDropdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -13,7 +14,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] }) => {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isPartner, isSpecjalista, signOut } = useAuth();
   const { t } = useLanguage();
 
   const handleSignOut = async () => {
@@ -63,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                     <span className="hidden md:inline text-xs sm:text-sm">{t('training.title')}</span>
                   </Button>
                 </Link>
+                {(isPartner || isSpecjalista) && <ReflinksDropdown />}
                 <Button variant="ghost" size="sm" onClick={handleSignOut} className="hover:bg-muted h-8 sm:h-9 px-2 sm:px-3">
                   <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                   <span className="hidden md:inline text-xs sm:text-sm">{t('nav.logout')}</span>
