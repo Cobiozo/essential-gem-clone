@@ -85,7 +85,82 @@ const medicalTermsWithSynonyms: Record<string, { english: string; synonyms: stri
   'immunität': { english: 'immunity', synonyms: ['immune system', 'immune function'], mesh: 'Immunity' },
   'allergie': { english: 'allergy', synonyms: ['allergic', 'hypersensitivity'], mesh: 'Hypersensitivity' },
   'fettsäuren': { english: 'fatty acids', synonyms: ['lipids', 'PUFA'], mesh: 'Fatty Acids' },
+  // Additional health-related terms
+  'ból': { english: 'pain', synonyms: ['ache', 'soreness', 'discomfort'], mesh: 'Pain' },
+  'głowa': { english: 'headache', synonyms: ['head pain', 'migraine', 'cephalalgia'], mesh: 'Headache' },
+  'migrena': { english: 'migraine', synonyms: ['migraine headache', 'hemicranial'], mesh: 'Migraine Disorders' },
+  'oczy': { english: 'eyes', synonyms: ['ocular', 'visual', 'ophthalmology', 'retina'], mesh: 'Eye' },
+  'wzrok': { english: 'vision', synonyms: ['visual acuity', 'eyesight', 'optical'], mesh: 'Vision, Ocular' },
+  'włosy': { english: 'hair', synonyms: ['hair growth', 'hair loss', 'alopecia'], mesh: 'Hair' },
+  'paznokcie': { english: 'nails', synonyms: ['nail health', 'nail growth'], mesh: 'Nails' },
+  'energia': { english: 'energy', synonyms: ['fatigue', 'tiredness', 'vitality', 'energy metabolism'], mesh: 'Energy Metabolism' },
+  'zmęczenie': { english: 'fatigue', synonyms: ['tiredness', 'exhaustion', 'asthenia'], mesh: 'Fatigue' },
+  'koncentracja': { english: 'concentration', synonyms: ['focus', 'attention', 'cognitive performance'], mesh: 'Attention' },
+  'nastrój': { english: 'mood', synonyms: ['mood disorder', 'emotional state', 'affect'], mesh: 'Affect' },
+  'lęk': { english: 'anxiety', synonyms: ['anxious', 'nervousness', 'anxiety disorder'], mesh: 'Anxiety' },
+  'bezsenność': { english: 'insomnia', synonyms: ['sleep disorder', 'sleeplessness'], mesh: 'Sleep Initiation and Maintenance Disorders' },
+  'trądzik': { english: 'acne', synonyms: ['acne vulgaris', 'pimples', 'skin blemishes'], mesh: 'Acne Vulgaris' },
+  'egzema': { english: 'eczema', synonyms: ['atopic dermatitis', 'skin inflammation'], mesh: 'Eczema' },
+  'łuszczyca': { english: 'psoriasis', synonyms: ['psoriatic', 'skin condition'], mesh: 'Psoriasis' },
+  'reumatyzm': { english: 'rheumatism', synonyms: ['rheumatic', 'joint pain', 'arthralgia'], mesh: 'Rheumatic Diseases' },
+  'kolagen': { english: 'collagen', synonyms: ['collagen synthesis', 'connective tissue'], mesh: 'Collagen' },
 };
+
+// Health-related keywords that trigger omega-3 association
+const healthKeywords = new Set([
+  // Polish
+  'zdrowie', 'choroba', 'objaw', 'zapalenie', 'ból', 'leczenie', 'terapia', 'profilaktyka',
+  'serce', 'mózg', 'wątroba', 'nerki', 'skóra', 'stawy', 'kości', 'oczy', 'włosy',
+  'odporność', 'immunologia', 'układ odpornościowy', 'infekcja', 'wirus', 'bakteria',
+  'depresja', 'lęk', 'stres', 'pamięć', 'koncentracja', 'nastrój', 'sen', 'energia',
+  'cukrzyca', 'cholesterol', 'nadciśnienie', 'otyłość', 'rak', 'nowotwór', 'alzheimer',
+  'miażdżyca', 'arytmia', 'astma', 'alergia', 'tarczyca', 'insulina', 'ciąża',
+  'trądzik', 'egzema', 'łuszczyca', 'reumatyzm', 'migrena', 'zmęczenie', 'bezsenność',
+  // German
+  'gesundheit', 'krankheit', 'symptom', 'entzündung', 'schmerz', 'behandlung', 'therapie',
+  'herz', 'gehirn', 'leber', 'niere', 'haut', 'gelenke', 'knochen', 'augen', 'haare',
+  'immunität', 'immunsystem', 'infektion', 'depression', 'angst', 'stress', 'schlaf',
+  // English
+  'health', 'disease', 'symptom', 'inflammation', 'pain', 'treatment', 'therapy',
+  'heart', 'brain', 'liver', 'kidney', 'skin', 'joints', 'bones', 'eyes', 'hair',
+  'immunity', 'immune', 'infection', 'depression', 'anxiety', 'stress', 'sleep', 'energy'
+]);
+
+// Omega-3 terms for automatic enrichment
+const omega3Terms: ParsedTerm = {
+  original: 'omega-3',
+  english: 'omega-3',
+  synonyms: ['omega-3 fatty acids', 'n-3 fatty acids', 'fish oil', 'EPA', 'DHA', 'docosahexaenoic acid', 'eicosapentaenoic acid', 'marine omega'],
+  mesh: 'Fatty Acids, Omega-3'
+};
+
+// Eqology products database
+const eqologyProducts = [
+  {
+    name: 'Pure Arctic Oil (Omega-3 Test Based)',
+    description: 'Premium omega-3 z arktycznego dorsza z certyfikatem jakości. Zawiera EPA i DHA w naturalnej formie trójglicerydów.',
+    benefits: ['serce', 'mózg', 'wzrok', 'stawy', 'odporność', 'skóra', 'cholesterol', 'zapalenie', 'koncentracja', 'nastrój'],
+    url: 'https://eqology.com/product/pure-arctic-oil/'
+  },
+  {
+    name: 'Premium Marine Collagen',
+    description: 'Kolagen morski typu I wspomagający zdrowie skóry, włosów, paznokci i stawów. Wzbogacony witaminą C.',
+    benefits: ['skóra', 'włosy', 'paznokcie', 'stawy', 'kolagen', 'elastyczność', 'zmarszczki', 'starzenie'],
+    url: 'https://eqology.com/product/marine-collagen/'
+  },
+  {
+    name: 'EQ Pure Arctic Oil Lemon',
+    description: 'Omega-3 o smaku cytrynowym, idealna dla osób preferujących łagodniejszy smak. Ta sama jakość co Pure Arctic Oil.',
+    benefits: ['serce', 'mózg', 'wzrok', 'odporność', 'energia', 'dzieci'],
+    url: 'https://eqology.com/product/pure-arctic-oil-lemon/'
+  },
+  {
+    name: 'EQ Omega-3 Test',
+    description: 'Domowy test poziomu omega-3 w organizmie. Mierzy stosunek omega-6/omega-3 oraz indeks omega-3.',
+    benefits: ['diagnostyka', 'test', 'poziom omega-3', 'personalizacja'],
+    url: 'https://eqology.com/product/omega-3-test/'
+  }
+];
 
 // Stopwords to remove from queries
 const stopwords = new Set([
@@ -102,7 +177,18 @@ interface ParsedTerm {
   mesh?: string;
 }
 
-function parseQueryTerms(query: string): ParsedTerm[] {
+function isHealthRelatedQuery(query: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  return Array.from(healthKeywords).some(keyword => lowerQuery.includes(keyword));
+}
+
+function queryAlreadyContainsOmega3(query: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  const omega3Variations = ['omega-3', 'omega3', 'omega 3', 'epa', 'dha', 'fish oil', 'olej rybi', 'kwasy omega'];
+  return omega3Variations.some(v => lowerQuery.includes(v));
+}
+
+function parseQueryTerms(query: string, enrichWithOmega3: boolean = false): ParsedTerm[] {
   const terms: ParsedTerm[] = [];
   let lowerQuery = query.toLowerCase().trim();
   
@@ -150,7 +236,61 @@ function parseQueryTerms(query: string): ParsedTerm[] {
     }
   }
   
+  // Automatically add omega-3 terms for health-related queries
+  if (enrichWithOmega3 && !terms.some(t => t.english.includes('omega'))) {
+    terms.push(omega3Terms);
+  }
+  
   return terms;
+}
+
+function findRelevantEqologyProducts(query: string, language: string): string {
+  const lowerQuery = query.toLowerCase();
+  const matchedProducts: typeof eqologyProducts = [];
+  
+  for (const product of eqologyProducts) {
+    const isRelevant = product.benefits.some(benefit => 
+      lowerQuery.includes(benefit) || 
+      Object.entries(medicalTermsWithSynonyms).some(([term, data]) => 
+        lowerQuery.includes(term) && product.benefits.some(b => 
+          data.english.includes(b) || data.synonyms.some(s => s.toLowerCase().includes(b))
+        )
+      )
+    );
+    if (isRelevant) {
+      matchedProducts.push(product);
+    }
+  }
+  
+  // Always include Pure Arctic Oil for health queries
+  if (matchedProducts.length === 0 && isHealthRelatedQuery(query)) {
+    matchedProducts.push(eqologyProducts[0]); // Pure Arctic Oil
+  }
+  
+  if (matchedProducts.length === 0) return '';
+  
+  const headers = {
+    pl: '\n\n---\n\n## 💊 Możliwe zastosowanie suplementacji\n\nNa podstawie przedstawionych badań, następujące produkty Eqology mogą być pomocne w tym obszarze zdrowotnym:\n\n',
+    de: '\n\n---\n\n## 💊 Mögliche Anwendung der Supplementierung\n\nBasierend auf den präsentierten Studien können folgende Eqology-Produkte in diesem Gesundheitsbereich hilfreich sein:\n\n',
+    en: '\n\n---\n\n## 💊 Possible Supplementation Application\n\nBased on the presented studies, the following Eqology products may be helpful in this health area:\n\n'
+  };
+  
+  const disclaimers = {
+    pl: '\n\n*ℹ️ To są sugestie informacyjne oparte na składzie produktów. Przed rozpoczęciem suplementacji skonsultuj się z lekarzem lub dietetykiem.*',
+    de: '\n\n*ℹ️ Dies sind informative Vorschläge basierend auf der Produktzusammensetzung. Konsultieren Sie vor der Einnahme einen Arzt oder Ernährungsberater.*',
+    en: '\n\n*ℹ️ These are informational suggestions based on product composition. Consult a doctor or dietitian before starting supplementation.*'
+  };
+  
+  let result = headers[language as keyof typeof headers] || headers.en;
+  
+  matchedProducts.forEach((product, index) => {
+    result += `${index + 1}. **[${product.name}](${product.url})**\n`;
+    result += `   ${product.description}\n\n`;
+  });
+  
+  result += disclaimers[language as keyof typeof disclaimers] || disclaimers.en;
+  
+  return result;
 }
 
 function buildAdvancedPubMedQuery(terms: ParsedTerm[]): string {
@@ -180,10 +320,16 @@ function buildSimplePubMedQuery(terms: ParsedTerm[]): string {
   return terms.map(t => t.english).join(' AND ');
 }
 
-async function searchPubMed(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
+async function searchPubMed(query: string, maxResults: number = 10, enrichWithOmega3: boolean = false): Promise<PubMedArticle[]> {
   try {
+    // Check if query is health-related and should be enriched with omega-3
+    const shouldEnrichWithOmega3 = enrichWithOmega3 || 
+      (isHealthRelatedQuery(query) && !queryAlreadyContainsOmega3(query));
+    
+    console.log('Should enrich with omega-3:', shouldEnrichWithOmega3);
+    
     // Parse query into terms with synonyms and MeSH
-    const parsedTerms = parseQueryTerms(query);
+    const parsedTerms = parseQueryTerms(query, shouldEnrichWithOmega3);
     console.log('Parsed terms:', JSON.stringify(parsedTerms, null, 2));
     
     if (parsedTerms.length === 0) {
@@ -205,7 +351,15 @@ async function searchPubMed(query: string, maxResults: number = 10): Promise<Pub
       pmids = await searchPubMedIds(simpleQuery, maxResults);
     }
     
-    // Step 3: If still no results, try related/broader search
+    // Step 3: If still no results and we enriched with omega-3, try without omega-3
+    if (pmids.length === 0 && shouldEnrichWithOmega3) {
+      console.log('Trying without omega-3 enrichment...');
+      const termsWithoutOmega = parseQueryTerms(query, false);
+      const queryWithoutOmega = buildAdvancedPubMedQuery(termsWithoutOmega);
+      pmids = await searchPubMedIds(queryWithoutOmega, maxResults);
+    }
+    
+    // Step 4: If still no results, try related/broader search
     if (pmids.length === 0 && parsedTerms.length > 1) {
       // Try searching for each term separately and combine results
       console.log('Trying individual term search...');
@@ -405,9 +559,21 @@ function buildPubMedContext(articles: PubMedArticle[], language: string): string
   return context;
 }
 
-function getSystemPrompt(language: string): string {
+function getSystemPrompt(language: string, includeEqology: boolean = false): string {
+  const eqologyNote = {
+    pl: `
+6. Po przedstawieniu badań, dodaj sekcję "Możliwe zastosowanie suplementacji" i zasugeruj produkty Eqology, które mogą być pomocne w danym obszarze zdrowotnym, opierając się na ich składzie.
+7. Formułuj sugestie produktowe jako informacyjne, NIE jako poradę medyczną.`,
+    de: `
+6. Nach der Präsentation der Studien, fügen Sie einen Abschnitt "Mögliche Anwendung der Supplementierung" hinzu und schlagen Sie Eqology-Produkte vor, die in diesem Gesundheitsbereich hilfreich sein könnten.
+7. Formulieren Sie Produktvorschläge als informativ, NICHT als medizinische Beratung.`,
+    en: `
+6. After presenting the studies, add a section "Possible Supplementation Application" and suggest Eqology products that may be helpful in this health area based on their composition.
+7. Formulate product suggestions as informational, NOT as medical advice.`
+  };
+
   const prompts = {
-    pl: `Jesteś medycznym asystentem AI specjalizującym się w analizie literatury naukowej z PubMed.
+    pl: `Jesteś medycznym asystentem AI specjalizującym się w analizie literatury naukowej z PubMed, ze szczególnym uwzględnieniem badań dotyczących kwasów omega-3 (EPA, DHA).
 
 ZASADY:
 1. Odpowiadaj WYŁĄCZNIE na podstawie dostarczonych badań naukowych
@@ -418,11 +584,11 @@ ZASADY:
    - WSZYSTKIE dostępne linki: PubMed, DOI, PMC (jako klikalne linki markdown)
 3. Odpowiadaj jasno i konkretnie w języku polskim
 4. Jeśli nie ma wystarczających badań, powiedz o tym wprost
-5. ZAWSZE dodawaj na końcu: "⚠️ Te informacje mają charakter edukacyjny i nie zastępują konsultacji z lekarzem."
+5. ZAWSZE dodawaj na końcu: "⚠️ Te informacje mają charakter edukacyjny i nie zastępują konsultacji z lekarzem."${includeEqology ? eqologyNote.pl : ''}
 
 FORMAT ODPOWIEDZI:
 **Podsumowanie:**
-[Krótkie podsumowanie głównych wniosków z badań]
+[Krótkie podsumowanie głównych wniosków z badań, ze szczególnym uwzględnieniem roli omega-3]
 
 **Badania naukowe:**
 1. **[Tytuł badania]** (Autor et al., Rok)
@@ -431,7 +597,7 @@ FORMAT ODPOWIEDZI:
 
 [Disclaimer]`,
     
-    de: `Sie sind ein medizinischer KI-Assistent für wissenschaftliche Literaturanalyse aus PubMed.
+    de: `Sie sind ein medizinischer KI-Assistent für wissenschaftliche Literaturanalyse aus PubMed, mit besonderem Fokus auf Omega-3-Fettsäuren (EPA, DHA).
 
 REGELN:
 1. Antworten Sie NUR basierend auf den bereitgestellten Studien
@@ -442,9 +608,9 @@ REGELN:
    - ALLE verfügbaren Links: PubMed, DOI, PMC (als klickbare Markdown-Links)
 3. Antworten Sie klar auf Deutsch
 4. Wenn keine Studien verfügbar sind, sagen Sie es direkt
-5. IMMER am Ende: "⚠️ Diese Informationen dienen Bildungszwecken und ersetzen keine ärztliche Beratung."`,
+5. IMMER am Ende: "⚠️ Diese Informationen dienen Bildungszwecken und ersetzen keine ärztliche Beratung."${includeEqology ? eqologyNote.de : ''}`,
     
-    en: `You are a medical AI assistant specializing in PubMed scientific literature analysis.
+    en: `You are a medical AI assistant specializing in PubMed scientific literature analysis, with particular focus on omega-3 fatty acids (EPA, DHA) research.
 
 RULES:
 1. Respond ONLY based on provided scientific studies
@@ -455,7 +621,7 @@ RULES:
    - ALL available links: PubMed, DOI, PMC (as clickable markdown links)
 3. Respond clearly in English
 4. If no studies are available, say so directly
-5. ALWAYS add at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."`
+5. ALWAYS add at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."${includeEqology ? eqologyNote.en : ''}`
   };
   
   return prompts[language as keyof typeof prompts] || prompts.en;
@@ -482,18 +648,29 @@ serve(async (req) => {
     console.log('Language:', language);
     console.log('Results count:', resultsCount);
 
-    // Search PubMed for relevant articles
-    const articles = await searchPubMed(userQuery, resultsCount);
+    // Check if this is a health-related query for omega-3 enrichment and Eqology suggestions
+    const isHealthQuery = isHealthRelatedQuery(userQuery);
+    const alreadyHasOmega3 = queryAlreadyContainsOmega3(userQuery);
+    const shouldEnrichWithOmega3 = isHealthQuery && !alreadyHasOmega3;
+    
+    console.log('Is health query:', isHealthQuery);
+    console.log('Should enrich with omega-3:', shouldEnrichWithOmega3);
+
+    // Search PubMed for relevant articles (with omega-3 enrichment for health queries)
+    const articles = await searchPubMed(userQuery, resultsCount, shouldEnrichWithOmega3);
     console.log('Found articles:', articles.length);
 
     // Build context from PubMed results
     const pubmedContext = buildPubMedContext(articles, language);
+    
+    // Get relevant Eqology product suggestions for health queries
+    const eqologyContext = isHealthQuery ? findRelevantEqologyProducts(userQuery, language) : '';
 
-    // Prepare messages for AI with PubMed context
-    const systemPrompt = getSystemPrompt(language);
+    // Prepare messages for AI with PubMed context and Eqology products
+    const systemPrompt = getSystemPrompt(language, isHealthQuery);
     const enhancedMessages = [
       { role: 'system', content: systemPrompt },
-      { role: 'system', content: `KONTEKST NAUKOWY:\n${pubmedContext}` },
+      { role: 'system', content: `KONTEKST NAUKOWY:\n${pubmedContext}${eqologyContext ? `\n\nPRODUKTY EQOLOGY DO ZASUGEROWANIA:\n${eqologyContext}` : ''}` },
       ...messages
     ];
 
