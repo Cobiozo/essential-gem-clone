@@ -53,36 +53,22 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
   };
 
   // Helper to apply item styles with dark mode detection
+  // Używa TYLKO kolumn istniejących w bazie danych cms_items
   const applyItemStyles = (item: CMSItem) => {
     const inlineStyles: React.CSSProperties = {};
     
-    // Conditionally apply text color if not problematic
+    // Kolor tekstu (z obsługą dark mode)
     if (item.text_color && !isProblematicColor(item.text_color, isDarkMode, 'text')) {
       inlineStyles.color = item.text_color;
     }
     
+    // Kolor tła
     if (item.background_color && !isProblematicColor(item.background_color, isDarkMode, 'background')) {
-      // Gradient tła ma wyższy priorytet niż kolor
-      if (!(item as any).background_gradient) {
-        inlineStyles.backgroundColor = item.background_color;
-      }
-    }
-
-    // Gradient tła
-    if ((item as any).background_gradient) {
-      inlineStyles.backgroundImage = (item as any).background_gradient as string;
+      inlineStyles.backgroundColor = item.background_color;
     }
     
     // Typografia
     if (item.font_size) inlineStyles.fontSize = `${item.font_size}px`;
-    if ((item as any).font_family) inlineStyles.fontFamily = (item as any).font_family as string;
-    if ((item as any).line_height) inlineStyles.lineHeight = (item as any).line_height as number;
-    if ((item as any).letter_spacing !== undefined && (item as any).letter_spacing !== null) {
-      inlineStyles.letterSpacing = `${(item as any).letter_spacing}px`;
-    }
-    if ((item as any).text_transform) {
-      inlineStyles.textTransform = (item as any).text_transform as React.CSSProperties['textTransform'];
-    }
     if (item.font_weight) inlineStyles.fontWeight = item.font_weight;
     if (item.text_align) inlineStyles.textAlign = item.text_align as React.CSSProperties['textAlign'];
     
@@ -94,24 +80,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     // Box shadow
     if (item.box_shadow && item.box_shadow !== 'none') inlineStyles.boxShadow = item.box_shadow;
     
-    // Wymiary
-    const anyItem = item as any;
-    if (anyItem.width_type === 'full') {
-      inlineStyles.width = '100%';
-    } else if (anyItem.width_type === 'fit') {
-      inlineStyles.width = 'fit-content';
-    } else if (anyItem.width_type === 'custom' && anyItem.custom_width) {
-      inlineStyles.width = `${anyItem.custom_width}px`;
-    }
-
-    if (anyItem.height_type === 'full') {
-      inlineStyles.height = '100%';
-    } else if (anyItem.height_type === 'custom' && anyItem.custom_height) {
-      inlineStyles.height = `${anyItem.custom_height}px`;
-    }
-
-    if (anyItem.min_width) inlineStyles.minWidth = `${anyItem.min_width}px`;
-    if (anyItem.min_height) inlineStyles.minHeight = `${anyItem.min_height}px`;
+    // Wymiary (tylko max, obsługiwane w bazie)
     if (item.max_width) inlineStyles.maxWidth = `${item.max_width}px`;
     if (item.max_height) inlineStyles.maxHeight = `${item.max_height}px`;
     
@@ -134,8 +103,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     return {
       style: inlineStyles,
       className: item.style_class || '',
-      hoverScale: (item as any).hover_scale as number | undefined,
-      hoverOpacity: (item as any).hover_opacity as number | undefined,
+      hoverScale: item.hover_scale as number | undefined,
+      hoverOpacity: item.hover_opacity as number | undefined,
       lazyLoading: item.lazy_loading,
     };
   };
@@ -415,8 +384,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       
+      // Dla tekstu zachowujemy text-align CSS ponieważ wpływa na wyrównanie wewnątrz bloku
       return (
-        <div className={cn('flex items-start gap-2', textStyles.className)} style={textStyles.style}>
+        <div className={cn('flex items-start gap-2 w-full', textStyles.className)} style={textStyles.style}>
           {TextIcon && <TextIcon className="mt-1 flex-shrink-0" style={{ width: '1em', height: '1em' }} />}
           <FormattedText
             text={textCell?.content || item.description || ''}
@@ -433,12 +403,22 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const imageStyles = applyItemStyles(item);
       const hasHoverEffect = (imageStyles.hoverScale && imageStyles.hoverScale !== 1) || 
                              (imageStyles.hoverOpacity && imageStyles.hoverOpacity !== 100);
-      const alignmentClass = item.text_align === 'center' ? 'mx-auto' 
-        : item.text_align === 'right' ? 'ml-auto' : '';
+      
+      // Określ wyrównanie obrazu za pomocą flex
+      const getImageJustify = () => {
+        switch (item.text_align) {
+          case 'center': return 'justify-center';
+          case 'right': return 'justify-end';
+          default: return 'justify-start';
+        }
+      };
+      
+      // Usuń textAlign z imageStyles - używamy flex kontenera
+      const { textAlign: _imgTextAlign, ...imageInlineStyles } = imageStyles.style;
       
       return (
         <div 
-          className="w-full" 
+          className={cn('flex w-full', getImageJustify())} 
           style={{ marginTop: imageStyles.style.marginTop, marginBottom: imageStyles.style.marginBottom }}
         >
           {imageCell?.content || item.media_url ? (
@@ -448,11 +428,10 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
               className={cn(
                 'h-auto max-w-full transition-all duration-300',
                 hasHoverEffect && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
-                alignmentClass,
                 imageStyles.className
               )}
               style={{
-                ...imageStyles.style,
+                ...imageInlineStyles,
                 marginTop: undefined,
                 marginBottom: undefined,
                 '--hover-scale': imageStyles.hoverScale || 1,
@@ -750,35 +729,43 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       
       const hasButtonHover = (buttonStyles.hoverScale && buttonStyles.hoverScale !== 1) ||
         (buttonStyles.hoverOpacity && buttonStyles.hoverOpacity !== 100);
-      const buttonAlignmentClass = item.text_align === 'center'
-        ? 'mx-auto'
-        : item.text_align === 'right'
-          ? 'ml-auto'
-          : '';
+      
+      // Określ wyrównanie - używamy flex justify dla prawidłowego pozycjonowania
+      const getButtonJustify = () => {
+        switch (item.text_align) {
+          case 'center': return 'justify-center';
+          case 'right': return 'justify-end';
+          default: return 'justify-start';
+        }
+      };
+      
+      // Usuń textAlign z buttonStyles.style - używamy flex
+      const { textAlign: _btnTextAlign, ...buttonInlineStyles } = buttonStyles.style;
       
       return (
-        <Button
-          onClick={handleButtonClick}
-          className={cn(
-            'transition-all duration-300',
-            hasButtonHover && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
-            buttonAlignmentClass,
-            buttonStyles.className
-          )}
-          style={{
-            ...buttonStyles.style,
-            '--hover-scale': buttonStyles.hoverScale || 1,
-            '--hover-opacity': (buttonStyles.hoverOpacity || 100) / 100,
-          } as React.CSSProperties}
-        >
-          {ButtonIcon && iconPosition === 'before' && (
-            <ButtonIcon className="w-4 h-4 mr-2" />
-          )}
-          {buttonCell?.content || item.title || 'Kliknij'}
-          {ButtonIcon && iconPosition === 'after' && (
-            <ButtonIcon className="w-4 h-4 ml-2" />
-          )}
-        </Button>
+        <div className={cn('flex w-full', getButtonJustify())}>
+          <Button
+            onClick={handleButtonClick}
+            className={cn(
+              'transition-all duration-300',
+              hasButtonHover && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
+              buttonStyles.className
+            )}
+            style={{
+              ...buttonInlineStyles,
+              '--hover-scale': buttonStyles.hoverScale || 1,
+              '--hover-opacity': (buttonStyles.hoverOpacity || 100) / 100,
+            } as React.CSSProperties}
+          >
+            {ButtonIcon && iconPosition === 'before' && (
+              <ButtonIcon className="w-4 h-4 mr-2" />
+            )}
+            {buttonCell?.content || item.title || 'Kliknij'}
+            {ButtonIcon && iconPosition === 'after' && (
+              <ButtonIcon className="w-4 h-4 ml-2" />
+            )}
+          </Button>
+        </div>
       );
 
     case 'file-download':
@@ -817,21 +804,34 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         }
       };
       
+      // Określ wyrównanie przycisku pobierania
+      const getFileJustify = () => {
+        switch (item.text_align) {
+          case 'center': return 'justify-center';
+          case 'right': return 'justify-end';
+          default: return 'justify-start';
+        }
+      };
+      
+      const { textAlign: _fileTextAlign, ...fileInlineStyles } = fileStyles.style;
+      
       return (
-        <Button
-          onClick={handleFileDownload}
-          className={cn('w-full', fileStyles.className)}
-          style={fileStyles.style}
-          variant="outline"
-        >
-          {FileIcon && fileIconPosition === 'before' && (
-            <FileIcon className="w-4 h-4 mr-2" />
-          )}
-          {fileCell?.content || item.title || 'Pobierz plik'}
-          {FileIcon && fileIconPosition === 'after' && (
-            <FileIcon className="w-4 h-4 ml-2" />
-          )}
-        </Button>
+        <div className={cn('flex w-full', getFileJustify())}>
+          <Button
+            onClick={handleFileDownload}
+            className={fileStyles.className}
+            style={fileInlineStyles}
+            variant="outline"
+          >
+            {FileIcon && fileIconPosition === 'before' && (
+              <FileIcon className="w-4 h-4 mr-2" />
+            )}
+            {fileCell?.content || item.title || 'Pobierz plik'}
+            {FileIcon && fileIconPosition === 'after' && (
+              <FileIcon className="w-4 h-4 ml-2" />
+            )}
+          </Button>
+        </div>
       );
 
     case 'maps':
