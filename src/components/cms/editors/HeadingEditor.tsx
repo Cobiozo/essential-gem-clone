@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CMSItem } from '@/types/cms';
 import { X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { StyleTab } from './StyleTab';
+import { AdvancedStyleTab } from './AdvancedStyleTab';
 import { useDebounce } from '@/hooks/use-debounce';
 import { IconPicker } from '../IconPicker';
 import * as icons from 'lucide-react';
@@ -177,7 +177,11 @@ export const HeadingEditor: React.FC<HeadingEditorProps> = ({ item, onSave, onCa
         <TabsContent value="style" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
             <div className="pb-4">
-              <StyleTab item={editedItem} onUpdate={handleUpdate} />
+              <AdvancedStyleTab 
+                item={editedItem} 
+                onUpdate={handleUpdate}
+                showDimensions={false}
+              />
             </div>
           </ScrollArea>
         </TabsContent>
