@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Send, X, Trash2, ExternalLink, Download, History, ChevronDown, Globe } from 'lucide-react';
+import { Search, Send, X, Trash2, ExternalLink, Download, History, ChevronDown, Globe, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +10,9 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { 
   Popover, 
@@ -19,13 +21,13 @@ import {
 } from '@/components/ui/popover';
 import jsPDF from 'jspdf';
 
-type PdfLanguage = 'pl' | 'de' | 'en' | 'it';
+type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
 
 export const MedicalChatWidget: React.FC = () => {
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [pdfLanguage, setPdfLanguage] = useState<PdfLanguage>('en');
+  const [exportLanguage, setExportLanguage] = useState<ExportLanguage>('en');
   const { 
     messages, 
     isLoading, 
@@ -81,7 +83,7 @@ export const MedicalChatWidget: React.FC = () => {
     }
   };
 
-  const pdfTranslations: Record<string, Record<PdfLanguage, string>> = {
+  const exportTranslations: Record<string, Record<ExportLanguage, string>> = {
     title: {
       pl: 'PURE SCIENCE SEARCH AI - Wyniki',
       de: 'PURE SCIENCE SEARCH AI - Ergebnisse',
@@ -146,10 +148,20 @@ export const MedicalChatWidget: React.FC = () => {
         de: 'Max.',
         en: 'Max.',
       },
+      download: {
+        pl: 'Pobierz',
+        de: 'Herunterladen',
+        en: 'Download',
+      },
       downloadPdf: {
         pl: 'Pobierz PDF',
         de: 'PDF herunterladen',
         en: 'Download PDF',
+      },
+      downloadDoc: {
+        pl: 'Pobierz DOC',
+        de: 'DOC herunterladen',
+        en: 'Download DOC',
       },
       history: {
         pl: 'Historia',
@@ -165,7 +177,7 @@ export const MedicalChatWidget: React.FC = () => {
     return translations[key]?.[language] || translations[key]?.en || key;
   };
 
-  const exportToPdf = (lang: PdfLanguage) => {
+  const exportToPdf = (lang: ExportLanguage) => {
     if (messages.length === 0) return;
 
     const pdf = new jsPDF();
@@ -174,7 +186,7 @@ export const MedicalChatWidget: React.FC = () => {
     const maxWidth = pageWidth - 2 * margin;
     let yPos = 20;
 
-    const locales: Record<PdfLanguage, string> = {
+    const locales: Record<ExportLanguage, string> = {
       pl: 'pl-PL',
       de: 'de-DE',
       en: 'en-US',
@@ -184,15 +196,15 @@ export const MedicalChatWidget: React.FC = () => {
     // Title
     pdf.setFontSize(18);
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 82, 147); // Blue color
-    pdf.text(pdfTranslations.title[lang], margin, yPos);
+    pdf.setTextColor(0, 82, 147);
+    pdf.text(exportTranslations.title[lang], margin, yPos);
     yPos += 8;
 
     // Date
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(100, 100, 100);
-    pdf.text(`${pdfTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, margin, yPos);
+    pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, margin, yPos);
     yPos += 12;
 
     // Separator line
@@ -204,8 +216,8 @@ export const MedicalChatWidget: React.FC = () => {
     pdf.setTextColor(0, 0, 0);
     messages.forEach((message) => {
       const prefix = message.role === 'user' 
-        ? `${pdfTranslations.question[lang]}: ` 
-        : `${pdfTranslations.answer[lang]}: `;
+        ? `${exportTranslations.question[lang]}: ` 
+        : `${exportTranslations.answer[lang]}: `;
       
       // Clean content - remove markdown formatting
       let cleanContent = message.content
@@ -241,7 +253,7 @@ export const MedicalChatWidget: React.FC = () => {
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'italic');
     pdf.setTextColor(120, 120, 120);
-    const disclaimer = pdfTranslations.disclaimer[lang];
+    const disclaimer = exportTranslations.disclaimer[lang];
     const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
     
     if (yPos + disclaimerLines.length * 4 > pdf.internal.pageSize.getHeight() - 15) {
@@ -257,6 +269,78 @@ export const MedicalChatWidget: React.FC = () => {
     pdf.text(disclaimerLines, margin, yPos);
 
     pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const exportToDoc = (lang: ExportLanguage) => {
+    if (messages.length === 0) return;
+
+    const locales: Record<ExportLanguage, string> = {
+      pl: 'pl-PL',
+      de: 'de-DE',
+      en: 'en-US',
+      it: 'it-IT',
+    };
+
+    // Build HTML content for .doc file
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${exportTranslations.title[lang]}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+          h1 { color: #005293; font-size: 24px; margin-bottom: 5px; }
+          .date { color: #666; font-size: 12px; margin-bottom: 20px; }
+          .separator { border-top: 1px solid #ccc; margin: 15px 0; }
+          .question { color: #005293; font-weight: bold; margin-top: 15px; }
+          .answer { color: #333; margin-top: 10px; }
+          .disclaimer { color: #888; font-style: italic; font-size: 11px; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ccc; }
+          a { color: #0066cc; }
+        </style>
+      </head>
+      <body>
+        <h1>${exportTranslations.title[lang]}</h1>
+        <div class="date">${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}</div>
+        <div class="separator"></div>
+    `;
+
+    messages.forEach((message) => {
+      const prefix = message.role === 'user' 
+        ? exportTranslations.question[lang]
+        : exportTranslations.answer[lang];
+      
+      // Convert markdown to HTML
+      let htmlMessage = message.content
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
+        .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>')
+        .replace(/---/g, '<hr>')
+        .replace(/\n/g, '<br>');
+      
+      if (message.role === 'user') {
+        htmlContent += `<div class="question">${prefix}: ${htmlMessage}</div>`;
+      } else {
+        htmlContent += `<div class="answer">${prefix}: ${htmlMessage}</div>`;
+      }
+    });
+
+    htmlContent += `
+        <div class="disclaimer">${exportTranslations.disclaimer[lang]}</div>
+      </body>
+      </html>
+    `;
+
+    // Create and download .doc file
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Convert markdown links to clickable HTML
@@ -325,7 +409,7 @@ export const MedicalChatWidget: React.FC = () => {
     { value: 0, label: getTranslation('max') },
   ];
 
-  const pdfLanguageOptions: { value: PdfLanguage; label: string; flag: string }[] = [
+  const exportLanguageOptions: { value: ExportLanguage; label: string; flag: string }[] = [
     { value: 'en', label: 'English', flag: '🇬🇧' },
     { value: 'pl', label: 'Polski', flag: '🇵🇱' },
     { value: 'de', label: 'Deutsch', flag: '🇩🇪' },
@@ -394,7 +478,7 @@ export const MedicalChatWidget: React.FC = () => {
                 </PopoverContent>
               </Popover>
 
-              {/* Download PDF with language selection */}
+              {/* Download with format and language selection */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -402,17 +486,34 @@ export const MedicalChatWidget: React.FC = () => {
                     size="icon"
                     className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                     disabled={messages.length === 0}
-                    title={getTranslation('downloadPdf')}
+                    title={getTranslation('download')}
                   >
                     <Download className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[140px]">
-                  {pdfLanguageOptions.map((option) => (
+                <DropdownMenuContent align="end" className="min-w-[160px]">
+                  <DropdownMenuLabel className="text-xs flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> PDF
+                  </DropdownMenuLabel>
+                  {exportLanguageOptions.map((option) => (
                     <DropdownMenuItem
-                      key={option.value}
+                      key={`pdf-${option.value}`}
                       onClick={() => exportToPdf(option.value)}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 pl-4"
+                    >
+                      <span>{option.flag}</span>
+                      <span>{option.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> DOC
+                  </DropdownMenuLabel>
+                  {exportLanguageOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={`doc-${option.value}`}
+                      onClick={() => exportToDoc(option.value)}
+                      className="flex items-center gap-2 pl-4"
                     >
                       <span>{option.flag}</span>
                       <span>{option.label}</span>
