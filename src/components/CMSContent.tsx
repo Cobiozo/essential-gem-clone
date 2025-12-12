@@ -61,45 +61,82 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       inlineStyles.color = item.text_color;
     }
     
-    // Conditionally apply background color if not problematic
     if (item.background_color && !isProblematicColor(item.background_color, isDarkMode, 'background')) {
-      inlineStyles.backgroundColor = item.background_color;
+      // Gradient tła ma wyższy priorytet niż kolor
+      if (!(item as any).background_gradient) {
+        inlineStyles.backgroundColor = item.background_color;
+      }
+    }
+
+    // Gradient tła
+    if ((item as any).background_gradient) {
+      inlineStyles.backgroundImage = (item as any).background_gradient as string;
     }
     
+    // Typografia
     if (item.font_size) inlineStyles.fontSize = `${item.font_size}px`;
-    if (item.padding) inlineStyles.padding = `${item.padding}px`;
-    if (item.border_radius) inlineStyles.borderRadius = `${item.border_radius}px`;
-    if (item.opacity !== undefined && item.opacity !== 100) inlineStyles.opacity = item.opacity / 100;
+    if ((item as any).font_family) inlineStyles.fontFamily = (item as any).font_family as string;
+    if ((item as any).line_height) inlineStyles.lineHeight = (item as any).line_height as number;
+    if ((item as any).letter_spacing !== undefined && (item as any).letter_spacing !== null) {
+      inlineStyles.letterSpacing = `${(item as any).letter_spacing}px`;
+    }
+    if ((item as any).text_transform) {
+      inlineStyles.textTransform = (item as any).text_transform as React.CSSProperties['textTransform'];
+    }
     if (item.font_weight) inlineStyles.fontWeight = item.font_weight;
     if (item.text_align) inlineStyles.textAlign = item.text_align as React.CSSProperties['textAlign'];
     
-    // Marginesy
+    // Odstępy
+    if (item.padding) inlineStyles.padding = `${item.padding}px`;
     if (item.margin_top) inlineStyles.marginTop = `${item.margin_top}px`;
     if (item.margin_bottom) inlineStyles.marginBottom = `${item.margin_bottom}px`;
     
     // Box shadow
     if (item.box_shadow && item.box_shadow !== 'none') inlineStyles.boxShadow = item.box_shadow;
     
-    // Max dimensions
+    // Wymiary
+    const anyItem = item as any;
+    if (anyItem.width_type === 'full') {
+      inlineStyles.width = '100%';
+    } else if (anyItem.width_type === 'fit') {
+      inlineStyles.width = 'fit-content';
+    } else if (anyItem.width_type === 'custom' && anyItem.custom_width) {
+      inlineStyles.width = `${anyItem.custom_width}px`;
+    }
+
+    if (anyItem.height_type === 'full') {
+      inlineStyles.height = '100%';
+    } else if (anyItem.height_type === 'custom' && anyItem.custom_height) {
+      inlineStyles.height = `${anyItem.custom_height}px`;
+    }
+
+    if (anyItem.min_width) inlineStyles.minWidth = `${anyItem.min_width}px`;
+    if (anyItem.min_height) inlineStyles.minHeight = `${anyItem.min_height}px`;
     if (item.max_width) inlineStyles.maxWidth = `${item.max_width}px`;
     if (item.max_height) inlineStyles.maxHeight = `${item.max_height}px`;
     
-    // Border
+    // Obramowanie
     if (item.border_width && item.border_width > 0) {
       inlineStyles.borderWidth = `${item.border_width}px`;
       inlineStyles.borderStyle = (item.border_style || 'solid') as React.CSSProperties['borderStyle'];
       inlineStyles.borderColor = item.border_color || 'hsl(var(--border))';
     }
+    if (item.border_radius) inlineStyles.borderRadius = `${item.border_radius}px`;
     
-    // Object fit (for images/videos)
+    // Przezroczystość
+    if (item.opacity !== undefined && item.opacity !== null && item.opacity !== 100) {
+      inlineStyles.opacity = item.opacity / 100;
+    }
+    
+    // Object fit (dla obrazów / wideo)
     if (item.object_fit) inlineStyles.objectFit = item.object_fit as React.CSSProperties['objectFit'];
     
     return {
       style: inlineStyles,
       className: item.style_class || '',
-      hoverScale: item.hover_scale,
-      hoverOpacity: item.hover_opacity,
-      lazyLoading: item.lazy_loading
+      hoverScale: (item as any).hover_scale as number | undefined,
+      hoverOpacity: (item as any).hover_opacity as number | undefined,
+      lazyLoading: item.lazy_loading,
     };
   };
 
@@ -711,11 +748,28 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         openUrl(buttonUrl);
       };
       
+      const hasButtonHover = (buttonStyles.hoverScale && buttonStyles.hoverScale !== 1) ||
+        (buttonStyles.hoverOpacity && buttonStyles.hoverOpacity !== 100);
+      const buttonAlignmentClass = item.text_align === 'center'
+        ? 'mx-auto'
+        : item.text_align === 'right'
+          ? 'ml-auto'
+          : '';
+      
       return (
         <Button
           onClick={handleButtonClick}
-          className={cn('w-full', buttonStyles.className)}
-          style={buttonStyles.style}
+          className={cn(
+            'transition-all duration-300',
+            hasButtonHover && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
+            buttonAlignmentClass,
+            buttonStyles.className
+          )}
+          style={{
+            ...buttonStyles.style,
+            '--hover-scale': buttonStyles.hoverScale || 1,
+            '--hover-opacity': (buttonStyles.hoverOpacity || 100) / 100,
+          } as React.CSSProperties}
         >
           {ButtonIcon && iconPosition === 'before' && (
             <ButtonIcon className="w-4 h-4 mr-2" />
