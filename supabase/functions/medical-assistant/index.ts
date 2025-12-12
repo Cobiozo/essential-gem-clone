@@ -390,7 +390,8 @@ async function searchPubMed(query: string, maxResults: number = 10, enrichWithOm
 }
 
 async function searchPubMedIds(query: string, maxResults: number): Promise<string[]> {
-  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${maxResults}&sort=relevance&retmode=json`;
+  // Sort by date (most recent first) instead of relevance
+  const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${maxResults}&sort=date&retmode=json`;
   
   console.log('PubMed search URL:', searchUrl);
   const searchResponse = await fetch(searchUrl);
