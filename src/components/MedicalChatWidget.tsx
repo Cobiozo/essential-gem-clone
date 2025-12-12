@@ -182,9 +182,13 @@ export const MedicalChatWidget: React.FC = () => {
 
     const pdf = new jsPDF();
     const pageWidth = pdf.internal.pageSize.getWidth();
-    const margin = 15;
-    const maxWidth = pageWidth - 2 * margin;
-    let yPos = 20;
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const marginLeft = 25;
+    const marginRight = 25;
+    const marginTop = 30;
+    const marginBottom = 30;
+    const maxWidth = pageWidth - marginLeft - marginRight;
+    let yPos = marginTop;
 
     const locales: Record<ExportLanguage, string> = {
       pl: 'pl-PL',
@@ -197,19 +201,19 @@ export const MedicalChatWidget: React.FC = () => {
     pdf.setFontSize(18);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 82, 147);
-    pdf.text(exportTranslations.title[lang], margin, yPos);
+    pdf.text(exportTranslations.title[lang], marginLeft, yPos);
     yPos += 8;
 
     // Date
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(100, 100, 100);
-    pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, margin, yPos);
+    pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, marginLeft, yPos);
     yPos += 12;
 
     // Separator line
     pdf.setDrawColor(200, 200, 200);
-    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
     yPos += 10;
 
     // Messages
@@ -231,10 +235,10 @@ export const MedicalChatWidget: React.FC = () => {
       pdf.setFontSize(11);
       const lines = pdf.splitTextToSize(text, maxWidth);
       
-      // Check if we need a new page
-      if (yPos + lines.length * 5 > pdf.internal.pageSize.getHeight() - 30) {
+      // Check if we need a new page (with proper bottom margin)
+      if (yPos + lines.length * 5 > pageHeight - marginBottom) {
         pdf.addPage();
-        yPos = 20;
+        yPos = marginTop;
       }
       
       if (message.role === 'user') {
@@ -245,7 +249,7 @@ export const MedicalChatWidget: React.FC = () => {
         pdf.setTextColor(50, 50, 50);
       }
       
-      pdf.text(lines, margin, yPos);
+      pdf.text(lines, marginLeft, yPos);
       yPos += lines.length * 5 + 10;
     });
 
@@ -256,17 +260,17 @@ export const MedicalChatWidget: React.FC = () => {
     const disclaimer = exportTranslations.disclaimer[lang];
     const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
     
-    if (yPos + disclaimerLines.length * 4 > pdf.internal.pageSize.getHeight() - 15) {
+    if (yPos + disclaimerLines.length * 4 > pageHeight - marginBottom) {
       pdf.addPage();
-      yPos = 20;
+      yPos = marginTop;
     }
     
     // Add separator before disclaimer
     pdf.setDrawColor(200, 200, 200);
-    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
     yPos += 8;
     
-    pdf.text(disclaimerLines, margin, yPos);
+    pdf.text(disclaimerLines, marginLeft, yPos);
 
     pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
