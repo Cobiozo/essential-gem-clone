@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CMSItem } from '@/types/cms';
 import { X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { StyleTab } from './StyleTab';
+import { AdvancedStyleTab } from './AdvancedStyleTab';
 import { useDebounce } from '@/hooks/use-debounce';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { IconPicker } from '../IconPicker';
@@ -114,7 +114,11 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
 
         <TabsContent value="style" className="flex-1 overflow-auto m-0">
           <div className="p-4">
-            <StyleTab item={editedItem} onUpdate={handleUpdate} />
+            <AdvancedStyleTab 
+              item={editedItem} 
+              onUpdate={handleUpdate}
+              showDimensions={false}
+            />
           </div>
         </TabsContent>
       </Tabs>

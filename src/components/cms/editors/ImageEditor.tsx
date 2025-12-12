@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { AdvancedStyleTab } from './AdvancedStyleTab';
 
 interface ImageEditorProps {
   item: CMSItem;
@@ -127,197 +128,33 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ item, onSave, onCancel
 
         <TabsContent value="style" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
-            <div className="space-y-6 pb-4">
-              {/* Rozmiar i dopasowanie */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-foreground">Rozmiar i dopasowanie</h4>
-                
-                <div className="space-y-2">
-                  <Label>Dopasowanie obrazka</Label>
-                  <Select
-                    value={editedItem.object_fit || 'cover'}
-                    onValueChange={(value) => handleFieldChange('object_fit', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cover">Wypełnij (cover)</SelectItem>
-                      <SelectItem value="contain">Dopasuj (contain)</SelectItem>
-                      <SelectItem value="fill">Rozciągnij (fill)</SelectItem>
-                      <SelectItem value="none">Oryginalny (none)</SelectItem>
-                      <SelectItem value="scale-down">Zmniejsz jeśli większy</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Max szerokość (px)</Label>
-                    <Input
-                      type="number"
-                      value={editedItem.max_width ?? ''}
-                      onChange={(e) => handleFieldChange('max_width', e.target.value ? parseInt(e.target.value) : null)}
-                      placeholder="np. 500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Max wysokość (px)</Label>
-                    <Input
-                      type="number"
-                      value={editedItem.max_height ?? ''}
-                      onChange={(e) => handleFieldChange('max_height', e.target.value ? parseInt(e.target.value) : null)}
-                      placeholder="np. 300"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Wyrównanie */}
+            <div className="space-y-4 pb-4">
+              {/* Image-specific settings */}
               <div className="space-y-2">
-                <Label>Wyrównanie</Label>
+                <Label>Dopasowanie obrazka</Label>
                 <Select
-                  value={editedItem.text_align || 'center'}
-                  onValueChange={(value) => handleFieldChange('text_align', value)}
+                  value={editedItem.object_fit || 'cover'}
+                  onValueChange={(value) => handleFieldChange('object_fit', value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="left">Do lewej</SelectItem>
-                    <SelectItem value="center">Wyśrodkowane</SelectItem>
-                    <SelectItem value="right">Do prawej</SelectItem>
+                    <SelectItem value="cover">Wypełnij (cover)</SelectItem>
+                    <SelectItem value="contain">Dopasuj (contain)</SelectItem>
+                    <SelectItem value="fill">Rozciągnij (fill)</SelectItem>
+                    <SelectItem value="none">Oryginalny (none)</SelectItem>
+                    <SelectItem value="scale-down">Zmniejsz jeśli większy</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Zaokrąglenie i cień */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-foreground">Efekty</h4>
-                
-                <div className="space-y-2">
-                  <Label>Zaokrąglenie rogów: {editedItem.border_radius || 0}px</Label>
-                  <Slider
-                    value={[editedItem.border_radius || 0]}
-                    onValueChange={([value]) => handleFieldChange('border_radius', value)}
-                    min={0}
-                    max={50}
-                    step={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Cień</Label>
-                  <Select
-                    value={editedItem.box_shadow || 'none'}
-                    onValueChange={(value) => handleFieldChange('box_shadow', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Brak</SelectItem>
-                      <SelectItem value="0 1px 3px rgba(0,0,0,0.12)">Lekki</SelectItem>
-                      <SelectItem value="0 4px 6px rgba(0,0,0,0.1)">Średni</SelectItem>
-                      <SelectItem value="0 10px 25px rgba(0,0,0,0.15)">Mocny</SelectItem>
-                      <SelectItem value="0 20px 40px rgba(0,0,0,0.2)">Bardzo mocny</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Przezroczystość: {editedItem.opacity || 100}%</Label>
-                  <Slider
-                    value={[editedItem.opacity || 100]}
-                    onValueChange={([value]) => handleFieldChange('opacity', value)}
-                    min={0}
-                    max={100}
-                    step={5}
-                  />
-                </div>
-              </div>
-
-              {/* Obramowanie */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-foreground">Obramowanie</h4>
-                
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-2">
-                    <Label>Szerokość</Label>
-                    <Input
-                      type="number"
-                      value={editedItem.border_width || 0}
-                      onChange={(e) => handleFieldChange('border_width', parseInt(e.target.value) || 0)}
-                      min={0}
-                      max={20}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Styl</Label>
-                    <Select
-                      value={editedItem.border_style || 'solid'}
-                      onValueChange={(value) => handleFieldChange('border_style', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="solid">Ciągły</SelectItem>
-                        <SelectItem value="dashed">Przerywany</SelectItem>
-                        <SelectItem value="dotted">Kropkowany</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Kolor</Label>
-                    <Input
-                      type="color"
-                      value={editedItem.border_color || '#000000'}
-                      onChange={(e) => handleFieldChange('border_color', e.target.value)}
-                      className="h-10 p-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Odstępy */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-foreground">Odstępy</h4>
-                
-                <div className="space-y-2">
-                  <Label>Padding: {editedItem.padding || 0}px</Label>
-                  <Slider
-                    value={[editedItem.padding || 0]}
-                    onValueChange={([value]) => handleFieldChange('padding', value)}
-                    min={0}
-                    max={50}
-                    step={4}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Margines górny: {editedItem.margin_top || 0}px</Label>
-                    <Slider
-                      value={[editedItem.margin_top || 0]}
-                      onValueChange={([value]) => handleFieldChange('margin_top', value)}
-                      min={0}
-                      max={100}
-                      step={4}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Margines dolny: {editedItem.margin_bottom || 0}px</Label>
-                    <Slider
-                      value={[editedItem.margin_bottom || 0]}
-                      onValueChange={([value]) => handleFieldChange('margin_bottom', value)}
-                      min={0}
-                      max={100}
-                      step={4}
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Full advanced style options */}
+              <AdvancedStyleTab 
+                item={editedItem} 
+                onUpdate={(updates) => setEditedItem({ ...editedItem, ...updates })}
+                showTypography={false}
+              />
             </div>
           </ScrollArea>
         </TabsContent>

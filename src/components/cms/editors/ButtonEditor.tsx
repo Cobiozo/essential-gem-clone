@@ -13,7 +13,7 @@ import { X, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { IconPicker } from '../IconPicker';
-import { StyleTab } from './StyleTab';
+import { AdvancedStyleTab } from './AdvancedStyleTab';
 import * as icons from 'lucide-react';
 
 interface ButtonEditorProps {
@@ -368,7 +368,7 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
         <TabsContent value="style" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
             <div className="pb-4">
-              <StyleTab 
+              <AdvancedStyleTab 
                 item={editedItem} 
                 onUpdate={(updates) => setEditedItem({ ...editedItem, ...updates })} 
               />
