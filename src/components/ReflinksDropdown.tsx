@@ -56,20 +56,20 @@ export const ReflinksDropdown: React.FC = () => {
     setCopiedId(reflink.id);
     toast({
       title: t('reflinks.copied') || 'Skopiowano!',
-      description: fullUrl,
+      description: t('reflinks.linkCopied') || 'Link został skopiowany do schowka',
     });
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const roleLabels: Record<string, string> = {
-    klient: t('reflinks.roleClient') || 'Klient',
-    partner: t('reflinks.rolePartner') || 'Partner',
-    specjalista: t('reflinks.roleSpecialist') || 'Specjalista',
+    klient: 'Klient',
+    partner: 'Partner',
+    specjalista: 'Specjalista',
   };
 
-  const filteredReflinks = selectedRole 
-    ? reflinks.filter(r => r.target_role === selectedRole)
-    : reflinks;
+  const selectedReflink = selectedRole 
+    ? reflinks.find(r => r.target_role === selectedRole)
+    : null;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -80,76 +80,63 @@ export const ReflinksDropdown: React.FC = () => {
           <ChevronDown className="w-3 h-3 ml-1 hidden sm:inline" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
+      <PopoverContent className="w-72" align="end">
         <div className="space-y-4">
-          <div className="font-semibold text-sm border-b border-border pb-2">
-            {t('reflinks.title') || 'Reflinki dla:'}
-          </div>
-          
-          {/* Role filter buttons */}
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={selectedRole === null ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedRole(null)}
-              className="text-xs"
-            >
-              {t('reflinks.all') || 'Wszystkie'}
-            </Button>
+          {/* Role selection buttons */}
+          <div className="flex gap-1">
             {['klient', 'partner', 'specjalista'].map(role => (
               <Button
                 key={role}
                 variant={selectedRole === role ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setSelectedRole(role)}
-                className="text-xs"
+                onClick={() => setSelectedRole(selectedRole === role ? null : role)}
+                className="flex-1 text-xs"
               >
                 {roleLabels[role]}
               </Button>
             ))}
           </div>
 
-          {/* Reflinks list */}
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {filteredReflinks.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {t('reflinks.noReflinks') || 'Brak reflinków'}
-              </p>
-            ) : (
-              filteredReflinks.map(reflink => (
-                <div
-                  key={reflink.id}
-                  className="p-3 rounded-lg border border-border bg-muted/30 space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium px-2 py-1 rounded bg-primary/10 text-primary">
-                      {roleLabels[reflink.target_role]}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopy(reflink)}
-                      className="h-7 px-2"
-                    >
-                      {copiedId === reflink.id ? (
-                        <Check className="w-3.5 h-3.5 text-green-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
+          {/* Selected reflink display */}
+          {selectedRole && (
+            <div className="space-y-3">
+              {selectedReflink ? (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground break-all bg-muted/50 p-3 rounded-md font-mono">
+                    {getFullReflink(selectedReflink.reflink_code)}
                   </div>
-                  <div className="text-xs text-muted-foreground break-all font-mono bg-background p-2 rounded">
-                    {getFullReflink(reflink.reflink_code)}
-                  </div>
-                  {reflink.description && (
-                    <p className="text-xs text-muted-foreground">
-                      {reflink.description}
-                    </p>
-                  )}
+                  <Button
+                    onClick={() => handleCopy(selectedReflink)}
+                    className="w-full"
+                    size="sm"
+                  >
+                    {copiedId === selectedReflink.id ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2 text-green-500" />
+                        Skopiowano!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Kopiuj link
+                      </>
+                    )}
+                  </Button>
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  Brak reflinku dla tej roli
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Initial state hint */}
+          {!selectedRole && (
+            <p className="text-xs text-muted-foreground text-center">
+              Wybierz rolę, aby zobaczyć reflink
+            </p>
+          )}
         </div>
       </PopoverContent>
     </Popover>
