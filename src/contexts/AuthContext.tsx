@@ -9,6 +9,7 @@ interface Profile {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  role?: string;
 }
 
 interface UserRole {
@@ -189,10 +190,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAdmin = userRole?.role === 'admin';
-  const isPartner = userRole?.role === 'partner';
-  const isClient = userRole?.role === 'client';
-  const isSpecjalista = userRole?.role === 'specjalista';
+  const isAdmin = userRole?.role === 'admin' || profile?.role === 'admin';
+  const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
+  const isClient = userRole?.role === 'client' || profile?.role === 'client';
+  const isSpecjalista = userRole?.role === 'specjalista' || profile?.role === 'specjalista';
 
   const value: AuthContextType = {
     user,
