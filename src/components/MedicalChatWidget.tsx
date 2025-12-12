@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stethoscope, Send, X, Trash2, ExternalLink, Download, History, ChevronDown } from 'lucide-react';
+import { Search, Send, X, Trash2, ExternalLink, Download, History, ChevronDown, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,10 +19,13 @@ import {
 } from '@/components/ui/popover';
 import jsPDF from 'jspdf';
 
+type PdfLanguage = 'pl' | 'de' | 'en' | 'it';
+
 export const MedicalChatWidget: React.FC = () => {
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [pdfLanguage, setPdfLanguage] = useState<PdfLanguage>('en');
   const { 
     messages, 
     isLoading, 
@@ -78,17 +81,50 @@ export const MedicalChatWidget: React.FC = () => {
     }
   };
 
+  const pdfTranslations: Record<string, Record<PdfLanguage, string>> = {
+    title: {
+      pl: 'PURE SCIENCE SEARCH AI - Wyniki',
+      de: 'PURE SCIENCE SEARCH AI - Ergebnisse',
+      en: 'PURE SCIENCE SEARCH AI - Results',
+      it: 'PURE SCIENCE SEARCH AI - Risultati',
+    },
+    question: {
+      pl: 'Pytanie',
+      de: 'Frage',
+      en: 'Question',
+      it: 'Domanda',
+    },
+    answer: {
+      pl: 'Odpowiedź',
+      de: 'Antwort',
+      en: 'Answer',
+      it: 'Risposta',
+    },
+    disclaimer: {
+      pl: 'Te informacje służą wyłącznie celom edukacyjnym i nie zastępują porady lekarskiej.',
+      de: 'Diese Informationen dienen nur zu Bildungszwecken und ersetzen keine ärztliche Beratung.',
+      en: 'This information is for educational purposes only and does not replace medical advice.',
+      it: 'Queste informazioni sono solo a scopo educativo e non sostituiscono il parere medico.',
+    },
+    generatedOn: {
+      pl: 'Wygenerowano',
+      de: 'Erstellt am',
+      en: 'Generated on',
+      it: 'Generato il',
+    },
+  };
+
   const getTranslation = (key: string): string => {
     const translations: Record<string, Record<string, string>> = {
       title: {
-        pl: 'Asystent Medyczny',
-        de: 'Medizinischer Assistent',
-        en: 'Medical Assistant',
+        pl: 'PURE SCIENCE SEARCH AI',
+        de: 'PURE SCIENCE SEARCH AI',
+        en: 'PURE SCIENCE SEARCH AI',
       },
       placeholder: {
-        pl: 'Zadaj pytanie medyczne...',
-        de: 'Stellen Sie eine medizinische Frage...',
-        en: 'Ask a medical question...',
+        pl: 'Zadaj pytanie naukowe...',
+        de: 'Stellen Sie eine wissenschaftliche Frage...',
+        en: 'Ask a scientific question...',
       },
       disclaimer: {
         pl: '⚠️ Ten asystent służy wyłącznie celom informacyjnym i nie zastępuje porady lekarskiej.',
@@ -129,7 +165,7 @@ export const MedicalChatWidget: React.FC = () => {
     return translations[key]?.[language] || translations[key]?.en || key;
   };
 
-  const exportToPdf = () => {
+  const exportToPdf = (lang: PdfLanguage) => {
     if (messages.length === 0) return;
 
     const pdf = new jsPDF();
@@ -138,50 +174,89 @@ export const MedicalChatWidget: React.FC = () => {
     const maxWidth = pageWidth - 2 * margin;
     let yPos = 20;
 
+    const locales: Record<PdfLanguage, string> = {
+      pl: 'pl-PL',
+      de: 'de-DE',
+      en: 'en-US',
+      it: 'it-IT',
+    };
+
     // Title
-    pdf.setFontSize(16);
+    pdf.setFontSize(18);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(getTranslation('title'), margin, yPos);
-    yPos += 10;
+    pdf.setTextColor(0, 82, 147); // Blue color
+    pdf.text(pdfTranslations.title[lang], margin, yPos);
+    yPos += 8;
 
     // Date
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(new Date().toLocaleDateString(language), margin, yPos);
-    yPos += 15;
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`${pdfTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, margin, yPos);
+    yPos += 12;
+
+    // Separator line
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 10;
 
     // Messages
-    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
     messages.forEach((message) => {
-      const prefix = message.role === 'user' ? 'Q: ' : 'A: ';
-      const text = prefix + message.content.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+      const prefix = message.role === 'user' 
+        ? `${pdfTranslations.question[lang]}: ` 
+        : `${pdfTranslations.answer[lang]}: `;
       
+      // Clean content - remove markdown formatting
+      let cleanContent = message.content
+        .replace(/\*\*/g, '')
+        .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1 ($2)')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/---/g, '');
+      
+      const text = prefix + cleanContent;
+      
+      pdf.setFontSize(11);
       const lines = pdf.splitTextToSize(text, maxWidth);
       
       // Check if we need a new page
-      if (yPos + lines.length * 5 > pdf.internal.pageSize.getHeight() - 20) {
+      if (yPos + lines.length * 5 > pdf.internal.pageSize.getHeight() - 30) {
         pdf.addPage();
         yPos = 20;
       }
       
-      pdf.setFont('helvetica', message.role === 'user' ? 'bold' : 'normal');
+      if (message.role === 'user') {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(0, 82, 147);
+      } else {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(50, 50, 50);
+      }
+      
       pdf.text(lines, margin, yPos);
-      yPos += lines.length * 5 + 8;
+      yPos += lines.length * 5 + 10;
     });
 
-    // Disclaimer
+    // Disclaimer at bottom
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'italic');
-    const disclaimer = getTranslation('disclaimer').replace('⚠️ ', '');
+    pdf.setTextColor(120, 120, 120);
+    const disclaimer = pdfTranslations.disclaimer[lang];
     const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
     
-    if (yPos + disclaimerLines.length * 4 > pdf.internal.pageSize.getHeight() - 10) {
+    if (yPos + disclaimerLines.length * 4 > pdf.internal.pageSize.getHeight() - 15) {
       pdf.addPage();
       yPos = 20;
     }
+    
+    // Add separator before disclaimer
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 8;
+    
     pdf.text(disclaimerLines, margin, yPos);
 
-    pdf.save(`medical-assistant-${new Date().toISOString().slice(0, 10)}.pdf`);
+    pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // Convert markdown links to clickable HTML
@@ -240,10 +315,21 @@ export const MedicalChatWidget: React.FC = () => {
   };
 
   const resultsOptions = [
+    { value: 1, label: '1' },
+    { value: 5, label: '5' },
     { value: 10, label: '10' },
     { value: 20, label: '20' },
+    { value: 30, label: '30' },
+    { value: 40, label: '40' },
     { value: 50, label: '50' },
     { value: 0, label: getTranslation('max') },
+  ];
+
+  const pdfLanguageOptions: { value: PdfLanguage; label: string; flag: string }[] = [
+    { value: 'en', label: 'English', flag: '🇬🇧' },
+    { value: 'pl', label: 'Polski', flag: '🇵🇱' },
+    { value: 'de', label: 'Deutsch', flag: '🇩🇪' },
+    { value: 'it', label: 'Italiano', flag: '🇮🇹' },
   ];
 
   return (
@@ -251,24 +337,24 @@ export const MedicalChatWidget: React.FC = () => {
       {/* Toggle Button - positioned above the support chat */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
+        className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
         aria-label={getTranslation('title')}
       >
         {isOpen ? (
           <X className="w-6 h-6" />
         ) : (
-          <Stethoscope className="w-6 h-6" />
+          <Search className="w-6 h-6" />
         )}
       </button>
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-40 right-4 z-50 w-[380px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[calc(100vh-12rem)] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-40 right-4 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-12rem)] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
-              <Stethoscope className="w-5 h-5" />
-              <span className="font-medium">{getTranslation('title')}</span>
+              <Search className="w-5 h-5" />
+              <span className="font-semibold text-sm">{getTranslation('title')}</span>
             </div>
             <div className="flex items-center gap-1">
               {/* History */}
@@ -308,17 +394,32 @@ export const MedicalChatWidget: React.FC = () => {
                 </PopoverContent>
               </Popover>
 
-              {/* Download PDF */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
-                onClick={exportToPdf}
-                disabled={messages.length === 0}
-                title={getTranslation('downloadPdf')}
-              >
-                <Download className="w-4 h-4" />
-              </Button>
+              {/* Download PDF with language selection */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                    disabled={messages.length === 0}
+                    title={getTranslation('downloadPdf')}
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[140px]">
+                  {pdfLanguageOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => exportToPdf(option.value)}
+                      className="flex items-center gap-2"
+                    >
+                      <span>{option.flag}</span>
+                      <span>{option.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Clear */}
               <Button
