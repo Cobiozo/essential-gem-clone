@@ -18,7 +18,7 @@ import { GalleryElement } from './elements/GalleryElement';
 import { SocialIconsElement } from './elements/SocialIconsElement';
 import { AlertElement } from './elements/AlertElement';
 import { TestimonialElement } from './elements/TestimonialElement';
-import { CollapsiblePureLifeElement } from './elements/CollapsiblePureLifeElement';
+// CollapsiblePureLifeElement usunięty - element działa jako sekcja, nie jako item
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useTheme } from '@/components/ThemeProvider';
@@ -956,13 +956,16 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       return null;
 
     case 'collapsible-pure-life':
-      return (
-        <CollapsiblePureLifeElement 
-          item={item} 
-          isEditMode={isEditMode}
-          onClick={onClick}
-        />
-      );
+      // Ten element powinien być sekcją, nie itemem
+      if (isEditMode) {
+        return (
+          <div className="p-4 border-2 border-dashed border-yellow-500 rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
+            <p className="text-yellow-800 dark:text-yellow-200 text-sm font-medium">⚠️ "Sekcja zwijana (Pure Life)" powinna być sekcją</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">Usuń ten element i dodaj go ponownie z panelu układów</p>
+          </div>
+        );
+      }
+      return null;
 
     default:
       // Get icon component if specified
