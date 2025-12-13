@@ -319,12 +319,16 @@ export const ReflinksManagement: React.FC = () => {
       </div>
 
       <div className="space-y-2">
-        <Label>Tytuł (wyświetlany)</Label>
+        <Label>Nazwa widoczna dla użytkownika *</Label>
         <Input
           value={data.title || ''}
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder="np. Zarejestruj się jako partner"
+          required
         />
+        <p className="text-xs text-muted-foreground">
+          Ta nazwa będzie wyświetlana użytkownikowi w menu reflinków
+        </p>
       </div>
 
       {data.link_type === 'reflink' && (
