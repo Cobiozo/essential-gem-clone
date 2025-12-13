@@ -8,7 +8,7 @@ import { ContentCell, CMSItem } from '@/types/cms';
 import { CollapsibleSection } from './CollapsibleSection';
 import { isExternalUrl, openUrl } from '@/lib/urlUtils';
 import * as icons from 'lucide-react';
-import { ChevronRight, Circle } from 'lucide-react';
+import { ChevronRight, ChevronDown, Circle } from 'lucide-react';
 import { CarouselElement } from './elements/CarouselElement';
 import { AccordionElement } from './elements/AccordionElement';
 import { CounterElement } from './elements/CounterElement';
@@ -593,6 +593,43 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         </div>
       );
 
+    case 'learn-more':
+      // Sekcja zwijana jako widżet układu
+      const learnMoreStyles = applyItemStyles(item);
+      const learnMoreTitle = item.title || 'Sekcja zwijana';
+      const learnMoreContent = item.description || '';
+      
+      return (
+        <Collapsible>
+          <div
+            className={cn(
+              'border rounded-xl bg-card shadow-sm overflow-hidden',
+              learnMoreStyles.className
+            )}
+            style={learnMoreStyles.style}
+          >
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 text-left">
+              <span className="font-semibold text-sm sm:text-base">
+                {learnMoreTitle}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4 sm:px-5 sm:pb-5 text-sm text-muted-foreground">
+              {learnMoreContent ? (
+                <FormattedText
+                  text={learnMoreContent}
+                  formatting={item.text_formatting}
+                  as="div"
+                  className="leading-relaxed"
+                />
+              ) : isEditMode ? (
+                <p className="text-xs text-muted-foreground">Dodaj treść sekcji zwijanej w edytorze elementu.</p>
+              ) : null}
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      );
+
     case 'toggle':
       const toggleCell = (item.cells as any[])?.[0];
       return (
@@ -889,7 +926,6 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'shortcode':
     case 'menu-anchor':
     case 'sidebar':
-    case 'learn-more':
     case 'trustindex':
     case 'ppom':
     case 'text-path':
