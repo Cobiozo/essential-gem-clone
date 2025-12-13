@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Plus, Pencil, Trash2, Save, X, Copy, Check } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, X, Copy, Check, Image, ExternalLink, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { MediaUpload } from '@/components/MediaUpload';
 
 interface Reflink {
   id: string;
@@ -18,7 +20,19 @@ interface Reflink {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  title: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  link_type: string;
+  visible_to_roles: string[];
+  position: number;
 }
+
+const availableRoles = [
+  { value: 'partner', label: 'Partner' },
+  { value: 'specjalista', label: 'Specjalista' },
+  { value: 'client', label: 'Klient' },
+];
 
 export const ReflinksManagement: React.FC = () => {
   const [reflinks, setReflinks] = useState<Reflink[]>([]);
@@ -30,6 +44,12 @@ export const ReflinksManagement: React.FC = () => {
     target_role: 'klient',
     reflink_code: '',
     description: '',
+    title: '',
+    image_url: '',
+    link_url: '',
+    link_type: 'reflink',
+    visible_to_roles: ['partner', 'specjalista'] as string[],
+    position: 0,
   });
   const { toast } = useToast();
 
@@ -37,6 +57,12 @@ export const ReflinksManagement: React.FC = () => {
     klient: 'Klient',
     partner: 'Partner',
     specjalista: 'Specjalista',
+  };
+
+  const linkTypeLabels: Record<string, string> = {
+    reflink: 'Reflink (rejestracja)',
+    internal: 'Link wewnętrzny',
+    external: 'Link zewnętrzny',
   };
 
   useEffect(() => {
@@ -48,7 +74,8 @@ export const ReflinksManagement: React.FC = () => {
     const { data, error } = await supabase
       .from('reflinks')
       .select('*')
-      .order('target_role');
+      .order('target_role')
+      .order('position');
 
     if (error) {
       console.error('Error fetching reflinks:', error);
@@ -67,8 +94,15 @@ export const ReflinksManagement: React.FC = () => {
     return `${window.location.origin}/auth?ref=${code}`;
   };
 
+  const getLinkDisplay = (reflink: Reflink) => {
+    if (reflink.link_type === 'reflink') {
+      return getFullReflink(reflink.reflink_code);
+    }
+    return reflink.link_url || '';
+  };
+
   const handleCopy = async (reflink: Reflink) => {
-    const fullUrl = getFullReflink(reflink.reflink_code);
+    const fullUrl = getLinkDisplay(reflink);
     await navigator.clipboard.writeText(fullUrl);
     setCopiedId(reflink.id);
     toast({
@@ -79,10 +113,19 @@ export const ReflinksManagement: React.FC = () => {
   };
 
   const handleAddReflink = async () => {
-    if (!newReflink.reflink_code.trim()) {
+    if (newReflink.link_type === 'reflink' && !newReflink.reflink_code.trim()) {
       toast({
         title: 'Błąd',
         description: 'Kod reflinku jest wymagany',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if ((newReflink.link_type === 'internal' || newReflink.link_type === 'external') && !newReflink.link_url.trim()) {
+      toast({
+        title: 'Błąd',
+        description: 'URL linku jest wymagany',
         variant: 'destructive',
       });
       return;
@@ -92,8 +135,14 @@ export const ReflinksManagement: React.FC = () => {
       .from('reflinks')
       .insert({
         target_role: newReflink.target_role,
-        reflink_code: newReflink.reflink_code.trim(),
+        reflink_code: newReflink.reflink_code.trim() || `link-${Date.now()}`,
         description: newReflink.description.trim() || null,
+        title: newReflink.title.trim() || null,
+        image_url: newReflink.image_url.trim() || null,
+        link_url: newReflink.link_url.trim() || null,
+        link_type: newReflink.link_type,
+        visible_to_roles: newReflink.visible_to_roles,
+        position: newReflink.position,
         is_active: true,
       });
 
@@ -112,7 +161,17 @@ export const ReflinksManagement: React.FC = () => {
         description: 'Reflink został dodany',
       });
       setShowAddDialog(false);
-      setNewReflink({ target_role: 'klient', reflink_code: '', description: '' });
+      setNewReflink({ 
+        target_role: 'klient', 
+        reflink_code: '', 
+        description: '',
+        title: '',
+        image_url: '',
+        link_url: '',
+        link_type: 'reflink',
+        visible_to_roles: ['partner', 'specjalista'],
+        position: 0,
+      });
       fetchReflinks();
     }
   };
@@ -126,6 +185,12 @@ export const ReflinksManagement: React.FC = () => {
         target_role: editingReflink.target_role,
         reflink_code: editingReflink.reflink_code.trim(),
         description: editingReflink.description?.trim() || null,
+        title: editingReflink.title?.trim() || null,
+        image_url: editingReflink.image_url?.trim() || null,
+        link_url: editingReflink.link_url?.trim() || null,
+        link_type: editingReflink.link_type,
+        visible_to_roles: editingReflink.visible_to_roles,
+        position: editingReflink.position,
         is_active: editingReflink.is_active,
       })
       .eq('id', editingReflink.id);
@@ -191,6 +256,13 @@ export const ReflinksManagement: React.FC = () => {
     }
   };
 
+  const toggleVisibleRole = (roles: string[], role: string): string[] => {
+    if (roles.includes(role)) {
+      return roles.filter(r => r !== role);
+    }
+    return [...roles, role];
+  };
+
   if (loading) {
     return (
       <Card>
@@ -200,6 +272,140 @@ export const ReflinksManagement: React.FC = () => {
       </Card>
     );
   }
+
+  const ReflinksForm = ({ 
+    data, 
+    onChange, 
+    isEdit = false 
+  }: { 
+    data: typeof newReflink | Reflink; 
+    onChange: (updates: Partial<typeof newReflink>) => void;
+    isEdit?: boolean;
+  }) => (
+    <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Przycisk (rola docelowa)</Label>
+          <Select
+            value={data.target_role}
+            onValueChange={(value) => onChange({ target_role: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="klient">Klient</SelectItem>
+              <SelectItem value="partner">Partner</SelectItem>
+              <SelectItem value="specjalista">Specjalista</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Typ linku</Label>
+          <Select
+            value={data.link_type}
+            onValueChange={(value) => onChange({ link_type: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="reflink">Reflink (rejestracja)</SelectItem>
+              <SelectItem value="internal">Link wewnętrzny</SelectItem>
+              <SelectItem value="external">Link zewnętrzny</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Tytuł (wyświetlany)</Label>
+        <Input
+          value={data.title || ''}
+          onChange={(e) => onChange({ title: e.target.value })}
+          placeholder="np. Zarejestruj się jako partner"
+        />
+      </div>
+
+      {data.link_type === 'reflink' && (
+        <div className="space-y-2">
+          <Label>Kod reflinku (unikalny)</Label>
+          <Input
+            value={data.reflink_code}
+            onChange={(e) => onChange({ reflink_code: e.target.value })}
+            placeholder="np. partner-jan-2024"
+          />
+          <p className="text-xs text-muted-foreground">
+            Pełny link: {getFullReflink(data.reflink_code || 'kod')}
+          </p>
+        </div>
+      )}
+
+      {(data.link_type === 'internal' || data.link_type === 'external') && (
+        <div className="space-y-2">
+          <Label>URL linku</Label>
+          <Input
+            value={data.link_url || ''}
+            onChange={(e) => onChange({ link_url: e.target.value })}
+            placeholder={data.link_type === 'internal' ? '/strona' : 'https://example.com'}
+          />
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label>Opis (opcjonalny)</Label>
+        <Input
+          value={data.description || ''}
+          onChange={(e) => onChange({ description: e.target.value })}
+          placeholder="np. Link dla nowych partnerów"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Grafika (opcjonalna)</Label>
+        <MediaUpload
+          onMediaUploaded={(url) => onChange({ image_url: url })}
+          currentMediaUrl={data.image_url || ''}
+          allowedTypes={['image']}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Pozycja (kolejność)</Label>
+        <Input
+          type="number"
+          value={data.position}
+          onChange={(e) => onChange({ position: parseInt(e.target.value) || 0 })}
+          min={0}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Widoczny dla ról</Label>
+        <div className="flex flex-wrap gap-3 pt-1">
+          {availableRoles.map(role => (
+            <div key={role.value} className="flex items-center gap-2">
+              <Checkbox
+                id={`role-${role.value}-${isEdit ? 'edit' : 'new'}`}
+                checked={(data.visible_to_roles || []).includes(role.value)}
+                onCheckedChange={() => 
+                  onChange({ 
+                    visible_to_roles: toggleVisibleRole(data.visible_to_roles || [], role.value) 
+                  })
+                }
+              />
+              <Label htmlFor={`role-${role.value}-${isEdit ? 'edit' : 'new'}`} className="cursor-pointer">
+                {role.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Tylko zalogowani użytkownicy z wybranymi rolami zobaczą ten reflink
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <Card>
@@ -211,7 +417,7 @@ export const ReflinksManagement: React.FC = () => {
               Zarządzanie Reflinkami
             </CardTitle>
             <CardDescription>
-              Twórz i zarządzaj reflinkami dla partnerów i specjalistów
+              Twórz i zarządzaj reflinkami z tytułami, grafikami i kontrolą widoczności
             </CardDescription>
           </div>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -221,50 +427,17 @@ export const ReflinksManagement: React.FC = () => {
                 Dodaj Reflink
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Dodaj nowy reflink</DialogTitle>
                 <DialogDescription>
-                  Utwórz nowy reflink dla wybranej roli
+                  Utwórz nowy reflink z tytułem, grafiką i ustawieniami widoczności
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Rola docelowa</Label>
-                  <Select
-                    value={newReflink.target_role}
-                    onValueChange={(value) => setNewReflink(prev => ({ ...prev, target_role: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="klient">Klient</SelectItem>
-                      <SelectItem value="partner">Partner</SelectItem>
-                      <SelectItem value="specjalista">Specjalista</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Kod reflinku (unikalny)</Label>
-                  <Input
-                    value={newReflink.reflink_code}
-                    onChange={(e) => setNewReflink(prev => ({ ...prev, reflink_code: e.target.value }))}
-                    placeholder="np. partner-jan-2024"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Pełny link: {getFullReflink(newReflink.reflink_code || 'kod')}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Opis (opcjonalny)</Label>
-                  <Input
-                    value={newReflink.description}
-                    onChange={(e) => setNewReflink(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="np. Link dla Jana Kowalskiego"
-                  />
-                </div>
-              </div>
+              <ReflinksForm 
+                data={newReflink} 
+                onChange={(updates) => setNewReflink(prev => ({ ...prev, ...updates }))}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowAddDialog(false)}>
                   Anuluj
@@ -296,46 +469,12 @@ export const ReflinksManagement: React.FC = () => {
               >
                 {editingReflink?.id === reflink.id ? (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Rola docelowa</Label>
-                        <Select
-                          value={editingReflink.target_role}
-                          onValueChange={(value) => 
-                            setEditingReflink(prev => prev ? { ...prev, target_role: value } : null)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="klient">Klient</SelectItem>
-                            <SelectItem value="partner">Partner</SelectItem>
-                            <SelectItem value="specjalista">Specjalista</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Kod reflinku</Label>
-                        <Input
-                          value={editingReflink.reflink_code}
-                          onChange={(e) => 
-                            setEditingReflink(prev => prev ? { ...prev, reflink_code: e.target.value } : null)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Opis</Label>
-                      <Input
-                        value={editingReflink.description || ''}
-                        onChange={(e) => 
-                          setEditingReflink(prev => prev ? { ...prev, description: e.target.value } : null)
-                        }
-                        placeholder="Opis reflinku"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
+                    <ReflinksForm 
+                      data={editingReflink} 
+                      onChange={(updates) => setEditingReflink(prev => prev ? { ...prev, ...updates } as Reflink : null)}
+                      isEdit
+                    />
+                    <div className="flex items-center gap-2 pt-2 border-t">
                       <Switch
                         checked={editingReflink.is_active}
                         onCheckedChange={(checked) => 
@@ -356,26 +495,49 @@ export const ReflinksManagement: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium px-2 py-1 rounded bg-primary/10 text-primary">
-                          {roleLabels[reflink.target_role]}
-                        </span>
-                        {!reflink.is_active && (
-                          <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">
-                            Nieaktywny
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                        {getFullReflink(reflink.reflink_code)}
-                      </div>
-                      {reflink.description && (
-                        <p className="text-sm text-muted-foreground">{reflink.description}</p>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex gap-3 flex-1">
+                      {reflink.image_url && (
+                        <img 
+                          src={reflink.image_url} 
+                          alt="" 
+                          className="w-12 h-12 rounded object-cover shrink-0"
+                        />
                       )}
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-medium px-2 py-1 rounded bg-primary/10 text-primary">
+                            {roleLabels[reflink.target_role]}
+                          </span>
+                          <span className="text-xs font-medium px-2 py-1 rounded bg-secondary text-secondary-foreground">
+                            {linkTypeLabels[reflink.link_type]}
+                          </span>
+                          {!reflink.is_active && (
+                            <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">
+                              Nieaktywny
+                            </span>
+                          )}
+                        </div>
+                        {reflink.title && (
+                          <p className="font-medium">{reflink.title}</p>
+                        )}
+                        <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                          {getLinkDisplay(reflink)}
+                        </div>
+                        {reflink.description && (
+                          <p className="text-sm text-muted-foreground">{reflink.description}</p>
+                        )}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-xs text-muted-foreground">Widoczny dla:</span>
+                          {(reflink.visible_to_roles || []).map(role => (
+                            <span key={role} className="text-xs px-1.5 py-0.5 rounded bg-muted">
+                              {availableRoles.find(r => r.value === role)?.label || role}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Button
                         size="sm"
                         variant="ghost"

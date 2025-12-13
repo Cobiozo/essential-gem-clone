@@ -663,28 +663,46 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           is_active: boolean
+          link_type: string | null
+          link_url: string | null
+          position: number | null
           reflink_code: string
           target_role: string
+          title: string | null
           updated_at: string
+          visible_to_roles: string[] | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          link_type?: string | null
+          link_url?: string | null
+          position?: number | null
           reflink_code: string
           target_role: string
+          title?: string | null
           updated_at?: string
+          visible_to_roles?: string[] | null
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          link_type?: string | null
+          link_url?: string | null
+          position?: number | null
           reflink_code?: string
           target_role?: string
+          title?: string | null
           updated_at?: string
+          visible_to_roles?: string[] | null
         }
         Relationships: []
       }
