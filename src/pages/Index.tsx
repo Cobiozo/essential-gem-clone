@@ -266,6 +266,8 @@ const Index = () => {
     // Collapsible section rendering (accordion)
     if (section.display_type === 'collapsible') {
       const defaultValue = section.default_expanded ? section.id : undefined;
+      const hasCustomHeader = !!(section as any).collapsible_header;
+      
       return (
         <div 
           key={section.id}
@@ -290,11 +292,39 @@ const Index = () => {
                     fontWeight: section.font_weight || 600,
                   }}
                 >
-                  {section.title && <span dangerouslySetInnerHTML={{ __html: section.title }} />}
+                  <div className="flex flex-col items-start gap-2 text-left">
+                    {/* Custom header or title */}
+                    {hasCustomHeader ? (
+                      <span dangerouslySetInnerHTML={{ __html: (section as any).collapsible_header }} />
+                    ) : section.title ? (
+                      <span dangerouslySetInnerHTML={{ __html: section.title }} />
+                    ) : (
+                      <span className="text-muted-foreground">Kliknij aby rozwinąć</span>
+                    )}
+                    {/* Show description in trigger if custom header is set */}
+                    {hasCustomHeader && section.description && (
+                      <span 
+                        className="text-sm font-normal text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: section.description }}
+                      />
+                    )}
+                  </div>
                 </AccordionTrigger>
                 <AccordionContent className="pb-6">
-                  {section.description && (
+                  {/* Show description in content only if custom header is NOT set */}
+                  {!hasCustomHeader && section.description && (
                     <p className="text-muted-foreground mb-6" dangerouslySetInnerHTML={{ __html: section.description }} />
+                  )}
+                  {/* Show title in content if custom header is set */}
+                  {hasCustomHeader && section.title && section.show_title !== false && (
+                    <h3 
+                      className="text-2xl font-bold mb-4"
+                      style={{ 
+                        color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
+                              ? section.text_color : undefined 
+                      }}
+                      dangerouslySetInnerHTML={{ __html: section.title }}
+                    />
                   )}
                   <div className="space-y-3 md:space-y-4">
                     {sectionItems.map(item => renderCMSItem(item, section))}
