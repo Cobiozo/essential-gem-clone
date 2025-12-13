@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CMSItem } from '@/types/cms';
 import { X } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AdvancedStyleTab } from './AdvancedStyleTab';
 import { useDebounce } from '@/hooks/use-debounce';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -19,20 +17,42 @@ interface TextEditorProps {
 }
 
 export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }) => {
-  const [editedItem, setEditedItem] = useState<CMSItem>(item);
-  const debouncedItem = useDebounce(editedItem, 1000);
-  const prevItemRef = useRef<string>(JSON.stringify(item));
+  const [editedItem, setEditedItem] = useState<CMSItem>(() => item);
+  const isSavingRef = useRef(false);
+  const lastSavedRef = useRef<string>(JSON.stringify(item));
+  
+  // Memoize the item for debounce comparison
+  const itemForDebounce = useMemo(() => JSON.stringify(editedItem), [editedItem]);
+  const debouncedItemString = useDebounce(itemForDebounce, 1500);
 
-  // Auto-save on debounced changes
-  useEffect(() => {
-    const debouncedItemString = JSON.stringify(debouncedItem);
-    if (debouncedItem && debouncedItemString !== prevItemRef.current) {
-      onSave(debouncedItem);
-      prevItemRef.current = debouncedItemString;
+  // Stable save callback that doesn't cause re-renders
+  const saveItem = useCallback((itemToSave: CMSItem) => {
+    if (isSavingRef.current) return;
+    const itemString = JSON.stringify(itemToSave);
+    if (itemString !== lastSavedRef.current) {
+      isSavingRef.current = true;
+      lastSavedRef.current = itemString;
+      onSave(itemToSave);
+      // Reset saving flag after a brief delay
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 100);
     }
-  }, [debouncedItem, onSave]);
+  }, [onSave]);
 
-  const handleUpdate = (updates: Partial<CMSItem>) => {
+  // Auto-save on debounced changes - parse the debounced string
+  useEffect(() => {
+    if (debouncedItemString && debouncedItemString !== lastSavedRef.current) {
+      try {
+        const parsedItem = JSON.parse(debouncedItemString);
+        saveItem(parsedItem);
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }, [debouncedItemString, saveItem]);
+
+  const handleUpdate = useCallback((updates: Partial<CMSItem>) => {
     setEditedItem(prev => {
       const existingCells = (prev.cells || [{ type: 'paragraph', content: '' }]) as any[];
       let newCells = [...existingCells];
@@ -51,7 +71,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ item, onSave, onCancel }
         cells: newCells
       };
     });
-  };
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
