@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Plus, Pencil, Trash2, Save, X, Copy, Check, Image, ExternalLink, ArrowUpDown } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { MediaUpload } from '@/components/MediaUpload';
+import { ReflinksForm } from './ReflinksForm';
 
 interface Reflink {
   id: string;
@@ -256,12 +253,6 @@ export const ReflinksManagement: React.FC = () => {
     }
   };
 
-  const toggleVisibleRole = (roles: string[], role: string): string[] => {
-    if (roles.includes(role)) {
-      return roles.filter(r => r !== role);
-    }
-    return [...roles, role];
-  };
 
   if (loading) {
     return (
@@ -273,143 +264,6 @@ export const ReflinksManagement: React.FC = () => {
     );
   }
 
-  const ReflinksForm = ({ 
-    data, 
-    onChange, 
-    isEdit = false 
-  }: { 
-    data: typeof newReflink | Reflink; 
-    onChange: (updates: Partial<typeof newReflink>) => void;
-    isEdit?: boolean;
-  }) => (
-    <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Przycisk (rola docelowa)</Label>
-          <Select
-            value={data.target_role}
-            onValueChange={(value) => onChange({ target_role: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="klient">Klient</SelectItem>
-              <SelectItem value="partner">Partner</SelectItem>
-              <SelectItem value="specjalista">Specjalista</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Typ linku</Label>
-          <Select
-            value={data.link_type}
-            onValueChange={(value) => onChange({ link_type: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="reflink">Reflink (rejestracja)</SelectItem>
-              <SelectItem value="internal">Link wewnętrzny</SelectItem>
-              <SelectItem value="external">Link zewnętrzny</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Nazwa widoczna dla użytkownika *</Label>
-        <Input
-          value={data.title || ''}
-          onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="np. Zarejestruj się jako partner"
-          required
-        />
-        <p className="text-xs text-muted-foreground">
-          Ta nazwa będzie wyświetlana użytkownikowi w menu reflinków
-        </p>
-      </div>
-
-      {data.link_type === 'reflink' && (
-        <div className="space-y-2">
-          <Label>Kod reflinku (unikalny)</Label>
-          <Input
-            value={data.reflink_code}
-            onChange={(e) => onChange({ reflink_code: e.target.value })}
-            placeholder="np. partner-jan-2024"
-          />
-          <p className="text-xs text-muted-foreground">
-            Pełny link: {getFullReflink(data.reflink_code || 'kod')}
-          </p>
-        </div>
-      )}
-
-      {(data.link_type === 'internal' || data.link_type === 'external') && (
-        <div className="space-y-2">
-          <Label>URL linku</Label>
-          <Input
-            value={data.link_url || ''}
-            onChange={(e) => onChange({ link_url: e.target.value })}
-            placeholder={data.link_type === 'internal' ? '/strona' : 'https://example.com'}
-          />
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <Label>Opis (opcjonalny)</Label>
-        <Input
-          value={data.description || ''}
-          onChange={(e) => onChange({ description: e.target.value })}
-          placeholder="np. Link dla nowych partnerów"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Grafika (opcjonalna)</Label>
-        <MediaUpload
-          onMediaUploaded={(url) => onChange({ image_url: url })}
-          currentMediaUrl={data.image_url || ''}
-          allowedTypes={['image']}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Pozycja (kolejność)</Label>
-        <Input
-          type="number"
-          value={data.position}
-          onChange={(e) => onChange({ position: parseInt(e.target.value) || 0 })}
-          min={0}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Widoczny dla ról</Label>
-        <div className="flex flex-wrap gap-3 pt-1">
-          {availableRoles.map(role => (
-            <div key={role.value} className="flex items-center gap-2">
-              <Checkbox
-                id={`role-${role.value}-${isEdit ? 'edit' : 'new'}`}
-                checked={(data.visible_to_roles || []).includes(role.value)}
-                onCheckedChange={() => 
-                  onChange({ 
-                    visible_to_roles: toggleVisibleRole(data.visible_to_roles || [], role.value) 
-                  })
-                }
-              />
-              <Label htmlFor={`role-${role.value}-${isEdit ? 'edit' : 'new'}`} className="cursor-pointer">
-                {role.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Tylko zalogowani użytkownicy z wybranymi rolami zobaczą ten reflink
-        </p>
-      </div>
-    </div>
-  );
 
   return (
     <Card>
@@ -439,8 +293,8 @@ export const ReflinksManagement: React.FC = () => {
                 </DialogDescription>
               </DialogHeader>
               <ReflinksForm 
-                data={newReflink} 
-                onChange={(updates) => setNewReflink(prev => ({ ...prev, ...updates }))}
+                initialData={newReflink} 
+                onDataChange={(data) => setNewReflink(data as typeof newReflink)}
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowAddDialog(false)}>
@@ -559,8 +413,8 @@ export const ReflinksManagement: React.FC = () => {
           {editingReflink && (
             <>
               <ReflinksForm 
-                data={editingReflink} 
-                onChange={(updates) => setEditingReflink(prev => prev ? { ...prev, ...updates } as Reflink : null)}
+                initialData={editingReflink} 
+                onDataChange={(data) => setEditingReflink({ ...editingReflink, ...data } as Reflink)}
                 isEdit
               />
               <div className="flex items-center gap-2 pt-2 border-t">
