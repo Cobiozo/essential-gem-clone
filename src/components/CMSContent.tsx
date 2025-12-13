@@ -462,12 +462,18 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const videoCell = (item.cells as any[])?.[0];
       const videoStyles = applyItemStyles(item);
       const videoUrl = videoCell?.content || item.media_url;
+      const youtubeId = videoCell?.youtubeId;
+      const youtubeThumbnail = videoCell?.thumbnail;
       const videoAutoplay = videoCell?.autoplay ?? false;
       const videoLoop = videoCell?.loop ?? false;
       const videoMuted = videoCell?.muted ?? true;
       const videoControls = videoCell?.controls ?? true;
       
-      if (isEditMode && !videoUrl) {
+      const hasYouTubeVideo = !!youtubeId;
+      const hasLocalVideo = !!videoUrl && !hasYouTubeVideo;
+      const hasAnyVideo = hasYouTubeVideo || hasLocalVideo;
+      
+      if (isEditMode && !hasAnyVideo) {
         return (
           <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center">
             <p className="text-xs text-muted-foreground">Video</p>
@@ -475,25 +481,77 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       
-      return (
-        <div style={videoStyles.style} className={cn('w-full', videoStyles.className)}>
-          {videoUrl ? (
-            <video
-              src={videoUrl}
-              controls={videoControls}
-              autoPlay={videoAutoplay}
-              loop={videoLoop}
-              muted={videoMuted}
-              className="w-full max-w-full rounded-lg"
+      // YouTube embed
+      if (hasYouTubeVideo) {
+        const youtubeParams = new URLSearchParams({
+          autoplay: videoAutoplay ? '1' : '0',
+          loop: videoLoop ? '1' : '0',
+          mute: videoMuted ? '1' : '0',
+          controls: videoControls ? '1' : '0',
+          rel: '0',
+          modestbranding: '1'
+        });
+        if (videoLoop) {
+          youtubeParams.set('playlist', youtubeId);
+        }
+        
+        return (
+          <div style={videoStyles.style} className={cn('w-full', videoStyles.className)}>
+            <div 
+              className="relative w-full rounded-lg overflow-hidden"
               style={{ 
-                objectFit: (item.object_fit as React.CSSProperties['objectFit']) || 'cover',
+                aspectRatio: videoCell?.aspectRatio?.replace(':', '/') || '16/9',
                 maxWidth: item.max_width ? `${item.max_width}px` : undefined,
                 maxHeight: item.max_height ? `${item.max_height}px` : undefined,
               }}
-            />
+            >
+              <iframe
+                src={`https://www.youtube.com/embed/${youtubeId}?${youtubeParams.toString()}`}
+                title={item.title || 'YouTube video'}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading={item.lazy_loading !== false ? 'lazy' : undefined}
+              />
+            </div>
+            {item.title && (
+              <h4 className="mt-2 font-medium text-foreground">{item.title}</h4>
+            )}
+            {item.description && (
+              <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+            )}
+          </div>
+        );
+      }
+      
+      // Local video
+      return (
+        <div style={videoStyles.style} className={cn('w-full', videoStyles.className)}>
+          {hasLocalVideo ? (
+            <>
+              <video
+                src={videoUrl}
+                controls={videoControls}
+                autoPlay={videoAutoplay}
+                loop={videoLoop}
+                muted={videoMuted}
+                className="w-full max-w-full rounded-lg"
+                style={{ 
+                  objectFit: (item.object_fit as React.CSSProperties['objectFit']) || 'cover',
+                  maxWidth: item.max_width ? `${item.max_width}px` : undefined,
+                  maxHeight: item.max_height ? `${item.max_height}px` : undefined,
+                }}
+              />
+              {item.title && (
+                <h4 className="mt-2 font-medium text-foreground">{item.title}</h4>
+              )}
+              {item.description && (
+                <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+              )}
+            </>
           ) : (
             <div className="flex items-center justify-center h-48 bg-muted rounded-lg">
-              <p className="text-muted-foreground">Dodaj wideo</p>
+              <p className="text-muted-foreground">Nieprawidłowy lub brak URL wideo</p>
             </div>
           )}
         </div>
