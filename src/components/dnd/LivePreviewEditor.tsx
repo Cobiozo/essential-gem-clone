@@ -318,6 +318,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       case 'pure-life-container':
         console.warn('[createDefaultContent] WARNING: pure-life-container should create section, not item');
         return [{ type: 'pure-life-container', content: 'BŁĄD: To powinno być sekcją' }];
+      case 'collapsible-section':
+        console.warn('[createDefaultContent] WARNING: collapsible-section should create section, not item');
+        return [{ type: 'collapsible-section', content: 'BŁĄD: To powinno być sekcją' }];
       
       // Ogólne elementy
       case 'image-field':
@@ -390,6 +393,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       container: 'Kontener',
       grid: 'Siatka',
       'pure-life-container': 'Pure Life',
+      'collapsible-section': 'Sekcja zwijana',
       // Ogólne elementy
       'image-field': 'Pole obrazka',
       'icon-field': 'Pole ikonki',
@@ -424,7 +428,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     
     try {
       // Check if this is a layout element that should create a section
-      const layoutElements = ['container', 'grid', 'pure-life-container'];
+      const layoutElements = ['container', 'grid', 'pure-life-container', 'collapsible-section'];
       
     if (layoutElements.includes(elementType)) {
       console.log('[handleNewElementDrop] Creating layout section for:', elementType);
@@ -519,6 +523,12 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           rowLayoutType = 'equal';
           displayType = 'grid';
           sectionTitle = 'Pure Life';
+        } else if (elementType === 'collapsible-section') {
+          // Collapsible section = accordion-style section with content hidden by default
+          rowColumnCount = 1;
+          rowLayoutType = 'equal';
+          displayType = 'collapsible';
+          sectionTitle = 'Sekcja zwijana';
         }
         
         console.log('[handleNewElementDrop] Creating row at position:', insertPosition, 'with columns:', rowColumnCount);
