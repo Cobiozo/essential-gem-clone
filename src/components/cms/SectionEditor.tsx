@@ -82,6 +82,7 @@ interface Section {
   hover_transition_duration?: number | null;
   default_expanded?: boolean | null;
   show_title?: boolean | null;
+  collapsible_header?: string | null;
 }
 
 interface SectionEditorProps {
@@ -563,20 +564,43 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
         </div>
 
         {editedSection.display_type === 'collapsible' && (
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="section-default-expanded"
-              checked={editedSection.default_expanded || false}
-              onCheckedChange={(checked) => setEditedSection({...editedSection, default_expanded: checked})}
-            />
-            <Label htmlFor="section-default-expanded" className="text-sm font-medium">
-              Domyślnie rozwinięta
-            </Label>
-            {editedSection.default_expanded ? (
-              <ChevronDown className="w-4 h-4 text-blue-600" />
-            ) : (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            )}
+          <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <ChevronDown className="w-4 h-4" />
+              Ustawienia sekcji zwijanej
+            </div>
+            
+            <div>
+              <Label htmlFor="collapsible-header" className="text-sm font-medium">
+                Nagłówek sekcji zwijanej (opcjonalny)
+              </Label>
+              <Input
+                id="collapsible-header"
+                value={editedSection.collapsible_header || ''}
+                onChange={(e) => setEditedSection({...editedSection, collapsible_header: e.target.value})}
+                placeholder="Jeśli puste, zostanie użyty tytuł sekcji"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Tekst wyświetlany jako klikany element rozwijający zawartość
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="section-default-expanded"
+                checked={editedSection.default_expanded || false}
+                onCheckedChange={(checked) => setEditedSection({...editedSection, default_expanded: checked})}
+              />
+              <Label htmlFor="section-default-expanded" className="text-sm font-medium">
+                Domyślnie rozwinięta
+              </Label>
+              {editedSection.default_expanded ? (
+                <ChevronDown className="w-4 h-4 text-blue-600" />
+              ) : (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              )}
+            </div>
           </div>
         )}
 

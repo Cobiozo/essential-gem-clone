@@ -277,6 +277,7 @@ export type Database = {
           border_style: string | null
           border_width: number | null
           box_shadow: string | null
+          collapsible_header: string | null
           content_direction: string | null
           content_wrap: string | null
           created_at: string
@@ -348,6 +349,7 @@ export type Database = {
           border_style?: string | null
           border_width?: number | null
           box_shadow?: string | null
+          collapsible_header?: string | null
           content_direction?: string | null
           content_wrap?: string | null
           created_at?: string
@@ -419,6 +421,7 @@ export type Database = {
           border_style?: string | null
           border_width?: number | null
           box_shadow?: string | null
+          collapsible_header?: string | null
           content_direction?: string | null
           content_wrap?: string | null
           created_at?: string

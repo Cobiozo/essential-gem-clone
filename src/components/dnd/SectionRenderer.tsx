@@ -713,17 +713,38 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
                 fontWeight: section.font_weight || 600,
               }}
             >
-              <div className="flex items-center gap-3">
-                {section.title && (
+              <div className="flex flex-col items-start gap-2">
+                {/* Collapsible header - custom header text or fallback to title */}
+                {(section as any).collapsible_header ? (
+                  <span dangerouslySetInnerHTML={{ __html: (section as any).collapsible_header }} />
+                ) : section.title ? (
                   <span dangerouslySetInnerHTML={{ __html: section.title }} />
+                ) : (
+                  <span className="text-muted-foreground">Kliknij aby rozwinąć</span>
+                )}
+                {/* Show description in trigger if collapsible_header is set */}
+                {(section as any).collapsible_header && section.description && (
+                  <span 
+                    className="text-sm font-normal text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: section.description }}
+                  />
                 )}
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-6">
-              {section.description && (
+              {/* Show description in content only if collapsible_header is NOT set */}
+              {!(section as any).collapsible_header && section.description && (
                 <p 
                   className="text-muted-foreground mb-6"
                   dangerouslySetInnerHTML={{ __html: section.description }}
+                />
+              )}
+              {/* Show title in content if collapsible_header is set */}
+              {(section as any).collapsible_header && section.title && section.show_title !== false && (
+                <h3 
+                  className="text-2xl font-bold mb-4"
+                  style={{ color: section.text_color || undefined }}
+                  dangerouslySetInnerHTML={{ __html: section.title }}
                 />
               )}
               
