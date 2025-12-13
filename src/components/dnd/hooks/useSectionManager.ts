@@ -76,6 +76,7 @@ export const useSectionManager = ({
           is_active: updatedSection.is_active,
           show_title: updatedSection.show_title,
           default_expanded: updatedSection.default_expanded,
+          collapsible_header: updatedSection.collapsible_header,
           
           // Kolory
           background_color: updatedSection.background_color,
@@ -276,6 +277,7 @@ export const useSectionManager = ({
           style_class: section.style_class,
           default_expanded: section.default_expanded,
           show_title: section.show_title,
+          collapsible_header: section.collapsible_header,
           
           // Wiersze
           section_type: section.section_type,
