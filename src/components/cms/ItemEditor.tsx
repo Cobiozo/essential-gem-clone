@@ -28,6 +28,7 @@ import { SidebarEditor } from './editors/SidebarEditor';
 import { PpomEditor } from './editors/PpomEditor';
 import { TextPathEditor } from './editors/TextPathEditor';
 import { FileDownloadEditor } from './editors/FileDownloadEditor';
+import { CollapsiblePureLifeEditor } from './editors/CollapsiblePureLifeEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -142,6 +143,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'file-download':
       return <FileDownloadEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'collapsible-pure-life':
+      return <CollapsiblePureLifeEditor item={item} sectionId={sectionId} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types

@@ -18,6 +18,7 @@ import { GalleryElement } from './elements/GalleryElement';
 import { SocialIconsElement } from './elements/SocialIconsElement';
 import { AlertElement } from './elements/AlertElement';
 import { TestimonialElement } from './elements/TestimonialElement';
+import { CollapsiblePureLifeElement } from './elements/CollapsiblePureLifeElement';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useTheme } from '@/components/ThemeProvider';
@@ -953,6 +954,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       return null;
+
+    case 'collapsible-pure-life':
+      return (
+        <CollapsiblePureLifeElement 
+          item={item} 
+          isEditMode={isEditMode}
+          onClick={onClick}
+        />
+      );
 
     default:
       // Get icon component if specified
