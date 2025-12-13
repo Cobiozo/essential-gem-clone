@@ -471,115 +471,120 @@ export const ReflinksManagement: React.FC = () => {
                     : 'border-muted bg-muted/30 opacity-60'
                 }`}
               >
-                {editingReflink?.id === reflink.id ? (
-                  <div className="space-y-4">
-                    <ReflinksForm 
-                      data={editingReflink} 
-                      onChange={(updates) => setEditingReflink(prev => prev ? { ...prev, ...updates } as Reflink : null)}
-                      isEdit
+                {/* Display mode - always show reflink info */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  {reflink.image_url && (
+                    <img 
+                      src={reflink.image_url} 
+                      alt="" 
+                      className="w-12 h-12 rounded object-cover shrink-0"
                     />
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                      <Switch
-                        checked={editingReflink.is_active}
-                        onCheckedChange={(checked) => 
-                          setEditingReflink(prev => prev ? { ...prev, is_active: checked } : null)
-                        }
-                      />
-                      <Label>Aktywny</Label>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleUpdateReflink}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Zapisz
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingReflink(null)}>
-                        <X className="w-4 h-4 mr-2" />
-                        Anuluj
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex gap-3 flex-1">
-                      {reflink.image_url && (
-                        <img 
-                          src={reflink.image_url} 
-                          alt="" 
-                          className="w-12 h-12 rounded object-cover shrink-0"
-                        />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">
+                        {roleLabels[reflink.target_role] || reflink.target_role}
+                      </span>
+                      <span className="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground">
+                        {linkTypeLabels[reflink.link_type] || reflink.link_type}
+                      </span>
+                      {reflink.position > 0 && (
+                        <span className="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground flex items-center gap-1">
+                          <ArrowUpDown className="w-3 h-3" />
+                          {reflink.position}
+                        </span>
                       )}
-                      <div className="space-y-2 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-medium px-2 py-1 rounded bg-primary/10 text-primary">
-                            {roleLabels[reflink.target_role]}
-                          </span>
-                          <span className="text-xs font-medium px-2 py-1 rounded bg-secondary text-secondary-foreground">
-                            {linkTypeLabels[reflink.link_type]}
-                          </span>
-                          {!reflink.is_active && (
-                            <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">
-                              Nieaktywny
-                            </span>
-                          )}
-                        </div>
-                        {reflink.title && (
-                          <p className="font-medium">{reflink.title}</p>
-                        )}
-                        <div className="text-xs font-mono bg-muted p-2 rounded break-all">
-                          {getLinkDisplay(reflink)}
-                        </div>
-                        {reflink.description && (
-                          <p className="text-sm text-muted-foreground">{reflink.description}</p>
-                        )}
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-xs text-muted-foreground">Widoczny dla:</span>
-                          {(reflink.visible_to_roles || []).map(role => (
-                            <span key={role} className="text-xs px-1.5 py-0.5 rounded bg-muted">
-                              {availableRoles.find(r => r.value === role)?.label || role}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleCopy(reflink)}
-                      >
-                        {copiedId === reflink.id ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <Switch
-                        checked={reflink.is_active}
-                        onCheckedChange={() => handleToggleActive(reflink)}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditingReflink(reflink)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteReflink(reflink.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <p className="font-medium mt-1 truncate">
+                      {reflink.title || reflink.reflink_code}
+                    </p>
+                    {reflink.description && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {reflink.description}
+                      </p>
+                    )}
+                    {reflink.visible_to_roles && reflink.visible_to_roles.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Widoczny dla: {reflink.visible_to_roles.map(r => roleLabels[r] || r).join(', ')}
+                      </p>
+                    )}
                   </div>
-                )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCopy(reflink)}
+                    >
+                      {copiedId === reflink.id ? (
+                        <Check className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Switch
+                      checked={reflink.is_active}
+                      onCheckedChange={() => handleToggleActive(reflink)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingReflink({ ...reflink })}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteReflink(reflink.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         )}
       </CardContent>
+      
+      {/* Edit Dialog Modal */}
+      <Dialog open={!!editingReflink} onOpenChange={(open) => !open && setEditingReflink(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edytuj reflink</DialogTitle>
+            <DialogDescription>
+              Zmień ustawienia reflinka. Zapisz zmiany przyciskiem "Zapisz".
+            </DialogDescription>
+          </DialogHeader>
+          {editingReflink && (
+            <>
+              <ReflinksForm 
+                data={editingReflink} 
+                onChange={(updates) => setEditingReflink(prev => prev ? { ...prev, ...updates } as Reflink : null)}
+                isEdit
+              />
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Switch
+                  checked={editingReflink.is_active}
+                  onCheckedChange={(checked) => 
+                    setEditingReflink(prev => prev ? { ...prev, is_active: checked } : null)
+                  }
+                />
+                <Label>Aktywny</Label>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingReflink(null)}>
+                  Anuluj
+                </Button>
+                <Button onClick={handleUpdateReflink}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Zapisz
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
