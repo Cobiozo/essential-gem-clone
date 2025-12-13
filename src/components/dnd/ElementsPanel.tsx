@@ -124,6 +124,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
       { id: 'grid', title: 'Siatka', icon: <Grid3X3 className="w-5 h-5" />, type: 'grid', description: 'Siatka z wieloma kolumnami', tags: ['layout', 'columns', 'grid'] },
       { id: 'pure-life-container', title: 'Pure Life', icon: <Grid3X3 className="w-5 h-5 text-blue-500" />, type: 'pure-life-container', description: 'Kontener w stylu Pure Life', tags: ['layout', 'branded'] },
       { id: 'collapsible-section', title: 'Sekcja zwijana', icon: <ChevronDown className="w-5 h-5 text-amber-500" />, type: 'collapsible-section', description: 'Akordeon z ukrywaną zawartością', tags: ['layout', 'accordion', 'collapse'] },
+      { id: 'collapsible-pure-life', title: 'Sekcja zwijana (Pure Life)', icon: <ChevronDown className="w-5 h-5 text-emerald-500" />, type: 'collapsible-pure-life', description: 'Zwijana sekcja w stylu Pure Life', tags: ['layout', 'accordion', 'pure life', 'collapse'] },
     ]
   };
 
