@@ -139,4 +139,5 @@ export interface CMSSection {
   overflow_behavior?: string;
   default_expanded?: boolean;
   show_title?: boolean;
+  collapsible_header?: string;
 }
