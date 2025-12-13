@@ -428,7 +428,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     
     try {
       // Check if this is a layout element that should create a section
-      const layoutElements = ['container', 'grid', 'pure-life-container', 'collapsible-section'];
+      const layoutElements = ['container', 'grid', 'pure-life-container', 'collapsible-section', 'collapsible-pure-life'];
       
     if (layoutElements.includes(elementType)) {
       console.log('[handleNewElementDrop] Creating layout section for:', elementType);
@@ -529,6 +529,12 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           rowLayoutType = 'equal';
           displayType = 'collapsible';
           sectionTitle = 'Sekcja zwijana';
+        } else if (elementType === 'collapsible-pure-life') {
+          // Collapsible Pure Life = accordion-style section with Pure Life grid layout
+          rowColumnCount = 3;
+          rowLayoutType = 'equal';
+          displayType = 'collapsible';
+          sectionTitle = 'Sekcja zwijana (Pure Life)';
         }
         
         console.log('[handleNewElementDrop] Creating row at position:', insertPosition, 'with columns:', rowColumnCount);
@@ -2049,9 +2055,11 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                 // Render regular sections - match homepage display with white background
                 const sectionItems = items.filter(item => item.section_id === section.id);
                 
-                // Check if section has column layout
-                const columnMatch = section.style_class?.match(/columns-(\d+)/);
-                const sectionColumnCount = columnMatch ? parseInt(columnMatch[1], 10) : 0;
+                // Check if section has column layout - use row_column_count first, fallback to style_class parsing
+                const sectionColumnCount = (section as any).row_column_count || (() => {
+                  const columnMatch = section.style_class?.match(/columns-(\d+)/);
+                  return columnMatch ? parseInt(columnMatch[1], 10) : 0;
+                })();
                 
                 // Group items by column_index if columns are defined
                 let itemsByColumn: CMSItem[][] = [];
