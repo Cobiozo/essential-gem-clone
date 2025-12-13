@@ -18,7 +18,7 @@ import { GalleryElement } from './elements/GalleryElement';
 import { SocialIconsElement } from './elements/SocialIconsElement';
 import { AlertElement } from './elements/AlertElement';
 import { TestimonialElement } from './elements/TestimonialElement';
-// CollapsiblePureLifeElement usunięty - element działa jako sekcja, nie jako item
+import { ToggleContainerElement } from './elements/ToggleContainerElement';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useTheme } from '@/components/ThemeProvider';
@@ -633,16 +633,23 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
 
     case 'toggle':
       const toggleCell = (item.cells as any[])?.[0];
+      const toggleChildItems = toggleCell?.childItems || [];
+      const toggleDefaultExpanded = toggleCell?.defaultExpanded ?? false;
+      const toggleButtonIcon = toggleCell?.buttonIcon || 'ChevronDown';
+      const toggleButtonText = toggleCell?.buttonText || '';
+      const toggleButtonPosition = toggleCell?.buttonPosition || 'left';
+      
       return (
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-muted rounded-lg">
-            <span className="font-medium">{toggleCell?.title || 'Kliknij aby rozwinąć'}</span>
-            <ChevronRight className="w-5 h-5 transition-transform" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-4">
-            {toggleCell?.content || ''}
-          </CollapsibleContent>
-        </Collapsible>
+        <ToggleContainerElement
+          item={item}
+          childItems={toggleChildItems}
+          defaultExpanded={toggleDefaultExpanded}
+          buttonIcon={toggleButtonIcon}
+          buttonText={toggleButtonText}
+          buttonPosition={toggleButtonPosition}
+          isEditMode={isEditMode}
+          onClick={onClick}
+        />
       );
 
     case 'counter':
