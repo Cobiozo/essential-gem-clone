@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { CMSItem } from '@/types/cms';
-import { Save, X } from 'lucide-react';
+import { Save, X, Youtube, Video, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MediaUpload } from '@/components/MediaUpload';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface VideoEditorProps {
   item: CMSItem;
@@ -18,9 +19,49 @@ interface VideoEditorProps {
   onCancel: () => void;
 }
 
+// Helper function to extract YouTube video ID
+const extractYouTubeId = (url: string): string | null => {
+  if (!url) return null;
+  
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+// Get YouTube thumbnail URL
+const getYouTubeThumbnail = (videoId: string): string => {
+  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+};
+
+// Check if URL is a YouTube URL
+const isYouTubeUrl = (url: string): boolean => {
+  return extractYouTubeId(url) !== null;
+};
+
 export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel }) => {
   const [editedItem, setEditedItem] = useState<CMSItem>(item);
+  const [youtubeUrl, setYoutubeUrl] = useState<string>('');
+  const [urlError, setUrlError] = useState<string>('');
   const debouncedItem = useDebounce(editedItem, 1000);
+
+  // Initialize YouTube URL from existing data
+  useEffect(() => {
+    const videoCell = (item.cells as any[])?.[0];
+    if (videoCell?.youtubeId) {
+      setYoutubeUrl(`https://www.youtube.com/watch?v=${videoCell.youtubeId}`);
+    } else if (videoCell?.youtubeUrl) {
+      setYoutubeUrl(videoCell.youtubeUrl);
+    }
+  }, []);
 
   useEffect(() => {
     if (debouncedItem && debouncedItem !== item) {
@@ -32,13 +73,50 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
     onSave(editedItem);
   };
 
+  const handleYouTubeUrlChange = (url: string) => {
+    setYoutubeUrl(url);
+    setUrlError('');
+    
+    if (!url.trim()) {
+      // Clear YouTube data if URL is empty
+      updateVideoCell({ youtubeId: null, youtubeUrl: null, thumbnail: null });
+      return;
+    }
+    
+    const videoId = extractYouTubeId(url);
+    if (videoId) {
+      const thumbnail = getYouTubeThumbnail(videoId);
+      updateVideoCell({ 
+        youtubeId: videoId, 
+        youtubeUrl: url,
+        thumbnail: thumbnail
+      });
+    } else {
+      setUrlError('Nieprawidłowy URL YouTube. Obsługiwane formaty: youtube.com/watch?v=..., youtu.be/..., youtube.com/shorts/...');
+    }
+  };
+
   const handleMediaUpload = (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string) => {
+    // Clear YouTube data when uploading local video
+    const videoCell = (editedItem.cells as any[])?.[0] || {};
+    const updatedCells = [{
+      ...videoCell,
+      type: 'video',
+      youtubeId: null,
+      youtubeUrl: null,
+      thumbnail: null,
+      position: 0,
+      is_active: true,
+    }] as any;
+    
     setEditedItem({
       ...editedItem,
       media_url: url,
       media_type: type,
       media_alt_text: altText || '',
+      cells: updatedCells
     });
+    setYoutubeUrl('');
   };
 
   const handleFieldChange = (field: keyof CMSItem, value: any) => {
@@ -50,6 +128,12 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
 
   // Get video settings from cells
   const videoCell = (editedItem.cells as any[])?.[0] || {};
+  
+  // Determine current video source
+  const youtubeId = videoCell?.youtubeId;
+  const hasYouTube = !!youtubeId;
+  const hasLocalVideo = !!editedItem.media_url && !hasYouTube;
+  const thumbnailUrl = videoCell?.thumbnail;
   
   const updateVideoCell = (updates: any) => {
     const updatedCells = [{
@@ -97,12 +181,71 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
         <TabsContent value="content" className="flex-1 overflow-hidden p-4">
           <ScrollArea className="h-full">
             <div className="space-y-4 pb-4">
+              {/* YouTube URL Input */}
               <div className="space-y-2">
-                <Label>Wybierz film</Label>
+                <Label className="flex items-center gap-2">
+                  <Youtube className="w-4 h-4 text-red-500" />
+                  Link do filmu YouTube
+                </Label>
+                <Input
+                  value={youtubeUrl}
+                  onChange={(e) => handleYouTubeUrlChange(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=... lub https://youtu.be/..."
+                />
+                {urlError && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">{urlError}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              
+              {/* YouTube Preview */}
+              {hasYouTube && thumbnailUrl && (
+                <div className="space-y-2">
+                  <Label>Podgląd miniaturki YouTube</Label>
+                  <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
+                    <img 
+                      src={thumbnailUrl} 
+                      alt="Miniaturka YouTube" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to lower quality thumbnail if maxres is not available
+                        const img = e.target as HTMLImageElement;
+                        if (img.src.includes('maxresdefault')) {
+                          img.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-red-600 rounded-full p-3">
+                        <Video className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Separator */}
+              <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">lub prześlij własny film</span>
+                </div>
+              </div>
+
+              {/* Local Video Upload */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Prześlij własny film
+                </Label>
                 <MediaUpload
                   onMediaUploaded={handleMediaUpload}
-                  currentMediaUrl={editedItem.media_url || undefined}
-                  currentMediaType={editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined}
+                  currentMediaUrl={hasLocalVideo ? editedItem.media_url || undefined : undefined}
+                  currentMediaType={hasLocalVideo ? (editedItem.media_type as 'image' | 'video' | 'document' | 'audio' | 'other' | undefined) : undefined}
                   currentAltText={editedItem.media_alt_text || undefined}
                   allowedTypes={['video']}
                   maxSizeMB={null}
