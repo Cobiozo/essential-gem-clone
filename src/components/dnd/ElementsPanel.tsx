@@ -123,6 +123,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
       { id: 'container', title: 'Kontener', icon: <Box className="w-5 h-5" />, type: 'container', description: 'Prosty kontener na elementy', tags: ['layout', 'box'] },
       { id: 'grid', title: 'Siatka', icon: <Grid3X3 className="w-5 h-5" />, type: 'grid', description: 'Siatka z wieloma kolumnami', tags: ['layout', 'columns', 'grid'] },
       { id: 'pure-life-container', title: 'Pure Life', icon: <Grid3X3 className="w-5 h-5 text-blue-500" />, type: 'pure-life-container', description: 'Kontener w stylu Pure Life', tags: ['layout', 'branded'] },
+      { id: 'collapsible-section', title: 'Sekcja zwijana', icon: <ChevronDown className="w-5 h-5 text-amber-500" />, type: 'collapsible-section', description: 'Akordeon z ukrywaną zawartością', tags: ['layout', 'accordion', 'collapse'] },
     ]
   };
 

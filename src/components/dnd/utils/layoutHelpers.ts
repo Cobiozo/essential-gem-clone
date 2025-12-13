@@ -107,6 +107,7 @@ export const getElementTypeName = (elementType: string): string => {
     container: 'Kontener',
     grid: 'Siatka',
     'pure-life-container': 'Pure Life',
+    'collapsible-section': 'Sekcja zwijana',
     'image-field': 'Pole obrazka',
     'icon-field': 'Pole ikonki',
     carousel: 'Karuzela obrazków',
@@ -170,7 +171,7 @@ export const initializeSectionColumns = (
 };
 
 // Layout elements that should create sections
-export const LAYOUT_ELEMENTS = ['container', 'grid', 'pure-life-container'];
+export const LAYOUT_ELEMENTS = ['container', 'grid', 'pure-life-container', 'collapsible-section'];
 
 // Check if element type is a layout element
 export const isLayoutElement = (elementType: string): boolean => {
@@ -192,6 +193,7 @@ export const getElementIconName = (elementType: string): string => {
     container: 'Box',
     grid: 'Grid3X3',
     'pure-life-container': 'Grid3X3',
+    'collapsible-section': 'ChevronDown',
     'image-field': 'ImagePlus',
     'icon-field': 'Smile',
     carousel: 'Images',
