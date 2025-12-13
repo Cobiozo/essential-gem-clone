@@ -44,6 +44,8 @@ const Index = () => {
   const [loading, setLoading] = React.useState(true);
   const [mainPageId, setMainPageId] = React.useState<string | null>(null);
   const [expandedItemId, setExpandedItemId] = React.useState<string | null>(null);
+  // State for collapsible sections - track which sections are open
+  const [openCollapsibleSections, setOpenCollapsibleSections] = React.useState<{[key: string]: string | undefined}>({});
   
   // Enable security preventions
   useSecurityPreventions();
@@ -265,8 +267,18 @@ const Index = () => {
 
     // Collapsible section rendering (accordion)
     if (section.display_type === 'collapsible') {
-      const defaultValue = section.default_expanded ? section.id : undefined;
       const hasCustomHeader = !!(section as any).collapsible_header;
+      // Use controlled state - initialize with default_expanded if not yet set
+      const currentOpenValue = openCollapsibleSections[section.id] !== undefined 
+        ? openCollapsibleSections[section.id]
+        : (section.default_expanded ? section.id : undefined);
+      
+      const handleValueChange = (value: string | undefined) => {
+        setOpenCollapsibleSections(prev => ({
+          ...prev,
+          [section.id]: value
+        }));
+      };
       
       return (
         <div 
@@ -281,7 +293,13 @@ const Index = () => {
           }}
         >
           <div className="max-w-6xl mx-auto px-4">
-            <Accordion type="single" collapsible defaultValue={defaultValue} className="w-full">
+            <Accordion 
+              type="single" 
+              collapsible 
+              value={currentOpenValue}
+              onValueChange={handleValueChange}
+              className="w-full"
+            >
               <AccordionItem value={section.id} className="border-none">
                 <AccordionTrigger 
                   className="py-6 hover:no-underline text-2xl md:text-3xl font-bold"

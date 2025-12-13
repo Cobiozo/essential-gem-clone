@@ -653,8 +653,10 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
   setNodeRef,
   isOver,
 }) => {
-  // Determine default value for accordion based on section.default_expanded
-  const defaultValue = section.default_expanded ? section.id : undefined;
+  // Use controlled state for accordion expand/collapse
+  const [isOpen, setIsOpen] = useState<string | undefined>(
+    section.default_expanded ? section.id : undefined
+  );
   
   return (
     <div 
@@ -698,7 +700,8 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
         <Accordion 
           type="single" 
           collapsible 
-          defaultValue={defaultValue}
+          value={isOpen}
+          onValueChange={setIsOpen}
           className="w-full"
         >
           <AccordionItem value={section.id} className="border-none">
