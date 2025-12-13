@@ -129,23 +129,24 @@ export const ReflinksDropdown: React.FC = () => {
             })}
           </div>
 
-          {/* Reflinks list - only title and copy button */}
+          {/* Lista reflinków - tylko nazwa i przycisk kopiowania */}
           {selectedRole && (
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {selectedReflinks.length > 0 ? (
                 selectedReflinks.map(reflink => (
                   <div 
                     key={reflink.id} 
-                    className="flex items-center justify-between gap-2 py-2 px-2 rounded hover:bg-muted/50"
+                    className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/50"
                   >
-                    <span className="text-sm truncate flex-1">
-                      {reflink.title || reflink.reflink_code}
+                    <span className="text-sm truncate flex-1 font-medium">
+                      {reflink.title}
                     </span>
                     <Button
                       onClick={() => handleCopy(reflink)}
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7 shrink-0"
+                      title="Kopiuj link"
                     >
                       {copiedId === reflink.id ? (
                         <Check className="w-4 h-4 text-green-500" />
