@@ -296,16 +296,21 @@ const PageComponent = () => {
                 );
               }
               
-              // Regular collapsible sections
+              // Check if this is a collapsible section (display_type = 'collapsible')
+              const isCollapsibleSection = section.display_type === 'collapsible';
+              const defaultExpanded = isCollapsibleSection ? (section.default_expanded || false) : true;
+              
+              // Regular sections with collapsible behavior
               return (
                 <CollapsibleSection
                   key={section.id} 
-                  title={section.title}
+                  title={section.title || ''}
                   description={section.description}
                   className="mb-6 sm:mb-8"
                   sectionStyle={section}
                   nestedSections={nestedSections[section.id] || []}
                   nestedItems={items}
+                  defaultOpen={defaultExpanded}
                 >
                   <div className="space-y-3 sm:space-y-4">
                     {items
