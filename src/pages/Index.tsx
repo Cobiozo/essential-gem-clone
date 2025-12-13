@@ -18,6 +18,12 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/ThemeProvider';
 import { isProblematicColor } from '@/lib/colorUtils';
 import { isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 const Index = () => {
   const { user, userRole } = useAuth();
@@ -256,6 +262,50 @@ const Index = () => {
 
     // Check if section contains only multi_cell items
     const hasOnlyMultiCell = sectionItems.length > 0 && sectionItems.every(item => item.type === 'multi_cell');
+
+    // Collapsible section rendering (accordion)
+    if (section.display_type === 'collapsible') {
+      const defaultValue = section.default_expanded ? section.id : undefined;
+      return (
+        <div 
+          key={section.id}
+          className="block w-full bg-card mb-4 md:mb-6"
+          style={{
+            backgroundColor: (section.background_color && !isProblematicColor(section.background_color, isDarkMode, 'background')) 
+                            ? section.background_color : undefined,
+            color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
+                  ? section.text_color : undefined,
+            padding: section.padding ? `${section.padding}px 16px` : '32px 16px',
+          }}
+        >
+          <div className="max-w-6xl mx-auto px-4">
+            <Accordion type="single" collapsible defaultValue={defaultValue} className="w-full">
+              <AccordionItem value={section.id} className="border-none">
+                <AccordionTrigger 
+                  className="py-6 hover:no-underline text-2xl md:text-3xl font-bold"
+                  style={{
+                    color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
+                          ? section.text_color : undefined,
+                    fontSize: section.font_size ? `${section.font_size}px` : undefined,
+                    fontWeight: section.font_weight || 600,
+                  }}
+                >
+                  {section.title && <span dangerouslySetInnerHTML={{ __html: section.title }} />}
+                </AccordionTrigger>
+                <AccordionContent className="pb-6">
+                  {section.description && (
+                    <p className="text-muted-foreground mb-6" dangerouslySetInnerHTML={{ __html: section.description }} />
+                  )}
+                  <div className="space-y-3 md:space-y-4">
+                    {sectionItems.map(item => renderCMSItem(item, section))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </div>
+      );
+    }
 
     // Special rendering for multi_cell sections (matching LivePreviewEditor)
     if (hasOnlyMultiCell) {
