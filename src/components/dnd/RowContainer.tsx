@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Columns, Columns2, Columns3, Grid3X3, Edit3, Copy, EyeOff } from 'lucide-react';
+import { Plus, X, Columns, Columns2, Columns3, Grid3X3, Edit3, Copy, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { DraggableSection } from './DraggableSection';
@@ -414,6 +414,11 @@ interface RowContainerProps {
   onEditRow?: (rowId: string) => void;
   onDuplicateRow?: (rowId: string) => void;
   onHideRow?: (rowId: string) => void;
+  // Row move props
+  onMoveRowUp?: (rowId: string) => void;
+  onMoveRowDown?: (rowId: string) => void;
+  canMoveRowUp?: boolean;
+  canMoveRowDown?: boolean;
 }
 
 export const RowContainer: React.FC<RowContainerProps> = ({
@@ -444,6 +449,10 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   onEditRow,
   onDuplicateRow,
   onHideRow,
+  onMoveRowUp,
+  onMoveRowDown,
+  canMoveRowUp = true,
+  canMoveRowDown = true,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `row-${row.id}`,
@@ -552,6 +561,28 @@ export const RowContainer: React.FC<RowContainerProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-1">
+              {/* Move Up/Down buttons */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onMoveRowUp?.(row.id)}
+                disabled={!canMoveRowUp}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-primary disabled:opacity-30"
+                title="Przesuń w górę"
+              >
+                <ChevronUp className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onMoveRowDown?.(row.id)}
+                disabled={!canMoveRowDown}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-primary disabled:opacity-30"
+                title="Przesuń w dół"
+              >
+                <ChevronDown className="w-3 h-3" />
+              </Button>
+              <div className="w-px h-4 bg-border mx-1" />
               <Button
                 variant="ghost"
                 size="sm"

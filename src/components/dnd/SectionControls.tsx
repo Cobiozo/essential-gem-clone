@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Edit3, Copy, EyeOff, Eye, Lock } from 'lucide-react';
+import { Edit3, Copy, EyeOff, Eye, Lock, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -21,6 +21,10 @@ interface SectionControlsProps {
   onEdit?: () => void;
   onDuplicate?: () => void;
   onDeactivate?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   className?: string;
   visibilityValues?: VisibilitySettings;
   onVisibilityChange?: (values: VisibilitySettings) => void;
@@ -30,6 +34,10 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
   onEdit,
   onDuplicate,
   onDeactivate,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = true,
+  canMoveDown = true,
   className,
   visibilityValues,
   onVisibilityChange
@@ -45,6 +53,42 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
       )}
       onClick={(e) => e.stopPropagation()}
     >
+      {/* Move Up/Down buttons */}
+      {onMoveUp && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMoveUp();
+          }}
+          disabled={!canMoveUp}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-30"
+          title="Przesuń w górę"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+        </Button>
+      )}
+      {onMoveDown && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMoveDown();
+          }}
+          disabled={!canMoveDown}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-30"
+          title="Przesuń w dół"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </Button>
+      )}
+      
+      {(onMoveUp || onMoveDown) && (onEdit || onDuplicate) && (
+        <div className="w-px h-5 bg-border mx-0.5" />
+      )}
+      
       {onEdit && (
         <Button
           size="sm"

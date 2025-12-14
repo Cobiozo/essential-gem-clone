@@ -51,6 +51,10 @@ interface SectionRendererProps {
   onEditSection?: (sectionId: string) => void;
   onDuplicateSection?: (sectionId: string) => void;
   onDeactivateSection?: (sectionId: string) => void;
+  onMoveSectionUp?: (sectionId: string) => void;
+  onMoveSectionDown?: (sectionId: string) => void;
+  canMoveSectionUp?: boolean;
+  canMoveSectionDown?: boolean;
   onItemVisibilityChange?: (itemId: string, visibility: VisibilitySettings) => void;
   onSectionVisibilityChange?: (sectionId: string, visibility: VisibilitySettings) => void;
 }
@@ -309,6 +313,10 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
   onEditSection,
   onDuplicateSection,
   onDeactivateSection,
+  onMoveSectionUp,
+  onMoveSectionDown,
+  canMoveSectionUp = true,
+  canMoveSectionDown = true,
   onItemVisibilityChange,
   onSectionVisibilityChange,
 }) => {
@@ -408,6 +416,10 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
             onEdit={() => onEditSection?.(section.id)}
             onDuplicate={() => onDuplicateSection?.(section.id)}
             onDeactivate={() => onDeactivateSection?.(section.id)}
+            onMoveUp={onMoveSectionUp ? () => onMoveSectionUp(section.id) : undefined}
+            onMoveDown={onMoveSectionDown ? () => onMoveSectionDown(section.id) : undefined}
+            canMoveUp={canMoveSectionUp}
+            canMoveDown={canMoveSectionDown}
             visibilityValues={sectionVisibility}
             onVisibilityChange={onSectionVisibilityChange ? (v) => onSectionVisibilityChange(section.id, v) : undefined}
           />
@@ -512,6 +524,10 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({
           onEdit={() => onEditSection?.(section.id)}
           onDuplicate={() => onDuplicateSection?.(section.id)}
           onDeactivate={() => onDeactivateSection?.(section.id)}
+          onMoveUp={onMoveSectionUp ? () => onMoveSectionUp(section.id) : undefined}
+          onMoveDown={onMoveSectionDown ? () => onMoveSectionDown(section.id) : undefined}
+          canMoveUp={canMoveSectionUp}
+          canMoveDown={canMoveSectionDown}
           visibilityValues={sectionVisibility}
           onVisibilityChange={onSectionVisibilityChange ? (v) => onSectionVisibilityChange(section.id, v) : undefined}
         />
