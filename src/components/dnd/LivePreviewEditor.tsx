@@ -79,25 +79,24 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       }
       
       const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-      const previewContainer = document.querySelector('[data-preview-container]');
+      const sidePanelScroll = document.querySelector('[data-side-panel-scroll]');
       
-      if (previewElement && previewContainer) {
+      if (previewElement && sidePanelScroll) {
         const elementRect = previewElement.getBoundingClientRect();
-        const containerRect = previewContainer.getBoundingClientRect();
+        const panelRect = sidePanelScroll.getBoundingClientRect();
         
-        // Calculate position relative to preview container, accounting for scroll
-        const scrollTop = previewContainer.scrollTop || 0;
-        const relativeTop = elementRect.top - containerRect.top + scrollTop;
+        // Calculate difference between element position and side panel position
+        // This ensures editor appears at the same screen height as the clicked element
+        const offset = elementRect.top - panelRect.top;
         
-        // Limit offset so editor doesn't go beyond visible area
-        const maxOffset = Math.max(0, window.innerHeight - 400);
-        setEditorOffsetY(Math.min(Math.max(0, relativeTop), maxOffset));
+        // Limit offset so editor stays within visible panel area
+        const maxOffset = Math.max(0, panelRect.height - 400);
+        setEditorOffsetY(Math.min(Math.max(0, offset), maxOffset));
       } else if (previewElement) {
         // Fallback: use viewport-relative position
         const rect = previewElement.getBoundingClientRect();
-        const offsetFromTop = Math.max(0, rect.top - 180);
-        const maxOffset = Math.max(0, window.innerHeight - 400);
-        setEditorOffsetY(Math.min(offsetFromTop, maxOffset));
+        const offsetFromTop = Math.max(0, rect.top - 100);
+        setEditorOffsetY(offsetFromTop);
       }
     }, 150);
   }, []);
