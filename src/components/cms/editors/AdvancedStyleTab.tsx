@@ -57,8 +57,8 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
       {/* Dimensions - tylko obsługiwane kolumny */}
       {showDimensions && (
         <CollapsibleSection title="📐 Wymiary" defaultOpen>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
+          <div className="space-y-3">
+            <div className="space-y-1">
               <Label className="text-xs">Max szerokość (px)</Label>
               <Input
                 type="number"
@@ -69,7 +69,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label className="text-xs">Max wysokość (px)</Label>
               <Input
                 type="number"
