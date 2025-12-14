@@ -641,12 +641,20 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                       <Collapsible open={isExpanded} onOpenChange={() => toggleCellExpanded(cell.id!)}>
                         <CollapsibleTrigger asChild>
                           <div className="p-2 hover:bg-muted/50 cursor-pointer space-y-1">
-                            {/* Row 1: Icon and label */}
+                            {/* Row 1: Icon and label/preview */}
                             <div className="flex items-center gap-1.5">
                               <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
-                              <CellIcon className="w-3 h-3 shrink-0" />
+                              {(cell.type === 'image' || cell.type === 'video' || cell.type === 'gallery' || cell.type === 'carousel') && cell.media_url ? (
+                                <img 
+                                  src={cell.media_url} 
+                                  alt="" 
+                                  className="w-6 h-6 object-cover rounded shrink-0"
+                                />
+                              ) : (
+                                <CellIcon className="w-3 h-3 shrink-0" />
+                              )}
                               <span className="flex-1 text-xs font-medium truncate">
-                                {cell.content || cell.media_url || getCellLabel(cell.type)}
+                                {cell.content || (cell.media_url ? getCellLabel(cell.type) : getCellLabel(cell.type))}
                               </span>
                               <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                             </div>
