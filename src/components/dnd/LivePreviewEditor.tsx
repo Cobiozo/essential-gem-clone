@@ -304,23 +304,27 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     const targetSection = topLevelSections[currentIndex - 1];
     const currentSection = topLevelSections[currentIndex];
     
+    // Get actual position values to swap
+    const currentPosition = currentSection.position;
+    const targetPosition = targetSection.position;
+    
     try {
-      // Swap positions in database
+      // Swap positions in database using actual position values
       await Promise.all([
         supabase.from('cms_sections').update({ 
-          position: currentIndex - 1, 
+          position: targetPosition, 
           updated_at: new Date().toISOString() 
         }).eq('id', rowId),
         supabase.from('cms_sections').update({ 
-          position: currentIndex, 
+          position: currentPosition, 
           updated_at: new Date().toISOString() 
         }).eq('id', targetSection.id)
       ]);
       
-      // Update local state
+      // Update local state with swapped positions
       setSections(prev => prev.map(s => {
-        if (s.id === rowId) return { ...s, position: currentIndex - 1 };
-        if (s.id === targetSection.id) return { ...s, position: currentIndex };
+        if (s.id === rowId) return { ...s, position: targetPosition };
+        if (s.id === targetSection.id) return { ...s, position: currentPosition };
         return s;
       }));
       
@@ -342,24 +346,29 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     if (currentIndex === -1 || currentIndex >= topLevelSections.length - 1) return; // Already at bottom
     
     const targetSection = topLevelSections[currentIndex + 1];
+    const currentSection = topLevelSections[currentIndex];
+    
+    // Get actual position values to swap
+    const currentPosition = currentSection.position;
+    const targetPosition = targetSection.position;
     
     try {
-      // Swap positions in database
+      // Swap positions in database using actual position values
       await Promise.all([
         supabase.from('cms_sections').update({ 
-          position: currentIndex + 1, 
+          position: targetPosition, 
           updated_at: new Date().toISOString() 
         }).eq('id', rowId),
         supabase.from('cms_sections').update({ 
-          position: currentIndex, 
+          position: currentPosition, 
           updated_at: new Date().toISOString() 
         }).eq('id', targetSection.id)
       ]);
       
-      // Update local state
+      // Update local state with swapped positions
       setSections(prev => prev.map(s => {
-        if (s.id === rowId) return { ...s, position: currentIndex + 1 };
-        if (s.id === targetSection.id) return { ...s, position: currentIndex };
+        if (s.id === rowId) return { ...s, position: targetPosition };
+        if (s.id === targetSection.id) return { ...s, position: currentPosition };
         return s;
       }));
       
