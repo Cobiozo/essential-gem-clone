@@ -1943,17 +1943,17 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 
       {editMode ? (
         <>
-          {/* Floating toggle button for mobile - always visible */}
+          {/* Floating toggle button - positioned at panel edge, not overlapping ChatWidget */}
           <Button
             variant="outline"
             size="icon"
             className={cn(
-              "fixed z-50 bg-background shadow-lg border-2 touch-manipulation transition-all duration-200",
-              "h-12 w-12 rounded-full",
+              "fixed z-[60] bg-background shadow-lg border-2 touch-manipulation transition-all duration-200",
+              "h-10 w-10 sm:h-12 sm:w-12 rounded-full",
               "hover:bg-accent active:scale-95",
               isPanelCollapsed 
-                ? "left-4 top-1/2 -translate-y-1/2"
-                : "bottom-4 right-4"
+                ? "left-4 top-32 sm:top-1/2 sm:-translate-y-1/2"
+                : "left-[calc(min(40vw,384px)-24px)] top-32 sm:top-1/2 sm:-translate-y-1/2"
             )}
             onClick={() => {
               if (isPanelCollapsed) {
@@ -1966,7 +1966,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             }}
             aria-label={isPanelCollapsed ? "Rozwiń panel" : "Zwiń panel"}
           >
-            {isPanelCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            {isPanelCollapsed ? <PanelLeft className="h-4 w-4 sm:h-5 sm:w-5" /> : <PanelLeftClose className="h-4 w-4 sm:h-5 sm:w-5" />}
           </Button>
 
           {/* Collapsed panel indicator */}
@@ -2078,6 +2078,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                     setIsSectionEditorOpen(false);
                     setEditingSectionId(null);
                     setPanelMode('elements');
+                  }}
+                  onCollapsePanel={() => {
+                    sidePanelRef.current?.collapse();
+                    setIsPanelCollapsed(true);
                   }}
                 />
               </DragDropProvider>
