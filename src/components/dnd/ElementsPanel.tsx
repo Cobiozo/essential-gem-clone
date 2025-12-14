@@ -40,6 +40,7 @@ import {
   Code,
   Anchor,
   PanelLeft,
+  PanelLeftClose,
   Info,
   StarHalf,
   ThumbsUp,
@@ -85,6 +86,7 @@ interface ElementsPanelProps {
   onCancelSectionEdit?: () => void;
   recentlyUsed?: string[];
   panelWidth?: 'fixed' | 'dynamic';
+  onCollapsePanel?: () => void;
 }
 
 // Recently used elements storage key
@@ -106,6 +108,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   onSaveSection,
   onCancelSectionEdit,
   panelWidth = 'fixed',
+  onCollapsePanel,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
@@ -253,6 +256,17 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             <h2 className="text-lg font-bold text-center flex-1">
               {panelMode === 'elements' ? 'Elementy' : 'Właściwości'}
             </h2>
+            {onCollapsePanel && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onCollapsePanel}
+                className="h-8 w-8 shrink-0"
+                title="Zwiń panel"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
         
