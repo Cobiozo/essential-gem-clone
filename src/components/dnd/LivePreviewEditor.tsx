@@ -74,22 +74,11 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     setTimeout(() => {
       if (!elementId) return;
       
-      const isMobile = window.innerWidth < 768;
       const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
       const sidePanel = document.querySelector('[data-side-panel-scroll]');
       
-      if (isMobile) {
-        // On mobile - first scroll page to top where editor panel is
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        // Then scroll within the panel
-        setTimeout(() => {
-          if (sidePanel) {
-            sidePanel.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }, 300);
-      } else if (previewElement && sidePanel) {
-        // On desktop - scroll side panel to match element's position
+      if (previewElement && sidePanel) {
+        // Scroll side panel to match element's position
         const elementRect = previewElement.getBoundingClientRect();
         const panelRect = sidePanel.getBoundingClientRect();
         const targetScrollTop = sidePanel.scrollTop + (elementRect.top - panelRect.top) - 100;
