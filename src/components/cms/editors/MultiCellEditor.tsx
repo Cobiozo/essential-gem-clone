@@ -864,8 +864,8 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="main" className="flex-1 overflow-y-auto mt-1">
-          <div className="space-y-2 p-1.5">
+        <TabsContent value="main" className="mt-1 overflow-y-auto">
+          <div className="space-y-2 p-1.5 w-full">
             <div className="space-y-0.5">
               <Label className="text-[10px] text-left w-full block">Tytuł</Label>
               <Input
@@ -897,8 +897,8 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </div>
         </TabsContent>
 
-        <TabsContent value="number" className="flex-1 overflow-y-auto mt-1">
-          <div className="space-y-2 p-1.5">
+        <TabsContent value="number" className="mt-1 overflow-y-auto">
+          <div className="space-y-2 p-1.5 w-full">
             <div className="flex items-center justify-between">
               <Label className="text-[10px]">Pokaż numerację</Label>
               <Switch
@@ -992,11 +992,13 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </div>
         </TabsContent>
 
-        <TabsContent value="style" className="flex-1 overflow-y-auto mt-1">
-          <AdvancedStyleTab 
-            item={formData} 
-            onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))} 
-          />
+        <TabsContent value="style" className="mt-1 overflow-y-auto">
+          <div className="w-full">
+            <AdvancedStyleTab 
+              item={formData} 
+              onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))} 
+            />
+          </div>
         </TabsContent>
 
       </Tabs>
