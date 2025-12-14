@@ -162,6 +162,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
       { id: 'cards', title: 'Karty', icon: <CreditCard className="w-5 h-5" />, type: 'cards', description: 'Karty z treścią', tags: ['card', 'content'] },
       { id: 'accordion', title: 'Akordeon', icon: <ChevronDown className="w-5 h-5" />, type: 'accordion', description: 'Rozwijane sekcje', tags: ['faq', 'collapse'] },
       { id: 'toggle', title: 'Przełącznik', icon: <ToggleLeft className="w-5 h-5" />, type: 'toggle', description: 'Rozwijany element', tags: ['switch', 'expand'] },
+      { id: 'multi-cell', title: 'Wiele komórek', icon: <LayoutGrid className="w-5 h-5" />, type: 'multi_cell', description: 'Rozwijany element z nagłówkiem i komórkami', tags: ['cells', 'accordion', 'learn more', 'collapse'] },
       { id: 'social-icons', title: 'Social Icons', icon: <Share2 className="w-5 h-5" />, type: 'social-icons', description: 'Ikonki społecznościowe', tags: ['social', 'links'] },
       { id: 'alert', title: 'Ostrzeżenie', icon: <AlertCircle className="w-5 h-5" />, type: 'alert', description: 'Komunikat ostrzegawczy', tags: ['notice', 'warning'] },
       { id: 'soundcloud', title: 'SoundCloud', icon: <Music className="w-5 h-5" />, type: 'soundcloud', description: 'Odtwarzacz audio', tags: ['audio', 'embed'] },
