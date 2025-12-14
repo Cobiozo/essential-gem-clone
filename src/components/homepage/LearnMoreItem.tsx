@@ -93,17 +93,16 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
       className="rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border bg-card"
       style={containerStyle}
     >
-      <button
+      <div
         onClick={(e) => {
-          if (isEditMode) {
-            e.stopPropagation();
-            return;
+          e.stopPropagation();
+          if (!isEditMode) {
+            onToggle();
           }
-          onToggle();
         }}
         className={cn(
-          "w-full flex items-center justify-between p-6 hover:bg-muted/30 transition-colors group",
-          isEditMode && "pointer-events-none"
+          "w-full flex items-center justify-between p-6 transition-colors",
+          !isEditMode && "cursor-pointer hover:bg-muted/30 group"
         )}
       >
         <div className="flex items-center gap-5">
@@ -124,7 +123,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             isExpanded ? 'rotate-180' : ''
           }`} 
         />
-      </button>
+      </div>
       {hasContent && (
         <div 
           className={`grid transition-all duration-300 ease-in-out ${
