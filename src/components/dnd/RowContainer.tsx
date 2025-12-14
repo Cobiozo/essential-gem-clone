@@ -139,7 +139,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                   isEditMode={isEditMode}
                 >
                   <div 
-                    className="relative group/item"
+                    className="relative"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!activeId && onSelectSection) {

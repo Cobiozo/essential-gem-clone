@@ -319,35 +319,35 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   
   if (isEditMode) {
     return (
-      <DraggableItem
-        key={`${item.id}-${renderVersion || 0}`}
-        id={item.id as string}
-        isEditMode={isEditMode}
-      >
-        <div 
-          className="relative group/item"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!activeId) {
-              onSelectItem?.(item.id || '');
-            }
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            onEditItem?.(item.id as string);
-          }}
+        <DraggableItem
+          key={`${item.id}-${renderVersion || 0}`}
+          id={item.id as string}
+          isEditMode={isEditMode}
         >
-          {/* ItemControls dla elementów w wierszach */}
-          {onDeleteItem && (
-            <ItemControls
-              onEdit={() => onEditItem?.(item.id as string)}
-              onDelete={() => onDeleteItem(item.id as string)}
-              onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
-            />
-          )}
-          {itemContent}
-        </div>
-      </DraggableItem>
+          <div 
+            className="relative"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!activeId) {
+                onSelectItem?.(item.id || '');
+              }
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onEditItem?.(item.id as string);
+            }}
+          >
+            {/* ItemControls dla elementów w wierszach */}
+            {onDeleteItem && (
+              <ItemControls
+                onEdit={() => onEditItem?.(item.id as string)}
+                onDelete={() => onDeleteItem(item.id as string)}
+                onDuplicate={onDuplicateItem ? () => onDuplicateItem(item.id as string) : undefined}
+              />
+            )}
+            {itemContent}
+          </div>
+        </DraggableItem>
     );
   } else {
     return (
