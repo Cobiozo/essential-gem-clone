@@ -121,13 +121,13 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
     );
   };
 
-  // Get alignment wrapper classes
+  // Get alignment wrapper classes - no w-full for center/right to allow centering
   const getAlignmentClasses = (alignment?: string) => {
     switch (alignment) {
       case 'center': return 'flex justify-center w-full';
       case 'right': return 'flex justify-end w-full';
-      case 'full': return 'flex w-full';
-      default: return 'flex justify-start';
+      case 'full': return 'w-full';
+      default: return 'flex justify-start w-full';
     }
   };
 
@@ -179,7 +179,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <img 
               src={cell.media_url} 
               alt={cell.media_alt || ''} 
-              className={`rounded-lg h-auto ${isFullWidth ? 'flex-1 w-full' : 'max-w-full'}`}
+              className={`rounded-lg h-auto max-w-full ${isFullWidth ? 'w-full' : ''}`}
             />
           ) : null;
         
@@ -188,7 +188,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           const youtubeId = getYouTubeVideoId(cell.media_url);
           if (youtubeId) {
             return (
-              <div className={`aspect-video rounded-lg overflow-hidden ${isFullWidth ? 'flex-1 w-full' : 'max-w-full'}`}>
+              <div className={`aspect-video rounded-lg overflow-hidden ${isFullWidth ? 'w-full' : 'max-w-md'}`}>
                 <iframe
                   src={`https://www.youtube.com/embed/${youtubeId}`}
                   title={cell.media_alt || 'Video'}
@@ -203,7 +203,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <video 
               src={cell.media_url} 
               controls 
-              className={`rounded-lg ${isFullWidth ? 'flex-1 w-full' : 'max-w-full'}`}
+              className={`rounded-lg ${isFullWidth ? 'w-full' : 'max-w-md'}`}
             >
               {cell.media_alt}
             </video>
@@ -211,7 +211,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         
         case 'gallery':
           return cell.items && cell.items.length > 0 ? (
-            <div className={`grid grid-cols-2 sm:grid-cols-3 gap-2 ${isFullWidth ? 'flex-1 w-full' : ''}`}>
+            <div className={`${isFullWidth ? 'grid w-full' : 'inline-grid'} grid-cols-2 sm:grid-cols-3 gap-2`}>
               {cell.items.map((img, imgIdx) => (
                 <div key={imgIdx} className="relative group">
                   <img 
@@ -231,7 +231,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         
         case 'carousel':
           return cell.items && cell.items.length > 0 ? (
-            <div className={`flex gap-2 overflow-x-auto pb-2 ${isFullWidth ? 'flex-1 w-full' : ''}`}>
+            <div className={`${isFullWidth ? 'flex w-full' : 'inline-flex'} gap-2 overflow-x-auto pb-2`}>
               {cell.items.map((img, imgIdx) => (
                 <div key={imgIdx} className="shrink-0 w-48">
                   <img 
@@ -264,7 +264,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         
         case 'section':
           return (
-            <div className={`bg-muted/30 rounded-lg p-4 space-y-2 ${isFullWidth ? 'flex-1 w-full' : ''}`}>
+            <div className={`bg-muted/30 rounded-lg p-4 space-y-2 ${isFullWidth ? 'w-full' : ''}`}>
               {cell.section_title && (
                 <h4 className="font-semibold">{cell.section_title}</h4>
               )}
