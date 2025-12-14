@@ -916,6 +916,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                     onChange={(value) => updateCell(cell.id!, { content: value })}
                                     placeholder="Wprowadź tekst..."
                                     rows={4}
+                                    compact={true}
                                   />
                                 ) : (
                                   <Input
@@ -1065,6 +1066,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                                         onChange={(value) => updateSubCell(cell.id!, subCell.id!, { content: value })}
                                                         placeholder="Tekst..."
                                                         rows={3}
+                                                        compact={true}
                                                       />
                                                     ) : (
                                                       <Input
