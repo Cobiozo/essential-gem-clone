@@ -84,6 +84,7 @@ interface ElementsPanelProps {
   onSaveSection?: (updatedSection: Partial<any>) => Promise<void>;
   onCancelSectionEdit?: () => void;
   recentlyUsed?: string[];
+  panelWidth?: 'fixed' | 'dynamic';
 }
 
 // Recently used elements storage key
@@ -104,6 +105,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   isSectionEditorOpen,
   onSaveSection,
   onCancelSectionEdit,
+  panelWidth = 'fixed',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['recently-used', 'layout', 'basic']);
@@ -226,7 +228,11 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card className={cn("w-96 h-screen border-r rounded-none flex flex-col", className)}>
+    <Card className={cn(
+      "h-full border-r rounded-none flex flex-col",
+      panelWidth === 'dynamic' ? 'w-full min-w-[280px]' : 'w-80 sm:w-96',
+      className
+    )}>
       <CardContent className="p-0 h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b shrink-0 bg-gradient-to-r from-background to-muted/30">
@@ -292,7 +298,10 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                       }}
                       className="mb-1"
                     >
-                      <div className="grid grid-cols-2 gap-2 mt-2 pb-2">
+                      <div 
+                        className="gap-1.5 sm:gap-2 mt-2 pb-2 grid"
+                        style={{ gridTemplateColumns: panelWidth === 'dynamic' ? 'repeat(auto-fill, minmax(120px, 1fr))' : 'repeat(2, 1fr)' }}
+                      >
                         {category.items.map((item) => (
                           <DraggableElement
                             key={`${category.id}-${item.id}`}
