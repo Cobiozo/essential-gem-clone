@@ -1949,11 +1949,11 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             size="icon"
             className={cn(
               "fixed z-50 bg-background shadow-lg border-2 touch-manipulation transition-all duration-200",
-              "h-12 w-12 rounded-full", // Large touch target (48px)
+              "h-12 w-12 rounded-full",
               "hover:bg-accent active:scale-95",
               isPanelCollapsed 
                 ? "left-4 top-1/2 -translate-y-1/2"
-                : "left-2 top-1/2 -translate-y-1/2 sm:hidden" // Hide on desktop when panel is open
+                : "bottom-4 right-4"
             )}
             onClick={() => {
               if (isPanelCollapsed) {
