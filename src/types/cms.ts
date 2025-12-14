@@ -7,7 +7,7 @@ export interface ContentCell {
   is_active: boolean;
   formatting?: any;
   // For nested sections
-  section_items?: CMSItem[];
+  section_items?: ContentCell[];
   section_title?: string;
   section_description?: string;
   // For media cells
