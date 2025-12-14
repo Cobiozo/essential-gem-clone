@@ -70,17 +70,36 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     }
     setIsPanelCollapsed(false);
     
-    // Scroll preview panel to show the element being edited
+    // Scroll side panel to the level of the element being edited
     setTimeout(() => {
-      if (elementId) {
-        // Find the element in the preview by data-element-id
-        const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-        if (previewElement) {
-          // Scroll the preview panel to bring the element into view
-          previewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+      if (!elementId) return;
+      
+      const isMobile = window.innerWidth < 768;
+      const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
+      const sidePanel = document.querySelector('[data-side-panel-scroll]');
+      
+      if (isMobile) {
+        // On mobile - first scroll page to top where editor panel is
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Then scroll within the panel
+        setTimeout(() => {
+          if (sidePanel) {
+            sidePanel.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }, 300);
+      } else if (previewElement && sidePanel) {
+        // On desktop - scroll side panel to match element's position
+        const elementRect = previewElement.getBoundingClientRect();
+        const panelRect = sidePanel.getBoundingClientRect();
+        const targetScrollTop = sidePanel.scrollTop + (elementRect.top - panelRect.top) - 100;
+        
+        sidePanel.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
       }
-    }, 350);
+    }, 400);
   }, []);
   
   // Use centralized data manager hook
