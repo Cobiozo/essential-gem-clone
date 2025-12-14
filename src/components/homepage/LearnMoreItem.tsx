@@ -175,20 +175,37 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           );
         
         case 'image':
-          return cell.media_url ? (
+          if (!cell.media_url) return null;
+          const imageStyle: React.CSSProperties = {
+            maxWidth: cell.max_width ? `${cell.max_width}px` : undefined,
+            maxHeight: cell.max_height ? `${cell.max_height}px` : undefined,
+            borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined,
+            boxShadow: cell.box_shadow && cell.box_shadow !== 'none' ? cell.box_shadow : undefined,
+            objectFit: (cell.object_fit as React.CSSProperties['objectFit']) || 'cover',
+          };
+          return (
             <img 
               src={cell.media_url} 
               alt={cell.media_alt || ''} 
-              className={`rounded-lg h-auto max-w-full ${isFullWidth ? 'w-full' : ''}`}
+              className={`h-auto ${isFullWidth ? 'w-full' : 'max-w-full'} transition-transform ${cell.hover_scale && cell.hover_scale > 1 ? 'hover:scale-105' : ''}`}
+              style={imageStyle}
             />
-          ) : null;
+          );
         
         case 'video':
           if (!cell.media_url) return null;
           const youtubeId = getYouTubeVideoId(cell.media_url);
+          const videoStyle: React.CSSProperties = {
+            maxWidth: cell.max_width ? `${cell.max_width}px` : undefined,
+            maxHeight: cell.max_height ? `${cell.max_height}px` : undefined,
+            borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined,
+          };
           if (youtubeId) {
             return (
-              <div className={`aspect-video rounded-lg overflow-hidden ${isFullWidth ? 'w-full' : 'max-w-md'}`}>
+              <div 
+                className={`aspect-video overflow-hidden ${isFullWidth ? 'w-full' : 'max-w-md'}`}
+                style={videoStyle}
+              >
                 <iframe
                   src={`https://www.youtube.com/embed/${youtubeId}`}
                   title={cell.media_alt || 'Video'}
@@ -203,41 +220,79 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <video 
               src={cell.media_url} 
               controls 
-              className={`rounded-lg ${isFullWidth ? 'w-full' : 'max-w-md'}`}
+              className={`${isFullWidth ? 'w-full' : 'max-w-md'}`}
+              style={videoStyle}
             >
               {cell.media_alt}
             </video>
           );
         
         case 'gallery':
-          return cell.items && cell.items.length > 0 ? (
-            <div className={`${isFullWidth ? 'grid w-full' : 'inline-grid'} grid-cols-2 sm:grid-cols-3 gap-2`}>
+          if (!cell.items || cell.items.length === 0) return null;
+          const galleryColumns = cell.columns || 3;
+          const galleryGap = cell.gap || 8;
+          const galleryBorderRadius = cell.border_radius || 8;
+          const galleryShadow = cell.box_shadow && cell.box_shadow !== 'none' ? cell.box_shadow : undefined;
+          const galleryAspectRatio = cell.aspectRatio || 'auto';
+          const galleryHoverScale = cell.hover_scale && cell.hover_scale > 1;
+          
+          return (
+            <div 
+              className={`${isFullWidth ? 'grid w-full' : 'inline-grid'}`}
+              style={{
+                gridTemplateColumns: `repeat(${galleryColumns}, 1fr)`,
+                gap: `${galleryGap}px`
+              }}
+            >
               {cell.items.map((img, imgIdx) => (
                 <div key={imgIdx} className="relative group">
                   <img 
                     src={img.url} 
                     alt={img.alt || ''} 
-                    className="rounded-lg w-full h-auto object-cover aspect-square"
+                    className={`w-full h-auto object-cover transition-transform ${galleryHoverScale ? 'group-hover:scale-105' : ''}`}
+                    style={{
+                      borderRadius: `${galleryBorderRadius}px`,
+                      boxShadow: galleryShadow,
+                      aspectRatio: galleryAspectRatio !== 'auto' ? galleryAspectRatio : undefined,
+                    }}
                   />
                   {img.caption && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 rounded-b-lg">
+                    <div 
+                      className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1"
+                      style={{ borderBottomLeftRadius: `${galleryBorderRadius}px`, borderBottomRightRadius: `${galleryBorderRadius}px` }}
+                    >
                       {img.caption}
                     </div>
                   )}
                 </div>
               ))}
             </div>
-          ) : null;
+          );
         
         case 'carousel':
-          return cell.items && cell.items.length > 0 ? (
-            <div className={`${isFullWidth ? 'flex w-full' : 'inline-flex'} gap-2 overflow-x-auto pb-2`}>
+          if (!cell.items || cell.items.length === 0) return null;
+          const carouselGap = cell.gap || 8;
+          const carouselBorderRadius = cell.border_radius || 8;
+          const carouselShadow = cell.box_shadow && cell.box_shadow !== 'none' ? cell.box_shadow : undefined;
+          const carouselAspectRatio = cell.aspectRatio || 'auto';
+          const carouselHoverScale = cell.hover_scale && cell.hover_scale > 1;
+          
+          return (
+            <div 
+              className={`${isFullWidth ? 'flex w-full' : 'inline-flex'} overflow-x-auto pb-2`}
+              style={{ gap: `${carouselGap}px` }}
+            >
               {cell.items.map((img, imgIdx) => (
-                <div key={imgIdx} className="shrink-0 w-48">
+                <div key={imgIdx} className="shrink-0 w-48 group">
                   <img 
                     src={img.url} 
                     alt={img.alt || ''} 
-                    className="rounded-lg w-full h-32 object-cover"
+                    className={`w-full h-32 object-cover transition-transform ${carouselHoverScale ? 'group-hover:scale-105' : ''}`}
+                    style={{
+                      borderRadius: `${carouselBorderRadius}px`,
+                      boxShadow: carouselShadow,
+                      aspectRatio: carouselAspectRatio !== 'auto' ? carouselAspectRatio : undefined,
+                    }}
                   />
                   {img.caption && (
                     <p className="text-xs text-muted-foreground mt-1 truncate">{img.caption}</p>
@@ -245,7 +300,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
                 </div>
               ))}
             </div>
-          ) : null;
+          );
         
         case 'icon':
           return (

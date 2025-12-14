@@ -19,6 +19,24 @@ export interface ContentCell {
   height?: number;
   // Alignment
   alignment?: 'left' | 'center' | 'right' | 'full';
+  // Gallery/Carousel settings
+  columns?: number;
+  gap?: number;
+  aspectRatio?: string;
+  lightbox?: boolean;
+  // Image settings
+  object_fit?: string;
+  max_width?: number;
+  max_height?: number;
+  // Styling for cells
+  border_radius?: number;
+  box_shadow?: string;
+  border_width?: number;
+  border_color?: string;
+  border_style?: string;
+  hover_scale?: number;
+  hover_opacity?: number;
+  lazy_loading?: boolean;
 }
 
 export interface CMSItem {
