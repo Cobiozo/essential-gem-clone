@@ -226,12 +226,8 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card className={cn(
-      "h-screen border-r rounded-none flex flex-col",
-      "w-full max-w-[100vw] sm:w-80 md:w-96",
-      className
-    )}>
-      <CardContent className="p-0 h-full flex flex-col overflow-hidden max-w-full">
+    <Card className={cn("w-96 h-screen border-r rounded-none flex flex-col", className)}>
+      <CardContent className="p-0 h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b shrink-0 bg-gradient-to-r from-background to-muted/30">
           <div className="flex items-center gap-2 mb-2">
@@ -254,7 +250,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
         {panelMode === 'elements' ? (
           <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-[calc(100%-2rem)] grid-cols-2 mx-4 mt-2 shrink-0">
+              <TabsList className="grid w-full grid-cols-2 mx-4 mt-2 shrink-0">
                 <TabsTrigger value="widgets" className="text-sm">Widżety</TabsTrigger>
                 <TabsTrigger value="global" className="text-sm">Globalne</TabsTrigger>
               </TabsList>

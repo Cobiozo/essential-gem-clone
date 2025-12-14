@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, RefreshCw, X, Menu, PanelLeftClose } from 'lucide-react';
+import { Edit3, Loader2, Layout, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
@@ -116,7 +116,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const [inactiveRefresh, setInactiveRefresh] = useState(0);
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
   const [previewRole, setPreviewRole] = useState<PreviewRole>('real');
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   // Calculate simulated visibility params for role preview
   const visibilityParams = getSimulatedVisibilityParams(previewRole, user ?? null, userRole?.role ?? null);
@@ -1919,22 +1918,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       />
 
       <div className={`${editMode ? 'flex gap-0' : ''}`}>
-        {/* Mobile panel toggle button */}
-        {editMode && isMobile && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="fixed left-2 top-20 z-50 h-12 w-12 rounded-full shadow-lg bg-background"
-            onClick={() => setIsPanelOpen(!isPanelOpen)}
-          >
-            {isPanelOpen ? <PanelLeftClose className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-        )}
-        <div className={cn(
-          "space-y-6 flex-1",
-          editMode && "pb-32",
-          editMode && !isMobile && "ml-80 md:ml-96"
-        )}>
+        <div className={`space-y-6 ${editMode ? 'pb-32 ml-80' : ''} flex-1`}>
           <DeviceFrame device={currentDevice} className="mx-auto">
           <DragDropProvider
             items={[
@@ -1989,11 +1973,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             }
             disabled={!editMode}
           >
-            {editMode && (isMobile ? isPanelOpen : true) && (
-              <div className={cn(
-                "fixed left-0 top-0 h-screen z-40",
-                isMobile && "w-full bg-background/95 backdrop-blur-sm"
-              )}>
+            {editMode && (
+              <div className="fixed left-0 top-0 h-screen z-40">
                 <ElementsPanel 
                   onElementClick={(type) => {
                     // Don't show toast, just handle drag
@@ -2012,28 +1993,20 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                   editingItemId={editingItemId}
                   editingItem={items.find(i => i.id === editingItemId)}
                   isItemEditorOpen={isItemEditorOpen}
-                  onSaveItem={async (item) => {
-                    await handleSaveItem(item);
-                    if (isMobile) setIsPanelOpen(false);
-                  }}
+                  onSaveItem={handleSaveItem}
                   onCancelEdit={() => {
                     setIsItemEditorOpen(false);
                     setEditingItemId(null);
                     setPanelMode('elements');
-                    if (isMobile) setIsPanelOpen(false);
                   }}
                   editingSectionId={editingSectionId}
                   editingSection={sections.find(s => s.id === editingSectionId)}
                   isSectionEditorOpen={isSectionEditorOpen}
-                  onSaveSection={async (section) => {
-                    await handleSaveSection(section);
-                    if (isMobile) setIsPanelOpen(false);
-                  }}
+                  onSaveSection={handleSaveSection}
                   onCancelSectionEdit={() => {
                     setIsSectionEditorOpen(false);
                     setEditingSectionId(null);
                     setPanelMode('elements');
-                    if (isMobile) setIsPanelOpen(false);
                   }}
                 />
               </div>

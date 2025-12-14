@@ -544,7 +544,6 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({
             placeholder="Krótki opis sekcji"
             rows={3}
             className="mt-1"
-            compact={true}
           />
         </div>
 
