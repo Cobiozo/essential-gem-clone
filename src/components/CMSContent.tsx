@@ -208,8 +208,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       }
 
       const activeCells = item.cells
-        .filter(cell => cell.is_active)
-        .sort((a, b) => a.position - b.position);
+        .filter(cell => cell.is_active !== false)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
       const handleCellClick = (cell: ContentCell) => {
         if (cell.type.includes('button') && cell.url) {
@@ -317,6 +317,15 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                     {cell.type === 'button_functional' && '🔘 '}
                     {cell.content}
                   </Button>
+                );
+              
+              case 'text':
+                return (
+                  <p 
+                    key={cell.id || `cell-${Math.random()}`} 
+                    className="text-sm leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: cell.content }}
+                  />
                 );
               
               default:

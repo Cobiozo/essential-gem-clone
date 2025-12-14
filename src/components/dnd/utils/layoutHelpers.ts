@@ -85,6 +85,13 @@ export const createDefaultContent = (elementType: string): any[] => {
       return [{ type: 'ppom', productId: '' }];
     case 'text-path':
       return [{ type: 'text-path', text: 'Tekst na ścieżce', path: 'M0,50 Q50,0 100,50' }];
+    case 'multi_cell':
+      return [
+        { id: `cell-${Date.now()}-header`, type: 'header', content: 'Nagłówek sekcji', position: 0, is_active: true },
+        { id: `cell-${Date.now()}-desc`, type: 'description', content: 'Opis sekcji...', position: 1, is_active: true }
+      ];
+    case 'file-download':
+      return [{ type: 'file-download', content: 'Pobierz plik', url: '' }];
     default:
       warn('[createDefaultContent] Unknown element type:', elementType);
       return [{ type: 'text', content: `Element typu: ${elementType}` }];
@@ -132,6 +139,8 @@ export const getElementTypeName = (elementType: string): string => {
     trustindex: 'Google Recenzje',
     ppom: 'PPOM Shortcode',
     'text-path': 'Ścieżka tekstowa',
+    'multi_cell': 'Wiele komórek',
+    'file-download': 'Przycisk pobierania',
   };
   return names[elementType] || 'Element';
 };

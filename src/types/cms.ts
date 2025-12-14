@@ -1,6 +1,6 @@
 export interface ContentCell {
   id?: string;
-  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external' | 'section';
+  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external' | 'section' | 'text';
   content: string;
   url?: string;
   position: number;
