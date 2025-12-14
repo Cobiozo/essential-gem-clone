@@ -1,6 +1,6 @@
 export interface ContentCell {
   id?: string;
-  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external' | 'section' | 'text';
+  type: 'header' | 'description' | 'list_item' | 'button_functional' | 'button_anchor' | 'button_external' | 'section' | 'text' | 'image' | 'video' | 'gallery' | 'carousel' | 'icon' | 'spacer' | 'divider';
   content: string;
   url?: string;
   position: number;
@@ -10,6 +10,13 @@ export interface ContentCell {
   section_items?: CMSItem[];
   section_title?: string;
   section_description?: string;
+  // For media cells
+  media_url?: string;
+  media_alt?: string;
+  // For gallery/carousel
+  items?: Array<{ url: string; alt?: string; caption?: string }>;
+  // For spacer
+  height?: number;
 }
 
 export interface CMSItem {
@@ -45,6 +52,11 @@ export interface CMSItem {
   icon_color?: string;
   icon_spacing?: number;
   text_align?: string;
+  // Manual numbering for multi_cell
+  show_number?: boolean;
+  number_type?: 'auto' | 'text' | 'image' | 'icon';
+  custom_number?: string;
+  custom_number_image?: string;
   // Image styling properties
   object_fit?: string;
   max_width?: number | null;
