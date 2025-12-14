@@ -4,10 +4,9 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, RefreshCw, X, PanelLeft } from 'lucide-react';
+import { Edit3, Loader2, Layout, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { DragDropProvider } from './DragDropProvider';
@@ -58,7 +57,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 }) => {
   const { isAdmin, user, userRole } = useAuth();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   
   // Use centralized data manager hook
   const dataManager = useLayoutDataManager({ pageId, isAdmin });
@@ -117,7 +115,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const [inactiveRefresh, setInactiveRefresh] = useState(0);
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
   const [previewRole, setPreviewRole] = useState<PreviewRole>('real');
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [savedPanelSize, setSavedPanelSize] = useState(() => {
     const saved = localStorage.getItem('layout-editor-panel-size');
     return saved ? parseFloat(saved) : 22;
@@ -1925,26 +1922,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 
       {editMode ? (
         <>
-          {/* Mobile panel toggle button */}
-          {isMobile && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="fixed left-2 top-20 z-50 lg:hidden bg-background shadow-md"
-              onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-            >
-              {isPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <X className="h-4 w-4" />}
-            </Button>
-          )}
-          
-          {/* Mobile overlay when panel is open */}
-          {isMobile && !isPanelCollapsed && (
-            <div 
-              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-              onClick={() => setIsPanelCollapsed(true)}
-            />
-          )}
-
           <ResizablePanelGroup
             direction="horizontal"
             className="h-[calc(100vh-140px)]"
@@ -1957,15 +1934,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           >
             {/* Side Panel - resizable */}
             <ResizablePanel
-              defaultSize={isMobile ? (isPanelCollapsed ? 0 : 100) : savedPanelSize}
-              minSize={isMobile ? 0 : 15}
-              maxSize={isMobile ? 100 : 35}
-              collapsible={isMobile}
-              collapsedSize={0}
-              className={cn(
-                "min-w-0",
-                isMobile && isPanelCollapsed && "hidden"
-              )}
+              defaultSize={savedPanelSize}
+              minSize={15}
+              maxSize={45}
+              className="min-w-0"
             >
               <DragDropProvider
                 items={[
@@ -2055,10 +2027,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             </ResizablePanel>
 
             {/* Resize Handle */}
-            <ResizableHandle withHandle className={cn(isMobile && "hidden")} />
+            <ResizableHandle withHandle />
 
             {/* Preview Panel */}
-            <ResizablePanel defaultSize={isMobile ? 100 : (100 - savedPanelSize)} minSize={50}>
+            <ResizablePanel defaultSize={100 - savedPanelSize} minSize={50}>
               <div className="h-full overflow-auto p-4 pb-32">
                 <DeviceFrame device={currentDevice} className="mx-auto">
                   <DragDropProvider
