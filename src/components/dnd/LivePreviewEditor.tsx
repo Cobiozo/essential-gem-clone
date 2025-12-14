@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,9 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, RefreshCw, X } from 'lucide-react';
+import { Edit3, Loader2, Layout, RefreshCw, X, PanelLeft, PanelLeftClose } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { ImperativePanelHandle } from 'react-resizable-panels';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
@@ -58,6 +59,23 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const { isAdmin, user, userRole } = useAuth();
   const { toast } = useToast();
   
+  // Panel collapse state and ref for programmatic control (must be defined early)
+  const sidePanelRef = useRef<ImperativePanelHandle>(null);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  
+  // Function to expand panel and scroll to editor
+  const expandPanelAndScrollToEditor = useCallback(() => {
+    if (sidePanelRef.current?.isCollapsed()) {
+      sidePanelRef.current.expand();
+    }
+    setIsPanelCollapsed(false);
+    // Scroll to editor panel after a short delay for animation
+    setTimeout(() => {
+      const editorElement = document.querySelector('[data-editor-panel]');
+      editorElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  }, []);
+  
   // Use centralized data manager hook
   const dataManager = useLayoutDataManager({ pageId, isAdmin });
   const {
@@ -78,6 +96,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     saveToHistory,
     setHasUnsavedChanges,
     fetchData,
+    onPanelExpand: expandPanelAndScrollToEditor,
   });
   const {
     editingItemId, isItemEditorOpen, setEditingItemId, setIsItemEditorOpen,
@@ -94,6 +113,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     setSections,
     saveToHistory,
     setHasUnsavedChanges,
+    onPanelExpand: expandPanelAndScrollToEditor,
   });
   const {
     editingSectionId, isSectionEditorOpen, setEditingSectionId, setIsSectionEditorOpen,
@@ -122,6 +142,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 
   // Calculate simulated visibility params for role preview
   const visibilityParams = getSimulatedVisibilityParams(previewRole, user ?? null, userRole?.role ?? null);
+
 
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
@@ -1922,21 +1943,57 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 
       {editMode ? (
         <>
+          {/* Floating toggle button for mobile - always visible */}
+          <Button
+            variant="outline"
+            size="icon"
+            className={cn(
+              "fixed z-50 bg-background shadow-lg border-2 touch-manipulation transition-all duration-200",
+              "h-12 w-12 rounded-full", // Large touch target (48px)
+              "hover:bg-accent active:scale-95",
+              isPanelCollapsed 
+                ? "left-4 top-1/2 -translate-y-1/2"
+                : "left-2 top-1/2 -translate-y-1/2 sm:hidden" // Hide on desktop when panel is open
+            )}
+            onClick={() => {
+              if (isPanelCollapsed) {
+                sidePanelRef.current?.expand();
+                setIsPanelCollapsed(false);
+              } else {
+                sidePanelRef.current?.collapse();
+                setIsPanelCollapsed(true);
+              }
+            }}
+            aria-label={isPanelCollapsed ? "Rozwiń panel" : "Zwiń panel"}
+          >
+            {isPanelCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          </Button>
+
+          {/* Collapsed panel indicator */}
+          {isPanelCollapsed && (
+            <div className="fixed left-0 top-0 bottom-0 w-1 bg-primary/30 z-40" />
+          )}
+
           <ResizablePanelGroup
             direction="horizontal"
             className="h-[calc(100vh-140px)]"
             onLayout={(sizes) => {
-              if (sizes[0] !== savedPanelSize) {
+              if (sizes[0] !== savedPanelSize && !isPanelCollapsed) {
                 localStorage.setItem('layout-editor-panel-size', String(sizes[0]));
                 setSavedPanelSize(sizes[0]);
               }
             }}
           >
-            {/* Side Panel - resizable */}
+            {/* Side Panel - resizable and collapsible */}
             <ResizablePanel
+              ref={sidePanelRef}
               defaultSize={savedPanelSize}
               minSize={15}
               maxSize={45}
+              collapsible={true}
+              collapsedSize={0}
+              onCollapse={() => setIsPanelCollapsed(true)}
+              onExpand={() => setIsPanelCollapsed(false)}
               className="min-w-0"
             >
               <DragDropProvider

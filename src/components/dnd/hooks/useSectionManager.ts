@@ -11,6 +11,7 @@ interface UseSectionManagerProps {
   setSections: React.Dispatch<React.SetStateAction<CMSSection[]>>;
   saveToHistory: (sections: CMSSection[], items: CMSItem[]) => void;
   setHasUnsavedChanges: (value: boolean) => void;
+  onPanelExpand?: () => void;
 }
 
 export const useSectionManager = ({
@@ -20,6 +21,7 @@ export const useSectionManager = ({
   setSections,
   saveToHistory,
   setHasUnsavedChanges,
+  onPanelExpand,
 }: UseSectionManagerProps) => {
   const { toast } = useToast();
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -40,8 +42,10 @@ export const useSectionManager = ({
     setTimeout(() => {
       setEditingSectionId(sectionId);
       setIsSectionEditorOpen(true);
+      // Expand panel and scroll to editor on mobile
+      onPanelExpand?.();
     }, 50);
-  }, [sections]);
+  }, [sections, onPanelExpand]);
 
   const handleSaveSection = useCallback(async (updatedSection: Partial<CMSSection>) => {
     // Use updatedSection.id as fallback when editingSectionId is null
