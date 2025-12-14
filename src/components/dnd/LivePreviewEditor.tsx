@@ -247,6 +247,23 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     fetchData();
   }, [pageId]);
 
+  // Auto-switch to properties panel when editor opens
+  useEffect(() => {
+    if (isItemEditorOpen && editingItemId) {
+      setPanelMode('properties');
+      setSelectedElementForPanel(editingItemId);
+      setSelectedElement(editingItemId);
+    }
+  }, [isItemEditorOpen, editingItemId]);
+
+  useEffect(() => {
+    if (isSectionEditorOpen && editingSectionId) {
+      setPanelMode('properties');
+      setSelectedElementForPanel(editingSectionId);
+      setSelectedElement(editingSectionId);
+    }
+  }, [isSectionEditorOpen, editingSectionId]);
+
 
   // Save page-level layout settings (sections grid)
   const savePageSettings = useCallback(async (mode: 'single' | 'columns' | 'grid', count: number) => {
