@@ -45,7 +45,7 @@ export const GenericEditor: React.FC<GenericEditorProps> = ({ item, sectionId, o
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full max-w-full overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold">Edytuj Element</h3>
