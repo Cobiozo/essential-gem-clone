@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,6 @@ import {
   Code,
   Anchor,
   PanelLeft,
-  PanelLeftClose,
   Info,
   StarHalf,
   ThumbsUp,
@@ -85,9 +84,6 @@ interface ElementsPanelProps {
   onSaveSection?: (updatedSection: Partial<any>) => Promise<void>;
   onCancelSectionEdit?: () => void;
   recentlyUsed?: string[];
-  panelWidth?: 'fixed' | 'dynamic';
-  onCollapsePanel?: () => void;
-  editorOffsetY?: number;
 }
 
 // Recently used elements storage key
@@ -108,12 +104,9 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   isSectionEditorOpen,
   onSaveSection,
   onCancelSectionEdit,
-  panelWidth = 'fixed',
-  onCollapsePanel,
-  editorOffsetY = 0,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['recently-used', 'layout', 'basic']);
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(RECENTLY_USED_KEY) || '[]');
@@ -233,14 +226,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card 
-      className={cn(
-        "h-full border-r rounded-none flex flex-col overflow-hidden",
-        panelWidth === 'dynamic' ? 'w-full' : 'w-80 sm:w-96',
-        className
-      )}
-      data-editor-panel
-    >
+    <Card className={cn("w-96 h-screen border-r rounded-none flex flex-col", className)}>
       <CardContent className="p-0 h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b shrink-0 bg-gradient-to-r from-background to-muted/30">
@@ -258,24 +244,13 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             <h2 className="text-lg font-bold text-center flex-1">
               {panelMode === 'elements' ? 'Elementy' : 'Właściwości'}
             </h2>
-            {onCollapsePanel && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onCollapsePanel}
-                className="h-8 w-8 shrink-0"
-                title="Zwiń panel"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </Button>
-            )}
           </div>
         </div>
         
         {panelMode === 'elements' ? (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden px-4">
-              <TabsList className="grid w-full grid-cols-2 mt-2 shrink-0">
+            <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="grid w-full grid-cols-2 mx-4 mt-2 shrink-0">
                 <TabsTrigger value="widgets" className="text-sm">Widżety</TabsTrigger>
                 <TabsTrigger value="global" className="text-sm">Globalne</TabsTrigger>
               </TabsList>
@@ -317,10 +292,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                       }}
                       className="mb-1"
                     >
-                      <div 
-                        className="gap-1.5 sm:gap-2 mt-2 pb-2 grid"
-                        style={{ gridTemplateColumns: panelWidth === 'dynamic' ? 'repeat(auto-fill, minmax(90px, 1fr))' : 'repeat(2, 1fr)' }}
-                      >
+                      <div className="grid grid-cols-2 gap-2 mt-2 pb-2">
                         {category.items.map((item) => (
                           <DraggableElement
                             key={`${category.id}-${item.id}`}
@@ -354,91 +326,31 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </Tabs>
           </div>
         ) : (
-          <EditorScrollContainer 
-            editorOffsetY={editorOffsetY}
-            editingSectionId={editingSectionId}
-            editingSection={editingSection}
-            onSaveSection={onSaveSection}
-            onCancelSectionEdit={onCancelSectionEdit}
-            editingItemId={editingItemId}
-            editingItem={editingItem}
-            onSaveItem={onSaveItem}
-            onCancelEdit={onCancelEdit}
-          />
+          <div className="flex-1 overflow-auto min-h-0 min-w-0">
+            {editingSection && onSaveSection && onCancelSectionEdit ? (
+              <SectionEditor
+                key={editingSectionId}
+                section={editingSection}
+                onSave={onSaveSection}
+                onCancel={onCancelSectionEdit}
+              />
+            ) : editingItem && onSaveItem && onCancelEdit ? (
+              <ItemEditorWrapper
+                key={editingItemId}
+                item={editingItem}
+                sectionId={editingItem.section_id || ''}
+                onSave={onSaveItem}
+                onCancel={onCancelEdit}
+              />
+            ) : (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Wybierz element do edycji
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
-  );
-};
-
-// Separate component for editor scroll container to properly handle scrollTo
-interface EditorScrollContainerProps {
-  editorOffsetY: number;
-  editingSectionId?: string | null;
-  editingSection?: any;
-  onSaveSection?: (updatedSection: Partial<any>) => Promise<void>;
-  onCancelSectionEdit?: () => void;
-  editingItemId?: string | null;
-  editingItem?: any;
-  onSaveItem?: (updatedItem: Partial<any>) => Promise<void>;
-  onCancelEdit?: () => void;
-}
-
-const EditorScrollContainer: React.FC<EditorScrollContainerProps> = ({
-  editorOffsetY,
-  editingSectionId,
-  editingSection,
-  onSaveSection,
-  onCancelSectionEdit,
-  editingItemId,
-  editingItem,
-  onSaveItem,
-  onCancelEdit,
-}) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Scroll to position when editorOffsetY changes
-  useEffect(() => {
-    if (scrollContainerRef.current && editorOffsetY > 0) {
-      scrollContainerRef.current.scrollTo({
-        top: editorOffsetY,
-        behavior: 'smooth'
-      });
-    } else if (scrollContainerRef.current && editorOffsetY === 0) {
-      scrollContainerRef.current.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-    }
-  }, [editorOffsetY, editingItemId, editingSectionId]);
-  
-  return (
-    <div 
-      ref={scrollContainerRef}
-      className="flex-1 overflow-auto min-h-0 min-w-0" 
-      data-side-panel-scroll
-    >
-      {editingSection && onSaveSection && onCancelSectionEdit ? (
-        <SectionEditor
-          key={editingSectionId}
-          section={editingSection}
-          onSave={onSaveSection}
-          onCancel={onCancelSectionEdit}
-        />
-      ) : editingItem && onSaveItem && onCancelEdit ? (
-        <ItemEditorWrapper
-          key={editingItemId}
-          item={editingItem}
-          sectionId={editingItem.section_id || ''}
-          onSave={onSaveItem}
-          onCancel={onCancelEdit}
-        />
-      ) : (
-        <div className="text-center text-sm text-muted-foreground py-8">
-          Wybierz element do edycji
-        </div>
-      )}
-    </div>
   );
 };
 

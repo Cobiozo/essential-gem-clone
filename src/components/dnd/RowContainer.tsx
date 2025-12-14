@@ -140,7 +140,6 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                 >
                   <div 
                     className="relative"
-                    data-element-id={item.id}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!activeId && onSelectSection) {
@@ -539,7 +538,6 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   return (
     <div
       ref={setNodeRef}
-      data-element-id={row.id}
       style={rowStyles}
       className={cn(
         "w-full transition-all duration-200",

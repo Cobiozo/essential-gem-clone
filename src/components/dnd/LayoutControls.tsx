@@ -127,12 +127,10 @@ export const LayoutControls: React.FC<LayoutControlsProps> = ({
 
   return (
     <div className={cn(
-      "fixed bottom-20 sm:bottom-4 left-1/2 transform -translate-x-1/2 z-50",
+      "fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50",
       "bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-2xl",
       "flex items-center gap-1 px-2 py-1.5",
       "animate-fade-in",
-      "max-w-[calc(100vw-1rem)] overflow-x-auto scrollbar-hide",
-      "pb-safe",
       className
     )}>
       {/* Undo/Redo Controls */}

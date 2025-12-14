@@ -11,7 +11,6 @@ interface UseItemManagerProps {
   saveToHistory: (sections: CMSSection[], items: CMSItem[]) => void;
   setHasUnsavedChanges: (value: boolean) => void;
   fetchData: () => Promise<void>;
-  onPanelExpand?: (elementId?: string) => void;
 }
 
 export const useItemManager = ({
@@ -22,7 +21,6 @@ export const useItemManager = ({
   saveToHistory,
   setHasUnsavedChanges,
   fetchData,
-  onPanelExpand,
 }: UseItemManagerProps) => {
   const { toast } = useToast();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -40,10 +38,7 @@ export const useItemManager = ({
     console.log('[handleEditItem] Item type:', item.type);
     setEditingItemId(itemId);
     setIsItemEditorOpen(true);
-    
-    // Expand panel and scroll to level of element being edited
-    onPanelExpand?.(itemId);
-  }, [items, onPanelExpand]);
+  }, [items]);
 
   const handleSaveItem = useCallback(async (updatedItem: Partial<CMSItem>) => {
     if (!editingItemId) return;

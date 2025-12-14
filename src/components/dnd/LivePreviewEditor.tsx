@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit3, Loader2, Layout, RefreshCw, X, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { Edit3, Loader2, Layout, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { ImperativePanelHandle } from 'react-resizable-panels';
 import { DragDropProvider } from './DragDropProvider';
 import { DraggableSection } from './DraggableSection';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
@@ -58,51 +57,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 }) => {
   const { isAdmin, user, userRole } = useAuth();
   const { toast } = useToast();
-  
-  // Panel collapse state and ref for programmatic control (must be defined early)
-  const sidePanelRef = useRef<ImperativePanelHandle>(null);
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
-  const [editorOffsetY, setEditorOffsetY] = useState(0);
-  
-  // Function to expand panel and scroll editor to the level of the element being edited
-  const expandPanelAndScrollToEditor = useCallback((elementId?: string) => {
-    if (sidePanelRef.current?.isCollapsed()) {
-      sidePanelRef.current.expand();
-    }
-    setIsPanelCollapsed(false);
-    
-    // Calculate scroll position to align editor with the clicked element
-    setTimeout(() => {
-      if (!elementId) {
-        setEditorOffsetY(0);
-        return;
-      }
-      
-      const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-      const previewContainer = document.querySelector('[data-preview-container]');
-      
-      if (previewElement && previewContainer) {
-        const elementRect = previewElement.getBoundingClientRect();
-        const containerRect = previewContainer.getBoundingClientRect();
-        
-        // Position relative to the preview container's visible area
-        const relativeTop = elementRect.top - containerRect.top;
-        
-        // Set scroll position for the side panel
-        setEditorOffsetY(Math.max(0, relativeTop));
-      } else if (previewElement) {
-        // Fallback: use viewport-relative position
-        const rect = previewElement.getBoundingClientRect();
-        const offsetFromTop = Math.max(0, rect.top - 100);
-        setEditorOffsetY(offsetFromTop);
-      }
-    }, 150);
-  }, []);
-  
-  // Reset editor offset when closing editor
-  const resetEditorOffset = useCallback(() => {
-    setEditorOffsetY(0);
-  }, []);
+  const isMobile = useIsMobile();
   
   // Use centralized data manager hook
   const dataManager = useLayoutDataManager({ pageId, isAdmin });
@@ -124,7 +79,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     saveToHistory,
     setHasUnsavedChanges,
     fetchData,
-    onPanelExpand: expandPanelAndScrollToEditor,
   });
   const {
     editingItemId, isItemEditorOpen, setEditingItemId, setIsItemEditorOpen,
@@ -141,7 +95,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     setSections,
     saveToHistory,
     setHasUnsavedChanges,
-    onPanelExpand: expandPanelAndScrollToEditor,
   });
   const {
     editingSectionId, isSectionEditorOpen, setEditingSectionId, setIsSectionEditorOpen,
@@ -163,14 +116,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const [inactiveRefresh, setInactiveRefresh] = useState(0);
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
   const [previewRole, setPreviewRole] = useState<PreviewRole>('real');
-  const [savedPanelSize, setSavedPanelSize] = useState(() => {
-    const saved = localStorage.getItem('layout-editor-panel-size');
-    return saved ? parseFloat(saved) : 22;
-  });
 
   // Calculate simulated visibility params for role preview
   const visibilityParams = getSimulatedVisibilityParams(previewRole, user ?? null, userRole?.role ?? null);
-
 
   // Keyboard shortcuts integration
   useKeyboardShortcuts({
@@ -1969,117 +1917,69 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         items={items}
       />
 
-      {editMode ? (
-        <>
-          {/* Floating toggle button - positioned at panel edge, not overlapping ChatWidget */}
-          <Button
-            variant="outline"
-            size="icon"
-            className={cn(
-              "fixed z-[60] bg-background shadow-lg border-2 touch-manipulation transition-all duration-200",
-              "h-10 w-10 sm:h-12 sm:w-12 rounded-full",
-              "hover:bg-accent active:scale-95",
-              isPanelCollapsed 
-                ? "left-4 top-32 sm:top-1/2 sm:-translate-y-1/2"
-                : "left-[calc(min(40vw,384px)-24px)] top-32 sm:top-1/2 sm:-translate-y-1/2"
-            )}
-            onClick={() => {
-              if (isPanelCollapsed) {
-                sidePanelRef.current?.expand();
-                setIsPanelCollapsed(false);
-              } else {
-                sidePanelRef.current?.collapse();
-                setIsPanelCollapsed(true);
-              }
-            }}
-            aria-label={isPanelCollapsed ? "Rozwiń panel" : "Zwiń panel"}
+      <div className={`${editMode ? 'flex gap-0' : ''}`}>
+        <div className={`space-y-6 ${editMode ? 'pb-32 ml-80' : ''} flex-1`}>
+          <DeviceFrame device={currentDevice} className="mx-auto">
+          <DragDropProvider
+            items={[
+              ...sections.map(s => s.id),
+              ...items.filter(i => i.id).map(i => i.id as string),
+              // Add all possible new elements from panel
+              'new-heading', 'new-image', 'new-text', 'new-video', 'new-button',
+              'new-divider', 'new-spacer', 'new-maps', 'new-icon', 'new-container', 'new-grid',
+              'new-image-field', 'new-icon-field', 'new-carousel', 'new-accessibility',
+              'new-gallery', 'new-icon-list', 'new-counter', 'new-progress-bar',
+              'new-testimonial', 'new-cards', 'new-accordion', 'new-toggle',
+              'new-social-icons', 'new-alert', 'new-soundcloud', 'new-shortcode',
+              'new-html', 'new-menu-anchor', 'new-sidebar', 'new-learn-more',
+              'new-rating', 'new-trustindex', 'new-ppom', 'new-text-path'
+            ]}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            activeId={activeId}
+            dragOverlay={
+              activeId ? (
+                (() => {
+                  // Handle new elements from panel
+                  if (typeof activeId === 'string' && activeId.startsWith('new-')) {
+                    const elementType = activeId.replace('new-', '');
+                    return (
+                      <div className="bg-primary text-primary-foreground border rounded px-3 py-2 shadow-lg text-sm font-medium">
+                        + Dodaj: {getElementTypeName(elementType)}
+                      </div>
+                    );
+                  }
+                  
+                  const activeItem = items.find(i => i.id === activeId);
+                  if (activeItem) {
+                    return (
+                      <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
+                        {activeItem.title || activeItem.type}
+                      </div>
+                    );
+                  }
+                  const activeSection = sections.find(s => s.id === activeId);
+                  if (activeSection) {
+                    return (
+                      <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
+                        Sekcja: {activeSection.title}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
+              ) : null
+            }
+            disabled={!editMode}
           >
-            {isPanelCollapsed ? <PanelLeft className="h-4 w-4 sm:h-5 sm:w-5" /> : <PanelLeftClose className="h-4 w-4 sm:h-5 sm:w-5" />}
-          </Button>
-
-          {/* Collapsed panel indicator */}
-          {isPanelCollapsed && (
-            <div className="fixed left-0 top-0 bottom-0 w-1 bg-primary/30 z-40" />
-          )}
-
-          <ResizablePanelGroup
-            direction="horizontal"
-            className="h-[calc(100vh-140px)]"
-            onLayout={(sizes) => {
-              if (sizes[0] !== savedPanelSize && !isPanelCollapsed) {
-                localStorage.setItem('layout-editor-panel-size', String(sizes[0]));
-                setSavedPanelSize(sizes[0]);
-              }
-            }}
-          >
-            {/* Side Panel - resizable and collapsible */}
-            <ResizablePanel
-              ref={sidePanelRef}
-              defaultSize={savedPanelSize}
-              minSize={15}
-              maxSize={45}
-              collapsible={true}
-              collapsedSize={0}
-              onCollapse={() => setIsPanelCollapsed(true)}
-              onExpand={() => setIsPanelCollapsed(false)}
-              className="min-w-0"
-            >
-              <DragDropProvider
-                items={[
-                  ...sections.map(s => s.id),
-                  ...items.filter(i => i.id).map(i => i.id as string),
-                  'new-heading', 'new-image', 'new-text', 'new-video', 'new-button',
-                  'new-divider', 'new-spacer', 'new-maps', 'new-icon', 'new-container', 'new-grid',
-                  'new-image-field', 'new-icon-field', 'new-carousel', 'new-accessibility',
-                  'new-gallery', 'new-icon-list', 'new-counter', 'new-progress-bar',
-                  'new-testimonial', 'new-cards', 'new-accordion', 'new-toggle',
-                  'new-social-icons', 'new-alert', 'new-soundcloud', 'new-shortcode',
-                  'new-html', 'new-menu-anchor', 'new-sidebar', 'new-learn-more',
-                  'new-rating', 'new-trustindex', 'new-ppom', 'new-text-path'
-                ]}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-                activeId={activeId}
-                dragOverlay={
-                  activeId ? (
-                    (() => {
-                      if (typeof activeId === 'string' && activeId.startsWith('new-')) {
-                        const elementType = activeId.replace('new-', '');
-                        return (
-                          <div className="bg-primary text-primary-foreground border rounded px-3 py-2 shadow-lg text-sm font-medium">
-                            + Dodaj: {getElementTypeName(elementType)}
-                          </div>
-                        );
-                      }
-                      
-                      const activeItem = items.find(i => i.id === activeId);
-                      if (activeItem) {
-                        return (
-                          <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
-                            {activeItem.title || activeItem.type}
-                          </div>
-                        );
-                      }
-                      const activeSection = sections.find(s => s.id === activeId);
-                      if (activeSection) {
-                        return (
-                          <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
-                            Sekcja: {activeSection.title}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()
-                  ) : null
-                }
-                disabled={!editMode}
-              >
+            {editMode && (
+              <div className="fixed left-0 top-0 h-screen z-40">
                 <ElementsPanel 
-                  onElementClick={(type) => {}}
+                  onElementClick={(type) => {
+                    // Don't show toast, just handle drag
+                  }}
                   panelMode={panelMode}
-                  panelWidth="dynamic"
-                  editorOffsetY={editorOffsetY}
                   onPanelModeChange={(mode) => {
                     setPanelMode(mode);
                     if (mode === 'elements') {
@@ -2088,7 +1988,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                       setEditingItemId(null);
                       setIsSectionEditorOpen(false);
                       setEditingSectionId(null);
-                      resetEditorOffset();
                     }
                   }}
                   editingItemId={editingItemId}
@@ -2099,7 +1998,6 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                     setIsItemEditorOpen(false);
                     setEditingItemId(null);
                     setPanelMode('elements');
-                    resetEditorOffset();
                   }}
                   editingSectionId={editingSectionId}
                   editingSection={sections.find(s => s.id === editingSectionId)}
@@ -2109,74 +2007,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                     setIsSectionEditorOpen(false);
                     setEditingSectionId(null);
                     setPanelMode('elements');
-                    resetEditorOffset();
-                  }}
-                  onCollapsePanel={() => {
-                    sidePanelRef.current?.collapse();
-                    setIsPanelCollapsed(true);
                   }}
                 />
-              </DragDropProvider>
-            </ResizablePanel>
-
-            {/* Resize Handle */}
-            <ResizableHandle withHandle />
-
-            {/* Preview Panel */}
-            <ResizablePanel defaultSize={100 - savedPanelSize} minSize={50}>
-              <div className="h-full overflow-auto p-4 pb-32" data-preview-container>
-                <DeviceFrame device={currentDevice} className="mx-auto">
-                  <DragDropProvider
-                    items={[
-                      ...sections.map(s => s.id),
-                      ...items.filter(i => i.id).map(i => i.id as string),
-                      'new-heading', 'new-image', 'new-text', 'new-video', 'new-button',
-                      'new-divider', 'new-spacer', 'new-maps', 'new-icon', 'new-container', 'new-grid',
-                      'new-image-field', 'new-icon-field', 'new-carousel', 'new-accessibility',
-                      'new-gallery', 'new-icon-list', 'new-counter', 'new-progress-bar',
-                      'new-testimonial', 'new-cards', 'new-accordion', 'new-toggle',
-                      'new-social-icons', 'new-alert', 'new-soundcloud', 'new-shortcode',
-                      'new-html', 'new-menu-anchor', 'new-sidebar', 'new-learn-more',
-                      'new-rating', 'new-trustindex', 'new-ppom', 'new-text-path'
-                    ]}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                    activeId={activeId}
-                    dragOverlay={
-                      activeId ? (
-                        (() => {
-                          if (typeof activeId === 'string' && activeId.startsWith('new-')) {
-                            const elementType = activeId.replace('new-', '');
-                            return (
-                              <div className="bg-primary text-primary-foreground border rounded px-3 py-2 shadow-lg text-sm font-medium">
-                                + Dodaj: {getElementTypeName(elementType)}
-                              </div>
-                            );
-                          }
-                          
-                          const activeItem = items.find(i => i.id === activeId);
-                          if (activeItem) {
-                            return (
-                              <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
-                                {activeItem.title || activeItem.type}
-                              </div>
-                            );
-                          }
-                          const activeSection = sections.find(s => s.id === activeId);
-                          if (activeSection) {
-                            return (
-                              <div className="bg-background border rounded px-3 py-2 shadow-md text-sm">
-                                Sekcja: {activeSection.title}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()
-                      ) : null
-                    }
-                    disabled={!editMode}
-                  >
+              </div>
+            )}
             
           {/* Role Preview Banner */}
           {previewRole !== 'real' && (
@@ -2384,79 +2218,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
               })()}
             </div>
           </SortableContext>
-                  </DragDropProvider>
-                </DeviceFrame>
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </>
-      ) : (
-        <div className="space-y-6">
-          <DeviceFrame device={currentDevice} className="mx-auto">
-            <DragDropProvider
-              items={[
-                ...sections.map(s => s.id),
-                ...items.filter(i => i.id).map(i => i.id as string),
-              ]}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
-              activeId={activeId}
-              disabled={true}
-            >
-              {/* Role Preview Banner */}
-              {previewRole !== 'real' && (
-                <RolePreviewBanner 
-                  previewRole={previewRole} 
-                  onReset={() => setPreviewRole('real')} 
-                />
-              )}
-              
-              <SortableContext
-                items={sections.filter(s => !s.parent_id).map(s => s.id)} 
-                strategy={verticalListSortingStrategy}
-              >
-                <div
-                  className={cn(
-                    layoutMode === 'single' && 'flex flex-col',
-                    layoutMode !== 'single' && 'grid',
-                    previewRole !== 'real' && 'pt-12'
-                  )}
-                  style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
-                >
-                  {sections
-                    .filter(s => !s.parent_id)
-                    .filter(s => isSectionVisible(s, visibilityParams.user, visibilityParams.userRole))
-                    .map((section) => {
-                      const sectionItemsForRender = items.filter(i => i.section_id === section.id && i.is_active);
-                      const sectionColumnCountRender = (section as any).row_column_count || 1;
-                      const itemsByColumnRender: CMSItem[][] = [];
-                      for (let i = 0; i < sectionColumnCountRender; i++) {
-                        itemsByColumnRender.push(sectionItemsForRender.filter(item => (item as any).column_index === i).sort((a, b) => a.position - b.position));
-                      }
-
-                      return (
-                        <SectionRenderer
-                          key={section.id}
-                          section={section}
-                          sectionItems={sectionItemsForRender}
-                          sectionColumnCount={sectionColumnCountRender}
-                          itemsByColumn={itemsByColumnRender}
-                          editMode={false}
-                          selectedElement={null}
-                          activeId={null}
-                          expandedItemId={expandedItemId}
-                          onSelectElement={() => {}}
-                          onToggleExpand={setExpandedItemId}
-                        />
-                      );
-                    })}
-                </div>
-              </SortableContext>
-            </DragDropProvider>
-          </DeviceFrame>
+        </DragDropProvider>
+        </DeviceFrame>
         </div>
-      )}
+      </div>
 
       <InactiveElementsManager
         onElementActivated={() => {
