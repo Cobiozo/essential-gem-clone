@@ -62,6 +62,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   // Panel collapse state and ref for programmatic control (must be defined early)
   const sidePanelRef = useRef<ImperativePanelHandle>(null);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [editorOffsetY, setEditorOffsetY] = useState(0);
   
   // Function to expand panel and scroll editor to the level of the element being edited
   const expandPanelAndScrollToEditor = useCallback((elementId?: string) => {
@@ -70,23 +71,28 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     }
     setIsPanelCollapsed(false);
     
-    // Scroll side panel to the level of the element being edited
+    // Calculate offset to position editor at the same level as the clicked element
     setTimeout(() => {
-      if (!elementId) return;
-      
-      const isMobile = window.innerWidth < 768;
-      
-      if (isMobile) {
-        // Na mobile - scrolluj stronę do góry gdzie jest panel edycji
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        // Na desktop - scrolluj element w podglądzie do widoku
-        const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-        if (previewElement) {
-          previewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+      if (!elementId) {
+        setEditorOffsetY(0);
+        return;
       }
-    }, 400);
+      
+      const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
+      if (previewElement) {
+        const rect = previewElement.getBoundingClientRect();
+        // Calculate offset from top of viewport minus header height (~64px) and some padding
+        const headerHeight = 64;
+        const editorHeaderHeight = 120; // Approximate height of ElementsPanel header
+        const offsetFromTop = Math.max(0, rect.top - headerHeight - editorHeaderHeight);
+        setEditorOffsetY(offsetFromTop);
+      }
+    }, 100);
+  }, []);
+  
+  // Reset editor offset when closing editor
+  const resetEditorOffset = useCallback(() => {
+    setEditorOffsetY(0);
   }, []);
   
   // Use centralized data manager hook
@@ -2064,6 +2070,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                   onElementClick={(type) => {}}
                   panelMode={panelMode}
                   panelWidth="dynamic"
+                  editorOffsetY={editorOffsetY}
                   onPanelModeChange={(mode) => {
                     setPanelMode(mode);
                     if (mode === 'elements') {
@@ -2072,6 +2079,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                       setEditingItemId(null);
                       setIsSectionEditorOpen(false);
                       setEditingSectionId(null);
+                      resetEditorOffset();
                     }
                   }}
                   editingItemId={editingItemId}
@@ -2082,6 +2090,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                     setIsItemEditorOpen(false);
                     setEditingItemId(null);
                     setPanelMode('elements');
+                    resetEditorOffset();
                   }}
                   editingSectionId={editingSectionId}
                   editingSection={sections.find(s => s.id === editingSectionId)}
@@ -2091,6 +2100,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                     setIsSectionEditorOpen(false);
                     setEditingSectionId(null);
                     setPanelMode('elements');
+                    resetEditorOffset();
                   }}
                   onCollapsePanel={() => {
                     sidePanelRef.current?.collapse();
