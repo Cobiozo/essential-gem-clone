@@ -326,7 +326,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </Tabs>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto min-h-0">
+          <div className="flex-1 overflow-auto min-h-0 min-w-0">
             {editingSection && onSaveSection && onCancelSectionEdit ? (
               <SectionEditor
                 key={editingSectionId}
