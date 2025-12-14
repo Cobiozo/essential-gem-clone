@@ -99,6 +99,8 @@ export type Database = {
           cells: Json | null
           column_index: number
           created_at: string
+          custom_number: string | null
+          custom_number_image: string | null
           description: string | null
           font_size: number | null
           font_weight: number | null
@@ -120,12 +122,14 @@ export type Database = {
           media_alt_text: string | null
           media_type: string | null
           media_url: string | null
+          number_type: string | null
           object_fit: string | null
           opacity: number | null
           padding: number | null
           page_id: string
           position: number
           section_id: string
+          show_number: boolean | null
           style_class: string | null
           text_align: string | null
           text_color: string | null
@@ -151,6 +155,8 @@ export type Database = {
           cells?: Json | null
           column_index?: number
           created_at?: string
+          custom_number?: string | null
+          custom_number_image?: string | null
           description?: string | null
           font_size?: number | null
           font_weight?: number | null
@@ -172,12 +178,14 @@ export type Database = {
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          number_type?: string | null
           object_fit?: string | null
           opacity?: number | null
           padding?: number | null
           page_id: string
           position: number
           section_id: string
+          show_number?: boolean | null
           style_class?: string | null
           text_align?: string | null
           text_color?: string | null
@@ -203,6 +211,8 @@ export type Database = {
           cells?: Json | null
           column_index?: number
           created_at?: string
+          custom_number?: string | null
+          custom_number_image?: string | null
           description?: string | null
           font_size?: number | null
           font_weight?: number | null
@@ -224,12 +234,14 @@ export type Database = {
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
+          number_type?: string | null
           object_fit?: string | null
           opacity?: number | null
           padding?: number | null
           page_id?: string
           position?: number
           section_id?: string
+          show_number?: boolean | null
           style_class?: string | null
           text_align?: string | null
           text_color?: string | null

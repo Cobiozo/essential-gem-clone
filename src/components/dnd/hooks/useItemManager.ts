@@ -130,6 +130,11 @@ export const useItemManager = ({
           lazy_loading: updatedItem.lazy_loading,
           hover_scale: updatedItem.hover_scale,
           hover_opacity: updatedItem.hover_opacity,
+          // Numbering fields
+          show_number: updatedItem.show_number,
+          number_type: updatedItem.number_type,
+          custom_number: updatedItem.custom_number,
+          custom_number_image: updatedItem.custom_number_image,
           // Visibility fields
           visible_to_everyone: updatedItem.visible_to_everyone,
           visible_to_clients: updatedItem.visible_to_clients,

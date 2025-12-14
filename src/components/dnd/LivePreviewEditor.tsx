@@ -748,7 +748,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       
       const convertedItem: CMSItem = {
         ...newItemData,
-        cells: cellsData
+        cells: cellsData,
+        number_type: (newItemData.number_type || 'auto') as CMSItem['number_type']
       };
       
       const newItems = [...items, convertedItem];
