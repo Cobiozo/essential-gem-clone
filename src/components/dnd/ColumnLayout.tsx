@@ -326,6 +326,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
         >
           <div 
             className="relative"
+            data-element-id={item.id}
             onClick={(e) => {
               e.stopPropagation();
               if (!activeId) {

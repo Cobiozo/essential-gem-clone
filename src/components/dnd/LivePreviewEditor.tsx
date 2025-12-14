@@ -63,17 +63,24 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const sidePanelRef = useRef<ImperativePanelHandle>(null);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   
-  // Function to expand panel and scroll to editor
-  const expandPanelAndScrollToEditor = useCallback(() => {
+  // Function to expand panel and scroll editor to the level of the element being edited
+  const expandPanelAndScrollToEditor = useCallback((elementId?: string) => {
     if (sidePanelRef.current?.isCollapsed()) {
       sidePanelRef.current.expand();
     }
     setIsPanelCollapsed(false);
-    // Scroll to editor panel after a short delay for animation
+    
+    // Scroll preview panel to show the element being edited
     setTimeout(() => {
-      const editorElement = document.querySelector('[data-editor-panel]');
-      editorElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 300);
+      if (elementId) {
+        // Find the element in the preview by data-element-id
+        const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
+        if (previewElement) {
+          // Scroll the preview panel to bring the element into view
+          previewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }, 350);
   }, []);
   
   // Use centralized data manager hook
