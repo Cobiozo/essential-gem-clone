@@ -457,61 +457,43 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
       
       case 'video':
         const isYouTubeUrl = cell.media_url && (cell.media_url.includes('youtube.com') || cell.media_url.includes('youtu.be'));
-        const isLibraryVideo = cell.video_source === 'library';
+        const isLocalVideo = cell.media_url && !isYouTubeUrl;
         
         return (
           <div className="space-y-2">
-            {/* Źródło wideo */}
+            {/* MediaUpload z wszystkimi zakładkami */}
             <div className="space-y-0.5">
-              <Label className="text-[10px]">Źródło wideo</Label>
-              <Select
-                value={cell.video_source || 'url'}
-                onValueChange={(v) => updateCell(cell.id!, { video_source: v as 'url' | 'library', media_url: '' })}
-              >
-                <SelectTrigger className="h-6 text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url">URL (YouTube / link)</SelectItem>
-                  <SelectItem value="library">Plik z biblioteki</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-[10px]">Wideo (upload, URL lub biblioteka)</Label>
+              <MediaUpload
+                compact
+                currentMediaUrl={cell.media_url || ''}
+                allowedTypes={['video']}
+                onMediaUploaded={(url) => {
+                  const isYT = url.includes('youtube.com') || url.includes('youtu.be');
+                  updateCell(cell.id!, { 
+                    media_url: url,
+                    video_source: isYT ? 'url' : 'library'
+                  });
+                }}
+              />
             </div>
             
-            {/* URL lub MediaUpload w zależności od źródła */}
-            {isLibraryVideo ? (
-              <div className="space-y-0.5">
-                <Label className="text-[10px]">Plik wideo (mp4, webm)</Label>
-                <MediaUpload
-                  compact
-                  currentMediaUrl={cell.media_url || ''}
-                  onMediaUploaded={(url) => updateCell(cell.id!, { media_url: url })}
-                />
-                {cell.media_url && (
-                  <div className="mt-1 rounded overflow-hidden bg-muted aspect-video flex items-center justify-center">
-                    <video 
-                      src={cell.media_url} 
-                      className="w-full h-full object-contain"
-                      muted
-                    />
-                  </div>
-                )}
+            {/* Podgląd YouTube */}
+            {isYouTubeUrl && cell.media_url && (
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Video className="w-3 h-3" />
+                YouTube wykryty
               </div>
-            ) : (
-              <div className="space-y-0.5">
-                <Label className="text-[10px]">URL filmu</Label>
-                <Input
-                  value={cell.media_url || ''}
-                  onChange={(e) => updateCell(cell.id!, { media_url: e.target.value })}
-                  placeholder="YouTube lub mp4..."
-                  className="h-6 text-[11px] px-1.5"
+            )}
+            
+            {/* Podgląd lokalnego wideo */}
+            {isLocalVideo && cell.media_url && (
+              <div className="mt-1 rounded overflow-hidden bg-muted aspect-video flex items-center justify-center">
+                <video 
+                  src={cell.media_url} 
+                  className="w-full h-full object-contain"
+                  muted
                 />
-                {isYouTubeUrl && cell.media_url && (
-                  <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Video className="w-3 h-3" />
-                    YouTube wykryty
-                  </div>
-                )}
               </div>
             )}
             
@@ -526,7 +508,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
             </div>
             
             {/* Ustawienia odtwarzacza dla plików lokalnych */}
-            {isLibraryVideo && (
+            {isLocalVideo && (
               <div className="border-t pt-2 space-y-1.5">
                 <Label className="text-[10px] font-medium">Odtwarzacz</Label>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1">

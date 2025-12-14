@@ -59,8 +59,8 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-auto">
+    <div className="flex flex-col h-full min-w-0 overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-auto min-w-0">
         <TabsList className="mx-4 mt-2 grid grid-cols-2 shrink-0">
           <TabsTrigger value="content">Edycja</TabsTrigger>
           <TabsTrigger value="visibility">Widoczność</TabsTrigger>
