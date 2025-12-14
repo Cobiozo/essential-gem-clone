@@ -108,7 +108,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   panelWidth = 'fixed',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['recently-used', 'layout', 'basic']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(RECENTLY_USED_KEY) || '[]');
