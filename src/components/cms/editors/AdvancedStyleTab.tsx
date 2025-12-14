@@ -53,11 +53,11 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
   showAdvanced = true,
 }) => {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 text-left">
       {/* Dimensions - tylko obsługiwane kolumny */}
       {showDimensions && (
         <CollapsibleSection title="📐 Wymiary" defaultOpen>
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <div className="space-y-1">
               <Label className="text-xs">Max szerokość (px)</Label>
               <Input

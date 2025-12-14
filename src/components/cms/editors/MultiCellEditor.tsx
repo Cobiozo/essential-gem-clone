@@ -564,10 +564,10 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="main" className="flex-1 overflow-auto mt-2">
+        <TabsContent value="main" className="flex-1 overflow-auto mt-2 text-left">
           <div className="space-y-3 p-2">
             <div className="space-y-1">
-              <Label className="text-xs">Tytuł elementu</Label>
+              <Label className="text-xs text-left w-full block">Tytuł elementu</Label>
               <Input
                 value={formData.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
@@ -577,7 +577,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Opis elementu</Label>
+              <Label className="text-xs text-left w-full block">Opis elementu</Label>
               <Textarea
                 value={formData.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
@@ -597,7 +597,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </div>
         </TabsContent>
 
-        <TabsContent value="number" className="flex-1 overflow-auto mt-2">
+        <TabsContent value="number" className="flex-1 overflow-auto mt-2 text-left">
           <div className="space-y-3 p-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Pokaż numerację</Label>
@@ -611,7 +611,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
             {formData.show_number !== false && (
               <>
                 <div className="space-y-1">
-                  <Label className="text-xs">Typ numeracji</Label>
+                  <Label className="text-xs text-left w-full block">Typ numeracji</Label>
                   <Select
                     value={formData.number_type || 'auto'}
                     onValueChange={(value) => updateField('number_type', value as CMSItem['number_type'])}
@@ -630,7 +630,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
 
                 {formData.number_type === 'text' && (
                   <div className="space-y-1">
-                    <Label className="text-xs">Własny tekst</Label>
+                    <Label className="text-xs text-left w-full block">Własny tekst</Label>
                     <Input
                       value={formData.custom_number || ''}
                       onChange={(e) => updateField('custom_number', e.target.value)}
@@ -642,7 +642,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
 
                 {formData.number_type === 'image' && (
                   <div className="space-y-1">
-                    <Label className="text-xs">Obraz</Label>
+                    <Label className="text-xs text-left w-full block">Obraz</Label>
                     <MediaUpload
                       currentMediaUrl={formData.custom_number_image || ''}
                       onMediaUploaded={(url) => updateField('custom_number_image', url)}
@@ -652,7 +652,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
 
                 {formData.number_type === 'icon' && (
                   <div className="space-y-1">
-                    <Label className="text-xs">Ikona</Label>
+                    <Label className="text-xs text-left w-full block">Ikona</Label>
                     <IconPicker
                       value={formData.icon || 'Star'}
                       onChange={(icon) => updateField('icon', icon)}
@@ -667,7 +667,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                 )}
 
                 <div className="space-y-1">
-                  <Label className="text-xs">Kolor tła</Label>
+                  <Label className="text-xs text-left w-full block">Kolor tła</Label>
                   <Input
                     type="color"
                     value={formData.background_color || '#fbbf24'}
@@ -677,7 +677,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs">Kolor ikony</Label>
+                  <Label className="text-xs text-left w-full block">Kolor ikony</Label>
                   <Input
                     type="color"
                     value={formData.icon_color || '#ffffff'}
@@ -690,7 +690,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </div>
         </TabsContent>
 
-        <TabsContent value="style" className="flex-1 overflow-auto mt-2">
+        <TabsContent value="style" className="flex-1 overflow-auto mt-2 text-left">
           <AdvancedStyleTab 
             item={formData} 
             onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))} 
