@@ -792,7 +792,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
 
         <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-1 min-h-0">
           <ScrollArea className="flex-1 min-h-0">
-            <div className="space-y-2 p-3">
+            <div className="space-y-2 p-3 overflow-hidden w-full">
               {/* Lista komórek */}
               {cells.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -809,7 +809,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                     <Card key={cell.id} className="overflow-hidden">
                       <Collapsible open={isExpanded} onOpenChange={() => toggleCellExpanded(cell.id!)}>
                         <CollapsibleTrigger asChild>
-                          <div className="p-2 hover:bg-muted/50 cursor-pointer space-y-1">
+                          <div className="p-2 hover:bg-muted/50 cursor-pointer space-y-1 overflow-hidden min-w-0">
                             {/* Row 1: Icon and label/preview */}
                       <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
                               <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
