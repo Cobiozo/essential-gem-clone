@@ -13,6 +13,8 @@ export interface ContentCell {
   // For media cells
   media_url?: string;
   media_alt?: string;
+  // For video cells - source type
+  video_source?: 'url' | 'library';
   // For gallery/carousel
   items?: Array<{ url: string; alt?: string; caption?: string }>;
   // For spacer
@@ -40,6 +42,11 @@ export interface ContentCell {
   hover_scale?: number;
   hover_opacity?: number;
   lazy_loading?: boolean;
+  // Video player settings
+  autoplay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  controls?: boolean;
 }
 
 export interface CMSItem {

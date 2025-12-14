@@ -226,8 +226,8 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card className={cn("w-80 h-screen border-r rounded-none flex flex-col", className)}>
-      <CardContent className="p-0 h-full flex flex-col">
+    <Card className={cn("w-96 h-screen border-r rounded-none flex flex-col", className)}>
+      <CardContent className="p-0 h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b shrink-0 bg-gradient-to-r from-background to-muted/30">
           <div className="flex items-center gap-2 mb-2">
@@ -326,7 +326,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </Tabs>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto min-h-0">
             {editingSection && onSaveSection && onCancelSectionEdit ? (
               <SectionEditor
                 key={editingSectionId}

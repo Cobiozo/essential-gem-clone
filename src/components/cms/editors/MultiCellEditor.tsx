@@ -456,17 +456,65 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
         );
       
       case 'video':
+        const isYouTubeUrl = cell.media_url && (cell.media_url.includes('youtube.com') || cell.media_url.includes('youtu.be'));
+        const isLibraryVideo = cell.video_source === 'library';
+        
         return (
           <div className="space-y-2">
+            {/* Źródło wideo */}
             <div className="space-y-0.5">
-              <Label className="text-[10px]">URL filmu</Label>
-              <Input
-                value={cell.media_url || ''}
-                onChange={(e) => updateCell(cell.id!, { media_url: e.target.value })}
-                placeholder="YouTube lub mp4..."
-                className="h-6 text-[11px] px-1.5"
-              />
+              <Label className="text-[10px]">Źródło wideo</Label>
+              <Select
+                value={cell.video_source || 'url'}
+                onValueChange={(v) => updateCell(cell.id!, { video_source: v as 'url' | 'library', media_url: '' })}
+              >
+                <SelectTrigger className="h-6 text-[11px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="url">URL (YouTube / link)</SelectItem>
+                  <SelectItem value="library">Plik z biblioteki</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            
+            {/* URL lub MediaUpload w zależności od źródła */}
+            {isLibraryVideo ? (
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">Plik wideo (mp4, webm)</Label>
+                <MediaUpload
+                  compact
+                  currentMediaUrl={cell.media_url || ''}
+                  onMediaUploaded={(url) => updateCell(cell.id!, { media_url: url })}
+                />
+                {cell.media_url && (
+                  <div className="mt-1 rounded overflow-hidden bg-muted aspect-video flex items-center justify-center">
+                    <video 
+                      src={cell.media_url} 
+                      className="w-full h-full object-contain"
+                      muted
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">URL filmu</Label>
+                <Input
+                  value={cell.media_url || ''}
+                  onChange={(e) => updateCell(cell.id!, { media_url: e.target.value })}
+                  placeholder="YouTube lub mp4..."
+                  className="h-6 text-[11px] px-1.5"
+                />
+                {isYouTubeUrl && cell.media_url && (
+                  <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Video className="w-3 h-3" />
+                    YouTube wykryty
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="space-y-0.5">
               <Label className="text-[10px]">Opis</Label>
               <Input
@@ -476,6 +524,47 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                 className="h-6 text-[11px] px-1.5"
               />
             </div>
+            
+            {/* Ustawienia odtwarzacza dla plików lokalnych */}
+            {isLibraryVideo && (
+              <div className="border-t pt-2 space-y-1.5">
+                <Label className="text-[10px] font-medium">Odtwarzacz</Label>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px]">Kontrolki</Label>
+                    <Switch
+                      checked={cell.controls !== false}
+                      onCheckedChange={(v) => updateCell(cell.id!, { controls: v })}
+                      className="scale-[0.6]"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px]">Wyciszony</Label>
+                    <Switch
+                      checked={cell.muted !== false}
+                      onCheckedChange={(v) => updateCell(cell.id!, { muted: v })}
+                      className="scale-[0.6]"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px]">Autoplay</Label>
+                    <Switch
+                      checked={cell.autoplay === true}
+                      onCheckedChange={(v) => updateCell(cell.id!, { autoplay: v })}
+                      className="scale-[0.6]"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px]">Pętla</Label>
+                    <Switch
+                      checked={cell.loop === true}
+                      onCheckedChange={(v) => updateCell(cell.id!, { loop: v })}
+                      className="scale-[0.6]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="border-t pt-2 space-y-2">
               <Label className="text-[10px] font-medium">Wymiary</Label>
@@ -710,18 +799,18 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <Tabs defaultValue="cells" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-4 shrink-0">
-          <TabsTrigger value="cells" className="text-xs px-1">Komórki</TabsTrigger>
-          <TabsTrigger value="main" className="text-xs px-1">Główne</TabsTrigger>
-          <TabsTrigger value="number" className="text-xs px-1">Nr</TabsTrigger>
-          <TabsTrigger value="style" className="text-xs px-1">Styl</TabsTrigger>
+    <div className="h-full flex flex-col overflow-hidden">
+      <Tabs defaultValue="cells" className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="grid w-full grid-cols-4 shrink-0 mx-2">
+          <TabsTrigger value="cells" className="text-xs px-2">Komórki</TabsTrigger>
+          <TabsTrigger value="main" className="text-xs px-2">Główne</TabsTrigger>
+          <TabsTrigger value="number" className="text-xs px-2">Nr</TabsTrigger>
+          <TabsTrigger value="style" className="text-xs px-2">Styl</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-1">
-          <ScrollArea className="flex-1">
-            <div className="space-y-2 p-2">
+        <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-1 min-h-0">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-2 p-3">
               {/* Lista komórek */}
               {cells.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
