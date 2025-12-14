@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ReflinksForm } from './ReflinksForm';
+
+interface VisibilitySettings {
+  client: boolean;
+  partner: boolean;
+  specjalista: boolean;
+}
 
 interface Reflink {
   id: string;
@@ -37,6 +44,11 @@ export const ReflinksManagement: React.FC = () => {
   const [editingReflink, setEditingReflink] = useState<Reflink | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings>({
+    client: false,
+    partner: false,
+    specjalista: false,
+  });
   const [newReflink, setNewReflink] = useState({
     target_role: 'klient',
     reflink_code: '',
@@ -64,7 +76,52 @@ export const ReflinksManagement: React.FC = () => {
 
   useEffect(() => {
     fetchReflinks();
+    fetchVisibilitySettings();
   }, []);
+
+  const fetchVisibilitySettings = async () => {
+    const { data, error } = await supabase
+      .from('reflinks_visibility_settings')
+      .select('role, button_visible');
+
+    if (error) {
+      console.error('Error fetching visibility settings:', error);
+      return;
+    }
+
+    if (data) {
+      const settings: VisibilitySettings = { client: false, partner: false, specjalista: false };
+      data.forEach(item => {
+        if (item.role in settings) {
+          settings[item.role as keyof VisibilitySettings] = item.button_visible;
+        }
+      });
+      setVisibilitySettings(settings);
+    }
+  };
+
+  const handleToggleButtonVisibility = async (role: string, visible: boolean) => {
+    const { error } = await supabase
+      .from('reflinks_visibility_settings')
+      .update({ button_visible: visible, updated_at: new Date().toISOString() })
+      .eq('role', role);
+
+    if (error) {
+      console.error('Error updating visibility:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się zmienić widoczności',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setVisibilitySettings(prev => ({ ...prev, [role]: visible }));
+    toast({
+      title: 'Zapisano',
+      description: `Widoczność przycisku dla roli "${roleLabels[role] || role}" zmieniona`,
+    });
+  };
 
   const fetchReflinks = async () => {
     setLoading(true);
@@ -310,6 +367,30 @@ export const ReflinksManagement: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Visibility settings section */}
+        <div className="mb-6 p-4 rounded-lg border bg-muted/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Eye className="w-4 h-4 text-muted-foreground" />
+            <Label className="font-medium">Widoczność przycisku "Reflinki" dla ról</Label>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {(['client', 'partner', 'specjalista'] as const).map(role => (
+              <div key={role} className="flex items-center gap-2">
+                <Switch
+                  checked={visibilitySettings[role]}
+                  onCheckedChange={(checked) => handleToggleButtonVisibility(role, checked)}
+                />
+                <Label className="text-sm">{roleLabels[role]}</Label>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Użytkownik zobaczy przycisk "Reflinki" tylko gdy włączysz go dla jego roli.
+          </p>
+        </div>
+
+        <Separator className="mb-6" />
+
         {reflinks.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">
             Brak reflinków. Kliknij "Dodaj Reflink" aby utworzyć pierwszy.

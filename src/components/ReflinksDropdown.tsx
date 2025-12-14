@@ -26,8 +26,52 @@ export const ReflinksDropdown: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isButtonVisible, setIsButtonVisible] = useState<boolean | null>(null);
   const { toast } = useToast();
   const { userRole } = useAuth();
+
+  // Check if button should be visible for current user's role
+  useEffect(() => {
+    const checkButtonVisibility = async () => {
+      const currentRole = userRole?.role;
+      
+      // Admin always sees the button
+      if (currentRole === 'admin') {
+        setIsButtonVisible(true);
+        return;
+      }
+
+      if (!currentRole) {
+        setIsButtonVisible(false);
+        return;
+      }
+
+      // Map roles
+      const roleMapping: Record<string, string> = {
+        'partner': 'partner',
+        'specjalista': 'specjalista',
+        'client': 'client',
+        'klient': 'client',
+      };
+      const mappedRole = roleMapping[currentRole] || currentRole;
+
+      const { data, error } = await supabase
+        .from('reflinks_visibility_settings')
+        .select('button_visible')
+        .eq('role', mappedRole)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking button visibility:', error);
+        setIsButtonVisible(false);
+        return;
+      }
+
+      setIsButtonVisible(data?.button_visible ?? false);
+    };
+
+    checkButtonVisibility();
+  }, [userRole]);
 
   useEffect(() => {
     const fetchReflinks = async () => {
@@ -98,6 +142,11 @@ export const ReflinksDropdown: React.FC = () => {
     : [];
 
   const availableTargetRoles = [...new Set(reflinks.map(r => r.target_role))];
+
+  // Don't render if button visibility not determined yet or is hidden
+  if (isButtonVisible === null || !isButtonVisible) {
+    return null;
+  }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

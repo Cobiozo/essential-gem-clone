@@ -721,6 +721,30 @@ export type Database = {
         }
         Relationships: []
       }
+      reflinks_visibility_settings: {
+        Row: {
+          button_visible: boolean
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          button_visible?: boolean
+          created_at?: string
+          id?: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          button_visible?: boolean
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_texts: {
         Row: {
           content: string | null
