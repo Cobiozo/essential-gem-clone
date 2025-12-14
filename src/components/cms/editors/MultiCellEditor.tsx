@@ -93,9 +93,14 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
     }
     
     const newCells = [...cells, newCell];
-    updateField('cells', newCells);
+    const updatedFormData = { ...formData, cells: newCells };
+    setFormData(updatedFormData);
     setExpandedCells(prev => [...prev, newCell.id!]);
-  }, [cells, updateField]);
+    
+    // Natychmiastowy zapis przy dodaniu komórki
+    onSave(updatedFormData);
+    lastSavedRef.current = JSON.stringify(updatedFormData);
+  }, [cells, formData, onSave]);
 
   const updateCell = useCallback((cellId: string, updates: Partial<ContentCell>) => {
     const newCells = cells.map(cell => 
@@ -108,9 +113,14 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
     const newCells = cells
       .filter(cell => cell.id !== cellId)
       .map((cell, index) => ({ ...cell, position: index }));
-    updateField('cells', newCells);
+    const updatedFormData = { ...formData, cells: newCells };
+    setFormData(updatedFormData);
     setExpandedCells(prev => prev.filter(id => id !== cellId));
-  }, [cells, updateField]);
+    
+    // Natychmiastowy zapis przy usunięciu komórki
+    onSave(updatedFormData);
+    lastSavedRef.current = JSON.stringify(updatedFormData);
+  }, [cells, formData, onSave]);
 
   const moveCell = useCallback((cellId: string, direction: 'up' | 'down') => {
     const index = cells.findIndex(c => c.id === cellId);
@@ -122,8 +132,13 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
     const newCells = [...cells];
     [newCells[index], newCells[newIndex]] = [newCells[newIndex], newCells[index]];
     const reorderedCells = newCells.map((cell, idx) => ({ ...cell, position: idx }));
-    updateField('cells', reorderedCells);
-  }, [cells, updateField]);
+    const updatedFormData = { ...formData, cells: reorderedCells };
+    setFormData(updatedFormData);
+    
+    // Natychmiastowy zapis przy zmianie kolejności
+    onSave(updatedFormData);
+    lastSavedRef.current = JSON.stringify(updatedFormData);
+  }, [cells, formData, onSave]);
 
   const toggleCellExpanded = (cellId: string) => {
     setExpandedCells(prev => 
@@ -146,11 +161,10 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
   return (
     <div className="h-full flex flex-col">
       <Tabs defaultValue="cells" className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-4 shrink-0">
+        <TabsList className="grid w-full grid-cols-3 shrink-0">
           <TabsTrigger value="cells">Komórki</TabsTrigger>
           <TabsTrigger value="main">Główne</TabsTrigger>
           <TabsTrigger value="style">Styl</TabsTrigger>
-          <TabsTrigger value="visibility">Widoczność</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-2">
@@ -379,20 +393,6 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           />
         </TabsContent>
 
-        <TabsContent value="visibility" className="flex-1 overflow-auto mt-2">
-          <div className="p-2">
-            <VisibilityEditor
-              value={{
-                visible_to_everyone: formData.visible_to_everyone ?? true,
-                visible_to_clients: formData.visible_to_clients ?? false,
-                visible_to_partners: formData.visible_to_partners ?? false,
-                visible_to_specjalista: formData.visible_to_specjalista ?? false,
-                visible_to_anonymous: formData.visible_to_anonymous ?? false,
-              }}
-              onChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
-            />
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );
