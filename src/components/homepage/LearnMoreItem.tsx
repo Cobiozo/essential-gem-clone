@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
-import { CMSItem } from '@/types/cms';
+import { CMSItem, ContentCell } from '@/types/cms';
+import { Button } from '@/components/ui/button';
 
 interface LearnMoreItemProps {
   item: CMSItem;
@@ -10,6 +11,19 @@ interface LearnMoreItemProps {
 }
 
 export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, isExpanded, onToggle }) => {
+  // Parse cells from item
+  const cells = (item.cells || []) as ContentCell[];
+  const activeCells = cells
+    .filter(cell => cell.is_active !== false)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+  // Get header cell for title, fallback to item.title
+  const headerCell = activeCells.find(c => c.type === 'header');
+  const headerContent = headerCell?.content || item.title || '';
+
+  // Get content cells (everything except header)
+  const contentCells = activeCells.filter(c => c.type !== 'header');
+
   // Apply custom styles from item
   const containerStyle: React.CSSProperties = {};
   if (item.background_color) containerStyle.backgroundColor = item.background_color;
@@ -25,6 +39,52 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
 
   const numberBgColor = item.background_color || 'hsl(45,100%,51%)';
   const numberTextColor = item.icon_color || '#ffffff';
+
+  // Render a single cell based on its type
+  const renderCell = (cell: ContentCell, index: number) => {
+    switch (cell.type) {
+      case 'description':
+      case 'text':
+        return (
+          <div 
+            key={cell.id || index}
+            className="leading-relaxed text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+          />
+        );
+      case 'list_item':
+        return (
+          <div key={cell.id || index} className="flex items-start gap-2">
+            <span className="text-primary mt-1">•</span>
+            <span dangerouslySetInnerHTML={{ __html: cell.content || '' }} />
+          </div>
+        );
+      case 'button_anchor':
+      case 'button_external':
+      case 'button_functional':
+        return (
+          <Button
+            key={cell.id || index}
+            variant={cell.type === 'button_external' ? 'default' : cell.type === 'button_anchor' ? 'secondary' : 'outline'}
+            onClick={() => cell.url && window.open(cell.url, cell.type === 'button_external' ? '_blank' : '_self')}
+            className="mt-2"
+          >
+            {cell.content || 'Przycisk'}
+          </Button>
+        );
+      default:
+        return cell.content ? (
+          <div 
+            key={cell.id || index}
+            className="leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+          />
+        ) : null;
+    }
+  };
+
+  // Fallback content if no cells - use item.description
+  const hasContent = contentCells.length > 0 || item.description;
 
   return (
     <div 
@@ -45,7 +105,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           <span 
             className="text-left font-semibold text-lg"
             style={titleStyle}
-            dangerouslySetInnerHTML={{ __html: item.title || '' }}
+            dangerouslySetInnerHTML={{ __html: headerContent }}
           />
         </div>
         <ChevronDown 
@@ -54,19 +114,29 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           }`} 
         />
       </button>
-      <div 
-        className={`grid transition-all duration-300 ease-in-out ${
-          isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div 
-            className="px-6 pb-6 leading-relaxed"
-            style={{ color: item.text_color || '#6b7280' }}
-            dangerouslySetInnerHTML={{ __html: item.description || '' }}
-          />
+      {hasContent && (
+        <div 
+          className={`grid transition-all duration-300 ease-in-out ${
+            isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div 
+              className="px-6 pb-6 space-y-3"
+              style={{ color: item.text_color || undefined }}
+            >
+              {contentCells.length > 0 ? (
+                contentCells.map((cell, index) => renderCell(cell, index))
+              ) : (
+                <div 
+                  className="leading-relaxed text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: item.description || '' }}
+                />
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
