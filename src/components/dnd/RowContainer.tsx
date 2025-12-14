@@ -539,6 +539,7 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   return (
     <div
       ref={setNodeRef}
+      data-element-id={row.id}
       style={rowStyles}
       className={cn(
         "w-full transition-all duration-200",

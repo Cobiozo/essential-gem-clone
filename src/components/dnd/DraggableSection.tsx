@@ -48,6 +48,7 @@ export const DraggableSection: React.FC<DraggableSectionProps> = ({
   return (
     <div
       ref={setNodeRef}
+      data-element-id={id}
       style={{...style, position: 'relative'}}
       className={cn(
         "group w-full clear-both",

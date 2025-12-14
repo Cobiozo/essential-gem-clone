@@ -79,15 +79,27 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       }
       
       const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-      if (previewElement) {
+      const previewContainer = document.querySelector('[data-preview-container]');
+      
+      if (previewElement && previewContainer) {
+        const elementRect = previewElement.getBoundingClientRect();
+        const containerRect = previewContainer.getBoundingClientRect();
+        
+        // Calculate position relative to preview container, accounting for scroll
+        const scrollTop = previewContainer.scrollTop || 0;
+        const relativeTop = elementRect.top - containerRect.top + scrollTop;
+        
+        // Limit offset so editor doesn't go beyond visible area
+        const maxOffset = Math.max(0, window.innerHeight - 400);
+        setEditorOffsetY(Math.min(Math.max(0, relativeTop), maxOffset));
+      } else if (previewElement) {
+        // Fallback: use viewport-relative position
         const rect = previewElement.getBoundingClientRect();
-        // Calculate offset from top of viewport minus header height (~64px) and some padding
-        const headerHeight = 64;
-        const editorHeaderHeight = 120; // Approximate height of ElementsPanel header
-        const offsetFromTop = Math.max(0, rect.top - headerHeight - editorHeaderHeight);
-        setEditorOffsetY(offsetFromTop);
+        const offsetFromTop = Math.max(0, rect.top - 180);
+        const maxOffset = Math.max(0, window.innerHeight - 400);
+        setEditorOffsetY(Math.min(offsetFromTop, maxOffset));
       }
-    }, 100);
+    }, 150);
   }, []);
   
   // Reset editor offset when closing editor
@@ -2115,7 +2127,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
 
             {/* Preview Panel */}
             <ResizablePanel defaultSize={100 - savedPanelSize} minSize={50}>
-              <div className="h-full overflow-auto p-4 pb-32">
+              <div className="h-full overflow-auto p-4 pb-32" data-preview-container>
                 <DeviceFrame device={currentDevice} className="mx-auto">
                   <DragDropProvider
                     items={[
