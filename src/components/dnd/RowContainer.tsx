@@ -125,6 +125,7 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                     itemIndex={itemIdx}
                     isExpanded={expandedItemId === item.id}
                     onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                    isEditMode={isEditMode}
                   />
                 );
               } else {

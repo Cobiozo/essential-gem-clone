@@ -137,6 +137,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                           itemIndex={itemIdx}
                           isExpanded={expandedItemId === item.id}
                           onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                          isEditMode={false}
                         />
                       );
                     } else {
