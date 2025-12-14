@@ -124,9 +124,9 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
   // Get alignment wrapper classes
   const getAlignmentClasses = (alignment?: string) => {
     switch (alignment) {
-      case 'center': return 'flex justify-center';
-      case 'right': return 'flex justify-end';
-      case 'full': return 'w-full';
+      case 'center': return 'flex justify-center w-full';
+      case 'right': return 'flex justify-end w-full';
+      case 'full': return 'flex w-full';
       default: return 'flex justify-start';
     }
   };
@@ -139,19 +139,19 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
 
     const renderContent = () => {
       switch (cell.type) {
-        case 'description':
-        case 'text':
-          return (
-            <div 
-              className={`leading-relaxed text-muted-foreground ${isFullWidth ? 'w-full' : ''}`}
-              style={{ textAlign }}
-              dangerouslySetInnerHTML={{ __html: cell.content || '' }}
-            />
-          );
+      case 'description':
+      case 'text':
+        return (
+          <div 
+            className={`leading-relaxed text-muted-foreground ${isFullWidth ? 'flex-1' : ''}`}
+            style={{ textAlign }}
+            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+          />
+        );
         
         case 'list_item':
           return (
-            <div className={`flex items-start gap-2 ${isFullWidth ? 'w-full' : ''}`}>
+            <div className={`flex items-start gap-2 ${isFullWidth ? 'flex-1' : ''}`}>
               <span className="text-primary mt-1">•</span>
               <span 
                 className={isFullWidth ? 'flex-1' : ''}
@@ -168,7 +168,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <Button
               variant={cell.type === 'button_external' ? 'default' : cell.type === 'button_anchor' ? 'secondary' : 'outline'}
               onClick={() => cell.url && window.open(cell.url, cell.type === 'button_external' ? '_blank' : '_self')}
-              className={isFullWidth ? 'w-full' : ''}
+              className={isFullWidth ? 'flex-1' : ''}
             >
               {cell.content || 'Przycisk'}
             </Button>
@@ -179,7 +179,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <img 
               src={cell.media_url} 
               alt={cell.media_alt || ''} 
-              className={`rounded-lg h-auto ${isFullWidth ? 'w-full' : 'max-w-full'}`}
+              className={`rounded-lg h-auto ${isFullWidth ? 'flex-1 w-full' : 'max-w-full'}`}
             />
           ) : null;
         
@@ -188,7 +188,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           const youtubeId = getYouTubeVideoId(cell.media_url);
           if (youtubeId) {
             return (
-              <div className={`aspect-video rounded-lg overflow-hidden ${isFullWidth ? 'w-full' : 'max-w-full'}`}>
+              <div className={`aspect-video rounded-lg overflow-hidden ${isFullWidth ? 'flex-1 w-full' : 'max-w-full'}`}>
                 <iframe
                   src={`https://www.youtube.com/embed/${youtubeId}`}
                   title={cell.media_alt || 'Video'}
@@ -203,7 +203,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <video 
               src={cell.media_url} 
               controls 
-              className={`rounded-lg ${isFullWidth ? 'w-full' : 'max-w-full'}`}
+              className={`rounded-lg ${isFullWidth ? 'flex-1 w-full' : 'max-w-full'}`}
             >
               {cell.media_alt}
             </video>
@@ -211,7 +211,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         
         case 'gallery':
           return cell.items && cell.items.length > 0 ? (
-            <div className={`grid grid-cols-2 sm:grid-cols-3 gap-2 ${isFullWidth ? 'w-full' : ''}`}>
+            <div className={`grid grid-cols-2 sm:grid-cols-3 gap-2 ${isFullWidth ? 'flex-1 w-full' : ''}`}>
               {cell.items.map((img, imgIdx) => (
                 <div key={imgIdx} className="relative group">
                   <img 
@@ -231,7 +231,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         
         case 'carousel':
           return cell.items && cell.items.length > 0 ? (
-            <div className={`flex gap-2 overflow-x-auto pb-2 ${isFullWidth ? 'w-full' : ''}`}>
+            <div className={`flex gap-2 overflow-x-auto pb-2 ${isFullWidth ? 'flex-1 w-full' : ''}`}>
               {cell.items.map((img, imgIdx) => (
                 <div key={imgIdx} className="shrink-0 w-48">
                   <img 
@@ -264,7 +264,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         
         case 'section':
           return (
-            <div className={`bg-muted/30 rounded-lg p-4 space-y-2 ${isFullWidth ? 'w-full' : ''}`}>
+            <div className={`bg-muted/30 rounded-lg p-4 space-y-2 ${isFullWidth ? 'flex-1 w-full' : ''}`}>
               {cell.section_title && (
                 <h4 className="font-semibold">{cell.section_title}</h4>
               )}
@@ -277,7 +277,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         default:
           return cell.content ? (
             <div 
-              className={`leading-relaxed ${isFullWidth ? 'w-full' : ''}`}
+              className={`leading-relaxed ${isFullWidth ? 'flex-1 w-full' : ''}`}
               style={{ textAlign }}
               dangerouslySetInnerHTML={{ __html: cell.content || '' }}
             />
