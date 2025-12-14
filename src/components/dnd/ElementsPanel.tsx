@@ -87,6 +87,7 @@ interface ElementsPanelProps {
   recentlyUsed?: string[];
   panelWidth?: 'fixed' | 'dynamic';
   onCollapsePanel?: () => void;
+  editorOffsetY?: number;
 }
 
 // Recently used elements storage key
@@ -109,6 +110,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   onCancelSectionEdit,
   panelWidth = 'fixed',
   onCollapsePanel,
+  editorOffsetY = 0,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
@@ -352,7 +354,11 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </Tabs>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto min-h-0 min-w-0" data-side-panel-scroll>
+          <div 
+            className="flex-1 overflow-auto min-h-0 min-w-0" 
+            data-side-panel-scroll
+            style={{ paddingTop: editorOffsetY > 0 ? `${editorOffsetY}px` : undefined }}
+          >
             {editingSection && onSaveSection && onCancelSectionEdit ? (
               <SectionEditor
                 key={editingSectionId}
