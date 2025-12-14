@@ -291,6 +291,86 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       toast({ title: 'Błąd', description: 'Nie udało się zapisać ustawień układu', variant: 'destructive' });
     }
   }, [toast]);
+
+  // Move row up
+  const handleMoveRowUp = useCallback(async (rowId: string) => {
+    const topLevelSections = sections
+      .filter(s => !s.parent_id)
+      .sort((a, b) => a.position - b.position);
+    const currentIndex = topLevelSections.findIndex(s => s.id === rowId);
+    
+    if (currentIndex <= 0) return; // Already at top
+    
+    const targetSection = topLevelSections[currentIndex - 1];
+    const currentSection = topLevelSections[currentIndex];
+    
+    try {
+      // Swap positions in database
+      await Promise.all([
+        supabase.from('cms_sections').update({ 
+          position: currentIndex - 1, 
+          updated_at: new Date().toISOString() 
+        }).eq('id', rowId),
+        supabase.from('cms_sections').update({ 
+          position: currentIndex, 
+          updated_at: new Date().toISOString() 
+        }).eq('id', targetSection.id)
+      ]);
+      
+      // Update local state
+      setSections(prev => prev.map(s => {
+        if (s.id === rowId) return { ...s, position: currentIndex - 1 };
+        if (s.id === targetSection.id) return { ...s, position: currentIndex };
+        return s;
+      }));
+      
+      setHasUnsavedChanges(true);
+      toast({ title: 'Sukces', description: 'Wiersz przesunięty w górę' });
+    } catch (error) {
+      console.error('Error moving row up:', error);
+      toast({ title: 'Błąd', description: 'Nie udało się przenieść wiersza', variant: 'destructive' });
+    }
+  }, [sections, setSections, setHasUnsavedChanges, toast]);
+
+  // Move row down
+  const handleMoveRowDown = useCallback(async (rowId: string) => {
+    const topLevelSections = sections
+      .filter(s => !s.parent_id)
+      .sort((a, b) => a.position - b.position);
+    const currentIndex = topLevelSections.findIndex(s => s.id === rowId);
+    
+    if (currentIndex === -1 || currentIndex >= topLevelSections.length - 1) return; // Already at bottom
+    
+    const targetSection = topLevelSections[currentIndex + 1];
+    
+    try {
+      // Swap positions in database
+      await Promise.all([
+        supabase.from('cms_sections').update({ 
+          position: currentIndex + 1, 
+          updated_at: new Date().toISOString() 
+        }).eq('id', rowId),
+        supabase.from('cms_sections').update({ 
+          position: currentIndex, 
+          updated_at: new Date().toISOString() 
+        }).eq('id', targetSection.id)
+      ]);
+      
+      // Update local state
+      setSections(prev => prev.map(s => {
+        if (s.id === rowId) return { ...s, position: currentIndex + 1 };
+        if (s.id === targetSection.id) return { ...s, position: currentIndex };
+        return s;
+      }));
+      
+      setHasUnsavedChanges(true);
+      toast({ title: 'Sukces', description: 'Wiersz przesunięty w dół' });
+    } catch (error) {
+      console.error('Error moving row down:', error);
+      toast({ title: 'Błąd', description: 'Nie udało się przenieść wiersza', variant: 'destructive' });
+    }
+  }, [sections, setSections, setHasUnsavedChanges, toast]);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const draggedId = event.active.id as string;
     console.log('[DragStart] Element ID:', draggedId);
@@ -1955,17 +2035,27 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
               )}
               style={layoutMode !== 'single' ? { gridTemplateColumns: `repeat(${Math.max(1, Math.min(4, columnCount))}, minmax(0, 1fr))` } : undefined}
             >
-              {sections
-                .filter(s => !s.parent_id)
-                .filter(s => {
-                  // In edit mode with 'real' preview, always show all sections for admin
-                  if (editMode && previewRole === 'real') return true;
-                  // Apply visibility filtering for role preview
-                  return isSectionVisible(s, visibilityParams.user, visibilityParams.userRole);
-                })
-                .map((section) => {
-                // Render row containers
-                if (section.section_type === 'row') {
+              {(() => {
+                // Calculate sorted top-level sections for move up/down
+                const topLevelSections = sections
+                  .filter(s => !s.parent_id)
+                  .sort((a, b) => a.position - b.position);
+                
+                return sections
+                  .filter(s => !s.parent_id)
+                  .filter(s => {
+                    // In edit mode with 'real' preview, always show all sections for admin
+                    if (editMode && previewRole === 'real') return true;
+                    // Apply visibility filtering for role preview
+                    return isSectionVisible(s, visibilityParams.user, visibilityParams.userRole);
+                  })
+                  .map((section) => {
+                    const sectionIndex = topLevelSections.findIndex(s => s.id === section.id);
+                    const canMoveUp = sectionIndex > 0;
+                    const canMoveDown = sectionIndex < topLevelSections.length - 1;
+                    
+                    // Render row containers
+                    if (section.section_type === 'row') {
                   return (
                     <DraggableSection
                       key={section.id}
@@ -2065,6 +2155,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                         onEditRow={handleEditSection}
                         onDuplicateRow={handleDuplicateSection}
                         onHideRow={handleDeactivateSection}
+                        onMoveRowUp={handleMoveRowUp}
+                        onMoveRowDown={handleMoveRowDown}
+                        canMoveRowUp={canMoveUp}
+                        canMoveRowDown={canMoveDown}
                       />
                     </DraggableSection>
                   );
@@ -2120,7 +2214,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                     />
                   </DraggableSection>
                 );
-              })}
+              })
+              })()}
             </div>
           </SortableContext>
         </DragDropProvider>
