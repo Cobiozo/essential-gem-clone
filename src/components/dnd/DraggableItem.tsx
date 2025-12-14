@@ -63,7 +63,7 @@ export const DraggableItem: React.FC<DraggableItemProps> = ({
     >
       {/* Hover overlay with drag handle */}
       <div className="absolute inset-0 opacity-0 group-hover/item:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-        <div className="absolute inset-0 border border-primary border-dashed rounded"></div>
+        <div className="absolute inset-0 border border-primary border-dashed rounded pointer-events-none"></div>
       </div>
       
       {/* Drag handle - left side to avoid overlap with ItemControls on right */}

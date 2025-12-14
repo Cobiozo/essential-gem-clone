@@ -2,7 +2,6 @@ import React, { lazy, Suspense } from 'react';
 import { ChevronDown, icons } from 'lucide-react';
 import { CMSItem, ContentCell } from '@/types/cms';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface LearnMoreItemProps {
   item: CMSItem;
@@ -286,14 +285,9 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
       <div
         onClick={(e) => {
           e.stopPropagation();
-          if (!isEditMode) {
-            onToggle();
-          }
+          onToggle();
         }}
-        className={cn(
-          "w-full flex items-center justify-between p-6 transition-colors",
-          !isEditMode && "cursor-pointer hover:bg-muted/30 group"
-        )}
+        className="w-full flex items-center justify-between p-6 transition-colors cursor-pointer hover:bg-muted/30 group"
       >
         <div className="flex items-center gap-5">
           {renderNumber()}
