@@ -218,6 +218,104 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
     updateCell(cellId, { items: newItems });
   };
 
+  // Nested section sub-cell management
+  const addSubCell = useCallback((parentCellId: string, type: ContentCell['type']) => {
+    const parentCell = cells.find(c => c.id === parentCellId);
+    if (!parentCell) return;
+    
+    const subCells = parentCell.section_items as ContentCell[] || [];
+    const newSubCell: ContentCell = {
+      id: generateId(),
+      type,
+      content: '',
+      url: type.includes('button') ? '' : undefined,
+      position: subCells.length,
+      is_active: true,
+    };
+    
+    if (type === 'image' || type === 'video') {
+      newSubCell.media_url = '';
+      newSubCell.media_alt = '';
+    }
+    if (type === 'gallery' || type === 'carousel') {
+      newSubCell.items = [];
+    }
+    if (type === 'spacer') {
+      newSubCell.height = 24;
+    }
+    
+    const newSubCells = [...subCells, newSubCell];
+    updateCell(parentCellId, { section_items: newSubCells as any });
+    setExpandedCells(prev => [...prev, newSubCell.id!]);
+    
+    // Immediate save for structure change
+    const updatedCells = cells.map(c => 
+      c.id === parentCellId ? { ...c, section_items: newSubCells } : c
+    );
+    const updatedFormData = { ...formData, cells: updatedCells };
+    onSave(updatedFormData);
+    lastSavedRef.current = JSON.stringify(updatedFormData);
+  }, [cells, formData, onSave, updateCell]);
+
+  const updateSubCell = useCallback((parentCellId: string, subCellId: string, updates: Partial<ContentCell>) => {
+    const parentCell = cells.find(c => c.id === parentCellId);
+    if (!parentCell) return;
+    
+    const subCells = parentCell.section_items as ContentCell[] || [];
+    const newSubCells = subCells.map(sc => 
+      sc.id === subCellId ? { ...sc, ...updates } : sc
+    );
+    updateCell(parentCellId, { section_items: newSubCells as any });
+  }, [cells, updateCell]);
+
+  const removeSubCell = useCallback((parentCellId: string, subCellId: string) => {
+    const parentCell = cells.find(c => c.id === parentCellId);
+    if (!parentCell) return;
+    
+    const subCells = parentCell.section_items as ContentCell[] || [];
+    const newSubCells = subCells
+      .filter(sc => sc.id !== subCellId)
+      .map((sc, idx) => ({ ...sc, position: idx }));
+    
+    const updatedCells = cells.map(c => 
+      c.id === parentCellId ? { ...c, section_items: newSubCells } : c
+    );
+    const updatedFormData = { ...formData, cells: updatedCells };
+    setFormData(updatedFormData);
+    setExpandedCells(prev => prev.filter(id => id !== subCellId));
+    
+    onSave(updatedFormData);
+    lastSavedRef.current = JSON.stringify(updatedFormData);
+  }, [cells, formData, onSave]);
+
+  const moveSubCell = useCallback((parentCellId: string, subCellId: string, direction: 'up' | 'down') => {
+    const parentCell = cells.find(c => c.id === parentCellId);
+    if (!parentCell) return;
+    
+    const subCells = parentCell.section_items as ContentCell[] || [];
+    const index = subCells.findIndex(sc => sc.id === subCellId);
+    if (index === -1) return;
+    
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= subCells.length) return;
+    
+    const newSubCells = [...subCells];
+    [newSubCells[index], newSubCells[newIndex]] = [newSubCells[newIndex], newSubCells[index]];
+    const reorderedSubCells = newSubCells.map((sc, idx) => ({ ...sc, position: idx }));
+    
+    const updatedCells = cells.map(c => 
+      c.id === parentCellId ? { ...c, section_items: reorderedSubCells } : c
+    );
+    const updatedFormData = { ...formData, cells: updatedCells };
+    setFormData(updatedFormData);
+    
+    onSave(updatedFormData);
+    lastSavedRef.current = JSON.stringify(updatedFormData);
+  }, [cells, formData, onSave]);
+
+  // Get nested section sub-cell types (exclude nested section to prevent infinite nesting)
+  const SUB_CELL_TYPES = CELL_TYPES.filter(t => t.value !== 'section');
+
   const renderCellEditor = (cell: ContentCell) => {
     switch (cell.type) {
       case 'image':
@@ -791,6 +889,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                     value={cell.section_title || ''}
                                     onChange={(e) => updateCell(cell.id!, { section_title: e.target.value })}
                                     placeholder="Tytuł sekcji..."
+                                    className="h-7 text-xs"
                                   />
                                 </div>
                                 <div className="space-y-1">
@@ -799,12 +898,239 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                     value={cell.section_description || ''}
                                     onChange={(e) => updateCell(cell.id!, { section_description: e.target.value })}
                                     placeholder="Opis sekcji..."
-                                    className="min-h-[60px]"
+                                    className="min-h-[40px] text-xs"
                                   />
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Elementy w sekcji zagnieżdżonej można dodawać bezpośrednio w edytorze layoutu.
-                                </p>
+                                
+                                {/* Sub-cells management */}
+                                <div className="border-t pt-2 mt-2 space-y-2">
+                                  <Label className="text-xs text-left block font-semibold">Elementy w sekcji ({(cell.section_items as ContentCell[] || []).length})</Label>
+                                  
+                                  {/* Existing sub-cells */}
+                                  {((cell.section_items as ContentCell[]) || []).length > 0 && (
+                                    <div className="space-y-1 max-h-60 overflow-y-auto">
+                                      {((cell.section_items as ContentCell[]) || []).map((subCell, subIdx) => {
+                                        const SubCellIcon = getCellIcon(subCell.type);
+                                        const isSubCellExpanded = expandedCells.includes(subCell.id!);
+                                        return (
+                                          <Collapsible key={subCell.id} open={isSubCellExpanded} onOpenChange={() => toggleCellExpanded(subCell.id!)}>
+                                            <CollapsibleTrigger asChild>
+                                              <div className="flex items-center gap-1 p-1.5 bg-muted/50 rounded text-xs cursor-pointer hover:bg-muted/70">
+                                                <div className="flex items-center gap-1 flex-1 min-w-0">
+                                                  {(subCell.type === 'image' || subCell.type === 'video') && subCell.media_url ? (
+                                                    <img src={subCell.media_url} alt="" className="w-5 h-5 object-cover rounded shrink-0" />
+                                                  ) : (
+                                                    <SubCellIcon className="w-3 h-3 shrink-0 text-muted-foreground" />
+                                                  )}
+                                                  <span className="truncate">{subCell.content || getCellLabel(subCell.type)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-0.5 shrink-0">
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5"
+                                                    onClick={(e) => { e.stopPropagation(); moveSubCell(cell.id!, subCell.id!, 'up'); }}
+                                                    disabled={subIdx === 0}
+                                                  >
+                                                    <icons.ChevronUp className="w-3 h-3" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5"
+                                                    onClick={(e) => { e.stopPropagation(); moveSubCell(cell.id!, subCell.id!, 'down'); }}
+                                                    disabled={subIdx === ((cell.section_items as ContentCell[]) || []).length - 1}
+                                                  >
+                                                    <icons.ChevronDown className="w-3 h-3" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5 text-destructive"
+                                                    onClick={(e) => { e.stopPropagation(); removeSubCell(cell.id!, subCell.id!); }}
+                                                  >
+                                                    <Trash2 className="w-3 h-3" />
+                                                  </Button>
+                                                  <ChevronDown className={`w-3 h-3 transition-transform ${isSubCellExpanded ? 'rotate-180' : ''}`} />
+                                                </div>
+                                              </div>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent>
+                                              <div className="p-2 border-l-2 border-primary/30 ml-2 mt-1 space-y-2">
+                                                {/* Type selector for sub-cell */}
+                                                <div className="space-y-0.5">
+                                                  <Label className="text-[10px]">Typ</Label>
+                                                  <Select
+                                                    value={subCell.type}
+                                                    onValueChange={(value) => updateSubCell(cell.id!, subCell.id!, { type: value as ContentCell['type'] })}
+                                                  >
+                                                    <SelectTrigger className="h-6 text-[11px]">
+                                                      <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      {SUB_CELL_TYPES.map((type) => (
+                                                        <SelectItem key={type.value} value={type.value}>
+                                                          <div className="flex items-center gap-1.5">
+                                                            <type.icon className="w-3 h-3" />
+                                                            <span className="text-xs">{type.label}</span>
+                                                          </div>
+                                                        </SelectItem>
+                                                      ))}
+                                                    </SelectContent>
+                                                  </Select>
+                                                </div>
+                                                
+                                                {/* Content editor based on sub-cell type */}
+                                                {['header', 'description', 'text', 'list_item'].includes(subCell.type) && (
+                                                  <div className="space-y-0.5">
+                                                    <Label className="text-[10px]">Treść</Label>
+                                                    {subCell.type === 'description' || subCell.type === 'text' ? (
+                                                      <Textarea
+                                                        value={subCell.content}
+                                                        onChange={(e) => updateSubCell(cell.id!, subCell.id!, { content: e.target.value })}
+                                                        placeholder="Tekst..."
+                                                        className="min-h-[50px] text-[11px]"
+                                                      />
+                                                    ) : (
+                                                      <Input
+                                                        value={subCell.content}
+                                                        onChange={(e) => updateSubCell(cell.id!, subCell.id!, { content: e.target.value })}
+                                                        placeholder="Tekst..."
+                                                        className="h-6 text-[11px]"
+                                                      />
+                                                    )}
+                                                  </div>
+                                                )}
+
+                                                {/* Image/Video upload */}
+                                                {(subCell.type === 'image' || subCell.type === 'video') && (
+                                                  <div className="space-y-1">
+                                                    <Label className="text-[10px]">{subCell.type === 'image' ? 'Obraz' : 'Wideo'}</Label>
+                                                    <MediaUpload
+                                                      compact
+                                                      currentMediaUrl={subCell.media_url || ''}
+                                                      onMediaUploaded={(url) => updateSubCell(cell.id!, subCell.id!, { media_url: url })}
+                                                    />
+                                                    {subCell.type === 'image' && (
+                                                      <div className="grid grid-cols-2 gap-1">
+                                                        <div className="space-y-0.5">
+                                                          <Label className="text-[10px]">Szer. (px)</Label>
+                                                          <Input
+                                                            type="number"
+                                                            value={subCell.width || ''}
+                                                            onChange={(e) => updateSubCell(cell.id!, subCell.id!, { width: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                            className="h-6 text-[11px]"
+                                                          />
+                                                        </div>
+                                                        <div className="space-y-0.5">
+                                                          <Label className="text-[10px]">Wys. (px)</Label>
+                                                          <Input
+                                                            type="number"
+                                                            value={subCell.height_px || ''}
+                                                            onChange={(e) => updateSubCell(cell.id!, subCell.id!, { height_px: e.target.value ? parseInt(e.target.value) : undefined })}
+                                                            className="h-6 text-[11px]"
+                                                          />
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+
+                                                {/* Button fields */}
+                                                {subCell.type.includes('button') && (
+                                                  <>
+                                                    <div className="space-y-0.5">
+                                                      <Label className="text-[10px]">Tekst przycisku</Label>
+                                                      <Input
+                                                        value={subCell.content}
+                                                        onChange={(e) => updateSubCell(cell.id!, subCell.id!, { content: e.target.value })}
+                                                        placeholder="Kliknij"
+                                                        className="h-6 text-[11px]"
+                                                      />
+                                                    </div>
+                                                    <div className="space-y-0.5">
+                                                      <Label className="text-[10px]">URL</Label>
+                                                      <Input
+                                                        value={subCell.url || ''}
+                                                        onChange={(e) => updateSubCell(cell.id!, subCell.id!, { url: e.target.value })}
+                                                        placeholder="https://..."
+                                                        className="h-6 text-[11px]"
+                                                      />
+                                                    </div>
+                                                  </>
+                                                )}
+
+                                                {/* Icon selector */}
+                                                {subCell.type === 'icon' && (
+                                                  <div className="space-y-0.5">
+                                                    <Label className="text-[10px]">Ikona</Label>
+                                                    <IconPicker
+                                                      value={subCell.content || 'Star'}
+                                                      onChange={(icon) => updateSubCell(cell.id!, subCell.id!, { content: icon })}
+                                                    />
+                                                  </div>
+                                                )}
+
+                                                {/* Spacer height */}
+                                                {subCell.type === 'spacer' && (
+                                                  <div className="space-y-0.5">
+                                                    <Label className="text-[10px]">Wysokość (px)</Label>
+                                                    <Input
+                                                      type="number"
+                                                      value={subCell.height || 24}
+                                                      onChange={(e) => updateSubCell(cell.id!, subCell.id!, { height: parseInt(e.target.value) || 24 })}
+                                                      className="h-6 text-[11px]"
+                                                    />
+                                                  </div>
+                                                )}
+
+                                                {/* Alignment */}
+                                                <div className="space-y-0.5">
+                                                  <Label className="text-[10px]">Wyrównanie</Label>
+                                                  <Select
+                                                    value={subCell.alignment || 'left'}
+                                                    onValueChange={(value) => updateSubCell(cell.id!, subCell.id!, { alignment: value as ContentCell['alignment'] })}
+                                                  >
+                                                    <SelectTrigger className="h-6 text-[11px]">
+                                                      <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      <SelectItem value="left">Do lewej</SelectItem>
+                                                      <SelectItem value="center">Środek</SelectItem>
+                                                      <SelectItem value="right">Do prawej</SelectItem>
+                                                      <SelectItem value="full">Pełna szer.</SelectItem>
+                                                    </SelectContent>
+                                                  </Select>
+                                                </div>
+                                              </div>
+                                            </CollapsibleContent>
+                                          </Collapsible>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Add sub-cell dropdown */}
+                                  <Select
+                                    value=""
+                                    onValueChange={(value) => addSubCell(cell.id!, value as ContentCell['type'])}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      <span>Dodaj element</span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {SUB_CELL_TYPES.map((type) => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                          <div className="flex items-center gap-2">
+                                            <type.icon className="w-3 h-3" />
+                                            <span className="text-xs">{type.label}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </>
                             )}
 

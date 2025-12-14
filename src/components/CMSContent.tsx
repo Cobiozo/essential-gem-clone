@@ -263,6 +263,131 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                  );
 
               case 'section':
+                // Helper function to render sub-cells inside nested section
+                const renderSubCell = (subCell: ContentCell) => {
+                  const subAlignment = subCell.alignment || 'left';
+                  const subAlignmentClass = subAlignment === 'center' ? 'flex justify-center w-full' 
+                    : subAlignment === 'right' ? 'flex justify-end w-full'
+                    : subAlignment === 'full' ? 'w-full' 
+                    : 'flex justify-start';
+                  
+                  switch (subCell.type) {
+                    case 'header':
+                      return (
+                        <h4 
+                          key={subCell.id} 
+                          className="text-base font-semibold text-foreground leading-tight"
+                          dangerouslySetInnerHTML={{ __html: subCell.content }}
+                        />
+                      );
+                    case 'description':
+                    case 'text':
+                      return (
+                        <p 
+                          key={subCell.id} 
+                          className="text-sm text-muted-foreground leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: subCell.content }}
+                        />
+                      );
+                    case 'list_item':
+                      return (
+                        <div key={subCell.id} className="flex items-start space-x-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span 
+                            className="text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: subCell.content }}
+                          />
+                        </div>
+                      );
+                    case 'image':
+                      if (!subCell.media_url) return null;
+                      const imgStyle: React.CSSProperties = {};
+                      if (subCell.width) imgStyle.width = `${subCell.width}px`;
+                      if (subCell.height_px) imgStyle.height = `${subCell.height_px}px`;
+                      if (subCell.max_width) imgStyle.maxWidth = `${subCell.max_width}px`;
+                      if (subCell.max_height) imgStyle.maxHeight = `${subCell.max_height}px`;
+                      if (subCell.object_fit) imgStyle.objectFit = subCell.object_fit as any;
+                      if (subCell.border_radius) imgStyle.borderRadius = `${subCell.border_radius}px`;
+                      return (
+                        <div key={subCell.id} className={subAlignmentClass}>
+                          <img 
+                            src={subCell.media_url} 
+                            alt={subCell.media_alt || ''} 
+                            className="rounded"
+                            style={imgStyle}
+                          />
+                        </div>
+                      );
+                    case 'video':
+                      if (!subCell.media_url) return null;
+                      const isYouTube = subCell.media_url.includes('youtube.com') || subCell.media_url.includes('youtu.be');
+                      if (isYouTube) {
+                        const videoId = subCell.media_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
+                        return (
+                          <div key={subCell.id} className={subAlignmentClass}>
+                            <iframe
+                              src={`https://www.youtube.com/embed/${videoId}`}
+                              className="w-full aspect-video rounded"
+                              allowFullScreen
+                            />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={subCell.id} className={subAlignmentClass}>
+                          <video src={subCell.media_url} controls className="w-full rounded" />
+                        </div>
+                      );
+                    case 'spacer':
+                      return <div key={subCell.id} style={{ height: `${subCell.height || 24}px` }} />;
+                    case 'divider':
+                      return <Separator key={subCell.id} className="my-2" />;
+                    case 'icon':
+                      const SubIcon = (icons as any)[subCell.content] || icons.Star;
+                      return (
+                        <div key={subCell.id} className={subAlignmentClass}>
+                          <SubIcon className="w-6 h-6 text-primary" />
+                        </div>
+                      );
+                    case 'button_functional':
+                    case 'button_anchor':
+                    case 'button_external':
+                      return (
+                        <div key={subCell.id} className={subAlignmentClass}>
+                          <Button
+                            onClick={() => handleCellClick(subCell)}
+                            variant="default"
+                            size="sm"
+                          >
+                            {subCell.content || 'Kliknij'}
+                          </Button>
+                        </div>
+                      );
+                    case 'gallery':
+                      if (!subCell.items || subCell.items.length === 0) return null;
+                      return (
+                        <div key={subCell.id} className={cn("grid gap-2", `grid-cols-${subCell.columns || 3}`)}>
+                          {subCell.items.map((img, idx) => (
+                            <img key={idx} src={img.url} alt={img.alt || ''} className="rounded object-cover aspect-square" />
+                          ))}
+                        </div>
+                      );
+                    case 'carousel':
+                      if (!subCell.items || subCell.items.length === 0) return null;
+                      return (
+                        <div key={subCell.id} className="flex gap-2 overflow-x-auto">
+                          {subCell.items.map((img, idx) => (
+                            <img key={idx} src={img.url} alt={img.alt || ''} className="h-24 rounded object-cover" />
+                          ))}
+                        </div>
+                      );
+                    default:
+                      return (
+                        <div key={subCell.id} className="text-sm" dangerouslySetInnerHTML={{ __html: subCell.content }} />
+                      );
+                  }
+                };
+
                 if (!cell.section_items || cell.section_items.length === 0) {
                   return (
                      <div key={cell.id} className="border rounded-lg p-4 my-4 bg-muted/30">
@@ -290,13 +415,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                     className="border rounded-lg p-4 my-4 bg-muted/30"
                   >
                     <div className="space-y-2">
-                      {cell.section_items.filter(sectionItem => sectionItem.is_active !== false).map((sectionItem) => (
-                        <CMSContent 
-                          key={sectionItem.id} 
-                          item={sectionItem} 
-                          onClick={onClick}
-                        />
-                      ))}
+                      {cell.section_items.filter(sectionItem => sectionItem.is_active !== false).map((sectionItem) => 
+                        renderSubCell(sectionItem)
+                      )}
                     </div>
                   </CollapsibleSection>
                 );
