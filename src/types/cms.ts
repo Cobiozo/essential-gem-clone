@@ -17,6 +17,8 @@ export interface ContentCell {
   items?: Array<{ url: string; alt?: string; caption?: string }>;
   // For spacer
   height?: number;
+  // Alignment
+  alignment?: 'left' | 'center' | 'right' | 'full';
 }
 
 export interface CMSItem {
