@@ -263,17 +263,17 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           <div className="space-y-3">
             <Label className="text-xs">Obrazy ({cell.items?.length || 0})</Label>
             {cell.items?.map((galleryItem, idx) => (
-              <Card key={idx} className="p-2">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+              <Card key={idx} className="p-1.5">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1">
                     <span className="text-xs text-muted-foreground">#{idx + 1}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 ml-auto text-destructive"
+                      className="h-5 w-5 ml-auto text-destructive"
                       onClick={() => removeGalleryItem(cell.id!, idx)}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-2.5 h-2.5" />
                     </Button>
                   </div>
                   <MediaUpload
@@ -284,13 +284,13 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                     value={galleryItem.alt || ''}
                     onChange={(e) => updateGalleryItem(cell.id!, idx, { alt: e.target.value })}
                     placeholder="Alt..."
-                    className="h-8 text-xs"
+                    className="h-7 text-xs"
                   />
                   <Input
                     value={galleryItem.caption || ''}
                     onChange={(e) => updateGalleryItem(cell.id!, idx, { caption: e.target.value })}
                     placeholder="Podpis..."
-                    className="h-8 text-xs"
+                    className="h-7 text-xs"
                   />
                 </div>
               </Card>
@@ -349,10 +349,10 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
     <div className="h-full flex flex-col">
       <Tabs defaultValue="cells" className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-4 shrink-0">
-          <TabsTrigger value="cells">Komórki</TabsTrigger>
-          <TabsTrigger value="main">Główne</TabsTrigger>
-          <TabsTrigger value="number">Numeracja</TabsTrigger>
-          <TabsTrigger value="style">Styl</TabsTrigger>
+          <TabsTrigger value="cells" className="text-xs px-1">Komórki</TabsTrigger>
+          <TabsTrigger value="main" className="text-xs px-1">Główne</TabsTrigger>
+          <TabsTrigger value="number" className="text-xs px-1">Nr</TabsTrigger>
+          <TabsTrigger value="style" className="text-xs px-1">Styl</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-2">
@@ -374,22 +374,28 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                     <Card key={cell.id} className="overflow-hidden">
                       <Collapsible open={isExpanded} onOpenChange={() => toggleCellExpanded(cell.id!)}>
                         <CollapsibleTrigger asChild>
-                          <div className="flex items-center gap-2 p-3 hover:bg-muted/50 cursor-pointer">
-                            <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <CellIcon className="w-4 h-4 shrink-0" />
-                            <span className="flex-1 text-sm font-medium truncate">
-                              {cell.content || cell.media_url || getCellLabel(cell.type)}
-                            </span>
-                            <div className="flex items-center gap-1 shrink-0">
+                          <div className="p-2 hover:bg-muted/50 cursor-pointer space-y-1">
+                            {/* Row 1: Icon and label */}
+                            <div className="flex items-center gap-1.5">
+                              <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
+                              <CellIcon className="w-3 h-3 shrink-0" />
+                              <span className="flex-1 text-xs font-medium truncate">
+                                {cell.content || cell.media_url || getCellLabel(cell.type)}
+                              </span>
+                              <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                            {/* Row 2: Controls */}
+                            <div className="flex items-center justify-end gap-0.5 pl-5">
                               <Switch
                                 checked={cell.is_active}
                                 onCheckedChange={(checked) => updateCell(cell.id!, { is_active: checked })}
                                 onClick={(e) => e.stopPropagation()}
+                                className="scale-75"
                               />
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-5 w-5 text-xs"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   moveCell(cell.id!, 'up');
@@ -401,7 +407,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-5 w-5 text-xs"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   moveCell(cell.id!, 'down');
@@ -413,15 +419,14 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                className="h-5 w-5 text-destructive hover:text-destructive"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   removeCell(cell.id!);
                                 }}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3 h-3" />
                               </Button>
-                              <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                             </div>
                           </div>
                         </CollapsibleTrigger>
@@ -539,17 +544,17 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
               {/* Dodaj nową komórkę */}
               <div className="pt-3 border-t">
                 <Label className="text-xs mb-2 block">Dodaj nową komórkę</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-1">
                   {CELL_TYPES.map((type) => (
                     <Button
                       key={type.value}
                       variant="outline"
                       size="sm"
                       onClick={() => addCell(type.value)}
-                      className="justify-start h-auto py-2"
+                      className="justify-start h-7 text-xs"
                     >
-                      <type.icon className="w-4 h-4 mr-2 shrink-0" />
-                      <span className="text-xs">{type.label}</span>
+                      <type.icon className="w-3 h-3 mr-2 shrink-0" />
+                      <span className="truncate">{type.label}</span>
                     </Button>
                   ))}
                 </div>
