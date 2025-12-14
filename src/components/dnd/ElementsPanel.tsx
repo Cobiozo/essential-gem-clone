@@ -228,11 +228,14 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   };
 
   return (
-    <Card className={cn(
-      "h-full border-r rounded-none flex flex-col overflow-hidden",
-      panelWidth === 'dynamic' ? 'w-full' : 'w-80 sm:w-96',
-      className
-    )}>
+    <Card 
+      className={cn(
+        "h-full border-r rounded-none flex flex-col overflow-hidden",
+        panelWidth === 'dynamic' ? 'w-full' : 'w-80 sm:w-96',
+        className
+      )}
+      data-editor-panel
+    >
       <CardContent className="p-0 h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b shrink-0 bg-gradient-to-r from-background to-muted/30">
