@@ -229,8 +229,8 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
 
   return (
     <Card className={cn(
-      "h-full border-r rounded-none flex flex-col",
-      panelWidth === 'dynamic' ? 'w-full min-w-[280px]' : 'w-80 sm:w-96',
+      "h-full border-r rounded-none flex flex-col overflow-hidden",
+      panelWidth === 'dynamic' ? 'w-full' : 'w-80 sm:w-96',
       className
     )}>
       <CardContent className="p-0 h-full flex flex-col overflow-hidden">
@@ -255,8 +255,8 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
         
         {panelMode === 'elements' ? (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-2 mx-4 mt-2 shrink-0">
+            <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden px-4">
+              <TabsList className="grid w-full grid-cols-2 mt-2 shrink-0">
                 <TabsTrigger value="widgets" className="text-sm">Widżety</TabsTrigger>
                 <TabsTrigger value="global" className="text-sm">Globalne</TabsTrigger>
               </TabsList>
@@ -300,7 +300,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                     >
                       <div 
                         className="gap-1.5 sm:gap-2 mt-2 pb-2 grid"
-                        style={{ gridTemplateColumns: panelWidth === 'dynamic' ? 'repeat(auto-fill, minmax(120px, 1fr))' : 'repeat(2, 1fr)' }}
+                        style={{ gridTemplateColumns: panelWidth === 'dynamic' ? 'repeat(auto-fill, minmax(90px, 1fr))' : 'repeat(2, 1fr)' }}
                       >
                         {category.items.map((item) => (
                           <DraggableElement
