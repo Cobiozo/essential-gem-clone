@@ -1275,8 +1275,8 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="main" className="flex-1 overflow-hidden mt-1">
-          <ScrollArea className="h-full">
+        <TabsContent value="main" className="flex-1 overflow-hidden flex flex-col mt-1 min-h-0">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="space-y-2 p-1.5">
               <div className="space-y-0.5">
                 <Label className="text-[10px] text-left w-full block">Tytuł</Label>
@@ -1310,8 +1310,8 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="number" className="flex-1 overflow-hidden mt-1">
-          <ScrollArea className="h-full">
+        <TabsContent value="number" className="flex-1 overflow-hidden flex flex-col mt-1 min-h-0">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="space-y-2 p-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px]">Pokaż numerację</Label>
@@ -1407,8 +1407,8 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="style" className="flex-1 overflow-hidden mt-1">
-          <ScrollArea className="h-full">
+        <TabsContent value="style" className="flex-1 overflow-hidden flex flex-col mt-1 min-h-0">
+          <ScrollArea className="flex-1 min-h-0">
             <AdvancedStyleTab 
               item={formData} 
               onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))} 
