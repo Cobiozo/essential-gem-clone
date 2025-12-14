@@ -177,7 +177,9 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         case 'image':
           if (!cell.media_url) return null;
           const imageStyle: React.CSSProperties = {
-            maxWidth: cell.max_width ? `${cell.max_width}px` : undefined,
+            width: cell.width ? `${cell.width}px` : undefined,
+            height: cell.height_px ? `${cell.height_px}px` : undefined,
+            maxWidth: cell.max_width ? `${cell.max_width}px` : (cell.width ? undefined : '100%'),
             maxHeight: cell.max_height ? `${cell.max_height}px` : undefined,
             borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined,
             boxShadow: cell.box_shadow && cell.box_shadow !== 'none' ? cell.box_shadow : undefined,
@@ -187,7 +189,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <img 
               src={cell.media_url} 
               alt={cell.media_alt || ''} 
-              className={`h-auto ${isFullWidth ? 'w-full' : 'max-w-full'} transition-transform ${cell.hover_scale && cell.hover_scale > 1 ? 'hover:scale-105' : ''}`}
+              className={`${!cell.width && !cell.height_px ? (isFullWidth ? 'w-full' : 'max-w-full') : ''} h-auto transition-transform ${cell.hover_scale && cell.hover_scale > 1 ? 'hover:scale-105' : ''}`}
               style={imageStyle}
             />
           );

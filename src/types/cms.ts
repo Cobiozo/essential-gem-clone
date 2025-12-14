@@ -19,6 +19,9 @@ export interface ContentCell {
   height?: number;
   // Alignment
   alignment?: 'left' | 'center' | 'right' | 'full';
+  // Image exact dimensions
+  width?: number;
+  height_px?: number;
   // Gallery/Carousel settings
   columns?: number;
   gap?: number;
