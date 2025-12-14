@@ -2,15 +2,17 @@ import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { CMSItem, ContentCell } from '@/types/cms';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface LearnMoreItemProps {
   item: CMSItem;
   itemIndex: number;
   isExpanded: boolean;
   onToggle: () => void;
+  isEditMode?: boolean;
 }
 
-export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, isExpanded, onToggle }) => {
+export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, isExpanded, onToggle, isEditMode = false }) => {
   // Parse cells from item
   const cells = (item.cells || []) as ContentCell[];
   const activeCells = cells
@@ -92,8 +94,17 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
       style={containerStyle}
     >
       <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-6 hover:bg-muted/30 transition-colors group"
+        onClick={(e) => {
+          if (isEditMode) {
+            e.stopPropagation();
+            return;
+          }
+          onToggle();
+        }}
+        className={cn(
+          "w-full flex items-center justify-between p-6 hover:bg-muted/30 transition-colors group",
+          isEditMode && "pointer-events-none"
+        )}
       >
         <div className="flex items-center gap-5">
           <div 
