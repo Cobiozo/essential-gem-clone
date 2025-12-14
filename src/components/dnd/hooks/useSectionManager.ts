@@ -11,7 +11,7 @@ interface UseSectionManagerProps {
   setSections: React.Dispatch<React.SetStateAction<CMSSection[]>>;
   saveToHistory: (sections: CMSSection[], items: CMSItem[]) => void;
   setHasUnsavedChanges: (value: boolean) => void;
-  onPanelExpand?: () => void;
+  onPanelExpand?: (elementId?: string) => void;
 }
 
 export const useSectionManager = ({
@@ -42,8 +42,8 @@ export const useSectionManager = ({
     setTimeout(() => {
       setEditingSectionId(sectionId);
       setIsSectionEditorOpen(true);
-      // Expand panel and scroll to editor on mobile
-      onPanelExpand?.();
+      // Expand panel and scroll to level of section being edited
+      onPanelExpand?.(sectionId);
     }, 50);
   }, [sections, onPanelExpand]);
 
