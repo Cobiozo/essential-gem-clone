@@ -77,6 +77,8 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
   onDuplicateSection,
   onDeactivateSection,
 }) => {
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  
   const { setNodeRef, isOver } = useDroppable({
     id: `${rowId}-col-${columnIndex}`,
     data: { type: 'row-column', rowId, columnIndex },
@@ -121,8 +123,8 @@ const RowColumnDropZone: React.FC<RowColumnDropZoneProps> = ({
                   <LearnMoreItem 
                     item={item} 
                     itemIndex={itemIdx}
-                    isExpanded={false}
-                    onToggle={() => {}}
+                    isExpanded={expandedItemId === item.id}
+                    onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
                   />
                 );
               } else {

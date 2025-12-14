@@ -236,6 +236,7 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
   onMoveItemDown,
   displayType,
 }) => {
+  const [expandedItemId, setExpandedItemId] = React.useState<string | null>(null);
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: {
@@ -302,8 +303,8 @@ const ColumnDropZone: React.FC<ColumnDropZoneProps> = ({
       <LearnMoreItem 
         item={item} 
         itemIndex={itemIdx}
-        isExpanded={false}
-        onToggle={() => {}}
+        isExpanded={expandedItemId === item.id}
+        onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
       />
     );
   } else {
