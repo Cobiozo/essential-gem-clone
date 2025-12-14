@@ -320,22 +320,47 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                       );
                     case 'video':
                       if (!subCell.media_url) return null;
-                      const isYouTube = subCell.media_url.includes('youtube.com') || subCell.media_url.includes('youtu.be');
-                      if (isYouTube) {
+                      const isYouTubeSubCell = subCell.media_url.includes('youtube.com') || subCell.media_url.includes('youtu.be');
+                      const isLibraryVideoSubCell = subCell.video_source === 'library' || (!isYouTubeSubCell && !subCell.media_url.includes('http'));
+                      
+                      if (isYouTubeSubCell) {
                         const videoId = subCell.media_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
                         return (
                           <div key={subCell.id} className={subAlignmentClass}>
-                            <iframe
-                              src={`https://www.youtube.com/embed/${videoId}`}
-                              className="w-full aspect-video rounded"
-                              allowFullScreen
-                            />
+                            <div className="relative w-full aspect-video rounded overflow-hidden" style={{
+                              maxWidth: subCell.max_width ? `${subCell.max_width}px` : undefined,
+                              maxHeight: subCell.max_height ? `${subCell.max_height}px` : undefined,
+                              borderRadius: subCell.border_radius ? `${subCell.border_radius}px` : undefined,
+                            }}>
+                              <iframe
+                                src={`https://www.youtube.com/embed/${videoId}`}
+                                className="absolute inset-0 w-full h-full"
+                                allowFullScreen
+                              />
+                            </div>
                           </div>
                         );
                       }
+                      
+                      // Local/library video - use HTML5 video
+                      const videoStyle: React.CSSProperties = {
+                        maxWidth: subCell.max_width ? `${subCell.max_width}px` : '100%',
+                        maxHeight: subCell.max_height ? `${subCell.max_height}px` : undefined,
+                        borderRadius: subCell.border_radius ? `${subCell.border_radius}px` : undefined,
+                      };
+                      
                       return (
                         <div key={subCell.id} className={subAlignmentClass}>
-                          <video src={subCell.media_url} controls className="w-full rounded" />
+                          <video 
+                            src={subCell.media_url} 
+                            controls={subCell.controls !== false}
+                            autoPlay={subCell.autoplay === true}
+                            loop={subCell.loop === true}
+                            muted={subCell.muted !== false}
+                            playsInline
+                            className="w-full rounded"
+                            style={videoStyle}
+                          />
                         </div>
                       );
                     case 'spacer':
@@ -448,6 +473,148 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                     dangerouslySetInnerHTML={{ __html: cell.content }}
                   />
                 );
+              
+              case 'image':
+                if (!cell.media_url) return null;
+                const imgCellStyle: React.CSSProperties = {};
+                if (cell.width) imgCellStyle.width = `${cell.width}px`;
+                if (cell.height_px) imgCellStyle.height = `${cell.height_px}px`;
+                if (cell.max_width) imgCellStyle.maxWidth = `${cell.max_width}px`;
+                if (cell.max_height) imgCellStyle.maxHeight = `${cell.max_height}px`;
+                if (cell.object_fit) imgCellStyle.objectFit = cell.object_fit as any;
+                if (cell.border_radius) imgCellStyle.borderRadius = `${cell.border_radius}px`;
+                const imgAlignment = cell.alignment || 'left';
+                const imgAlignClass = imgAlignment === 'center' ? 'flex justify-center w-full' 
+                  : imgAlignment === 'right' ? 'flex justify-end w-full'
+                  : imgAlignment === 'full' ? 'w-full' 
+                  : 'flex justify-start';
+                return (
+                  <div key={cell.id} className={imgAlignClass}>
+                    <img 
+                      src={cell.media_url} 
+                      alt={cell.media_alt || ''} 
+                      className="rounded"
+                      style={imgCellStyle}
+                      loading={cell.lazy_loading !== false ? 'lazy' : 'eager'}
+                    />
+                  </div>
+                );
+              
+              case 'video':
+                if (!cell.media_url) return null;
+                const isYouTubeCell = cell.media_url.includes('youtube.com') || cell.media_url.includes('youtu.be');
+                const isLibraryVideoCell = cell.video_source === 'library' || (!isYouTubeCell && !cell.media_url.startsWith('http'));
+                const videoCellAlignment = cell.alignment || 'left';
+                const videoCellAlignClass = videoCellAlignment === 'center' ? 'flex justify-center w-full' 
+                  : videoCellAlignment === 'right' ? 'flex justify-end w-full'
+                  : videoCellAlignment === 'full' ? 'w-full' 
+                  : 'flex justify-start';
+                
+                if (isYouTubeCell) {
+                  const ytId = cell.media_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
+                  return (
+                    <div key={cell.id} className={videoCellAlignClass}>
+                      <div className="relative w-full aspect-video rounded overflow-hidden" style={{
+                        maxWidth: cell.max_width ? `${cell.max_width}px` : undefined,
+                        maxHeight: cell.max_height ? `${cell.max_height}px` : undefined,
+                        borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined,
+                      }}>
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytId}`}
+                          className="absolute inset-0 w-full h-full"
+                          allowFullScreen
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Local/library video - use HTML5 video
+                const videoCellStyle: React.CSSProperties = {
+                  maxWidth: cell.max_width ? `${cell.max_width}px` : '100%',
+                  maxHeight: cell.max_height ? `${cell.max_height}px` : undefined,
+                  borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined,
+                };
+                
+                return (
+                  <div key={cell.id} className={videoCellAlignClass}>
+                    <video 
+                      src={cell.media_url} 
+                      controls={cell.controls !== false}
+                      autoPlay={cell.autoplay === true}
+                      loop={cell.loop === true}
+                      muted={cell.muted !== false}
+                      playsInline
+                      className="w-full rounded"
+                      style={videoCellStyle}
+                    />
+                  </div>
+                );
+              
+              case 'gallery':
+                if (!cell.items || cell.items.length === 0) return null;
+                const galleryAlignment = cell.alignment || 'left';
+                const galleryAlignClass = galleryAlignment === 'center' ? 'flex justify-center w-full' 
+                  : galleryAlignment === 'right' ? 'flex justify-end w-full'
+                  : 'w-full';
+                return (
+                  <div key={cell.id} className={galleryAlignClass}>
+                    <div 
+                      className="grid gap-2" 
+                      style={{ 
+                        gridTemplateColumns: `repeat(${cell.columns || 3}, 1fr)`,
+                        gap: cell.gap ? `${cell.gap}px` : undefined,
+                      }}
+                    >
+                      {cell.items.map((img, idx) => (
+                        <img 
+                          key={idx} 
+                          src={img.url} 
+                          alt={img.alt || ''} 
+                          className="rounded object-cover aspect-square"
+                          style={{ borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined }}
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              
+              case 'carousel':
+                if (!cell.items || cell.items.length === 0) return null;
+                return (
+                  <div key={cell.id} className="flex gap-2 overflow-x-auto py-1">
+                    {cell.items.map((img, idx) => (
+                      <img 
+                        key={idx} 
+                        src={img.url} 
+                        alt={img.alt || ''} 
+                        className="h-24 rounded object-cover flex-shrink-0"
+                        style={{ borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined }}
+                        loading="lazy"
+                      />
+                    ))}
+                  </div>
+                );
+              
+              case 'icon':
+                const CellIcon = (icons as any)[cell.content] || icons.Star;
+                const iconAlignment = cell.alignment || 'left';
+                const iconAlignClass = iconAlignment === 'center' ? 'flex justify-center w-full' 
+                  : iconAlignment === 'right' ? 'flex justify-end w-full'
+                  : 'flex justify-start';
+                return (
+                  <div key={cell.id} className={iconAlignClass}>
+                    <CellIcon className="w-6 h-6 text-primary" />
+                  </div>
+                );
+              
+              case 'spacer':
+                return <div key={cell.id} style={{ height: `${cell.height || 24}px` }} />;
+              
+              case 'divider':
+                return <Separator key={cell.id} className="my-2" />;
               
               default:
                 return null;
