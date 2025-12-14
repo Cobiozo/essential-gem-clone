@@ -280,7 +280,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
 
   return (
     <div 
-      className="rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border bg-card"
+      className="relative z-0 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-border bg-card"
       style={containerStyle}
     >
       <div
