@@ -67,7 +67,7 @@ export const IconPicker: React.FC<IconPickerProps> = ({ value, onChange, trigger
   };
 
   const IconGrid = ({ icons: iconList }: { icons: string[] }) => (
-    <div className="grid grid-cols-6 gap-2">
+    <div className="grid grid-cols-5 gap-1.5">
       {iconList.map((iconName) => {
         const IconComp = (icons as any)[iconName];
         if (!IconComp) return null;
@@ -78,13 +78,13 @@ export const IconPicker: React.FC<IconPickerProps> = ({ value, onChange, trigger
             variant={value === iconName ? 'default' : 'ghost'}
             size="sm"
             className={cn(
-              'h-10 w-10 p-0',
+              'h-8 w-8 p-0',
               value === iconName && 'bg-primary text-primary-foreground'
             )}
             onClick={() => handleIconSelect(iconName)}
             title={iconName}
           >
-            <IconComp className="w-4 h-4" />
+            <IconComp className="w-3.5 h-3.5" />
           </Button>
         );
       })}
@@ -94,7 +94,7 @@ export const IconPicker: React.FC<IconPickerProps> = ({ value, onChange, trigger
   const SelectedIcon = value ? (icons as any)[value] : null;
 
   const pickerContent = (
-    <div className="w-96">
+    <div className="w-72 max-w-[280px]">
       {/* Header with search and clear */}
       <div className="p-3 border-b space-y-2">
         <div className="flex items-center justify-between">

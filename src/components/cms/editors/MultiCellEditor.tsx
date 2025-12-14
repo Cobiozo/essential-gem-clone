@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import * as icons from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -564,120 +565,124 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
         </TabsContent>
 
         <TabsContent value="main" className="flex-1 overflow-auto mt-2">
-          <div className="space-y-4 p-2">
-            <div className="space-y-2">
-              <Label>Tytuł elementu</Label>
+          <div className="space-y-3 p-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Tytuł elementu</Label>
               <Input
                 value={formData.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
-                placeholder="Tytuł (wyświetlany jako nagłówek)"
+                placeholder="Tytuł..."
+                className="h-8 text-xs"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Opis elementu</Label>
+            <div className="space-y-1">
+              <Label className="text-xs">Opis elementu</Label>
               <Textarea
                 value={formData.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
-                placeholder="Opis (treść rozwijana po kliknięciu)"
-                className="min-h-[100px]"
+                placeholder="Opis..."
+                className="min-h-[80px] text-xs"
               />
             </div>
 
             <div className="flex items-center justify-between">
-              <Label>Element aktywny</Label>
+              <Label className="text-xs">Element aktywny</Label>
               <Switch
                 checked={formData.is_active !== false}
                 onCheckedChange={(checked) => updateField('is_active', checked)}
+                className="scale-90"
               />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="number" className="flex-1 overflow-auto mt-2">
-          <div className="space-y-4 p-2">
+          <div className="space-y-3 p-2">
             <div className="flex items-center justify-between">
-              <Label>Pokaż numerację</Label>
+              <Label className="text-xs">Pokaż numerację</Label>
               <Switch
                 checked={formData.show_number !== false}
                 onCheckedChange={(checked) => updateField('show_number', checked)}
+                className="scale-90"
               />
             </div>
 
             {formData.show_number !== false && (
               <>
-                <div className="space-y-2">
-                  <Label>Typ numeracji</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Typ numeracji</Label>
                   <Select
                     value={formData.number_type || 'auto'}
                     onValueChange={(value) => updateField('number_type', value as CMSItem['number_type'])}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="auto">Automatyczna (1, 2, 3...)</SelectItem>
+                      <SelectItem value="auto">Auto (1, 2, 3...)</SelectItem>
                       <SelectItem value="text">Własny tekst</SelectItem>
-                      <SelectItem value="image">Własny obraz</SelectItem>
+                      <SelectItem value="image">Obraz</SelectItem>
                       <SelectItem value="icon">Ikona</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {formData.number_type === 'text' && (
-                  <div className="space-y-2">
-                    <Label>Własny tekst/numer</Label>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Własny tekst</Label>
                     <Input
                       value={formData.custom_number || ''}
                       onChange={(e) => updateField('custom_number', e.target.value)}
-                      placeholder="np. A, ★, Krok 1, I"
+                      placeholder="np. A, ★, I"
+                      className="h-8 text-xs"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Wpisz dowolny tekst, symbol lub liczbę rzymską
-                    </p>
                   </div>
                 )}
 
                 {formData.number_type === 'image' && (
-                  <div className="space-y-2">
-                    <Label>Obraz jako numeracja</Label>
-                  <MediaUpload
-                    currentMediaUrl={formData.custom_number_image || ''}
-                    onMediaUploaded={(url) => updateField('custom_number_image', url)}
-                  />
-                    <p className="text-xs text-muted-foreground">
-                      Obraz zostanie przeskalowany do rozmiaru 56x56px
-                    </p>
-                  </div>
-                )}
-
-                {formData.number_type === 'icon' && (
-                  <div className="space-y-2">
-                    <Label>Ikona jako numeracja</Label>
-                    <IconPicker
-                      value={formData.icon || 'Star'}
-                      onChange={(icon) => updateField('icon', icon)}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Obraz</Label>
+                    <MediaUpload
+                      currentMediaUrl={formData.custom_number_image || ''}
+                      onMediaUploaded={(url) => updateField('custom_number_image', url)}
                     />
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label>Kolor tła numeracji</Label>
+                {formData.number_type === 'icon' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Ikona</Label>
+                    <IconPicker
+                      value={formData.icon || 'Star'}
+                      onChange={(icon) => updateField('icon', icon)}
+                      trigger={
+                        <Button variant="outline" className="w-full h-8 text-xs justify-start gap-2">
+                          {formData.icon && React.createElement((icons as any)[formData.icon] || Star, { className: "w-4 h-4" })}
+                          <span>{formData.icon || 'Wybierz ikonę'}</span>
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Kolor tła</Label>
                   <Input
                     type="color"
                     value={formData.background_color || '#fbbf24'}
                     onChange={(e) => updateField('background_color', e.target.value)}
-                    className="h-10 w-full"
+                    className="h-8 w-full"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Kolor tekstu/ikony</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Kolor ikony</Label>
                   <Input
                     type="color"
                     value={formData.icon_color || '#ffffff'}
                     onChange={(e) => updateField('icon_color', e.target.value)}
-                    className="h-10 w-full"
+                    className="h-8 w-full"
                   />
                 </div>
               </>
