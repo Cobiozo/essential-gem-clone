@@ -38,6 +38,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   rows?: number;
   className?: string;
+  compact?: boolean;
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
@@ -45,7 +46,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   onChange,
   placeholder = "Wprowadź tekst...",
   rows = 3,
-  className = ""
+  className = "",
+  compact = false
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -750,182 +752,197 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [activeTab, makeImageResizable]);
 
+  const btnClass = compact ? "h-6 w-6 p-0" : "h-8 w-8 p-0";
+  const iconClass = compact ? "h-3 w-3" : "h-4 w-4";
+
   return (
-    <div className={`border rounded-md flex flex-col h-full ${className}`}>
+    <div className={`border rounded-md flex flex-col ${compact ? 'w-full max-w-full overflow-hidden' : 'h-full'} ${className}`}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
         <div className="flex flex-col border-b bg-muted/20 shrink-0">
           {/* Tab Triggers */}
-          <div className="flex items-center justify-between p-2 border-b">
-            <TabsList className="grid w-44 grid-cols-2 shrink-0">
+          <div className="flex items-center justify-between p-1.5 border-b">
+            <TabsList className={`grid ${compact ? 'w-32' : 'w-44'} grid-cols-2 shrink-0`}>
               <TabsTrigger value="edit" className="text-xs">
                 <Code className="h-3 w-3 mr-1" />
-                Edytuj
+                {compact ? 'HTML' : 'Edytuj'}
               </TabsTrigger>
               <TabsTrigger value="preview" className="text-xs">
                 <Eye className="h-3 w-3 mr-1" />
-                Podgląd
+                {compact ? 'Edytor' : 'Podgląd'}
               </TabsTrigger>
             </TabsList>
           </div>
           {/* Toolbar */}
-          <div className="flex items-center gap-1 p-2 overflow-x-auto">
-            {/* Font Controls */}
-            <Select onValueChange={applyFontFamily}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue placeholder="Czcionka" />
-              </SelectTrigger>
-              <SelectContent>
-                {fontFamilies.map((font) => (
-                  <SelectItem key={font.value} value={font.value} className="text-xs">
-                    <span style={{ fontFamily: font.value }}>{font.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className={`flex items-center gap-0.5 p-1.5 ${compact ? 'flex-wrap' : 'overflow-x-auto'}`}>
+            {/* Font Controls - hide in compact mode */}
+            {!compact && (
+              <>
+                <Select onValueChange={applyFontFamily}>
+                  <SelectTrigger className="w-32 h-8 text-xs">
+                    <SelectValue placeholder="Czcionka" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fontFamilies.map((font) => (
+                      <SelectItem key={font.value} value={font.value} className="text-xs">
+                        <span style={{ fontFamily: font.value }}>{font.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Select onValueChange={applyFontSize}>
-              <SelectTrigger className="w-16 h-8 text-xs">
-                <SelectValue placeholder="Rozmiar" />
-              </SelectTrigger>
-              <SelectContent>
-                {fontSizes.map((size) => (
-                  <SelectItem key={size} value={size} className="text-xs">
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select onValueChange={applyFontSize}>
+                  <SelectTrigger className="w-16 h-8 text-xs">
+                    <SelectValue placeholder="Rozmiar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fontSizes.map((size) => (
+                      <SelectItem key={size} value={size} className="text-xs">
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Separator orientation="vertical" className="h-6 mx-1" />
+                <Separator orientation="vertical" className="h-6 mx-1" />
+              </>
+            )}
 
             {/* Basic Formatting */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('bold')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Pogrubienie"
             >
-              <Bold className="h-4 w-4" />
+              <Bold className={iconClass} />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('italic')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Kursywa"
             >
-              <Italic className="h-4 w-4" />
+              <Italic className={iconClass} />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('underline')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Podkreślenie"
             >
-              <Underline className="h-4 w-4" />
+              <Underline className={iconClass} />
             </Button>
             
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => applyFormatting('strikethrough')}
-              className="h-8 w-8 p-0"
-              title="Przekreślenie"
-            >
-              <Strikethrough className="h-4 w-4" />
-            </Button>
+            {!compact && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => applyFormatting('strikethrough')}
+                className={btnClass}
+                title="Przekreślenie"
+              >
+                <Strikethrough className={iconClass} />
+              </Button>
+            )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => applyFormatting('superscript')}
-              className="h-8 w-8 p-0"
-              title="Indeks górny"
-            >
-              <Superscript className="h-4 w-4" />
-            </Button>
+            {!compact && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyFormatting('superscript')}
+                  className={btnClass}
+                  title="Indeks górny"
+                >
+                  <Superscript className={iconClass} />
+                </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => applyFormatting('subscript')}
-              className="h-8 w-8 p-0"
-              title="Indeks dolny"
-            >
-              <Subscript className="h-4 w-4" />
-            </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => applyFormatting('subscript')}
+                  className={btnClass}
+                  title="Indeks dolny"
+                >
+                  <Subscript className={iconClass} />
+                </Button>
+              </>
+            )}
 
-            <Separator orientation="vertical" className="h-6 mx-1" />
+            {!compact && <Separator orientation="vertical" className="h-6 mx-1" />}
 
             {/* Alignment */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('left')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Wyrównaj do lewej"
             >
-              <AlignLeft className="h-4 w-4" />
+              <AlignLeft className={iconClass} />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('center')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Wyśrodkuj"
             >
-              <AlignCenter className="h-4 w-4" />
+              <AlignCenter className={iconClass} />
             </Button>
             
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('right')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Wyrównaj do prawej"
             >
-              <AlignRight className="h-4 w-4" />
+              <AlignRight className={iconClass} />
             </Button>
 
-            <Separator orientation="vertical" className="h-6 mx-1" />
+            {!compact && <Separator orientation="vertical" className="h-6 mx-1" />}
 
             {/* Lists and Quote */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('ul')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Lista punktowana"
             >
-              <List className="h-4 w-4" />
+              <List className={iconClass} />
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
               onClick={() => applyFormatting('ol')}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Lista numerowana"
             >
-              <ListOrdered className="h-4 w-4" />
+              <ListOrdered className={iconClass} />
             </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => applyFormatting('quote')}
-              className="h-8 w-8 p-0"
-              title="Cytat"
-            >
-              <Quote className="h-4 w-4" />
-            </Button>
+            {!compact && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => applyFormatting('quote')}
+                className={btnClass}
+                title="Cytat"
+              >
+                <Quote className={iconClass} />
+              </Button>
+            )}
 
-            <Separator orientation="vertical" className="h-6 mx-1" />
+            {!compact && <Separator orientation="vertical" className="h-6 mx-1" />}
 
             {/* Colors */}
             <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
@@ -933,10 +950,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className={btnClass}
                   title="Kolor tekstu"
                 >
-                  <Palette className="h-4 w-4" />
+                  <Palette className={iconClass} />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-48">
@@ -956,35 +973,37 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               </PopoverContent>
             </Popover>
 
-            <Popover open={showHighlightPicker} onOpenChange={setShowHighlightPicker}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  title="Podświetlenie"
-                >
-                  <Highlighter className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Kolor podświetlenia</Label>
-                  <div className="grid grid-cols-7 gap-1">
-                    {highlightColors.map((color) => (
-                      <button
-                        key={color}
-                        className="w-6 h-6 rounded border hover:scale-110 transition-transform"
-                        style={{ backgroundColor: color }}
-                        onClick={() => applyHighlight(color)}
-                      />
-                    ))}
+            {!compact && (
+              <Popover open={showHighlightPicker} onOpenChange={setShowHighlightPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={btnClass}
+                    title="Podświetlenie"
+                  >
+                    <Highlighter className={iconClass} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Kolor podświetlenia</Label>
+                    <div className="grid grid-cols-7 gap-1">
+                      {highlightColors.map((color) => (
+                        <button
+                          key={color}
+                          className="w-6 h-6 rounded border hover:scale-110 transition-transform"
+                          style={{ backgroundColor: color }}
+                          onClick={() => applyHighlight(color)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            )}
 
-            <Separator orientation="vertical" className="h-6 mx-1" />
+            {!compact && <Separator orientation="vertical" className="h-6 mx-1" />}
 
             {/* Link */}
             <Popover open={showLinkDialog} onOpenChange={setShowLinkDialog}>
@@ -992,10 +1011,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className={btnClass}
                   title="Wstaw link"
                 >
-                  <Link className="h-4 w-4" />
+                  <Link className={iconClass} />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80">
@@ -1020,81 +1039,84 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               </PopoverContent>
             </Popover>
 
-            {/* Image */}
-            <Popover open={showImageDialog} onOpenChange={setShowImageDialog}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  title="Wstaw obraz"
-                >
-                  <Image className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-96">
-                <div className="space-y-4">
-                  <Label className="text-sm font-medium">Dodaj obraz</Label>
-                  
-                  <Tabs value={uploadMode} onValueChange={(value) => setUploadMode(value as 'url' | 'file')}>
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="url">Z URL</TabsTrigger>
-                      <TabsTrigger value="file">Z urządzenia</TabsTrigger>
-                    </TabsList>
+            {/* Image - hide in compact mode */}
+            {!compact && (
+              <Popover open={showImageDialog} onOpenChange={setShowImageDialog}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={btnClass}
+                    title="Wstaw obraz"
+                  >
+                    <Image className={iconClass} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96">
+                  <div className="space-y-4">
+                    <Label className="text-sm font-medium">Dodaj obraz</Label>
                     
-                    <TabsContent value="url" className="space-y-3 mt-3">
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="URL obrazu"
-                          value={imageUrl}
-                          onChange={(e) => setImageUrl(e.target.value)}
+                    <Tabs value={uploadMode} onValueChange={(value) => setUploadMode(value as 'url' | 'file')}>
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="url">Z URL</TabsTrigger>
+                        <TabsTrigger value="file">Z urządzenia</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="url" className="space-y-3 mt-3">
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="URL obrazu"
+                            value={imageUrl}
+                            onChange={(e) => setImageUrl(e.target.value)}
+                          />
+                          <Input
+                            placeholder="Opis obrazu (opcjonalny)"
+                            value={imageAlt}
+                            onChange={(e) => setImageAlt(e.target.value)}
+                          />
+                          <Button onClick={insertImage} className="w-full" disabled={!imageUrl}>
+                            Wstaw obraz
+                          </Button>
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="file" className="mt-3">
+                        <MediaUpload
+                          onMediaUploaded={(url, type, altText) => {
+                            if (type === 'image') {
+                              setUploadedImageUrl(url);
+                              setImageAlt(altText || '');
+                            }
+                          }}
+                          currentMediaUrl={uploadedImageUrl}
+                          currentMediaType="image"
+                          currentAltText={imageAlt}
                         />
-                        <Input
-                          placeholder="Opis obrazu (opcjonalny)"
-                          value={imageAlt}
-                          onChange={(e) => setImageAlt(e.target.value)}
-                        />
-                        <Button onClick={insertImage} className="w-full" disabled={!imageUrl}>
-                          Wstaw obraz
-                        </Button>
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="file" className="mt-3">
-                      <MediaUpload
-                        onMediaUploaded={(url, type, altText) => {
-                          if (type === 'image') {
-                            setUploadedImageUrl(url);
-                            setImageAlt(altText || '');
-                          }
-                        }}
-                        currentMediaUrl={uploadedImageUrl}
-                        currentMediaType="image"
-                        currentAltText={imageAlt}
-                      />
-                      {uploadedImageUrl && (
-                        <Button onClick={insertImage} className="w-full mt-3">
-                          Wstaw przesłany obraz
-                        </Button>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              </PopoverContent>
-            </Popover>
+                        {uploadedImageUrl && (
+                          <Button onClick={insertImage} className="w-full mt-3">
+                            Wstaw przesłany obraz
+                          </Button>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
 
-            {/* Video */}
-            <Popover open={showVideoDialog} onOpenChange={setShowVideoDialog}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  title="Wstaw wideo"
-                >
-                  <Video className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
+            {/* Video - hide in compact mode */}
+            {!compact && (
+              <Popover open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={btnClass}
+                    title="Wstaw wideo"
+                  >
+                    <Video className={iconClass} />
+                  </Button>
+                </PopoverTrigger>
               <PopoverContent className="w-96">
                 <div className="space-y-4">
                   <Label className="text-sm font-medium">Dodaj wideo</Label>
@@ -1144,19 +1166,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   </Tabs>
                 </div>
               </PopoverContent>
-            </Popover>
+              </Popover>
+            )}
 
-            <Separator orientation="vertical" className="h-6 mx-1" />
+            {!compact && <Separator orientation="vertical" className="h-6 mx-1" />}
 
             {/* Clear Formatting */}
             <Button
               variant="ghost"
               size="sm"
               onClick={clearFormatting}
-              className="h-8 w-8 p-0"
+              className={btnClass}
               title="Usuń formatowanie"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className={iconClass} />
             </Button>
           </div>
         </div>
