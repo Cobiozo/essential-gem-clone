@@ -74,19 +74,17 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     setTimeout(() => {
       if (!elementId) return;
       
-      const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-      const sidePanel = document.querySelector('[data-side-panel-scroll]');
+      const isMobile = window.innerWidth < 768;
       
-      if (previewElement && sidePanel) {
-        // Scroll side panel to match element's position
-        const elementRect = previewElement.getBoundingClientRect();
-        const panelRect = sidePanel.getBoundingClientRect();
-        const targetScrollTop = sidePanel.scrollTop + (elementRect.top - panelRect.top) - 100;
-        
-        sidePanel.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
-        });
+      if (isMobile) {
+        // Na mobile - scrolluj stronę do góry gdzie jest panel edycji
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // Na desktop - scrolluj element w podglądzie do widoku
+        const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
+        if (previewElement) {
+          previewElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     }, 400);
   }, []);
