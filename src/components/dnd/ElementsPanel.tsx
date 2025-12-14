@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -354,35 +354,91 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
             </Tabs>
           </div>
         ) : (
-          <div 
-            className="flex-1 overflow-auto min-h-0 min-w-0" 
-            data-side-panel-scroll
-            style={{ paddingTop: editorOffsetY > 0 ? `${editorOffsetY}px` : undefined }}
-          >
-            {editingSection && onSaveSection && onCancelSectionEdit ? (
-              <SectionEditor
-                key={editingSectionId}
-                section={editingSection}
-                onSave={onSaveSection}
-                onCancel={onCancelSectionEdit}
-              />
-            ) : editingItem && onSaveItem && onCancelEdit ? (
-              <ItemEditorWrapper
-                key={editingItemId}
-                item={editingItem}
-                sectionId={editingItem.section_id || ''}
-                onSave={onSaveItem}
-                onCancel={onCancelEdit}
-              />
-            ) : (
-              <div className="text-center text-sm text-muted-foreground py-8">
-                Wybierz element do edycji
-              </div>
-            )}
-          </div>
+          <EditorScrollContainer 
+            editorOffsetY={editorOffsetY}
+            editingSectionId={editingSectionId}
+            editingSection={editingSection}
+            onSaveSection={onSaveSection}
+            onCancelSectionEdit={onCancelSectionEdit}
+            editingItemId={editingItemId}
+            editingItem={editingItem}
+            onSaveItem={onSaveItem}
+            onCancelEdit={onCancelEdit}
+          />
         )}
       </CardContent>
     </Card>
+  );
+};
+
+// Separate component for editor scroll container to properly handle scrollTo
+interface EditorScrollContainerProps {
+  editorOffsetY: number;
+  editingSectionId?: string | null;
+  editingSection?: any;
+  onSaveSection?: (updatedSection: Partial<any>) => Promise<void>;
+  onCancelSectionEdit?: () => void;
+  editingItemId?: string | null;
+  editingItem?: any;
+  onSaveItem?: (updatedItem: Partial<any>) => Promise<void>;
+  onCancelEdit?: () => void;
+}
+
+const EditorScrollContainer: React.FC<EditorScrollContainerProps> = ({
+  editorOffsetY,
+  editingSectionId,
+  editingSection,
+  onSaveSection,
+  onCancelSectionEdit,
+  editingItemId,
+  editingItem,
+  onSaveItem,
+  onCancelEdit,
+}) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Scroll to position when editorOffsetY changes
+  useEffect(() => {
+    if (scrollContainerRef.current && editorOffsetY > 0) {
+      scrollContainerRef.current.scrollTo({
+        top: editorOffsetY,
+        behavior: 'smooth'
+      });
+    } else if (scrollContainerRef.current && editorOffsetY === 0) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  }, [editorOffsetY, editingItemId, editingSectionId]);
+  
+  return (
+    <div 
+      ref={scrollContainerRef}
+      className="flex-1 overflow-auto min-h-0 min-w-0" 
+      data-side-panel-scroll
+    >
+      {editingSection && onSaveSection && onCancelSectionEdit ? (
+        <SectionEditor
+          key={editingSectionId}
+          section={editingSection}
+          onSave={onSaveSection}
+          onCancel={onCancelSectionEdit}
+        />
+      ) : editingItem && onSaveItem && onCancelEdit ? (
+        <ItemEditorWrapper
+          key={editingItemId}
+          item={editingItem}
+          sectionId={editingItem.section_id || ''}
+          onSave={onSaveItem}
+          onCancel={onCancelEdit}
+        />
+      ) : (
+        <div className="text-center text-sm text-muted-foreground py-8">
+          Wybierz element do edycji
+        </div>
+      )}
+    </div>
   );
 };
 

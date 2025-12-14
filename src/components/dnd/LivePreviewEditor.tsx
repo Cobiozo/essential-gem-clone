@@ -71,7 +71,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     }
     setIsPanelCollapsed(false);
     
-    // Calculate offset to position editor at the same level as the clicked element
+    // Calculate scroll position to align editor with the clicked element
     setTimeout(() => {
       if (!elementId) {
         setEditorOffsetY(0);
@@ -79,19 +79,17 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       }
       
       const previewElement = document.querySelector(`[data-element-id="${elementId}"]`);
-      const sidePanelScroll = document.querySelector('[data-side-panel-scroll]');
+      const previewContainer = document.querySelector('[data-preview-container]');
       
-      if (previewElement && sidePanelScroll) {
+      if (previewElement && previewContainer) {
         const elementRect = previewElement.getBoundingClientRect();
-        const panelRect = sidePanelScroll.getBoundingClientRect();
+        const containerRect = previewContainer.getBoundingClientRect();
         
-        // Calculate difference between element position and side panel position
-        // This ensures editor appears at the same screen height as the clicked element
-        const offset = elementRect.top - panelRect.top;
+        // Position relative to the preview container's visible area
+        const relativeTop = elementRect.top - containerRect.top;
         
-        // Limit offset so editor stays within visible panel area
-        const maxOffset = Math.max(0, panelRect.height - 400);
-        setEditorOffsetY(Math.min(Math.max(0, offset), maxOffset));
+        // Set scroll position for the side panel
+        setEditorOffsetY(Math.max(0, relativeTop));
       } else if (previewElement) {
         // Fallback: use viewport-relative position
         const rect = previewElement.getBoundingClientRect();
