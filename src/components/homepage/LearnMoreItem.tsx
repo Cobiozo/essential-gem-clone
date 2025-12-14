@@ -121,157 +121,183 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
     );
   };
 
+  // Get alignment wrapper classes
+  const getAlignmentClasses = (alignment?: string) => {
+    switch (alignment) {
+      case 'center': return 'flex justify-center';
+      case 'right': return 'flex justify-end';
+      case 'full': return 'w-full';
+      default: return 'flex justify-start';
+    }
+  };
+
   // Render a single cell based on its type
   const renderCell = (cell: ContentCell, index: number) => {
-    switch (cell.type) {
-      case 'description':
-      case 'text':
-        return (
-          <div 
-            key={cell.id || index}
-            className="leading-relaxed text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
-          />
-        );
-      
-      case 'list_item':
-        return (
-          <div key={cell.id || index} className="flex items-start gap-2">
-            <span className="text-primary mt-1">•</span>
-            <span dangerouslySetInnerHTML={{ __html: cell.content || '' }} />
-          </div>
-        );
-      
-      case 'button_anchor':
-      case 'button_external':
-      case 'button_functional':
-        return (
-          <Button
-            key={cell.id || index}
-            variant={cell.type === 'button_external' ? 'default' : cell.type === 'button_anchor' ? 'secondary' : 'outline'}
-            onClick={() => cell.url && window.open(cell.url, cell.type === 'button_external' ? '_blank' : '_self')}
-            className="mt-2"
-          >
-            {cell.content || 'Przycisk'}
-          </Button>
-        );
-      
-      case 'image':
-        return cell.media_url ? (
-          <img 
-            key={cell.id || index}
-            src={cell.media_url} 
-            alt={cell.media_alt || ''} 
-            className="rounded-lg max-w-full h-auto"
-          />
-        ) : null;
-      
-      case 'video':
-        if (!cell.media_url) return null;
-        const youtubeId = getYouTubeVideoId(cell.media_url);
-        if (youtubeId) {
+    const alignmentClass = getAlignmentClasses(cell.alignment);
+    const isFullWidth = cell.alignment === 'full';
+    const textAlign = cell.alignment === 'full' ? 'justify' : cell.alignment || 'left';
+
+    const renderContent = () => {
+      switch (cell.type) {
+        case 'description':
+        case 'text':
           return (
-            <div key={cell.id || index} className="aspect-video rounded-lg overflow-hidden">
-              <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}`}
-                title={cell.media_alt || 'Video'}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
+            <div 
+              className={`leading-relaxed text-muted-foreground ${isFullWidth ? 'w-full' : ''}`}
+              style={{ textAlign }}
+              dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+            />
+          );
+        
+        case 'list_item':
+          return (
+            <div className={`flex items-start gap-2 ${isFullWidth ? 'w-full' : ''}`}>
+              <span className="text-primary mt-1">•</span>
+              <span 
+                className={isFullWidth ? 'flex-1' : ''}
+                style={{ textAlign }}
+                dangerouslySetInnerHTML={{ __html: cell.content || '' }} 
               />
             </div>
           );
-        }
-        return (
-          <video 
-            key={cell.id || index}
-            src={cell.media_url} 
-            controls 
-            className="rounded-lg max-w-full"
-          >
-            {cell.media_alt}
-          </video>
-        );
-      
-      case 'gallery':
-        return cell.items && cell.items.length > 0 ? (
-          <div key={cell.id || index} className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {cell.items.map((img, imgIdx) => (
-              <div key={imgIdx} className="relative group">
-                <img 
-                  src={img.url} 
-                  alt={img.alt || ''} 
-                  className="rounded-lg w-full h-auto object-cover aspect-square"
+        
+        case 'button_anchor':
+        case 'button_external':
+        case 'button_functional':
+          return (
+            <Button
+              variant={cell.type === 'button_external' ? 'default' : cell.type === 'button_anchor' ? 'secondary' : 'outline'}
+              onClick={() => cell.url && window.open(cell.url, cell.type === 'button_external' ? '_blank' : '_self')}
+              className={isFullWidth ? 'w-full' : ''}
+            >
+              {cell.content || 'Przycisk'}
+            </Button>
+          );
+        
+        case 'image':
+          return cell.media_url ? (
+            <img 
+              src={cell.media_url} 
+              alt={cell.media_alt || ''} 
+              className={`rounded-lg h-auto ${isFullWidth ? 'w-full' : 'max-w-full'}`}
+            />
+          ) : null;
+        
+        case 'video':
+          if (!cell.media_url) return null;
+          const youtubeId = getYouTubeVideoId(cell.media_url);
+          if (youtubeId) {
+            return (
+              <div className={`aspect-video rounded-lg overflow-hidden ${isFullWidth ? 'w-full' : 'max-w-full'}`}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeId}`}
+                  title={cell.media_alt || 'Video'}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
                 />
-                {img.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 rounded-b-lg">
-                    {img.caption}
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
-        ) : null;
-      
-      case 'carousel':
-        return cell.items && cell.items.length > 0 ? (
-          <div key={cell.id || index} className="flex gap-2 overflow-x-auto pb-2">
-            {cell.items.map((img, imgIdx) => (
-              <div key={imgIdx} className="shrink-0 w-48">
-                <img 
-                  src={img.url} 
-                  alt={img.alt || ''} 
-                  className="rounded-lg w-full h-32 object-cover"
-                />
-                {img.caption && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">{img.caption}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : null;
-      
-      case 'icon':
-        return (
-          <div key={cell.id || index} className="flex justify-center py-2">
+            );
+          }
+          return (
+            <video 
+              src={cell.media_url} 
+              controls 
+              className={`rounded-lg ${isFullWidth ? 'w-full' : 'max-w-full'}`}
+            >
+              {cell.media_alt}
+            </video>
+          );
+        
+        case 'gallery':
+          return cell.items && cell.items.length > 0 ? (
+            <div className={`grid grid-cols-2 sm:grid-cols-3 gap-2 ${isFullWidth ? 'w-full' : ''}`}>
+              {cell.items.map((img, imgIdx) => (
+                <div key={imgIdx} className="relative group">
+                  <img 
+                    src={img.url} 
+                    alt={img.alt || ''} 
+                    className="rounded-lg w-full h-auto object-cover aspect-square"
+                  />
+                  {img.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 rounded-b-lg">
+                      {img.caption}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null;
+        
+        case 'carousel':
+          return cell.items && cell.items.length > 0 ? (
+            <div className={`flex gap-2 overflow-x-auto pb-2 ${isFullWidth ? 'w-full' : ''}`}>
+              {cell.items.map((img, imgIdx) => (
+                <div key={imgIdx} className="shrink-0 w-48">
+                  <img 
+                    src={img.url} 
+                    alt={img.alt || ''} 
+                    className="rounded-lg w-full h-32 object-cover"
+                  />
+                  {img.caption && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{img.caption}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null;
+        
+        case 'icon':
+          return (
             <DynamicIcon name={cell.content || 'Star'} className="w-12 h-12 text-primary" />
-          </div>
-        );
-      
-      case 'spacer':
-        return (
-          <div 
-            key={cell.id || index} 
-            style={{ height: `${cell.height || 24}px` }} 
-          />
-        );
-      
-      case 'divider':
-        return (
-          <hr key={cell.id || index} className="border-border my-2" />
-        );
-      
-      case 'section':
-        return (
-          <div key={cell.id || index} className="bg-muted/30 rounded-lg p-4 space-y-2">
-            {cell.section_title && (
-              <h4 className="font-semibold">{cell.section_title}</h4>
-            )}
-            {cell.section_description && (
-              <p className="text-sm text-muted-foreground">{cell.section_description}</p>
-            )}
-          </div>
-        );
-      
-      default:
-        return cell.content ? (
-          <div 
-            key={cell.id || index}
-            className="leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
-          />
-        ) : null;
+          );
+        
+        case 'spacer':
+          return (
+            <div style={{ height: `${cell.height || 24}px`, width: '100%' }} />
+          );
+        
+        case 'divider':
+          return (
+            <hr className="border-border my-2 w-full" />
+          );
+        
+        case 'section':
+          return (
+            <div className={`bg-muted/30 rounded-lg p-4 space-y-2 ${isFullWidth ? 'w-full' : ''}`}>
+              {cell.section_title && (
+                <h4 className="font-semibold">{cell.section_title}</h4>
+              )}
+              {cell.section_description && (
+                <p className="text-sm text-muted-foreground">{cell.section_description}</p>
+              )}
+            </div>
+          );
+        
+        default:
+          return cell.content ? (
+            <div 
+              className={`leading-relaxed ${isFullWidth ? 'w-full' : ''}`}
+              style={{ textAlign }}
+              dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+            />
+          ) : null;
+      }
+    };
+
+    const content = renderContent();
+    if (!content) return null;
+
+    // Spacer and divider don't need alignment wrapper
+    if (cell.type === 'spacer' || cell.type === 'divider') {
+      return <div key={cell.id || index}>{content}</div>;
     }
+
+    return (
+      <div key={cell.id || index} className={alignmentClass}>
+        {content}
+      </div>
+    );
   };
 
   // Fallback content if no cells - use item.description

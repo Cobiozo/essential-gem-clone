@@ -29,7 +29,11 @@ import {
   Images,
   Star,
   ArrowUpDown,
-  Minus
+  Minus,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify
 } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { AdvancedStyleTab } from './AdvancedStyleTab';
@@ -513,7 +517,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                             {cell.type === 'section' && (
                               <>
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Tytuł sekcji</Label>
+                                  <Label className="text-xs text-left block">Tytuł sekcji</Label>
                                   <Input
                                     value={cell.section_title || ''}
                                     onChange={(e) => updateCell(cell.id!, { section_title: e.target.value })}
@@ -521,7 +525,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Opis sekcji</Label>
+                                  <Label className="text-xs text-left block">Opis sekcji</Label>
                                   <Textarea
                                     value={cell.section_description || ''}
                                     onChange={(e) => updateCell(cell.id!, { section_description: e.target.value })}
@@ -534,6 +538,41 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                 </p>
                               </>
                             )}
+
+                            {/* Wyrównanie - dla wszystkich typów */}
+                            <div className="pt-2 border-t mt-2 space-y-1">
+                              <Label className="text-xs text-left block">Wyrównanie</Label>
+                              <Select
+                                value={cell.alignment || 'left'}
+                                onValueChange={(value) => updateCell(cell.id!, { alignment: value as ContentCell['alignment'] })}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="left">
+                                    <div className="flex items-center gap-2">
+                                      <AlignLeft className="w-4 h-4" /> Do lewej
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="center">
+                                    <div className="flex items-center gap-2">
+                                      <AlignCenter className="w-4 h-4" /> Środek
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="right">
+                                    <div className="flex items-center gap-2">
+                                      <AlignRight className="w-4 h-4" /> Do prawej
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="full">
+                                    <div className="flex items-center gap-2">
+                                      <AlignJustify className="w-4 h-4" /> Pełna szerokość
+                                    </div>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </CardContent>
                         </CollapsibleContent>
                       </Collapsible>
