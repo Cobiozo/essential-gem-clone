@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { AdvancedStyleTab } from './AdvancedStyleTab';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import { MediaUpload } from '@/components/MediaUpload';
 import { IconPicker } from '@/components/cms/IconPicker';
 
@@ -910,11 +911,11 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                               <div className="space-y-1">
                                 <Label className="text-xs">Treść</Label>
                                 {cell.type === 'description' || cell.type === 'text' ? (
-                                  <Textarea
-                                    value={cell.content}
-                                    onChange={(e) => updateCell(cell.id!, { content: e.target.value })}
+                                  <RichTextEditor
+                                    value={cell.content || ''}
+                                    onChange={(value) => updateCell(cell.id!, { content: value })}
                                     placeholder="Wprowadź tekst..."
-                                    className="min-h-[80px]"
+                                    rows={4}
                                   />
                                 ) : (
                                   <Input
@@ -1059,11 +1060,11 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                                   <div className="space-y-0.5">
                                                     <Label className="text-[10px]">Treść</Label>
                                                     {subCell.type === 'description' || subCell.type === 'text' ? (
-                                                      <Textarea
-                                                        value={subCell.content}
-                                                        onChange={(e) => updateSubCell(cell.id!, subCell.id!, { content: e.target.value })}
+                                                      <RichTextEditor
+                                                        value={subCell.content || ''}
+                                                        onChange={(value) => updateSubCell(cell.id!, subCell.id!, { content: value })}
                                                         placeholder="Tekst..."
-                                                        className="min-h-[50px] text-[11px]"
+                                                        rows={3}
                                                       />
                                                     ) : (
                                                       <Input
