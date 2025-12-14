@@ -222,87 +222,126 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
     switch (cell.type) {
       case 'image':
         return (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Obraz</Label>
+          <div className="space-y-2">
+            <div className="space-y-0.5">
+              <Label className="text-[10px]">Obraz</Label>
               <MediaUpload
                 currentMediaUrl={cell.media_url || ''}
                 onMediaUploaded={(url) => updateCell(cell.id!, { media_url: url })}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Tekst alternatywny (alt)</Label>
+            <div className="space-y-0.5">
+              <Label className="text-[10px]">Tekst alt</Label>
               <Input
                 value={cell.media_alt || ''}
                 onChange={(e) => updateCell(cell.id!, { media_alt: e.target.value })}
-                placeholder="Opis obrazu..."
+                placeholder="Opis..."
+                className="h-6 text-[11px] px-1.5"
               />
             </div>
             
             {/* Image settings */}
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-xs font-medium">Ustawienia obrazu</Label>
+            <div className="border-t pt-2 space-y-2">
+              <Label className="text-[10px] font-medium">Wymiary i styl</Label>
               
-              <div className="space-y-1">
-                <Label className="text-xs">Dopasowanie</Label>
-                <Select
-                  value={cell.object_fit || 'cover'}
-                  onValueChange={(v) => updateCell(cell.id!, { object_fit: v })}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cover">Wypełnij (cover)</SelectItem>
-                    <SelectItem value="contain">Dopasuj (contain)</SelectItem>
-                    <SelectItem value="fill">Rozciągnij (fill)</SelectItem>
-                    <SelectItem value="none">Oryginalny</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Exact dimensions */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Szer. (px)</Label>
+                  <Input
+                    type="number"
+                    value={cell.width || ''}
+                    onChange={(e) => updateCell(cell.id!, { width: parseInt(e.target.value) || undefined })}
+                    placeholder="Auto"
+                    className="h-6 text-[11px] px-1.5"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Wys. (px)</Label>
+                  <Input
+                    type="number"
+                    value={cell.height_px || ''}
+                    onChange={(e) => updateCell(cell.id!, { height_px: parseInt(e.target.value) || undefined })}
+                    placeholder="Auto"
+                    className="h-6 text-[11px] px-1.5"
+                  />
+                </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Max szer. (px)</Label>
+              {/* Max dimensions */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Max szer.</Label>
                   <Input
                     type="number"
                     value={cell.max_width || ''}
                     onChange={(e) => updateCell(cell.id!, { max_width: parseInt(e.target.value) || undefined })}
                     placeholder="Auto"
-                    className="h-7 text-xs"
+                    className="h-6 text-[11px] px-1.5"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Max wys. (px)</Label>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Max wys.</Label>
                   <Input
                     type="number"
                     value={cell.max_height || ''}
                     onChange={(e) => updateCell(cell.id!, { max_height: parseInt(e.target.value) || undefined })}
                     placeholder="Auto"
-                    className="h-7 text-xs"
+                    className="h-6 text-[11px] px-1.5"
                   />
                 </div>
               </div>
               
-              <div className="space-y-1">
-                <Label className="text-xs">Zaokrąglenie: {cell.border_radius || 0}px</Label>
-                <Slider
-                  value={[cell.border_radius || 0]}
-                  onValueChange={([v]) => updateCell(cell.id!, { border_radius: v })}
-                  min={0}
-                  max={48}
-                  step={2}
-                  className="py-1"
-                />
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">Dopasowanie</Label>
+                <Select
+                  value={cell.object_fit || 'cover'}
+                  onValueChange={(v) => updateCell(cell.id!, { object_fit: v })}
+                >
+                  <SelectTrigger className="h-6 text-[11px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cover">Wypełnij</SelectItem>
+                    <SelectItem value="contain">Dopasuj</SelectItem>
+                    <SelectItem value="fill">Rozciągnij</SelectItem>
+                    <SelectItem value="none">Oryginalny</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
-              <div className="space-y-1">
-                <Label className="text-xs">Cień</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Rogi: {cell.border_radius || 0}px</Label>
+                  <Slider
+                    value={[cell.border_radius || 0]}
+                    onValueChange={([v]) => updateCell(cell.id!, { border_radius: v })}
+                    min={0}
+                    max={48}
+                    step={2}
+                    className="py-0.5"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Hover: {cell.hover_scale ? Math.round(cell.hover_scale * 100) : 100}%</Label>
+                  <Slider
+                    value={[cell.hover_scale ? cell.hover_scale * 100 : 100]}
+                    onValueChange={([v]) => updateCell(cell.id!, { hover_scale: v / 100 })}
+                    min={100}
+                    max={120}
+                    step={1}
+                    className="py-0.5"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">Cień</Label>
                 <Select
                   value={cell.box_shadow || 'none'}
                   onValueChange={(v) => updateCell(cell.id!, { box_shadow: v })}
                 >
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-6 text-[11px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -313,78 +352,65 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="space-y-1">
-                <Label className="text-xs">Hover skalowanie: {cell.hover_scale ? Math.round(cell.hover_scale * 100) : 100}%</Label>
-                <Slider
-                  value={[cell.hover_scale ? cell.hover_scale * 100 : 100]}
-                  onValueChange={([v]) => updateCell(cell.id!, { hover_scale: v / 100 })}
-                  min={100}
-                  max={120}
-                  step={1}
-                  className="py-1"
-                />
-              </div>
             </div>
           </div>
         );
       
       case 'video':
         return (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs">URL filmu (YouTube lub bezpośredni)</Label>
+          <div className="space-y-2">
+            <div className="space-y-0.5">
+              <Label className="text-[10px]">URL filmu</Label>
               <Input
                 value={cell.media_url || ''}
                 onChange={(e) => updateCell(cell.id!, { media_url: e.target.value })}
-                placeholder="https://youtube.com/watch?v=... lub https://...mp4"
+                placeholder="YouTube lub mp4..."
+                className="h-6 text-[11px] px-1.5"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Opis filmu</Label>
+            <div className="space-y-0.5">
+              <Label className="text-[10px]">Opis</Label>
               <Input
                 value={cell.media_alt || ''}
                 onChange={(e) => updateCell(cell.id!, { media_alt: e.target.value })}
-                placeholder="Opis filmu..."
+                placeholder="Opis..."
+                className="h-6 text-[11px] px-1.5"
               />
             </div>
             
-            {/* Video settings */}
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-xs font-medium">Ustawienia wideo</Label>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Max szer. (px)</Label>
+            <div className="border-t pt-2 space-y-2">
+              <Label className="text-[10px] font-medium">Wymiary</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Max szer.</Label>
                   <Input
                     type="number"
                     value={cell.max_width || ''}
                     onChange={(e) => updateCell(cell.id!, { max_width: parseInt(e.target.value) || undefined })}
                     placeholder="Auto"
-                    className="h-7 text-xs"
+                    className="h-6 text-[11px] px-1.5"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Max wys. (px)</Label>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Max wys.</Label>
                   <Input
                     type="number"
                     value={cell.max_height || ''}
                     onChange={(e) => updateCell(cell.id!, { max_height: parseInt(e.target.value) || undefined })}
                     placeholder="Auto"
-                    className="h-7 text-xs"
+                    className="h-6 text-[11px] px-1.5"
                   />
                 </div>
               </div>
-              
-              <div className="space-y-1">
-                <Label className="text-xs">Zaokrąglenie: {cell.border_radius || 0}px</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">Rogi: {cell.border_radius || 0}px</Label>
                 <Slider
                   value={[cell.border_radius || 0]}
                   onValueChange={([v]) => updateCell(cell.id!, { border_radius: v })}
                   min={0}
                   max={24}
                   step={2}
-                  className="py-1"
+                  className="py-0.5"
                 />
               </div>
             </div>
@@ -394,20 +420,20 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
       case 'gallery':
       case 'carousel':
         return (
-          <div className="space-y-3">
-            <Label className="text-xs">Obrazy ({cell.items?.length || 0})</Label>
+          <div className="space-y-2">
+            <Label className="text-[10px]">Obrazy ({cell.items?.length || 0})</Label>
             {cell.items?.map((galleryItem, idx) => (
-              <Card key={idx} className="p-1.5">
-                <div className="space-y-1.5">
+              <Card key={idx} className="p-1">
+                <div className="space-y-1">
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                    <span className="text-[10px] text-muted-foreground">#{idx + 1}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-5 w-5 ml-auto text-destructive"
+                      className="h-4 w-4 ml-auto text-destructive"
                       onClick={() => removeGalleryItem(cell.id!, idx)}
                     >
-                      <Trash2 className="w-2.5 h-2.5" />
+                      <Trash2 className="w-2 h-2" />
                     </Button>
                   </div>
                   <MediaUpload
@@ -418,13 +444,13 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                     value={galleryItem.alt || ''}
                     onChange={(e) => updateGalleryItem(cell.id!, idx, { alt: e.target.value })}
                     placeholder="Alt..."
-                    className="h-7 text-xs"
+                    className="h-5 text-[10px] px-1"
                   />
                   <Input
                     value={galleryItem.caption || ''}
                     onChange={(e) => updateGalleryItem(cell.id!, idx, { caption: e.target.value })}
                     placeholder="Podpis..."
-                    className="h-7 text-xs"
+                    className="h-5 text-[10px] px-1"
                   />
                 </div>
               </Card>
@@ -433,88 +459,103 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
               variant="outline"
               size="sm"
               onClick={() => addGalleryItem(cell.id!)}
-              className="w-full"
+              className="w-full h-6 text-[11px]"
             >
-              <Plus className="w-4 h-4 mr-2" /> Dodaj obraz
+              <Plus className="w-3 h-3 mr-1" /> Dodaj
             </Button>
             
             {/* Gallery/Carousel settings */}
-            <div className="border-t pt-3 space-y-3">
-              <Label className="text-xs font-medium">Ustawienia {cell.type === 'gallery' ? 'galerii' : 'karuzeli'}</Label>
+            <div className="border-t pt-2 space-y-1.5">
+              <Label className="text-[10px] font-medium">Ustawienia</Label>
               
-              {cell.type === 'gallery' && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Kolumny: {cell.columns || 3}</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {cell.type === 'gallery' && (
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px]">Kolumny: {cell.columns || 3}</Label>
+                    <Slider
+                      value={[cell.columns || 3]}
+                      onValueChange={([v]) => updateCell(cell.id!, { columns: v })}
+                      min={1}
+                      max={6}
+                      step={1}
+                      className="py-0.5"
+                    />
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Odstęp: {cell.gap || 8}px</Label>
                   <Slider
-                    value={[cell.columns || 3]}
-                    onValueChange={([v]) => updateCell(cell.id!, { columns: v })}
-                    min={1}
-                    max={6}
-                    step={1}
-                    className="py-1"
+                    value={[cell.gap || 8]}
+                    onValueChange={([v]) => updateCell(cell.id!, { gap: v })}
+                    min={0}
+                    max={32}
+                    step={2}
+                    className="py-0.5"
                   />
                 </div>
-              )}
-              
-              <div className="space-y-1">
-                <Label className="text-xs">Odstęp: {cell.gap || 8}px</Label>
-                <Slider
-                  value={[cell.gap || 8]}
-                  onValueChange={([v]) => updateCell(cell.id!, { gap: v })}
-                  min={0}
-                  max={32}
-                  step={2}
-                  className="py-1"
-                />
               </div>
               
-              <div className="space-y-1">
-                <Label className="text-xs">Proporcje obrazów</Label>
-                <Select
-                  value={cell.aspectRatio || 'auto'}
-                  onValueChange={(v) => updateCell(cell.id!, { aspectRatio: v })}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Automatyczne</SelectItem>
-                    <SelectItem value="1/1">1:1 (Kwadrat)</SelectItem>
-                    <SelectItem value="4/3">4:3</SelectItem>
-                    <SelectItem value="16/9">16:9</SelectItem>
-                    <SelectItem value="3/4">3:4 (Portret)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Proporcje</Label>
+                  <Select
+                    value={cell.aspectRatio || 'auto'}
+                    onValueChange={(v) => updateCell(cell.id!, { aspectRatio: v })}
+                  >
+                    <SelectTrigger className="h-5 text-[10px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto</SelectItem>
+                      <SelectItem value="1/1">1:1</SelectItem>
+                      <SelectItem value="4/3">4:3</SelectItem>
+                      <SelectItem value="16/9">16:9</SelectItem>
+                      <SelectItem value="3/4">3:4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between pt-3">
+                  <Label className="text-[10px]">Lightbox</Label>
+                  <Switch
+                    checked={cell.lightbox !== false}
+                    onCheckedChange={(v) => updateCell(cell.id!, { lightbox: v })}
+                    className="scale-[0.6]"
+                  />
+                </div>
               </div>
               
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Lightbox (powiększenie)</Label>
-                <Switch
-                  checked={cell.lightbox !== false}
-                  onCheckedChange={(v) => updateCell(cell.id!, { lightbox: v })}
-                  className="scale-75"
-                />
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Rogi: {cell.border_radius || 0}px</Label>
+                  <Slider
+                    value={[cell.border_radius || 0]}
+                    onValueChange={([v]) => updateCell(cell.id!, { border_radius: v })}
+                    min={0}
+                    max={24}
+                    step={2}
+                    className="py-0.5"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px]">Hover: {cell.hover_scale ? Math.round(cell.hover_scale * 100) : 100}%</Label>
+                  <Slider
+                    value={[cell.hover_scale ? cell.hover_scale * 100 : 100]}
+                    onValueChange={([v]) => updateCell(cell.id!, { hover_scale: v / 100 })}
+                    min={100}
+                    max={115}
+                    step={1}
+                    className="py-0.5"
+                  />
+                </div>
               </div>
               
-              <div className="space-y-1">
-                <Label className="text-xs">Zaokrąglenie: {cell.border_radius || 0}px</Label>
-                <Slider
-                  value={[cell.border_radius || 0]}
-                  onValueChange={([v]) => updateCell(cell.id!, { border_radius: v })}
-                  min={0}
-                  max={24}
-                  step={2}
-                  className="py-1"
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <Label className="text-xs">Cień obrazów</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">Cień</Label>
                 <Select
                   value={cell.box_shadow || 'none'}
                   onValueChange={(v) => updateCell(cell.id!, { box_shadow: v })}
                 >
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-5 text-[10px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -524,18 +565,6 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                     <SelectItem value="0 10px 25px rgba(0,0,0,0.15)">Mocny</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="space-y-1">
-                <Label className="text-xs">Hover skalowanie: {cell.hover_scale ? Math.round(cell.hover_scale * 100) : 100}%</Label>
-                <Slider
-                  value={[cell.hover_scale ? cell.hover_scale * 100 : 100]}
-                  onValueChange={([v]) => updateCell(cell.id!, { hover_scale: v / 100 })}
-                  min={100}
-                  max={115}
-                  step={1}
-                  className="py-1"
-                />
               </div>
             </div>
           </div>
