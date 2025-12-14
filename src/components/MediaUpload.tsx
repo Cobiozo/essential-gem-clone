@@ -18,6 +18,7 @@ interface MediaUploadProps {
   currentAltText?: string;
   allowedTypes?: ('image' | 'video' | 'document' | 'audio')[];
   maxSizeMB?: number | null;
+  compact?: boolean;
 }
 
 export const MediaUpload: React.FC<MediaUploadProps> = ({
@@ -26,7 +27,8 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   currentMediaType,
   currentAltText,
   allowedTypes,
-  maxSizeMB = 50
+  maxSizeMB = 50,
+  compact = false
 }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -508,44 +510,46 @@ Supabase ma limit ~50MB. Sugestie:
   };
 
   return (
-    <div className="space-y-4">
+    <div className={compact ? "space-y-1.5" : "space-y-4"}>
       <div>
-        <Label>Plik multimedialny</Label>
-        <Tabs defaultValue="upload" className="mt-2">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="upload" className="text-xs">
-              <Upload className="w-3 h-3 mr-1" />
+        {!compact && <Label>Plik multimedialny</Label>}
+        <Tabs defaultValue="upload" className={compact ? "mt-0" : "mt-2"}>
+          <TabsList className={`grid w-full grid-cols-3 ${compact ? "h-7" : ""}`}>
+            <TabsTrigger value="upload" className={compact ? "text-[10px] h-6 px-1" : "text-xs"}>
+              <Upload className={compact ? "w-2.5 h-2.5 mr-0.5" : "w-3 h-3 mr-1"} />
               Upload
             </TabsTrigger>
-            <TabsTrigger value="url" className="text-xs">
-              <LinkIcon className="w-3 h-3 mr-1" />
+            <TabsTrigger value="url" className={compact ? "text-[10px] h-6 px-1" : "text-xs"}>
+              <LinkIcon className={compact ? "w-2.5 h-2.5 mr-0.5" : "w-3 h-3 mr-1"} />
               URL
             </TabsTrigger>
-            <TabsTrigger value="library" className="text-xs" onClick={loadLibraryFiles}>
-              <FolderOpen className="w-3 h-3 mr-1" />
+            <TabsTrigger value="library" className={compact ? "text-[10px] h-6 px-1" : "text-xs"} onClick={loadLibraryFiles}>
+              <FolderOpen className={compact ? "w-2.5 h-2.5 mr-0.5" : "w-3 h-3 mr-1"} />
               Biblioteka
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="upload" className="space-y-3">
+          <TabsContent value="upload" className={compact ? "space-y-1 mt-1" : "space-y-3"}>
             <Input
               id="media-upload"
               type="file"
               accept={getAcceptString()}
               onChange={handleFileSelect}
               disabled={uploading}
-              className="cursor-pointer"
+              className={compact ? "cursor-pointer h-7 text-[10px]" : "cursor-pointer"}
             />
-            <p className="text-xs text-muted-foreground">
-              {getHelpText()}
-            </p>
+            {!compact && (
+              <p className="text-xs text-muted-foreground">
+                {getHelpText()}
+              </p>
+            )}
           </TabsContent>
 
-          <TabsContent value="url" className="space-y-3">
-            <div className="flex gap-2">
+          <TabsContent value="url" className={compact ? "space-y-1 mt-1" : "space-y-3"}>
+            <div className="flex gap-1">
               <Input
                 type="url"
-                placeholder="https://example.com/image.jpg"
+                placeholder="https://..."
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -554,84 +558,82 @@ Supabase ma limit ~50MB. Sugestie:
                     handleUrlSubmit();
                   }
                 }}
+                className={compact ? "h-6 text-[10px]" : ""}
               />
               <Button
                 type="button"
                 onClick={handleUrlSubmit}
                 size="sm"
+                className={compact ? "h-6 px-2 text-[10px]" : ""}
               >
                 Dodaj
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Wklej URL obrazu, filmu lub innego pliku
-            </p>
           </TabsContent>
 
-          <TabsContent value="library" className="space-y-3">
+          <TabsContent value="library" className={compact ? "space-y-1 mt-1" : "space-y-3"}>
             {loadingLibrary ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin" />
+              <div className={`flex items-center justify-center ${compact ? "py-3" : "py-8"}`}>
+                <Loader2 className={compact ? "w-4 h-4 animate-spin" : "w-6 h-6 animate-spin"} />
               </div>
             ) : libraryFiles.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Brak plików w bibliotece
+              <div className={`text-center text-muted-foreground ${compact ? "py-3 text-[10px]" : "py-8 text-sm"}`}>
+                Brak plików
               </div>
             ) : (
-              <ScrollArea className="h-64 border rounded-md p-2">
-                <div className="grid grid-cols-3 gap-2">
+              <ScrollArea className={compact ? "h-32 border rounded p-1" : "h-64 border rounded-md p-2"}>
+                <div className={compact ? "grid grid-cols-4 gap-1" : "grid grid-cols-3 gap-2"}>
                   {libraryFiles.map((file, index) => (
                     <Card 
                       key={index} 
                       className="cursor-pointer hover:border-primary transition-colors overflow-hidden"
                       onClick={() => selectFromLibrary(file)}
                     >
-                      <CardContent className="p-2">
+                      <CardContent className={compact ? "p-0.5" : "p-2"}>
                         {file.type === 'image' ? (
                           <img 
                             src={file.url} 
                             alt={file.name}
-                            className="w-full h-20 object-cover rounded"
+                            className={compact ? "w-full h-10 object-cover rounded" : "w-full h-20 object-cover rounded"}
                           />
                         ) : file.type === 'video' ? (
-                          <div className="w-full h-20 bg-secondary rounded flex items-center justify-center">
-                            <Video className="w-8 h-8 text-muted-foreground" />
+                          <div className={`w-full bg-secondary rounded flex items-center justify-center ${compact ? "h-10" : "h-20"}`}>
+                            <Video className={compact ? "w-4 h-4 text-muted-foreground" : "w-8 h-8 text-muted-foreground"} />
                           </div>
                         ) : file.type === 'audio' ? (
-                          <div className="w-full h-20 bg-secondary rounded flex items-center justify-center">
-                            <Music className="w-8 h-8 text-muted-foreground" />
+                          <div className={`w-full bg-secondary rounded flex items-center justify-center ${compact ? "h-10" : "h-20"}`}>
+                            <Music className={compact ? "w-4 h-4 text-muted-foreground" : "w-8 h-8 text-muted-foreground"} />
                           </div>
                         ) : (
-                          <div className="w-full h-20 bg-secondary rounded flex items-center justify-center">
-                            <FileText className="w-8 h-8 text-muted-foreground" />
+                          <div className={`w-full bg-secondary rounded flex items-center justify-center ${compact ? "h-10" : "h-20"}`}>
+                            <FileText className={compact ? "w-4 h-4 text-muted-foreground" : "w-8 h-8 text-muted-foreground"} />
                           </div>
                         )}
-                        <p className="text-xs mt-1 truncate" title={file.name}>
-                          {file.name}
-                        </p>
+                        {!compact && (
+                          <p className="text-xs mt-1 truncate" title={file.name}>
+                            {file.name}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
                 </div>
               </ScrollArea>
             )}
-            <p className="text-xs text-muted-foreground">
-              Kliknij na plik aby go wybrać
-            </p>
           </TabsContent>
         </Tabs>
       </div>
 
       {uploading && (
         <Card>
-          <CardContent className="p-6 space-y-3">
+          <CardContent className={compact ? "p-2 space-y-1" : "p-6 space-y-3"}>
             <div className="flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin mr-2" />
-              <span className="text-sm">Przesyłanie... {uploadProgress}%</span>
+              <Loader2 className={compact ? "w-3 h-3 animate-spin mr-1" : "w-6 h-6 animate-spin mr-2"} />
+              <span className={compact ? "text-[10px]" : "text-sm"}>Przesyłanie... {uploadProgress}%</span>
             </div>
-            <div className="w-full bg-secondary rounded-full h-2">
+            <div className={`w-full bg-secondary rounded-full ${compact ? "h-1" : "h-2"}`}>
               <div 
-                className="bg-primary h-2 rounded-full transition-all duration-300"
+                className={`bg-primary rounded-full transition-all duration-300 ${compact ? "h-1" : "h-2"}`}
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
@@ -641,60 +643,64 @@ Supabase ma limit ~50MB. Sugestie:
 
       {currentMediaUrl && (
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between mb-3">
-              <Badge variant="outline" className="flex items-center gap-1">
-                {currentMediaType === 'image' ? (
-                  <Image className="w-3 h-3" />
-                ) : currentMediaType === 'video' ? (
-                  <Video className="w-3 h-3" />
-                ) : currentMediaType === 'audio' ? (
-                  <Music className="w-3 h-3" />
-                ) : (
-                  <FileText className="w-3 h-3" />
-                )}
-                {currentMediaType === 'image' ? 'Zdjęcie' : 
-                 currentMediaType === 'video' ? 'Film' :
-                 currentMediaType === 'audio' ? 'Audio' :
-                 currentMediaType === 'document' ? 'Dokument' : 'Plik'}
-              </Badge>
+          <CardContent className={compact ? "p-1.5" : "p-4"}>
+            <div className={`flex items-start justify-between ${compact ? "mb-1" : "mb-3"}`}>
+              {!compact && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  {currentMediaType === 'image' ? (
+                    <Image className="w-3 h-3" />
+                  ) : currentMediaType === 'video' ? (
+                    <Video className="w-3 h-3" />
+                  ) : currentMediaType === 'audio' ? (
+                    <Music className="w-3 h-3" />
+                  ) : (
+                    <FileText className="w-3 h-3" />
+                  )}
+                  {currentMediaType === 'image' ? 'Zdjęcie' : 
+                   currentMediaType === 'video' ? 'Film' :
+                   currentMediaType === 'audio' ? 'Audio' :
+                   currentMediaType === 'document' ? 'Dokument' : 'Plik'}
+                </Badge>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={removeMedia}
-                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                className={compact ? "h-5 w-5 p-0 text-destructive hover:text-destructive ml-auto" : "h-6 w-6 p-0 text-destructive hover:text-destructive"}
               >
-                <X className="w-4 h-4" />
+                <X className={compact ? "w-3 h-3" : "w-4 h-4"} />
               </Button>
             </div>
             
-            <div className="space-y-3">
+            <div className={compact ? "space-y-1" : "space-y-3"}>
               <SecureMedia
                 mediaUrl={currentMediaUrl}
                 mediaType={currentMediaType}
                 altText={currentAltText || 'Podgląd'}
-                className="w-full max-h-48 object-cover rounded border"
+                className={compact ? "w-full max-h-20 object-cover rounded border" : "w-full max-h-48 object-cover rounded border"}
               />
               
-              <div>
-                <Label htmlFor="alt-text" className="text-xs">
-                  {currentMediaType === 'image' ? 'Tekst alternatywny' : 
-                   currentMediaType === 'video' ? 'Opis filmu' :
-                   currentMediaType === 'audio' ? 'Opis audio' : 'Opis pliku'}
-                </Label>
-                <Input
-                  id="alt-text"
-                  value={altText}
-                  onChange={(e) => {
-                    setAltText(e.target.value);
-                    onMediaUploaded(currentMediaUrl, currentMediaType, e.target.value);
-                  }}
-                  placeholder={currentMediaType === 'image' ? 'Opisz zdjęcie...' : 
-                              currentMediaType === 'video' ? 'Opisz film...' :
-                              currentMediaType === 'audio' ? 'Opisz plik audio...' : 'Opisz plik...'}
-                  className="mt-1"
-                />
-              </div>
+              {!compact && (
+                <div>
+                  <Label htmlFor="alt-text" className="text-xs">
+                    {currentMediaType === 'image' ? 'Tekst alternatywny' : 
+                     currentMediaType === 'video' ? 'Opis filmu' :
+                     currentMediaType === 'audio' ? 'Opis audio' : 'Opis pliku'}
+                  </Label>
+                  <Input
+                    id="alt-text"
+                    value={altText}
+                    onChange={(e) => {
+                      setAltText(e.target.value);
+                      onMediaUploaded(currentMediaUrl, currentMediaType, e.target.value);
+                    }}
+                    placeholder={currentMediaType === 'image' ? 'Opisz zdjęcie...' : 
+                                currentMediaType === 'video' ? 'Opisz film...' :
+                                currentMediaType === 'audio' ? 'Opisz plik audio...' : 'Opisz plik...'}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

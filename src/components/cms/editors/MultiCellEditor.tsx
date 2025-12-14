@@ -226,6 +226,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
             <div className="space-y-0.5">
               <Label className="text-[10px]">Obraz</Label>
               <MediaUpload
+                compact
                 currentMediaUrl={cell.media_url || ''}
                 onMediaUploaded={(url) => updateCell(cell.id!, { media_url: url })}
               />
@@ -437,6 +438,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                     </Button>
                   </div>
                   <MediaUpload
+                    compact
                     currentMediaUrl={galleryItem.url}
                     onMediaUploaded={(url) => updateGalleryItem(cell.id!, idx, { url })}
                   />
@@ -619,7 +621,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           <TabsTrigger value="style" className="text-xs px-1">Styl</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-2">
+        <TabsContent value="cells" className="flex-1 overflow-hidden flex flex-col mt-1">
           <ScrollArea className="flex-1">
             <div className="space-y-2 p-2">
               {/* Lista komórek */}
@@ -862,59 +864,59 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="main" className="flex-1 overflow-auto mt-2 text-left">
-          <div className="space-y-3 p-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-left w-full block">Tytuł elementu</Label>
+        <TabsContent value="main" className="flex-1 overflow-y-auto mt-1">
+          <div className="space-y-2 p-1.5">
+            <div className="space-y-0.5">
+              <Label className="text-[10px] text-left w-full block">Tytuł</Label>
               <Input
                 value={formData.title || ''}
                 onChange={(e) => updateField('title', e.target.value)}
                 placeholder="Tytuł..."
-                className="h-8 text-xs"
+                className="h-6 text-[11px]"
               />
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-left w-full block">Opis elementu</Label>
+            <div className="space-y-0.5">
+              <Label className="text-[10px] text-left w-full block">Opis</Label>
               <Textarea
                 value={formData.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
                 placeholder="Opis..."
-                className="min-h-[80px] text-xs"
+                className="min-h-[50px] text-[11px]"
               />
             </div>
 
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Element aktywny</Label>
+              <Label className="text-[10px]">Aktywny</Label>
               <Switch
                 checked={formData.is_active !== false}
                 onCheckedChange={(checked) => updateField('is_active', checked)}
-                className="scale-90"
+                className="scale-75"
               />
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="number" className="flex-1 overflow-auto mt-2 text-left">
-          <div className="space-y-3 p-2">
+        <TabsContent value="number" className="flex-1 overflow-y-auto mt-1">
+          <div className="space-y-2 p-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Pokaż numerację</Label>
+              <Label className="text-[10px]">Pokaż numerację</Label>
               <Switch
                 checked={formData.show_number !== false}
                 onCheckedChange={(checked) => updateField('show_number', checked)}
-                className="scale-90"
+                className="scale-75"
               />
             </div>
 
             {formData.show_number !== false && (
               <>
-                <div className="space-y-1">
-                  <Label className="text-xs text-left w-full block">Typ numeracji</Label>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] text-left w-full block">Typ</Label>
                   <Select
                     value={formData.number_type || 'auto'}
                     onValueChange={(value) => updateField('number_type', value as CMSItem['number_type'])}
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-6 text-[11px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -927,21 +929,22 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                 </div>
 
                 {formData.number_type === 'text' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-left w-full block">Własny tekst</Label>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-left w-full block">Własny tekst</Label>
                     <Input
                       value={formData.custom_number || ''}
                       onChange={(e) => updateField('custom_number', e.target.value)}
                       placeholder="np. A, ★, I"
-                      className="h-8 text-xs"
+                      className="h-6 text-[11px]"
                     />
                   </div>
                 )}
 
                 {formData.number_type === 'image' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-left w-full block">Obraz</Label>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-left w-full block">Obraz</Label>
                     <MediaUpload
+                      compact
                       currentMediaUrl={formData.custom_number_image || ''}
                       onMediaUploaded={(url) => updateField('custom_number_image', url)}
                     />
@@ -949,46 +952,47 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                 )}
 
                 {formData.number_type === 'icon' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-left w-full block">Ikona</Label>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-left w-full block">Ikona</Label>
                     <IconPicker
                       value={formData.icon || 'Star'}
                       onChange={(icon) => updateField('icon', icon)}
                       trigger={
-                        <Button variant="outline" className="w-full h-8 text-xs justify-start gap-2">
-                          {formData.icon && React.createElement((icons as any)[formData.icon] || Star, { className: "w-4 h-4" })}
-                          <span>{formData.icon || 'Wybierz ikonę'}</span>
+                        <Button variant="outline" className="w-full h-6 text-[11px] justify-start gap-1.5">
+                          {formData.icon && React.createElement((icons as any)[formData.icon] || Star, { className: "w-3 h-3" })}
+                          <span>{formData.icon || 'Wybierz'}</span>
                         </Button>
                       }
                     />
                   </div>
                 )}
 
-                <div className="space-y-1">
-                  <Label className="text-xs text-left w-full block">Kolor tła</Label>
-                  <Input
-                    type="color"
-                    value={formData.background_color || '#fbbf24'}
-                    onChange={(e) => updateField('background_color', e.target.value)}
-                    className="h-8 w-full"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs text-left w-full block">Kolor ikony</Label>
-                  <Input
-                    type="color"
-                    value={formData.icon_color || '#ffffff'}
-                    onChange={(e) => updateField('icon_color', e.target.value)}
-                    className="h-8 w-full"
-                  />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-left w-full block">Tło</Label>
+                    <Input
+                      type="color"
+                      value={formData.background_color || '#fbbf24'}
+                      onChange={(e) => updateField('background_color', e.target.value)}
+                      className="h-6 w-full"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-left w-full block">Ikona</Label>
+                    <Input
+                      type="color"
+                      value={formData.icon_color || '#ffffff'}
+                      onChange={(e) => updateField('icon_color', e.target.value)}
+                      className="h-6 w-full"
+                    />
+                  </div>
                 </div>
               </>
             )}
           </div>
         </TabsContent>
 
-        <TabsContent value="style" className="flex-1 overflow-auto mt-2 text-left">
+        <TabsContent value="style" className="flex-1 overflow-y-auto mt-1">
           <AdvancedStyleTab 
             item={formData} 
             onUpdate={(updates) => setFormData(prev => ({ ...prev, ...updates }))} 
