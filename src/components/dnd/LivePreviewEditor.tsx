@@ -1253,13 +1253,18 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     // Update state
     setSectionColumns(newSectionColumns);
 
-    // Rebuild items array maintaining order
-    const newItems = [];
-    sections.forEach(section => {
+    // ✅ IMPORTANT: normalize local `position` to match the new visual order.
+    // This prevents the UI from snapping back when columns are re-derived from `items`.
+    const newItems: CMSItem[] = [];
+    sections.forEach((section) => {
       const cols = newSectionColumns[section.id] || [];
       cols.forEach((col, colIdx) => {
-        col.items.forEach((it: any) => {
-          newItems.push({ ...it, column_index: colIdx });
+        col.items.forEach((it: any, idx: number) => {
+          newItems.push({
+            ...it,
+            column_index: colIdx,
+            position: idx,
+          });
         });
       });
     });
@@ -1267,8 +1272,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     saveToHistory(sections, newItems);
     setItems(newItems);
     setHasUnsavedChanges(true);
-    
-    console.log('Updated items:', newItems.map(i => ({ id: i.id, section_id: i.section_id })));
+
+    console.log('Updated items:', newItems.map(i => ({ id: i.id, section_id: i.section_id, position: i.position, column_index: (i as any).column_index })));
     setDragVersion((v) => v + 1);
   };
 
