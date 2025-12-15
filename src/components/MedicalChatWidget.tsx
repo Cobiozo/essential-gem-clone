@@ -357,17 +357,19 @@ Provide a structured summary:`;
     }
   };
 
-  const generatePdf = (msgs: MedicalChatMessage[], lang: ExportLanguage) => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginLeft = 20;
-    const marginRight = 20;
-    const marginTop = 25;
-    const marginBottom = 25;
-    const maxWidth = pageWidth - marginLeft - marginRight;
-    let yPos = marginTop;
+  // DOC content structure - single source of truth for both DOC and PDF
+  interface DocumentContent {
+    title: string;
+    date: string;
+    summaryHeader: string;
+    summaryBody: string; // Clean text for PDF
+    summaryHtml: string; // HTML for DOC
+    disclaimer: string;
+    lang: ExportLanguage;
+  }
 
+  // Generate document content structure from translated summary
+  const generateDocumentContent = (summary: string, lang: ExportLanguage): DocumentContent => {
     const locales: Record<ExportLanguage, string> = {
       pl: 'pl-PL',
       de: 'de-DE',
@@ -375,335 +377,15 @@ Provide a structured summary:`;
       it: 'it-IT',
     };
 
-    // Title
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 82, 147);
-    pdf.text(exportTranslations.title[lang], marginLeft, yPos);
-    yPos += 7;
-
-    // Date
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, marginLeft, yPos);
-    yPos += 10;
-
-    // Separator line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 8;
-
-    // Messages
-    msgs.forEach((message) => {
-      const prefix = message.role === 'user' 
-        ? `${exportTranslations.question[lang]}: ` 
-        : `${exportTranslations.answer[lang]}: `;
-      
-      // Clean content - remove markdown formatting but keep structure
-      let cleanContent = message.content
-        .replace(/\*\*/g, '')
-        .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1 ($2)')
-        .replace(/#{1,6}\s/g, '')
-        .replace(/---/g, '—');
-      
-      // Split by paragraphs for better formatting
-      const paragraphs = cleanContent.split(/\n\n+/);
-      
-      pdf.setFontSize(10);
-      
-      // Add prefix for first paragraph
-      if (message.role === 'user') {
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(0, 82, 147);
-      } else {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(40, 40, 40);
-      }
-
-      paragraphs.forEach((para, index) => {
-        const textToWrite = index === 0 ? prefix + para.trim() : para.trim();
-        if (!textToWrite) return;
-        
-        const lines = pdf.splitTextToSize(textToWrite, maxWidth);
-        const lineHeight = 4.5;
-        const blockHeight = lines.length * lineHeight;
-        
-        // Check if we need a new page
-        if (yPos + blockHeight > pageHeight - marginBottom) {
-          pdf.addPage();
-          yPos = marginTop;
-        }
-        
-        pdf.text(lines, marginLeft, yPos);
-        yPos += blockHeight + 3;
-      });
-      
-      yPos += 6; // Space between messages
-    });
-
-    // Disclaimer at bottom
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'italic');
-    pdf.setTextColor(120, 120, 120);
-    const disclaimer = exportTranslations.disclaimer[lang];
-    const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
-    
-    if (yPos + disclaimerLines.length * 4 + 10 > pageHeight - marginBottom) {
-      pdf.addPage();
-      yPos = marginTop;
-    }
-    
-    // Add separator before disclaimer
-    yPos += 5;
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 6;
-    
-    pdf.text(disclaimerLines, marginLeft, yPos);
-
-    pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
-  };
-
-  const generatePdfFromSummary = (summary: string, lang: ExportLanguage) => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginLeft = 20;
-    const marginRight = 20;
-    const marginTop = 25;
-    const marginBottom = 25;
-    const maxWidth = pageWidth - marginLeft - marginRight;
-    let yPos = marginTop;
-
-    const locales: Record<ExportLanguage, string> = {
-      pl: 'pl-PL',
-      de: 'de-DE',
-      en: 'en-US',
-      it: 'it-IT',
-    };
-
-    // Title
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 82, 147);
-    pdf.text(exportTranslations.title[lang], marginLeft, yPos);
-    yPos += 7;
-
-    // Date
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, marginLeft, yPos);
-    yPos += 10;
-
-    // Separator line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 8;
-
-    // Summary header
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 82, 147);
-    pdf.text(exportTranslations.summary[lang], marginLeft, yPos);
-    yPos += 8;
-
-    // Summary content
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(40, 40, 40);
-
-    // Clean content - remove markdown formatting but keep structure
-    let cleanContent = summary
+    // Clean text for PDF (no markdown)
+    const cleanSummary = summary
       .replace(/\*\*/g, '')
       .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1 ($2)')
       .replace(/#{1,6}\s/g, '')
       .replace(/---/g, '—');
 
-    // Split by paragraphs for better formatting
-    const paragraphs = cleanContent.split(/\n\n+/);
-
-    paragraphs.forEach((para) => {
-      const textToWrite = para.trim();
-      if (!textToWrite) return;
-      
-      const lines = pdf.splitTextToSize(textToWrite, maxWidth);
-      const lineHeight = 4.5;
-      const blockHeight = lines.length * lineHeight;
-      
-      // Check if we need a new page
-      if (yPos + blockHeight > pageHeight - marginBottom) {
-        pdf.addPage();
-        yPos = marginTop;
-      }
-      
-      pdf.text(lines, marginLeft, yPos);
-      yPos += blockHeight + 3;
-    });
-
-    // Disclaimer at bottom
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'italic');
-    pdf.setTextColor(120, 120, 120);
-    const disclaimer = exportTranslations.disclaimer[lang];
-    const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
-    
-    if (yPos + disclaimerLines.length * 4 + 10 > pageHeight - marginBottom) {
-      pdf.addPage();
-      yPos = marginTop;
-    }
-    
-    // Add separator before disclaimer
-    yPos += 5;
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 6;
-    
-    pdf.text(disclaimerLines, marginLeft, yPos);
-
-    pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
-  };
-
-  const exportToPdf = async (lang: ExportLanguage) => {
-    if (messages.length === 0) return;
-    
-    setIsExporting(true);
-    try {
-      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
-      const summary = await generateDialogSummary(messages);
-      
-      if (!summary) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('summaryError'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Step 2: Translate summary to user's chosen document language (MANDATORY)
-      const result = await translateContent(summary, lang, 'en');
-      
-      // If translation was required but failed, show error and don't generate document
-      if (result.error) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('translationRequired'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Step 3: Generate PDF from translated summary ONLY
-      generatePdfFromSummary(result.translated ? result.content : summary, lang);
-      
-      toast({
-        title: getTranslation('exportSuccess'),
-        description: `PDF (${lang.toUpperCase()})`,
-      });
-    } catch (error) {
-      console.error('Export error:', error);
-      toast({
-        title: getTranslation('exportError'),
-        variant: 'destructive',
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const generateDoc = (msgs: MedicalChatMessage[], lang: ExportLanguage) => {
-    const locales: Record<ExportLanguage, string> = {
-      pl: 'pl-PL',
-      de: 'de-DE',
-      en: 'en-US',
-      it: 'it-IT',
-    };
-
-    // Build HTML content for .doc file with proper A4 formatting
-    let htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${exportTranslations.title[lang]}</title>
-        <style>
-          @page { size: A4; margin: 2.5cm; }
-          body { 
-            font-family: Arial, sans-serif; 
-            margin: 2.5cm; 
-            line-height: 1.6; 
-            font-size: 11pt;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-          }
-          h1 { color: #005293; font-size: 16pt; margin-bottom: 5px; }
-          .date { color: #666; font-size: 9pt; margin-bottom: 15px; }
-          .separator { border-top: 1px solid #ccc; margin: 12px 0; }
-          .question { color: #005293; font-weight: bold; margin-top: 12px; margin-bottom: 8px; }
-          .answer { color: #333; margin-top: 8px; margin-bottom: 12px; text-align: justify; }
-          .answer p { margin: 8px 0; }
-          .disclaimer { color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc; }
-          a { color: #0066cc; word-break: break-all; }
-        </style>
-      </head>
-      <body>
-        <h1>${exportTranslations.title[lang]}</h1>
-        <div class="date">${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}</div>
-        <div class="separator"></div>
-    `;
-
-    msgs.forEach((message) => {
-      const prefix = message.role === 'user' 
-        ? exportTranslations.question[lang]
-        : exportTranslations.answer[lang];
-      
-      // Convert markdown to HTML with proper paragraph handling
-      let htmlMessage = message.content
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
-        .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>')
-        .replace(/---/g, '<hr>')
-        .split(/\n\n+/)
-        .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
-        .join('');
-      
-      if (message.role === 'user') {
-        htmlContent += `<div class="question">${prefix}: ${htmlMessage}</div>`;
-      } else {
-        htmlContent += `<div class="answer">${prefix}: ${htmlMessage}</div>`;
-      }
-    });
-
-    htmlContent += `
-        <div class="disclaimer">${exportTranslations.disclaimer[lang]}</div>
-      </body>
-      </html>
-    `;
-
-    // Create and download .doc file
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const generateDocFromSummary = (summary: string, lang: ExportLanguage) => {
-    const locales: Record<ExportLanguage, string> = {
-      pl: 'pl-PL',
-      de: 'de-DE',
-      en: 'en-US',
-      it: 'it-IT',
-    };
-
-    // Convert markdown to HTML with proper paragraph handling
-    let htmlSummary = summary
+    // HTML for DOC (with markdown converted)
+    const htmlSummary = summary
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
       .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>')
@@ -712,13 +394,25 @@ Provide a structured summary:`;
       .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
       .join('');
 
-    // Build HTML content for .doc file with proper A4 formatting
-    let htmlContent = `
+    return {
+      title: exportTranslations.title[lang],
+      date: `${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`,
+      summaryHeader: exportTranslations.summary[lang],
+      summaryBody: cleanSummary,
+      summaryHtml: htmlSummary,
+      disclaimer: exportTranslations.disclaimer[lang],
+      lang,
+    };
+  };
+
+  // Generate DOC from document content - returns the HTML content
+  const generateDocFromContent = (docContent: DocumentContent): string => {
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <title>${exportTranslations.title[lang]}</title>
+        <title>${docContent.title}</title>
         <style>
           @page { size: A4; margin: 2.5cm; }
           body { 
@@ -740,17 +434,20 @@ Provide a structured summary:`;
         </style>
       </head>
       <body>
-        <h1>${exportTranslations.title[lang]}</h1>
-        <div class="date">${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}</div>
+        <h1>${docContent.title}</h1>
+        <div class="date">${docContent.date}</div>
         <div class="separator"></div>
-        <h2>${exportTranslations.summary[lang]}</h2>
-        <div class="summary">${htmlSummary}</div>
-        <div class="disclaimer">${exportTranslations.disclaimer[lang]}</div>
+        <h2>${docContent.summaryHeader}</h2>
+        <div class="summary">${docContent.summaryHtml}</div>
+        <div class="disclaimer">${docContent.disclaimer}</div>
       </body>
       </html>
     `;
+    return htmlContent;
+  };
 
-    // Create and download .doc file
+  // Save DOC file
+  const saveDocFile = (htmlContent: string, lang: ExportLanguage) => {
     const blob = new Blob([htmlContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -762,6 +459,155 @@ Provide a structured summary:`;
     URL.revokeObjectURL(url);
   };
 
+  // Generate PDF from document content (converted from DOC content)
+  const generatePdfFromDocContent = (docContent: DocumentContent) => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const marginLeft = 20;
+    const marginRight = 20;
+    const marginTop = 25;
+    const marginBottom = 25;
+    const maxWidth = pageWidth - marginLeft - marginRight;
+    let yPos = marginTop;
+
+    // Title
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 82, 147);
+    pdf.text(docContent.title, marginLeft, yPos);
+    yPos += 7;
+
+    // Date
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(docContent.date, marginLeft, yPos);
+    yPos += 10;
+
+    // Separator line
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
+    yPos += 8;
+
+    // Summary header
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 82, 147);
+    pdf.text(docContent.summaryHeader, marginLeft, yPos);
+    yPos += 8;
+
+    // Summary content (using clean text, same as DOC content)
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(40, 40, 40);
+
+    const paragraphs = docContent.summaryBody.split(/\n\n+/);
+
+    paragraphs.forEach((para) => {
+      const textToWrite = para.trim();
+      if (!textToWrite) return;
+      
+      const lines = pdf.splitTextToSize(textToWrite, maxWidth);
+      const lineHeight = 4.5;
+      const blockHeight = lines.length * lineHeight;
+      
+      if (yPos + blockHeight > pageHeight - marginBottom) {
+        pdf.addPage();
+        yPos = marginTop;
+      }
+      
+      pdf.text(lines, marginLeft, yPos);
+      yPos += blockHeight + 3;
+    });
+
+    // Disclaimer
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(120, 120, 120);
+    const disclaimerLines = pdf.splitTextToSize(docContent.disclaimer, maxWidth);
+    
+    if (yPos + disclaimerLines.length * 4 + 10 > pageHeight - marginBottom) {
+      pdf.addPage();
+      yPos = marginTop;
+    }
+    
+    yPos += 5;
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
+    yPos += 6;
+    
+    pdf.text(disclaimerLines, marginLeft, yPos);
+
+    pdf.save(`pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // PIPELINE: Summary → Translate → DOC → PDF
+  const exportToPdf = async (lang: ExportLanguage) => {
+    if (messages.length === 0) return;
+    
+    setIsExporting(true);
+    try {
+      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
+      const summary = await generateDialogSummary(messages);
+      
+      if (!summary) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('summaryError'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 2: Translate summary to user's chosen document language (MANDATORY)
+      const result = await translateContent(summary, lang, 'en');
+      
+      if (result.error) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('translationRequired'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const translatedSummary = result.translated ? result.content : summary;
+
+      // Step 3: Generate DOC content structure (single source of truth)
+      const docContent = generateDocumentContent(translatedSummary, lang);
+      
+      // Step 4: Generate DOC HTML (internal - validates DOC exists before PDF)
+      const docHtml = generateDocFromContent(docContent);
+      
+      if (!docHtml) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('summaryError'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 5: Generate PDF from DOC content (converted from same source)
+      generatePdfFromDocContent(docContent);
+      
+      toast({
+        title: getTranslation('exportSuccess'),
+        description: `PDF (${lang.toUpperCase()})`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: getTranslation('exportError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // PIPELINE: Summary → Translate → DOC (same as PDF pipeline, just saves DOC)
   const exportToDoc = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
     
@@ -782,7 +628,6 @@ Provide a structured summary:`;
       // Step 2: Translate summary to user's chosen document language (MANDATORY)
       const result = await translateContent(summary, lang, 'en');
       
-      // If translation was required but failed, show error and don't generate document
       if (result.error) {
         toast({
           title: getTranslation('exportError'),
@@ -792,8 +637,14 @@ Provide a structured summary:`;
         return;
       }
 
-      // Step 3: Generate DOC from translated summary ONLY
-      generateDocFromSummary(result.translated ? result.content : summary, lang);
+      const translatedSummary = result.translated ? result.content : summary;
+
+      // Step 3: Generate DOC content structure (single source of truth)
+      const docContent = generateDocumentContent(translatedSummary, lang);
+      
+      // Step 4: Generate and save DOC file
+      const docHtml = generateDocFromContent(docContent);
+      saveDocFile(docHtml, lang);
       
       toast({
         title: getTranslation('exportSuccess'),
