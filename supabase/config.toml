@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.medical-assistant]
 verify_jwt = false
+
+[functions.translate-content]
+verify_jwt = false

@@ -37,10 +37,11 @@ serve(async (req) => {
     const pagesContext = pages.map(p => `- ${p.title} (/page/${p.slug}): ${p.meta_description || 'Brak opisu'}`).join('\n');
     const modulesContext = modules.map(m => `- ${m.title}: ${m.description || 'Brak opisu'}`).join('\n');
 
-    const languageInstructions = {
+    const languageInstructions: Record<string, string> = {
       pl: 'Odpowiadaj zawsze po polsku.',
       de: 'Antworte immer auf Deutsch.',
-      en: 'Always respond in English.'
+      en: 'Always respond in English.',
+      it: 'Rispondi sempre in italiano.'
     };
 
     const systemPrompt = `Jesteś pomocnym asystentem wsparcia aplikacji Pure Life - platformy do zarządzania treścią i szkoleń.

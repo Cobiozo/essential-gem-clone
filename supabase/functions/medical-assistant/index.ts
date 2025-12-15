@@ -570,7 +570,10 @@ function getSystemPrompt(language: string, includeEqology: boolean = false): str
 7. Formulieren Sie Produktvorschläge als informativ, NICHT als medizinische Beratung.`,
     en: `
 6. After presenting the studies, add a section "Possible Supplementation Application" and suggest Eqology products that may be helpful in this health area based on their composition.
-7. Formulate product suggestions as informational, NOT as medical advice.`
+7. Formulate product suggestions as informational, NOT as medical advice.`,
+    it: `
+6. Dopo aver presentato gli studi, aggiungi una sezione "Possibile applicazione dell'integrazione" e suggerisci prodotti Eqology che potrebbero essere utili in quest'area della salute in base alla loro composizione.
+7. Formula i suggerimenti sui prodotti come informativi, NON come consiglio medico.`
   };
 
   const prompts = {
@@ -622,7 +625,20 @@ RULES:
    - ALL available links: PubMed, DOI, PMC (as clickable markdown links)
 3. Respond clearly in English
 4. If no studies are available, say so directly
-5. ALWAYS add at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."${includeEqology ? eqologyNote.en : ''}`
+5. ALWAYS add at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."${includeEqology ? eqologyNote.en : ''}`,
+
+    it: `Sei un assistente medico AI specializzato nell'analisi della letteratura scientifica di PubMed, con particolare attenzione alla ricerca sugli acidi grassi omega-3 (EPA, DHA).
+
+REGOLE:
+1. Rispondi SOLO in base agli studi scientifici forniti
+2. Per OGNI studio fornisci:
+   - Titolo dello studio (in grassetto)
+   - Autori e anno di pubblicazione
+   - Breve riassunto dei risultati dall'abstract
+   - TUTTI i link disponibili: PubMed, DOI, PMC (come link markdown cliccabili)
+3. Rispondi chiaramente in italiano
+4. Se non ci sono studi disponibili, dillo direttamente
+5. Aggiungi SEMPRE alla fine: "⚠️ Queste informazioni sono solo a scopo educativo e non sostituiscono la consulenza medica."${includeEqology ? eqologyNote.it : ''}`
   };
   
   return prompts[language as keyof typeof prompts] || prompts.en;

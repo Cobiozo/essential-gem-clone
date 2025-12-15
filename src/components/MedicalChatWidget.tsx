@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Send, X, Trash2, ExternalLink, Download, History, ChevronDown, Globe, FileText } from 'lucide-react';
+import { Search, Send, X, Trash2, ExternalLink, Download, History, ChevronDown, Globe, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useMedicalChatStream } from '@/hooks/useMedicalChatStream';
+import { useMedicalChatStream, MedicalChatMessage } from '@/hooks/useMedicalChatStream';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -19,14 +19,18 @@ import {
   PopoverContent, 
   PopoverTrigger 
 } from '@/components/ui/popover';
+import { toast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 
 type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
+
+const TRANSLATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/translate-content`;
 
 export const MedicalChatWidget: React.FC = () => {
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const [exportLanguage, setExportLanguage] = useState<ExportLanguage>('en');
   const { 
     messages, 
@@ -122,71 +126,139 @@ export const MedicalChatWidget: React.FC = () => {
         pl: 'PURE SCIENCE SEARCH AI',
         de: 'PURE SCIENCE SEARCH AI',
         en: 'PURE SCIENCE SEARCH AI',
+        it: 'PURE SCIENCE SEARCH AI',
       },
       placeholder: {
         pl: 'Zadaj pytanie naukowe...',
         de: 'Stellen Sie eine wissenschaftliche Frage...',
         en: 'Ask a scientific question...',
+        it: 'Fai una domanda scientifica...',
       },
       disclaimer: {
         pl: '⚠️ Ten asystent służy wyłącznie celom informacyjnym i nie zastępuje porady lekarskiej.',
         de: '⚠️ Dieser Assistent dient nur zu Informationszwecken und ersetzt keine ärztliche Beratung.',
         en: '⚠️ This assistant is for informational purposes only and does not replace medical advice.',
+        it: '⚠️ Questo assistente è solo a scopo informativo e non sostituisce il parere medico.',
       },
       thinking: {
         pl: 'Analizuję literaturę naukową...',
         de: 'Analysiere wissenschaftliche Literatur...',
         en: 'Analyzing scientific literature...',
+        it: 'Analizzando la letteratura scientifica...',
       },
       results: {
         pl: 'Wyniki',
         de: 'Ergebnisse',
         en: 'Results',
+        it: 'Risultati',
       },
       max: {
         pl: 'Maks.',
         de: 'Max.',
         en: 'Max.',
+        it: 'Max.',
       },
       download: {
         pl: 'Pobierz',
         de: 'Herunterladen',
         en: 'Download',
+        it: 'Scarica',
       },
       downloadPdf: {
         pl: 'Pobierz PDF',
         de: 'PDF herunterladen',
         en: 'Download PDF',
+        it: 'Scarica PDF',
       },
       downloadDoc: {
         pl: 'Pobierz DOC',
         de: 'DOC herunterladen',
         en: 'Download DOC',
+        it: 'Scarica DOC',
       },
       history: {
         pl: 'Historia',
         de: 'Verlauf',
         en: 'History',
+        it: 'Cronologia',
       },
       noHistory: {
         pl: 'Brak historii',
         de: 'Kein Verlauf',
         en: 'No history',
+        it: 'Nessuna cronologia',
+      },
+      exportSuccess: {
+        pl: 'Eksport zakończony',
+        de: 'Export abgeschlossen',
+        en: 'Export completed',
+        it: 'Esportazione completata',
+      },
+      exportError: {
+        pl: 'Błąd eksportu',
+        de: 'Exportfehler',
+        en: 'Export error',
+        it: 'Errore di esportazione',
+      },
+      translating: {
+        pl: 'Tłumaczenie...',
+        de: 'Übersetzen...',
+        en: 'Translating...',
+        it: 'Traduzione...',
       },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   };
 
-  const exportToPdf = (lang: ExportLanguage) => {
-    if (messages.length === 0) return;
+  // Translate messages content to target language
+  const translateMessages = async (msgs: MedicalChatMessage[], targetLang: ExportLanguage): Promise<MedicalChatMessage[]> => {
+    // If already in target language, return as-is
+    if (language === targetLang) {
+      return msgs;
+    }
 
-    const pdf = new jsPDF();
+    const translatedMessages: MedicalChatMessage[] = [];
+    
+    for (const msg of msgs) {
+      try {
+        const response = await fetch(TRANSLATE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            content: msg.content,
+            targetLanguage: targetLang,
+            sourceLanguage: language,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          translatedMessages.push({
+            role: msg.role,
+            content: data.translatedContent || msg.content,
+          });
+        } else {
+          translatedMessages.push(msg);
+        }
+      } catch {
+        translatedMessages.push(msg);
+      }
+    }
+
+    return translatedMessages;
+  };
+
+  const generatePdf = (msgs: MedicalChatMessage[], lang: ExportLanguage) => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginLeft = 25;
-    const marginRight = 25;
-    const marginTop = 30;
-    const marginBottom = 30;
+    const marginLeft = 20;
+    const marginRight = 20;
+    const marginTop = 25;
+    const marginBottom = 25;
     const maxWidth = pageWidth - marginLeft - marginRight;
     let yPos = marginTop;
 
@@ -198,86 +270,120 @@ export const MedicalChatWidget: React.FC = () => {
     };
 
     // Title
-    pdf.setFontSize(18);
+    pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 82, 147);
     pdf.text(exportTranslations.title[lang], marginLeft, yPos);
-    yPos += 8;
+    yPos += 7;
 
     // Date
-    pdf.setFontSize(10);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(100, 100, 100);
     pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, marginLeft, yPos);
-    yPos += 12;
+    yPos += 10;
 
     // Separator line
     pdf.setDrawColor(200, 200, 200);
     pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 10;
+    yPos += 8;
 
     // Messages
-    pdf.setTextColor(0, 0, 0);
-    messages.forEach((message) => {
+    msgs.forEach((message) => {
       const prefix = message.role === 'user' 
         ? `${exportTranslations.question[lang]}: ` 
         : `${exportTranslations.answer[lang]}: `;
       
-      // Clean content - remove markdown formatting
+      // Clean content - remove markdown formatting but keep structure
       let cleanContent = message.content
         .replace(/\*\*/g, '')
         .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1 ($2)')
         .replace(/#{1,6}\s/g, '')
-        .replace(/---/g, '');
+        .replace(/---/g, '—');
       
-      const text = prefix + cleanContent;
+      // Split by paragraphs for better formatting
+      const paragraphs = cleanContent.split(/\n\n+/);
       
-      pdf.setFontSize(11);
-      const lines = pdf.splitTextToSize(text, maxWidth);
+      pdf.setFontSize(10);
       
-      // Check if we need a new page (with proper bottom margin)
-      if (yPos + lines.length * 5 > pageHeight - marginBottom) {
-        pdf.addPage();
-        yPos = marginTop;
-      }
-      
+      // Add prefix for first paragraph
       if (message.role === 'user') {
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(0, 82, 147);
       } else {
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(50, 50, 50);
+        pdf.setTextColor(40, 40, 40);
       }
+
+      paragraphs.forEach((para, index) => {
+        const textToWrite = index === 0 ? prefix + para.trim() : para.trim();
+        if (!textToWrite) return;
+        
+        const lines = pdf.splitTextToSize(textToWrite, maxWidth);
+        const lineHeight = 4.5;
+        const blockHeight = lines.length * lineHeight;
+        
+        // Check if we need a new page
+        if (yPos + blockHeight > pageHeight - marginBottom) {
+          pdf.addPage();
+          yPos = marginTop;
+        }
+        
+        pdf.text(lines, marginLeft, yPos);
+        yPos += blockHeight + 3;
+      });
       
-      pdf.text(lines, marginLeft, yPos);
-      yPos += lines.length * 5 + 10;
+      yPos += 6; // Space between messages
     });
 
     // Disclaimer at bottom
-    pdf.setFontSize(9);
+    pdf.setFontSize(8);
     pdf.setFont('helvetica', 'italic');
     pdf.setTextColor(120, 120, 120);
     const disclaimer = exportTranslations.disclaimer[lang];
     const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
     
-    if (yPos + disclaimerLines.length * 4 > pageHeight - marginBottom) {
+    if (yPos + disclaimerLines.length * 4 + 10 > pageHeight - marginBottom) {
       pdf.addPage();
       yPos = marginTop;
     }
     
     // Add separator before disclaimer
+    yPos += 5;
     pdf.setDrawColor(200, 200, 200);
     pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 8;
+    yPos += 6;
     
     pdf.text(disclaimerLines, marginLeft, yPos);
 
     pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  const exportToDoc = (lang: ExportLanguage) => {
+  const exportToPdf = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
+    
+    setIsExporting(true);
+    try {
+      // Translate messages to target language
+      const translatedMessages = await translateMessages(messages, lang);
+      generatePdf(translatedMessages, lang);
+      
+      toast({
+        title: getTranslation('exportSuccess'),
+        description: `PDF (${lang.toUpperCase()})`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: getTranslation('exportError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
+  const generateDoc = (msgs: MedicalChatMessage[], lang: ExportLanguage) => {
     const locales: Record<ExportLanguage, string> = {
       pl: 'pl-PL',
       de: 'de-DE',
@@ -285,7 +391,7 @@ export const MedicalChatWidget: React.FC = () => {
       it: 'it-IT',
     };
 
-    // Build HTML content for .doc file
+    // Build HTML content for .doc file with proper A4 formatting
     let htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -293,14 +399,23 @@ export const MedicalChatWidget: React.FC = () => {
         <meta charset="utf-8">
         <title>${exportTranslations.title[lang]}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-          h1 { color: #005293; font-size: 24px; margin-bottom: 5px; }
-          .date { color: #666; font-size: 12px; margin-bottom: 20px; }
-          .separator { border-top: 1px solid #ccc; margin: 15px 0; }
-          .question { color: #005293; font-weight: bold; margin-top: 15px; }
-          .answer { color: #333; margin-top: 10px; }
-          .disclaimer { color: #888; font-style: italic; font-size: 11px; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ccc; }
-          a { color: #0066cc; }
+          @page { size: A4; margin: 2.5cm; }
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2.5cm; 
+            line-height: 1.6; 
+            font-size: 11pt;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+          h1 { color: #005293; font-size: 16pt; margin-bottom: 5px; }
+          .date { color: #666; font-size: 9pt; margin-bottom: 15px; }
+          .separator { border-top: 1px solid #ccc; margin: 12px 0; }
+          .question { color: #005293; font-weight: bold; margin-top: 12px; margin-bottom: 8px; }
+          .answer { color: #333; margin-top: 8px; margin-bottom: 12px; text-align: justify; }
+          .answer p { margin: 8px 0; }
+          .disclaimer { color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc; }
+          a { color: #0066cc; word-break: break-all; }
         </style>
       </head>
       <body>
@@ -309,18 +424,20 @@ export const MedicalChatWidget: React.FC = () => {
         <div class="separator"></div>
     `;
 
-    messages.forEach((message) => {
+    msgs.forEach((message) => {
       const prefix = message.role === 'user' 
         ? exportTranslations.question[lang]
         : exportTranslations.answer[lang];
       
-      // Convert markdown to HTML
+      // Convert markdown to HTML with proper paragraph handling
       let htmlMessage = message.content
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
         .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>')
         .replace(/---/g, '<hr>')
-        .replace(/\n/g, '<br>');
+        .split(/\n\n+/)
+        .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+        .join('');
       
       if (message.role === 'user') {
         htmlContent += `<div class="question">${prefix}: ${htmlMessage}</div>`;
@@ -345,6 +462,30 @@ export const MedicalChatWidget: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const exportToDoc = async (lang: ExportLanguage) => {
+    if (messages.length === 0) return;
+    
+    setIsExporting(true);
+    try {
+      // Translate messages to target language
+      const translatedMessages = await translateMessages(messages, lang);
+      generateDoc(translatedMessages, lang);
+      
+      toast({
+        title: getTranslation('exportSuccess'),
+        description: `DOC (${lang.toUpperCase()})`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: getTranslation('exportError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Convert markdown links to clickable HTML
@@ -489,10 +630,14 @@ export const MedicalChatWidget: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
-                    disabled={messages.length === 0}
-                    title={getTranslation('download')}
+                    disabled={messages.length === 0 || isExporting}
+                    title={isExporting ? getTranslation('translating') : getTranslation('download')}
                   >
-                    <Download className="w-4 h-4" />
+                    {isExporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[160px]">
