@@ -1261,6 +1261,66 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         </div>
       );
 
+    case 'copy-to-clipboard':
+      const copyCell = (item.cells as any[])?.[0];
+      const copyStyles = applyItemStyles(item);
+      const clipboardContent = copyCell?.clipboard_content || item.description || '';
+      const CopyIcon = item.icon ? (icons as any)[item.icon] : (icons as any).Clipboard;
+      
+      if (!clipboardContent && isEditMode) {
+        return (
+          <div className="border border-dashed border-muted-foreground/30 rounded p-3 text-center">
+            <p className="text-xs text-muted-foreground">Kopiuj do schowka</p>
+          </div>
+        );
+      }
+      
+      const handleCopyToClipboard = async () => {
+        try {
+          // Strip HTML tags for plain text copy
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = clipboardContent;
+          const plainText = tempDiv.textContent || tempDiv.innerText || '';
+          
+          await navigator.clipboard.writeText(plainText);
+          
+          // Optional: show toast notification
+          const event = new CustomEvent('toast', { 
+            detail: { message: 'Skopiowano do schowka!', type: 'success' } 
+          });
+          window.dispatchEvent(event);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      };
+      
+      // Określ wyrównanie przycisku
+      const getCopyJustify = () => {
+        switch (item.text_align) {
+          case 'center': return 'justify-center';
+          case 'right': return 'justify-end';
+          default: return 'justify-start';
+        }
+      };
+      
+      const { textAlign: _copyTextAlign, ...copyInlineStyles } = copyStyles.style;
+      
+      return (
+        <div className={cn('flex w-full', getCopyJustify())}>
+          <Button
+            onClick={handleCopyToClipboard}
+            className={copyStyles.className}
+            style={copyInlineStyles}
+            variant="outline"
+          >
+            {CopyIcon && (
+              <CopyIcon className="w-4 h-4 mr-2" />
+            )}
+            {item.title || 'Kopiuj do schowka'}
+          </Button>
+        </div>
+      );
+
     case 'maps':
       const mapsCell = (item.cells as any[])?.[0];
       if (!mapsCell?.content && isEditMode) {

@@ -29,6 +29,7 @@ import { PpomEditor } from './editors/PpomEditor';
 import { TextPathEditor } from './editors/TextPathEditor';
 import { FileDownloadEditor } from './editors/FileDownloadEditor';
 import { MultiCellEditor } from './editors/MultiCellEditor';
+import { CopyToClipboardEditor } from './editors/CopyToClipboardEditor';
 
 interface ItemEditorProps {
   item?: CMSItem;
@@ -146,6 +147,9 @@ export const ItemEditor: React.FC<ItemEditorProps> = ({
     
     case 'multi_cell':
       return <MultiCellEditor item={item} onSave={onSave} onCancel={handleCancel} />;
+    
+    case 'copy-to-clipboard':
+      return <CopyToClipboardEditor item={item} onSave={onSave} onCancel={handleCancel} />;
     
     default:
       // Fallback generic editor for other types

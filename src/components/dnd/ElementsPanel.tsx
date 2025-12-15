@@ -47,7 +47,8 @@ import {
   Spline,
   Clock,
   X,
-  FileDown
+  FileDown,
+  Clipboard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
@@ -137,6 +138,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
       { id: 'text', title: 'Edytor tekstu', icon: <AlignLeft className="w-5 h-5" />, type: 'text', description: 'Tekst z formatowaniem', tags: ['text', 'paragraph'] },
       { id: 'video', title: 'Film', icon: <Video className="w-5 h-5" />, type: 'video', description: 'Wideo YouTube lub lokalne', tags: ['media', 'embed'] },
       { id: 'button', title: 'Przycisk', icon: <MousePointer2 className="w-5 h-5" />, type: 'button', description: 'Przycisk z linkiem', tags: ['cta', 'link'] },
+      { id: 'copy-to-clipboard', title: 'Kopiuj do schowka', icon: <Clipboard className="w-5 h-5" />, type: 'copy-to-clipboard', description: 'Przycisk kopiujący treść do schowka', tags: ['copy', 'clipboard', 'button'] },
       { id: 'file-download', title: 'Pobierz plik', icon: <FileDown className="w-5 h-5" />, type: 'file-download', description: 'Przycisk pobierania pliku', tags: ['download', 'file', 'pdf'] },
       { id: 'info-text', title: 'Tekst informacyjny', icon: <Info className="w-5 h-5" />, type: 'info_text', description: 'Ikona z tekstem', tags: ['icon', 'text'] },
       { id: 'divider', title: 'Rozdzielacz', icon: <Minus className="w-5 h-5" />, type: 'divider', description: 'Linia pozioma', tags: ['separator', 'line'] },
