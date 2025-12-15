@@ -57,6 +57,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [eqId, setEqId] = useState('');
   const [role, setRole] = useState('');
   const [loading, setLoading] = useState(false);
@@ -139,6 +140,29 @@ const Auth = () => {
       return;
     }
 
+    // Check if phone number is provided and valid
+    const phoneRegex = /^[\d\s\-+()]{9,20}$/;
+    if (!phoneNumber.trim()) {
+      setError('Numer telefonu jest wymagany');
+      toast({
+        title: "Błąd rejestracji",
+        description: "Numer telefonu jest wymagany",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+    if (!phoneRegex.test(phoneNumber.trim())) {
+      setError('Nieprawidłowy format numeru telefonu');
+      toast({
+        title: "Błąd rejestracji",
+        description: "Nieprawidłowy format numeru telefonu (9-20 cyfr)",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       // Check if user already exists using RPC (bypasses RLS safely)
       const { data: emailExists, error: existsError } = await supabase.rpc('email_exists', {
@@ -178,7 +202,8 @@ const Auth = () => {
             eq_id: eqId.trim(),
             role: roleMapping[role] || 'client',
             first_name: firstName.trim(),
-            last_name: lastName.trim()
+            last_name: lastName.trim(),
+            phone_number: phoneNumber.trim()
           }
         }
       });
@@ -202,6 +227,7 @@ const Auth = () => {
         setConfirmPassword('');
         setFirstName('');
         setLastName('');
+        setPhoneNumber('');
         setEqId('');
         setRole('');
         setError('');
@@ -387,6 +413,19 @@ const Auth = () => {
                         disabled={loading}
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone-number">Numer telefonu *</Label>
+                    <Input
+                      id="phone-number"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+48 123 456 789"
+                      required
+                      disabled={loading}
+                    />
                   </div>
                   
                   <div className="space-y-2">
