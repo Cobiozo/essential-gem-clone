@@ -650,16 +650,62 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, language = 'pl', resultsCount = 10 } = await req.json();
+    const { messages, query, language = 'en', resultsCount = 10, isSummaryRequest = false } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Get the latest user message for PubMed search
-    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
-    const userQuery = lastUserMessage?.content || '';
+    // Handle summary requests - no PubMed search, just summarize the dialog
+    if (isSummaryRequest && query) {
+      console.log('Summary request received');
+      
+      const summaryPrompt = `You are a professional scientific summarizer. Summarize the following dialog concisely and comprehensively.
+
+RULES:
+1. Include all main questions asked by the user
+2. Summarize key scientific findings and research mentioned
+3. Preserve ALL PubMed references, DOIs, and PMIDs exactly as they appear
+4. Include important conclusions and recommendations
+5. Keep the summary structured and clear
+6. Write in English (the summary will be translated later if needed)
+
+DIALOG TO SUMMARIZE:
+${query}
+
+Provide a well-structured summary:`;
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'You are a professional scientific summarizer. Create comprehensive summaries that preserve all important details and references.' },
+            { role: 'user', content: summaryPrompt }
+          ],
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Summary generation error:', response.status, errorText);
+        throw new Error(`Summary generation failed: ${response.status}`);
+      }
+
+      return new Response(response.body, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
+    }
+
+    // Regular chat flow - get the latest user message for PubMed search
+    const lastUserMessage = messages?.filter((m: any) => m.role === 'user').pop();
+    const userQuery = lastUserMessage?.content || query || '';
     
     console.log('User query:', userQuery);
     console.log('Language:', language);
@@ -688,7 +734,7 @@ serve(async (req) => {
     const enhancedMessages = [
       { role: 'system', content: systemPrompt },
       { role: 'system', content: `KONTEKST NAUKOWY:\n${pubmedContext}${eqologyContext ? `\n\nPRODUKTY EQOLOGY DO ZASUGEROWANIA:\n${eqologyContext}` : ''}` },
-      ...messages
+      ...(messages || [])
     ];
 
     // Call Lovable AI Gateway

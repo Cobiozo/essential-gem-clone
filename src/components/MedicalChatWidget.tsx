@@ -87,12 +87,14 @@ export const MedicalChatWidget: React.FC = () => {
     }
   };
 
+  const SUMMARIZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/medical-assistant`;
+
   const exportTranslations: Record<string, Record<ExportLanguage, string>> = {
     title: {
-      pl: 'PURE SCIENCE SEARCH AI - Wyniki',
-      de: 'PURE SCIENCE SEARCH AI - Ergebnisse',
-      en: 'PURE SCIENCE SEARCH AI - Results',
-      it: 'PURE SCIENCE SEARCH AI - Risultati',
+      pl: 'PURE SCIENCE SEARCH AI - Podsumowanie',
+      de: 'PURE SCIENCE SEARCH AI - Zusammenfassung',
+      en: 'PURE SCIENCE SEARCH AI - Summary',
+      it: 'PURE SCIENCE SEARCH AI - Riepilogo',
     },
     question: {
       pl: 'Pytanie',
@@ -105,6 +107,12 @@ export const MedicalChatWidget: React.FC = () => {
       de: 'Antwort',
       en: 'Answer',
       it: 'Risposta',
+    },
+    summary: {
+      pl: 'Podsumowanie dialogu',
+      de: 'Dialogzusammenfassung',
+      en: 'Dialog Summary',
+      it: 'Riepilogo del dialogo',
     },
     disclaimer: {
       pl: 'Te informacje służą wyłącznie celom edukacyjnym i nie zastępują porady lekarskiej.',
@@ -200,6 +208,12 @@ export const MedicalChatWidget: React.FC = () => {
         en: 'Export error',
         it: 'Errore di esportazione',
       },
+      generatingSummary: {
+        pl: 'Generowanie podsumowania...',
+        de: 'Zusammenfassung wird erstellt...',
+        en: 'Generating summary...',
+        it: 'Generazione riepilogo...',
+      },
       translating: {
         pl: 'Tłumaczenie...',
         de: 'Übersetzen...',
@@ -207,88 +221,140 @@ export const MedicalChatWidget: React.FC = () => {
         it: 'Traduzione...',
       },
       translationRequired: {
-        pl: 'Tłumaczenie wymagane - wybrano inny język dokumentu niż język odpowiedzi. Tłumaczenie nie powiodło się.',
-        de: 'Übersetzung erforderlich - andere Dokumentsprache als Antwortsprache gewählt. Übersetzung fehlgeschlagen.',
-        en: 'Translation required - document language differs from response language. Translation failed.',
-        it: 'Traduzione richiesta - lingua del documento diversa dalla lingua della risposta. Traduzione fallita.',
+        pl: 'Tłumaczenie nie powiodło się. Dokument nie może zostać wygenerowany.',
+        de: 'Übersetzung fehlgeschlagen. Das Dokument kann nicht erstellt werden.',
+        en: 'Translation failed. Document cannot be generated.',
+        it: 'Traduzione fallita. Il documento non può essere generato.',
+      },
+      summaryError: {
+        pl: 'Nie udało się wygenerować podsumowania dialogu.',
+        de: 'Die Dialogzusammenfassung konnte nicht erstellt werden.',
+        en: 'Failed to generate dialog summary.',
+        it: 'Impossibile generare il riepilogo del dialogo.',
       },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   };
 
-  // Translate messages content to target language - MANDATORY when languages differ
-  const translateMessages = async (
-    msgs: MedicalChatMessage[], 
-    targetLang: ExportLanguage
-  ): Promise<{ messages: MedicalChatMessage[]; translated: boolean; error?: string }> => {
-    const sourceLang = language as ExportLanguage;
-    
-    // If document language matches page language, no translation needed
-    if (sourceLang === targetLang) {
-      return { messages: msgs, translated: false };
-    }
+  // Generate a summary of the entire dialog (language-agnostic internal format)
+  const generateDialogSummary = async (msgs: MedicalChatMessage[]): Promise<string | null> => {
+    if (msgs.length === 0) return null;
 
-    // Translation is REQUIRED when languages differ
-    const translatedMessages: MedicalChatMessage[] = [];
-    let translationFailed = false;
-    let failedCount = 0;
-    
-    for (const msg of msgs) {
-      try {
-        const response = await fetch(TRANSLATE_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            content: msg.content,
-            targetLanguage: targetLang,
-            sourceLanguage: sourceLang,
-          }),
-        });
+    // Build dialog context for summarization
+    const dialogText = msgs.map(m => 
+      `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.content}`
+    ).join('\n\n');
 
-        if (!response.ok) {
-          translationFailed = true;
-          failedCount++;
-          // Don't fall back to original - we need translation
-          throw new Error(`Translation failed with status ${response.status}`);
-        }
+    const summaryPrompt = `Summarize the following scientific/medical dialog. 
+Include:
+- Main questions asked by the user
+- Key scientific findings and research cited
+- Important conclusions and recommendations
+- Any PubMed references mentioned (preserve DOIs and PMIDs)
 
-        const data = await response.json();
-        
-        if (!data.translatedContent) {
-          translationFailed = true;
-          failedCount++;
-          throw new Error('No translated content received');
-        }
+Keep the summary comprehensive but concise. Preserve all scientific accuracy and citations.
 
-        translatedMessages.push({
-          role: msg.role,
-          content: data.translatedContent,
-        });
-      } catch (err) {
-        console.error('Translation error for message:', err);
-        translationFailed = true;
-        failedCount++;
-        // Return error - do not generate document without proper translation
-        return { 
-          messages: [], 
-          translated: false, 
-          error: `translationRequired` 
-        };
+DIALOG:
+${dialogText}
+
+Provide a structured summary:`;
+
+    try {
+      const response = await fetch(SUMMARIZE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          query: summaryPrompt,
+          language: 'en', // Generate summary in English first (language-agnostic)
+          resultsCount: 0, // No PubMed search needed for summary
+          isSummaryRequest: true, // Flag for edge function to handle differently
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Summary generation failed:', response.status);
+        return null;
       }
+
+      // Read streaming response
+      const reader = response.body?.getReader();
+      if (!reader) return null;
+
+      let summary = '';
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) summary += content;
+            } catch (e) {
+              // Skip parse errors
+            }
+          }
+        }
+      }
+
+      return summary || null;
+    } catch (err) {
+      console.error('Summary generation error:', err);
+      return null;
+    }
+  };
+
+  // Translate content to target language - MANDATORY when languages differ
+  const translateContent = async (
+    content: string, 
+    targetLang: ExportLanguage,
+    sourceLang: string = 'en'
+  ): Promise<{ content: string; translated: boolean; error?: string }> => {
+    // If languages match, no translation needed
+    if (sourceLang === targetLang) {
+      return { content, translated: false };
     }
 
-    if (translationFailed || translatedMessages.length !== msgs.length) {
-      return { 
-        messages: [], 
-        translated: false, 
-        error: 'translationRequired' 
-      };
-    }
+    try {
+      const response = await fetch(TRANSLATE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          content,
+          targetLanguage: targetLang,
+          sourceLanguage: sourceLang,
+        }),
+      });
 
-    return { messages: translatedMessages, translated: true };
+      if (!response.ok) {
+        return { content: '', translated: false, error: 'translationRequired' };
+      }
+
+      const data = await response.json();
+      
+      if (!data.translatedContent) {
+        return { content: '', translated: false, error: 'translationRequired' };
+      }
+
+      return { content: data.translatedContent, translated: true };
+    } catch (err) {
+      console.error('Translation error:', err);
+      return { content: '', translated: false, error: 'translationRequired' };
+    }
   };
 
   const generatePdf = (msgs: MedicalChatMessage[], lang: ExportLanguage) => {
@@ -399,13 +465,125 @@ export const MedicalChatWidget: React.FC = () => {
     pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
+  const generatePdfFromSummary = (summary: string, lang: ExportLanguage) => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const marginLeft = 20;
+    const marginRight = 20;
+    const marginTop = 25;
+    const marginBottom = 25;
+    const maxWidth = pageWidth - marginLeft - marginRight;
+    let yPos = marginTop;
+
+    const locales: Record<ExportLanguage, string> = {
+      pl: 'pl-PL',
+      de: 'de-DE',
+      en: 'en-US',
+      it: 'it-IT',
+    };
+
+    // Title
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 82, 147);
+    pdf.text(exportTranslations.title[lang], marginLeft, yPos);
+    yPos += 7;
+
+    // Date
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`, marginLeft, yPos);
+    yPos += 10;
+
+    // Separator line
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
+    yPos += 8;
+
+    // Summary header
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 82, 147);
+    pdf.text(exportTranslations.summary[lang], marginLeft, yPos);
+    yPos += 8;
+
+    // Summary content
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(40, 40, 40);
+
+    // Clean content - remove markdown formatting but keep structure
+    let cleanContent = summary
+      .replace(/\*\*/g, '')
+      .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1 ($2)')
+      .replace(/#{1,6}\s/g, '')
+      .replace(/---/g, '—');
+
+    // Split by paragraphs for better formatting
+    const paragraphs = cleanContent.split(/\n\n+/);
+
+    paragraphs.forEach((para) => {
+      const textToWrite = para.trim();
+      if (!textToWrite) return;
+      
+      const lines = pdf.splitTextToSize(textToWrite, maxWidth);
+      const lineHeight = 4.5;
+      const blockHeight = lines.length * lineHeight;
+      
+      // Check if we need a new page
+      if (yPos + blockHeight > pageHeight - marginBottom) {
+        pdf.addPage();
+        yPos = marginTop;
+      }
+      
+      pdf.text(lines, marginLeft, yPos);
+      yPos += blockHeight + 3;
+    });
+
+    // Disclaimer at bottom
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(120, 120, 120);
+    const disclaimer = exportTranslations.disclaimer[lang];
+    const disclaimerLines = pdf.splitTextToSize(disclaimer, maxWidth);
+    
+    if (yPos + disclaimerLines.length * 4 + 10 > pageHeight - marginBottom) {
+      pdf.addPage();
+      yPos = marginTop;
+    }
+    
+    // Add separator before disclaimer
+    yPos += 5;
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
+    yPos += 6;
+    
+    pdf.text(disclaimerLines, marginLeft, yPos);
+
+    pdf.save(`pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const exportToPdf = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
     
     setIsExporting(true);
     try {
-      // Translate messages to target language - MANDATORY when languages differ
-      const result = await translateMessages(messages, lang);
+      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
+      const summary = await generateDialogSummary(messages);
+      
+      if (!summary) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('summaryError'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 2: Translate summary to user's chosen document language (MANDATORY)
+      const result = await translateContent(summary, lang, 'en');
       
       // If translation was required but failed, show error and don't generate document
       if (result.error) {
@@ -416,8 +594,9 @@ export const MedicalChatWidget: React.FC = () => {
         });
         return;
       }
-      
-      generatePdf(result.messages, lang);
+
+      // Step 3: Generate PDF from translated summary ONLY
+      generatePdfFromSummary(result.translated ? result.content : summary, lang);
       
       toast({
         title: getTranslation('exportSuccess'),
@@ -515,13 +694,93 @@ export const MedicalChatWidget: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const generateDocFromSummary = (summary: string, lang: ExportLanguage) => {
+    const locales: Record<ExportLanguage, string> = {
+      pl: 'pl-PL',
+      de: 'de-DE',
+      en: 'en-US',
+      it: 'it-IT',
+    };
+
+    // Convert markdown to HTML with proper paragraph handling
+    let htmlSummary = summary
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
+      .replace(/#{1,6}\s(.+)/g, '<strong>$1</strong>')
+      .replace(/---/g, '<hr>')
+      .split(/\n\n+/)
+      .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+      .join('');
+
+    // Build HTML content for .doc file with proper A4 formatting
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${exportTranslations.title[lang]}</title>
+        <style>
+          @page { size: A4; margin: 2.5cm; }
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 2.5cm; 
+            line-height: 1.6; 
+            font-size: 11pt;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+          h1 { color: #005293; font-size: 16pt; margin-bottom: 5px; }
+          h2 { color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; }
+          .date { color: #666; font-size: 9pt; margin-bottom: 15px; }
+          .separator { border-top: 1px solid #ccc; margin: 12px 0; }
+          .summary { color: #333; margin-top: 8px; margin-bottom: 12px; text-align: justify; }
+          .summary p { margin: 8px 0; }
+          .disclaimer { color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc; }
+          a { color: #0066cc; word-break: break-all; }
+        </style>
+      </head>
+      <body>
+        <h1>${exportTranslations.title[lang]}</h1>
+        <div class="date">${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}</div>
+        <div class="separator"></div>
+        <h2>${exportTranslations.summary[lang]}</h2>
+        <div class="summary">${htmlSummary}</div>
+        <div class="disclaimer">${exportTranslations.disclaimer[lang]}</div>
+      </body>
+      </html>
+    `;
+
+    // Create and download .doc file
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const exportToDoc = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
     
     setIsExporting(true);
     try {
-      // Translate messages to target language - MANDATORY when languages differ
-      const result = await translateMessages(messages, lang);
+      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
+      const summary = await generateDialogSummary(messages);
+      
+      if (!summary) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('summaryError'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 2: Translate summary to user's chosen document language (MANDATORY)
+      const result = await translateContent(summary, lang, 'en');
       
       // If translation was required but failed, show error and don't generate document
       if (result.error) {
@@ -532,8 +791,9 @@ export const MedicalChatWidget: React.FC = () => {
         });
         return;
       }
-      
-      generateDoc(result.messages, lang);
+
+      // Step 3: Generate DOC from translated summary ONLY
+      generateDocFromSummary(result.translated ? result.content : summary, lang);
       
       toast({
         title: getTranslation('exportSuccess'),
