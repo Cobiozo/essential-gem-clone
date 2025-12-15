@@ -206,18 +206,32 @@ export const MedicalChatWidget: React.FC = () => {
         en: 'Translating...',
         it: 'Traduzione...',
       },
+      translationRequired: {
+        pl: 'Tłumaczenie wymagane - wybrano inny język dokumentu niż język odpowiedzi. Tłumaczenie nie powiodło się.',
+        de: 'Übersetzung erforderlich - andere Dokumentsprache als Antwortsprache gewählt. Übersetzung fehlgeschlagen.',
+        en: 'Translation required - document language differs from response language. Translation failed.',
+        it: 'Traduzione richiesta - lingua del documento diversa dalla lingua della risposta. Traduzione fallita.',
+      },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   };
 
-  // Translate messages content to target language
-  const translateMessages = async (msgs: MedicalChatMessage[], targetLang: ExportLanguage): Promise<MedicalChatMessage[]> => {
-    // If already in target language, return as-is
-    if (language === targetLang) {
-      return msgs;
+  // Translate messages content to target language - MANDATORY when languages differ
+  const translateMessages = async (
+    msgs: MedicalChatMessage[], 
+    targetLang: ExportLanguage
+  ): Promise<{ messages: MedicalChatMessage[]; translated: boolean; error?: string }> => {
+    const sourceLang = language as ExportLanguage;
+    
+    // If document language matches page language, no translation needed
+    if (sourceLang === targetLang) {
+      return { messages: msgs, translated: false };
     }
 
+    // Translation is REQUIRED when languages differ
     const translatedMessages: MedicalChatMessage[] = [];
+    let translationFailed = false;
+    let failedCount = 0;
     
     for (const msg of msgs) {
       try {
@@ -230,25 +244,51 @@ export const MedicalChatWidget: React.FC = () => {
           body: JSON.stringify({
             content: msg.content,
             targetLanguage: targetLang,
-            sourceLanguage: language,
+            sourceLanguage: sourceLang,
           }),
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          translatedMessages.push({
-            role: msg.role,
-            content: data.translatedContent || msg.content,
-          });
-        } else {
-          translatedMessages.push(msg);
+        if (!response.ok) {
+          translationFailed = true;
+          failedCount++;
+          // Don't fall back to original - we need translation
+          throw new Error(`Translation failed with status ${response.status}`);
         }
-      } catch {
-        translatedMessages.push(msg);
+
+        const data = await response.json();
+        
+        if (!data.translatedContent) {
+          translationFailed = true;
+          failedCount++;
+          throw new Error('No translated content received');
+        }
+
+        translatedMessages.push({
+          role: msg.role,
+          content: data.translatedContent,
+        });
+      } catch (err) {
+        console.error('Translation error for message:', err);
+        translationFailed = true;
+        failedCount++;
+        // Return error - do not generate document without proper translation
+        return { 
+          messages: [], 
+          translated: false, 
+          error: `translationRequired` 
+        };
       }
     }
 
-    return translatedMessages;
+    if (translationFailed || translatedMessages.length !== msgs.length) {
+      return { 
+        messages: [], 
+        translated: false, 
+        error: 'translationRequired' 
+      };
+    }
+
+    return { messages: translatedMessages, translated: true };
   };
 
   const generatePdf = (msgs: MedicalChatMessage[], lang: ExportLanguage) => {
@@ -364,9 +404,20 @@ export const MedicalChatWidget: React.FC = () => {
     
     setIsExporting(true);
     try {
-      // Translate messages to target language
-      const translatedMessages = await translateMessages(messages, lang);
-      generatePdf(translatedMessages, lang);
+      // Translate messages to target language - MANDATORY when languages differ
+      const result = await translateMessages(messages, lang);
+      
+      // If translation was required but failed, show error and don't generate document
+      if (result.error) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('translationRequired'),
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      generatePdf(result.messages, lang);
       
       toast({
         title: getTranslation('exportSuccess'),
@@ -469,9 +520,20 @@ export const MedicalChatWidget: React.FC = () => {
     
     setIsExporting(true);
     try {
-      // Translate messages to target language
-      const translatedMessages = await translateMessages(messages, lang);
-      generateDoc(translatedMessages, lang);
+      // Translate messages to target language - MANDATORY when languages differ
+      const result = await translateMessages(messages, lang);
+      
+      // If translation was required but failed, show error and don't generate document
+      if (result.error) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('translationRequired'),
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      generateDoc(result.messages, lang);
       
       toast({
         title: getTranslation('exportSuccess'),
