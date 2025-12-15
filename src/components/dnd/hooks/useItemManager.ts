@@ -261,31 +261,46 @@ export const useItemManager = ({
     const currentIndex = sectionItems.findIndex(i => i.id === itemId);
     if (currentIndex <= 0) return;
     
-    const newItems = [...sectionItems];
-    [newItems[currentIndex], newItems[currentIndex - 1]] = [newItems[currentIndex - 1], newItems[currentIndex]];
+    const currentItem = sectionItems[currentIndex];
+    const targetItem = sectionItems[currentIndex - 1];
     
+    // Get actual position values to swap
+    const currentPosition = currentItem.position ?? currentIndex;
+    const targetPosition = targetItem.position ?? (currentIndex - 1);
+    
+    // Optimistic update FIRST for instant UI feedback
     setItems(prev => prev.map(i => {
-      const itemInNew = newItems.find(ni => ni.id === i.id);
-      if (!itemInNew) return i;
-      const newIdx = newItems.indexOf(itemInNew);
-      return { ...i, position: newIdx };
+      if (i.id === itemId) return { ...i, position: targetPosition };
+      if (i.id === targetItem.id) return { ...i, position: currentPosition };
+      return i;
     }));
     
     try {
-      await Promise.all(newItems.map((item, idx) =>
-        supabase
-          .from('cms_items')
-          .update({ position: idx, updated_at: new Date().toISOString() })
-          .eq('id', item.id as string)
-      ));
+      // Then persist to database - swap actual positions
+      const [result1, result2] = await Promise.all([
+        supabase.from('cms_items')
+          .update({ position: targetPosition, updated_at: new Date().toISOString() })
+          .eq('id', itemId),
+        supabase.from('cms_items')
+          .update({ position: currentPosition, updated_at: new Date().toISOString() })
+          .eq('id', targetItem.id as string)
+      ]);
+      
+      if (result1.error) throw result1.error;
+      if (result2.error) throw result2.error;
       
       setHasUnsavedChanges(true);
     } catch (error) {
       console.error('Error moving item up:', error);
+      // Revert optimistic update on error
+      setItems(prev => prev.map(i => {
+        if (i.id === itemId) return { ...i, position: currentPosition };
+        if (i.id === targetItem.id) return { ...i, position: targetPosition };
+        return i;
+      }));
       toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
-      await fetchData();
     }
-  }, [items, setItems, setHasUnsavedChanges, fetchData, toast]);
+  }, [items, setItems, setHasUnsavedChanges, toast]);
 
   const handleMoveItemDown = useCallback(async (itemId: string) => {
     const item = items.find(i => i.id === itemId);
@@ -298,31 +313,46 @@ export const useItemManager = ({
     const currentIndex = sectionItems.findIndex(i => i.id === itemId);
     if (currentIndex >= sectionItems.length - 1) return;
     
-    const newItems = [...sectionItems];
-    [newItems[currentIndex], newItems[currentIndex + 1]] = [newItems[currentIndex + 1], newItems[currentIndex]];
+    const currentItem = sectionItems[currentIndex];
+    const targetItem = sectionItems[currentIndex + 1];
     
+    // Get actual position values to swap
+    const currentPosition = currentItem.position ?? currentIndex;
+    const targetPosition = targetItem.position ?? (currentIndex + 1);
+    
+    // Optimistic update FIRST for instant UI feedback
     setItems(prev => prev.map(i => {
-      const itemInNew = newItems.find(ni => ni.id === i.id);
-      if (!itemInNew) return i;
-      const newIdx = newItems.indexOf(itemInNew);
-      return { ...i, position: newIdx };
+      if (i.id === itemId) return { ...i, position: targetPosition };
+      if (i.id === targetItem.id) return { ...i, position: currentPosition };
+      return i;
     }));
     
     try {
-      await Promise.all(newItems.map((item, idx) =>
-        supabase
-          .from('cms_items')
-          .update({ position: idx, updated_at: new Date().toISOString() })
-          .eq('id', item.id as string)
-      ));
+      // Then persist to database - swap actual positions
+      const [result1, result2] = await Promise.all([
+        supabase.from('cms_items')
+          .update({ position: targetPosition, updated_at: new Date().toISOString() })
+          .eq('id', itemId),
+        supabase.from('cms_items')
+          .update({ position: currentPosition, updated_at: new Date().toISOString() })
+          .eq('id', targetItem.id as string)
+      ]);
+      
+      if (result1.error) throw result1.error;
+      if (result2.error) throw result2.error;
       
       setHasUnsavedChanges(true);
     } catch (error) {
       console.error('Error moving item down:', error);
+      // Revert optimistic update on error
+      setItems(prev => prev.map(i => {
+        if (i.id === itemId) return { ...i, position: currentPosition };
+        if (i.id === targetItem.id) return { ...i, position: targetPosition };
+        return i;
+      }));
       toast({ title: 'Błąd', description: 'Nie udało się przenieść elementu', variant: 'destructive' });
-      await fetchData();
     }
-  }, [items, setItems, setHasUnsavedChanges, fetchData, toast]);
+  }, [items, setItems, setHasUnsavedChanges, toast]);
 
   const closeItemEditor = useCallback(() => {
     setIsItemEditorOpen(false);
