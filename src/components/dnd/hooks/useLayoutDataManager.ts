@@ -58,7 +58,10 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
         
         const columns: Column[] = Array.from({ length: Math.max(1, rowColumnCount) }, (_, i) => ({
           id: `${section.id}-col-${i}`,
-          items: rowItems.filter((it: any) => (it.column_index ?? 0) === i),
+          // ✅ Sort items by position within each column
+          items: rowItems
+            .filter((it: any) => (it.column_index ?? 0) === i)
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
           width: 100 / Math.max(1, rowColumnCount),
         }));
         
@@ -84,6 +87,11 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
           columns[idx].items.push(it);
         });
         
+        // ✅ Sort items by position within each column
+        columns.forEach(col => {
+          col.items.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        });
+        
         columnData[section.id] = columns;
       }
     });
@@ -91,10 +99,16 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
     setSectionColumns(columnData);
   }, []);
 
+  // ✅ Auto-reinitialize columns when items change (e.g., after reordering)
+  useEffect(() => {
+    if (sections.length > 0 && items.length >= 0) {
+      initializeColumns(sections, items);
+    }
+  }, [items, sections, initializeColumns]);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('cms_sections')
         .select('*')

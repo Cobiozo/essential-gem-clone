@@ -466,16 +466,22 @@ export const RowContainer: React.FC<RowContainerProps> = ({
   const rawChildSections = sections.filter(s => s.parent_id === row.id);
   const columnCount = row.row_column_count || 1;
 
-  // ✅ Pobierz elementy przypisane BEZPOŚREDNIO do wiersza
-  const rowItems = items.filter(it => it.section_id === row.id);
+  // ✅ Pobierz elementy przypisane BEZPOŚREDNIO do wiersza i posortuj po position
+  const rowItems = items
+    .filter(it => it.section_id === row.id)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   
-  // Grupuj elementy według column_index
+  // Grupuj elementy według column_index i sortuj każdą kolumnę
   const itemsByColumn: CMSItem[][] = Array.from({ length: columnCount }, () => []);
   rowItems.forEach(item => {
     const colIdx = (item as any).column_index || 0;
     if (colIdx < columnCount) {
       itemsByColumn[colIdx].push(item);
     }
+  });
+  // ✅ Sortuj elementy w każdej kolumnie po position
+  itemsByColumn.forEach(colItems => {
+    colItems.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   });
 
   // Debug: log sections count
