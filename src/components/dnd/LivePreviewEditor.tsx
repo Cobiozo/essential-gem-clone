@@ -1101,7 +1101,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       }
 
       // Regular section reordering (top-level sections only)
-      const topLevelSections = sections.filter(s => !s.parent_id);
+      const topLevelSections = sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position);
       const oldIndex = topLevelSections.findIndex(s => s.id === activeId);
       
       // For row containers, extract real ID from "row-{id}" format
@@ -2081,7 +2081,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           )}
           
           <SortableContext
-            items={sections.filter(s => !s.parent_id).map(s => s.id)} 
+            items={sections.filter(s => !s.parent_id).sort((a, b) => a.position - b.position).map(s => s.id)} 
             strategy={verticalListSortingStrategy}
           >
             {/* Row Containers Demo - visible only in edit mode */}
@@ -2103,6 +2103,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                 
                 return sections
                   .filter(s => !s.parent_id)
+                  .sort((a, b) => a.position - b.position)
                   .filter(s => {
                     // In edit mode with 'real' preview, always show all sections for admin
                     if (editMode && previewRole === 'real') return true;
