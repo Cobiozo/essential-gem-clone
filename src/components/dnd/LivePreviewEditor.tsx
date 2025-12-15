@@ -117,6 +117,22 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
   const [previewRole, setPreviewRole] = useState<PreviewRole>('real');
 
+  // ✅ Force immediate preview refresh after reorder actions (arrows / DnD)
+  const refreshPreview = useCallback(() => {
+    setDragVersion((v) => v + 1);
+  }, []);
+
+  const handleMoveItemUpWithRefresh = useCallback(async (itemId: string) => {
+    await handleMoveItemUp(itemId);
+    refreshPreview();
+  }, [handleMoveItemUp, refreshPreview]);
+
+  const handleMoveItemDownWithRefresh = useCallback(async (itemId: string) => {
+    await handleMoveItemDown(itemId);
+    refreshPreview();
+  }, [handleMoveItemDown, refreshPreview]);
+
+
   // Calculate simulated visibility params for role preview
   const visibilityParams = getSimulatedVisibilityParams(previewRole, user ?? null, userRole?.role ?? null);
 
@@ -160,12 +176,12 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     },
     onMoveUp: () => {
       if (selectedElement && items.find(i => i.id === selectedElement)) {
-        handleMoveItemUp(selectedElement);
+        handleMoveItemUpWithRefresh(selectedElement);
       }
     },
     onMoveDown: () => {
       if (selectedElement && items.find(i => i.id === selectedElement)) {
-        handleMoveItemDown(selectedElement);
+        handleMoveItemDownWithRefresh(selectedElement);
       }
     },
     onToggleEditMode: () => {
@@ -395,6 +411,17 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       toast({ title: 'Błąd', description: 'Nie udało się przenieść wiersza', variant: 'destructive' });
     }
   }, [sections, setSections, setHasUnsavedChanges, toast]);
+
+
+  const handleMoveRowUpWithRefresh = useCallback(async (rowId: string) => {
+    await handleMoveRowUp(rowId);
+    refreshPreview();
+  }, [handleMoveRowUp, refreshPreview]);
+
+  const handleMoveRowDownWithRefresh = useCallback(async (rowId: string) => {
+    await handleMoveRowDown(rowId);
+    refreshPreview();
+  }, [handleMoveRowDown, refreshPreview]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const draggedId = event.active.id as string;
@@ -1061,9 +1088,10 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             if (s.id === overId) return { ...s, position: draggedPosition };
             return s;
           }));
-          
+          refreshPreview();
+
           // ✅ REMOVED: await fetchData(); - Live updates
-          
+
           toast({ title: 'Sekcje zamienione', description: 'Pozycje sekcji zostały zamienione' });
         } catch (error) {
           console.error('Error swapping sections:', error);
@@ -1103,6 +1131,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
             setSections(prev => prev.map(s => 
               s.id === activeId ? { ...s, parent_id: null, position: newIndex } : s
             ));
+            refreshPreview();
             
             toast({
               title: 'Sekcja przeniesiona',
@@ -1129,6 +1158,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
           const newSections = [...updatedTopLevel, ...allOtherSections];
           saveToHistory(newSections, items);
           setSections(newSections);
+          refreshPreview();
           setHasUnsavedChanges(true);
           // Auto-save the reordered sections (edge function updates DB)
           autoSave(newSections, items);
@@ -2185,8 +2215,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                         onEditRow={handleEditSection}
                         onDuplicateRow={handleDuplicateSection}
                         onHideRow={handleDeactivateSection}
-                        onMoveRowUp={handleMoveRowUp}
-                        onMoveRowDown={handleMoveRowDown}
+                        onMoveRowUp={handleMoveRowUpWithRefresh}
+                        onMoveRowDown={handleMoveRowDownWithRefresh}
                         canMoveRowUp={canMoveUp}
                         canMoveRowDown={canMoveDown}
                       />
@@ -2234,8 +2264,8 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
                       onEditItem={handleEditItem}
                       onDeleteItem={handleDeleteItem}
                       onDuplicateItem={handleDuplicateItem}
-                      onMoveItemUp={handleMoveItemUp}
-                      onMoveItemDown={handleMoveItemDown}
+                      onMoveItemUp={handleMoveItemUpWithRefresh}
+                      onMoveItemDown={handleMoveItemDownWithRefresh}
                       onEditSection={handleEditSection}
                       onDuplicateSection={handleDuplicateSection}
                       onDeactivateSection={handleDeactivateSection}
