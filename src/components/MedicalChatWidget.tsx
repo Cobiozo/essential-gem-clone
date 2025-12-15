@@ -184,6 +184,12 @@ export const MedicalChatWidget: React.FC = () => {
         en: 'Download DOC',
         it: 'Scarica DOC',
       },
+      downloadHtml: {
+        pl: 'Dokument webowy (HTML)',
+        de: 'Webdokument (HTML)',
+        en: 'Web Document (HTML)',
+        it: 'Documento web (HTML)',
+      },
       history: {
         pl: 'Historia',
         de: 'Verlauf',
@@ -459,6 +465,149 @@ Provide a structured summary:`;
     URL.revokeObjectURL(url);
   };
 
+  // Generate responsive HTML document (A4 on desktop, responsive on mobile)
+  const generateResponsiveHtml = (docContent: DocumentContent): string => {
+    return `<!DOCTYPE html>
+<html lang="${docContent.lang}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${docContent.title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    
+    .document {
+      background: white;
+      margin: 0 auto;
+      padding: 40px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-radius: 4px;
+    }
+    
+    /* A4 format on desktop */
+    @media (min-width: 900px) {
+      .document {
+        width: 210mm;
+        min-height: 297mm;
+        padding: 25mm;
+      }
+    }
+    
+    /* Responsive on mobile */
+    @media (max-width: 899px) {
+      body { padding: 10px; }
+      .document {
+        padding: 20px;
+        width: 100%;
+        max-width: 100%;
+      }
+    }
+    
+    @media print {
+      body { background: white; padding: 0; }
+      .document {
+        box-shadow: none;
+        width: 100%;
+        padding: 0;
+      }
+    }
+    
+    h1 {
+      color: #005293;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      word-wrap: break-word;
+    }
+    
+    .date {
+      color: #666;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    
+    .separator {
+      border-top: 1px solid #e5e5e5;
+      margin: 1rem 0;
+    }
+    
+    h2 {
+      color: #005293;
+      font-size: 1.25rem;
+      margin: 1.5rem 0 1rem;
+    }
+    
+    .content {
+      text-align: justify;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .content p {
+      margin: 0.75rem 0;
+    }
+    
+    .content a {
+      color: #0066cc;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+    
+    .content a:hover {
+      color: #004499;
+    }
+    
+    .content strong {
+      font-weight: 600;
+    }
+    
+    .disclaimer {
+      color: #888;
+      font-style: italic;
+      font-size: 0.875rem;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e5e5;
+    }
+  </style>
+</head>
+<body>
+  <article class="document">
+    <header>
+      <h1>${docContent.title}</h1>
+      <div class="date">${docContent.date}</div>
+    </header>
+    <div class="separator"></div>
+    <main>
+      <h2>${docContent.summaryHeader}</h2>
+      <div class="content">${docContent.summaryHtml}</div>
+    </main>
+    <footer class="disclaimer">${docContent.disclaimer}</footer>
+  </article>
+</body>
+</html>`;
+  };
+
+  // Save HTML file
+  const saveHtmlFile = (htmlContent: string, lang: ExportLanguage) => {
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pure-science-search-${lang}-${new Date().toISOString().slice(0, 10)}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Generate PDF from document content (converted from DOC content)
   const generatePdfFromDocContent = (docContent: DocumentContent) => {
     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -595,6 +744,60 @@ Provide a structured summary:`;
       toast({
         title: getTranslation('exportSuccess'),
         description: `PDF (${lang.toUpperCase()})`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: getTranslation('exportError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // PIPELINE: Summary → Translate → HTML (main export format)
+  const exportToHtml = async (lang: ExportLanguage) => {
+    if (messages.length === 0) return;
+    
+    setIsExporting(true);
+    try {
+      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
+      const summary = await generateDialogSummary(messages);
+      
+      if (!summary) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('summaryError'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 2: Translate summary to user's chosen document language (MANDATORY)
+      const result = await translateContent(summary, lang, 'en');
+      
+      if (result.error) {
+        toast({
+          title: getTranslation('exportError'),
+          description: getTranslation('translationRequired'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const translatedSummary = result.translated ? result.content : summary;
+
+      // Step 3: Generate DOC content structure (single source of truth)
+      const docContent = generateDocumentContent(translatedSummary, lang);
+      
+      // Step 4: Generate responsive HTML from same content
+      const htmlContent = generateResponsiveHtml(docContent);
+      saveHtmlFile(htmlContent, lang);
+      
+      toast({
+        title: getTranslation('exportSuccess'),
+        description: `HTML (${lang.toUpperCase()})`,
       });
     } catch (error) {
       console.error('Export error:', error);
@@ -813,7 +1016,21 @@ Provide a structured summary:`;
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  <DropdownMenuLabel className="text-xs flex items-center gap-1">
+                    <Globe className="w-3 h-3" /> HTML (główny)
+                  </DropdownMenuLabel>
+                  {exportLanguageOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={`html-${option.value}`}
+                      onClick={() => exportToHtml(option.value)}
+                      className="flex items-center gap-2 pl-4"
+                    >
+                      <span>{option.flag}</span>
+                      <span>{option.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
                   <DropdownMenuLabel className="text-xs flex items-center gap-1">
                     <FileText className="w-3 h-3" /> PDF
                   </DropdownMenuLabel>
