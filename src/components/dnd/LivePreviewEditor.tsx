@@ -308,9 +308,16 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     const currentPosition = currentSection.position;
     const targetPosition = targetSection.position;
     
+    // Optimistic update FIRST for instant UI feedback
+    setSections(prev => prev.map(s => {
+      if (s.id === rowId) return { ...s, position: targetPosition };
+      if (s.id === targetSection.id) return { ...s, position: currentPosition };
+      return s;
+    }));
+    
     try {
-      // Swap positions in database using actual position values
-      await Promise.all([
+      // Then persist to database
+      const [result1, result2] = await Promise.all([
         supabase.from('cms_sections').update({ 
           position: targetPosition, 
           updated_at: new Date().toISOString() 
@@ -321,17 +328,18 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         }).eq('id', targetSection.id)
       ]);
       
-      // Update local state with swapped positions
-      setSections(prev => prev.map(s => {
-        if (s.id === rowId) return { ...s, position: targetPosition };
-        if (s.id === targetSection.id) return { ...s, position: currentPosition };
-        return s;
-      }));
+      if (result1.error) throw result1.error;
+      if (result2.error) throw result2.error;
       
       setHasUnsavedChanges(true);
-      toast({ title: 'Sukces', description: 'Wiersz przesunięty w górę' });
     } catch (error) {
       console.error('Error moving row up:', error);
+      // Revert optimistic update on error
+      setSections(prev => prev.map(s => {
+        if (s.id === rowId) return { ...s, position: currentPosition };
+        if (s.id === targetSection.id) return { ...s, position: targetPosition };
+        return s;
+      }));
       toast({ title: 'Błąd', description: 'Nie udało się przenieść wiersza', variant: 'destructive' });
     }
   }, [sections, setSections, setHasUnsavedChanges, toast]);
@@ -352,9 +360,16 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
     const currentPosition = currentSection.position;
     const targetPosition = targetSection.position;
     
+    // Optimistic update FIRST for instant UI feedback
+    setSections(prev => prev.map(s => {
+      if (s.id === rowId) return { ...s, position: targetPosition };
+      if (s.id === targetSection.id) return { ...s, position: currentPosition };
+      return s;
+    }));
+    
     try {
-      // Swap positions in database using actual position values
-      await Promise.all([
+      // Then persist to database
+      const [result1, result2] = await Promise.all([
         supabase.from('cms_sections').update({ 
           position: targetPosition, 
           updated_at: new Date().toISOString() 
@@ -365,17 +380,18 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         }).eq('id', targetSection.id)
       ]);
       
-      // Update local state with swapped positions
-      setSections(prev => prev.map(s => {
-        if (s.id === rowId) return { ...s, position: targetPosition };
-        if (s.id === targetSection.id) return { ...s, position: currentPosition };
-        return s;
-      }));
+      if (result1.error) throw result1.error;
+      if (result2.error) throw result2.error;
       
       setHasUnsavedChanges(true);
-      toast({ title: 'Sukces', description: 'Wiersz przesunięty w dół' });
     } catch (error) {
       console.error('Error moving row down:', error);
+      // Revert optimistic update on error
+      setSections(prev => prev.map(s => {
+        if (s.id === rowId) return { ...s, position: currentPosition };
+        if (s.id === targetSection.id) return { ...s, position: targetPosition };
+        return s;
+      }));
       toast({ title: 'Błąd', description: 'Nie udało się przenieść wiersza', variant: 'destructive' });
     }
   }, [sections, setSections, setHasUnsavedChanges, toast]);
