@@ -1297,6 +1297,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          city: string | null
+          country: string | null
           created_at: string
           email: string
           eq_id: string | null
@@ -1305,11 +1307,15 @@ export type Database = {
           is_active: boolean
           last_name: string | null
           phone_number: string | null
+          postal_code: string | null
           role: string
+          street_address: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          city?: string | null
+          country?: string | null
           created_at?: string
           email: string
           eq_id?: string | null
@@ -1318,11 +1324,15 @@ export type Database = {
           is_active?: boolean
           last_name?: string | null
           phone_number?: string | null
+          postal_code?: string | null
           role?: string
+          street_address?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          city?: string | null
+          country?: string | null
           created_at?: string
           email?: string
           eq_id?: string | null
@@ -1331,7 +1341,9 @@ export type Database = {
           is_active?: boolean
           last_name?: string | null
           phone_number?: string | null
+          postal_code?: string | null
           role?: string
+          street_address?: string | null
           updated_at?: string
           user_id?: string
         }

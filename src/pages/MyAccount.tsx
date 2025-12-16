@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -28,6 +28,96 @@ const MyAccount = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Address fields state
+  const [streetAddress, setStreetAddress] = useState(profile?.street_address || '');
+  const [postalCode, setPostalCode] = useState(profile?.postal_code || '');
+  const [city, setCity] = useState(profile?.city || '');
+  const [country, setCountry] = useState(profile?.country || '');
+  const [addressLoading, setAddressLoading] = useState(false);
+
+  // Update address state when profile loads
+  React.useEffect(() => {
+    if (profile) {
+      setStreetAddress(profile.street_address || '');
+      setPostalCode(profile.postal_code || '');
+      setCity(profile.city || '');
+      setCountry(profile.country || '');
+    }
+  }, [profile]);
+
+  const handleSaveAddress = async () => {
+    if (!user) return;
+    
+    setAddressLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          street_address: streetAddress.trim() || null,
+          postal_code: postalCode.trim() || null,
+          city: city.trim() || null,
+          country: country.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sukces",
+        description: "Dane adresowe zostały zapisane.",
+      });
+    } catch (error: any) {
+      console.error('Error saving address:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zapisać danych adresowych.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddressLoading(false);
+    }
+  };
+
+  const handleClearAddress = async () => {
+    if (!user) return;
+    
+    setAddressLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          street_address: null,
+          postal_code: null,
+          city: null,
+          country: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setStreetAddress('');
+      setPostalCode('');
+      setCity('');
+      setCountry('');
+
+      toast({
+        title: "Sukces",
+        description: "Dane adresowe zostały usunięte.",
+      });
+    } catch (error: any) {
+      console.error('Error clearing address:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się usunąć danych adresowych.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddressLoading(false);
+    }
+  };
 
   // Helper function to get role display name
   const getRoleDisplayName = (role: string) => {
@@ -340,6 +430,103 @@ const MyAccount = () => {
                     <div className="mt-1 p-3 bg-muted rounded-md font-mono text-xs">
                       {profile.user_id}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Address Information - Editable */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    Dane adresowe
+                  </CardTitle>
+                  <CardDescription>
+                    Opcjonalne dane adresowe – możesz je edytować w dowolnym momencie
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="street-address">Ulica i numer domu</Label>
+                      <Input
+                        id="street-address"
+                        value={streetAddress}
+                        onChange={(e) => setStreetAddress(e.target.value)}
+                        placeholder="np. ul. Kwiatowa 15/3"
+                        disabled={addressLoading}
+                        maxLength={200}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="postal-code">Kod pocztowy</Label>
+                      <Input
+                        id="postal-code"
+                        value={postalCode}
+                        onChange={(e) => setPostalCode(e.target.value)}
+                        placeholder="np. 00-001"
+                        disabled={addressLoading}
+                        maxLength={20}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Miasto</Label>
+                      <Input
+                        id="city"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="np. Warszawa"
+                        disabled={addressLoading}
+                        maxLength={100}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="country">Kraj</Label>
+                      <Input
+                        id="country"
+                        value={country}
+                        onChange={(e) => setCountry(e.target.value)}
+                        placeholder="np. Polska"
+                        disabled={addressLoading}
+                        maxLength={100}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <Button 
+                      onClick={handleSaveAddress} 
+                      disabled={addressLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {addressLoading ? 'Zapisywanie...' : 'Zapisz dane adresowe'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleClearAddress}
+                      disabled={addressLoading || (!streetAddress && !postalCode && !city && !country)}
+                    >
+                      Usuń dane adresowe
+                    </Button>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* GDPR Notice */}
+                  <div className="bg-muted/50 p-4 rounded-lg border">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      <strong>Informacja RODO:</strong> Podane dane osobowe są przetwarzane zgodnie z obowiązującymi 
+                      przepisami RODO i wykorzystywane wyłącznie w celach związanych z funkcjonowaniem konta użytkownika. 
+                      Masz prawo wglądu, edycji oraz usunięcia swoich danych.
+                    </p>
                   </div>
                 </CardContent>
               </Card>

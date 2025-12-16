@@ -10,6 +10,10 @@ interface Profile {
   last_name: string | null;
   phone_number: string | null;
   eq_id: string | null;
+  street_address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
