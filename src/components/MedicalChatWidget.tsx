@@ -703,37 +703,45 @@ Provide a structured summary:`;
     `;
   };
 
-  // Generate PDF from HTML using html2pdf.js with visible container
+  // Generate PDF from HTML using html2pdf.js with VISIBLE container + overlay
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Create visible container (opacity:0 but in viewport for rendering)
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '0';
-    wrapper.style.top = '0';
-    wrapper.style.width = '100vw';
-    wrapper.style.height = '100vh';
-    wrapper.style.zIndex = '-9999';
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.overflow = 'hidden';
+    // OVERLAY - covers flash for user experience
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.95);
+      z-index: 999998;
+      display: flex; align-items: center; justify-content: center;
+      font-family: sans-serif; font-size: 18px; color: #666;
+    `;
+    overlay.innerHTML = '<div>Generowanie PDF...</div>';
+    document.body.appendChild(overlay);
     
+    // CONTAINER - FULLY VISIBLE for html2canvas to capture
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
-    container.style.position = 'absolute';
-    container.style.left = '0';
-    container.style.top = '0';
-    container.style.width = '170mm';
-    container.style.background = 'white';
-    container.style.boxSizing = 'border-box';
-    container.style.padding = '0';
-    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.cssText = `
+      position: fixed;
+      left: 0; top: 0;
+      width: 170mm;
+      background: white;
+      z-index: 999999;
+      opacity: 1;
+      box-sizing: border-box;
+      padding: 15mm 20mm;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      max-height: 100vh;
+      overflow: visible;
+    `;
+    document.body.appendChild(container);
     
-    wrapper.appendChild(container);
-    document.body.appendChild(wrapper);
-    
-    // Wait for fonts and styles to apply
+    // Wait for browser to render content
     await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log('Container dimensions:', container.offsetWidth, container.offsetHeight);
+    console.log('Content length:', container.innerHTML.length);
     
     const options = {
       margin: [15, 20, 15, 20] as [number, number, number, number],
@@ -745,8 +753,6 @@ Provide a structured summary:`;
         letterRendering: true,
         logging: true,
         backgroundColor: '#ffffff',
-        width: 643,
-        windowWidth: 643,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -756,13 +762,12 @@ Provide a structured summary:`;
     };
     
     try {
-      console.log('Starting PDF generation...');
-      console.log('Container content length:', container.innerHTML.length);
-      console.log('Container dimensions:', container.offsetWidth, container.offsetHeight);
+      console.log('Starting PDF generation with visible container...');
       await html2pdf().set(options).from(container).save();
       console.log('PDF generation complete');
     } finally {
-      document.body.removeChild(wrapper);
+      document.body.removeChild(container);
+      document.body.removeChild(overlay);
     }
   };
 
