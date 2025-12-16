@@ -20,7 +20,7 @@ import {
   PopoverTrigger 
 } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
+import html2pdf from 'html2pdf.js';
 
 type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
 
@@ -38,8 +38,7 @@ interface DocumentContent {
   title: string;
   date: string;
   summaryHeader: string;
-  summaryBody: string; // Clean text for PDF
-  summaryHtml: string; // HTML for DOC
+  summaryHtml: string; // HTML used for all formats (DOC, PDF, HTML)
   disclaimer: string;
   lang: ExportLanguage;
 }
@@ -397,14 +396,7 @@ Provide a structured summary:`;
       it: 'it-IT',
     };
 
-    // Clean text for PDF (no markdown)
-    const cleanSummary = summary
-      .replace(/\*\*/g, '')
-      .replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1 ($2)')
-      .replace(/#{1,6}\s/g, '')
-      .replace(/---/g, '—');
-
-    // HTML for DOC (with markdown converted)
+    // HTML for all formats (DOC, PDF, HTML) - single source of truth
     const htmlSummary = summary
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
@@ -418,7 +410,6 @@ Provide a structured summary:`;
       title: exportTranslations.title[lang],
       date: `${exportTranslations.generatedOn[lang]}: ${new Date().toLocaleDateString(locales[lang])}`,
       summaryHeader: exportTranslations.summary[lang],
-      summaryBody: cleanSummary,
       summaryHtml: htmlSummary,
       disclaimer: exportTranslations.disclaimer[lang],
       lang,
@@ -680,87 +671,40 @@ Provide a structured summary:`;
     URL.revokeObjectURL(url);
   };
 
-  // Generate PDF from document content (converted from DOC content)
-  const generatePdfFromDocContent = (docContent: DocumentContent) => {
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const marginLeft = 20;
-    const marginRight = 20;
-    const marginTop = 25;
-    const marginBottom = 25;
-    const maxWidth = pageWidth - marginLeft - marginRight;
-    let yPos = marginTop;
-
-    // Title
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 82, 147);
-    pdf.text(docContent.title, marginLeft, yPos);
-    yPos += 7;
-
-    // Date
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(docContent.date, marginLeft, yPos);
-    yPos += 10;
-
-    // Separator line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 8;
-
-    // Summary header
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(0, 82, 147);
-    pdf.text(docContent.summaryHeader, marginLeft, yPos);
-    yPos += 8;
-
-    // Summary content (using clean text, same as DOC content)
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(40, 40, 40);
-
-    const paragraphs = docContent.summaryBody.split(/\n\n+/);
-
-    paragraphs.forEach((para) => {
-      const textToWrite = para.trim();
-      if (!textToWrite) return;
-      
-      const lines = pdf.splitTextToSize(textToWrite, maxWidth);
-      const lineHeight = 4.5;
-      const blockHeight = lines.length * lineHeight;
-      
-      if (yPos + blockHeight > pageHeight - marginBottom) {
-        pdf.addPage();
-        yPos = marginTop;
-      }
-      
-      pdf.text(lines, marginLeft, yPos);
-      yPos += blockHeight + 3;
-    });
-
-    // Disclaimer
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'italic');
-    pdf.setTextColor(120, 120, 120);
-    const disclaimerLines = pdf.splitTextToSize(docContent.disclaimer, maxWidth);
+  // Generate PDF from HTML using html2pdf.js (same HTML as DOC)
+  const generatePdfFromHtml = async (docContent: DocumentContent) => {
+    const htmlContent = generateDocFromContent(docContent);
     
-    if (yPos + disclaimerLines.length * 4 + 10 > pageHeight - marginBottom) {
-      pdf.addPage();
-      yPos = marginTop;
+    // Create a temporary container
+    const container = document.createElement('div');
+    container.innerHTML = htmlContent;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    document.body.appendChild(container);
+    
+    const options = {
+      margin: [20, 15, 20, 15] as [number, number, number, number],
+      filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        letterRendering: true,
+        logging: false,
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: 'a4', 
+        orientation: 'portrait' as const,
+      },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
+    };
+    
+    try {
+      await html2pdf().set(options).from(container).save();
+    } finally {
+      document.body.removeChild(container);
     }
-    
-    yPos += 5;
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(marginLeft, yPos, pageWidth - marginRight, yPos);
-    yPos += 6;
-    
-    pdf.text(disclaimerLines, marginLeft, yPos);
-
-    pdf.save(`pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // UNIFIED EXPORT: Uses cached document content for all formats
@@ -772,7 +716,7 @@ Provide a structured summary:`;
       const docContent = await getOrGenerateDocContent(lang);
       if (!docContent) return;
       
-      generatePdfFromDocContent(docContent);
+      await generatePdfFromHtml(docContent);
       
       toast({
         title: getTranslation('exportSuccess'),
