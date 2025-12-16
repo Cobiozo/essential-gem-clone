@@ -2636,50 +2636,50 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-11 mb-6 gap-1">
-            <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
-              <Settings2 className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
+          <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1.5 mb-6 bg-muted/50">
+            <TabsTrigger value="content" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">{t('admin.main')}</span>
             </TabsTrigger>
-            <TabsTrigger value="layout" className="flex items-center gap-2">
-              <Type className="w-4 h-4" />
-              <span className="hidden sm:inline">Layout</span>
+            <TabsTrigger value="layout" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Type className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">Layout</span>
             </TabsTrigger>
-            <TabsTrigger value="colors" className="flex items-center gap-2">
-              <Palette className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.colors')}</span>
+            <TabsTrigger value="colors" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Palette className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">{t('admin.colors')}</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.settings')}</span>
+            <TabsTrigger value="settings" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">{t('admin.settings')}</span>
             </TabsTrigger>
-            <TabsTrigger value="pages" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.pages')}</span>
+            <TabsTrigger value="pages" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">{t('admin.pages')}</span>
             </TabsTrigger>
-            <TabsTrigger value="account" className="flex items-center gap-2">
-              <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.account')}</span>
+            <TabsTrigger value="account" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">{t('admin.account')}</span>
             </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('admin.users')}</span>
+            <TabsTrigger value="users" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">{t('admin.users')}</span>
             </TabsTrigger>
-            <TabsTrigger value="training" className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Szkolenia</span>
+            <TabsTrigger value="training" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">Szkolenia</span>
             </TabsTrigger>
-            <TabsTrigger value="certificates" className="flex items-center gap-2">
-              <Award className="w-4 h-4" />
-              <span className="hidden sm:inline">Certyfikaty</span>
+            <TabsTrigger value="certificates" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Award className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">Certyfikaty</span>
             </TabsTrigger>
-            <TabsTrigger value="knowledge" className="flex items-center gap-2">
-              <FolderOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Zasoby</span>
+            <TabsTrigger value="knowledge" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <FolderOpen className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">Zasoby</span>
             </TabsTrigger>
-            <TabsTrigger value="cookies" className="flex items-center gap-2">
-              <Cookie className="w-4 h-4" />
-              <span className="hidden sm:inline">Cookies</span>
+            <TabsTrigger value="cookies" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Cookie className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">Cookies</span>
             </TabsTrigger>
           </TabsList>
 
