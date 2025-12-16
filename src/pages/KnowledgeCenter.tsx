@@ -72,26 +72,26 @@ export default function KnowledgeCenter() {
     setLoading(false);
   };
 
-  const handleAction = async (resource: KnowledgeResource) => {
-    // Increment download count
-    await supabase
+  const handleDownloadClick = async (resource: KnowledgeResource) => {
+    // Increment download count (fire and forget)
+    supabase
       .from('knowledge_resources')
       .update({ download_count: resource.download_count + 1 })
       .eq('id', resource.id);
+  };
 
-    if (resource.source_type === 'link' || resource.resource_type === 'link' || resource.resource_type === 'page') {
-      window.open(resource.source_url || '', '_blank');
-    } else if (resource.source_url) {
-      // Download file
-      const link = document.createElement('a');
-      link.href = resource.source_url;
-      link.download = resource.file_name || 'download';
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Pobieranie rozpoczęte');
-    }
+  const handleOpenLink = (resource: KnowledgeResource) => {
+    // Increment download count
+    supabase
+      .from('knowledge_resources')
+      .update({ download_count: resource.download_count + 1 })
+      .eq('id', resource.id);
+    window.open(resource.source_url || '', '_blank');
+  };
+
+  // Check if resource has valid downloadable URL
+  const hasValidDownloadUrl = (resource: KnowledgeResource): boolean => {
+    return Boolean(resource.source_url && resource.source_url.trim() !== '');
   };
 
   const handleCopyLink = (resource: KnowledgeResource) => {
@@ -151,6 +151,7 @@ export default function KnowledgeCenter() {
 
   const getActionButtons = (resource: KnowledgeResource) => {
     const isLink = resource.source_type === 'link' || resource.resource_type === 'link' || resource.resource_type === 'page';
+    const canDownload = resource.allow_download && hasValidDownloadUrl(resource);
     
     // No actions enabled - show "coming soon" message
     if (!hasAnyAction(resource)) {
@@ -164,7 +165,7 @@ export default function KnowledgeCenter() {
     
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        {resource.allow_copy_link && (
+        {resource.allow_copy_link && hasValidDownloadUrl(resource) && (
           <Button 
             variant="ghost" 
             size="icon"
@@ -174,7 +175,7 @@ export default function KnowledgeCenter() {
             <Copy className="h-4 w-4" />
           </Button>
         )}
-        {resource.allow_share && (
+        {resource.allow_share && hasValidDownloadUrl(resource) && (
           <Button 
             variant="ghost" 
             size="icon"
@@ -194,23 +195,27 @@ export default function KnowledgeCenter() {
             Przejdź
           </Button>
         )}
-        {resource.allow_download && (
-          <Button 
-            onClick={() => handleAction(resource)}
-            size="sm"
-          >
-            {isLink ? (
-              <>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Otwórz
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Pobierz
-              </>
-            )}
-          </Button>
+        {/* Download - real <a> link for files, button for external links */}
+        {canDownload && (
+          isLink ? (
+            <Button 
+              onClick={() => handleOpenLink(resource)}
+              size="sm"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Otwórz
+            </Button>
+          ) : (
+            <a
+              href={resource.source_url!}
+              download={resource.file_name || true}
+              onClick={() => handleDownloadClick(resource)}
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-3"
+            >
+              <Download className="h-4 w-4" />
+              Pobierz
+            </a>
+          )
         )}
       </div>
     );
