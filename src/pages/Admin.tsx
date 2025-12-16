@@ -2639,47 +2639,47 @@ const Admin = () => {
           <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1.5 mb-6 bg-muted/50">
             <TabsTrigger value="content" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">{t('admin.main')}</span>
+              <span className="hidden sm:inline">{t('admin.main')}</span>
             </TabsTrigger>
             <TabsTrigger value="layout" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Type className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Layout</span>
+              <span className="hidden sm:inline">Layout</span>
             </TabsTrigger>
             <TabsTrigger value="colors" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Palette className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">{t('admin.colors')}</span>
+              <span className="hidden sm:inline">{t('admin.colors')}</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">{t('admin.settings')}</span>
+              <span className="hidden sm:inline">{t('admin.settings')}</span>
             </TabsTrigger>
             <TabsTrigger value="pages" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">{t('admin.pages')}</span>
+              <span className="hidden sm:inline">{t('admin.pages')}</span>
             </TabsTrigger>
             <TabsTrigger value="account" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">{t('admin.account')}</span>
+              <span className="hidden sm:inline">{t('admin.account')}</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">{t('admin.users')}</span>
+              <span className="hidden sm:inline">{t('admin.users')}</span>
             </TabsTrigger>
             <TabsTrigger value="training" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Szkolenia</span>
+              <span className="hidden sm:inline">Szkolenia</span>
             </TabsTrigger>
             <TabsTrigger value="certificates" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Award className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Certyfikaty</span>
+              <span className="hidden sm:inline">Certyfikaty</span>
             </TabsTrigger>
             <TabsTrigger value="knowledge" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <FolderOpen className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Zasoby</span>
+              <span className="hidden sm:inline">Zasoby</span>
             </TabsTrigger>
             <TabsTrigger value="cookies" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
               <Cookie className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Cookies</span>
+              <span className="hidden sm:inline">Cookies</span>
             </TabsTrigger>
           </TabsList>
 
