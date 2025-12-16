@@ -26,12 +26,31 @@ type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
 
 const TRANSLATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/translate-content`;
 
+// Cache structure for unified document content
+interface CachedDocumentContent {
+  content: DocumentContent;
+  lang: ExportLanguage;
+  messagesHash: string;
+}
+
+// DOC content structure - single source of truth for all export formats
+interface DocumentContent {
+  title: string;
+  date: string;
+  summaryHeader: string;
+  summaryBody: string; // Clean text for PDF
+  summaryHtml: string; // HTML for DOC
+  disclaimer: string;
+  lang: ExportLanguage;
+}
+
 export const MedicalChatWidget: React.FC = () => {
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [exportLanguage, setExportLanguage] = useState<ExportLanguage>('en');
+  const [cachedDocContent, setCachedDocContent] = useState<CachedDocumentContent | null>(null);
   const { 
     messages, 
     isLoading, 
@@ -78,6 +97,12 @@ export const MedicalChatWidget: React.FC = () => {
       sendMessage(inputValue.trim());
       setInputValue('');
     }
+  };
+
+  // Clear messages and invalidate document cache
+  const handleClearMessages = () => {
+    clearMessages();
+    setCachedDocContent(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -363,17 +388,6 @@ Provide a structured summary:`;
     }
   };
 
-  // DOC content structure - single source of truth for both DOC and PDF
-  interface DocumentContent {
-    title: string;
-    date: string;
-    summaryHeader: string;
-    summaryBody: string; // Clean text for PDF
-    summaryHtml: string; // HTML for DOC
-    disclaimer: string;
-    lang: ExportLanguage;
-  }
-
   // Generate document content structure from translated summary
   const generateDocumentContent = (summary: string, lang: ExportLanguage): DocumentContent => {
     const locales: Record<ExportLanguage, string> = {
@@ -409,6 +423,64 @@ Provide a structured summary:`;
       disclaimer: exportTranslations.disclaimer[lang],
       lang,
     };
+  };
+
+  // Generate hash for messages to detect changes
+  const getMessagesHash = (msgs: MedicalChatMessage[]): string => {
+    return JSON.stringify(msgs.map(m => m.content)).slice(0, 200);
+  };
+
+  // UNIFIED: Get or generate document content (single source for all exports)
+  const getOrGenerateDocContent = async (lang: ExportLanguage): Promise<DocumentContent | null> => {
+    const currentHash = getMessagesHash(messages);
+    
+    // Check if cache is valid (same messages and language)
+    if (cachedDocContent && 
+        cachedDocContent.lang === lang && 
+        cachedDocContent.messagesHash === currentHash) {
+      console.log('Using cached document content');
+      return cachedDocContent.content;
+    }
+    
+    console.log('Generating new document content...');
+    
+    // Step 1: Generate summary of entire dialog (in English - language-agnostic)
+    const summary = await generateDialogSummary(messages);
+    if (!summary) {
+      toast({
+        title: getTranslation('exportError'),
+        description: getTranslation('summaryError'),
+        variant: 'destructive',
+      });
+      return null;
+    }
+    
+    // Step 2: Translate summary to user's chosen document language (MANDATORY if different)
+    const result = await translateContent(summary, lang, 'en');
+    
+    if (result.error) {
+      toast({
+        title: getTranslation('exportError'),
+        description: getTranslation('translationRequired'),
+        variant: 'destructive',
+      });
+      return null;
+    }
+    
+    const translatedSummary = result.translated ? result.content : summary;
+    
+    // Step 3: Generate document content structure (single source of truth)
+    const docContent = generateDocumentContent(translatedSummary, lang);
+    
+    // Cache the result
+    setCachedDocContent({
+      content: docContent,
+      lang,
+      messagesHash: currentHash,
+    });
+    
+    console.log('Document content cached successfully');
+    return docContent;
   };
 
   // Generate DOC from document content - returns the HTML content
@@ -691,54 +763,15 @@ Provide a structured summary:`;
     pdf.save(`pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  // PIPELINE: Summary → Translate → DOC → PDF
+  // UNIFIED EXPORT: Uses cached document content for all formats
   const exportToPdf = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
     
     setIsExporting(true);
     try {
-      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
-      const summary = await generateDialogSummary(messages);
+      const docContent = await getOrGenerateDocContent(lang);
+      if (!docContent) return;
       
-      if (!summary) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('summaryError'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Step 2: Translate summary to user's chosen document language (MANDATORY)
-      const result = await translateContent(summary, lang, 'en');
-      
-      if (result.error) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('translationRequired'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const translatedSummary = result.translated ? result.content : summary;
-
-      // Step 3: Generate DOC content structure (single source of truth)
-      const docContent = generateDocumentContent(translatedSummary, lang);
-      
-      // Step 4: Generate DOC HTML (internal - validates DOC exists before PDF)
-      const docHtml = generateDocFromContent(docContent);
-      
-      if (!docHtml) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('summaryError'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Step 5: Generate PDF from DOC content (converted from same source)
       generatePdfFromDocContent(docContent);
       
       toast({
@@ -756,42 +789,14 @@ Provide a structured summary:`;
     }
   };
 
-  // PIPELINE: Summary → Translate → HTML (main export format)
   const exportToHtml = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
     
     setIsExporting(true);
     try {
-      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
-      const summary = await generateDialogSummary(messages);
+      const docContent = await getOrGenerateDocContent(lang);
+      if (!docContent) return;
       
-      if (!summary) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('summaryError'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Step 2: Translate summary to user's chosen document language (MANDATORY)
-      const result = await translateContent(summary, lang, 'en');
-      
-      if (result.error) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('translationRequired'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const translatedSummary = result.translated ? result.content : summary;
-
-      // Step 3: Generate DOC content structure (single source of truth)
-      const docContent = generateDocumentContent(translatedSummary, lang);
-      
-      // Step 4: Generate responsive HTML from same content
       const htmlContent = generateResponsiveHtml(docContent);
       saveHtmlFile(htmlContent, lang);
       
@@ -810,42 +815,14 @@ Provide a structured summary:`;
     }
   };
 
-  // PIPELINE: Summary → Translate → DOC (same as PDF pipeline, just saves DOC)
   const exportToDoc = async (lang: ExportLanguage) => {
     if (messages.length === 0) return;
     
     setIsExporting(true);
     try {
-      // Step 1: Generate summary of entire dialog (in English - language-agnostic)
-      const summary = await generateDialogSummary(messages);
+      const docContent = await getOrGenerateDocContent(lang);
+      if (!docContent) return;
       
-      if (!summary) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('summaryError'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Step 2: Translate summary to user's chosen document language (MANDATORY)
-      const result = await translateContent(summary, lang, 'en');
-      
-      if (result.error) {
-        toast({
-          title: getTranslation('exportError'),
-          description: getTranslation('translationRequired'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const translatedSummary = result.translated ? result.content : summary;
-
-      // Step 3: Generate DOC content structure (single source of truth)
-      const docContent = generateDocumentContent(translatedSummary, lang);
-      
-      // Step 4: Generate and save DOC file
       const docHtml = generateDocFromContent(docContent);
       saveDocFile(docHtml, lang);
       
@@ -1066,7 +1043,7 @@ Provide a structured summary:`;
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
-                onClick={clearMessages}
+                onClick={handleClearMessages}
                 title={t('clear')}
               >
                 <Trash2 className="w-4 h-4" />
