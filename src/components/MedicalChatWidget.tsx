@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
 
 type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
 
@@ -671,73 +672,143 @@ Provide a structured summary:`;
     URL.revokeObjectURL(url);
   };
 
-  // Generate PDF body content (inline CSS, no structural HTML tags)
-  const generatePdfBody = (docContent: DocumentContent): string => {
-    return `
-      <div style="font-family: Arial, sans-serif; padding: 15px 20px; line-height: 1.5; font-size: 10pt; color: #333; word-wrap: break-word; overflow-wrap: break-word; box-sizing: border-box;">
-        <h1 style="color: #005293; font-size: 16pt; margin-bottom: 6px; margin-top: 0; font-weight: bold;">${docContent.title}</h1>
-        <div style="color: #666; font-size: 8pt; margin-bottom: 10px;">${docContent.date}</div>
-        <hr style="border: none; border-top: 1px solid #ccc; margin: 10px 0;">
-        <h2 style="color: #005293; font-size: 12pt; margin-top: 10px; margin-bottom: 8px; font-weight: bold;">${docContent.summaryHeader}</h2>
-        <div style="color: #333; text-align: justify; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;">${docContent.summaryHtml}</div>
-        <div style="color: #888; font-style: italic; font-size: 8pt; margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc;">${docContent.disclaimer}</div>
-      </div>
-    `;
-  };
-
-  // Generate PDF from HTML using html2pdf.js
-  const generatePdfFromHtml = async (docContent: DocumentContent) => {
-    const bodyContent = generatePdfBody(docContent);
+  // Render HTML content to PDF with proper text wrapping and clickable links
+  const renderHtmlContentToPdf = (
+    pdf: jsPDF, 
+    html: string, 
+    x: number, 
+    startY: number, 
+    maxWidth: number
+  ): number => {
+    let y = startY;
+    const lineHeight = 5;
+    const pageHeight = 297;
+    const margin = 20;
     
-    // Create wrapper positioned off-screen (not overflow:hidden which blocks rendering)
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.top = '-10000px';
-    wrapper.style.left = '0';
-    wrapper.style.zIndex = '-9999';
+    // Parse HTML to extract text and links
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
     
-    // Container with full A4 width - html2pdf handles margins
-    const container = document.createElement('div');
-    container.innerHTML = bodyContent;
-    container.style.width = '210mm';
-    container.style.background = 'white';
-    container.style.opacity = '1';
-    container.style.visibility = 'visible';
-    container.style.boxSizing = 'border-box';
+    // Process text - convert HTML to plain text with line breaks
+    const processedText = html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li>/gi, '• ')
+      .replace(/<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi, '$2 ($1)')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
     
-    wrapper.appendChild(container);
-    document.body.appendChild(wrapper);
+    const paragraphs = processedText.split('\n');
     
-    // Wait for DOM to render
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const options = {
-      margin: [10, 10, 10, 10] as [number, number, number, number],
-      filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.95 },
-      html2canvas: { 
-        scale: 1.5,
-        useCORS: true,
-        letterRendering: true,
-        logging: false,
-      },
-      jsPDF: { 
-        unit: 'mm', 
-        format: 'a4', 
-        orientation: 'portrait' as const,
-      },
-    };
-    
-    try {
-      await html2pdf(container, options);
-    } catch (error) {
-      console.error('html2pdf error:', error);
-      throw error;
-    } finally {
-      if (wrapper.parentNode) {
-        document.body.removeChild(wrapper);
+    for (const para of paragraphs) {
+      if (!para.trim()) {
+        y += lineHeight / 2;
+        continue;
+      }
+      
+      // Check if this is a link line (starts with * PubMed:, * DOI:, * PMC:)
+      const linkMatch = para.match(/^\*?\s*(PubMed|DOI|PMC):\s*(https?:\/\/[^\s]+)/i);
+      if (linkMatch) {
+        const [, label, url] = linkMatch;
+        // Check for page break
+        if (y > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.setTextColor(0, 82, 147); // Blue for links
+        pdf.textWithLink(`• ${label}: ${url}`, x, y, { url });
+        pdf.setTextColor(51, 51, 51); // Reset to dark gray
+        y += lineHeight;
+      } else {
+        // Regular text - word wrap
+        const lines = pdf.splitTextToSize(para.trim(), maxWidth);
+        for (const line of lines) {
+          // Check for page break
+          if (y > pageHeight - margin) {
+            pdf.addPage();
+            y = margin;
+          }
+          pdf.text(line, x, y);
+          y += lineHeight;
+        }
       }
     }
+    
+    return y;
+  };
+
+  // Generate PDF using direct jsPDF (no html2canvas)
+  const generatePdfWithJsPDF = async (docContent: DocumentContent) => {
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+    
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 20;
+    const contentWidth = pageWidth - 2 * margin;
+    let y = margin;
+    
+    // Title - blue, large
+    pdf.setTextColor(0, 82, 147); // #005293
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    const titleLines = pdf.splitTextToSize(docContent.title, contentWidth);
+    pdf.text(titleLines, margin, y);
+    y += titleLines.length * 7 + 3;
+    
+    // Date - gray, small
+    pdf.setTextColor(102, 102, 102);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(docContent.date, margin, y);
+    y += 8;
+    
+    // Horizontal line
+    pdf.setDrawColor(204, 204, 204);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 8;
+    
+    // Section header
+    pdf.setTextColor(0, 82, 147);
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(docContent.summaryHeader, margin, y);
+    y += 8;
+    
+    // Content - parse HTML and render with links
+    pdf.setTextColor(51, 51, 51);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    
+    y = renderHtmlContentToPdf(pdf, docContent.summaryHtml, margin, y, contentWidth);
+    
+    // Disclaimer
+    y += 10;
+    if (y > pageHeight - 30) {
+      pdf.addPage();
+      y = margin;
+    }
+    pdf.setDrawColor(204, 204, 204);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 5;
+    pdf.setTextColor(136, 136, 136);
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'italic');
+    const disclaimerLines = pdf.splitTextToSize(docContent.disclaimer, contentWidth);
+    pdf.text(disclaimerLines, margin, y);
+    
+    // Save
+    pdf.save(`pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   // UNIFIED EXPORT: Uses cached document content for all formats
@@ -749,7 +820,7 @@ Provide a structured summary:`;
       const docContent = await getOrGenerateDocContent(lang);
       if (!docContent) return;
       
-      await generatePdfFromHtml(docContent);
+      await generatePdfWithJsPDF(docContent);
       
       toast({
         title: getTranslation('exportSuccess'),
