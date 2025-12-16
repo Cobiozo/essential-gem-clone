@@ -703,7 +703,7 @@ Provide a structured summary:`;
     `;
   };
 
-  // Generate PDF from HTML using html2pdf.js with VISIBLE container + overlay
+  // Generate PDF from HTML using html2pdf.js with wrapper + absolute positioning
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
@@ -719,23 +719,32 @@ Provide a structured summary:`;
     overlay.innerHTML = '<div>Generowanie PDF...</div>';
     document.body.appendChild(overlay);
     
-    // CONTAINER - FULLY VISIBLE for html2canvas to capture
+    // WRAPPER - creates positioning context for html2canvas
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      position: fixed;
+      left: 0; top: 0;
+      width: 100vw; height: 100vh;
+      z-index: 999999;
+      overflow: auto;
+      background: white;
+    `;
+    
+    // CONTAINER - position absolute (NOT fixed!) inside wrapper
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
     container.style.cssText = `
-      position: fixed;
+      position: absolute;
       left: 0; top: 0;
       width: 170mm;
       background: white;
-      z-index: 999999;
-      opacity: 1;
       box-sizing: border-box;
       padding: 15mm 20mm;
       font-family: 'Segoe UI', Arial, sans-serif;
-      max-height: 100vh;
-      overflow: visible;
     `;
-    document.body.appendChild(container);
+    
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
     
     // Wait for browser to render content
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -753,6 +762,10 @@ Provide a structured summary:`;
         letterRendering: true,
         logging: true,
         backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: container.scrollWidth,
+        windowHeight: container.scrollHeight,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -762,11 +775,11 @@ Provide a structured summary:`;
     };
     
     try {
-      console.log('Starting PDF generation with visible container...');
+      console.log('Starting PDF generation...');
       await html2pdf().set(options).from(container).save();
       console.log('PDF generation complete');
     } finally {
-      document.body.removeChild(container);
+      document.body.removeChild(wrapper);
       document.body.removeChild(overlay);
     }
   };
