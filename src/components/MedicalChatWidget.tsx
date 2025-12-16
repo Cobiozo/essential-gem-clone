@@ -23,6 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import html2pdf from 'html2pdf.js';
 
 
+
 type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
 
 const TRANSLATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/translate-content`;
@@ -702,106 +703,66 @@ Provide a structured summary:`;
     `;
   };
 
-  // Generate PDF from HTML using iframe + html2canvas + jsPDF directly
+  // Generate PDF from HTML using html2pdf.js with visible container
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Create iframe for isolated, guaranteed rendering
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '0';
-    iframe.style.top = '0';
-    iframe.style.width = '800px';
-    iframe.style.height = '600px';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    iframe.style.zIndex = '-9999';
+    // Create visible container (opacity:0 but in viewport for rendering)
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.width = '100vw';
+    wrapper.style.height = '100vh';
+    wrapper.style.zIndex = '-9999';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.overflow = 'hidden';
     
-    document.body.appendChild(iframe);
+    const container = document.createElement('div');
+    container.innerHTML = bodyContent;
+    container.style.position = 'absolute';
+    container.style.left = '0';
+    container.style.top = '0';
+    container.style.width = '170mm';
+    container.style.background = 'white';
+    container.style.boxSizing = 'border-box';
+    container.style.padding = '0';
+    container.style.fontFamily = 'Arial, sans-serif';
     
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      document.body.removeChild(iframe);
-      throw new Error('Cannot access iframe document');
-    }
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
     
-    // Write content to iframe with proper styling
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { background: white; font-family: Arial, sans-serif; }
-        </style>
-      </head>
-      <body>
-        <div id="pdf-content" style="width: 170mm; padding: 15mm 20mm; background: white;">
-          ${bodyContent}
-        </div>
-      </body>
-      </html>
-    `);
-    iframeDoc.close();
-    
-    // Wait for content to render
+    // Wait for fonts and styles to apply
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    const element = iframeDoc.getElementById('pdf-content');
-    if (!element) {
-      document.body.removeChild(iframe);
-      throw new Error('Content element not found in iframe');
-    }
-    
-    try {
-      // Import html2canvas dynamically
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default;
-      
-      // Capture content as canvas
-      const canvas = await html2canvas(element, {
+    const options = {
+      margin: [15, 20, 15, 20] as [number, number, number, number],
+      filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { 
         scale: 2,
         useCORS: true,
+        letterRendering: true,
         logging: true,
         backgroundColor: '#ffffff',
-        windowWidth: 800,
-        windowHeight: element.scrollHeight,
-      });
-      
-      console.log('Canvas dimensions:', canvas.width, canvas.height);
-      
-      // Import jsPDF
-      const { jsPDF } = await import('jspdf');
-      
-      // Create PDF with proper page handling
-      const imgWidth = 210;  // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-      
-      const pdf = new jsPDF('portrait', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      
-      // First page
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      
-      // Additional pages if needed
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-      
-      // Save PDF
-      pdf.save(`pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`);
-      
+        width: 643,
+        windowWidth: 643,
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: 'a4', 
+        orientation: 'portrait' as const,
+      },
+    };
+    
+    try {
+      console.log('Starting PDF generation...');
+      console.log('Container content length:', container.innerHTML.length);
+      console.log('Container dimensions:', container.offsetWidth, container.offsetHeight);
+      await html2pdf().set(options).from(container).save();
+      console.log('PDF generation complete');
     } finally {
-      document.body.removeChild(iframe);
+      document.body.removeChild(wrapper);
     }
   };
 
