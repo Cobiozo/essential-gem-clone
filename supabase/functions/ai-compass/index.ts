@@ -50,6 +50,7 @@ serve(async (req) => {
     }
 
     const { 
+      contactId,
       contactTypeId, 
       stageId, 
       contextDescription, 
@@ -58,26 +59,70 @@ serve(async (req) => {
       language = 'pl'
     } = requestBody;
 
-    console.log("Request params:", { contactTypeId, stageId, contextDescription: contextDescription?.substring(0, 50), lastContactDays, userId, language });
+    console.log("Request params:", { contactId, contactTypeId, stageId, contextDescription: contextDescription?.substring(0, 50), lastContactDays, userId, language });
+
+    // Fetch contact data if contactId is provided
+    let contactData = null;
+    let previousDecisions: any[] = [];
+    let contactHistory: any[] = [];
+
+    if (contactId) {
+      console.log("Fetching contact data for:", contactId);
+      
+      const { data: contact } = await supabase
+        .from('ai_compass_contacts')
+        .select('*')
+        .eq('id', contactId)
+        .single();
+      
+      if (contact) {
+        contactData = contact;
+        console.log("Found contact:", contact.name);
+
+        // Fetch previous AI decisions for this contact
+        const { data: sessions } = await supabase
+          .from('ai_compass_sessions')
+          .select('*')
+          .eq('contact_id', contactId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        previousDecisions = sessions || [];
+        console.log("Previous decisions count:", previousDecisions.length);
+
+        // Fetch contact change history
+        const { data: history } = await supabase
+          .from('ai_compass_contact_history')
+          .select('*')
+          .eq('contact_id', contactId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        contactHistory = history || [];
+        console.log("Contact history entries:", contactHistory.length);
+      }
+    }
 
     // Fetch contact type and stage names
     let contactTypeName = "Nieznany";
     let stageName = "Nieznany";
+    const effectiveTypeId = contactTypeId || contactData?.contact_type_id;
+    const effectiveStageId = stageId || contactData?.stage_id;
 
-    if (contactTypeId) {
+    if (effectiveTypeId) {
       const { data: contactType } = await supabase
         .from('ai_compass_contact_types')
         .select('name')
-        .eq('id', contactTypeId)
+        .eq('id', effectiveTypeId)
         .single();
       if (contactType) contactTypeName = contactType.name;
     }
 
-    if (stageId) {
+    if (effectiveStageId) {
       const { data: stage } = await supabase
         .from('ai_compass_contact_stages')
         .select('name')
-        .eq('id', stageId)
+        .eq('id', effectiveStageId)
         .single();
       if (stage) stageName = stage.name;
     }
@@ -86,8 +131,8 @@ serve(async (req) => {
     const { data: patterns } = await supabase
       .from('ai_compass_learning_patterns')
       .select('*')
-      .eq('contact_type_id', contactTypeId)
-      .eq('stage_id', stageId)
+      .eq('contact_type_id', effectiveTypeId)
+      .eq('stage_id', effectiveStageId)
       .order('success_rate', { ascending: false })
       .limit(3);
 
@@ -111,16 +156,38 @@ serve(async (req) => {
       .select('ai_system_prompt')
       .single();
 
+    // Build context from contact history
+    let historyContext = '';
+    if (previousDecisions.length > 0) {
+      historyContext = `
+HISTORIA POPRZEDNICH DECYZJI DLA TEGO KONTAKTU:
+${previousDecisions.map((d, i) => `
+${i + 1}. [${new Date(d.created_at).toLocaleDateString('pl')}] 
+   Decyzja: ${d.ai_decision}
+   Uzasadnienie: ${d.ai_reasoning}
+   Feedback użytkownika: ${d.user_feedback || 'brak'}
+`).join('')}`;
+    }
+
+    if (contactHistory.length > 0) {
+      historyContext += `
+HISTORIA ZMIAN KONTAKTU:
+${contactHistory.map(h => `- [${new Date(h.created_at).toLocaleDateString('pl')}] ${h.change_type}`).join('\n')}`;
+    }
+
     const systemPrompt = `${settings?.ai_system_prompt || 'Jesteś asystentem wspierającym decyzje biznesowe.'}
 
 ZASADY:
 1. Podejmujesz JEDNĄ decyzję: "ACT" (DZIAŁAJ) lub "WAIT" (POCZEKAJ)
 2. Jeśli decyzja to ACT, generujesz gotową wiadomość follow-up
-3. Dobierasz najlepszy zasób z dostępnej bazy wiedzy
-4. Sugerujesz użycie reflinka partnerskiego
+3. Analizujesz CAŁĄ historię kontaktu, nie tylko bieżący kontekst
+4. Uwzględniasz poprzednie decyzje AI i ich skuteczność (feedback)
+5. Dobierasz najlepszy zasób z dostępnej bazy wiedzy
+6. Sugerujesz użycie reflinka partnerskiego
 
 KONTEKST UCZENIA (wzorce sukcesu z historii):
 ${patterns?.map(p => `- Typ: ${p.pattern_type}, Optymalny czas: ${p.optimal_timing_days} dni, Skuteczność: ${p.success_rate}%`).join('\n') || 'Brak danych historycznych'}
+${historyContext}
 
 DOSTĘPNE ZASOBY:
 ${resources?.map(r => `- [${r.id}] ${r.title}: ${r.description || 'Brak opisu'}`).join('\n') || 'Brak zasobów'}
@@ -131,19 +198,25 @@ ${reflinks?.map(r => `- ${r.title}: ${r.reflink_code}`).join('\n') || 'Brak refl
 Odpowiadaj w formacie JSON:
 {
   "decision": "ACT" lub "WAIT",
-  "reasoning": "Krótkie uzasadnienie decyzji",
+  "reasoning": "Krótkie uzasadnienie decyzji (uwzględnij historię kontaktu)",
   "message": "Gotowa wiadomość follow-up (tylko jeśli ACT)",
   "resourceId": "ID rekomendowanego zasobu lub null",
   "reflink": "Kod reflinka do użycia lub null",
   "waitDays": "Liczba dni do czekania (tylko jeśli WAIT)"
 }`;
 
-    const userPrompt = `Typ kontaktu: ${contactTypeName}
-Etap: ${stageName}
-Czas od ostatniego kontaktu: ${lastContactDays || 'nieznany'} dni
-Kontekst rozmowy: ${contextDescription}
+    const contactInfo = contactData ? `
+Nazwa kontaktu: ${contactData.name}
+Notatki: ${contactData.notes || 'brak'}
+Tagi: ${contactData.tags?.join(', ') || 'brak'}` : '';
 
-Przeanalizuj sytuację i podejmij decyzję.`;
+    const userPrompt = `${contactInfo}
+Typ kontaktu: ${contactTypeName}
+Etap: ${stageName}
+Czas od ostatniego kontaktu: ${lastContactDays || contactData?.last_contact_days || 'nieznany'} dni
+Aktualny kontekst rozmowy: ${contextDescription}
+
+Na podstawie CAŁEJ dostępnej historii tego kontaktu i aktualnego kontekstu, przeanalizuj sytuację i podejmij decyzję.`;
 
     console.log("Sending request to AI Gateway...");
 
@@ -242,16 +315,17 @@ Przeanalizuj sytuację i podejmij decyzję.`;
       }
     }
 
-    // Save session to database
+    // Save session to database with contact_id
     console.log("Saving session to database...");
     const { data: session, error: sessionError } = await supabase
       .from('ai_compass_sessions')
       .insert({
         user_id: userId,
-        contact_type_id: contactTypeId,
-        stage_id: stageId,
+        contact_id: contactId || null,
+        contact_type_id: effectiveTypeId,
+        stage_id: effectiveStageId,
         context_description: contextDescription,
-        last_contact_days: lastContactDays,
+        last_contact_days: lastContactDays || contactData?.last_contact_days,
         ai_decision: parsedResponse.decision,
         ai_reasoning: parsedResponse.reasoning,
         generated_message: parsedResponse.message,
@@ -265,16 +339,31 @@ Przeanalizuj sytuację i podejmij decyzję.`;
       console.error("Failed to save session:", sessionError);
     } else {
       console.log("Session saved:", session?.id);
+
+      // Log AI decision in contact history if contactId is provided
+      if (contactId) {
+        await supabase.from('ai_compass_contact_history').insert({
+          contact_id: contactId,
+          change_type: 'ai_decision',
+          new_values: { 
+            decision: parsedResponse.decision, 
+            reasoning: parsedResponse.reasoning 
+          },
+          ai_session_id: session?.id,
+          created_by: userId,
+        });
+        console.log("Contact history updated with AI decision");
+      }
     }
 
     // Update learning patterns (anonymous aggregation)
-    if (contactTypeId && stageId) {
+    if (effectiveTypeId && effectiveStageId) {
       console.log("Updating learning patterns...");
       const { data: existingPattern } = await supabase
         .from('ai_compass_learning_patterns')
         .select('*')
-        .eq('contact_type_id', contactTypeId)
-        .eq('stage_id', stageId)
+        .eq('contact_type_id', effectiveTypeId)
+        .eq('stage_id', effectiveStageId)
         .eq('pattern_type', 'neutral')
         .single();
 
@@ -291,10 +380,10 @@ Przeanalizuj sytuację i podejmij decyzję.`;
         await supabase
           .from('ai_compass_learning_patterns')
           .insert({
-            contact_type_id: contactTypeId,
-            stage_id: stageId,
+            contact_type_id: effectiveTypeId,
+            stage_id: effectiveStageId,
             pattern_type: 'neutral',
-            optimal_timing_days: lastContactDays,
+            optimal_timing_days: lastContactDays || contactData?.last_contact_days,
             sample_count: 1
           });
         console.log("Created new learning pattern");

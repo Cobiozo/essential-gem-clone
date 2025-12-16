@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_compass_contact_history: {
+        Row: {
+          ai_session_id: string | null
+          change_type: string
+          contact_id: string
+          created_at: string | null
+          created_by: string
+          id: string
+          new_values: Json | null
+          previous_values: Json | null
+        }
+        Insert: {
+          ai_session_id?: string | null
+          change_type: string
+          contact_id: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          new_values?: Json | null
+          previous_values?: Json | null
+        }
+        Update: {
+          ai_session_id?: string | null
+          change_type?: string
+          contact_id?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          new_values?: Json | null
+          previous_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_compass_contact_history_ai_session_id_fkey"
+            columns: ["ai_session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_compass_contact_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_compass_contact_stages: {
         Row: {
           contact_type_id: string | null
@@ -88,6 +136,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_compass_contacts: {
+        Row: {
+          contact_type_id: string | null
+          created_at: string | null
+          current_context: string | null
+          id: string
+          is_active: boolean | null
+          last_contact_days: number | null
+          name: string
+          notes: string | null
+          stage_id: string | null
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          contact_type_id?: string | null
+          created_at?: string | null
+          current_context?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_contact_days?: number | null
+          name: string
+          notes?: string | null
+          stage_id?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          contact_type_id?: string | null
+          created_at?: string | null
+          current_context?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_contact_days?: number | null
+          name?: string
+          notes?: string | null
+          stage_id?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_compass_contacts_contact_type_id_fkey"
+            columns: ["contact_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_compass_contacts_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_compass_learning_patterns: {
         Row: {
           contact_type_id: string | null
@@ -146,6 +254,7 @@ export type Database = {
         Row: {
           ai_decision: string
           ai_reasoning: string | null
+          contact_id: string | null
           contact_type_id: string | null
           context_description: string
           created_at: string
@@ -165,6 +274,7 @@ export type Database = {
         Insert: {
           ai_decision: string
           ai_reasoning?: string | null
+          contact_id?: string | null
           contact_type_id?: string | null
           context_description: string
           created_at?: string
@@ -184,6 +294,7 @@ export type Database = {
         Update: {
           ai_decision?: string
           ai_reasoning?: string | null
+          contact_id?: string | null
           contact_type_id?: string | null
           context_description?: string
           created_at?: string
@@ -201,6 +312,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_compass_sessions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_compass_sessions_contact_type_id_fkey"
             columns: ["contact_type_id"]
@@ -228,8 +346,13 @@ export type Database = {
         Row: {
           ai_learning_enabled: boolean
           ai_system_prompt: string | null
+          allow_delete_contacts: boolean | null
+          allow_delete_history: boolean | null
+          allow_edit_contacts: boolean | null
           allow_export: boolean
+          allow_multiple_decisions: boolean | null
           created_at: string
+          data_retention_days: number | null
           enabled_for_clients: boolean
           enabled_for_partners: boolean
           enabled_for_specjalista: boolean
@@ -240,8 +363,13 @@ export type Database = {
         Insert: {
           ai_learning_enabled?: boolean
           ai_system_prompt?: string | null
+          allow_delete_contacts?: boolean | null
+          allow_delete_history?: boolean | null
+          allow_edit_contacts?: boolean | null
           allow_export?: boolean
+          allow_multiple_decisions?: boolean | null
           created_at?: string
+          data_retention_days?: number | null
           enabled_for_clients?: boolean
           enabled_for_partners?: boolean
           enabled_for_specjalista?: boolean
@@ -252,8 +380,13 @@ export type Database = {
         Update: {
           ai_learning_enabled?: boolean
           ai_system_prompt?: string | null
+          allow_delete_contacts?: boolean | null
+          allow_delete_history?: boolean | null
+          allow_edit_contacts?: boolean | null
           allow_export?: boolean
+          allow_multiple_decisions?: boolean | null
           created_at?: string
+          data_retention_days?: number | null
           enabled_for_clients?: boolean
           enabled_for_partners?: boolean
           enabled_for_specjalista?: boolean
