@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.download-resource]
 verify_jwt = false
+
+[functions.ai-compass]
+verify_jwt = true

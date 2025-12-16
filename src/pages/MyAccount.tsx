@@ -7,13 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { AiCompassWidget } from '@/components/ai-compass/AiCompassWidget';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const MyAccount = () => {
@@ -211,81 +213,105 @@ const MyAccount = () => {
             <p className="text-muted-foreground">Zarządzaj swoim kontem i ustawieniami</p>
           </div>
 
-          {/* Account Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                {t('account.profile')}
-              </CardTitle>
-              <CardDescription>
-                Podstawowe informacje o Twoim koncie
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">{t('auth.email')}</Label>
-                  <div className="mt-1 p-3 bg-muted rounded-md">
-                    {profile.email}
-                  </div>
-                </div>
-                
-                <div>
-                  <Label className="text-sm font-medium">{t('admin.userRole')}</Label>
-                  <div className="mt-1">
-                    <Badge variant={
-                      userRole?.role === 'admin' ? 'default' : 
-                      userRole?.role === 'partner' ? 'outline' : 
-                      userRole?.role === 'specjalista' ? 'outline' : 
-                      'secondary'
-                    }>
-                      {getRoleDisplayName(userRole?.role || 'user')}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
+          <Tabs defaultValue="profile" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="profile">
+                <User className="w-4 h-4 mr-2" />
+                Profil
+              </TabsTrigger>
+              <TabsTrigger value="ai-compass">
+                <Compass className="w-4 h-4 mr-2" />
+                AI-Compass
+              </TabsTrigger>
+              <TabsTrigger value="security">
+                <Key className="w-4 h-4 mr-2" />
+                Bezpieczeństwo
+              </TabsTrigger>
+            </TabsList>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">{t('admin.created')}</Label>
-                  <div className="mt-1 p-3 bg-muted rounded-md text-sm">
-                    {new Date(profile.created_at).toLocaleDateString('pl-PL', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+            <TabsContent value="profile" className="mt-6">
+              {/* Account Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    {t('account.profile')}
+                  </CardTitle>
+                  <CardDescription>
+                    Podstawowe informacje o Twoim koncie
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">{t('auth.email')}</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md">
+                        {profile.email}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">{t('admin.userRole')}</Label>
+                      <div className="mt-1">
+                        <Badge variant={
+                          userRole?.role === 'admin' ? 'default' : 
+                          userRole?.role === 'partner' ? 'outline' : 
+                          userRole?.role === 'specjalista' ? 'outline' : 
+                          'secondary'
+                        }>
+                          {getRoleDisplayName(userRole?.role || 'user')}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <Label className="text-sm font-medium">Status konta</Label>
-                  <div className="mt-1">
-                    {profile.is_active ? (
-                      <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        {t('admin.active')}
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        {t('admin.inactive')}
-                      </Badge>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">{t('admin.created')}</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md text-sm">
+                        {new Date(profile.created_at).toLocaleDateString('pl-PL', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">Status konta</Label>
+                      <div className="mt-1">
+                        {profile.is_active ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            {t('admin.active')}
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            {t('admin.inactive')}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div>
-                <Label className="text-sm font-medium">ID klienta</Label>
-                <div className="mt-1 p-3 bg-muted rounded-md font-mono text-xs">
-                  {profile.user_id}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  <div>
+                    <Label className="text-sm font-medium">ID klienta</Label>
+                    <div className="mt-1 p-3 bg-muted rounded-md font-mono text-xs">
+                      {profile.user_id}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="ai-compass" className="mt-6">
+              <AiCompassWidget />
+            </TabsContent>
+
+            <TabsContent value="security" className="mt-6">
 
 
           {/* Password Change */}
@@ -365,10 +391,12 @@ const MyAccount = () => {
                    >
                      {t('admin.cancel')}
                    </Button>
-                 </div>
+                  </div>
               </form>
             </CardContent>
           </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

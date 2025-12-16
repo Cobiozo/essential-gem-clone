@@ -14,6 +14,255 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_compass_contact_stages: {
+        Row: {
+          contact_type_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+        }
+        Insert: {
+          contact_type_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: number
+        }
+        Update: {
+          contact_type_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_compass_contact_stages_contact_type_id_fkey"
+            columns: ["contact_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_compass_contact_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon_name: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_compass_learning_patterns: {
+        Row: {
+          contact_type_id: string | null
+          context_keywords: string[] | null
+          created_at: string
+          id: string
+          last_updated: string
+          optimal_timing_days: number | null
+          pattern_type: string
+          sample_count: number
+          stage_id: string | null
+          success_rate: number | null
+        }
+        Insert: {
+          contact_type_id?: string | null
+          context_keywords?: string[] | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          optimal_timing_days?: number | null
+          pattern_type: string
+          sample_count?: number
+          stage_id?: string | null
+          success_rate?: number | null
+        }
+        Update: {
+          contact_type_id?: string | null
+          context_keywords?: string[] | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          optimal_timing_days?: number | null
+          pattern_type?: string
+          sample_count?: number
+          stage_id?: string | null
+          success_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_compass_learning_patterns_contact_type_id_fkey"
+            columns: ["contact_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_compass_learning_patterns_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_compass_sessions: {
+        Row: {
+          ai_decision: string
+          ai_reasoning: string | null
+          contact_type_id: string | null
+          context_description: string
+          created_at: string
+          generated_message: string | null
+          generated_reflink: string | null
+          id: string
+          is_archived: boolean
+          last_contact_days: number | null
+          notes: string | null
+          recommended_resource_id: string | null
+          stage_id: string | null
+          tags: string[] | null
+          updated_at: string
+          user_feedback: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_decision: string
+          ai_reasoning?: string | null
+          contact_type_id?: string | null
+          context_description: string
+          created_at?: string
+          generated_message?: string | null
+          generated_reflink?: string | null
+          id?: string
+          is_archived?: boolean
+          last_contact_days?: number | null
+          notes?: string | null
+          recommended_resource_id?: string | null
+          stage_id?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_feedback?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_decision?: string
+          ai_reasoning?: string | null
+          contact_type_id?: string | null
+          context_description?: string
+          created_at?: string
+          generated_message?: string | null
+          generated_reflink?: string | null
+          id?: string
+          is_archived?: boolean
+          last_contact_days?: number | null
+          notes?: string | null
+          recommended_resource_id?: string | null
+          stage_id?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_feedback?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_compass_sessions_contact_type_id_fkey"
+            columns: ["contact_type_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_compass_sessions_recommended_resource_id_fkey"
+            columns: ["recommended_resource_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_compass_sessions_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "ai_compass_contact_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_compass_settings: {
+        Row: {
+          ai_learning_enabled: boolean
+          ai_system_prompt: string | null
+          allow_export: boolean
+          created_at: string
+          enabled_for_clients: boolean
+          enabled_for_partners: boolean
+          enabled_for_specjalista: boolean
+          id: string
+          is_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          ai_learning_enabled?: boolean
+          ai_system_prompt?: string | null
+          allow_export?: boolean
+          created_at?: string
+          enabled_for_clients?: boolean
+          enabled_for_partners?: boolean
+          enabled_for_specjalista?: boolean
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ai_learning_enabled?: boolean
+          ai_system_prompt?: string | null
+          allow_export?: boolean
+          created_at?: string
+          enabled_for_clients?: boolean
+          enabled_for_partners?: boolean
+          enabled_for_specjalista?: boolean
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       certificate_templates: {
         Row: {
           created_at: string
