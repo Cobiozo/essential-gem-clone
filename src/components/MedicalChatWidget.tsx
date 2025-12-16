@@ -671,19 +671,36 @@ Provide a structured summary:`;
     URL.revokeObjectURL(url);
   };
 
-  // Generate PDF from HTML using html2pdf.js (same HTML as DOC)
+  // Generate PDF body content (inline CSS, no structural HTML tags)
+  const generatePdfBody = (docContent: DocumentContent): string => {
+    return `
+      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 11pt; color: #333;">
+        <h1 style="color: #005293; font-size: 18pt; margin-bottom: 8px; font-weight: bold;">${docContent.title}</h1>
+        <div style="color: #666; font-size: 9pt; margin-bottom: 15px;">${docContent.date}</div>
+        <hr style="border: none; border-top: 1px solid #ccc; margin: 12px 0;">
+        <h2 style="color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; font-weight: bold;">${docContent.summaryHeader}</h2>
+        <div style="color: #333; text-align: justify; line-height: 1.6;">${docContent.summaryHtml}</div>
+        <div style="color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc;">${docContent.disclaimer}</div>
+      </div>
+    `;
+  };
+
+  // Generate PDF from HTML using html2pdf.js
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
-    const htmlContent = generateDocFromContent(docContent);
+    // Use body content only (no DOCTYPE/html/head/body tags)
+    const bodyContent = generatePdfBody(docContent);
     
-    // Create a temporary container
+    // Create a temporary container with A4 width
     const container = document.createElement('div');
-    container.innerHTML = htmlContent;
+    container.innerHTML = bodyContent;
     container.style.position = 'absolute';
     container.style.left = '-9999px';
+    container.style.width = '210mm';
+    container.style.background = 'white';
     document.body.appendChild(container);
     
     const options = {
-      margin: [20, 15, 20, 15] as [number, number, number, number],
+      margin: [15, 15, 15, 15] as [number, number, number, number],
       filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
