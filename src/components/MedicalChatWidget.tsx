@@ -687,17 +687,25 @@ Provide a structured summary:`;
 
   // Generate PDF from HTML using html2pdf.js
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
-    // Use body content only (no DOCTYPE/html/head/body tags)
     const bodyContent = generatePdfBody(docContent);
     
-    // Create a temporary container with A4 width
+    // Create container - VISIBLE but TRANSPARENT (not off-screen)
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
     container.style.width = '210mm';
+    container.style.minHeight = '297mm';
     container.style.background = 'white';
+    container.style.zIndex = '-9999';
+    container.style.opacity = '0';
+    container.style.pointerEvents = 'none';
+    
     document.body.appendChild(container);
+    
+    // Wait for browser to render DOM
+    await new Promise(resolve => requestAnimationFrame(resolve));
     
     const options = {
       margin: [15, 15, 15, 15] as [number, number, number, number],
@@ -707,7 +715,9 @@ Provide a structured summary:`;
         scale: 2,
         useCORS: true,
         letterRendering: true,
-        logging: false,
+        logging: true,
+        windowWidth: 794,
+        windowHeight: 1123,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -718,9 +728,18 @@ Provide a structured summary:`;
     };
     
     try {
-      await html2pdf().set(options).from(container).save();
+      const worker = html2pdf().set(options).from(container);
+      await worker.toPdf().save();
+      
+      // Extra delay to ensure file save completes
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('html2pdf error:', error);
+      throw error;
     } finally {
-      document.body.removeChild(container);
+      if (container.parentNode) {
+        document.body.removeChild(container);
+      }
     }
   };
 
