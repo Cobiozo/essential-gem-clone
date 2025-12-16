@@ -141,12 +141,15 @@ export type Database = {
           contact_type_id: string | null
           created_at: string | null
           current_context: string | null
+          final_status: string | null
+          final_status_set_at: string | null
           id: string
           is_active: boolean | null
           last_contact_days: number | null
           name: string
           notes: string | null
           stage_id: string | null
+          suggested_next_contact: string | null
           tags: string[] | null
           updated_at: string | null
           user_id: string
@@ -155,12 +158,15 @@ export type Database = {
           contact_type_id?: string | null
           created_at?: string | null
           current_context?: string | null
+          final_status?: string | null
+          final_status_set_at?: string | null
           id?: string
           is_active?: boolean | null
           last_contact_days?: number | null
           name: string
           notes?: string | null
           stage_id?: string | null
+          suggested_next_contact?: string | null
           tags?: string[] | null
           updated_at?: string | null
           user_id: string
@@ -169,12 +175,15 @@ export type Database = {
           contact_type_id?: string | null
           created_at?: string | null
           current_context?: string | null
+          final_status?: string | null
+          final_status_set_at?: string | null
           id?: string
           is_active?: boolean | null
           last_contact_days?: number | null
           name?: string
           notes?: string | null
           stage_id?: string | null
+          suggested_next_contact?: string | null
           tags?: string[] | null
           updated_at?: string | null
           user_id?: string
@@ -358,6 +367,8 @@ export type Database = {
           enabled_for_specjalista: boolean
           id: string
           is_enabled: boolean
+          show_contact_timeline: boolean | null
+          show_today_dashboard: boolean | null
           updated_at: string
         }
         Insert: {
@@ -375,6 +386,8 @@ export type Database = {
           enabled_for_specjalista?: boolean
           id?: string
           is_enabled?: boolean
+          show_contact_timeline?: boolean | null
+          show_today_dashboard?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -392,6 +405,8 @@ export type Database = {
           enabled_for_specjalista?: boolean
           id?: string
           is_enabled?: boolean
+          show_contact_timeline?: boolean | null
+          show_today_dashboard?: boolean | null
           updated_at?: string
         }
         Relationships: []

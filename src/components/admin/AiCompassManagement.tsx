@@ -31,6 +31,8 @@ interface Settings {
   allow_edit_contacts: boolean;
   allow_multiple_decisions: boolean;
   data_retention_days: number | null;
+  show_today_dashboard: boolean;
+  show_contact_timeline: boolean;
 }
 
 interface ContactType {
@@ -171,6 +173,8 @@ export const AiCompassManagement: React.FC = () => {
         allow_edit_contacts: settings.allow_edit_contacts,
         allow_multiple_decisions: settings.allow_multiple_decisions,
         data_retention_days: settings.data_retention_days,
+        show_today_dashboard: settings.show_today_dashboard,
+        show_contact_timeline: settings.show_contact_timeline,
       })
       .eq('id', settings.id);
 
@@ -389,6 +393,32 @@ export const AiCompassManagement: React.FC = () => {
                     checked={settings.ai_learning_enabled}
                     onCheckedChange={v => setSettings({...settings, ai_learning_enabled: v})}
                   />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label className="mb-3 block">Funkcje widoku</Label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Dashboard "Dziś do zrobienia"</Label>
+                      <p className="text-sm text-muted-foreground">Pokazuj widok z priorytetowymi kontaktami</p>
+                    </div>
+                    <Switch
+                      checked={settings.show_today_dashboard}
+                      onCheckedChange={v => setSettings({...settings, show_today_dashboard: v})}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Timeline kontaktu</Label>
+                      <p className="text-sm text-muted-foreground">Pokazuj wizualną oś czasu dla kontaktów</p>
+                    </div>
+                    <Switch
+                      checked={settings.show_contact_timeline}
+                      onCheckedChange={v => setSettings({...settings, show_contact_timeline: v})}
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,9 @@ import {
   Compass, Send, Copy, ThumbsUp, ThumbsDown, Clock, 
   CheckCircle, History, Tag, Search, Filter,
   FileText, Link2, Loader2, Download, Plus, ArrowLeft,
-  Pencil, Trash2, User, RotateCcw
+  Pencil, Trash2, User, RotateCcw, CalendarCheck,
+  XCircle, CheckCircle2, Play, Pause, Archive,
+  Target, MessageSquare, ChevronRight, Circle
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -45,6 +47,9 @@ interface Contact {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  final_status: string | null;
+  final_status_set_at: string | null;
+  suggested_next_contact: string | null;
 }
 
 interface Session {
@@ -86,9 +91,21 @@ interface AiCompassSettings {
   allow_edit_contacts: boolean;
   allow_multiple_decisions: boolean;
   data_retention_days: number | null;
+  show_today_dashboard: boolean;
+  show_contact_timeline: boolean;
 }
 
-type ViewMode = 'contacts' | 'new' | 'detail' | 'edit';
+interface TimelineEvent {
+  id: string;
+  type: 'created' | 'updated' | 'ai_decision' | 'stage_changed' | 'status_changed';
+  date: string;
+  title: string;
+  description?: string;
+  decision?: string;
+  sessionId?: string;
+}
+
+type ViewMode = 'today' | 'contacts' | 'new' | 'detail' | 'edit';
 
 export const AiCompassWidget: React.FC = () => {
   const { user, userRole } = useAuth();
@@ -101,7 +118,7 @@ export const AiCompassWidget: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [contactHistory, setContactHistory] = useState<ContactHistory[]>([]);
   
-  const [viewMode, setViewMode] = useState<ViewMode>('contacts');
+  const [viewMode, setViewMode] = useState<ViewMode>('today');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   
   // Form states
@@ -117,6 +134,7 @@ export const AiCompassWidget: React.FC = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTag, setFilterTag] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'active' | 'closed' | 'all'>('active');
   const [allTags, setAllTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -146,6 +164,13 @@ export const AiCompassWidget: React.FC = () => {
       .select('*')
       .single();
     setSettings(data);
+    
+    // Default to today dashboard if enabled, otherwise contacts
+    if (data?.show_today_dashboard !== false) {
+      setViewMode('today');
+    } else {
+      setViewMode('contacts');
+    }
   };
 
   const loadContactTypes = async () => {
@@ -199,6 +224,123 @@ export const AiCompassWidget: React.FC = () => {
       .eq('contact_id', contactId)
       .order('created_at', { ascending: false });
     setContactHistory(data || []);
+  };
+
+  // Build timeline from contact data
+  const buildTimeline = useMemo((): TimelineEvent[] => {
+    if (!selectedContact) return [];
+    
+    const events: TimelineEvent[] = [];
+    
+    // Add contact creation
+    events.push({
+      id: 'created-' + selectedContact.id,
+      type: 'created',
+      date: selectedContact.created_at,
+      title: 'Kontakt utworzony',
+      description: `Dodano kontakt "${selectedContact.name}"`
+    });
+    
+    // Add history entries
+    contactHistory.forEach(entry => {
+      let title = entry.change_type;
+      let description = '';
+      
+      switch (entry.change_type) {
+        case 'updated':
+          title = 'Aktualizacja danych';
+          if (entry.new_values?.stage_id !== entry.previous_values?.stage_id) {
+            title = 'Zmiana etapu';
+          }
+          break;
+        case 'stage_changed':
+          title = 'Zmiana etapu';
+          break;
+        case 'status_changed':
+          title = 'Zmiana statusu';
+          description = entry.new_values?.final_status === 'success' 
+            ? 'Zamknięto jako sukces' 
+            : entry.new_values?.final_status === 'not_now'
+            ? 'Zamknięto jako "nie teraz"'
+            : 'Reaktywowano kontakt';
+          break;
+      }
+      
+      events.push({
+        id: entry.id,
+        type: entry.change_type as any,
+        date: entry.created_at,
+        title,
+        description,
+        sessionId: entry.ai_session_id || undefined
+      });
+    });
+    
+    // Add AI decisions from sessions
+    sessions.forEach(session => {
+      events.push({
+        id: 'session-' + session.id,
+        type: 'ai_decision',
+        date: session.created_at,
+        title: session.ai_decision === 'ACT' ? 'AI: DZIAŁAJ' : 'AI: POCZEKAJ',
+        description: session.ai_reasoning?.substring(0, 100) + (session.ai_reasoning?.length > 100 ? '...' : ''),
+        decision: session.ai_decision,
+        sessionId: session.id
+      });
+    });
+    
+    // Sort by date descending
+    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [selectedContact, contactHistory, sessions]);
+
+  // "Today to do" contacts - AI said ACT or suggested time has passed
+  const todayContacts = useMemo(() => {
+    const now = new Date();
+    return contacts
+      .filter(c => !c.final_status) // Only active contacts
+      .map(contact => {
+        // Find latest AI decision for this contact
+        const latestSession = sessions.find(s => s.contact_id === contact.id);
+        const isActionable = latestSession?.ai_decision === 'ACT';
+        const suggestedPassed = contact.suggested_next_contact && new Date(contact.suggested_next_contact) <= now;
+        
+        return {
+          ...contact,
+          latestSession,
+          isActionable,
+          suggestedPassed,
+          priority: isActionable ? 1 : suggestedPassed ? 2 : 3
+        };
+      })
+      .filter(c => c.isActionable || c.suggestedPassed)
+      .sort((a, b) => a.priority - b.priority);
+  }, [contacts, sessions]);
+
+  // Load all sessions for today view
+  useEffect(() => {
+    if (viewMode === 'today' && user) {
+      loadAllSessions();
+    }
+  }, [viewMode, user]);
+
+  const loadAllSessions = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('ai_compass_sessions')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    // Store all sessions for reference
+    if (data) {
+      // Create a map of latest session per contact
+      const latestByContact = new Map<string, Session>();
+      data.forEach(s => {
+        if (s.contact_id && !latestByContact.has(s.contact_id)) {
+          latestByContact.set(s.contact_id, s);
+        }
+      });
+      setSessions(data);
+    }
   };
 
   const handleCreateContact = async () => {
@@ -304,6 +446,52 @@ export const AiCompassWidget: React.FC = () => {
     }
   };
 
+  const handleSetFinalStatus = async (contactId: string, status: 'success' | 'not_now' | null) => {
+    if (!user) return;
+    
+    try {
+      const contact = contacts.find(c => c.id === contactId);
+      const previousStatus = contact?.final_status;
+      
+      const { error } = await supabase
+        .from('ai_compass_contacts')
+        .update({ 
+          final_status: status,
+          final_status_set_at: status ? new Date().toISOString() : null
+        })
+        .eq('id', contactId);
+
+      if (error) throw error;
+
+      // Log status change
+      await supabase.from('ai_compass_contact_history').insert({
+        contact_id: contactId,
+        change_type: 'status_changed',
+        previous_values: { final_status: previousStatus },
+        new_values: { final_status: status },
+        created_by: user.id,
+      });
+
+      const statusText = status === 'success' ? 'Zamknięto jako sukces' : 
+                         status === 'not_now' ? 'Zamknięto jako "nie teraz"' : 
+                         'Reaktywowano kontakt';
+      toast.success(statusText);
+      loadContacts();
+      
+      if (selectedContact?.id === contactId) {
+        const { data: updated } = await supabase
+          .from('ai_compass_contacts')
+          .select('*')
+          .eq('id', contactId)
+          .single();
+        setSelectedContact(updated);
+        loadContactHistory(contactId);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Błąd zmiany statusu');
+    }
+  };
+
   const handleDeleteContact = async (contactId: string) => {
     if (!user) return;
 
@@ -385,18 +573,30 @@ export const AiCompassWidget: React.FC = () => {
       
       setResult(response.data);
       
-      // Update contact's current_context if working with existing contact
+      // Update contact's current_context and suggested_next_contact if working with existing contact
       if (selectedContact) {
+        const updateData: any = { 
+          current_context: contextDescription,
+          last_contact_days: lastContactDays || selectedContact.last_contact_days,
+        };
+        
+        // If AI says wait, set suggested next contact date
+        if (response.data?.decision === 'WAIT' && response.data?.waitDays) {
+          const nextDate = new Date();
+          nextDate.setDate(nextDate.getDate() + response.data.waitDays);
+          updateData.suggested_next_contact = nextDate.toISOString();
+        } else {
+          updateData.suggested_next_contact = null;
+        }
+        
         await supabase
           .from('ai_compass_contacts')
-          .update({ 
-            current_context: contextDescription,
-            last_contact_days: lastContactDays || selectedContact.last_contact_days,
-          })
+          .update(updateData)
           .eq('id', selectedContact.id);
         
         loadContactSessions(selectedContact.id);
         loadContactHistory(selectedContact.id);
+        loadContacts();
       }
       
       toast.success('Analiza zakończona');
@@ -473,6 +673,13 @@ export const AiCompassWidget: React.FC = () => {
     setViewMode('edit');
   };
 
+  const openContactDetail = (contact: Contact) => {
+    setSelectedContact(contact);
+    setContextDescription(contact.current_context || '');
+    setLastContactDays(contact.last_contact_days);
+    setViewMode('detail');
+  };
+
   // Check access
   const roleValue = userRole?.role;
   const hasAccess = settings?.is_enabled && (
@@ -498,10 +705,113 @@ export const AiCompassWidget: React.FC = () => {
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.current_context?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTag = !filterTag || c.tags?.includes(filterTag);
-    return matchesSearch && matchesTag;
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && !c.final_status) ||
+      (filterStatus === 'closed' && c.final_status);
+    return matchesSearch && matchesTag && matchesStatus;
   });
 
-  // Contacts list view
+  // "TODAY TO DO" DASHBOARD VIEW
+  if (viewMode === 'today') {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  Dziś do zrobienia
+                </CardTitle>
+                <CardDescription>
+                  Kontakty wymagające Twojej uwagi
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setViewMode('contacts')}>
+                  <User className="h-4 w-4 mr-2" />
+                  Wszystkie kontakty
+                </Button>
+                <Button onClick={() => { resetForm(); setViewMode('new'); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nowy kontakt
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {todayContacts.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <p className="text-lg font-medium">Wszystko ogarnięte!</p>
+                <p className="text-muted-foreground mt-1">Brak kontaktów wymagających działania</p>
+                <Button variant="outline" className="mt-4" onClick={() => setViewMode('contacts')}>
+                  Przeglądaj wszystkie kontakty
+                </Button>
+              </div>
+            ) : (
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-3">
+                  {todayContacts.map(contact => {
+                    const type = contactTypes.find(t => t.id === contact.contact_type_id);
+                    const stage = stages.find(s => s.id === contact.stage_id);
+                    const latestSession = sessions.find(s => s.contact_id === contact.id);
+                    
+                    return (
+                      <Card 
+                        key={contact.id} 
+                        className={`p-4 border-l-4 ${contact.isActionable ? 'border-l-green-500' : 'border-l-amber-500'}`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant={contact.isActionable ? 'default' : 'secondary'}>
+                                {contact.isActionable ? 'DZIAŁAJ' : 'Czas minął'}
+                              </Badge>
+                              <span className="font-medium">{contact.name}</span>
+                              {type && <Badge variant="outline" className="text-xs">{type.name}</Badge>}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {stage && <span>Etap: {stage.name} • </span>}
+                              <span>{contact.last_contact_days} dni od kontaktu</span>
+                            </div>
+                            {latestSession?.ai_reasoning && (
+                              <p className="text-sm mt-2 line-clamp-2 text-muted-foreground">
+                                {latestSession.ai_reasoning}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => openContactDetail(contact)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Zapytaj Compass
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => openContactDetail(contact)}
+                            >
+                              <ChevronRight className="h-4 w-4 mr-1" />
+                              Szczegóły
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // CONTACTS LIST VIEW
   if (viewMode === 'contacts') {
     return (
       <div className="space-y-6">
@@ -517,14 +827,25 @@ export const AiCompassWidget: React.FC = () => {
                   Zarządzaj kontaktami i podejmuj decyzje z pomocą AI
                 </CardDescription>
               </div>
-              <Button onClick={() => { resetForm(); setViewMode('new'); }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nowy kontakt
-              </Button>
+              <div className="flex gap-2">
+                {settings?.show_today_dashboard !== false && (
+                  <Button variant="outline" onClick={() => setViewMode('today')}>
+                    <Target className="h-4 w-4 mr-2" />
+                    Dziś do zrobienia
+                    {todayContacts.length > 0 && (
+                      <Badge variant="destructive" className="ml-2">{todayContacts.length}</Badge>
+                    )}
+                  </Button>
+                )}
+                <Button onClick={() => { resetForm(); setViewMode('new'); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nowy kontakt
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -534,6 +855,16 @@ export const AiCompassWidget: React.FC = () => {
                   className="pl-9"
                 />
               </div>
+              <Select value={filterStatus} onValueChange={(val: any) => setFilterStatus(val)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Aktywne</SelectItem>
+                  <SelectItem value="closed">Zamknięte</SelectItem>
+                  <SelectItem value="all">Wszystkie</SelectItem>
+                </SelectContent>
+              </Select>
               {allTags.length > 0 && (
                 <Select value={filterTag || '_all'} onValueChange={(val) => setFilterTag(val === '_all' ? '' : val)}>
                   <SelectTrigger className="w-40">
@@ -567,16 +898,33 @@ export const AiCompassWidget: React.FC = () => {
                     const stage = stages.find(s => s.id === contact.stage_id);
                     
                     return (
-                      <Card key={contact.id} className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Card 
+                        key={contact.id} 
+                        className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
+                          contact.final_status ? 'opacity-70' : ''
+                        }`}
+                      >
                         <div className="flex items-start justify-between gap-4">
                           <div 
                             className="flex-1"
-                            onClick={() => { setSelectedContact(contact); setViewMode('detail'); }}
+                            onClick={() => openContactDetail(contact)}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <User className="h-4 w-4 text-muted-foreground" />
                               <span className="font-medium">{contact.name}</span>
                               {type && <Badge variant="outline">{type.name}</Badge>}
+                              {contact.final_status === 'success' && (
+                                <Badge variant="default" className="bg-green-500">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Sukces
+                                </Badge>
+                              )}
+                              {contact.final_status === 'not_now' && (
+                                <Badge variant="secondary">
+                                  <Pause className="h-3 w-3 mr-1" />
+                                  Nie teraz
+                                </Badge>
+                              )}
                             </div>
                             <div className="text-sm text-muted-foreground mt-1">
                               {stage && <span>Etap: {stage.name} • </span>}
@@ -587,13 +935,19 @@ export const AiCompassWidget: React.FC = () => {
                             )}
                           </div>
                           <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => { e.stopPropagation(); setSelectedContact(contact); openEditMode(); }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            {!contact.final_status && settings?.allow_edit_contacts && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setSelectedContact(contact); 
+                                  openEditMode(); 
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
                             {settings?.allow_delete_contacts && (
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -632,7 +986,7 @@ export const AiCompassWidget: React.FC = () => {
     );
   }
 
-  // New contact / Edit contact form
+  // NEW / EDIT CONTACT FORM
   if (viewMode === 'new' || viewMode === 'edit') {
     return (
       <div className="space-y-6">
@@ -749,7 +1103,7 @@ export const AiCompassWidget: React.FC = () => {
     );
   }
 
-  // Contact detail view
+  // CONTACT DETAIL VIEW
   if (viewMode === 'detail' && selectedContact) {
     const type = contactTypes.find(t => t.id === selectedContact.contact_type_id);
     const stage = stages.find(s => s.id === selectedContact.stage_id);
@@ -768,6 +1122,18 @@ export const AiCompassWidget: React.FC = () => {
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5" />
                     {selectedContact.name}
+                    {selectedContact.final_status === 'success' && (
+                      <Badge variant="default" className="bg-green-500">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Sukces
+                      </Badge>
+                    )}
+                    {selectedContact.final_status === 'not_now' && (
+                      <Badge variant="secondary">
+                        <Pause className="h-3 w-3 mr-1" />
+                        Nie teraz
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-1">
                     {type && <Badge variant="outline">{type.name}</Badge>}
@@ -776,9 +1142,63 @@ export const AiCompassWidget: React.FC = () => {
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex gap-2">
-                {settings?.allow_edit_contacts && (
-                  <Button variant="outline" onClick={openEditMode}>
+              <div className="flex gap-2 flex-wrap">
+                {!selectedContact.final_status && (
+                  <>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                          Sukces
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Zamknij jako sukces?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Kontakt zostanie oznaczony jako zakończony sukcesem i nie będzie pojawiał się w widoku "Dziś do zrobienia".
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleSetFinalStatus(selectedContact.id, 'success')}>
+                            Zamknij jako sukces
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Pause className="h-4 w-4 mr-2" />
+                          Nie teraz
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Zamknij jako "nie teraz"?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Kontakt zostanie odłożony na później. Możesz go reaktywować w dowolnym momencie.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleSetFinalStatus(selectedContact.id, 'not_now')}>
+                            Zamknij jako "nie teraz"
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+                {selectedContact.final_status === 'not_now' && (
+                  <Button variant="outline" size="sm" onClick={() => handleSetFinalStatus(selectedContact.id, null)}>
+                    <Play className="h-4 w-4 mr-2" />
+                    Reaktywuj
+                  </Button>
+                )}
+                {!selectedContact.final_status && settings?.allow_edit_contacts && (
+                  <Button variant="outline" size="sm" onClick={openEditMode}>
                     <Pencil className="h-4 w-4 mr-2" />
                     Edytuj
                   </Button>
@@ -786,7 +1206,7 @@ export const AiCompassWidget: React.FC = () => {
                 {settings?.allow_delete_contacts && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline">
+                      <Button variant="outline" size="sm">
                         <Trash2 className="h-4 w-4 mr-2 text-destructive" />
                         Usuń
                       </Button>
@@ -826,66 +1246,68 @@ export const AiCompassWidget: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* AI Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Compass className="h-5 w-5 text-primary" />
-              Nowa analiza AI
-            </CardTitle>
-            <CardDescription>
-              Opisz aktualną sytuację, a AI pomoże Ci podjąć decyzję
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Opisz aktualny kontekst *</Label>
-              <Textarea
-                value={contextDescription}
-                onChange={e => setContextDescription(e.target.value)}
-                placeholder="Opisz sytuację, ostatnią rozmowę, reakcję klienta, Twoje wrażenia..."
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-4">
+        {/* AI Analysis - only for active contacts */}
+        {!selectedContact.final_status && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Compass className="h-5 w-5 text-primary" />
+                Nowa analiza AI
+              </CardTitle>
+              <CardDescription>
+                Opisz aktualną sytuację, a AI pomoże Ci podjąć decyzję
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Dni od kontaktu</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={lastContactDays || selectedContact.last_contact_days}
-                  onChange={e => setLastContactDays(parseInt(e.target.value) || 0)}
-                  className="w-32"
+                <Label>Opisz aktualny kontekst *</Label>
+                <Textarea
+                  value={contextDescription}
+                  onChange={e => setContextDescription(e.target.value)}
+                  placeholder="Opisz sytuację, ostatnią rozmowę, reakcję klienta, Twoje wrażenia..."
+                  rows={4}
                 />
               </div>
-            </div>
 
-            <Button 
-              onClick={handleAnalyze} 
-              disabled={isLoading || !contextDescription.trim() || (!settings?.allow_multiple_decisions && sessions.length > 0)}
-              className="w-full"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analizuję...
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Wygeneruj nową decyzję AI
-                </>
+              <div className="flex gap-4">
+                <div className="space-y-2">
+                  <Label>Dni od kontaktu</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={lastContactDays || selectedContact.last_contact_days}
+                    onChange={e => setLastContactDays(parseInt(e.target.value) || 0)}
+                    className="w-32"
+                  />
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={isLoading || !contextDescription.trim() || (!settings?.allow_multiple_decisions && sessions.length > 0)}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analizuję...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Wygeneruj nową decyzję AI
+                  </>
+                )}
+              </Button>
+
+              {!settings?.allow_multiple_decisions && sessions.length > 0 && (
+                <p className="text-sm text-muted-foreground text-center">
+                  Wielokrotne generowanie decyzji AI jest wyłączone przez administratora.
+                </p>
               )}
-            </Button>
-
-            {!settings?.allow_multiple_decisions && sessions.length > 0 && (
-              <p className="text-sm text-muted-foreground text-center">
-                Wielokrotne generowanie decyzji AI jest wyłączone przez administratora.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Result Card */}
         {result && (
@@ -949,6 +1371,63 @@ export const AiCompassWidget: React.FC = () => {
                   </Button>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Timeline - Visual history */}
+        {settings?.show_contact_timeline !== false && buildTimeline.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarCheck className="h-5 w-5" />
+                Timeline kontaktu
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[300px]">
+                <div className="relative pl-6">
+                  {/* Vertical line */}
+                  <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-border" />
+                  
+                  <div className="space-y-4">
+                    {buildTimeline.map((event, index) => (
+                      <div key={event.id} className="relative flex gap-4">
+                        {/* Dot indicator */}
+                        <div className={`absolute left-[-15px] w-4 h-4 rounded-full border-2 ${
+                          event.type === 'ai_decision' 
+                            ? event.decision === 'ACT' 
+                              ? 'bg-green-500 border-green-600' 
+                              : 'bg-amber-500 border-amber-600'
+                            : event.type === 'created'
+                            ? 'bg-blue-500 border-blue-600'
+                            : event.type === 'status_changed'
+                            ? 'bg-purple-500 border-purple-600'
+                            : 'bg-muted border-border'
+                        }`} />
+                        
+                        <div className="flex-1 pb-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{event.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('pl', { 
+                                day: 'numeric', 
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          {event.description && (
+                            <p className="text-sm text-muted-foreground">{event.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         )}
@@ -1030,55 +1509,6 @@ export const AiCompassWidget: React.FC = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* Change history */}
-        {contactHistory.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Historia zmian ({contactHistory.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-2">
-                  {contactHistory.map(entry => (
-                    <div key={entry.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">
-                          {new Date(entry.created_at).toLocaleDateString('pl')}
-                        </span>
-                        <span className="mx-2">•</span>
-                        <Badge variant="outline">{entry.change_type}</Badge>
-                      </div>
-                      {settings?.allow_delete_history && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-6 w-6">
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Usuń wpis historii?</AlertDialogTitle>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteHistoryEntry(entry.id)}>
-                                Usuń
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )}
       </div>
     );
   }
