@@ -689,23 +689,30 @@ Provide a structured summary:`;
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Create container - VISIBLE but TRANSPARENT (not off-screen)
+    // Create wrapper with overflow:hidden to hide container from user
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.top = '0';
+    wrapper.style.left = '0';
+    wrapper.style.width = '0';
+    wrapper.style.height = '0';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.zIndex = '-9999';
+    
+    // Container MUST be fully visible for html2canvas to render it
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0';
     container.style.width = '210mm';
     container.style.minHeight = '297mm';
     container.style.background = 'white';
-    container.style.zIndex = '-9999';
-    container.style.opacity = '0';
-    container.style.pointerEvents = 'none';
+    container.style.opacity = '1';
+    container.style.visibility = 'visible';
     
-    document.body.appendChild(container);
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
     
-    // Wait for browser to render DOM
-    await new Promise(resolve => requestAnimationFrame(resolve));
+    // Wait for DOM to render
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     const options = {
       margin: [15, 15, 15, 15] as [number, number, number, number],
@@ -716,8 +723,6 @@ Provide a structured summary:`;
         useCORS: true,
         letterRendering: true,
         logging: true,
-        windowWidth: 794,
-        windowHeight: 1123,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -728,17 +733,14 @@ Provide a structured summary:`;
     };
     
     try {
-      const worker = html2pdf().set(options).from(container);
-      await worker.toPdf().save();
-      
-      // Extra delay to ensure file save completes
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Use simple API - more reliable than worker chain
+      await html2pdf(container, options);
     } catch (error) {
       console.error('html2pdf error:', error);
       throw error;
     } finally {
-      if (container.parentNode) {
-        document.body.removeChild(container);
+      if (wrapper.parentNode) {
+        document.body.removeChild(wrapper);
       }
     }
   };
