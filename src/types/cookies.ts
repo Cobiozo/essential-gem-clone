@@ -27,7 +27,7 @@ export interface CookieBannerColors {
 export interface CookieBannerSettings {
   id: string;
   layout_type: 'box' | 'banner' | 'popup';
-  position: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right' | 'top' | 'bottom' | 'center';
+  position: 'bottom-left' | 'bottom-center' | 'bottom-right' | 'top-left' | 'top-center' | 'top-right' | 'top' | 'bottom' | 'center';
   preference_center_type: 'center' | 'sidebar' | 'pushdown';
   title: string;
   message: string;
@@ -45,7 +45,7 @@ export interface CookieBannerSettings {
   custom_logo_url: string | null;
   show_branding: boolean;
   revisit_button_enabled: boolean;
-  revisit_button_position: 'bottom-left' | 'bottom-right';
+  revisit_button_position: 'bottom-left' | 'bottom-center' | 'bottom-right';
   revisit_button_text: string;
   theme: 'light' | 'dark' | 'auto' | 'custom';
   colors: CookieBannerColors;
@@ -86,12 +86,20 @@ export const LAYOUT_TYPES = [
 
 export const POSITIONS = [
   { value: 'bottom-left', label: 'Dół-lewo' },
+  { value: 'bottom-center', label: 'Dół-środek' },
   { value: 'bottom-right', label: 'Dół-prawo' },
   { value: 'top-left', label: 'Góra-lewo' },
+  { value: 'top-center', label: 'Góra-środek' },
   { value: 'top-right', label: 'Góra-prawo' },
   { value: 'top', label: 'Góra (pełna)' },
   { value: 'bottom', label: 'Dół (pełna)' },
   { value: 'center', label: 'Centrum' },
+] as const;
+
+export const REVISIT_BUTTON_POSITIONS = [
+  { value: 'bottom-left', label: 'Dół-lewo' },
+  { value: 'bottom-center', label: 'Dół-środek' },
+  { value: 'bottom-right', label: 'Dół-prawo' },
 ] as const;
 
 export const PREFERENCE_CENTER_TYPES = [

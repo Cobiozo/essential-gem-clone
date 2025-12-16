@@ -1,4 +1,4 @@
-import { Cookie } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CookieBannerSettings } from '@/types/cookies';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,13 @@ export function CookieRevisitButton({ bannerSettings, onClick }: CookieRevisitBu
   const colors = bannerSettings.colors;
   const position = bannerSettings.revisit_button_position;
 
-  const positionClasses = position === 'bottom-left' 
-    ? 'fixed bottom-4 left-4' 
-    : 'fixed bottom-4 right-4';
+  const positionClasses: Record<string, string> = {
+    'bottom-left': 'fixed bottom-2 left-2 sm:bottom-4 sm:left-4',
+    'bottom-center': 'fixed bottom-2 left-1/2 -translate-x-1/2 sm:bottom-4',
+    'bottom-right': 'fixed bottom-2 right-2 sm:bottom-4 sm:right-4',
+  };
+
+  const tooltipSide = position === 'bottom-left' ? 'right' : position === 'bottom-right' ? 'left' : 'top';
 
   return (
     <Tooltip>
@@ -22,8 +26,8 @@ export function CookieRevisitButton({ bannerSettings, onClick }: CookieRevisitBu
         <button
           onClick={onClick}
           className={cn(
-            positionClasses,
-            'z-[9998] p-3 rounded-full shadow-lg transition-transform hover:scale-110'
+            positionClasses[position] || positionClasses['bottom-left'],
+            'z-[9998] p-2 sm:p-3 rounded-full shadow-lg transition-transform hover:scale-110 active:scale-95'
           )}
           style={{
             backgroundColor: colors.buttonPrimaryBg,
@@ -31,10 +35,10 @@ export function CookieRevisitButton({ bannerSettings, onClick }: CookieRevisitBu
           }}
           aria-label={bannerSettings.revisit_button_text}
         >
-          <Cookie className="h-5 w-5" />
+          <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
       </TooltipTrigger>
-      <TooltipContent side={position === 'bottom-left' ? 'right' : 'left'}>
+      <TooltipContent side={tooltipSide}>
         {bannerSettings.revisit_button_text}
       </TooltipContent>
     </Tooltip>

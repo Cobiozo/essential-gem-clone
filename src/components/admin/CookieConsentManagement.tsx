@@ -25,6 +25,7 @@ import {
   CONSENT_TEMPLATES,
   DEFAULT_COLORS,
   DARK_COLORS,
+  REVISIT_BUTTON_POSITIONS,
 } from '@/types/cookies';
 
 export function CookieConsentManagement() {
@@ -211,13 +212,13 @@ export function CookieConsentManagement() {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-6 w-full">
-          <TabsTrigger value="general">Ogólne</TabsTrigger>
-          <TabsTrigger value="layout">Układ</TabsTrigger>
-          <TabsTrigger value="content">Treść</TabsTrigger>
-          <TabsTrigger value="colors">Kolory</TabsTrigger>
-          <TabsTrigger value="categories">Kategorie</TabsTrigger>
-          <TabsTrigger value="stats">Statystyki</TabsTrigger>
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 w-full h-auto">
+          <TabsTrigger value="general" className="text-xs sm:text-sm">Ogólne</TabsTrigger>
+          <TabsTrigger value="layout" className="text-xs sm:text-sm">Układ</TabsTrigger>
+          <TabsTrigger value="content" className="text-xs sm:text-sm">Treść</TabsTrigger>
+          <TabsTrigger value="colors" className="text-xs sm:text-sm">Kolory</TabsTrigger>
+          <TabsTrigger value="categories" className="text-xs sm:text-sm">Kategorie</TabsTrigger>
+          <TabsTrigger value="stats" className="text-xs sm:text-sm">Statystyki</TabsTrigger>
         </TabsList>
 
         {/* GENERAL TAB */}
@@ -393,8 +394,9 @@ export function CookieConsentManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bottom-left">Dół-lewo</SelectItem>
-                      <SelectItem value="bottom-right">Dół-prawo</SelectItem>
+                      {REVISIT_BUTTON_POSITIONS.map(p => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

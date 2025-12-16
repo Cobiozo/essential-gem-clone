@@ -34,13 +34,13 @@ export function CookiePreferenceCenter({
 
   const getContainerClasses = () => {
     if (type === 'sidebar') {
-      return 'fixed inset-y-0 right-0 w-full max-w-md z-[9999] shadow-2xl';
+      return 'fixed inset-y-0 right-0 w-full sm:w-[400px] md:max-w-md z-[9999] shadow-2xl';
     }
     if (type === 'pushdown') {
       return 'fixed top-0 left-0 right-0 z-[9999] shadow-lg';
     }
     // center
-    return 'fixed inset-0 flex items-center justify-center bg-black/50 z-[9999]';
+    return 'fixed inset-0 flex items-center justify-center bg-black/50 z-[9999] p-2 sm:p-4';
   };
 
   const getPanelClasses = () => {
@@ -48,9 +48,9 @@ export function CookiePreferenceCenter({
       return 'h-full flex flex-col';
     }
     if (type === 'pushdown') {
-      return 'w-full';
+      return 'w-full max-h-[80vh] flex flex-col';
     }
-    return 'w-full max-w-lg mx-4 rounded-lg max-h-[90vh] flex flex-col';
+    return 'w-full max-w-[calc(100%-1rem)] sm:max-w-lg rounded-lg max-h-[90vh] flex flex-col';
   };
 
   const panelStyle = {
@@ -99,8 +99,8 @@ export function CookiePreferenceCenter({
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
-          <h2 className="font-semibold text-lg" style={{ color: colors.title }}>
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b shrink-0" style={{ borderColor: colors.border }}>
+          <h2 className="font-semibold text-base sm:text-lg" style={{ color: colors.title }}>
             Ustawienia plików cookie
           </h2>
           <button
@@ -114,71 +114,70 @@ export function CookiePreferenceCenter({
         </div>
 
         {/* Content */}
-        <ScrollArea className="flex-1 p-4">
-          <p className="text-sm mb-6" style={{ color: colors.text }}>
-            {bannerSettings.message}
-          </p>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-3 sm:p-4">
+            <p className="text-xs sm:text-sm mb-4 sm:mb-6" style={{ color: colors.text }}>
+              {bannerSettings.message}
+            </p>
 
-          <div className="space-y-4">
-            {visibleCategories.map(category => (
-              <div 
-                key={category.id}
-                className="p-4 rounded-lg border"
-                style={{ borderColor: colors.border }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium" style={{ color: colors.title }}>
-                    {category.name}
-                    {category.is_necessary && (
-                      <span 
-                        className="ml-2 text-xs px-2 py-0.5 rounded"
-                        style={{ 
-                          backgroundColor: colors.buttonSecondaryBg,
-                          color: colors.buttonSecondaryText,
-                        }}
-                      >
-                        Wymagane
-                      </span>
-                    )}
-                  </h3>
-                  <Switch
-                    checked={localConsents[category.id] ?? category.is_necessary}
-                    disabled={category.is_necessary}
-                    onCheckedChange={(checked) => handleToggle(category.id, checked)}
-                    style={{
-                      '--switch-on': colors.toggleOn,
-                      '--switch-off': colors.toggleOff,
-                    } as React.CSSProperties}
-                  />
+            <div className="space-y-3 sm:space-y-4">
+              {visibleCategories.map(category => (
+                <div 
+                  key={category.id}
+                  className="p-3 sm:p-4 rounded-lg border"
+                  style={{ borderColor: colors.border }}
+                >
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-2">
+                    <h3 className="font-medium text-sm sm:text-base" style={{ color: colors.title }}>
+                      {category.name}
+                      {category.is_necessary && (
+                        <span 
+                          className="ml-2 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded"
+                          style={{ 
+                            backgroundColor: colors.buttonSecondaryBg,
+                            color: colors.buttonSecondaryText,
+                          }}
+                        >
+                          Wymagane
+                        </span>
+                      )}
+                    </h3>
+                    <Switch
+                      checked={localConsents[category.id] ?? category.is_necessary}
+                      disabled={category.is_necessary}
+                      onCheckedChange={(checked) => handleToggle(category.id, checked)}
+                      className="shrink-0"
+                    />
+                  </div>
+                  {category.description && (
+                    <p className="text-xs sm:text-sm" style={{ color: colors.text }}>
+                      {category.description}
+                    </p>
+                  )}
                 </div>
-                {category.description && (
-                  <p className="text-sm" style={{ color: colors.text }}>
-                    {category.description}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          {/* Privacy Policy Link */}
-          {bannerSettings.privacy_policy_url && (
-            <a
-              href={bannerSettings.privacy_policy_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm underline mt-4 inline-block"
-              style={{ color: colors.link }}
-            >
-              {bannerSettings.read_more_text}
-            </a>
-          )}
+            {/* Privacy Policy Link */}
+            {bannerSettings.privacy_policy_url && (
+              <a
+                href={bannerSettings.privacy_policy_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs sm:text-sm underline mt-4 inline-block"
+                style={{ color: colors.link }}
+              >
+                {bannerSettings.read_more_text}
+              </a>
+            )}
+          </div>
         </ScrollArea>
 
-        {/* Footer with buttons */}
-        <div className="p-4 border-t flex flex-wrap gap-2" style={{ borderColor: colors.border }}>
+        {/* Footer with buttons - stack on mobile */}
+        <div className="p-3 sm:p-4 border-t shrink-0 flex flex-col sm:flex-row gap-2" style={{ borderColor: colors.border }}>
           <Button
             onClick={handleSave}
-            className="flex-1"
+            className="w-full sm:flex-1 text-xs sm:text-sm h-8 sm:h-9"
             style={{ 
               backgroundColor: colors.buttonPrimaryBg,
               color: colors.buttonPrimaryText,
@@ -189,7 +188,7 @@ export function CookiePreferenceCenter({
           <Button
             onClick={handleAcceptAll}
             variant="outline"
-            className="flex-1"
+            className="w-full sm:flex-1 text-xs sm:text-sm h-8 sm:h-9"
             style={{ 
               backgroundColor: colors.buttonSecondaryBg,
               color: colors.buttonSecondaryText,
@@ -201,7 +200,7 @@ export function CookiePreferenceCenter({
           <Button
             onClick={handleRejectAll}
             variant="outline"
-            className="flex-1"
+            className="w-full sm:flex-1 text-xs sm:text-sm h-8 sm:h-9"
             style={{ 
               backgroundColor: colors.buttonSecondaryBg,
               color: colors.buttonSecondaryText,
