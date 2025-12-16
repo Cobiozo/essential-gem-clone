@@ -6,6 +6,10 @@ interface Profile {
   id: string;
   user_id: string;
   email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  eq_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

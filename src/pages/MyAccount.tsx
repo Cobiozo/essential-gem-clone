@@ -242,6 +242,23 @@ const MyAccount = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Dane osobowe */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Imię</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md">
+                        {profile.first_name || <span className="text-muted-foreground italic">Nie podano</span>}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Nazwisko</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md">
+                        {profile.last_name || <span className="text-muted-foreground italic">Nie podano</span>}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">{t('auth.email')}</Label>
@@ -250,6 +267,18 @@ const MyAccount = () => {
                       </div>
                     </div>
                     
+                    <div>
+                      <Label className="text-sm font-medium">Numer telefonu</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md">
+                        {profile.phone_number || <span className="text-muted-foreground italic">Nie podano</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {/* Informacje o koncie */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">{t('admin.userRole')}</Label>
                       <div className="mt-1">
@@ -261,21 +290,6 @@ const MyAccount = () => {
                         }>
                           {getRoleDisplayName(userRole?.role || 'user')}
                         </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium">{t('admin.created')}</Label>
-                      <div className="mt-1 p-3 bg-muted rounded-md text-sm">
-                        {new Date(profile.created_at).toLocaleDateString('pl-PL', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
                       </div>
                     </div>
 
@@ -295,6 +309,30 @@ const MyAccount = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">{t('admin.created')}</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md text-sm">
+                        {new Date(profile.created_at).toLocaleDateString('pl-PL', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+
+                    {profile.eq_id && (
+                      <div>
+                        <Label className="text-sm font-medium">EQ ID</Label>
+                        <div className="mt-1 p-3 bg-muted rounded-md font-mono text-sm">
+                          {profile.eq_id}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>
