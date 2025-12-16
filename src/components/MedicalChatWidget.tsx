@@ -689,28 +689,20 @@ Provide a structured summary:`;
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Create wrapper with overflow:hidden to hide container from user
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.top = '0';
-    wrapper.style.left = '0';
-    wrapper.style.width = '0';
-    wrapper.style.height = '0';
-    wrapper.style.overflow = 'hidden';
-    wrapper.style.zIndex = '-9999';
-    
-    // Container MUST be fully visible for html2canvas to render it
+    // Container positioned OFF-SCREEN (no wrapper with width:0 that clips content!)
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
     container.style.width = '210mm';
     container.style.minHeight = '297mm';
     container.style.background = 'white';
     container.style.opacity = '1';
     container.style.visibility = 'visible';
-    container.style.overflow = 'hidden';
+    container.style.boxSizing = 'border-box';
     
-    wrapper.appendChild(container);
-    document.body.appendChild(wrapper);
+    document.body.appendChild(container);
     
     // Wait for DOM to render
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -723,7 +715,9 @@ Provide a structured summary:`;
         scale: 2,
         useCORS: true,
         letterRendering: true,
-        logging: true,
+        logging: false,
+        width: 794,
+        windowWidth: 794,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -734,14 +728,13 @@ Provide a structured summary:`;
     };
     
     try {
-      // Use simple API - more reliable than worker chain
       await html2pdf(container, options);
     } catch (error) {
       console.error('html2pdf error:', error);
       throw error;
     } finally {
-      if (wrapper.parentNode) {
-        document.body.removeChild(wrapper);
+      if (container.parentNode) {
+        document.body.removeChild(container);
       }
     }
   };
