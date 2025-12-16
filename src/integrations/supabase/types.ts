@@ -675,6 +675,9 @@ export type Database = {
       }
       knowledge_resources: {
         Row: {
+          allow_copy_link: boolean
+          allow_download: boolean
+          allow_share: boolean
           category: string | null
           context_of_use: string | null
           created_at: string
@@ -702,6 +705,9 @@ export type Database = {
           work_stage: string | null
         }
         Insert: {
+          allow_copy_link?: boolean
+          allow_download?: boolean
+          allow_share?: boolean
           category?: string | null
           context_of_use?: string | null
           created_at?: string
@@ -729,6 +735,9 @@ export type Database = {
           work_stage?: string | null
         }
         Update: {
+          allow_copy_link?: boolean
+          allow_download?: boolean
+          allow_share?: boolean
           category?: string | null
           context_of_use?: string | null
           created_at?: string

@@ -27,6 +27,10 @@ export interface KnowledgeResource {
   position: number;
   created_at: string;
   updated_at: string;
+  // Action controls
+  allow_copy_link: boolean;
+  allow_download: boolean;
+  allow_share: boolean;
 }
 
 export const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {

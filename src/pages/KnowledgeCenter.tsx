@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { 
   Search, Download, ExternalLink, Copy, FileText, File, 
   Archive, Link as LinkIcon, FileSpreadsheet, Star, Sparkles,
-  RefreshCw, Filter, X
+  RefreshCw, Filter, X, Share2, Clock
 } from 'lucide-react';
 import { 
   KnowledgeResource, ResourceType,
@@ -113,26 +113,84 @@ export default function KnowledgeCenter() {
   const featuredResources = filteredResources.filter(r => r.is_featured);
   const regularResources = filteredResources.filter(r => !r.is_featured);
 
-  const getActionButton = (resource: KnowledgeResource) => {
+  const handleShare = (resource: KnowledgeResource) => {
+    if (resource.source_url) {
+      const shareText = `Sprawdź ten materiał: ${resource.title}`;
+      if (navigator.share) {
+        navigator.share({
+          title: resource.title,
+          text: shareText,
+          url: resource.source_url
+        }).catch(() => {
+          // Fallback to copy
+          navigator.clipboard.writeText(resource.source_url || '');
+          toast.success('Link skopiowany do schowka');
+        });
+      } else {
+        navigator.clipboard.writeText(resource.source_url);
+        toast.success('Link skopiowany do schowka');
+      }
+    }
+  };
+
+  const hasAnyAction = (resource: KnowledgeResource) => {
+    return resource.allow_copy_link || resource.allow_download || resource.allow_share;
+  };
+
+  const getActionButtons = (resource: KnowledgeResource) => {
     const isLink = resource.source_type === 'link' || resource.resource_type === 'link' || resource.resource_type === 'page';
     
+    // No actions enabled - show "coming soon" message
+    if (!hasAnyAction(resource)) {
+      return (
+        <Badge variant="secondary" className="flex items-center gap-1.5 py-1.5 px-3">
+          <Clock className="h-3.5 w-3.5" />
+          <span className="text-xs">Dostępne wkrótce</span>
+        </Badge>
+      );
+    }
+    
     return (
-      <Button 
-        onClick={() => handleAction(resource)}
-        className="w-full sm:w-auto"
-      >
-        {isLink ? (
-          <>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Otwórz
-          </>
-        ) : (
-          <>
-            <Download className="h-4 w-4 mr-2" />
-            Pobierz
-          </>
+      <div className="flex items-center gap-2 flex-wrap">
+        {resource.allow_copy_link && (
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => handleCopyLink(resource)}
+            title="Kopiuj link"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
         )}
-      </Button>
+        {resource.allow_share && (
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => handleShare(resource)}
+            title="Udostępnij"
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+        )}
+        {resource.allow_download && (
+          <Button 
+            onClick={() => handleAction(resource)}
+            size="sm"
+          >
+            {isLink ? (
+              <>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Otwórz
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Pobierz
+              </>
+            )}
+          </Button>
+        )}
+      </div>
     );
   };
 
@@ -250,7 +308,7 @@ export default function KnowledgeCenter() {
                             <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                               {resource.description || 'Brak opisu'}
                             </p>
-                            {getActionButton(resource)}
+                            {getActionButtons(resource)}
                           </div>
                         </div>
                       </CardContent>
@@ -302,15 +360,7 @@ export default function KnowledgeCenter() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 sm:shrink-0">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleCopyLink(resource)}
-                              title="Kopiuj link"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            {getActionButton(resource)}
+                            {getActionButtons(resource)}
                           </div>
                         </div>
                       </CardContent>
