@@ -7,11 +7,48 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("AI-Compass function invoked");
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Validate environment variables first
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!LOVABLE_API_KEY) {
+      console.error("Missing LOVABLE_API_KEY");
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("Missing Supabase credentials");
+      return new Response(JSON.stringify({ error: "Supabase credentials not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Parse request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.error("Failed to parse request body:", e);
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { 
       contactTypeId, 
       stageId, 
@@ -19,17 +56,9 @@ serve(async (req) => {
       lastContactDays,
       userId,
       language = 'pl'
-    } = await req.json();
+    } = requestBody;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    console.log("Request params:", { contactTypeId, stageId, contextDescription: contextDescription?.substring(0, 50), lastContactDays, userId, language });
 
     // Fetch contact type and stage names
     let contactTypeName = "Nieznany";
@@ -158,18 +187,32 @@ Przeanalizuj sytuację i podejmij decyzję.`;
 
     console.log("AI Response:", content);
 
-    // Parse JSON from AI response
+    // Parse JSON from AI response with improved error handling
     let parsedResponse;
     try {
       // Extract JSON from response (handle markdown code blocks)
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
       const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : content;
       parsedResponse = JSON.parse(jsonStr);
+      
+      // Normalize and validate response fields
+      parsedResponse.decision = parsedResponse.decision?.toUpperCase() === 'ACT' ? 'ACT' : 'WAIT';
+      parsedResponse.reasoning = parsedResponse.reasoning || 'Brak uzasadnienia';
+      parsedResponse.message = parsedResponse.message || null;
+      parsedResponse.reflink = parsedResponse.reflink || null;
+      parsedResponse.waitDays = typeof parsedResponse.waitDays === 'number' ? parsedResponse.waitDays : 
+                                (parseInt(parsedResponse.waitDays) || null);
+      
+      console.log("Parsed AI response:", { 
+        decision: parsedResponse.decision, 
+        hasMessage: !!parsedResponse.message,
+        resourceId: parsedResponse.resourceId 
+      });
     } catch (e) {
-      console.error("Failed to parse AI response:", e);
+      console.error("Failed to parse AI response:", e, "Content:", content);
       parsedResponse = {
         decision: "WAIT",
-        reasoning: content,
+        reasoning: content || 'Nie udało się przetworzyć odpowiedzi AI',
         message: null,
         resourceId: null,
         reflink: null,
@@ -177,7 +220,30 @@ Przeanalizuj sytuację i podejmij decyzję.`;
       };
     }
 
+    // Validate recommended_resource_id - must be valid UUID and exist in database
+    let validResourceId = null;
+    if (parsedResponse.resourceId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(parsedResponse.resourceId)) {
+        const { data: resource, error: resourceError } = await supabase
+          .from('knowledge_resources')
+          .select('id')
+          .eq('id', parsedResponse.resourceId)
+          .single();
+        
+        if (resource && !resourceError) {
+          validResourceId = parsedResponse.resourceId;
+          console.log("Valid resource ID found:", validResourceId);
+        } else {
+          console.log("Resource ID not found in database:", parsedResponse.resourceId);
+        }
+      } else {
+        console.log("Invalid UUID format for resourceId:", parsedResponse.resourceId);
+      }
+    }
+
     // Save session to database
+    console.log("Saving session to database...");
     const { data: session, error: sessionError } = await supabase
       .from('ai_compass_sessions')
       .insert({
@@ -189,7 +255,7 @@ Przeanalizuj sytuację i podejmij decyzję.`;
         ai_decision: parsedResponse.decision,
         ai_reasoning: parsedResponse.reasoning,
         generated_message: parsedResponse.message,
-        recommended_resource_id: parsedResponse.resourceId,
+        recommended_resource_id: validResourceId,
         generated_reflink: parsedResponse.reflink,
       })
       .select()
@@ -197,10 +263,13 @@ Przeanalizuj sytuację i podejmij decyzję.`;
 
     if (sessionError) {
       console.error("Failed to save session:", sessionError);
+    } else {
+      console.log("Session saved:", session?.id);
     }
 
     // Update learning patterns (anonymous aggregation)
     if (contactTypeId && stageId) {
+      console.log("Updating learning patterns...");
       const { data: existingPattern } = await supabase
         .from('ai_compass_learning_patterns')
         .select('*')
@@ -217,6 +286,7 @@ Przeanalizuj sytuację i podejmij decyzję.`;
             last_updated: new Date().toISOString()
           })
           .eq('id', existingPattern.id);
+        console.log("Updated existing pattern, count:", existingPattern.sample_count + 1);
       } else {
         await supabase
           .from('ai_compass_learning_patterns')
@@ -227,11 +297,14 @@ Przeanalizuj sytuację i podejmij decyzję.`;
             optimal_timing_days: lastContactDays,
             sample_count: 1
           });
+        console.log("Created new learning pattern");
       }
     }
 
+    console.log("AI-Compass function completed successfully");
     return new Response(JSON.stringify({
       ...parsedResponse,
+      resourceId: validResourceId,
       sessionId: session?.id
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -239,7 +312,11 @@ Przeanalizuj sytuację i podejmij decyzję.`;
 
   } catch (error) {
     console.error("Error in ai-compass function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("Stack trace:", error.stack);
+    return new Response(JSON.stringify({ 
+      error: error.message || "Unknown error occurred",
+      details: error.stack ? error.stack.split('\n').slice(0, 3).join('\n') : undefined
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
