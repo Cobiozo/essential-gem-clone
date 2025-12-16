@@ -508,6 +508,90 @@ export type Database = {
           },
         ]
       }
+      knowledge_resources: {
+        Row: {
+          category: string | null
+          context_of_use: string | null
+          created_at: string
+          description: string | null
+          download_count: number
+          file_name: string | null
+          file_size: number | null
+          id: string
+          is_featured: boolean
+          is_new: boolean
+          is_updated: boolean
+          position: number
+          resource_type: Database["public"]["Enums"]["resource_type"]
+          source_type: string
+          source_url: string | null
+          status: Database["public"]["Enums"]["resource_status"]
+          tags: string[] | null
+          title: string
+          updated_at: string
+          version: string | null
+          visible_to_clients: boolean
+          visible_to_everyone: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+          work_stage: string | null
+        }
+        Insert: {
+          category?: string | null
+          context_of_use?: string | null
+          created_at?: string
+          description?: string | null
+          download_count?: number
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          is_featured?: boolean
+          is_new?: boolean
+          is_updated?: boolean
+          position?: number
+          resource_type?: Database["public"]["Enums"]["resource_type"]
+          source_type?: string
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          version?: string | null
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+          work_stage?: string | null
+        }
+        Update: {
+          category?: string | null
+          context_of_use?: string | null
+          created_at?: string
+          description?: string | null
+          download_count?: number
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          is_featured?: boolean
+          is_new?: boolean
+          is_updated?: boolean
+          position?: number
+          resource_type?: Database["public"]["Enums"]["resource_type"]
+          source_type?: string
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          version?: string | null
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+          work_stage?: string | null
+        }
+        Relationships: []
+      }
       medical_chat_history: {
         Row: {
           created_at: string
@@ -1075,6 +1159,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "partner" | "client" | "specjalista" | "user"
+      resource_status: "active" | "draft" | "archived"
+      resource_type: "pdf" | "doc" | "zip" | "form" | "link" | "page"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1203,6 +1289,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "partner", "client", "specjalista", "user"],
+      resource_status: ["active", "draft", "archived"],
+      resource_type: ["pdf", "doc", "zip", "form", "link", "page"],
     },
   },
 } as const

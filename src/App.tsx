@@ -16,6 +16,7 @@ import MyAccount from "./pages/MyAccount";
 import Page from "./pages/Page";
 import Training from "./pages/Training";
 import TrainingModule from "./pages/TrainingModule";
+import KnowledgeCenter from "./pages/KnowledgeCenter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const AppContent = () => {
           <Route path="/my-account" element={<MyAccount />} />
           <Route path="/training" element={<Training />} />
           <Route path="/training/:moduleId" element={<TrainingModule />} />
+          <Route path="/knowledge" element={<KnowledgeCenter />} />
           <Route path="/page/:slug" element={<Page />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
