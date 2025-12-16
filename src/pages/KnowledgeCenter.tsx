@@ -72,12 +72,14 @@ export default function KnowledgeCenter() {
     setLoading(false);
   };
 
-  const handleDownloadClick = async (resource: KnowledgeResource) => {
-    // Increment download count (fire and forget)
-    supabase
-      .from('knowledge_resources')
-      .update({ download_count: resource.download_count + 1 })
-      .eq('id', resource.id);
+  // Get download endpoint URL for a resource
+  const getDownloadUrl = (resourceId: string): string => {
+    return `https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/download-resource?id=${resourceId}`;
+  };
+
+  // Check if resource has valid downloadable URL
+  const hasValidDownloadUrl = (resource: KnowledgeResource): boolean => {
+    return Boolean(resource.source_url && resource.source_url.trim() !== '');
   };
 
   const handleOpenLink = (resource: KnowledgeResource) => {
@@ -87,11 +89,6 @@ export default function KnowledgeCenter() {
       .update({ download_count: resource.download_count + 1 })
       .eq('id', resource.id);
     window.open(resource.source_url || '', '_blank');
-  };
-
-  // Check if resource has valid downloadable URL
-  const hasValidDownloadUrl = (resource: KnowledgeResource): boolean => {
-    return Boolean(resource.source_url && resource.source_url.trim() !== '');
   };
 
   const handleCopyLink = (resource: KnowledgeResource) => {
@@ -207,9 +204,7 @@ export default function KnowledgeCenter() {
             </Button>
           ) : (
             <a
-              href={resource.source_url!}
-              download={resource.file_name || true}
-              onClick={() => handleDownloadClick(resource)}
+              href={getDownloadUrl(resource.id)}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-3"
             >
               <Download className="h-4 w-4" />
