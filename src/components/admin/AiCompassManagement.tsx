@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { 
   Compass, Settings, Users, BarChart3, Plus, Pencil, Trash2, 
-  Save, UserCheck, Briefcase, GraduationCap, Download
+  Save, UserCheck, Briefcase, GraduationCap, Download, Shield
 } from 'lucide-react';
 
 interface Settings {
@@ -26,6 +26,11 @@ interface Settings {
   allow_export: boolean;
   ai_learning_enabled: boolean;
   ai_system_prompt: string;
+  allow_delete_contacts: boolean;
+  allow_delete_history: boolean;
+  allow_edit_contacts: boolean;
+  allow_multiple_decisions: boolean;
+  data_retention_days: number | null;
 }
 
 interface ContactType {
@@ -53,6 +58,8 @@ interface SessionStats {
   wait_decisions: number;
   positive_feedback: number;
   negative_feedback: number;
+  total_contacts: number;
+  active_contacts: number;
 }
 
 interface LearningPattern {
@@ -74,7 +81,6 @@ export const AiCompassManagement: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   
   const [editingType, setEditingType] = useState<ContactType | null>(null);
-  const [editingStage, setEditingStage] = useState<ContactStage | null>(null);
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeDescription, setNewTypeDescription] = useState('');
   const [selectedTypeForStages, setSelectedTypeForStages] = useState<string>('');
@@ -119,13 +125,21 @@ export const AiCompassManagement: React.FC = () => {
       .from('ai_compass_sessions')
       .select('ai_decision, user_feedback');
 
+    const { data: contacts, count: contactsCount } = await supabase
+      .from('ai_compass_contacts')
+      .select('is_active', { count: 'exact' });
+
+    const activeContacts = contacts?.filter(c => c.is_active).length || 0;
+
     if (sessions) {
       setStats({
         total_sessions: sessions.length,
         act_decisions: sessions.filter(s => s.ai_decision === 'ACT').length,
         wait_decisions: sessions.filter(s => s.ai_decision === 'WAIT').length,
         positive_feedback: sessions.filter(s => s.user_feedback === 'positive').length,
-        negative_feedback: sessions.filter(s => s.user_feedback === 'negative').length
+        negative_feedback: sessions.filter(s => s.user_feedback === 'negative').length,
+        total_contacts: contactsCount || 0,
+        active_contacts: activeContacts,
       });
     }
   };
@@ -151,7 +165,12 @@ export const AiCompassManagement: React.FC = () => {
         enabled_for_clients: settings.enabled_for_clients,
         allow_export: settings.allow_export,
         ai_learning_enabled: settings.ai_learning_enabled,
-        ai_system_prompt: settings.ai_system_prompt
+        ai_system_prompt: settings.ai_system_prompt,
+        allow_delete_contacts: settings.allow_delete_contacts,
+        allow_delete_history: settings.allow_delete_history,
+        allow_edit_contacts: settings.allow_edit_contacts,
+        allow_multiple_decisions: settings.allow_multiple_decisions,
+        data_retention_days: settings.data_retention_days,
       })
       .eq('id', settings.id);
 
@@ -286,8 +305,9 @@ export const AiCompassManagement: React.FC = () => {
       </div>
 
       <Tabs defaultValue="settings">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="settings"><Settings className="h-4 w-4 mr-2" />Ustawienia</TabsTrigger>
+          <TabsTrigger value="policies"><Shield className="h-4 w-4 mr-2" />Polityki</TabsTrigger>
           <TabsTrigger value="types"><Users className="h-4 w-4 mr-2" />Typy kontaktów</TabsTrigger>
           <TabsTrigger value="stats"><BarChart3 className="h-4 w-4 mr-2" />Statystyki</TabsTrigger>
           <TabsTrigger value="learning"><GraduationCap className="h-4 w-4 mr-2" />Uczenie AI</TabsTrigger>
@@ -390,6 +410,78 @@ export const AiCompassManagement: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="policies" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Polityka danych i kontrola</CardTitle>
+              <CardDescription>Kontroluj co użytkownicy mogą robić ze swoimi danymi</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Kasowanie kontaktów</Label>
+                  <p className="text-sm text-muted-foreground">Pozwól użytkownikom usuwać swoje kontakty</p>
+                </div>
+                <Switch
+                  checked={settings.allow_delete_contacts}
+                  onCheckedChange={v => setSettings({...settings, allow_delete_contacts: v})}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Kasowanie historii</Label>
+                  <p className="text-sm text-muted-foreground">Pozwól użytkownikom usuwać historię decyzji AI</p>
+                </div>
+                <Switch
+                  checked={settings.allow_delete_history}
+                  onCheckedChange={v => setSettings({...settings, allow_delete_history: v})}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Edycja kontaktów</Label>
+                  <p className="text-sm text-muted-foreground">Pozwól użytkownikom edytować dane kontaktów</p>
+                </div>
+                <Switch
+                  checked={settings.allow_edit_contacts}
+                  onCheckedChange={v => setSettings({...settings, allow_edit_contacts: v})}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Wielokrotne decyzje AI</Label>
+                  <p className="text-sm text-muted-foreground">Pozwól generować wiele decyzji AI dla jednego kontaktu</p>
+                </div>
+                <Switch
+                  checked={settings.allow_multiple_decisions}
+                  onCheckedChange={v => setSettings({...settings, allow_multiple_decisions: v})}
+                />
+              </div>
+
+              <div className="border-t pt-4 space-y-2">
+                <Label>Retencja danych (dni)</Label>
+                <p className="text-sm text-muted-foreground">Automatyczne archiwizowanie danych po określonej liczbie dni (puste = bez limitu)</p>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.data_retention_days || ''}
+                  onChange={e => setSettings({...settings, data_retention_days: e.target.value ? parseInt(e.target.value) : null})}
+                  placeholder="np. 365"
+                  className="w-32"
+                />
+              </div>
+
+              <Button onClick={handleSaveSettings} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Zapisywanie...' : 'Zapisz polityki'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="types" className="space-y-4">
           <Card>
             <CardHeader>
@@ -474,17 +566,17 @@ export const AiCompassManagement: React.FC = () => {
                                   <Plus className="h-4 w-4" />
                                 </Button>
                               </div>
-                              <ScrollArea className="h-64">
-                                {stages
-                                  .filter(s => s.contact_type_id === type.id)
-                                  .map(stage => (
-                                    <div key={stage.id} className="flex items-center justify-between py-2 border-b">
+                              <ScrollArea className="h-[200px]">
+                                <div className="space-y-2">
+                                  {stages.filter(s => s.contact_type_id === type.id).map(stage => (
+                                    <div key={stage.id} className="flex items-center justify-between p-2 rounded bg-muted">
                                       <span>{stage.name}</span>
                                       <Badge variant={stage.is_active ? 'default' : 'secondary'}>
                                         {stage.is_active ? 'Aktywny' : 'Nieaktywny'}
                                       </Badge>
                                     </div>
                                   ))}
+                                </div>
                               </ScrollArea>
                             </div>
                           </DialogContent>
@@ -499,7 +591,11 @@ export const AiCompassManagement: React.FC = () => {
                         <div className="flex gap-1">
                           <Dialog>
                             <DialogTrigger asChild>
-                              <Button size="icon" variant="ghost" onClick={() => setEditingType(type)}>
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => setEditingType(type)}
+                              >
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             </DialogTrigger>
@@ -518,7 +614,7 @@ export const AiCompassManagement: React.FC = () => {
                                   </div>
                                   <div className="space-y-2">
                                     <Label>Opis</Label>
-                                    <Input
+                                    <Textarea
                                       value={editingType.description || ''}
                                       onChange={e => setEditingType({...editingType, description: e.target.value})}
                                     />
@@ -531,6 +627,7 @@ export const AiCompassManagement: React.FC = () => {
                                     />
                                   </div>
                                   <Button onClick={() => handleUpdateContactType(editingType)}>
+                                    <Save className="h-4 w-4 mr-2" />
                                     Zapisz
                                   </Button>
                                 </div>
@@ -560,44 +657,74 @@ export const AiCompassManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Łączna liczba sesji</CardDescription>
-                <CardTitle className="text-3xl">{stats?.total_sessions || 0}</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Łączna liczba sesji</CardTitle>
               </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats?.total_sessions || 0}</p>
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Decyzje DZIAŁAJ</CardDescription>
-                <CardTitle className="text-3xl text-green-600">{stats?.act_decisions || 0}</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Decyzje DZIAŁAJ</CardTitle>
               </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-green-600">{stats?.act_decisions || 0}</p>
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Decyzje POCZEKAJ</CardDescription>
-                <CardTitle className="text-3xl text-amber-600">{stats?.wait_decisions || 0}</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Decyzje POCZEKAJ</CardTitle>
               </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-amber-600">{stats?.wait_decisions || 0}</p>
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Pozytywny feedback</CardDescription>
-                <CardTitle className="text-3xl">
-                  {stats && stats.total_sessions > 0 
-                    ? Math.round((stats.positive_feedback / stats.total_sessions) * 100) 
-                    : 0}%
-                </CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Pozytywny feedback</CardTitle>
               </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">
+                  {stats?.total_sessions ? Math.round((stats.positive_feedback / stats.total_sessions) * 100) : 0}%
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Łączna liczba kontaktów</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats?.total_contacts || 0}</p>
+                <p className="text-sm text-muted-foreground">
+                  Aktywnych: {stats?.active_contacts || 0}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Śr. decyzji na kontakt</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">
+                  {stats?.active_contacts ? (stats.total_sessions / stats.active_contacts).toFixed(1) : 0}
+                </p>
+              </CardContent>
             </Card>
           </div>
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Eksport danych</CardTitle>
-                <Button onClick={handleExportAllData}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Eksportuj wszystkie sesje
-                </Button>
-              </div>
+              <CardTitle>Eksport danych</CardTitle>
             </CardHeader>
+            <CardContent>
+              <Button onClick={handleExportAllData}>
+                <Download className="h-4 w-4 mr-2" />
+                Eksportuj wszystkie sesje (CSV)
+              </Button>
+            </CardContent>
           </Card>
         </TabsContent>
 
@@ -605,52 +732,49 @@ export const AiCompassManagement: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Wzorce uczenia AI</CardTitle>
-              <CardDescription>Anonimowe dane agregowane z sesji użytkowników</CardDescription>
+              <CardDescription>Agregowane dane z historii decyzji</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Typ kontaktu</TableHead>
-                    <TableHead>Etap</TableHead>
-                    <TableHead>Wzorzec</TableHead>
-                    <TableHead>Optymalny czas (dni)</TableHead>
-                    <TableHead>Skuteczność</TableHead>
-                    <TableHead>Próbki</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {patterns.map(pattern => (
-                    <TableRow key={pattern.id}>
-                      <TableCell>
-                        {contactTypes.find(t => t.id === pattern.contact_type_id)?.name || '-'}
-                      </TableCell>
-                      <TableCell>
-                        {stages.find(s => s.id === pattern.stage_id)?.name || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          pattern.pattern_type === 'success' ? 'default' :
-                          pattern.pattern_type === 'failure' ? 'destructive' : 'secondary'
-                        }>
-                          {pattern.pattern_type === 'success' ? 'Sukces' :
-                           pattern.pattern_type === 'failure' ? 'Niepowodzenie' : 'Neutralny'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{pattern.optimal_timing_days || '-'}</TableCell>
-                      <TableCell>{pattern.success_rate ? `${pattern.success_rate}%` : '-'}</TableCell>
-                      <TableCell>{pattern.sample_count}</TableCell>
-                    </TableRow>
-                  ))}
-                  {patterns.length === 0 && (
+              {patterns.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  Brak danych do uczenia. Wzorce pojawią się po zebraniu większej liczby sesji.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Brak danych uczących. Dane pojawią się po otrzymaniu feedbacku od użytkowników.
-                      </TableCell>
+                      <TableHead>Typ kontaktu</TableHead>
+                      <TableHead>Etap</TableHead>
+                      <TableHead>Typ wzorca</TableHead>
+                      <TableHead>Optymalny czas (dni)</TableHead>
+                      <TableHead>Skuteczność</TableHead>
+                      <TableHead>Próbki</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {patterns.map(pattern => (
+                      <TableRow key={pattern.id}>
+                        <TableCell>
+                          {contactTypes.find(t => t.id === pattern.contact_type_id)?.name || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {stages.find(s => s.id === pattern.stage_id)?.name || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={pattern.pattern_type === 'success' ? 'default' : 'secondary'}>
+                            {pattern.pattern_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{pattern.optimal_timing_days || '-'}</TableCell>
+                        <TableCell>
+                          {pattern.success_rate ? `${Math.round(pattern.success_rate * 100)}%` : '-'}
+                        </TableCell>
+                        <TableCell>{pattern.sample_count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -658,5 +782,3 @@ export const AiCompassManagement: React.FC = () => {
     </div>
   );
 };
-
-export default AiCompassManagement;
