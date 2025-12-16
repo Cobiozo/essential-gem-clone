@@ -706,24 +706,36 @@ Provide a structured summary:`;
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Container positioned off-screen but with full dimensions for rendering
+    // WRAPPER - visually hidden but rendered by browser (z-index behind everything)
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.width = '100vw';
+    wrapper.style.height = '100vh';
+    wrapper.style.zIndex = '-9999';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.overflow = 'hidden';
+    
+    // CONTAINER - visible to html2canvas inside the wrapper
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
     container.style.position = 'absolute';
-    container.style.left = '-9999px';
+    container.style.left = '0';
     container.style.top = '0';
     container.style.width = '170mm';  // A4(210mm) - 2×20mm margins
-    container.style.padding = '0';
     container.style.background = 'white';
     container.style.boxSizing = 'border-box';
+    container.style.padding = '0';
     
-    document.body.appendChild(container);
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
     
     // Wait for fonts and styles to apply
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     const options = {
-      margin: [15, 20, 15, 20] as [number, number, number, number],  // top, right, bottom, left (mm)
+      margin: [15, 20, 15, 20] as [number, number, number, number],
       filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
       image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
@@ -731,7 +743,9 @@ Provide a structured summary:`;
         useCORS: true,
         letterRendering: true,
         logging: false,
-        windowWidth: 640,  // ~170mm width
+        backgroundColor: '#ffffff',
+        width: 643,  // 170mm in pixels
+        windowWidth: 643,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -743,7 +757,7 @@ Provide a structured summary:`;
     try {
       await html2pdf().set(options).from(container).save();
     } finally {
-      document.body.removeChild(container);
+      document.body.removeChild(wrapper);
     }
   };
 
