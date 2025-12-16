@@ -708,19 +708,19 @@ Provide a structured summary:`;
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // OVERLAY for UX
+    // OVERLAY for UX - HIGHER z-index than container, fully opaque to hide flash
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed; left: 0; top: 0; right: 0; bottom: 0;
-      background: rgba(255,255,255,0.95);
-      z-index: 999998;
+      background: rgba(255,255,255,1);
+      z-index: 1000000;
       display: flex; align-items: center; justify-content: center;
       font-family: sans-serif; font-size: 18px; color: #666;
     `;
     overlay.innerHTML = '<div>Generowanie PDF...</div>';
     document.body.appendChild(overlay);
     
-    // CONTAINER - fixed size A4 width (794px at 96dpi)
+    // CONTAINER - fixed size A4 width (794px at 96dpi) - LOWER z-index than overlay
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
     container.style.cssText = `
@@ -746,7 +746,7 @@ Provide a structured summary:`;
       const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true,
-        logging: true,
+        logging: false,
         backgroundColor: '#ffffff',
         width: container.offsetWidth,
         height: container.offsetHeight,
@@ -754,50 +754,66 @@ Provide a structured summary:`;
       
       console.log('Canvas size:', canvas.width, canvas.height);
       
-      // 2. CHECK IF CANVAS HAS CONTENT
-      const ctx = canvas.getContext('2d');
-      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
-      const hasContent = imageData?.data.some((pixel, i) => i % 4 !== 3 && pixel !== 255);
-      console.log('Canvas has content:', hasContent);
-      
-      // 3. CONVERT TO IMAGE
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      
-      // 4. CREATE PDF WITH PAGINATION
+      // 2. CREATE PDF WITH PROPER PAGINATION (slice canvas per page)
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
       });
-      
+
       const pageWidth = 210;
       const pageHeight = 297;
-      const margin = 15;
-      const contentWidth = pageWidth - 2 * margin;
-      const contentHeight = pageHeight - 2 * margin;
-      
-      // Calculate proportions
+      const marginX = 15;
+      const marginY = 15;
+      const contentWidth = pageWidth - 2 * marginX;
+      const contentHeight = pageHeight - 2 * marginY;
+
+      // Calculate dimensions
       const imgWidth = contentWidth;
-      const imgHeight = (canvas.height * contentWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = margin;
+      const scale = imgWidth / canvas.width;
+
+      // Height per page in canvas pixels
+      const pageHeightPx = contentHeight / scale;
+
+      let yOffset = 0;
       let pageNum = 0;
-      
-      // First page
-      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
-      heightLeft -= contentHeight;
-      
-      // Additional pages if needed
-      while (heightLeft > 0) {
+
+      while (yOffset < canvas.height) {
+        if (pageNum > 0) {
+          pdf.addPage();
+        }
+        
+        // Calculate slice height for this page
+        const sliceHeight = Math.min(pageHeightPx, canvas.height - yOffset);
+        
+        // Create temporary canvas for this page slice
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const pageCtx = pageCanvas.getContext('2d');
+        
+        if (pageCtx) {
+          // Copy slice from original canvas
+          pageCtx.drawImage(
+            canvas,
+            0, yOffset,                   // source x, y
+            canvas.width, sliceHeight,    // source width, height
+            0, 0,                         // dest x, y
+            canvas.width, sliceHeight     // dest width, height
+          );
+          
+          const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+          const sliceImgHeight = sliceHeight * scale;
+          
+          // Add image with TOP margin on every page
+          pdf.addImage(pageImgData, 'JPEG', marginX, marginY, imgWidth, sliceImgHeight);
+        }
+        
+        yOffset += pageHeightPx;
         pageNum++;
-        pdf.addPage();
-        position = margin - (pageNum * contentHeight);
-        pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
-        heightLeft -= contentHeight;
       }
       
-      // 5. SAVE
+      // 3. SAVE
       const filename = `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(filename);
       
