@@ -508,6 +508,171 @@ export type Database = {
           },
         ]
       }
+      cookie_banner_settings: {
+        Row: {
+          accept_all_text: string | null
+          categories_on_first_layer: boolean
+          colors: Json | null
+          created_at: string
+          custom_css: string | null
+          custom_logo_url: string | null
+          customize_text: string | null
+          id: string
+          layout_type: string
+          message: string | null
+          position: string
+          preference_center_type: string
+          privacy_policy_url: string | null
+          read_more_text: string | null
+          reject_all_text: string | null
+          revisit_button_enabled: boolean
+          revisit_button_position: string
+          revisit_button_text: string | null
+          save_preferences_text: string | null
+          show_accept_all: boolean
+          show_branding: boolean
+          show_close_button: boolean
+          show_customize: boolean
+          show_reject_all: boolean
+          theme: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          accept_all_text?: string | null
+          categories_on_first_layer?: boolean
+          colors?: Json | null
+          created_at?: string
+          custom_css?: string | null
+          custom_logo_url?: string | null
+          customize_text?: string | null
+          id?: string
+          layout_type?: string
+          message?: string | null
+          position?: string
+          preference_center_type?: string
+          privacy_policy_url?: string | null
+          read_more_text?: string | null
+          reject_all_text?: string | null
+          revisit_button_enabled?: boolean
+          revisit_button_position?: string
+          revisit_button_text?: string | null
+          save_preferences_text?: string | null
+          show_accept_all?: boolean
+          show_branding?: boolean
+          show_close_button?: boolean
+          show_customize?: boolean
+          show_reject_all?: boolean
+          theme?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accept_all_text?: string | null
+          categories_on_first_layer?: boolean
+          colors?: Json | null
+          created_at?: string
+          custom_css?: string | null
+          custom_logo_url?: string | null
+          customize_text?: string | null
+          id?: string
+          layout_type?: string
+          message?: string | null
+          position?: string
+          preference_center_type?: string
+          privacy_policy_url?: string | null
+          read_more_text?: string | null
+          reject_all_text?: string | null
+          revisit_button_enabled?: boolean
+          revisit_button_position?: string
+          revisit_button_text?: string | null
+          save_preferences_text?: string | null
+          show_accept_all?: boolean
+          show_branding?: boolean
+          show_close_button?: boolean
+          show_customize?: boolean
+          show_reject_all?: boolean
+          theme?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cookie_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean
+          is_hidden: boolean
+          is_necessary: boolean
+          load_before_consent: boolean
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          is_hidden?: boolean
+          is_necessary?: boolean
+          load_before_consent?: boolean
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          is_hidden?: boolean
+          is_necessary?: boolean
+          load_before_consent?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cookie_consent_settings: {
+        Row: {
+          consent_expiration_days: number
+          consent_template: string
+          created_at: string
+          geo_countries: string[] | null
+          geo_targeting_enabled: boolean
+          id: string
+          is_active: boolean
+          reload_on_consent: boolean
+          updated_at: string
+        }
+        Insert: {
+          consent_expiration_days?: number
+          consent_template?: string
+          created_at?: string
+          geo_countries?: string[] | null
+          geo_targeting_enabled?: boolean
+          id?: string
+          is_active?: boolean
+          reload_on_consent?: boolean
+          updated_at?: string
+        }
+        Update: {
+          consent_expiration_days?: number
+          consent_template?: string
+          created_at?: string
+          geo_countries?: string[] | null
+          geo_targeting_enabled?: boolean
+          id?: string
+          is_active?: boolean
+          reload_on_consent?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_resources: {
         Row: {
           category: string | null
@@ -1073,6 +1238,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_cookie_consents: {
+        Row: {
+          consent_given_at: string
+          consents: Json
+          created_at: string
+          expires_at: string | null
+          id: string
+          ip_address_hash: string | null
+          user_agent: string | null
+          visitor_id: string
+        }
+        Insert: {
+          consent_given_at?: string
+          consents?: Json
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_address_hash?: string | null
+          user_agent?: string | null
+          visitor_id: string
+        }
+        Update: {
+          consent_given_at?: string
+          consents?: Json
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_address_hash?: string | null
+          user_agent?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

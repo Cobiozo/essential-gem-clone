@@ -17,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -36,6 +36,7 @@ import TrainingManagement from '@/components/admin/TrainingManagement';
 import CertificateEditor from '@/components/admin/CertificateEditor';
 import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
 import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResourcesManagement';
+import { CookieConsentManagement } from '@/components/admin/CookieConsentManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -2635,7 +2636,7 @@ const Admin = () => {
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 mb-6 gap-1">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 lg:grid-cols-11 mb-6 gap-1">
             <TabsTrigger value="content" className="flex items-center gap-1 sm:gap-2">
               <Settings2 className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline text-xs sm:text-sm">{t('admin.main')}</span>
@@ -2675,6 +2676,10 @@ const Admin = () => {
             <TabsTrigger value="knowledge" className="flex items-center gap-2">
               <FolderOpen className="w-4 h-4" />
               <span className="hidden sm:inline">Zasoby</span>
+            </TabsTrigger>
+            <TabsTrigger value="cookies" className="flex items-center gap-2">
+              <Cookie className="w-4 h-4" />
+              <span className="hidden sm:inline">Cookies</span>
             </TabsTrigger>
           </TabsList>
 
@@ -4184,6 +4189,10 @@ const Admin = () => {
 
           <TabsContent value="knowledge">
             <KnowledgeResourcesManagement />
+          </TabsContent>
+
+          <TabsContent value="cookies">
+            <CookieConsentManagement />
           </TabsContent>
         </Tabs>
       </div>
