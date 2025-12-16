@@ -674,13 +674,13 @@ Provide a structured summary:`;
   // Generate PDF body content (inline CSS, no structural HTML tags)
   const generatePdfBody = (docContent: DocumentContent): string => {
     return `
-      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 11pt; color: #333;">
-        <h1 style="color: #005293; font-size: 18pt; margin-bottom: 8px; font-weight: bold;">${docContent.title}</h1>
+      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 11pt; color: #333; max-width: 100%; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">
+        <h1 style="color: #005293; font-size: 18pt; margin-bottom: 8px; font-weight: bold; word-wrap: break-word; overflow-wrap: break-word;">${docContent.title}</h1>
         <div style="color: #666; font-size: 9pt; margin-bottom: 15px;">${docContent.date}</div>
         <hr style="border: none; border-top: 1px solid #ccc; margin: 12px 0;">
-        <h2 style="color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; font-weight: bold;">${docContent.summaryHeader}</h2>
-        <div style="color: #333; text-align: justify; line-height: 1.6;">${docContent.summaryHtml}</div>
-        <div style="color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc;">${docContent.disclaimer}</div>
+        <h2 style="color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; font-weight: bold; word-wrap: break-word;">${docContent.summaryHeader}</h2>
+        <div style="color: #333; text-align: justify; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">${docContent.summaryHtml}</div>
+        <div style="color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc; word-wrap: break-word;">${docContent.disclaimer}</div>
       </div>
     `;
   };
@@ -707,6 +707,7 @@ Provide a structured summary:`;
     container.style.background = 'white';
     container.style.opacity = '1';
     container.style.visibility = 'visible';
+    container.style.overflow = 'hidden';
     
     wrapper.appendChild(container);
     document.body.appendChild(wrapper);
