@@ -100,15 +100,36 @@ export function useCookieConsent() {
     localStorage.setItem(CONSENT_KEY, JSON.stringify(newConsents));
     localStorage.setItem(CONSENT_DATE_KEY, now);
 
-    // Save to database
+    // Save to database - UPSERT: update if exists, insert if not
     try {
-      await supabase.from('user_cookie_consents').insert({
-        visitor_id: visitorId,
-        consents: newConsents,
-        consent_given_at: now,
-        expires_at: expiresAt,
-        user_agent: navigator.userAgent,
-      });
+      // First check if consent record exists for this visitor
+      const { data: existingConsent } = await supabase
+        .from('user_cookie_consents')
+        .select('id')
+        .eq('visitor_id', visitorId)
+        .maybeSingle();
+
+      if (existingConsent) {
+        // UPDATE existing record
+        await supabase
+          .from('user_cookie_consents')
+          .update({
+            consents: newConsents,
+            consent_given_at: now,
+            expires_at: expiresAt,
+            user_agent: navigator.userAgent,
+          })
+          .eq('visitor_id', visitorId);
+      } else {
+        // INSERT new record
+        await supabase.from('user_cookie_consents').insert({
+          visitor_id: visitorId,
+          consents: newConsents,
+          consent_given_at: now,
+          expires_at: expiresAt,
+          user_agent: navigator.userAgent,
+        });
+      }
     } catch (error) {
       console.error('Error saving cookie consent:', error);
     }
