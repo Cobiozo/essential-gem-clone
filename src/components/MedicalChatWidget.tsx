@@ -674,13 +674,13 @@ Provide a structured summary:`;
   // Generate PDF body content (inline CSS, no structural HTML tags)
   const generatePdfBody = (docContent: DocumentContent): string => {
     return `
-      <div style="font-family: Arial, sans-serif; padding: 25px 30px; line-height: 1.6; font-size: 11pt; color: #333; word-wrap: break-word; overflow-wrap: break-word; box-sizing: border-box;">
-        <h1 style="color: #005293; font-size: 18pt; margin-bottom: 8px; font-weight: bold;">${docContent.title}</h1>
-        <div style="color: #666; font-size: 9pt; margin-bottom: 15px;">${docContent.date}</div>
-        <hr style="border: none; border-top: 1px solid #ccc; margin: 12px 0;">
-        <h2 style="color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; font-weight: bold;">${docContent.summaryHeader}</h2>
-        <div style="color: #333; text-align: justify; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word;">${docContent.summaryHtml}</div>
-        <div style="color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc;">${docContent.disclaimer}</div>
+      <div style="font-family: Arial, sans-serif; padding: 15px 20px; line-height: 1.5; font-size: 10pt; color: #333; word-wrap: break-word; overflow-wrap: break-word; box-sizing: border-box;">
+        <h1 style="color: #005293; font-size: 16pt; margin-bottom: 6px; margin-top: 0; font-weight: bold;">${docContent.title}</h1>
+        <div style="color: #666; font-size: 8pt; margin-bottom: 10px;">${docContent.date}</div>
+        <hr style="border: none; border-top: 1px solid #ccc; margin: 10px 0;">
+        <h2 style="color: #005293; font-size: 12pt; margin-top: 10px; margin-bottom: 8px; font-weight: bold;">${docContent.summaryHeader}</h2>
+        <div style="color: #333; text-align: justify; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word;">${docContent.summaryHtml}</div>
+        <div style="color: #888; font-style: italic; font-size: 8pt; margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc;">${docContent.disclaimer}</div>
       </div>
     `;
   };
@@ -689,23 +689,17 @@ Provide a structured summary:`;
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Create wrapper with overflow:hidden to hide container from user
+    // Create wrapper positioned off-screen (not overflow:hidden which blocks rendering)
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
-    wrapper.style.top = '0';
+    wrapper.style.top = '-10000px';
     wrapper.style.left = '0';
-    wrapper.style.width = '0';
-    wrapper.style.height = '0';
-    wrapper.style.overflow = 'hidden';
     wrapper.style.zIndex = '-9999';
     
-    // Container MUST be fully visible for html2canvas to render it
-    // Width reduced to account for PDF margins (210mm - 2×15mm side margins = 180mm)
+    // Container with full A4 width - html2pdf handles margins
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
-    container.style.width = '180mm';
-    container.style.maxWidth = '180mm';
-    container.style.minHeight = '267mm';
+    container.style.width = '210mm';
     container.style.background = 'white';
     container.style.opacity = '1';
     container.style.visibility = 'visible';
@@ -718,25 +712,23 @@ Provide a structured summary:`;
     await new Promise(resolve => setTimeout(resolve, 100));
     
     const options = {
-      margin: [15, 20, 15, 20] as [number, number, number, number],
+      margin: [10, 10, 10, 10] as [number, number, number, number],
       filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.95 },
       html2canvas: { 
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         letterRendering: true,
-        logging: true,
+        logging: false,
       },
       jsPDF: { 
         unit: 'mm', 
         format: 'a4', 
         orientation: 'portrait' as const,
       },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
     };
     
     try {
-      // Use simple API - more reliable than worker chain
       await html2pdf(container, options);
     } catch (error) {
       console.error('html2pdf error:', error);
