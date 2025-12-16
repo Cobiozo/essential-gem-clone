@@ -674,13 +674,13 @@ Provide a structured summary:`;
   // Generate PDF body content (inline CSS, no structural HTML tags)
   const generatePdfBody = (docContent: DocumentContent): string => {
     return `
-      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 11pt; color: #333; max-width: 100%; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">
-        <h1 style="color: #005293; font-size: 18pt; margin-bottom: 8px; font-weight: bold; word-wrap: break-word; overflow-wrap: break-word;">${docContent.title}</h1>
+      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 11pt; color: #333;">
+        <h1 style="color: #005293; font-size: 18pt; margin-bottom: 8px; font-weight: bold;">${docContent.title}</h1>
         <div style="color: #666; font-size: 9pt; margin-bottom: 15px;">${docContent.date}</div>
         <hr style="border: none; border-top: 1px solid #ccc; margin: 12px 0;">
-        <h2 style="color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; font-weight: bold; word-wrap: break-word;">${docContent.summaryHeader}</h2>
-        <div style="color: #333; text-align: justify; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;">${docContent.summaryHtml}</div>
-        <div style="color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc; word-wrap: break-word;">${docContent.disclaimer}</div>
+        <h2 style="color: #005293; font-size: 14pt; margin-top: 15px; margin-bottom: 10px; font-weight: bold;">${docContent.summaryHeader}</h2>
+        <div style="color: #333; text-align: justify; line-height: 1.6;">${docContent.summaryHtml}</div>
+        <div style="color: #888; font-style: italic; font-size: 9pt; margin-top: 25px; padding-top: 12px; border-top: 1px solid #ccc;">${docContent.disclaimer}</div>
       </div>
     `;
   };
@@ -689,20 +689,27 @@ Provide a structured summary:`;
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // Container positioned OFF-SCREEN (no wrapper with width:0 that clips content!)
+    // Create wrapper with overflow:hidden to hide container from user
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.top = '0';
+    wrapper.style.left = '0';
+    wrapper.style.width = '0';
+    wrapper.style.height = '0';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.zIndex = '-9999';
+    
+    // Container MUST be fully visible for html2canvas to render it
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    container.style.top = '0';
     container.style.width = '210mm';
     container.style.minHeight = '297mm';
     container.style.background = 'white';
     container.style.opacity = '1';
     container.style.visibility = 'visible';
-    container.style.boxSizing = 'border-box';
     
-    document.body.appendChild(container);
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
     
     // Wait for DOM to render
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -715,9 +722,7 @@ Provide a structured summary:`;
         scale: 2,
         useCORS: true,
         letterRendering: true,
-        logging: false,
-        width: 794,
-        windowWidth: 794,
+        logging: true,
       },
       jsPDF: { 
         unit: 'mm', 
@@ -728,13 +733,14 @@ Provide a structured summary:`;
     };
     
     try {
+      // Use simple API - more reliable than worker chain
       await html2pdf(container, options);
     } catch (error) {
       console.error('html2pdf error:', error);
       throw error;
     } finally {
-      if (container.parentNode) {
-        document.body.removeChild(container);
+      if (wrapper.parentNode) {
+        document.body.removeChild(wrapper);
       }
     }
   };
