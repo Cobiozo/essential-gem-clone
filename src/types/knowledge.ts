@@ -31,6 +31,8 @@ export interface KnowledgeResource {
   allow_copy_link: boolean;
   allow_download: boolean;
   allow_share: boolean;
+  allow_click_redirect: boolean;
+  click_redirect_url: string | null;
 }
 
 export const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {

@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   Plus, Pencil, Trash2, FileText, Link as LinkIcon, Archive, 
   Download, Star, Sparkles, RefreshCw, Eye, EyeOff, Upload,
-  Search, Filter, BarChart3, Copy, Share2, MousePointer
+  Search, Filter, BarChart3, Copy, Share2, MousePointer, ExternalLink
 } from 'lucide-react';
 import { 
   KnowledgeResource, ResourceType, ResourceStatus,
@@ -43,7 +43,9 @@ const emptyResource: Partial<KnowledgeResource> = {
   work_stage: '',
   allow_copy_link: true,
   allow_download: true,
-  allow_share: false
+  allow_share: false,
+  allow_click_redirect: false,
+  click_redirect_url: ''
 };
 
 export const KnowledgeResourcesManagement: React.FC = () => {
@@ -163,7 +165,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           position: resources.length,
           allow_copy_link: resourceData.allow_copy_link ?? true,
           allow_download: resourceData.allow_download ?? true,
-          allow_share: resourceData.allow_share ?? false
+          allow_share: resourceData.allow_share ?? false,
+          allow_click_redirect: resourceData.allow_click_redirect ?? false,
+          click_redirect_url: resourceData.click_redirect_url || null
         }]);
       
       if (error) {
@@ -576,6 +580,35 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                       checked={editingResource.allow_share ?? false}
                       onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_share: checked })}
                     />
+                  </div>
+                  <div className="p-3 rounded-lg border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ExternalLink className="h-5 w-5 text-muted-foreground" />
+                        <div className="space-y-0.5">
+                          <Label>Kliknij i przejdź</Label>
+                          <p className="text-xs text-muted-foreground">Przekieruj do strony wewnętrznej lub zewnętrznej</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={editingResource.allow_click_redirect ?? false}
+                        onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_click_redirect: checked })}
+                      />
+                    </div>
+                    {editingResource.allow_click_redirect && (
+                      <div className="space-y-2 pl-8">
+                        <Label className="text-xs">URL docelowy</Label>
+                        <Input
+                          value={editingResource.click_redirect_url || ''}
+                          onChange={(e) => setEditingResource({ ...editingResource, click_redirect_url: e.target.value })}
+                          placeholder="np. /formularz lub https://example.com"
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Dla stron wewnętrznych użyj ścieżki (np. /formularz), dla zewnętrznych pełny URL
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mt-4 p-3 bg-muted/50 rounded-lg">
