@@ -675,10 +675,12 @@ export type Database = {
       }
       knowledge_resources: {
         Row: {
+          allow_click_redirect: boolean
           allow_copy_link: boolean
           allow_download: boolean
           allow_share: boolean
           category: string | null
+          click_redirect_url: string | null
           context_of_use: string | null
           created_at: string
           description: string | null
@@ -705,10 +707,12 @@ export type Database = {
           work_stage: string | null
         }
         Insert: {
+          allow_click_redirect?: boolean
           allow_copy_link?: boolean
           allow_download?: boolean
           allow_share?: boolean
           category?: string | null
+          click_redirect_url?: string | null
           context_of_use?: string | null
           created_at?: string
           description?: string | null
@@ -735,10 +739,12 @@ export type Database = {
           work_stage?: string | null
         }
         Update: {
+          allow_click_redirect?: boolean
           allow_copy_link?: boolean
           allow_download?: boolean
           allow_share?: boolean
           category?: string | null
+          click_redirect_url?: string | null
           context_of_use?: string | null
           created_at?: string
           description?: string | null

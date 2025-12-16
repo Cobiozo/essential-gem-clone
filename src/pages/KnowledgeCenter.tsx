@@ -134,7 +134,19 @@ export default function KnowledgeCenter() {
   };
 
   const hasAnyAction = (resource: KnowledgeResource) => {
-    return resource.allow_copy_link || resource.allow_download || resource.allow_share;
+    return resource.allow_copy_link || resource.allow_download || resource.allow_share || resource.allow_click_redirect;
+  };
+
+  const handleClickRedirect = (resource: KnowledgeResource) => {
+    if (resource.click_redirect_url) {
+      // Internal link (starts with /)
+      if (resource.click_redirect_url.startsWith('/')) {
+        window.location.href = resource.click_redirect_url;
+      } else {
+        // External link
+        window.open(resource.click_redirect_url, '_blank');
+      }
+    }
   };
 
   const getActionButtons = (resource: KnowledgeResource) => {
@@ -170,6 +182,16 @@ export default function KnowledgeCenter() {
             title="Udostępnij"
           >
             <Share2 className="h-4 w-4" />
+          </Button>
+        )}
+        {resource.allow_click_redirect && resource.click_redirect_url && (
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => handleClickRedirect(resource)}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Przejdź
           </Button>
         )}
         {resource.allow_download && (
