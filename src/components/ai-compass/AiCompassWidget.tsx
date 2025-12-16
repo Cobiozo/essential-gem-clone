@@ -476,14 +476,14 @@ export const AiCompassWidget: React.FC = () => {
                 className="pl-9"
               />
             </div>
-            <Select value={filterTag} onValueChange={setFilterTag}>
+            <Select value={filterTag || '_all'} onValueChange={(val) => setFilterTag(val === '_all' ? '' : val)}>
               <SelectTrigger className="w-40">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Tag" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Wszystkie</SelectItem>
-                {allTags.map(tag => (
+                <SelectItem value="_all">Wszystkie</SelectItem>
+                {allTags.filter(tag => tag && tag.trim() !== '').map(tag => (
                   <SelectItem key={tag} value={tag}>{tag}</SelectItem>
                 ))}
               </SelectContent>
