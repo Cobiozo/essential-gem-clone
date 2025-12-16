@@ -20,7 +20,8 @@ import {
   PopoverTrigger 
 } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 
 
@@ -703,11 +704,11 @@ Provide a structured summary:`;
     `;
   };
 
-  // Generate PDF from HTML using html2pdf.js with wrapper + absolute positioning
+  // Generate PDF using html2canvas + jsPDF directly for full control
   const generatePdfFromHtml = async (docContent: DocumentContent) => {
     const bodyContent = generatePdfBody(docContent);
     
-    // OVERLAY - covers flash for user experience
+    // OVERLAY for UX
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed; left: 0; top: 0; right: 0; bottom: 0;
@@ -719,67 +720,91 @@ Provide a structured summary:`;
     overlay.innerHTML = '<div>Generowanie PDF...</div>';
     document.body.appendChild(overlay);
     
-    // WRAPPER - creates positioning context for html2canvas
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = `
-      position: fixed;
-      left: 0; top: 0;
-      width: 100vw; height: 100vh;
-      z-index: 999999;
-      overflow: auto;
-      background: white;
-    `;
-    
-    // CONTAINER - position absolute (NOT fixed!) inside wrapper
+    // CONTAINER - fixed size A4 width (794px at 96dpi)
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
     container.style.cssText = `
-      position: absolute;
+      position: fixed;
       left: 0; top: 0;
-      width: 170mm;
+      width: 794px;
       background: white;
       box-sizing: border-box;
-      padding: 15mm 20mm;
+      padding: 40px 60px;
       font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      z-index: 999999;
     `;
+    document.body.appendChild(container);
     
-    wrapper.appendChild(container);
-    document.body.appendChild(wrapper);
-    
-    // Wait for browser to render content
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    console.log('Container dimensions:', container.offsetWidth, container.offsetHeight);
-    console.log('Content length:', container.innerHTML.length);
-    
-    const options = {
-      margin: [15, 20, 15, 20] as [number, number, number, number],
-      filename: `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { 
-        scale: 2,
-        useCORS: true,
-        letterRendering: true,
-        logging: true,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: container.scrollWidth,
-        windowHeight: container.scrollHeight,
-      },
-      jsPDF: { 
-        unit: 'mm', 
-        format: 'a4', 
-        orientation: 'portrait' as const,
-      },
-    };
+    console.log('Container size:', container.offsetWidth, container.offsetHeight);
     
     try {
-      console.log('Starting PDF generation...');
-      await html2pdf().set(options).from(container).save();
-      console.log('PDF generation complete');
+      // 1. CAPTURE WITH HTML2CANVAS
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: true,
+        backgroundColor: '#ffffff',
+        width: container.offsetWidth,
+        height: container.offsetHeight,
+      });
+      
+      console.log('Canvas size:', canvas.width, canvas.height);
+      
+      // 2. CHECK IF CANVAS HAS CONTENT
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+      const hasContent = imageData?.data.some((pixel, i) => i % 4 !== 3 && pixel !== 255);
+      console.log('Canvas has content:', hasContent);
+      
+      // 3. CONVERT TO IMAGE
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // 4. CREATE PDF WITH PAGINATION
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 15;
+      const contentWidth = pageWidth - 2 * margin;
+      const contentHeight = pageHeight - 2 * margin;
+      
+      // Calculate proportions
+      const imgWidth = contentWidth;
+      const imgHeight = (canvas.height * contentWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = margin;
+      let pageNum = 0;
+      
+      // First page
+      pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+      heightLeft -= contentHeight;
+      
+      // Additional pages if needed
+      while (heightLeft > 0) {
+        pageNum++;
+        pdf.addPage();
+        position = margin - (pageNum * contentHeight);
+        pdf.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= contentHeight;
+      }
+      
+      // 5. SAVE
+      const filename = `pure-science-search-${docContent.lang}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(filename);
+      
+      console.log('PDF saved successfully');
+      
     } finally {
-      document.body.removeChild(wrapper);
+      document.body.removeChild(container);
       document.body.removeChild(overlay);
     }
   };
