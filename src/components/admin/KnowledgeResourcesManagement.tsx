@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   Plus, Pencil, Trash2, FileText, Link as LinkIcon, Archive, 
   Download, Star, Sparkles, RefreshCw, Eye, EyeOff, Upload,
-  Search, Filter, BarChart3
+  Search, Filter, BarChart3, Copy, Share2, MousePointer
 } from 'lucide-react';
 import { 
   KnowledgeResource, ResourceType, ResourceStatus,
@@ -40,7 +40,10 @@ const emptyResource: Partial<KnowledgeResource> = {
   is_featured: false,
   is_new: true,
   is_updated: false,
-  work_stage: ''
+  work_stage: '',
+  allow_copy_link: true,
+  allow_download: true,
+  allow_share: false
 };
 
 export const KnowledgeResourcesManagement: React.FC = () => {
@@ -157,7 +160,10 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           is_new: resourceData.is_new || true,
           is_updated: resourceData.is_updated || false,
           work_stage: resourceData.work_stage,
-          position: resources.length
+          position: resources.length,
+          allow_copy_link: resourceData.allow_copy_link ?? true,
+          allow_download: resourceData.allow_download ?? true,
+          allow_share: resourceData.allow_share ?? false
         }]);
       
       if (error) {
@@ -335,10 +341,11 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           
           {editingResource && (
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="basic">Podstawowe</TabsTrigger>
                 <TabsTrigger value="source">Źródło</TabsTrigger>
                 <TabsTrigger value="visibility">Widoczność</TabsTrigger>
+                <TabsTrigger value="actions">Akcje</TabsTrigger>
                 <TabsTrigger value="badges">Oznaczenia</TabsTrigger>
               </TabsList>
 
@@ -524,6 +531,58 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     ...visibility
                   })}
                 />
+              </TabsContent>
+
+              <TabsContent value="actions" className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Wybierz, które akcje będą dostępne dla użytkowników tego zasobu.
+                </p>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <Copy className="h-5 w-5 text-muted-foreground" />
+                      <div className="space-y-0.5">
+                        <Label>Kopiuj link</Label>
+                        <p className="text-xs text-muted-foreground">Pozwól kopiować link do zasobu</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={editingResource.allow_copy_link ?? true}
+                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_copy_link: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <Download className="h-5 w-5 text-muted-foreground" />
+                      <div className="space-y-0.5">
+                        <Label>Pobierz plik</Label>
+                        <p className="text-xs text-muted-foreground">Pozwól pobrać/otworzyć zasób</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={editingResource.allow_download ?? true}
+                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_download: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <Share2 className="h-5 w-5 text-muted-foreground" />
+                      <div className="space-y-0.5">
+                        <Label>Udostępnij (reflink)</Label>
+                        <p className="text-xs text-muted-foreground">Pozwól udostępniać zasób przez reflink</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={editingResource.allow_share ?? false}
+                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_share: checked })}
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Uwaga:</strong> Jeśli żadna akcja nie jest włączona, użytkownik zobaczy informację "Dostępne wkrótce".
+                  </p>
+                </div>
               </TabsContent>
 
               <TabsContent value="badges" className="space-y-4 mt-4">
