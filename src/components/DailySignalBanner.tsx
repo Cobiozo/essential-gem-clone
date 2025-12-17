@@ -28,19 +28,21 @@ interface UserPreferences {
 }
 
 export const DailySignalBanner: React.FC = () => {
-  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading } = useAuth();
+  const { user, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
   const [showBanner, setShowBanner] = useState(false);
   const [signal, setSignal] = useState<DailySignal | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (authLoading || !user) {
-      setLoading(false);
+    // Wait for auth AND roles to be fully ready
+    if (authLoading || !rolesReady || !user || checked) {
       return;
     }
     
+    // Mark as checked to prevent re-running
+    setChecked(true);
     checkAndShowSignal();
-  }, [user, authLoading]);
+  }, [user, authLoading, rolesReady, checked]);
 
   const checkAndShowSignal = async () => {
     try {
@@ -52,7 +54,6 @@ export const DailySignalBanner: React.FC = () => {
         .single();
 
       if (settingsError || !settings?.is_enabled) {
-        setLoading(false);
         return;
       }
 
@@ -64,7 +65,6 @@ export const DailySignalBanner: React.FC = () => {
         (isSpecjalista && typedSettings.visible_to_specjalista);
 
       if (!isVisible) {
-        setLoading(false);
         return;
       }
 
@@ -77,7 +77,6 @@ export const DailySignalBanner: React.FC = () => {
 
       // If preferences exist and user disabled signals, don't show
       if (preferences && !(preferences as UserPreferences).show_daily_signal) {
-        setLoading(false);
         return;
       }
 
@@ -92,7 +91,6 @@ export const DailySignalBanner: React.FC = () => {
           const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
           
           if (hoursDiff < 24) {
-            setLoading(false);
             return;
           }
         }
@@ -100,7 +98,6 @@ export const DailySignalBanner: React.FC = () => {
         // every_login - check session storage
         const sessionKey = 'daily_signal_shown_session';
         if (sessionStorage.getItem(sessionKey)) {
-          setLoading(false);
           return;
         }
       }
@@ -136,8 +133,6 @@ export const DailySignalBanner: React.FC = () => {
       }
     } catch (error) {
       console.error('Error checking daily signal:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -187,7 +182,7 @@ export const DailySignalBanner: React.FC = () => {
     }
   };
 
-  if (loading || !showBanner || !signal) {
+  if (!showBanner || !signal) {
     return null;
   }
 
