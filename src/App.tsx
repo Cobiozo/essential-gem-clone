@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,7 +27,26 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   useDynamicMetaTags();
-  const [infoBannerDismissed, setInfoBannerDismissed] = useState(false);
+  
+  // Banner display state - SIGNAL first, then INFO banners sequentially
+  const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
+  const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
+  const [infoBannersComplete, setInfoBannersComplete] = useState(false);
+
+  // Handle Daily Signal dismissal - then show Info banners
+  const handleDailySignalDismiss = useCallback(() => {
+    setDailySignalDismissed(true);
+  }, []);
+
+  // Handle Info Banner dismissal - move to next or complete
+  const handleInfoBannerDismiss = useCallback(() => {
+    setCurrentInfoBannerIndex(prev => prev + 1);
+  }, []);
+
+  // Mark all info banners as complete (called when no more to show)
+  const handleInfoBannersComplete = useCallback(() => {
+    setInfoBannersComplete(true);
+  }, []);
   
   return (
     <TooltipProvider>
@@ -48,12 +67,22 @@ const AppContent = () => {
         </Routes>
       </BrowserRouter>
       <CookieConsentBanner />
-      {/* Important Info Banner shows first, then Daily Signal after dismissal */}
-      {!infoBannerDismissed ? (
-        <ImportantInfoBanner onDismiss={() => setInfoBannerDismissed(true)} />
-      ) : (
-        <DailySignalBanner />
-      )}
+      
+      {/* BANNER PRIORITY ORDER:
+          1. Daily Signal ALWAYS first after login
+          2. Info Banners sequentially by priority (after Signal dismissed)
+          3. No Info Banner can appear before Daily Signal
+      */}
+      {!dailySignalDismissed ? (
+        <DailySignalBanner onDismiss={handleDailySignalDismiss} />
+      ) : !infoBannersComplete ? (
+        <ImportantInfoBanner 
+          onDismiss={handleInfoBannerDismiss}
+          bannerIndex={currentInfoBannerIndex}
+          onComplete={handleInfoBannersComplete}
+        />
+      ) : null}
+      
       <MedicalChatWidget />
       <ChatWidget />
     </TooltipProvider>

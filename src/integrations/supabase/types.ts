@@ -411,6 +411,66 @@ export type Database = {
         }
         Relationships: []
       }
+      banner_interactions: {
+        Row: {
+          action_after_banner: string | null
+          animation_level: string | null
+          banner_id: string
+          banner_tone: string | null
+          banner_type: string
+          compass_stage: string | null
+          content_length: number | null
+          created_at: string | null
+          day_of_week: number | null
+          has_animation: boolean | null
+          id: string
+          interaction_type: string
+          reaction_time_ms: number | null
+          time_of_day: string | null
+          time_to_first_action_ms: number | null
+          user_id: string
+          user_role: string | null
+        }
+        Insert: {
+          action_after_banner?: string | null
+          animation_level?: string | null
+          banner_id: string
+          banner_tone?: string | null
+          banner_type: string
+          compass_stage?: string | null
+          content_length?: number | null
+          created_at?: string | null
+          day_of_week?: number | null
+          has_animation?: boolean | null
+          id?: string
+          interaction_type: string
+          reaction_time_ms?: number | null
+          time_of_day?: string | null
+          time_to_first_action_ms?: number | null
+          user_id: string
+          user_role?: string | null
+        }
+        Update: {
+          action_after_banner?: string | null
+          animation_level?: string | null
+          banner_id?: string
+          banner_tone?: string | null
+          banner_type?: string
+          compass_stage?: string | null
+          content_length?: number | null
+          created_at?: string | null
+          day_of_week?: number | null
+          has_animation?: boolean | null
+          id?: string
+          interaction_type?: string
+          reaction_time_ms?: number | null
+          time_of_day?: string | null
+          time_to_first_action_ms?: number | null
+          user_id?: string
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       certificate_templates: {
         Row: {
           created_at: string
@@ -1073,6 +1133,8 @@ export type Database = {
       daily_signal_settings: {
         Row: {
           ai_tone: string | null
+          animation_intensity: string | null
+          animation_type: string | null
           created_at: string | null
           display_frequency: string
           generation_mode: string
@@ -1085,6 +1147,8 @@ export type Database = {
         }
         Insert: {
           ai_tone?: string | null
+          animation_intensity?: string | null
+          animation_type?: string | null
           created_at?: string | null
           display_frequency?: string
           generation_mode?: string
@@ -1097,6 +1161,8 @@ export type Database = {
         }
         Update: {
           ai_tone?: string | null
+          animation_intensity?: string | null
+          animation_type?: string | null
           created_at?: string | null
           display_frequency?: string
           generation_mode?: string
@@ -1162,6 +1228,8 @@ export type Database = {
       }
       important_info_banners: {
         Row: {
+          animation_intensity: string | null
+          animation_type: string | null
           content: string
           created_at: string | null
           display_frequency: string
@@ -1171,12 +1239,20 @@ export type Database = {
           priority: number
           scheduled_date: string | null
           title: string
+          title_accent_color: boolean | null
+          title_bold: boolean | null
+          title_custom_color: string | null
+          title_large: boolean | null
+          title_shadow: boolean | null
+          title_underline: boolean | null
           updated_at: string | null
           visible_to_clients: boolean
           visible_to_partners: boolean
           visible_to_specjalista: boolean
         }
         Insert: {
+          animation_intensity?: string | null
+          animation_type?: string | null
           content: string
           created_at?: string | null
           display_frequency?: string
@@ -1186,12 +1262,20 @@ export type Database = {
           priority?: number
           scheduled_date?: string | null
           title?: string
+          title_accent_color?: boolean | null
+          title_bold?: boolean | null
+          title_custom_color?: string | null
+          title_large?: boolean | null
+          title_shadow?: boolean | null
+          title_underline?: boolean | null
           updated_at?: string | null
           visible_to_clients?: boolean
           visible_to_partners?: boolean
           visible_to_specjalista?: boolean
         }
         Update: {
+          animation_intensity?: string | null
+          animation_type?: string | null
           content?: string
           created_at?: string | null
           display_frequency?: string
@@ -1201,6 +1285,12 @@ export type Database = {
           priority?: number
           scheduled_date?: string | null
           title?: string
+          title_accent_color?: boolean | null
+          title_bold?: boolean | null
+          title_custom_color?: string | null
+          title_large?: boolean | null
+          title_shadow?: boolean | null
+          title_underline?: boolean | null
           updated_at?: string | null
           visible_to_clients?: boolean
           visible_to_partners?: boolean

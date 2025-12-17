@@ -88,10 +88,55 @@ export default {
             transform: "translateY(-8px)",
           },
         },
+        // Banner animations - Fade In
+        "banner-fade-in-subtle": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "banner-fade-in-enhanced": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        // Banner animations - Slide Up
+        "banner-slide-up-subtle": {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "banner-slide-up-enhanced": {
+          "0%": { opacity: "0", transform: "translateY(40px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        // Banner animations - Slide Down
+        "banner-slide-down-subtle": {
+          "0%": { opacity: "0", transform: "translateY(-20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "banner-slide-down-enhanced": {
+          "0%": { opacity: "0", transform: "translateY(-40px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        // Banner animations - Scale In
+        "banner-scale-in-subtle": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "banner-scale-in-enhanced": {
+          "0%": { opacity: "0", transform: "scale(0.85)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
         "accordion-up": "accordion-up 0.3s ease-out",
+        // Banner animations
+        "banner-fade-in-subtle": "banner-fade-in-subtle 0.2s ease-out",
+        "banner-fade-in-enhanced": "banner-fade-in-enhanced 0.4s ease-out",
+        "banner-slide-up-subtle": "banner-slide-up-subtle 0.25s ease-out",
+        "banner-slide-up-enhanced": "banner-slide-up-enhanced 0.4s ease-out",
+        "banner-slide-down-subtle": "banner-slide-down-subtle 0.25s ease-out",
+        "banner-slide-down-enhanced": "banner-slide-down-enhanced 0.4s ease-out",
+        "banner-scale-in-subtle": "banner-scale-in-subtle 0.2s ease-out",
+        "banner-scale-in-enhanced": "banner-scale-in-enhanced 0.35s ease-out",
       },
     },
   },

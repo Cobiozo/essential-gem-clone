@@ -28,6 +28,14 @@ interface InfoBanner {
   created_at: string;
   scheduled_date: string | null;
   image_url: string | null;
+  animation_type: string;
+  animation_intensity: string;
+  title_bold: boolean;
+  title_large: boolean;
+  title_accent_color: boolean;
+  title_underline: boolean;
+  title_shadow: boolean;
+  title_custom_color: string | null;
 }
 
 interface Statistics {
@@ -51,7 +59,14 @@ export const ImportantInfoManagement: React.FC = () => {
     display_frequency: 'once',
     priority: 0,
     scheduled_date: '',
-    image_url: ''
+    image_url: '',
+    animation_type: 'fade-in',
+    animation_intensity: 'subtle',
+    title_bold: true,
+    title_large: false,
+    title_accent_color: false,
+    title_underline: false,
+    title_shadow: false,
   });
 
   useEffect(() => {
@@ -103,6 +118,13 @@ export const ImportantInfoManagement: React.FC = () => {
         priority: formData.priority,
         scheduled_date: formData.scheduled_date ? new Date(formData.scheduled_date).toISOString() : null,
         image_url: formData.image_url || null,
+        animation_type: formData.animation_type,
+        animation_intensity: formData.animation_intensity,
+        title_bold: formData.title_bold,
+        title_large: formData.title_large,
+        title_accent_color: formData.title_accent_color,
+        title_underline: formData.title_underline,
+        title_shadow: formData.title_shadow,
         updated_at: new Date().toISOString()
       };
 
@@ -146,7 +168,14 @@ export const ImportantInfoManagement: React.FC = () => {
       display_frequency: banner.display_frequency,
       priority: banner.priority,
       scheduled_date: banner.scheduled_date ? banner.scheduled_date.split('T')[0] : '',
-      image_url: banner.image_url || ''
+      image_url: banner.image_url || '',
+      animation_type: banner.animation_type || 'fade-in',
+      animation_intensity: banner.animation_intensity || 'subtle',
+      title_bold: banner.title_bold ?? true,
+      title_large: banner.title_large ?? false,
+      title_accent_color: banner.title_accent_color ?? false,
+      title_underline: banner.title_underline ?? false,
+      title_shadow: banner.title_shadow ?? false,
     });
     setIsDialogOpen(true);
   };
@@ -196,7 +225,14 @@ export const ImportantInfoManagement: React.FC = () => {
       display_frequency: 'once',
       priority: 0,
       scheduled_date: '',
-      image_url: ''
+      image_url: '',
+      animation_type: 'fade-in',
+      animation_intensity: 'subtle',
+      title_bold: true,
+      title_large: false,
+      title_accent_color: false,
+      title_underline: false,
+      title_shadow: false,
     });
   };
 
