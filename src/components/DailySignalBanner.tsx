@@ -37,12 +37,21 @@ interface DailySignalBannerProps {
 }
 
 export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss }) => {
-  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
+  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady, loginTrigger } = useAuth();
   const [showBanner, setShowBanner] = useState(false);
   const [signal, setSignal] = useState<DailySignal | null>(null);
   const [settings, setSettings] = useState<SignalSettings | null>(null);
   const [checked, setChecked] = useState(false);
   const bannerShownAtRef = useRef<number>(0);
+
+  // Reset checked state when loginTrigger changes (new login)
+  useEffect(() => {
+    if (loginTrigger > 0) {
+      setChecked(false);
+      setShowBanner(false);
+      setSignal(null);
+    }
+  }, [loginTrigger]);
 
   useEffect(() => {
     // Wait for auth AND roles to be fully ready

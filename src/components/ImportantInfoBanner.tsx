@@ -49,12 +49,22 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   bannerIndex,
   onComplete 
 }) => {
-  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
+  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady, loginTrigger } = useAuth();
   const [banner, setBanner] = useState<ImportantInfoBannerData | null>(null);
   const [allBanners, setAllBanners] = useState<ImportantInfoBannerData[]>([]);
   const [showBanner, setShowBanner] = useState(false);
   const [checked, setChecked] = useState(false);
   const bannerShownAtRef = useRef<number>(0);
+
+  // Reset states when loginTrigger changes (new login)
+  useEffect(() => {
+    if (loginTrigger > 0) {
+      setChecked(false);
+      setShowBanner(false);
+      setBanner(null);
+      setAllBanners([]);
+    }
+  }, [loginTrigger]);
 
   useEffect(() => {
     // Wait for auth AND roles to be fully ready
@@ -126,12 +136,9 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         const isDismissed = dismissedIds.includes(b.id);
         
         if (b.display_frequency === 'every_login') {
-          // Admin forces every login - ALWAYS show, ignore all blocks
-          // Only skip if already shown in THIS session
-          const sessionKey = `info_banner_shown_${b.id}`;
-          if (!sessionStorage.getItem(sessionKey)) {
-            bannersToShow.push(b);
-          }
+          // Admin forces every_login - ALWAYS show, NO session/cache blocks
+          // loginTrigger reset handles preventing double-show in same login
+          bannersToShow.push(b);
         } else {
           // display_frequency is 'once' - show only if not dismissed
           if (!isDismissed) {
@@ -199,7 +206,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       });
 
       if (banner.display_frequency === 'once') {
-        // Record dismissal permanently
+        // Record dismissal permanently for 'once' banners
         await supabase
           .from('user_dismissed_banners')
           .upsert({
@@ -209,10 +216,8 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
           }, {
             onConflict: 'user_id,banner_id'
           });
-      } else {
-        // Mark as shown in this session for every_login mode
-        sessionStorage.setItem(`info_banner_shown_${banner.id}`, 'true');
       }
+      // For every_login mode - no sessionStorage needed, loginTrigger handles reset
 
       setShowBanner(false);
       // Trigger parent to move to next banner

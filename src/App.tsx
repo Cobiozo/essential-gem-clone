@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,7 +9,7 @@ import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
 import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
@@ -27,11 +27,21 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   useDynamicMetaTags();
+  const { loginTrigger } = useAuth();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
+
+  // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
+  useEffect(() => {
+    if (loginTrigger > 0) {
+      setDailySignalDismissed(false);
+      setCurrentInfoBannerIndex(0);
+      setInfoBannersComplete(false);
+    }
+  }, [loginTrigger]);
 
   // Handle Daily Signal dismissal - then show Info banners
   const handleDailySignalDismiss = useCallback(() => {
