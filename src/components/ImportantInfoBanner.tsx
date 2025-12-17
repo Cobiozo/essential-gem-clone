@@ -49,7 +49,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   bannerIndex,
   onComplete 
 }) => {
-  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady, loginTrigger } = useAuth();
+  const { user, userRole, isClient, isPartner, isSpecjalista, isAdmin, loading: authLoading, rolesReady, loginTrigger } = useAuth();
   const [banner, setBanner] = useState<ImportantInfoBannerData | null>(null);
   const [allBanners, setAllBanners] = useState<ImportantInfoBannerData[]>([]);
   const [showBanner, setShowBanner] = useState(false);
@@ -108,6 +108,9 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         if (b.scheduled_date && new Date(b.scheduled_date) > now) {
           return false;
         }
+        
+        // Admin sees all banners
+        if (isAdmin) return true;
         
         if (isClient && b.visible_to_clients) return true;
         if (isPartner && b.visible_to_partners) return true;
