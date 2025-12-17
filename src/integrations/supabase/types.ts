@@ -1070,6 +1070,87 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_signal_settings: {
+        Row: {
+          ai_tone: string | null
+          created_at: string | null
+          generation_mode: string
+          id: string
+          is_enabled: boolean
+          updated_at: string | null
+          visible_to_clients: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          ai_tone?: string | null
+          created_at?: string | null
+          generation_mode?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string | null
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          ai_tone?: string | null
+          created_at?: string | null
+          generation_mode?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string | null
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
+      daily_signals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          explanation: string
+          generated_by_ai: boolean
+          id: string
+          is_approved: boolean
+          is_used: boolean
+          main_message: string
+          scheduled_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          explanation: string
+          generated_by_ai?: boolean
+          id?: string
+          is_approved?: boolean
+          is_used?: boolean
+          main_message: string
+          scheduled_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          explanation?: string
+          generated_by_ai?: boolean
+          id?: string
+          is_approved?: boolean
+          is_used?: boolean
+          main_message?: string
+          scheduled_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       knowledge_resources: {
         Row: {
           allow_click_redirect: boolean
@@ -1716,6 +1797,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_signal_preferences: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_signal_id: string | null
+          last_signal_shown_at: string | null
+          show_daily_signal: boolean
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_signal_id?: string | null
+          last_signal_shown_at?: string | null
+          show_daily_signal?: boolean
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_signal_id?: string | null
+          last_signal_shown_at?: string | null
+          show_daily_signal?: boolean
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_signal_preferences_last_signal_id_fkey"
+            columns: ["last_signal_id"]
+            isOneToOne: false
+            referencedRelation: "daily_signals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

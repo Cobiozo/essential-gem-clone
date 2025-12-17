@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,17 +6,75 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { AiCompassWidget } from '@/components/ai-compass/AiCompassWidget';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+
+// Preferences Tab Component
+const PreferencesTab: React.FC<{ userId: string }> = ({ userId }) => {
+  const [showDailySignal, setShowDailySignal] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      const { data } = await supabase
+        .from('user_signal_preferences')
+        .select('show_daily_signal')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (data) {
+        setShowDailySignal(data.show_daily_signal);
+      }
+      setLoading(false);
+    };
+    fetchPreferences();
+  }, [userId]);
+
+  const handleToggle = async (checked: boolean) => {
+    setShowDailySignal(checked);
+    const { error } = await supabase
+      .from('user_signal_preferences')
+      .upsert({ user_id: userId, show_daily_signal: checked }, { onConflict: 'user_id' });
+    
+    if (error) {
+      toast({ title: 'Błąd', description: 'Nie udało się zapisać preferencji', variant: 'destructive' });
+    } else {
+      toast({ title: 'Zapisano', description: checked ? 'Sygnał Dnia włączony' : 'Sygnał Dnia wyłączony' });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5" />
+          Preferencje wyświetlania
+        </CardTitle>
+        <CardDescription>Dostosuj ustawienia swojego konta</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between py-4">
+          <div>
+            <Label className="text-base font-medium">Wyświetlaj Sygnał Dnia po zalogowaniu</Label>
+            <p className="text-sm text-muted-foreground">Codzienny, wspierający komunikat na start dnia</p>
+          </div>
+          <Switch checked={showDailySignal} onCheckedChange={handleToggle} disabled={loading} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const MyAccount = () => {
   const { user, profile, userRole, signOut } = useAuth();
@@ -304,10 +362,14 @@ const MyAccount = () => {
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="profile">
                 <User className="w-4 h-4 mr-2" />
                 Profil
+              </TabsTrigger>
+              <TabsTrigger value="preferences">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Preferencje
               </TabsTrigger>
               <TabsTrigger value="ai-compass">
                 <Compass className="w-4 h-4 mr-2" />
@@ -530,6 +592,10 @@ const MyAccount = () => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="preferences" className="mt-6">
+              <PreferencesTab userId={user.id} />
             </TabsContent>
 
             <TabsContent value="ai-compass" className="mt-6">
