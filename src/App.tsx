@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChatWidget } from "@/components/ChatWidget";
 import { MedicalChatWidget } from "@/components/MedicalChatWidget";
 import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
+import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
 import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -25,6 +27,7 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   useDynamicMetaTags();
+  const [infoBannerDismissed, setInfoBannerDismissed] = useState(false);
   
   return (
     <TooltipProvider>
@@ -45,7 +48,12 @@ const AppContent = () => {
         </Routes>
       </BrowserRouter>
       <CookieConsentBanner />
-      <DailySignalBanner />
+      {/* Important Info Banner shows first, then Daily Signal after dismissal */}
+      {!infoBannerDismissed ? (
+        <ImportantInfoBanner onDismiss={() => setInfoBannerDismissed(true)} />
+      ) : (
+        <DailySignalBanner />
+      )}
       <MedicalChatWidget />
       <ChatWidget />
     </TooltipProvider>

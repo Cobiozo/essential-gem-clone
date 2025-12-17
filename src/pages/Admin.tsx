@@ -17,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -39,6 +39,7 @@ import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResour
 import { CookieConsentManagement } from '@/components/admin/CookieConsentManagement';
 import { AiCompassManagement } from '@/components/admin/AiCompassManagement';
 import { DailySignalManagement } from '@/components/admin/DailySignalManagement';
+import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -2691,6 +2692,10 @@ const Admin = () => {
               <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">Sygnał Dnia</span>
             </TabsTrigger>
+            <TabsTrigger value="important-info" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Ważna Informacja</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="content">
@@ -4211,6 +4216,10 @@ const Admin = () => {
 
           <TabsContent value="daily-signal">
             <DailySignalManagement />
+          </TabsContent>
+
+          <TabsContent value="important-info">
+            <ImportantInfoManagement />
           </TabsContent>
         </Tabs>
       </div>
