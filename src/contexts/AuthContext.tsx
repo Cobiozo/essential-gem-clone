@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,6 +33,7 @@ interface AuthContextType {
   profile: Profile | null;
   userRole: UserRole | null;
   loading: boolean;
+  rolesReady: boolean;
   isAdmin: boolean;
   isPartner: boolean;
   isClient: boolean;
@@ -58,63 +59,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesReady, setRolesReady] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<void> => {
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-      
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
+      // Fetch profile and role in parallel for speed
+      const [profileResult, roleResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single(),
+        supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+      ]);
+
+      if (profileResult.error) {
+        console.error('Error fetching profile:', profileResult.error);
       } else {
-        setProfile(profileData);
+        setProfile(profileResult.data);
       }
 
-      // Fetch user role from user_roles table
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (roleError) {
-        console.error('Error fetching user role:', roleError);
+      if (roleResult.error) {
+        console.error('Error fetching user role:', roleResult.error);
       } else {
-        setUserRole(roleData);
+        setUserRole(roleResult.data);
       }
+      
+      // Mark roles as ready immediately after fetch completes
+      setRolesReady(true);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      setRolesReady(true); // Still mark as ready to prevent infinite loading
     }
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     
     const initializeAuth = async () => {
       try {
-        // Set up auth state listener
+        // Set up auth state listener FIRST
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, session) => {
+          async (event, newSession) => {
             if (!mounted) return;
             
-            setSession(session);
-            setUser(session?.user ?? null);
+            setSession(newSession);
+            setUser(newSession?.user ?? null);
             
-            if (session?.user) {
-              setTimeout(() => {
-                if (mounted) {
-                  fetchProfile(session.user.id);
-                }
-              }, 0);
+            if (newSession?.user) {
+              // Fetch profile SYNCHRONOUSLY - no setTimeout
+              setRolesReady(false);
+              await fetchProfile(newSession.user.id);
             } else {
               setProfile(null);
               setUserRole(null);
+              setRolesReady(true);
             }
             
             setLoading(false);
@@ -123,15 +129,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
 
         // Check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
         
         if (!mounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        setSession(existingSession);
+        setUser(existingSession?.user ?? null);
         
-        if (session?.user) {
-          await fetchProfile(session.user.id);
+        if (existingSession?.user) {
+          await fetchProfile(existingSession.user.id);
+        } else {
+          setRolesReady(true);
         }
         
         setLoading(false);
@@ -144,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Auth initialization error:', error);
         if (mounted) {
           setLoading(false);
+          setRolesReady(true);
           setInitialized(true);
         }
       }
@@ -154,9 +163,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fetchProfile]);
 
   const signIn = async (email: string, password: string) => {
+    setRolesReady(false); // Reset roles ready before login
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -188,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setProfile(null);
       setUserRole(null);
+      setRolesReady(true);
     } catch (error) {
       console.error('Logout error:', error);
       // Clear state anyway on error
@@ -195,6 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setProfile(null);
       setUserRole(null);
+      setRolesReady(true);
     }
   };
 
@@ -209,6 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     userRole,
     loading,
+    rolesReady,
     isAdmin,
     isPartner,
     isClient,

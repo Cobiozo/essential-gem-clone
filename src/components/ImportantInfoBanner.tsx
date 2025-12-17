@@ -23,19 +23,21 @@ interface ImportantInfoBannerProps {
 }
 
 export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDismiss }) => {
-  const { user, isClient, isPartner, isSpecjalista, loading: authLoading } = useAuth();
+  const { user, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
   const [banner, setBanner] = useState<ImportantInfoBannerData | null>(null);
   const [showBanner, setShowBanner] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (authLoading || !user) {
-      setLoading(false);
+    // Wait for auth AND roles to be fully ready
+    if (authLoading || !rolesReady || !user || checked) {
       return;
     }
     
+    // Mark as checked to prevent re-running
+    setChecked(true);
     checkAndShowBanner();
-  }, [user, authLoading]);
+  }, [user, authLoading, rolesReady, checked]);
 
   const checkAndShowBanner = async () => {
     try {
@@ -47,7 +49,6 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
-        setLoading(false);
         return;
       }
 
@@ -66,7 +67,6 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
       });
 
       if (visibleBanners.length === 0) {
-        setLoading(false);
         return;
       }
 
@@ -101,8 +101,6 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
       }
     } catch (error) {
       console.error('Error checking info banner:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -133,7 +131,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
     }
   };
 
-  if (loading || !showBanner || !banner) {
+  if (!showBanner || !banner) {
     return null;
   }
 
