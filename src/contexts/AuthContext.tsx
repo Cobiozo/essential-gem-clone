@@ -115,8 +115,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newSession?.user ?? null);
         
         // Increment login trigger on SIGNED_IN to reset banner states
+        // Tylko prawdziwe logowanie (przez formularz) - nie refresh/tab switch
         if (event === 'SIGNED_IN') {
-          setLoginTrigger(prev => prev + 1);
+          const freshLogin = sessionStorage.getItem('fresh_login');
+          if (freshLogin) {
+            sessionStorage.removeItem('fresh_login');
+            setLoginTrigger(prev => prev + 1);
+          }
         }
         
         if (newSession?.user) {
@@ -172,11 +177,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [fetchProfile]);
 
   const signIn = async (email: string, password: string) => {
-    setRolesReady(false); // Reset roles ready before login
+    setRolesReady(false);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (!error) {
+      // Oznacz prawdziwe logowanie - baner pokaże się tylko teraz
+      sessionStorage.setItem('fresh_login', Date.now().toString());
+    }
     return { error };
   };
 
@@ -190,6 +199,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         emailRedirectTo: redirectUrl
       }
     });
+    if (!error) {
+      // Oznacz prawdziwe logowanie
+      sessionStorage.setItem('fresh_login', Date.now().toString());
+    }
     return { error };
   };
 
