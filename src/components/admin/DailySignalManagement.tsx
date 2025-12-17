@@ -12,12 +12,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sparkles, Plus, Check, X, Trash2, Wand2, Edit, Calendar, Loader2, BarChart3, Users, Eye, EyeOff } from 'lucide-react';
+import { 
+  Sparkles, Plus, Check, X, Trash2, Wand2, Edit, Calendar, Loader2, 
+  BarChart3, Users, Eye, EyeOff, Heart, Zap, Cloud, Filter 
+} from 'lucide-react';
 
 interface DailySignal {
   id: string;
   main_message: string;
   explanation: string;
+  signal_type: string;
+  source: string;
   is_approved: boolean;
   is_used: boolean;
   scheduled_date: string | null;
@@ -40,15 +45,24 @@ interface SignalSettings {
 
 interface Statistics {
   totalSignals: number;
-  approvedSignals: number;
-  pendingSignals: number;
+  activeSignals: number;
+  inactiveSignals: number;
   usedSignals: number;
   aiGenerated: number;
-  manuallyCreated: number;
+  adminCreated: number;
+  byType: { supportive: number; motivational: number; calm: number };
   usersWithEnabled: number;
   usersWithDisabled: number;
   totalUsers: number;
 }
+
+const SIGNAL_TYPES = {
+  supportive: { label: 'Wspierający', icon: Heart, color: 'text-pink-600 bg-pink-100' },
+  motivational: { label: 'Motywacyjny', icon: Zap, color: 'text-amber-600 bg-amber-100' },
+  calm: { label: 'Spokojny', icon: Cloud, color: 'text-blue-600 bg-blue-100' }
+};
+
+const GENERATION_COUNTS = [5, 10, 25, 50];
 
 export const DailySignalManagement: React.FC = () => {
   const { toast } = useToast();
@@ -61,9 +75,22 @@ export const DailySignalManagement: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [editingSignal, setEditingSignal] = useState<DailySignal | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  
+  // Generation settings
+  const [generateCount, setGenerateCount] = useState(5);
+  const [generateTone, setGenerateTone] = useState('supportive');
+  
+  // Library filters
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterSource, setFilterSource] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  
   const [newSignal, setNewSignal] = useState({
     main_message: '',
     explanation: '',
+    signal_type: 'supportive',
     scheduled_date: ''
   });
 
@@ -74,7 +101,6 @@ export const DailySignalManagement: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch settings
       const { data: settingsData, error: settingsError } = await supabase
         .from('daily_signal_settings')
         .select('*')
@@ -89,7 +115,6 @@ export const DailySignalManagement: React.FC = () => {
         setSettings(settingsData as SignalSettings);
       }
 
-      // Fetch all signals
       const { data: signalsData, error: signalsError } = await supabase
         .from('daily_signals')
         .select('*')
@@ -99,7 +124,6 @@ export const DailySignalManagement: React.FC = () => {
       const signalsList = (signalsData as DailySignal[]) || [];
       setSignals(signalsList);
 
-      // Calculate statistics
       const { data: preferencesData } = await supabase
         .from('user_signal_preferences')
         .select('show_daily_signal');
@@ -107,11 +131,16 @@ export const DailySignalManagement: React.FC = () => {
       const prefs = preferencesData || [];
       const stats: Statistics = {
         totalSignals: signalsList.length,
-        approvedSignals: signalsList.filter(s => s.is_approved).length,
-        pendingSignals: signalsList.filter(s => !s.is_approved).length,
+        activeSignals: signalsList.filter(s => s.is_approved).length,
+        inactiveSignals: signalsList.filter(s => !s.is_approved).length,
         usedSignals: signalsList.filter(s => s.is_used).length,
-        aiGenerated: signalsList.filter(s => s.generated_by_ai).length,
-        manuallyCreated: signalsList.filter(s => !s.generated_by_ai).length,
+        aiGenerated: signalsList.filter(s => s.source === 'ai' || s.generated_by_ai).length,
+        adminCreated: signalsList.filter(s => s.source === 'admin' || !s.generated_by_ai).length,
+        byType: {
+          supportive: signalsList.filter(s => s.signal_type === 'supportive' || !s.signal_type).length,
+          motivational: signalsList.filter(s => s.signal_type === 'motivational').length,
+          calm: signalsList.filter(s => s.signal_type === 'calm').length,
+        },
         usersWithEnabled: prefs.filter(p => p.show_daily_signal).length,
         usersWithDisabled: prefs.filter(p => !p.show_daily_signal).length,
         totalUsers: prefs.length
@@ -142,27 +171,23 @@ export const DailySignalManagement: React.FC = () => {
       if (error) throw error;
 
       setSettings({ ...settings, ...updates });
-      toast({
-        title: 'Zapisano',
-        description: 'Ustawienia zostały zaktualizowane'
-      });
+      toast({ title: 'Zapisano', description: 'Ustawienia zostały zaktualizowane' });
     } catch (error) {
       console.error('Error updating settings:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się zapisać ustawień',
-        variant: 'destructive'
-      });
+      toast({ title: 'Błąd', description: 'Nie udało się zapisać ustawień', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
 
-  const generateSignalWithAI = async () => {
+  const generateSignalsWithAI = async () => {
     setGenerating(true);
+    setGenerationProgress(0);
+    setShowGenerateDialog(false);
+    
     try {
       const { data, error } = await supabase.functions.invoke('generate-daily-signal', {
-        body: { tone: settings?.ai_tone || 'supportive' }
+        body: { tone: generateTone, count: generateCount }
       });
 
       if (error) {
@@ -175,58 +200,61 @@ export const DailySignalManagement: React.FC = () => {
         throw new Error(data.error);
       }
 
-      const { main_message, explanation } = data;
+      // Handle single or multiple signals
+      const generatedSignals = data.signals || [data];
       
-      if (!main_message || !explanation) {
+      if (!generatedSignals.length) {
         throw new Error('AI nie zwróciło poprawnych danych');
       }
 
-      // Save to database
-      const { data: newSignalData, error: insertError } = await supabase
+      // Save all signals to database
+      const signalsToInsert = generatedSignals.map((s: any) => ({
+        main_message: s.main_message,
+        explanation: s.explanation,
+        signal_type: s.signal_type || generateTone,
+        source: 'ai',
+        generated_by_ai: true,
+        created_by: user?.id,
+        is_approved: settings?.generation_mode === 'auto'
+      }));
+
+      const { data: insertedSignals, error: insertError } = await supabase
         .from('daily_signals')
-        .insert({
-          main_message,
-          explanation,
-          generated_by_ai: true,
-          created_by: user?.id,
-          is_approved: settings?.generation_mode === 'auto'
-        })
-        .select()
-        .single();
+        .insert(signalsToInsert)
+        .select();
 
       if (insertError) throw insertError;
 
-      setSignals([newSignalData as DailySignal, ...signals]);
-      
-      // Refresh statistics
+      setSignals([...(insertedSignals as DailySignal[]), ...signals]);
       fetchData();
       
       toast({
-        title: 'Wygenerowano sygnał',
+        title: `Wygenerowano ${generatedSignals.length} sygnałów`,
         description: settings?.generation_mode === 'auto' 
-          ? 'Sygnał został wygenerowany i automatycznie zatwierdzony'
-          : 'Sygnał został wygenerowany i czeka na zatwierdzenie'
+          ? 'Sygnały zostały automatycznie zatwierdzone'
+          : 'Sygnały czekają na zatwierdzenie'
       });
     } catch (error) {
-      console.error('Error generating signal:', error);
+      console.error('Error generating signals:', error);
       toast({
         title: 'Błąd generowania',
-        description: error instanceof Error ? error.message : 'Nie udało się wygenerować sygnału',
+        description: error instanceof Error ? error.message : 'Nie udało się wygenerować sygnałów',
         variant: 'destructive'
       });
     } finally {
       setGenerating(false);
+      setGenerationProgress(0);
     }
   };
 
-  const approveSignal = async (signalId: string) => {
+  const toggleSignalStatus = async (signalId: string, currentStatus: boolean) => {
     try {
+      const newStatus = !currentStatus;
       const { error } = await supabase
         .from('daily_signals')
         .update({
-          is_approved: true,
-          approved_by: user?.id,
-          approved_at: new Date().toISOString()
+          is_approved: newStatus,
+          ...(newStatus ? { approved_by: user?.id, approved_at: new Date().toISOString() } : {})
         })
         .eq('id', signalId);
 
@@ -234,47 +262,23 @@ export const DailySignalManagement: React.FC = () => {
 
       setSignals(signals.map(s => 
         s.id === signalId 
-          ? { ...s, is_approved: true, approved_by: user?.id || null, approved_at: new Date().toISOString() }
+          ? { ...s, is_approved: newStatus, approved_by: newStatus ? user?.id || null : s.approved_by, approved_at: newStatus ? new Date().toISOString() : s.approved_at }
           : s
       ));
       
       toast({
-        title: 'Zatwierdzono',
-        description: 'Sygnał został zatwierdzony do publikacji'
+        title: newStatus ? 'Aktywowano' : 'Dezaktywowano',
+        description: newStatus ? 'Sygnał jest teraz dostępny w rotacji' : 'Sygnał został wyłączony z rotacji'
       });
     } catch (error) {
-      console.error('Error approving signal:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się zatwierdzić sygnału',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const rejectSignal = async (signalId: string) => {
-    try {
-      const { error } = await supabase
-        .from('daily_signals')
-        .update({ is_approved: false })
-        .eq('id', signalId);
-
-      if (error) throw error;
-
-      setSignals(signals.map(s => 
-        s.id === signalId ? { ...s, is_approved: false } : s
-      ));
-      
-      toast({
-        title: 'Odrzucono',
-        description: 'Sygnał został odrzucony'
-      });
-    } catch (error) {
-      console.error('Error rejecting signal:', error);
+      console.error('Error toggling signal:', error);
+      toast({ title: 'Błąd', description: 'Nie udało się zmienić statusu', variant: 'destructive' });
     }
   };
 
   const deleteSignal = async (signalId: string) => {
+    if (!confirm('Czy na pewno chcesz usunąć ten sygnał?')) return;
+    
     try {
       const { error } = await supabase
         .from('daily_signals')
@@ -284,27 +288,16 @@ export const DailySignalManagement: React.FC = () => {
       if (error) throw error;
 
       setSignals(signals.filter(s => s.id !== signalId));
-      toast({
-        title: 'Usunięto',
-        description: 'Sygnał został usunięty'
-      });
+      toast({ title: 'Usunięto', description: 'Sygnał został usunięty' });
     } catch (error) {
       console.error('Error deleting signal:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się usunąć sygnału',
-        variant: 'destructive'
-      });
+      toast({ title: 'Błąd', description: 'Nie udało się usunąć sygnału', variant: 'destructive' });
     }
   };
 
   const saveNewSignal = async () => {
     if (!newSignal.main_message || !newSignal.explanation) {
-      toast({
-        title: 'Błąd',
-        description: 'Wypełnij wszystkie wymagane pola',
-        variant: 'destructive'
-      });
+      toast({ title: 'Błąd', description: 'Wypełnij wszystkie wymagane pola', variant: 'destructive' });
       return;
     }
 
@@ -314,6 +307,8 @@ export const DailySignalManagement: React.FC = () => {
         .insert({
           main_message: newSignal.main_message,
           explanation: newSignal.explanation,
+          signal_type: newSignal.signal_type,
+          source: 'admin',
           scheduled_date: newSignal.scheduled_date || null,
           generated_by_ai: false,
           created_by: user?.id,
@@ -326,19 +321,12 @@ export const DailySignalManagement: React.FC = () => {
 
       setSignals([data as DailySignal, ...signals]);
       setShowAddDialog(false);
-      setNewSignal({ main_message: '', explanation: '', scheduled_date: '' });
+      setNewSignal({ main_message: '', explanation: '', signal_type: 'supportive', scheduled_date: '' });
       
-      toast({
-        title: 'Dodano',
-        description: 'Nowy sygnał został dodany'
-      });
+      toast({ title: 'Dodano', description: 'Nowy sygnał został dodany do biblioteki' });
     } catch (error) {
       console.error('Error saving signal:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się zapisać sygnału',
-        variant: 'destructive'
-      });
+      toast({ title: 'Błąd', description: 'Nie udało się zapisać sygnału', variant: 'destructive' });
     }
   };
 
@@ -351,29 +339,46 @@ export const DailySignalManagement: React.FC = () => {
         .update({
           main_message: editingSignal.main_message,
           explanation: editingSignal.explanation,
+          signal_type: editingSignal.signal_type,
           scheduled_date: editingSignal.scheduled_date
         })
         .eq('id', editingSignal.id);
 
       if (error) throw error;
 
-      setSignals(signals.map(s => 
-        s.id === editingSignal.id ? editingSignal : s
-      ));
+      setSignals(signals.map(s => s.id === editingSignal.id ? editingSignal : s));
       setEditingSignal(null);
       
-      toast({
-        title: 'Zapisano',
-        description: 'Sygnał został zaktualizowany'
-      });
+      toast({ title: 'Zapisano', description: 'Sygnał został zaktualizowany' });
     } catch (error) {
       console.error('Error updating signal:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się zaktualizować sygnału',
-        variant: 'destructive'
-      });
+      toast({ title: 'Błąd', description: 'Nie udało się zaktualizować sygnału', variant: 'destructive' });
     }
+  };
+
+  const filteredSignals = signals.filter(s => {
+    if (filterType !== 'all' && (s.signal_type || 'supportive') !== filterType) return false;
+    if (filterSource !== 'all') {
+      const isAi = s.source === 'ai' || s.generated_by_ai;
+      if (filterSource === 'ai' && !isAi) return false;
+      if (filterSource === 'admin' && isAi) return false;
+    }
+    if (filterStatus !== 'all') {
+      if (filterStatus === 'active' && !s.is_approved) return false;
+      if (filterStatus === 'inactive' && s.is_approved) return false;
+    }
+    return true;
+  });
+
+  const getTypeBadge = (type: string) => {
+    const typeInfo = SIGNAL_TYPES[type as keyof typeof SIGNAL_TYPES] || SIGNAL_TYPES.supportive;
+    const Icon = typeInfo.icon;
+    return (
+      <Badge variant="secondary" className={`text-xs ${typeInfo.color}`}>
+        <Icon className="w-3 h-3 mr-1" />
+        {typeInfo.label}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -389,32 +394,25 @@ export const DailySignalManagement: React.FC = () => {
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="settings">Ustawienia</TabsTrigger>
-          <TabsTrigger value="library">Biblioteka sygnałów</TabsTrigger>
+          <TabsTrigger value="library">Biblioteka ({signals.length})</TabsTrigger>
           <TabsTrigger value="statistics">Statystyki</TabsTrigger>
         </TabsList>
 
+        {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6 mt-6">
-          {/* Global Settings */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 Ustawienia globalne
               </CardTitle>
-              <CardDescription>
-                Kontroluj wyświetlanie i generowanie Sygnału Dnia
-              </CardDescription>
+              <CardDescription>Kontroluj wyświetlanie i generowanie Sygnału Dnia</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Enable/Disable */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="is_enabled" className="text-base font-medium">
-                    Włącz Sygnał Dnia
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Globalnie włącza lub wyłącza funkcję
-                  </p>
+                  <Label htmlFor="is_enabled" className="text-base font-medium">Włącz Sygnał Dnia</Label>
+                  <p className="text-sm text-muted-foreground">Globalnie włącza lub wyłącza funkcję</p>
                 </div>
                 <Switch
                   id="is_enabled"
@@ -425,45 +423,29 @@ export const DailySignalManagement: React.FC = () => {
               </div>
 
               <div className="border-t pt-6">
-                <Label className="text-base font-medium mb-4 block">
-                  Widoczność dla ról
-                </Label>
+                <Label className="text-base font-medium mb-4 block">Widoczność dla ról</Label>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="visible_clients">Klienci</Label>
-                    <Switch
-                      id="visible_clients"
-                      checked={settings?.visible_to_clients || false}
-                      onCheckedChange={(checked) => updateSettings({ visible_to_clients: checked })}
-                      disabled={saving}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="visible_partners">Partnerzy</Label>
-                    <Switch
-                      id="visible_partners"
-                      checked={settings?.visible_to_partners || false}
-                      onCheckedChange={(checked) => updateSettings({ visible_to_partners: checked })}
-                      disabled={saving}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="visible_specjalista">Specjaliści</Label>
-                    <Switch
-                      id="visible_specjalista"
-                      checked={settings?.visible_to_specjalista || false}
-                      onCheckedChange={(checked) => updateSettings({ visible_to_specjalista: checked })}
-                      disabled={saving}
-                    />
-                  </div>
+                  {[
+                    { key: 'visible_to_clients', label: 'Klienci' },
+                    { key: 'visible_to_partners', label: 'Partnerzy' },
+                    { key: 'visible_to_specjalista', label: 'Specjaliści' }
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <Label htmlFor={key}>{label}</Label>
+                      <Switch
+                        id={key}
+                        checked={(settings as any)?.[key] || false}
+                        onCheckedChange={(checked) => updateSettings({ [key]: checked })}
+                        disabled={saving}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div className="border-t pt-6 space-y-4">
                 <div>
-                  <Label htmlFor="generation_mode" className="text-base font-medium">
-                    Tryb generowania
-                  </Label>
+                  <Label className="text-base font-medium">Tryb generowania</Label>
                   <Select
                     value={settings?.generation_mode || 'semi_auto'}
                     onValueChange={(value) => updateSettings({ generation_mode: value })}
@@ -479,41 +461,22 @@ export const DailySignalManagement: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div>
-                  <Label htmlFor="ai_tone" className="text-base font-medium">
-                    Ton AI
-                  </Label>
-                  <Select
-                    value={settings?.ai_tone || 'supportive'}
-                    onValueChange={(value) => updateSettings({ ai_tone: value })}
-                    disabled={saving}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="supportive">Wspierający</SelectItem>
-                      <SelectItem value="motivational">Motywacyjny</SelectItem>
-                      <SelectItem value="calm">Spokojny</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Library Tab */}
         <TabsContent value="library" className="space-y-6 mt-6">
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
             <Button onClick={() => setShowAddDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Dodaj ręcznie
+              Dodaj własny
             </Button>
             <Button 
               variant="secondary" 
-              onClick={generateSignalWithAI}
+              onClick={() => setShowGenerateDialog(true)}
               disabled={generating || settings?.generation_mode === 'manual'}
             >
               {generating ? (
@@ -521,46 +484,94 @@ export const DailySignalManagement: React.FC = () => {
               ) : (
                 <Wand2 className="w-4 h-4 mr-2" />
               )}
-              Generuj z AI
+              {generating ? `Generowanie...` : 'Generuj z AI'}
             </Button>
           </div>
 
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Typ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie typy</SelectItem>
+                    <SelectItem value="supportive">Wspierający</SelectItem>
+                    <SelectItem value="motivational">Motywacyjny</SelectItem>
+                    <SelectItem value="calm">Spokojny</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterSource} onValueChange={setFilterSource}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Źródło" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie źródła</SelectItem>
+                    <SelectItem value="ai">AI</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie statusy</SelectItem>
+                    <SelectItem value="active">Aktywne</SelectItem>
+                    <SelectItem value="inactive">Nieaktywne</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground ml-auto">
+                  {filteredSignals.length} z {signals.length} sygnałów
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Signals List */}
           <div className="space-y-4">
-            {signals.length === 0 ? (
+            {filteredSignals.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
-                  Brak sygnałów. Dodaj pierwszy sygnał ręcznie lub wygeneruj z AI.
+                  {signals.length === 0 
+                    ? 'Brak sygnałów. Dodaj pierwszy sygnał ręcznie lub wygeneruj z AI.'
+                    : 'Brak sygnałów pasujących do filtrów.'}
                 </CardContent>
               </Card>
             ) : (
-              signals.map((signal) => (
-                <Card key={signal.id} className={!signal.is_approved ? 'border-yellow-300' : ''}>
+              filteredSignals.map((signal) => (
+                <Card key={signal.id} className={!signal.is_approved ? 'border-muted opacity-75' : ''}>
                   <CardContent className="pt-6">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                       <div className="flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          {signal.generated_by_ai && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Wand2 className="w-3 h-3 mr-1" />
-                              AI
-                            </Badge>
-                          )}
+                          {getTypeBadge(signal.signal_type || 'supportive')}
+                          <Badge variant="outline" className="text-xs">
+                            {signal.source === 'ai' || signal.generated_by_ai ? (
+                              <><Wand2 className="w-3 h-3 mr-1" />AI</>
+                            ) : (
+                              <><Edit className="w-3 h-3 mr-1" />Admin</>
+                            )}
+                          </Badge>
                           {signal.is_approved ? (
                             <Badge className="bg-green-100 text-green-800 text-xs">
-                              <Check className="w-3 h-3 mr-1" />
-                              Zatwierdzony
+                              <Eye className="w-3 h-3 mr-1" />Aktywny
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-yellow-600 border-yellow-300 text-xs">
-                              Oczekuje
+                            <Badge variant="outline" className="text-muted-foreground text-xs">
+                              <EyeOff className="w-3 h-3 mr-1" />Nieaktywny
                             </Badge>
                           )}
                           {signal.scheduled_date && (
                             <Badge variant="outline" className="text-xs">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {signal.scheduled_date}
+                              <Calendar className="w-3 h-3 mr-1" />{signal.scheduled_date}
                             </Badge>
+                          )}
+                          {signal.is_used && (
+                            <Badge variant="secondary" className="text-xs">Wykorzystany</Badge>
                           )}
                         </div>
                         
@@ -569,26 +580,14 @@ export const DailySignalManagement: React.FC = () => {
                       </div>
 
                       <div className="flex gap-2 shrink-0">
-                        {!signal.is_approved && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-green-600 hover:bg-green-50"
-                              onClick={() => approveSignal(signal.id)}
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:bg-red-50"
-                              onClick={() => rejectSignal(signal.id)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
+                        <Button
+                          size="sm"
+                          variant={signal.is_approved ? "outline" : "default"}
+                          onClick={() => toggleSignalStatus(signal.id, signal.is_approved)}
+                          title={signal.is_approved ? 'Dezaktywuj' : 'Aktywuj'}
+                        >
+                          {signal.is_approved ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -599,7 +598,7 @@ export const DailySignalManagement: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-red-600 hover:bg-red-50"
+                          className="text-destructive hover:bg-destructive/10"
                           onClick={() => deleteSignal(signal.id)}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -613,30 +612,26 @@ export const DailySignalManagement: React.FC = () => {
           </div>
         </TabsContent>
 
+        {/* Statistics Tab */}
         <TabsContent value="statistics" className="space-y-6 mt-6">
           {statistics && (
             <>
-              {/* Overview Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Wszystkie sygnały
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Wszystkie</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{statistics.totalSignals}</div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {statistics.approvedSignals} zatwierdzonych, {statistics.pendingSignals} oczekujących
+                      {statistics.activeSignals} aktywnych, {statistics.inactiveSignals} nieaktywnych
                     </p>
                   </CardContent>
                 </Card>
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Źródło sygnałów
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Źródło</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-4">
@@ -650,9 +645,9 @@ export const DailySignalManagement: React.FC = () => {
                       <div>
                         <div className="text-xl font-bold flex items-center gap-1">
                           <Edit className="w-4 h-4 text-blue-500" />
-                          {statistics.manuallyCreated}
+                          {statistics.adminCreated}
                         </div>
-                        <p className="text-xs text-muted-foreground">Ręczne</p>
+                        <p className="text-xs text-muted-foreground">Admin</p>
                       </div>
                     </div>
                   </CardContent>
@@ -660,9 +655,29 @@ export const DailySignalManagement: React.FC = () => {
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Preferencje użytkowników
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Typy sygnałów</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <Heart className="w-3 h-3 text-pink-500" />
+                        <span className="text-sm font-medium">{statistics.byType.supportive}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        <span className="text-sm font-medium">{statistics.byType.motivational}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Cloud className="w-3 h-3 text-blue-500" />
+                        <span className="text-sm font-medium">{statistics.byType.calm}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Użytkownicy</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-4">
@@ -674,7 +689,7 @@ export const DailySignalManagement: React.FC = () => {
                         <p className="text-xs text-muted-foreground">Włączone</p>
                       </div>
                       <div>
-                        <div className="text-xl font-bold flex items-center gap-1 text-red-600">
+                        <div className="text-xl font-bold flex items-center gap-1 text-muted-foreground">
                           <EyeOff className="w-4 h-4" />
                           {statistics.usersWithDisabled}
                         </div>
@@ -685,7 +700,6 @@ export const DailySignalManagement: React.FC = () => {
                 </Card>
               </div>
 
-              {/* Detailed Stats */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -700,12 +714,20 @@ export const DailySignalManagement: React.FC = () => {
                       <span className="font-medium">{statistics.usedSignals}</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-muted-foreground">Dostępne do wyświetlenia</span>
-                      <span className="font-medium">{statistics.approvedSignals - statistics.usedSignals}</span>
+                      <span className="text-sm text-muted-foreground">Dostępne do wyświetlenia (aktywne)</span>
+                      <span className="font-medium">{statistics.activeSignals - statistics.usedSignals}</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-muted-foreground">Oczekujące na zatwierdzenie</span>
-                      <span className="font-medium">{statistics.pendingSignals}</span>
+                      <span className="text-sm text-muted-foreground">Sygnały wspierające</span>
+                      <span className="font-medium">{statistics.byType.supportive}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Sygnały motywacyjne</span>
+                      <span className="font-medium">{statistics.byType.motivational}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Sygnały spokojne</span>
+                      <span className="font-medium">{statistics.byType.calm}</span>
                     </div>
                     <div className="flex items-center justify-between py-2">
                       <span className="text-sm text-muted-foreground">Użytkownicy z zapisanymi preferencjami</span>
@@ -719,21 +741,98 @@ export const DailySignalManagement: React.FC = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Generate Signals Dialog */}
+      <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5" />
+              Generuj sygnały z AI
+            </DialogTitle>
+            <DialogDescription>
+              Wybierz liczbę sygnałów i ton generowania
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div>
+              <Label className="text-sm font-medium">Ilość sygnałów</Label>
+              <div className="flex gap-2 mt-2">
+                {GENERATION_COUNTS.map((count) => (
+                  <Button
+                    key={count}
+                    variant={generateCount === count ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setGenerateCount(count)}
+                  >
+                    {count}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Ton sygnałów</Label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {Object.entries(SIGNAL_TYPES).map(([key, { label, icon: Icon, color }]) => (
+                  <Button
+                    key={key}
+                    variant={generateTone === key ? "default" : "outline"}
+                    size="sm"
+                    className={generateTone === key ? '' : 'hover:bg-muted'}
+                    onClick={() => setGenerateTone(key)}
+                  >
+                    <Icon className="w-4 h-4 mr-1" />
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
+              Anuluj
+            </Button>
+            <Button onClick={generateSignalsWithAI} disabled={generating}>
+              {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+              Generuj {generateCount} sygnałów
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Signal Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Dodaj nowy sygnał</DialogTitle>
-            <DialogDescription>
-              Stwórz własny Sygnał Dnia
-            </DialogDescription>
+            <DialogTitle>Dodaj własny sygnał</DialogTitle>
+            <DialogDescription>Stwórz własny Sygnał Dnia (źródło: admin)</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="signal_type">Typ sygnału *</Label>
+              <Select
+                value={newSignal.signal_type}
+                onValueChange={(value) => setNewSignal({ ...newSignal, signal_type: value })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SIGNAL_TYPES).map(([key, { label, icon: Icon }]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label htmlFor="main_message">Główna treść *</Label>
               <Textarea
                 id="main_message"
-                placeholder="Wpisz główne przesłanie..."
+                placeholder="Wpisz główne przesłanie (max 15 słów)..."
                 value={newSignal.main_message}
                 onChange={(e) => setNewSignal({ ...newSignal, main_message: e.target.value })}
                 className="mt-2"
@@ -743,7 +842,7 @@ export const DailySignalManagement: React.FC = () => {
               <Label htmlFor="explanation">Dlaczego dziś ten sygnał? *</Label>
               <Textarea
                 id="explanation"
-                placeholder="Wpisz wyjaśnienie..."
+                placeholder="Wpisz wyjaśnienie (max 20 słów)..."
                 value={newSignal.explanation}
                 onChange={(e) => setNewSignal({ ...newSignal, explanation: e.target.value })}
                 className="mt-2"
@@ -761,12 +860,8 @@ export const DailySignalManagement: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Anuluj
-            </Button>
-            <Button onClick={saveNewSignal}>
-              Dodaj sygnał
-            </Button>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Anuluj</Button>
+            <Button onClick={saveNewSignal}>Dodaj sygnał</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -779,6 +874,27 @@ export const DailySignalManagement: React.FC = () => {
           </DialogHeader>
           {editingSignal && (
             <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="edit_signal_type">Typ sygnału</Label>
+                <Select
+                  value={editingSignal.signal_type || 'supportive'}
+                  onValueChange={(value) => setEditingSignal({ ...editingSignal, signal_type: value })}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SIGNAL_TYPES).map(([key, { label, icon: Icon }]) => (
+                      <SelectItem key={key} value={key}>
+                        <span className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          {label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="edit_main_message">Główna treść</Label>
                 <Textarea
@@ -810,12 +926,8 @@ export const DailySignalManagement: React.FC = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSignal(null)}>
-              Anuluj
-            </Button>
-            <Button onClick={updateSignal}>
-              Zapisz zmiany
-            </Button>
+            <Button variant="outline" onClick={() => setEditingSignal(null)}>Anuluj</Button>
+            <Button onClick={updateSignal}>Zapisz zmiany</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

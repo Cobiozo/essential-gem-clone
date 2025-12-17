@@ -1119,6 +1119,8 @@ export type Database = {
           is_used: boolean
           main_message: string
           scheduled_date: string | null
+          signal_type: string | null
+          source: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1133,6 +1135,8 @@ export type Database = {
           is_used?: boolean
           main_message: string
           scheduled_date?: string | null
+          signal_type?: string | null
+          source?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1147,6 +1151,8 @@ export type Database = {
           is_used?: boolean
           main_message?: string
           scheduled_date?: string | null
+          signal_type?: string | null
+          source?: string | null
           updated_at?: string | null
         }
         Relationships: []
