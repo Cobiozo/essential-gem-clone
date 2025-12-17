@@ -42,6 +42,8 @@ interface SignalSettings {
   generation_mode: string;
   ai_tone: string;
   display_frequency: string;
+  animation_type: string;
+  animation_intensity: string;
 }
 
 interface Statistics {
@@ -481,6 +483,45 @@ export const DailySignalManagement: React.FC = () => {
                       <SelectItem value="manual">Manualny (tylko ręczne wpisy)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <Label className="text-sm font-medium">Animacja pojawiania się</Label>
+                    <Select
+                      value={settings?.animation_type || 'fade-in'}
+                      onValueChange={(value) => updateSettings({ animation_type: value })}
+                      disabled={saving}
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Brak animacji</SelectItem>
+                        <SelectItem value="fade-in">Fade In</SelectItem>
+                        <SelectItem value="slide-up">Slide Up</SelectItem>
+                        <SelectItem value="slide-down">Slide Down</SelectItem>
+                        <SelectItem value="scale-in">Scale In (Zoom)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Intensywność animacji</Label>
+                    <Select
+                      value={settings?.animation_intensity || 'subtle'}
+                      onValueChange={(value) => updateSettings({ animation_intensity: value })}
+                      disabled={saving}
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="off">Wyłączona</SelectItem>
+                        <SelectItem value="subtle">Subtelna (domyślna)</SelectItem>
+                        <SelectItem value="enhanced">Wzmocniona</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </CardContent>

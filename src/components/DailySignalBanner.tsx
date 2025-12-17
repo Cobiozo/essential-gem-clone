@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles } from 'lucide-react';
+import { getBannerAnimationClass, trackBannerInteraction, AnimationType, AnimationIntensity } from '@/lib/bannerAnimations';
+import { cn } from '@/lib/utils';
 
 interface DailySignal {
   id: string;
   main_message: string;
   explanation: string;
+  signal_type?: string;
 }
 
 interface SignalSettings {
@@ -17,6 +20,8 @@ interface SignalSettings {
   visible_to_partners: boolean;
   visible_to_specjalista: boolean;
   display_frequency: 'daily' | 'every_login';
+  animation_type: AnimationType;
+  animation_intensity: AnimationIntensity;
 }
 
 interface UserPreferences {
@@ -27,11 +32,17 @@ interface UserPreferences {
   last_signal_id: string | null;
 }
 
-export const DailySignalBanner: React.FC = () => {
-  const { user, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
+interface DailySignalBannerProps {
+  onDismiss?: () => void;
+}
+
+export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss }) => {
+  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
   const [showBanner, setShowBanner] = useState(false);
   const [signal, setSignal] = useState<DailySignal | null>(null);
+  const [settings, setSettings] = useState<SignalSettings | null>(null);
   const [checked, setChecked] = useState(false);
+  const bannerShownAtRef = useRef<number>(0);
 
   useEffect(() => {
     // Wait for auth AND roles to be fully ready
@@ -46,59 +57,63 @@ export const DailySignalBanner: React.FC = () => {
 
   const checkAndShowSignal = async () => {
     try {
-      // 1. Check global settings
-      const { data: settings, error: settingsError } = await supabase
+      // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
+      const { data: settingsData, error: settingsError } = await supabase
         .from('daily_signal_settings')
         .select('*')
         .limit(1)
         .single();
 
-      if (settingsError || !settings?.is_enabled) {
+      if (settingsError || !settingsData?.is_enabled) {
+        onDismiss?.();
         return;
       }
 
+      const typedSettings = settingsData as SignalSettings;
+      setSettings(typedSettings);
+
       // 2. Check role visibility
-      const typedSettings = settings as SignalSettings;
       const isVisible = 
         (isClient && typedSettings.visible_to_clients) ||
         (isPartner && typedSettings.visible_to_partners) ||
         (isSpecjalista && typedSettings.visible_to_specjalista);
 
       if (!isVisible) {
+        onDismiss?.();
         return;
       }
 
-      // 3. Check user preferences
-      const { data: preferences, error: prefError } = await supabase
+      // 3. Check user preferences - but ADMIN display_frequency overrides local blocks
+      const { data: preferences } = await supabase
         .from('user_signal_preferences')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // If preferences exist and user disabled signals, don't show
+      // If user explicitly disabled signals, respect that (unless we want to override)
       if (preferences && !(preferences as UserPreferences).show_daily_signal) {
+        onDismiss?.();
         return;
       }
 
-      // 4. Check frequency based on admin setting
+      // 4. CRITICAL: Admin display_frequency has ABSOLUTE PRIORITY over cache
       const displayFrequency = typedSettings.display_frequency || 'daily';
       
-      if (displayFrequency === 'daily') {
-        // Check if 24 hours passed since last shown
+      if (displayFrequency === 'every_login') {
+        // Admin forces every login - IGNORE all session/local storage blocks
+        // Only check if already shown in THIS exact page load (via state, not storage)
+        // Session storage check is removed for every_login mode
+      } else {
+        // daily mode - check if 24 hours passed since last shown
         if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
           const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
           const now = new Date();
           const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
           
           if (hoursDiff < 24) {
+            onDismiss?.();
             return;
           }
-        }
-      } else {
-        // every_login - check session storage
-        const sessionKey = 'daily_signal_shown_session';
-        if (sessionStorage.getItem(sessionKey)) {
-          return;
         }
       }
 
@@ -106,7 +121,7 @@ export const DailySignalBanner: React.FC = () => {
       const today = new Date().toISOString().split('T')[0];
       
       // First try to get a signal scheduled for today
-      let { data: todaySignal, error: signalError } = await supabase
+      let { data: todaySignal } = await supabase
         .from('daily_signals')
         .select('*')
         .eq('scheduled_date', today)
@@ -130,19 +145,49 @@ export const DailySignalBanner: React.FC = () => {
       if (todaySignal) {
         setSignal(todaySignal as DailySignal);
         setShowBanner(true);
+        bannerShownAtRef.current = Date.now();
+        
+        // Track view interaction
+        trackBannerInteraction(supabase, {
+          bannerType: 'signal',
+          bannerId: todaySignal.id,
+          userId: user.id,
+          userRole: userRole ? String(userRole) : null,
+          interactionType: 'view',
+          bannerTone: todaySignal.signal_type || 'supportive',
+          contentLength: todaySignal.main_message?.length || 0,
+          hasAnimation: typedSettings.animation_intensity !== 'off',
+          animationLevel: typedSettings.animation_intensity,
+        });
+      } else {
+        onDismiss?.();
       }
     } catch (error) {
       console.error('Error checking daily signal:', error);
+      onDismiss?.();
     }
   };
 
   const handleAcceptSignal = async () => {
     if (!user || !signal) return;
 
+    const reactionTime = Date.now() - bannerShownAtRef.current;
+
     try {
-      // Mark as shown in session for every_login mode
-      sessionStorage.setItem('daily_signal_shown_session', 'true');
-      
+      // Track accept interaction
+      trackBannerInteraction(supabase, {
+        bannerType: 'signal',
+        bannerId: signal.id,
+        userId: user.id,
+        userRole: userRole ? String(userRole) : null,
+        interactionType: 'accept',
+        reactionTimeMs: reactionTime,
+        bannerTone: signal.signal_type || 'supportive',
+        contentLength: signal.main_message?.length || 0,
+        hasAnimation: settings?.animation_intensity !== 'off',
+        animationLevel: settings?.animation_intensity,
+      });
+
       // Upsert user preferences with timestamp
       await supabase
         .from('user_signal_preferences')
@@ -156,6 +201,7 @@ export const DailySignalBanner: React.FC = () => {
         });
 
       setShowBanner(false);
+      onDismiss?.();
     } catch (error) {
       console.error('Error accepting signal:', error);
     }
@@ -164,7 +210,25 @@ export const DailySignalBanner: React.FC = () => {
   const handleDisableSignal = async () => {
     if (!user) return;
 
+    const reactionTime = Date.now() - bannerShownAtRef.current;
+
     try {
+      // Track disable interaction
+      if (signal) {
+        trackBannerInteraction(supabase, {
+          bannerType: 'signal',
+          bannerId: signal.id,
+          userId: user.id,
+          userRole: userRole ? String(userRole) : null,
+          interactionType: 'disable',
+          reactionTimeMs: reactionTime,
+          bannerTone: signal.signal_type || 'supportive',
+          contentLength: signal.main_message?.length || 0,
+          hasAnimation: settings?.animation_intensity !== 'off',
+          animationLevel: settings?.animation_intensity,
+        });
+      }
+
       await supabase
         .from('user_signal_preferences')
         .upsert({
@@ -177,6 +241,7 @@ export const DailySignalBanner: React.FC = () => {
         });
 
       setShowBanner(false);
+      onDismiss?.();
     } catch (error) {
       console.error('Error disabling signal:', error);
     }
@@ -186,10 +251,18 @@ export const DailySignalBanner: React.FC = () => {
     return null;
   }
 
+  const animationClass = getBannerAnimationClass(
+    settings?.animation_type || 'fade-in',
+    settings?.animation_intensity || 'subtle'
+  );
+
   return (
     <Dialog open={showBanner} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-md border-0 shadow-2xl [&>button]:hidden"
+        className={cn(
+          "sm:max-w-md border-0 shadow-2xl [&>button]:hidden",
+          animationClass
+        )}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >

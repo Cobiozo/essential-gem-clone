@@ -1,9 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertTriangle } from 'lucide-react';
+import { 
+  getBannerAnimationClass, 
+  trackBannerInteraction, 
+  getTitleClasses, 
+  getTitleStyle,
+  AnimationType, 
+  AnimationIntensity,
+  TitleStyling 
+} from '@/lib/bannerAnimations';
+import { cn } from '@/lib/utils';
 
 interface ImportantInfoBannerData {
   id: string;
@@ -16,17 +26,35 @@ interface ImportantInfoBannerData {
   priority: number;
   scheduled_date: string | null;
   image_url: string | null;
+  // Animation settings
+  animation_type: string | null;
+  animation_intensity: string | null;
+  // Title styling
+  title_bold: boolean | null;
+  title_large: boolean | null;
+  title_accent_color: boolean | null;
+  title_underline: boolean | null;
+  title_shadow: boolean | null;
+  title_custom_color: string | null;
 }
 
 interface ImportantInfoBannerProps {
   onDismiss: () => void;
+  bannerIndex: number;
+  onComplete: () => void;
 }
 
-export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDismiss }) => {
-  const { user, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
+export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ 
+  onDismiss, 
+  bannerIndex,
+  onComplete 
+}) => {
+  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady } = useAuth();
   const [banner, setBanner] = useState<ImportantInfoBannerData | null>(null);
+  const [allBanners, setAllBanners] = useState<ImportantInfoBannerData[]>([]);
   const [showBanner, setShowBanner] = useState(false);
   const [checked, setChecked] = useState(false);
+  const bannerShownAtRef = useRef<number>(0);
 
   useEffect(() => {
     // Wait for auth AND roles to be fully ready
@@ -36,12 +64,22 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
     
     // Mark as checked to prevent re-running
     setChecked(true);
-    checkAndShowBanner();
+    loadAllBanners();
   }, [user, authLoading, rolesReady, checked]);
 
-  const checkAndShowBanner = async () => {
+  // When bannerIndex changes, show the next banner
+  useEffect(() => {
+    if (allBanners.length > 0 && bannerIndex < allBanners.length) {
+      showBannerAtIndex(bannerIndex);
+    } else if (allBanners.length > 0 && bannerIndex >= allBanners.length) {
+      // All banners shown
+      onComplete();
+    }
+  }, [bannerIndex, allBanners]);
+
+  const loadAllBanners = async () => {
     try {
-      // Get active banners
+      // Get all active banners sorted by priority (highest first)
       const { data: banners, error } = await supabase
         .from('important_info_banners')
         .select('*')
@@ -49,12 +87,13 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
+        onComplete();
         return;
       }
 
       // Filter by role visibility and scheduled date
       const now = new Date();
-      const visibleBanners = banners.filter((b: ImportantInfoBannerData) => {
+      const visibleBanners = (banners as ImportantInfoBannerData[]).filter((b) => {
         // Check scheduled date - only show if scheduled_date is null or in the past
         if (b.scheduled_date && new Date(b.scheduled_date) > now) {
           return false;
@@ -67,6 +106,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
       });
 
       if (visibleBanners.length === 0) {
+        onComplete();
         return;
       }
 
@@ -78,36 +118,86 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
 
       const dismissedIds = dismissedBanners?.map(d => d.banner_id) || [];
 
-      // Find first banner that should be shown
-      for (const b of visibleBanners) {
+      // Filter banners based on display frequency and dismissal status
+      // ADMIN display_frequency has ABSOLUTE PRIORITY
+      const bannersToShow: ImportantInfoBannerData[] = [];
+      
+      for (const b of visibleBanners as ImportantInfoBannerData[]) {
         const isDismissed = dismissedIds.includes(b.id);
         
-        // If display_frequency is 'once' and already dismissed, skip
-        if (b.display_frequency === 'once' && isDismissed) {
-          continue;
-        }
-        
-        // If display_frequency is 'every_login', check session storage
         if (b.display_frequency === 'every_login') {
+          // Admin forces every login - ALWAYS show, ignore all blocks
+          // Only skip if already shown in THIS session
           const sessionKey = `info_banner_shown_${b.id}`;
-          if (sessionStorage.getItem(sessionKey)) {
-            continue;
+          if (!sessionStorage.getItem(sessionKey)) {
+            bannersToShow.push(b);
+          }
+        } else {
+          // display_frequency is 'once' - show only if not dismissed
+          if (!isDismissed) {
+            bannersToShow.push(b);
           }
         }
-
-        setBanner(b);
-        setShowBanner(true);
-        break;
       }
+
+      if (bannersToShow.length === 0) {
+        onComplete();
+        return;
+      }
+
+      setAllBanners(bannersToShow);
+      // Show first banner
+      showBannerAtIndex(0, bannersToShow);
     } catch (error) {
-      console.error('Error checking info banner:', error);
+      console.error('Error loading info banners:', error);
+      onComplete();
     }
+  };
+
+  const showBannerAtIndex = (index: number, bannersList?: ImportantInfoBannerData[]) => {
+    const list = bannersList || allBanners;
+    if (index >= list.length) {
+      onComplete();
+      return;
+    }
+
+    const bannerToShow = list[index];
+    setBanner(bannerToShow);
+    setShowBanner(true);
+    bannerShownAtRef.current = Date.now();
+
+    // Track view interaction
+    trackBannerInteraction(supabase, {
+      bannerType: 'info',
+      bannerId: bannerToShow.id,
+      userId: user!.id,
+      userRole: userRole ? String(userRole) : null,
+      interactionType: 'view',
+      contentLength: bannerToShow.content?.length || 0,
+      hasAnimation: bannerToShow.animation_intensity !== 'off',
+      animationLevel: bannerToShow.animation_intensity || 'subtle',
+    });
   };
 
   const handleDismiss = async () => {
     if (!user || !banner) return;
 
+    const reactionTime = Date.now() - bannerShownAtRef.current;
+
     try {
+      // Track accept interaction
+      trackBannerInteraction(supabase, {
+        bannerType: 'info',
+        bannerId: banner.id,
+        userId: user.id,
+        userRole: userRole ? String(userRole) : null,
+        interactionType: 'accept',
+        reactionTimeMs: reactionTime,
+        contentLength: banner.content?.length || 0,
+        hasAnimation: banner.animation_intensity !== 'off',
+        animationLevel: banner.animation_intensity || 'subtle',
+      });
+
       if (banner.display_frequency === 'once') {
         // Record dismissal permanently
         await supabase
@@ -120,11 +210,12 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
             onConflict: 'user_id,banner_id'
           });
       } else {
-        // Mark as shown in this session
+        // Mark as shown in this session for every_login mode
         sessionStorage.setItem(`info_banner_shown_${banner.id}`, 'true');
       }
 
       setShowBanner(false);
+      // Trigger parent to move to next banner
       onDismiss();
     } catch (error) {
       console.error('Error dismissing banner:', error);
@@ -135,10 +226,27 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
     return null;
   }
 
+  const animationClass = getBannerAnimationClass(
+    (banner.animation_type as AnimationType) || 'fade-in',
+    (banner.animation_intensity as AnimationIntensity) || 'subtle'
+  );
+
+  const titleStyling: TitleStyling = {
+    title_bold: banner.title_bold ?? true,
+    title_large: banner.title_large ?? false,
+    title_accent_color: banner.title_accent_color ?? false,
+    title_underline: banner.title_underline ?? false,
+    title_shadow: banner.title_shadow ?? false,
+    title_custom_color: banner.title_custom_color,
+  };
+
   return (
     <Dialog open={showBanner} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-md border-0 shadow-2xl [&>button]:hidden"
+        className={cn(
+          "sm:max-w-md border-0 shadow-2xl [&>button]:hidden",
+          animationClass
+        )}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -146,7 +254,10 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
           <div className="mx-auto w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
             <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
           </div>
-          <DialogTitle className="text-2xl font-semibold text-foreground animate-pulse">
+          <DialogTitle 
+            className={cn(getTitleClasses(titleStyling))}
+            style={getTitleStyle(titleStyling)}
+          >
             {banner.title}
           </DialogTitle>
         </DialogHeader>
