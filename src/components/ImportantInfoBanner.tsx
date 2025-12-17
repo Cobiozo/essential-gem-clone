@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertTriangle } from 'lucide-react';
 
-interface ImportantInfoBanner {
+interface ImportantInfoBannerData {
   id: string;
   title: string;
   content: string;
@@ -14,6 +14,8 @@ interface ImportantInfoBanner {
   visible_to_partners: boolean;
   visible_to_specjalista: boolean;
   priority: number;
+  scheduled_date: string | null;
+  image_url: string | null;
 }
 
 interface ImportantInfoBannerProps {
@@ -22,7 +24,7 @@ interface ImportantInfoBannerProps {
 
 export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDismiss }) => {
   const { user, isClient, isPartner, isSpecjalista, loading: authLoading } = useAuth();
-  const [banner, setBanner] = useState<ImportantInfoBanner | null>(null);
+  const [banner, setBanner] = useState<ImportantInfoBannerData | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -49,8 +51,14 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
         return;
       }
 
-      // Filter by role visibility
-      const visibleBanners = banners.filter((b: ImportantInfoBanner) => {
+      // Filter by role visibility and scheduled date
+      const now = new Date();
+      const visibleBanners = banners.filter((b: ImportantInfoBannerData) => {
+        // Check scheduled date - only show if scheduled_date is null or in the past
+        if (b.scheduled_date && new Date(b.scheduled_date) > now) {
+          return false;
+        }
+        
         if (isClient && b.visible_to_clients) return true;
         if (isPartner && b.visible_to_partners) return true;
         if (isSpecjalista && b.visible_to_specjalista) return true;
@@ -145,10 +153,20 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({ onDism
           </DialogTitle>
         </DialogHeader>
         
-        <div className="py-6">
-          <p className="text-base text-center text-muted-foreground leading-relaxed whitespace-pre-wrap">
-            {banner.content}
-          </p>
+        <div className="py-4 space-y-4">
+          {banner.image_url && (
+            <div className="flex justify-center">
+              <img 
+                src={banner.image_url} 
+                alt="" 
+                className="max-h-48 rounded-lg object-contain"
+              />
+            </div>
+          )}
+          <div 
+            className="text-base text-center text-muted-foreground leading-relaxed prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: banner.content }}
+          />
         </div>
 
         <DialogDescription className="sr-only">
