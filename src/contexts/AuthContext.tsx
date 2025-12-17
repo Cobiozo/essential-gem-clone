@@ -178,19 +178,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     setRolesReady(false);
+    // Oznacz prawdziwe logowanie PRZED wywołaniem - zanim Supabase odpali onAuthStateChange
+    sessionStorage.setItem('fresh_login', Date.now().toString());
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (!error) {
-      // Oznacz prawdziwe logowanie - baner pokaże się tylko teraz
-      sessionStorage.setItem('fresh_login', Date.now().toString());
+    if (error) {
+      // Jeśli błąd - usuń flagę
+      sessionStorage.removeItem('fresh_login');
     }
     return { error };
   };
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
+    // Oznacz prawdziwe logowanie PRZED wywołaniem
+    sessionStorage.setItem('fresh_login', Date.now().toString());
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -199,9 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         emailRedirectTo: redirectUrl
       }
     });
-    if (!error) {
-      // Oznacz prawdziwe logowanie
-      sessionStorage.setItem('fresh_login', Date.now().toString());
+    if (error) {
+      // Jeśli błąd - usuń flagę
+      sessionStorage.removeItem('fresh_login');
     }
     return { error };
   };
