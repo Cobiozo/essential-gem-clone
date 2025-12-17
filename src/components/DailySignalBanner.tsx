@@ -37,7 +37,7 @@ interface DailySignalBannerProps {
 }
 
 export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss }) => {
-  const { user, userRole, isClient, isPartner, isSpecjalista, loading: authLoading, rolesReady, loginTrigger } = useAuth();
+  const { user, userRole, isClient, isPartner, isSpecjalista, isAdmin, loading: authLoading, rolesReady, loginTrigger } = useAuth();
   const [showBanner, setShowBanner] = useState(false);
   const [signal, setSignal] = useState<DailySignal | null>(null);
   const [settings, setSettings] = useState<SignalSettings | null>(null);
@@ -81,8 +81,9 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
       const typedSettings = settingsData as SignalSettings;
       setSettings(typedSettings);
 
-      // 2. Check role visibility
+      // 2. Check role visibility - Admin sees everything
       const isVisible = 
+        isAdmin ||
         (isClient && typedSettings.visible_to_clients) ||
         (isPartner && typedSettings.visible_to_partners) ||
         (isSpecjalista && typedSettings.visible_to_specjalista);
