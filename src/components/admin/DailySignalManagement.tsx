@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sparkles, Plus, Check, X, Trash2, Wand2, Edit, Calendar, Loader2 } from 'lucide-react';
+import { Sparkles, Plus, Check, X, Trash2, Wand2, Edit, Calendar, Loader2, BarChart3, Users, Eye, EyeOff } from 'lucide-react';
 
 interface DailySignal {
   id: string;
@@ -38,11 +38,24 @@ interface SignalSettings {
   ai_tone: string;
 }
 
+interface Statistics {
+  totalSignals: number;
+  approvedSignals: number;
+  pendingSignals: number;
+  usedSignals: number;
+  aiGenerated: number;
+  manuallyCreated: number;
+  usersWithEnabled: number;
+  usersWithDisabled: number;
+  totalUsers: number;
+}
+
 export const DailySignalManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [settings, setSettings] = useState<SignalSettings | null>(null);
   const [signals, setSignals] = useState<DailySignal[]>([]);
+  const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -83,7 +96,27 @@ export const DailySignalManagement: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (signalsError) throw signalsError;
-      setSignals((signalsData as DailySignal[]) || []);
+      const signalsList = (signalsData as DailySignal[]) || [];
+      setSignals(signalsList);
+
+      // Calculate statistics
+      const { data: preferencesData } = await supabase
+        .from('user_signal_preferences')
+        .select('show_daily_signal');
+
+      const prefs = preferencesData || [];
+      const stats: Statistics = {
+        totalSignals: signalsList.length,
+        approvedSignals: signalsList.filter(s => s.is_approved).length,
+        pendingSignals: signalsList.filter(s => !s.is_approved).length,
+        usedSignals: signalsList.filter(s => s.is_used).length,
+        aiGenerated: signalsList.filter(s => s.generated_by_ai).length,
+        manuallyCreated: signalsList.filter(s => !s.generated_by_ai).length,
+        usersWithEnabled: prefs.filter(p => p.show_daily_signal).length,
+        usersWithDisabled: prefs.filter(p => !p.show_daily_signal).length,
+        totalUsers: prefs.length
+      };
+      setStatistics(stats);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -128,16 +161,28 @@ export const DailySignalManagement: React.FC = () => {
   const generateSignalWithAI = async () => {
     setGenerating(true);
     try {
-      const response = await supabase.functions.invoke('generate-daily-signal', {
+      const { data, error } = await supabase.functions.invoke('generate-daily-signal', {
         body: { tone: settings?.ai_tone || 'supportive' }
       });
 
-      if (response.error) throw response.error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Błąd funkcji AI');
+      }
 
-      const { main_message, explanation } = response.data;
+      if (data?.error) {
+        console.error('AI error:', data.error);
+        throw new Error(data.error);
+      }
+
+      const { main_message, explanation } = data;
+      
+      if (!main_message || !explanation) {
+        throw new Error('AI nie zwróciło poprawnych danych');
+      }
 
       // Save to database
-      const { data: newSignalData, error } = await supabase
+      const { data: newSignalData, error: insertError } = await supabase
         .from('daily_signals')
         .insert({
           main_message,
@@ -149,11 +194,15 @@ export const DailySignalManagement: React.FC = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       setSignals([newSignalData as DailySignal, ...signals]);
+      
+      // Refresh statistics
+      fetchData();
+      
       toast({
-        title: 'Wygenerowano',
+        title: 'Wygenerowano sygnał',
         description: settings?.generation_mode === 'auto' 
           ? 'Sygnał został wygenerowany i automatycznie zatwierdzony'
           : 'Sygnał został wygenerowany i czeka na zatwierdzenie'
@@ -161,8 +210,8 @@ export const DailySignalManagement: React.FC = () => {
     } catch (error) {
       console.error('Error generating signal:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się wygenerować sygnału',
+        title: 'Błąd generowania',
+        description: error instanceof Error ? error.message : 'Nie udało się wygenerować sygnału',
         variant: 'destructive'
       });
     } finally {
@@ -338,9 +387,10 @@ export const DailySignalManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="settings">Ustawienia</TabsTrigger>
           <TabsTrigger value="library">Biblioteka sygnałów</TabsTrigger>
+          <TabsTrigger value="statistics">Statystyki</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-6 mt-6">
@@ -561,6 +611,111 @@ export const DailySignalManagement: React.FC = () => {
               ))
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="statistics" className="space-y-6 mt-6">
+          {statistics && (
+            <>
+              {/* Overview Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Wszystkie sygnały
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{statistics.totalSignals}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {statistics.approvedSignals} zatwierdzonych, {statistics.pendingSignals} oczekujących
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Źródło sygnałów
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <div className="text-xl font-bold flex items-center gap-1">
+                          <Wand2 className="w-4 h-4 text-purple-500" />
+                          {statistics.aiGenerated}
+                        </div>
+                        <p className="text-xs text-muted-foreground">AI</p>
+                      </div>
+                      <div>
+                        <div className="text-xl font-bold flex items-center gap-1">
+                          <Edit className="w-4 h-4 text-blue-500" />
+                          {statistics.manuallyCreated}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Ręczne</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Preferencje użytkowników
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <div className="text-xl font-bold flex items-center gap-1 text-green-600">
+                          <Eye className="w-4 h-4" />
+                          {statistics.usersWithEnabled}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Włączone</p>
+                      </div>
+                      <div>
+                        <div className="text-xl font-bold flex items-center gap-1 text-red-600">
+                          <EyeOff className="w-4 h-4" />
+                          {statistics.usersWithDisabled}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Wyłączone</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Detailed Stats */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Szczegółowe statystyki
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Wykorzystane sygnały</span>
+                      <span className="font-medium">{statistics.usedSignals}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Dostępne do wyświetlenia</span>
+                      <span className="font-medium">{statistics.approvedSignals - statistics.usedSignals}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Oczekujące na zatwierdzenie</span>
+                      <span className="font-medium">{statistics.pendingSignals}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-muted-foreground">Użytkownicy z zapisanymi preferencjami</span>
+                      <span className="font-medium">{statistics.totalUsers}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
