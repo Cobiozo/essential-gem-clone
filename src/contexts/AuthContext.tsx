@@ -102,66 +102,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    
-    const initializeAuth = async () => {
-      try {
-        // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, newSession) => {
-            if (!mounted) return;
-            
-            setSession(newSession);
-            setUser(newSession?.user ?? null);
-            
-            if (newSession?.user) {
-              // Fetch profile SYNCHRONOUSLY - no setTimeout
-              setRolesReady(false);
-              await fetchProfile(newSession.user.id);
-            } else {
-              setProfile(null);
-              setUserRole(null);
-              setRolesReady(true);
-            }
-            
-            setLoading(false);
-            setInitialized(true);
-          }
-        );
+    let subscriptionRef: { unsubscribe: () => void } | null = null;
 
-        // Check for existing session
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-        
+    // Set up auth state listener FIRST - SYNCHRONOUS callback (no async!)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
         if (!mounted) return;
         
-        setSession(existingSession);
-        setUser(existingSession?.user ?? null);
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
         
-        if (existingSession?.user) {
-          await fetchProfile(existingSession.user.id);
+        if (newSession?.user) {
+          // CRITICAL: Use setTimeout(0) to defer fetchProfile and prevent deadlock
+          setRolesReady(false);
+          setTimeout(() => {
+            if (mounted) {
+              fetchProfile(newSession.user.id).then(() => {
+                if (mounted) {
+                  setLoading(false);
+                  setInitialized(true);
+                }
+              });
+            }
+          }, 0);
         } else {
+          setProfile(null);
+          setUserRole(null);
           setRolesReady(true);
-        }
-        
-        setLoading(false);
-        setInitialized(true);
-
-        return () => {
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        if (mounted) {
           setLoading(false);
-          setRolesReady(true);
           setInitialized(true);
         }
       }
-    };
+    );
+    
+    subscriptionRef = subscription;
 
-    initializeAuth();
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      if (!mounted) return;
+      
+      // If no session exists, set initialized immediately
+      // If session exists, onAuthStateChange will handle it
+      if (!existingSession?.user) {
+        setRolesReady(true);
+        setLoading(false);
+        setInitialized(true);
+      }
+    }).catch((error) => {
+      console.error('Auth initialization error:', error);
+      if (mounted) {
+        setLoading(false);
+        setRolesReady(true);
+        setInitialized(true);
+      }
+    });
 
+    // Proper cleanup
     return () => {
       mounted = false;
+      subscriptionRef?.unsubscribe();
     };
   }, [fetchProfile]);
 
