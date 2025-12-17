@@ -66,6 +66,15 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
 
   const checkAndShowSignal = async () => {
     try {
+      // CRITICAL: Check if this is a real login (not refresh/tab switch)
+      const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
+      if (!shouldShowBanner) {
+        // Not a fresh login - don't show banner
+        onDismiss?.();
+        return;
+      }
+      // DON'T remove flag here - ImportantInfoBanner also needs it
+
       // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
       const { data: settingsData, error: settingsError } = await supabase
         .from('daily_signal_settings')

@@ -89,6 +89,16 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
 
   const loadAllBanners = async () => {
     try {
+      // CRITICAL: Check if this is a real login (not refresh/tab switch)
+      const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
+      if (!shouldShowBanner) {
+        // Not a fresh login - don't show banners
+        onComplete();
+        return;
+      }
+      // Remove flag NOW - this is the last banner in the sequence
+      sessionStorage.removeItem('show_banner_after_login');
+
       // Get all active banners sorted by priority (highest first)
       const { data: banners, error } = await supabase
         .from('important_info_banners')
