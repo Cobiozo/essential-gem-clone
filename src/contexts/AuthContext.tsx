@@ -38,6 +38,7 @@ interface AuthContextType {
   isPartner: boolean;
   isClient: boolean;
   isSpecjalista: boolean;
+  loginTrigger: number;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -60,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [rolesReady, setRolesReady] = useState(false);
+  const [loginTrigger, setLoginTrigger] = useState(0);
   const [initialized, setInitialized] = useState(false);
 
   const fetchProfile = useCallback(async (userId: string): Promise<void> => {
@@ -111,6 +113,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setSession(newSession);
         setUser(newSession?.user ?? null);
+        
+        // Increment login trigger on SIGNED_IN to reset banner states
+        if (event === 'SIGNED_IN') {
+          setLoginTrigger(prev => prev + 1);
+        }
         
         if (newSession?.user) {
           // CRITICAL: Use setTimeout(0) to defer fetchProfile and prevent deadlock
@@ -192,6 +199,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('Logout error:', error);
       }
+      // Clear banner sessionStorage for clean next login
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('info_banner_shown_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
       // Clear local state immediately
       setUser(null);
       setSession(null);
@@ -225,6 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isPartner,
     isClient,
     isSpecjalista,
+    loginTrigger,
     signIn,
     signUp,
     signOut,
