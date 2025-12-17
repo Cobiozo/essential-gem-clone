@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -10,7 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, AlertTriangle, Calendar, Image } from 'lucide-react';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { MediaUpload } from '@/components/MediaUpload';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 interface InfoBanner {
   id: string;
@@ -23,6 +26,8 @@ interface InfoBanner {
   display_frequency: string;
   priority: number;
   created_at: string;
+  scheduled_date: string | null;
+  image_url: string | null;
 }
 
 interface Statistics {
@@ -44,7 +49,9 @@ export const ImportantInfoManagement: React.FC = () => {
     visible_to_partners: true,
     visible_to_specjalista: true,
     display_frequency: 'once',
-    priority: 0
+    priority: 0,
+    scheduled_date: '',
+    image_url: ''
   });
 
   useEffect(() => {
@@ -86,19 +93,23 @@ export const ImportantInfoManagement: React.FC = () => {
     }
 
     try {
+      const bannerData = {
+        title: formData.title,
+        content: formData.content,
+        visible_to_clients: formData.visible_to_clients,
+        visible_to_partners: formData.visible_to_partners,
+        visible_to_specjalista: formData.visible_to_specjalista,
+        display_frequency: formData.display_frequency,
+        priority: formData.priority,
+        scheduled_date: formData.scheduled_date ? new Date(formData.scheduled_date).toISOString() : null,
+        image_url: formData.image_url || null,
+        updated_at: new Date().toISOString()
+      };
+
       if (editingBanner) {
         const { error } = await supabase
           .from('important_info_banners')
-          .update({
-            title: formData.title,
-            content: formData.content,
-            visible_to_clients: formData.visible_to_clients,
-            visible_to_partners: formData.visible_to_partners,
-            visible_to_specjalista: formData.visible_to_specjalista,
-            display_frequency: formData.display_frequency,
-            priority: formData.priority,
-            updated_at: new Date().toISOString()
-          })
+          .update(bannerData)
           .eq('id', editingBanner.id);
 
         if (error) throw error;
@@ -107,13 +118,7 @@ export const ImportantInfoManagement: React.FC = () => {
         const { error } = await supabase
           .from('important_info_banners')
           .insert({
-            title: formData.title,
-            content: formData.content,
-            visible_to_clients: formData.visible_to_clients,
-            visible_to_partners: formData.visible_to_partners,
-            visible_to_specjalista: formData.visible_to_specjalista,
-            display_frequency: formData.display_frequency,
-            priority: formData.priority,
+            ...bannerData,
             is_active: true
           });
 
@@ -139,7 +144,9 @@ export const ImportantInfoManagement: React.FC = () => {
       visible_to_partners: banner.visible_to_partners,
       visible_to_specjalista: banner.visible_to_specjalista,
       display_frequency: banner.display_frequency,
-      priority: banner.priority
+      priority: banner.priority,
+      scheduled_date: banner.scheduled_date ? banner.scheduled_date.split('T')[0] : '',
+      image_url: banner.image_url || ''
     });
     setIsDialogOpen(true);
   };
@@ -187,8 +194,15 @@ export const ImportantInfoManagement: React.FC = () => {
       visible_to_partners: true,
       visible_to_specjalista: true,
       display_frequency: 'once',
-      priority: 0
+      priority: 0,
+      scheduled_date: '',
+      image_url: ''
     });
+  };
+
+  const isScheduled = (banner: InfoBanner) => {
+    if (!banner.scheduled_date) return false;
+    return new Date(banner.scheduled_date) > new Date();
   };
 
   const getRolesBadges = (banner: InfoBanner) => {
@@ -221,7 +235,7 @@ export const ImportantInfoManagement: React.FC = () => {
                   Dodaj baner
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingBanner ? 'Edytuj baner' : 'Nowy baner informacyjny'}
@@ -238,63 +252,96 @@ export const ImportantInfoManagement: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Treść komunikatu</Label>
-                    <Textarea
-                      value={formData.content}
-                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                      placeholder="Wpisz treść komunikatu..."
-                      rows={4}
+                    <Label>Treść komunikatu (edytor tekstowy)</Label>
+                    <div className="border rounded-md">
+                      <RichTextEditor
+                        value={formData.content}
+                        onChange={(value) => setFormData({ ...formData, content: value })}
+                        compact
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Image className="h-4 w-4" />
+                      Obrazek (opcjonalnie)
+                    </Label>
+                    <MediaUpload
+                      onMediaUploaded={(url) => setFormData({ ...formData, image_url: url })}
+                      currentMediaUrl={formData.image_url}
+                      currentMediaType="image"
+                      allowedTypes={['image']}
+                      compact
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Częstotliwość wyświetlania</Label>
-                    <Select
-                      value={formData.display_frequency}
-                      onValueChange={(v) => setFormData({ ...formData, display_frequency: v as 'once' | 'every_login' })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="once">Jednorazowo</SelectItem>
-                        <SelectItem value="every_login">Przy każdym logowaniu</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Priorytet (wyższy = wyświetlany wcześniej)</Label>
+                    <Label className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Data publikacji (opcjonalnie)
+                    </Label>
                     <Input
-                      type="number"
-                      value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                      type="datetime-local"
+                      value={formData.scheduled_date}
+                      onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Pozostaw puste, aby baner był aktywny natychmiast
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Częstotliwość wyświetlania</Label>
+                      <Select
+                        value={formData.display_frequency}
+                        onValueChange={(v) => setFormData({ ...formData, display_frequency: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="once">Jednorazowo</SelectItem>
+                          <SelectItem value="every_login">Przy każdym logowaniu</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Priorytet</Label>
+                      <Input
+                        type="number"
+                        value={formData.priority}
+                        onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-3">
                     <Label>Widoczność dla ról</Label>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Klienci</span>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="flex items-center gap-2">
                         <Switch
                           checked={formData.visible_to_clients}
                           onCheckedChange={(c) => setFormData({ ...formData, visible_to_clients: c })}
                         />
+                        <span className="text-sm">Klienci</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Partnerzy</span>
+                      <div className="flex items-center gap-2">
                         <Switch
                           checked={formData.visible_to_partners}
                           onCheckedChange={(c) => setFormData({ ...formData, visible_to_partners: c })}
                         />
+                        <span className="text-sm">Partnerzy</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Specjaliści</span>
+                      <div className="flex items-center gap-2">
                         <Switch
                           checked={formData.visible_to_specjalista}
                           onCheckedChange={(c) => setFormData({ ...formData, visible_to_specjalista: c })}
                         />
+                        <span className="text-sm">Specjaliści</span>
                       </div>
                     </div>
                   </div>
@@ -321,11 +368,25 @@ export const ImportantInfoManagement: React.FC = () => {
                 <Card key={banner.id} className={!banner.is_active ? 'opacity-60' : ''}>
                   <CardContent className="py-4">
                     <div className="flex items-start justify-between gap-4">
+                      {banner.image_url && (
+                        <img 
+                          src={banner.image_url} 
+                          alt="" 
+                          className="w-16 h-16 rounded object-cover flex-shrink-0"
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <h4 className="font-medium truncate">{banner.title}</h4>
                           {banner.is_active ? (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Aktywny</span>
+                            isScheduled(banner) ? (
+                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Zaplanowany
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Aktywny</span>
+                            )
                           ) : (
                             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Nieaktywny</span>
                           )}
@@ -333,7 +394,15 @@ export const ImportantInfoManagement: React.FC = () => {
                             {banner.display_frequency === 'once' ? 'Jednorazowo' : 'Każde logowanie'}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{banner.content}</p>
+                        {banner.scheduled_date && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Publikacja: {format(new Date(banner.scheduled_date), 'dd MMM yyyy, HH:mm', { locale: pl })}
+                          </p>
+                        )}
+                        <div 
+                          className="text-sm text-muted-foreground line-clamp-2 mb-2"
+                          dangerouslySetInnerHTML={{ __html: banner.content }}
+                        />
                         <div className="flex gap-1 flex-wrap">
                           {getRolesBadges(banner).map((role) => (
                             <span key={role} className="text-xs bg-muted px-2 py-0.5 rounded">{role}</span>

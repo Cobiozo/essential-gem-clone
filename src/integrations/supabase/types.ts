@@ -1166,8 +1166,10 @@ export type Database = {
           created_at: string | null
           display_frequency: string
           id: string
+          image_url: string | null
           is_active: boolean
           priority: number
+          scheduled_date: string | null
           title: string
           updated_at: string | null
           visible_to_clients: boolean
@@ -1179,8 +1181,10 @@ export type Database = {
           created_at?: string | null
           display_frequency?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           priority?: number
+          scheduled_date?: string | null
           title?: string
           updated_at?: string | null
           visible_to_clients?: boolean
@@ -1192,8 +1196,10 @@ export type Database = {
           created_at?: string | null
           display_frequency?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           priority?: number
+          scheduled_date?: string | null
           title?: string
           updated_at?: string | null
           visible_to_clients?: boolean
