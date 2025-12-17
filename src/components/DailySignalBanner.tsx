@@ -16,6 +16,7 @@ interface SignalSettings {
   visible_to_clients: boolean;
   visible_to_partners: boolean;
   visible_to_specjalista: boolean;
+  display_frequency: 'daily' | 'every_login';
 }
 
 interface UserPreferences {
@@ -80,13 +81,25 @@ export const DailySignalBanner: React.FC = () => {
         return;
       }
 
-      // 4. Check if 24 hours passed since last shown
-      if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
-        const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
-        const now = new Date();
-        const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
-        
-        if (hoursDiff < 24) {
+      // 4. Check frequency based on admin setting
+      const displayFrequency = typedSettings.display_frequency || 'daily';
+      
+      if (displayFrequency === 'daily') {
+        // Check if 24 hours passed since last shown
+        if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
+          const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
+          const now = new Date();
+          const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
+          
+          if (hoursDiff < 24) {
+            setLoading(false);
+            return;
+          }
+        }
+      } else {
+        // every_login - check session storage
+        const sessionKey = 'daily_signal_shown_session';
+        if (sessionStorage.getItem(sessionKey)) {
           setLoading(false);
           return;
         }
@@ -132,6 +145,9 @@ export const DailySignalBanner: React.FC = () => {
     if (!user || !signal) return;
 
     try {
+      // Mark as shown in session for every_login mode
+      sessionStorage.setItem('daily_signal_shown_session', 'true');
+      
       // Upsert user preferences with timestamp
       await supabase
         .from('user_signal_preferences')

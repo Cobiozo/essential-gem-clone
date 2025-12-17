@@ -41,6 +41,7 @@ interface SignalSettings {
   visible_to_specjalista: boolean;
   generation_mode: string;
   ai_tone: string;
+  display_frequency: string;
 }
 
 interface Statistics {
@@ -420,6 +421,26 @@ export const DailySignalManagement: React.FC = () => {
                   onCheckedChange={(checked) => updateSettings({ is_enabled: checked })}
                   disabled={saving}
                 />
+              </div>
+
+              <div className="border-t pt-6">
+                <div>
+                  <Label className="text-base font-medium">Częstotliwość wyświetlania</Label>
+                  <p className="text-sm text-muted-foreground mb-2">Jak często użytkownicy widzą Sygnał Dnia</p>
+                  <Select
+                    value={settings?.display_frequency || 'daily'}
+                    onValueChange={(value) => updateSettings({ display_frequency: value })}
+                    disabled={saving}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Raz dziennie</SelectItem>
+                      <SelectItem value="every_login">Przy każdym logowaniu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="border-t pt-6">

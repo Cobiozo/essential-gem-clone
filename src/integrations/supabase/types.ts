@@ -1074,6 +1074,7 @@ export type Database = {
         Row: {
           ai_tone: string | null
           created_at: string | null
+          display_frequency: string
           generation_mode: string
           id: string
           is_enabled: boolean
@@ -1085,6 +1086,7 @@ export type Database = {
         Insert: {
           ai_tone?: string | null
           created_at?: string | null
+          display_frequency?: string
           generation_mode?: string
           id?: string
           is_enabled?: boolean
@@ -1096,6 +1098,7 @@ export type Database = {
         Update: {
           ai_tone?: string | null
           created_at?: string | null
+          display_frequency?: string
           generation_mode?: string
           id?: string
           is_enabled?: boolean
@@ -1154,6 +1157,48 @@ export type Database = {
           signal_type?: string | null
           source?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      important_info_banners: {
+        Row: {
+          content: string
+          created_at: string | null
+          display_frequency: string
+          id: string
+          is_active: boolean
+          priority: number
+          title: string
+          updated_at: string | null
+          visible_to_clients: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          display_frequency?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          title?: string
+          updated_at?: string | null
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          display_frequency?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          title?: string
+          updated_at?: string | null
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
         }
         Relationships: []
       }
@@ -1782,6 +1827,35 @@ export type Database = {
           visitor_id?: string
         }
         Relationships: []
+      }
+      user_dismissed_banners: {
+        Row: {
+          banner_id: string
+          dismissed_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          banner_id: string
+          dismissed_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          banner_id?: string
+          dismissed_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_dismissed_banners_banner_id_fkey"
+            columns: ["banner_id"]
+            isOneToOne: false
+            referencedRelation: "important_info_banners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
