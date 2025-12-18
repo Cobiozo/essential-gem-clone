@@ -269,8 +269,10 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   const existingItemIds = new Set(existingTranslations?.map(t => t.item_id) || []);
 
-  // Filter to only items without translations (missing mode)
-  const itemsToTranslate = translatableItems.filter(item => !existingItemIds.has(item.id));
+  // Filter based on mode: 'all' translates everything, 'missing' only untranslated
+  const itemsToTranslate = job.mode === 'all' 
+    ? translatableItems 
+    : translatableItems.filter(item => !existingItemIds.has(item.id));
 
   const totalKeys = itemsToTranslate.length;
 
