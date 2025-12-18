@@ -935,7 +935,7 @@ export const AiCompassWidget: React.FC = () => {
                             )}
                           </div>
                           <div className="flex gap-1">
-                            {!contact.final_status && settings?.allow_edit_contacts && (
+                            {settings?.allow_edit_contacts && (
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -1143,7 +1143,30 @@ export const AiCompassWidget: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {!selectedContact.final_status && (
+                {selectedContact.final_status ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reaktywuj kontakt
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reaktywować kontakt?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Kontakt zostanie przywrócony do aktywnych i ponownie będzie dostępny do pracy.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleSetFinalStatus(selectedContact.id, null)}>
+                          Reaktywuj
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
                   <>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -1197,7 +1220,7 @@ export const AiCompassWidget: React.FC = () => {
                     Reaktywuj
                   </Button>
                 )}
-                {!selectedContact.final_status && settings?.allow_edit_contacts && (
+                {settings?.allow_edit_contacts && (
                   <Button variant="outline" size="sm" onClick={openEditMode}>
                     <Pencil className="h-4 w-4 mr-2" />
                     Edytuj
@@ -1473,9 +1496,23 @@ export const AiCompassWidget: React.FC = () => {
                           </div>
                           <p className="text-sm">{session.ai_reasoning}</p>
                           {session.generated_message && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                              Wiadomość: {session.generated_message}
-                            </p>
+                            <div className="mt-2 p-2 bg-muted/50 rounded-md">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-muted-foreground">Wiadomość:</span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(session.generated_message || '');
+                                    toast.success('Skopiowano wiadomość');
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <p className="text-sm whitespace-pre-wrap">{session.generated_message}</p>
+                            </div>
                           )}
                         </div>
                         {settings?.allow_delete_history && (
