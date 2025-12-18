@@ -20,7 +20,7 @@ import { AiCompassWidget } from '@/components/ai-compass/AiCompassWidget';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
-const PreferencesTab: React.FC<{ userId: string }> = ({ userId }) => {
+const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> = ({ userId, t }) => {
   const [showDailySignal, setShowDailySignal] = useState(true);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -48,9 +48,9 @@ const PreferencesTab: React.FC<{ userId: string }> = ({ userId }) => {
       .upsert({ user_id: userId, show_daily_signal: checked }, { onConflict: 'user_id' });
     
     if (error) {
-      toast({ title: 'Błąd', description: 'Nie udało się zapisać preferencji', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('error.saveFailed'), variant: 'destructive' });
     } else {
-      toast({ title: 'Zapisano', description: checked ? 'Sygnał Dnia włączony' : 'Sygnał Dnia wyłączony' });
+      toast({ title: t('toast.success'), description: checked ? t('myAccount.dailySignalEnabled') : t('myAccount.dailySignalDisabled') });
     }
   };
 
@@ -59,15 +59,15 @@ const PreferencesTab: React.FC<{ userId: string }> = ({ userId }) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="w-5 h-5" />
-          Preferencje wyświetlania
+          {t('myAccount.displayPreferences')}
         </CardTitle>
-        <CardDescription>Dostosuj ustawienia swojego konta</CardDescription>
+        <CardDescription>{t('myAccount.customizeSettings')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between py-4">
           <div>
-            <Label className="text-base font-medium">Wyświetlaj Sygnał Dnia po zalogowaniu</Label>
-            <p className="text-sm text-muted-foreground">Codzienny, wspierający komunikat na start dnia</p>
+            <Label className="text-base font-medium">{t('myAccount.showDailySignal')}</Label>
+            <p className="text-sm text-muted-foreground">{t('myAccount.dailySignalDescription')}</p>
           </div>
           <Switch checked={showDailySignal} onCheckedChange={handleToggle} disabled={loading} />
         </div>
@@ -123,14 +123,14 @@ const MyAccount = () => {
       if (error) throw error;
 
       toast({
-        title: "Sukces",
-        description: "Dane adresowe zostały zapisane.",
+        title: t('toast.success'),
+        description: t('myAccount.addressSaved'),
       });
     } catch (error: any) {
       console.error('Error saving address:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zapisać danych adresowych.",
+        title: t('toast.error'),
+        description: t('myAccount.addressSaveFailed'),
         variant: "destructive",
       });
     } finally {
@@ -162,14 +162,14 @@ const MyAccount = () => {
       setCountry('');
 
       toast({
-        title: "Sukces",
-        description: "Dane adresowe zostały usunięte.",
+        title: t('toast.success'),
+        description: t('myAccount.addressDeleted'),
       });
     } catch (error: any) {
       console.error('Error clearing address:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się usunąć danych adresowych.",
+        title: t('toast.error'),
+        description: t('myAccount.addressDeleteFailed'),
         variant: "destructive",
       });
     } finally {
@@ -180,12 +180,12 @@ const MyAccount = () => {
   // Helper function to get role display name
   const getRoleDisplayName = (role: string) => {
     switch (role) {
-      case 'admin': return 'Administrator';
-      case 'partner': return 'Partner';
-      case 'specjalista': return 'Specjalista';
+      case 'admin': return t('role.administrator');
+      case 'partner': return t('role.partner');
+      case 'specjalista': return t('role.specialist');
       case 'user':
       case 'client':
-      default: return 'Klient';
+      default: return t('role.client');
     }
   };
 
@@ -194,17 +194,17 @@ const MyAccount = () => {
     setError('');
     
     if (!currentPassword) {
-      setError('Podaj aktualne hasło');
+      setError(t('error.currentPassword'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Nowe hasła nie są identyczne');
+      setError(t('error.passwordMismatch'));
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('Nowe hasło musi mieć minimum 6 znaków');
+      setError(t('error.passwordLength'));
       return;
     }
 
@@ -218,7 +218,7 @@ const MyAccount = () => {
       });
 
       if (signInError) {
-        setError('Aktualne hasło jest nieprawidłowe');
+        setError(t('error.incorrectPassword'));
         return;
       }
 
@@ -232,8 +232,8 @@ const MyAccount = () => {
       }
 
       toast({
-        title: "Sukces",
-        description: "Hasło zostało pomyślnie zmienione.",
+        title: t('toast.success'),
+        description: t('success.passwordChanged'),
       });
 
       // Clear form
@@ -242,10 +242,10 @@ const MyAccount = () => {
       setConfirmPassword('');
     } catch (error: any) {
       console.error('Error changing password:', error);
-      setError(error.message || 'Wystąpił błąd podczas zmiany hasła');
+      setError(error.message || t('error.changePassword'));
       toast({
-        title: "Błąd",
-        description: "Nie udało się zmienić hasła.",
+        title: t('toast.error'),
+        description: t('error.changePassword'),
         variant: "destructive",
       });
     } finally {
@@ -285,9 +285,9 @@ const MyAccount = () => {
             <div className="flex items-center gap-2">
               <LanguageSelector />
               <ThemeSelector />
-              <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Akademia
+            <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
+              <BookOpen className="w-4 h-4 mr-2" />
+              {t('nav.training')}
               </Button>
               <Button variant="outline" size="sm" onClick={() => navigate('/')}>
                 <Home className="w-4 h-4 mr-2" />
@@ -307,15 +307,15 @@ const MyAccount = () => {
             <CardHeader>
               <CardTitle className="text-red-800 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
-                Konto zablokowane
+                {t('myAccount.accountBlocked')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-red-700 mb-4">
-                Twoje konto zostało dezaktywowane przez administratora. Nie masz dostępu do funkcji aplikacji.
+                {t('myAccount.accountBlockedDescription')}
               </p>
               <p className="text-sm text-red-600">
-                Jeśli uważasz, że to pomyłka, skontaktuj się z administratorem systemu.
+                {t('myAccount.contactAdmin')}
               </p>
             </CardContent>
           </Card>
@@ -339,7 +339,7 @@ const MyAccount = () => {
             <ThemeSelector />
             <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
               <BookOpen className="w-4 h-4 mr-2" />
-              Akademia
+              {t('nav.training')}
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/')}>
               <Home className="w-4 h-4 mr-2" />
@@ -358,26 +358,26 @@ const MyAccount = () => {
         <div className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold mb-2">{t('account.myAccount')}</h2>
-            <p className="text-muted-foreground">Zarządzaj swoim kontem i ustawieniami</p>
+            <p className="text-muted-foreground">{t('myAccount.manageAccountSettings')}</p>
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="profile">
                 <User className="w-4 h-4 mr-2" />
-                Profil
+                {t('myAccount.profile')}
               </TabsTrigger>
               <TabsTrigger value="preferences">
                 <Sparkles className="w-4 h-4 mr-2" />
-                Preferencje
+                {t('myAccount.preferences')}
               </TabsTrigger>
               <TabsTrigger value="ai-compass">
                 <Compass className="w-4 h-4 mr-2" />
-                AI-Compass
+                {t('admin.aiCompass')}
               </TabsTrigger>
               <TabsTrigger value="security">
                 <Key className="w-4 h-4 mr-2" />
-                Bezpieczeństwo
+                {t('myAccount.security')}
               </TabsTrigger>
             </TabsList>
 
@@ -390,23 +390,23 @@ const MyAccount = () => {
                     {t('account.profile')}
                   </CardTitle>
                   <CardDescription>
-                    Podstawowe informacje o Twoim koncie
+                    {t('myAccount.basicAccountInfo')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Dane osobowe */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium">Imię</Label>
+                      <Label className="text-sm font-medium">{t('auth.firstName')}</Label>
                       <div className="mt-1 p-3 bg-muted rounded-md">
-                        {profile.first_name || <span className="text-muted-foreground italic">Nie podano</span>}
+                        {profile.first_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Nazwisko</Label>
+                      <Label className="text-sm font-medium">{t('auth.lastName')}</Label>
                       <div className="mt-1 p-3 bg-muted rounded-md">
-                        {profile.last_name || <span className="text-muted-foreground italic">Nie podano</span>}
+                        {profile.last_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
                     </div>
                   </div>
@@ -420,9 +420,9 @@ const MyAccount = () => {
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Numer telefonu</Label>
+                      <Label className="text-sm font-medium">{t('auth.phoneNumber')}</Label>
                       <div className="mt-1 p-3 bg-muted rounded-md">
-                        {profile.phone_number || <span className="text-muted-foreground italic">Nie podano</span>}
+                        {profile.phone_number || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
                     </div>
                   </div>
@@ -446,7 +446,7 @@ const MyAccount = () => {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium">Status konta</Label>
+                      <Label className="text-sm font-medium">{t('myAccount.accountStatus')}</Label>
                       <div className="mt-1">
                         {profile.is_active ? (
                           <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
@@ -488,7 +488,7 @@ const MyAccount = () => {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium">ID klienta</Label>
+                    <Label className="text-sm font-medium">{t('myAccount.clientId')}</Label>
                     <div className="mt-1 p-3 bg-muted rounded-md font-mono text-xs">
                       {profile.user_id}
                     </div>
@@ -501,16 +501,16 @@ const MyAccount = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="w-5 h-5" />
-                    Dane adresowe
+                    {t('myAccount.addressData')}
                   </CardTitle>
                   <CardDescription>
-                    Opcjonalne dane adresowe – możesz je edytować w dowolnym momencie
+                    {t('myAccount.addressDataDescription')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="street-address">Ulica i numer domu</Label>
+                      <Label htmlFor="street-address">{t('myAccount.streetAddress')}</Label>
                       <Input
                         id="street-address"
                         value={streetAddress}
@@ -524,7 +524,7 @@ const MyAccount = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="postal-code">Kod pocztowy</Label>
+                      <Label htmlFor="postal-code">{t('myAccount.postalCode')}</Label>
                       <Input
                         id="postal-code"
                         value={postalCode}
@@ -536,7 +536,7 @@ const MyAccount = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="city">Miasto</Label>
+                      <Label htmlFor="city">{t('myAccount.city')}</Label>
                       <Input
                         id="city"
                         value={city}
@@ -550,7 +550,7 @@ const MyAccount = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="country">Kraj</Label>
+                      <Label htmlFor="country">{t('myAccount.country')}</Label>
                       <Input
                         id="country"
                         value={country}
@@ -569,14 +569,14 @@ const MyAccount = () => {
                       className="flex items-center gap-2"
                     >
                       <Save className="w-4 h-4" />
-                      {addressLoading ? 'Zapisywanie...' : 'Zapisz dane adresowe'}
+                      {addressLoading ? t('ui.saving') : t('myAccount.saveAddressData')}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={handleClearAddress}
                       disabled={addressLoading || (!streetAddress && !postalCode && !city && !country)}
                     >
-                      Usuń dane adresowe
+                      {t('myAccount.deleteAddressData')}
                     </Button>
                   </div>
 
@@ -585,9 +585,7 @@ const MyAccount = () => {
                   {/* GDPR Notice */}
                   <div className="bg-muted/50 p-4 rounded-lg border">
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      <strong>Informacja RODO:</strong> Podane dane osobowe są przetwarzane zgodnie z obowiązującymi 
-                      przepisami RODO i wykorzystywane wyłącznie w celach związanych z funkcjonowaniem konta użytkownika. 
-                      Masz prawo wglądu, edycji oraz usunięcia swoich danych.
+                      <strong>{t('myAccount.gdprNotice')}:</strong> {t('myAccount.gdprText')}
                     </p>
                   </div>
                 </CardContent>
@@ -595,7 +593,7 @@ const MyAccount = () => {
             </TabsContent>
 
             <TabsContent value="preferences" className="mt-6">
-              <PreferencesTab userId={user.id} />
+              <PreferencesTab userId={user.id} t={t} />
             </TabsContent>
 
             <TabsContent value="ai-compass" className="mt-6">
@@ -613,7 +611,7 @@ const MyAccount = () => {
                 {t('auth.password')}
               </CardTitle>
               <CardDescription>
-                Zaktualizuj swoje hasło, aby utrzymać bezpieczeństwo konta
+                {t('myAccount.updatePasswordDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
