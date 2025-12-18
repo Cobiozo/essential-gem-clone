@@ -684,18 +684,23 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                             className="pl-8 h-8"
                           />
                         </div>
-                        <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                          <SelectTrigger className="w-24 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {languages.map(lang => (
-                              <SelectItem key={lang.code} value={lang.code}>
-                                {lang.flag_emoji} {lang.code.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {/* Language flag bar */}
+                        <div className="flex items-center gap-1 border rounded-md px-1 py-0.5">
+                          {languages.map(lang => (
+                            <button
+                              key={lang.code}
+                              onClick={() => setSelectedLanguage(lang.code)}
+                              className={`px-1.5 py-0.5 rounded text-lg transition-all ${
+                                selectedLanguage === lang.code 
+                                  ? 'bg-primary/10 ring-1 ring-primary' 
+                                  : 'hover:bg-muted'
+                              }`}
+                              title={lang.native_name || lang.name}
+                            >
+                              {lang.flag_emoji}
+                            </button>
+                          ))}
+                        </div>
                         <Button size="sm" onClick={openAddKey} disabled={!selectedNamespace}>
                           <Plus className="w-4 h-4" />
                         </Button>
@@ -768,28 +773,49 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
             {/* JSON Editor Tab */}
             <TabsContent value="json">
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label>Język:</Label>
-                    <Select 
-                      value={jsonEditorLanguage} 
-                      onValueChange={(code) => {
-                        setJsonEditorLanguage(code);
-                        loadJsonForLanguage(code);
-                      }}
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {languages.map(lang => (
-                          <SelectItem key={lang.code} value={lang.code}>
-                            {lang.flag_emoji} {lang.name} ({lang.code.toUpperCase()})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Language Cards for JSON Editor */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {languages.map(lang => {
+                    const stats = getLanguageStats(lang.code, defaultLang);
+                    const isSelected = jsonEditorLanguage === lang.code;
+                    
+                    return (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          setJsonEditorLanguage(lang.code);
+                          loadJsonForLanguage(lang.code);
+                        }}
+                        className={`relative p-3 rounded-lg border-2 transition-all text-left ${
+                          isSelected 
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-2xl">{lang.flag_emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{lang.native_name || lang.name}</div>
+                            <div className="text-xs text-muted-foreground">{lang.code.toUpperCase()}</div>
+                          </div>
+                        </div>
+                        <Progress value={stats.percentage} className="h-1.5" />
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {stats.percentage}%
+                        </div>
+                        {lang.is_default && (
+                          <Badge className="absolute -top-2 -right-2 bg-yellow-500/90 text-yellow-950 text-[10px] px-1.5">
+                            <Star className="w-2.5 h-2.5" />
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <Separator />
+
+                <div className="flex flex-wrap items-center gap-3">
                   <Button variant="outline" size="sm" onClick={() => loadJsonForLanguage(jsonEditorLanguage)}>
                     <Download className="w-4 h-4 mr-2" />
                     Pobierz z bazy
