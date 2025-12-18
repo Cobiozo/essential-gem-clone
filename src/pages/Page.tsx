@@ -10,6 +10,7 @@ import { ThemeSelector } from '@/components/ThemeSelector';
 import { CMSContent } from '@/components/CMSContent';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCMSTranslations } from '@/hooks/useCMSTranslations';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
@@ -36,7 +37,7 @@ interface Page {
 const PageComponent = () => {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, userRole } = useAuth();
   const [page, setPage] = useState<Page | null>(null);
   const [sections, setSections] = useState<CMSSection[]>([]);
@@ -47,6 +48,9 @@ const PageComponent = () => {
 
   // Enable security preventions for public pages
   useSecurityPreventions();
+  
+  // Apply CMS translations based on current language
+  const translatedItems = useCMSTranslations(items, language, 'pl');
 
   // Funkcje konwersji danych
   const convertCellsFromDatabase = (cells: any): ContentCell[] => {
@@ -289,7 +293,7 @@ const PageComponent = () => {
                     key={section.id}
                     row={section}
                     children={rowChildren}
-                    items={items}
+                    items={translatedItems}
                     user={user}
                     userRole={userRole?.role || null}
                   />
@@ -309,17 +313,17 @@ const PageComponent = () => {
                   className="mb-6 sm:mb-8"
                   sectionStyle={section}
                   nestedSections={nestedSections[section.id] || []}
-                  nestedItems={items}
+                  nestedItems={translatedItems}
                   defaultOpen={defaultExpanded}
                 >
                   <div className="space-y-3 sm:space-y-4">
-                    {items
+                    {translatedItems
                       .filter(item => item.section_id === section.id)
                       .filter(item => isItemVisible(item, user, userRole?.role || null))
                       .map((item) => (
                         <CMSContent key={item.id} item={item} />
                       ))}
-                    {items.filter(item => item.section_id === section.id).filter(item => isItemVisible(item, user, userRole?.role || null)).length === 0 && (
+                    {translatedItems.filter(item => item.section_id === section.id).filter(item => isItemVisible(item, user, userRole?.role || null)).length === 0 && (
                       <div className="text-center text-muted-foreground py-4 sm:py-6 text-xs sm:text-sm">
                         {t('common.noContent')}
                       </div>

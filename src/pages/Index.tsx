@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCMSTranslations } from '@/hooks/useCMSTranslations';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { Header } from '@/components/Header';
@@ -27,7 +28,7 @@ import {
 
 const Index = () => {
   const { user, userRole } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [headerText, setHeaderText] = React.useState<string>('');
@@ -49,6 +50,9 @@ const Index = () => {
   
   // Enable security preventions
   useSecurityPreventions();
+  
+  // Apply CMS translations based on current language
+  const translatedItems = useCMSTranslations(items, language, 'pl');
 
   // Helper function to convert cells from database format
   const convertCellsFromDatabase = (cells: any): ContentCell[] => {
@@ -225,7 +229,7 @@ const Index = () => {
 
     // For multi_cell type in Learn More section
     if (item.type === 'multi_cell') {
-      const sectionItems = items.filter(i => i.section_id === section.id);
+      const sectionItems = translatedItems.filter(i => i.section_id === section.id);
       const itemIndex = sectionItems.findIndex(i => i.id === item.id);
       return (
         <LearnMoreItem 
@@ -244,7 +248,7 @@ const Index = () => {
 
   // Render CMS section with custom styling (matching LivePreviewEditor)
   const renderCMSSection = (section: CMSSection) => {
-    const sectionItems = items
+    const sectionItems = translatedItems
       .filter(item => item.section_id === section.id)
       .filter(item => isItemVisible(item, user, userRole?.role || null));
     
@@ -504,7 +508,7 @@ const Index = () => {
                   key={row.id}
                   row={row}
                   children={(nestedSections[row.id] || []).filter(child => isSectionVisible(child, user, userRole?.role || null))}
-                  items={items}
+                  items={translatedItems}
                   user={user}
                   userRole={userRole?.role || null}
                 />
