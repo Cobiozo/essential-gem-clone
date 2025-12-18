@@ -7,6 +7,41 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 10;
+const PAGE_SIZE = 1000;
+
+// Paginated fetch to overcome Supabase's 1000 row limit
+async function fetchAllRows(
+  supabase: any, 
+  table: string, 
+  column: string, 
+  value: string,
+  selectColumns: string = '*'
+): Promise<any[]> {
+  const allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(selectColumns)
+      .eq(column, value)
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw new Error(`Failed to fetch ${table}: ${error.message}`);
+    
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += PAGE_SIZE;
+      hasMore = data.length === PAGE_SIZE;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  console.log(`Fetched ${allData.length} rows from ${table} for ${column}=${value}`);
+  return allData;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -97,25 +132,23 @@ async function processTranslationJob(jobId: string) {
 async function processI18nJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language, mode, processed_keys: alreadyProcessed = 0 } = job;
 
-  // Get all translations for source language
-  const { data: sourceTranslations, error: sourceError } = await supabase
-    .from('i18n_translations')
-    .select('*')
-    .eq('language_code', source_language);
+  // Get all translations for source language (with pagination)
+  const sourceTranslations = await fetchAllRows(
+    supabase, 
+    'i18n_translations', 
+    'language_code', 
+    source_language,
+    '*'
+  );
 
-  if (sourceError) {
-    throw new Error(`Failed to fetch source translations: ${sourceError.message}`);
-  }
-
-  // Get existing translations for target language
-  const { data: existingTranslations, error: existingError } = await supabase
-    .from('i18n_translations')
-    .select('key, namespace')
-    .eq('language_code', target_language);
-
-  if (existingError) {
-    throw new Error(`Failed to fetch existing translations: ${existingError.message}`);
-  }
+  // Get existing translations for target language (with pagination)
+  const existingTranslations = await fetchAllRows(
+    supabase,
+    'i18n_translations',
+    'language_code', 
+    target_language,
+    'key, namespace'
+  );
 
   const existingKeys = new Set(existingTranslations?.map(t => `${t.namespace}:${t.key}`) || []);
 
