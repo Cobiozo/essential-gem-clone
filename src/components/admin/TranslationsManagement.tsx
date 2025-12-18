@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +51,12 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('pl');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // JSON Editor state
+  const [jsonEditorLanguage, setJsonEditorLanguage] = useState<string>('pl');
+  const [jsonEditorContent, setJsonEditorContent] = useState('');
+  const [jsonEditorError, setJsonEditorError] = useState<string | null>(null);
+  const [savingJson, setSavingJson] = useState(false);
   
   // Language dialog state
   const [languageDialog, setLanguageDialog] = useState(false);
@@ -134,6 +140,14 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   const defaultLang = useMemo(() => {
     return languages.find(l => l.is_default)?.code || 'pl';
   }, [languages]);
+
+  // Auto-load JSON when switching to JSON tab
+  useEffect(() => {
+    if (activeTab === 'json' && !jsonEditorContent && translations.length > 0) {
+      const data = exportLanguageJson(jsonEditorLanguage);
+      setJsonEditorContent(JSON.stringify(data, null, 2));
+    }
+  }, [activeTab, jsonEditorLanguage, translations.length]);
 
   // Handlers
   const handleSaveLanguage = async () => {
@@ -331,6 +345,34 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     }
   };
 
+  // Load JSON from database for editor
+  const loadJsonForLanguage = (code: string) => {
+    const data = exportLanguageJson(code);
+    setJsonEditorContent(JSON.stringify(data, null, 2));
+    setJsonEditorLanguage(code);
+    setJsonEditorError(null);
+  };
+
+  // Save JSON to database
+  const handleSaveJson = async () => {
+    try {
+      const data = JSON.parse(jsonEditorContent);
+      setSavingJson(true);
+      setJsonEditorError(null);
+      await importLanguageJson(jsonEditorLanguage, data);
+      toast({ title: 'Sukces', description: `JSON dla ${jsonEditorLanguage.toUpperCase()} został zapisany` });
+    } catch (error: any) {
+      if (error instanceof SyntaxError) {
+        setJsonEditorError('Nieprawidłowy format JSON');
+      } else {
+        setJsonEditorError(error.message);
+      }
+      toast({ title: 'Błąd', description: 'Nie udało się zapisać JSON', variant: 'destructive' });
+    } finally {
+      setSavingJson(false);
+    }
+  };
+
   const resetLanguageForm = () => {
     setLanguageForm({
       code: '',
@@ -461,7 +503,11 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               </TabsTrigger>
               <TabsTrigger value="translations">
                 <FileJson className="w-4 h-4 mr-2" />
-                Tłumaczenia ({translations.length})
+                Klucze ({translations.length})
+              </TabsTrigger>
+              <TabsTrigger value="json">
+                <FileJson className="w-4 h-4 mr-2" />
+                Edytor JSON
               </TabsTrigger>
             </TabsList>
 
@@ -716,6 +762,92 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                     </ScrollArea>
                   </CardContent>
                 </Card>
+              </div>
+            </TabsContent>
+
+            {/* JSON Editor Tab */}
+            <TabsContent value="json">
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label>Język:</Label>
+                    <Select 
+                      value={jsonEditorLanguage} 
+                      onValueChange={(code) => {
+                        setJsonEditorLanguage(code);
+                        loadJsonForLanguage(code);
+                      }}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languages.map(lang => (
+                          <SelectItem key={lang.code} value={lang.code}>
+                            {lang.flag_emoji} {lang.name} ({lang.code.toUpperCase()})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => loadJsonForLanguage(jsonEditorLanguage)}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Pobierz z bazy
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleSaveJson}
+                    disabled={savingJson || !jsonEditorContent.trim()}
+                  >
+                    {savingJson ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    Zapisz do bazy
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      const blob = new Blob([jsonEditorContent], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `translations-${jsonEditorLanguage}-${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Eksport pliku
+                  </Button>
+                </div>
+
+                {jsonEditorError && (
+                  <div className="bg-destructive/10 border border-destructive/30 text-destructive p-3 rounded-md flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    {jsonEditorError}
+                  </div>
+                )}
+
+                <Card>
+                  <CardContent className="p-0">
+                    <Textarea
+                      value={jsonEditorContent}
+                      onChange={e => {
+                        setJsonEditorContent(e.target.value);
+                        setJsonEditorError(null);
+                      }}
+                      placeholder='{"namespace": {"key": "value"}}'
+                      className="font-mono text-sm min-h-[500px] border-0 rounded-none resize-none"
+                    />
+                  </CardContent>
+                </Card>
+
+                <div className="text-sm text-muted-foreground">
+                  Format: <code className="bg-muted px-1 py-0.5 rounded">{"{ \"namespace\": { \"key\": \"value\" } }"}</code>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
