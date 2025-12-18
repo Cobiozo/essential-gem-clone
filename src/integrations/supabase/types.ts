@@ -1233,6 +1233,7 @@ export type Database = {
           content: string
           created_at: string | null
           display_frequency: string
+          expiration_date: string | null
           id: string
           image_url: string | null
           is_active: boolean
@@ -1256,6 +1257,7 @@ export type Database = {
           content: string
           created_at?: string | null
           display_frequency?: string
+          expiration_date?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -1279,6 +1281,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           display_frequency?: string
+          expiration_date?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
