@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Eye, EyeOff, AlertTriangle, Calendar, CalendarX, Image } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, AlertTriangle, Calendar, CalendarX, Image, ChevronDown, Link, Type, Palette } from 'lucide-react';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { MediaUpload } from '@/components/MediaUpload';
+import { IconPicker } from '@/components/cms/IconPicker';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -37,6 +39,11 @@ interface InfoBanner {
   title_underline: boolean;
   title_shadow: boolean;
   title_custom_color: string | null;
+  button_enabled: boolean;
+  button_text: string | null;
+  button_url: string | null;
+  button_color: string | null;
+  button_icon: string | null;
 }
 
 interface Statistics {
@@ -51,6 +58,8 @@ export const ImportantInfoManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingBanner, setEditingBanner] = useState<InfoBanner | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [titleStyleOpen, setTitleStyleOpen] = useState(false);
+  const [buttonConfigOpen, setButtonConfigOpen] = useState(false);
   const [formData, setFormData] = useState({
     title: 'Ważna Informacja',
     content: '',
@@ -69,6 +78,12 @@ export const ImportantInfoManagement: React.FC = () => {
     title_accent_color: false,
     title_underline: false,
     title_shadow: false,
+    title_custom_color: '',
+    button_enabled: false,
+    button_text: '',
+    button_url: '',
+    button_color: '#10b981',
+    button_icon: '',
   });
 
   useEffect(() => {
@@ -128,6 +143,12 @@ export const ImportantInfoManagement: React.FC = () => {
         title_accent_color: formData.title_accent_color,
         title_underline: formData.title_underline,
         title_shadow: formData.title_shadow,
+        title_custom_color: formData.title_custom_color || null,
+        button_enabled: formData.button_enabled,
+        button_text: formData.button_text || null,
+        button_url: formData.button_url || null,
+        button_color: formData.button_color || null,
+        button_icon: formData.button_icon || null,
         updated_at: new Date().toISOString()
       };
 
@@ -180,7 +201,15 @@ export const ImportantInfoManagement: React.FC = () => {
       title_accent_color: banner.title_accent_color ?? false,
       title_underline: banner.title_underline ?? false,
       title_shadow: banner.title_shadow ?? false,
+      title_custom_color: banner.title_custom_color || '',
+      button_enabled: banner.button_enabled ?? false,
+      button_text: banner.button_text || '',
+      button_url: banner.button_url || '',
+      button_color: banner.button_color || '#10b981',
+      button_icon: banner.button_icon || '',
     });
+    setTitleStyleOpen(false);
+    setButtonConfigOpen(banner.button_enabled ?? false);
     setIsDialogOpen(true);
   };
 
@@ -238,7 +267,15 @@ export const ImportantInfoManagement: React.FC = () => {
       title_accent_color: false,
       title_underline: false,
       title_shadow: false,
+      title_custom_color: '',
+      button_enabled: false,
+      button_text: '',
+      button_url: '',
+      button_color: '#10b981',
+      button_icon: '',
     });
+    setTitleStyleOpen(false);
+    setButtonConfigOpen(false);
   };
 
   const isScheduled = (banner: InfoBanner) => {
@@ -288,13 +325,94 @@ export const ImportantInfoManagement: React.FC = () => {
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  {/* Title with styling */}
                   <div className="space-y-2">
-                    <Label>Tytuł</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Tytuł</Label>
+                      <Collapsible open={titleStyleOpen} onOpenChange={setTitleStyleOpen}>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs">
+                            <Type className="h-3 w-3" />
+                            Stylizacja
+                            <ChevronDown className={`h-3 w-3 transition-transform ${titleStyleOpen ? 'rotate-180' : ''}`} />
+                          </Button>
+                        </CollapsibleTrigger>
+                      </Collapsible>
+                    </div>
                     <Input
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Ważna Informacja"
                     />
+                    <Collapsible open={titleStyleOpen} onOpenChange={setTitleStyleOpen}>
+                      <CollapsibleContent className="space-y-3 pt-3 border-t mt-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.title_bold}
+                              onCheckedChange={(c) => setFormData({ ...formData, title_bold: c })}
+                            />
+                            <span className="text-sm">Pogrubiony</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.title_large}
+                              onCheckedChange={(c) => setFormData({ ...formData, title_large: c })}
+                            />
+                            <span className="text-sm">Duży rozmiar</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.title_underline}
+                              onCheckedChange={(c) => setFormData({ ...formData, title_underline: c })}
+                            />
+                            <span className="text-sm">Podkreślenie</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.title_shadow}
+                              onCheckedChange={(c) => setFormData({ ...formData, title_shadow: c })}
+                            />
+                            <span className="text-sm">Cień</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.title_accent_color}
+                              onCheckedChange={(c) => setFormData({ ...formData, title_accent_color: c, title_custom_color: c ? '' : formData.title_custom_color })}
+                            />
+                            <span className="text-sm">Kolor akcentu</span>
+                          </div>
+                        </div>
+                        {!formData.title_accent_color && (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Własny kolor tytułu</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="color"
+                                value={formData.title_custom_color || '#000000'}
+                                onChange={(e) => setFormData({ ...formData, title_custom_color: e.target.value })}
+                                className="w-12 h-8 p-1 cursor-pointer"
+                              />
+                              <Input
+                                value={formData.title_custom_color}
+                                onChange={(e) => setFormData({ ...formData, title_custom_color: e.target.value })}
+                                placeholder="#000000"
+                                className="flex-1"
+                              />
+                              {formData.title_custom_color && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setFormData({ ...formData, title_custom_color: '' })}
+                                >
+                                  Resetuj
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
 
                   <div className="space-y-2">
@@ -321,6 +439,105 @@ export const ImportantInfoManagement: React.FC = () => {
                       compact
                     />
                   </div>
+
+                  {/* Button configuration */}
+                  <Collapsible open={buttonConfigOpen} onOpenChange={setButtonConfigOpen}>
+                    <div className="flex items-center justify-between border rounded-lg p-3 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={formData.button_enabled}
+                          onCheckedChange={(c) => {
+                            setFormData({ ...formData, button_enabled: c });
+                            if (c) setButtonConfigOpen(true);
+                          }}
+                        />
+                        <Label className="flex items-center gap-2 cursor-pointer">
+                          <Link className="h-4 w-4" />
+                          Dodaj przycisk z linkiem
+                        </Label>
+                      </div>
+                      {formData.button_enabled && (
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-1 h-7">
+                            <Palette className="h-3 w-3" />
+                            Edytuj
+                            <ChevronDown className={`h-3 w-3 transition-transform ${buttonConfigOpen ? 'rotate-180' : ''}`} />
+                          </Button>
+                        </CollapsibleTrigger>
+                      )}
+                    </div>
+                    <CollapsibleContent className="space-y-3 pt-3">
+                      {formData.button_enabled && (
+                        <div className="space-y-4 p-3 border rounded-lg bg-background">
+                          <div className="space-y-2">
+                            <Label>Tekst przycisku</Label>
+                            <Input
+                              value={formData.button_text}
+                              onChange={(e) => setFormData({ ...formData, button_text: e.target.value })}
+                              placeholder="Dowiedz się więcej"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>URL (link docelowy)</Label>
+                            <Input
+                              value={formData.button_url}
+                              onChange={(e) => setFormData({ ...formData, button_url: e.target.value })}
+                              placeholder="https://example.com lub /strona"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Kolor przycisku</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="color"
+                                  value={formData.button_color || '#10b981'}
+                                  onChange={(e) => setFormData({ ...formData, button_color: e.target.value })}
+                                  className="w-12 h-9 p-1 cursor-pointer"
+                                />
+                                <Input
+                                  value={formData.button_color}
+                                  onChange={(e) => setFormData({ ...formData, button_color: e.target.value })}
+                                  placeholder="#10b981"
+                                  className="flex-1"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Ikona (opcjonalnie)</Label>
+                              <IconPicker
+                                value={formData.button_icon}
+                                onChange={(icon) => setFormData({ ...formData, button_icon: icon })}
+                              />
+                            </div>
+                          </div>
+                          {/* Preview */}
+                          {formData.button_text && (
+                            <div className="pt-2 border-t">
+                              <Label className="text-xs text-muted-foreground mb-2 block">Podgląd przycisku:</Label>
+                              <Button
+                                style={{ backgroundColor: formData.button_color || '#10b981' }}
+                                className="text-white"
+                                disabled
+                              >
+                                {formData.button_icon && (
+                                  <span className="mr-2">
+                                    {(() => {
+                                      const iconName = formData.button_icon;
+                                      const LucideIcons = require('lucide-react');
+                                      const IconComponent = LucideIcons[iconName];
+                                      return IconComponent ? <IconComponent className="h-4 w-4" /> : null;
+                                    })()}
+                                  </span>
+                                )}
+                                {formData.button_text}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

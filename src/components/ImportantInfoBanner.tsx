@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { 
   getBannerAnimationClass, 
   trackBannerInteraction, 
@@ -37,6 +38,12 @@ interface ImportantInfoBannerData {
   title_underline: boolean | null;
   title_shadow: boolean | null;
   title_custom_color: string | null;
+  // Button settings
+  button_enabled: boolean | null;
+  button_text: string | null;
+  button_url: string | null;
+  button_color: string | null;
+  button_icon: string | null;
 }
 
 interface ImportantInfoBannerProps {
@@ -300,6 +307,31 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
             className="text-base text-center text-muted-foreground leading-relaxed prose prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: banner.content }}
           />
+          
+          {/* Custom button */}
+          {banner.button_enabled && banner.button_text && banner.button_url && (
+            <div className="flex justify-center pt-2">
+              <Button
+                onClick={() => {
+                  const url = banner.button_url!;
+                  if (url.startsWith('http')) {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  } else {
+                    window.location.href = url;
+                  }
+                }}
+                style={{ backgroundColor: banner.button_color || '#10b981' }}
+                className="text-white gap-2"
+              >
+                {banner.button_icon && (() => {
+                  const IconComponent = (LucideIcons as any)[banner.button_icon];
+                  return IconComponent ? <IconComponent className="h-4 w-4" /> : null;
+                })()}
+                {banner.button_text}
+                {banner.button_url?.startsWith('http') && <ExternalLink className="h-4 w-4" />}
+              </Button>
+            </div>
+          )}
         </div>
 
         <DialogDescription className="sr-only">
