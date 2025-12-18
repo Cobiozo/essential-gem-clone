@@ -1226,6 +1226,83 @@ export type Database = {
         }
         Relationships: []
       }
+      i18n_languages: {
+        Row: {
+          code: string
+          created_at: string
+          flag_emoji: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          native_name: string | null
+          position: number | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          flag_emoji?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          native_name?: string | null
+          position?: number | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          flag_emoji?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          native_name?: string | null
+          position?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      i18n_translations: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          language_code: string
+          namespace: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          language_code: string
+          namespace?: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          language_code?: string
+          namespace?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "i18n_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       important_info_banners: {
         Row: {
           animation_intensity: string | null

@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, TranslationsMap } from '@/hooks/useTranslations';
 
-export type Language = 'pl' | 'de' | 'en';
+export type Language = 'pl' | 'de' | 'en' | string;
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  refreshTranslations: () => Promise<void>;
 }
 
 const LanguageContext = React.createContext<LanguageContextType | undefined>(undefined);
@@ -14,7 +16,8 @@ const LanguageContext = React.createContext<LanguageContextType | undefined>(und
 const defaultContextValue: LanguageContextType = {
   language: 'pl' as Language,
   setLanguage: () => {},
-  t: (key: string) => key
+  t: (key: string) => key,
+  refreshTranslations: async () => {}
 };
 
 const translations = {
@@ -1422,7 +1425,7 @@ const translations = {
 };
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = React.useState<Language>(() => {
+  const [language, setLanguage] = useState<Language>(() => {
     try {
       const saved = localStorage.getItem('pure-life-language');
       return (saved as Language) || 'pl';
@@ -1432,7 +1435,21 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   });
 
-  React.useEffect(() => {
+  const [dbTranslations, setDbTranslations] = useState<TranslationsMap | null>(null);
+  const [defaultLang, setDefaultLang] = useState<string>('pl');
+
+  // Load database translations on mount
+  useEffect(() => {
+    loadTranslationsCache().then(({ translations: t, languages }) => {
+      setDbTranslations(t);
+      const def = languages.find(l => l.is_default);
+      if (def) setDefaultLang(def.code);
+    }).catch(err => {
+      console.warn('Failed to load translations from database:', err);
+    });
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem('pure-life-language', language);
       document.documentElement.lang = language;
@@ -1441,14 +1458,29 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [language]);
 
-  const t = (key: string): string => {
-    return translations[language]?.[key] || key;
-  };
+  const refreshTranslations = useCallback(async () => {
+    invalidateTranslationsCache();
+    const { translations: t, languages } = await loadTranslationsCache();
+    setDbTranslations(t);
+    const def = languages.find(l => l.is_default);
+    if (def) setDefaultLang(def.code);
+  }, []);
+
+  const t = useCallback((key: string): string => {
+    // First try database translation
+    const dbValue = getTranslation(language, key, defaultLang);
+    if (dbValue) return dbValue;
+    
+    // Fallback to hardcoded translations
+    // @ts-ignore - translations object has dynamic keys
+    return translations[language]?.[key] || translations[defaultLang]?.[key] || key;
+  }, [language, defaultLang, dbTranslations]);
 
   const contextValue: LanguageContextType = {
     language,
     setLanguage,
-    t
+    t,
+    refreshTranslations
   };
 
   return (
