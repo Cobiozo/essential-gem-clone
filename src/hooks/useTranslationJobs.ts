@@ -15,6 +15,8 @@ export interface TranslationJob {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  job_type: 'i18n' | 'cms';
+  page_id: string | null;
 }
 
 export const useTranslationJobs = () => {
@@ -62,7 +64,7 @@ export const useTranslationJobs = () => {
         if (updatedJob.status === 'completed') {
           toast({
             title: 'Tłumaczenie zakończone',
-            description: `Przetłumaczono ${updatedJob.processed_keys} kluczy${updatedJob.errors > 0 ? ` (${updatedJob.errors} błędów)` : ''}`,
+            description: `Przetłumaczono ${updatedJob.processed_keys} ${updatedJob.job_type === 'cms' ? 'elementów CMS' : 'kluczy'}${updatedJob.errors > 0 ? ` (${updatedJob.errors} błędów)` : ''}`,
           });
         } else if (updatedJob.status === 'failed') {
           toast({
@@ -80,7 +82,9 @@ export const useTranslationJobs = () => {
   const startJob = useCallback(async (
     sourceLanguage: string,
     targetLanguage: string,
-    mode: 'all' | 'missing' = 'missing'
+    mode: 'all' | 'missing' = 'missing',
+    jobType: 'i18n' | 'cms' = 'i18n',
+    pageId?: string | null
   ) => {
     setIsLoading(true);
 
@@ -96,7 +100,9 @@ export const useTranslationJobs = () => {
           target_language: targetLanguage,
           mode,
           status: 'pending',
-          created_by: user?.id
+          created_by: user?.id,
+          job_type: jobType,
+          page_id: pageId || null
         })
         .select()
         .single();
@@ -123,7 +129,7 @@ export const useTranslationJobs = () => {
       }
 
       toast({
-        title: 'Tłumaczenie rozpoczęte',
+        title: jobType === 'cms' ? 'Tłumaczenie CMS rozpoczęte' : 'Tłumaczenie rozpoczęte',
         description: 'Proces działa w tle. Możesz zamknąć okno.',
       });
 
@@ -168,6 +174,20 @@ export const useTranslationJobs = () => {
     setActiveJob(null);
   }, []);
 
+  const refreshJob = useCallback(async () => {
+    if (!activeJob) return;
+    
+    const { data, error } = await supabase
+      .from('translation_jobs')
+      .select('*')
+      .eq('id', activeJob.id)
+      .single();
+
+    if (!error && data) {
+      setActiveJob(data as TranslationJob);
+    }
+  }, [activeJob]);
+
   const progress = activeJob ? 
     (activeJob.total_keys > 0 ? Math.round((activeJob.processed_keys / activeJob.total_keys) * 100) : 0) 
     : 0;
@@ -179,5 +199,6 @@ export const useTranslationJobs = () => {
     startJob,
     cancelJob,
     clearJob,
+    refreshJob,
   };
 };

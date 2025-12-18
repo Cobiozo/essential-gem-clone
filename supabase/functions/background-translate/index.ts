@@ -72,144 +72,13 @@ async function processTranslationJob(jobId: string) {
       .update({ status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', jobId);
 
-    const { source_language, target_language, mode } = job;
+    const jobType = job.job_type || 'i18n';
 
-    // Get all translations for source language
-    const { data: sourceTranslations, error: sourceError } = await supabase
-      .from('i18n_translations')
-      .select('*')
-      .eq('language_code', source_language);
-
-    if (sourceError) {
-      throw new Error(`Failed to fetch source translations: ${sourceError.message}`);
+    if (jobType === 'cms') {
+      await processCMSJob(supabase, job, lovableApiKey);
+    } else {
+      await processI18nJob(supabase, job, lovableApiKey);
     }
-
-    // Get existing translations for target language
-    const { data: existingTranslations, error: existingError } = await supabase
-      .from('i18n_translations')
-      .select('key, namespace')
-      .eq('language_code', target_language);
-
-    if (existingError) {
-      throw new Error(`Failed to fetch existing translations: ${existingError.message}`);
-    }
-
-    const existingKeys = new Set(existingTranslations?.map(t => `${t.namespace}:${t.key}`) || []);
-
-    // Filter keys to translate based on mode
-    let keysToTranslate = sourceTranslations || [];
-    if (mode === 'missing') {
-      keysToTranslate = keysToTranslate.filter(t => !existingKeys.has(`${t.namespace}:${t.key}`));
-    }
-
-    const totalKeys = keysToTranslate.length;
-
-    // Update total keys
-    await supabase
-      .from('translation_jobs')
-      .update({ total_keys: totalKeys, updated_at: new Date().toISOString() })
-      .eq('id', jobId);
-
-    if (totalKeys === 0) {
-      await supabase
-        .from('translation_jobs')
-        .update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-      console.log('No keys to translate');
-      return;
-    }
-
-    console.log(`Translating ${totalKeys} keys from ${source_language} to ${target_language}`);
-
-    let processedKeys = 0;
-    let errors = 0;
-
-    // Process in batches
-    for (let i = 0; i < keysToTranslate.length; i += BATCH_SIZE) {
-      // Check if job was cancelled
-      const { data: currentJob } = await supabase
-        .from('translation_jobs')
-        .select('status')
-        .eq('id', jobId)
-        .single();
-
-      if (currentJob?.status === 'cancelled') {
-        console.log('Job was cancelled, stopping');
-        return;
-      }
-
-      const batch = keysToTranslate.slice(i, i + BATCH_SIZE);
-      
-      try {
-        // Prepare batch for AI translation
-        const keysObject: Record<string, string> = {};
-        batch.forEach(t => {
-          keysObject[`${t.namespace}.${t.key}`] = t.value;
-        });
-
-        // Call AI for translation
-        const translatedKeys = await translateBatch(keysObject, source_language, target_language, lovableApiKey);
-
-        // Save translations to database
-        for (const t of batch) {
-          const fullKey = `${t.namespace}.${t.key}`;
-          const translatedValue = translatedKeys[fullKey] || t.value;
-
-          const { error: upsertError } = await supabase
-            .from('i18n_translations')
-            .upsert({
-              language_code: target_language,
-              namespace: t.namespace,
-              key: t.key,
-              value: translatedValue,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'language_code,namespace,key'
-            });
-
-          if (upsertError) {
-            console.error(`Failed to save translation for ${fullKey}:`, upsertError);
-            errors++;
-          } else {
-            processedKeys++;
-          }
-        }
-      } catch (batchError) {
-        console.error('Batch translation error:', batchError);
-        errors += batch.length;
-      }
-
-      // Update progress
-      await supabase
-        .from('translation_jobs')
-        .update({ 
-          processed_keys: processedKeys, 
-          errors,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-
-      // Small delay between batches to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    // Mark job as completed
-    await supabase
-      .from('translation_jobs')
-      .update({ 
-        status: 'completed', 
-        processed_keys: processedKeys,
-        errors,
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', jobId);
-
-    console.log(`Translation job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
 
   } catch (error) {
     console.error('Translation job failed:', error);
@@ -222,6 +91,384 @@ async function processTranslationJob(jobId: string) {
         updated_at: new Date().toISOString()
       })
       .eq('id', jobId);
+  }
+}
+
+async function processI18nJob(supabase: any, job: any, lovableApiKey: string | undefined) {
+  const { id: jobId, source_language, target_language, mode, processed_keys: alreadyProcessed = 0 } = job;
+
+  // Get all translations for source language
+  const { data: sourceTranslations, error: sourceError } = await supabase
+    .from('i18n_translations')
+    .select('*')
+    .eq('language_code', source_language);
+
+  if (sourceError) {
+    throw new Error(`Failed to fetch source translations: ${sourceError.message}`);
+  }
+
+  // Get existing translations for target language
+  const { data: existingTranslations, error: existingError } = await supabase
+    .from('i18n_translations')
+    .select('key, namespace')
+    .eq('language_code', target_language);
+
+  if (existingError) {
+    throw new Error(`Failed to fetch existing translations: ${existingError.message}`);
+  }
+
+  const existingKeys = new Set(existingTranslations?.map(t => `${t.namespace}:${t.key}`) || []);
+
+  // Filter keys to translate based on mode
+  let keysToTranslate = sourceTranslations || [];
+  if (mode === 'missing') {
+    keysToTranslate = keysToTranslate.filter(t => !existingKeys.has(`${t.namespace}:${t.key}`));
+  }
+
+  const totalKeys = keysToTranslate.length;
+
+  // Update total keys
+  await supabase
+    .from('translation_jobs')
+    .update({ total_keys: totalKeys, updated_at: new Date().toISOString() })
+    .eq('id', jobId);
+
+  if (totalKeys === 0) {
+    await supabase
+      .from('translation_jobs')
+      .update({ 
+        status: 'completed', 
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+    console.log('No keys to translate');
+    return;
+  }
+
+  console.log(`Translating ${totalKeys} keys from ${source_language} to ${target_language}`);
+
+  // Resume from where we left off
+  let processedKeys = alreadyProcessed;
+  let errors = job.errors || 0;
+  const startIndex = alreadyProcessed;
+
+  // Process in batches
+  for (let i = startIndex; i < keysToTranslate.length; i += BATCH_SIZE) {
+    // Check if job was cancelled
+    const { data: currentJob } = await supabase
+      .from('translation_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .single();
+
+    if (currentJob?.status === 'cancelled') {
+      console.log('Job was cancelled, stopping');
+      return;
+    }
+
+    const batch = keysToTranslate.slice(i, i + BATCH_SIZE);
+    
+    try {
+      // Prepare batch for AI translation
+      const keysObject: Record<string, string> = {};
+      batch.forEach(t => {
+        keysObject[`${t.namespace}.${t.key}`] = t.value;
+      });
+
+      // Call AI for translation
+      const translatedKeys = await translateBatch(keysObject, source_language, target_language, lovableApiKey);
+
+      // Save translations to database
+      for (const t of batch) {
+        const fullKey = `${t.namespace}.${t.key}`;
+        const translatedValue = translatedKeys[fullKey] || t.value;
+
+        const { error: upsertError } = await supabase
+          .from('i18n_translations')
+          .upsert({
+            language_code: target_language,
+            namespace: t.namespace,
+            key: t.key,
+            value: translatedValue,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'language_code,namespace,key'
+          });
+
+        if (upsertError) {
+          console.error(`Failed to save translation for ${fullKey}:`, upsertError);
+          errors++;
+        } else {
+          processedKeys++;
+        }
+      }
+    } catch (batchError) {
+      console.error('Batch translation error:', batchError);
+      errors += batch.length;
+    }
+
+    // Update progress
+    await supabase
+      .from('translation_jobs')
+      .update({ 
+        processed_keys: processedKeys, 
+        errors,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+
+    // Small delay between batches to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  // Mark job as completed
+  await supabase
+    .from('translation_jobs')
+    .update({ 
+      status: 'completed', 
+      processed_keys: processedKeys,
+      errors,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', jobId);
+
+  console.log(`Translation job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
+}
+
+async function processCMSJob(supabase: any, job: any, lovableApiKey: string | undefined) {
+  const { id: jobId, source_language, target_language, page_id, processed_keys: alreadyProcessed = 0 } = job;
+
+  // Get CMS items to translate
+  let query = supabase
+    .from('cms_items')
+    .select('id, title, description, cells')
+    .eq('is_active', true);
+  
+  if (page_id) {
+    query = query.eq('page_id', page_id);
+  }
+
+  const { data: items, error: itemsError } = await query;
+
+  if (itemsError) {
+    throw new Error(`Failed to fetch CMS items: ${itemsError.message}`);
+  }
+
+  // Filter items with translatable content
+  const translatableItems = (items || []).filter(item => 
+    item.title || item.description || (item.cells && item.cells.length > 0)
+  );
+
+  // Get existing translations
+  const { data: existingTranslations } = await supabase
+    .from('cms_item_translations')
+    .select('item_id')
+    .eq('language_code', target_language);
+
+  const existingItemIds = new Set(existingTranslations?.map(t => t.item_id) || []);
+
+  // Filter to only items without translations (missing mode)
+  const itemsToTranslate = translatableItems.filter(item => !existingItemIds.has(item.id));
+
+  const totalKeys = itemsToTranslate.length;
+
+  await supabase
+    .from('translation_jobs')
+    .update({ total_keys: totalKeys, updated_at: new Date().toISOString() })
+    .eq('id', jobId);
+
+  if (totalKeys === 0) {
+    await supabase
+      .from('translation_jobs')
+      .update({ 
+        status: 'completed', 
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+    console.log('No CMS items to translate');
+    return;
+  }
+
+  console.log(`Translating ${totalKeys} CMS items to ${target_language}`);
+
+  let processedKeys = alreadyProcessed;
+  let errors = job.errors || 0;
+
+  // Process in batches
+  for (let i = alreadyProcessed; i < itemsToTranslate.length; i += BATCH_SIZE) {
+    // Check if job was cancelled
+    const { data: currentJob } = await supabase
+      .from('translation_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .single();
+
+    if (currentJob?.status === 'cancelled') {
+      console.log('Job was cancelled, stopping');
+      return;
+    }
+
+    const batch = itemsToTranslate.slice(i, i + BATCH_SIZE);
+
+    for (const item of batch) {
+      try {
+        const translations: any = {};
+        
+        // Translate title
+        if (item.title) {
+          const titleResult = await translateText(item.title, source_language, target_language, lovableApiKey);
+          translations.title = titleResult;
+        }
+
+        // Translate description
+        if (item.description) {
+          const descResult = await translateText(item.description, source_language, target_language, lovableApiKey);
+          translations.description = descResult;
+        }
+
+        // Translate cells content
+        if (item.cells && Array.isArray(item.cells)) {
+          const translatedCells = await translateCells(item.cells, source_language, target_language, lovableApiKey);
+          translations.cells = translatedCells;
+        }
+
+        // Save translation
+        const { error: upsertError } = await supabase
+          .from('cms_item_translations')
+          .upsert({
+            item_id: item.id,
+            language_code: target_language,
+            title: translations.title || null,
+            description: translations.description || null,
+            cells: translations.cells || null,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'item_id,language_code'
+          });
+
+        if (upsertError) {
+          console.error(`Failed to save CMS translation for ${item.id}:`, upsertError);
+          errors++;
+        } else {
+          processedKeys++;
+        }
+      } catch (itemError) {
+        console.error(`Error translating CMS item ${item.id}:`, itemError);
+        errors++;
+      }
+
+      // Small delay between items
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    // Update progress after each batch
+    await supabase
+      .from('translation_jobs')
+      .update({ 
+        processed_keys: processedKeys, 
+        errors,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+  }
+
+  // Mark job as completed
+  await supabase
+    .from('translation_jobs')
+    .update({ 
+      status: 'completed', 
+      processed_keys: processedKeys,
+      errors,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', jobId);
+
+  console.log(`CMS Translation job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
+}
+
+async function translateCells(cells: any[], sourceLanguage: string, targetLanguage: string, apiKey: string | undefined): Promise<any[]> {
+  if (!Array.isArray(cells) || cells.length === 0) return cells;
+
+  const translatedCells = [];
+  
+  for (const cell of cells) {
+    const translatedCell = { ...cell };
+    
+    // Translate content field if it exists and is a string
+    if (cell.content && typeof cell.content === 'string') {
+      translatedCell.content = await translateText(cell.content, sourceLanguage, targetLanguage, apiKey);
+    }
+    
+    // Translate button_text if exists
+    if (cell.button_text && typeof cell.button_text === 'string') {
+      translatedCell.button_text = await translateText(cell.button_text, sourceLanguage, targetLanguage, apiKey);
+    }
+    
+    translatedCells.push(translatedCell);
+  }
+  
+  return translatedCells;
+}
+
+async function translateText(text: string, sourceLanguage: string, targetLanguage: string, apiKey: string | undefined): Promise<string> {
+  if (!apiKey || !text || text.trim() === '') {
+    return text;
+  }
+
+  const languageNames: Record<string, string> = {
+    'pl': 'Polish',
+    'de': 'German',
+    'en': 'English',
+    'it': 'Italian',
+    'fr': 'French',
+    'es': 'Spanish'
+  };
+
+  const sourceLang = languageNames[sourceLanguage] || sourceLanguage;
+  const targetLang = languageNames[targetLanguage] || targetLanguage;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { 
+            role: 'system', 
+            content: `You are a professional translator. Translate the following text from ${sourceLang} to ${targetLang}. Return ONLY the translated text, nothing else. Preserve any HTML tags, placeholders like {name}, and formatting.`
+          },
+          { role: 'user', content: text }
+        ],
+        temperature: 0.3
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        console.warn('Rate limited, waiting before retry...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        return text;
+      }
+      if (response.status === 402) {
+        console.error('API credits exhausted (402). Stopping translation.');
+        throw new Error('API credits exhausted. Please add more credits.');
+      }
+      throw new Error(`AI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || text;
+  } catch (error) {
+    console.error('Translation error:', error);
+    return text;
   }
 }
 
@@ -279,8 +526,12 @@ Rules:
     if (!response.ok) {
       if (response.status === 429) {
         console.warn('Rate limited, waiting before retry...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         return keysObject;
+      }
+      if (response.status === 402) {
+        console.error('API credits exhausted (402). Stopping translation.');
+        throw new Error('API credits exhausted. Please add more credits.');
       }
       throw new Error(`AI API error: ${response.status}`);
     }
@@ -302,6 +553,6 @@ Rules:
     }
   } catch (error) {
     console.error('Translation API error:', error);
-    return keysObject;
+    throw error; // Re-throw to stop job on credits error
   }
 }
