@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, TranslationsMap } from '@/hooks/useTranslations';
+import { completeTranslationsData } from '@/lib/translationsData';
 
 export type Language = 'pl' | 'de' | 'en' | string;
 
@@ -1471,9 +1472,16 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const dbValue = getTranslation(language, key, defaultLang);
     if (dbValue) return dbValue;
     
-    // Fallback to hardcoded translations
+    // Fallback to hardcoded translations in this file
     // @ts-ignore - translations object has dynamic keys
-    return translations[language]?.[key] || translations[defaultLang]?.[key] || key;
+    const localValue = translations[language]?.[key] || translations[defaultLang]?.[key];
+    if (localValue) return localValue;
+    
+    // Fallback to completeTranslationsData (contains elements.*, editor.*, etc.)
+    const completeValue = completeTranslationsData[language]?.[key] || completeTranslationsData[defaultLang]?.[key];
+    if (completeValue) return completeValue;
+    
+    return key;
   }, [language, defaultLang, dbTranslations]);
 
   const contextValue: LanguageContextType = {
