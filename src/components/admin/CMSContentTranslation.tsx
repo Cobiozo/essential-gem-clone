@@ -706,6 +706,16 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
               </div>
             </div>
 
+            {/* Alert when all items are already translated */}
+            {aiTranslateMode === 'missing' && missingCount === 0 && allTranslatableCount > 0 && (
+              <Alert className="border-yellow-500/50 bg-yellow-500/5">
+                <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                <AlertDescription className="text-sm">
+                  Wszystkie elementy mają już tłumaczenia. Wybierz tryb <strong>"Wszystkie elementy"</strong> aby przetłumaczyć je ponownie.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="bg-muted/50 p-3 rounded-md text-sm">
               <p className="font-medium mb-1">Informacje:</p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
@@ -723,7 +733,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
               <span className="text-sm">
                 {aiTranslateMode === 'missing' ? 'Elementy do przetłumaczenia:' : 'Wszystkie elementy:'}
               </span>
-              <Badge variant="secondary">
+              <Badge variant={aiTranslateMode === 'missing' && missingCount === 0 ? 'destructive' : 'secondary'}>
                 {aiTranslateMode === 'missing' ? missingCount : allTranslatableCount}
               </Badge>
             </div>
