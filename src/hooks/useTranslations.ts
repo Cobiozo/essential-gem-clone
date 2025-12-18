@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { completeTranslationsData } from '@/lib/translationsData';
 
 export interface I18nLanguage {
   id: string;
@@ -475,24 +476,13 @@ export const useTranslationsAdmin = () => {
     };
   };
 
-  // Migrate from hardcoded translations (from LanguageContext.tsx)
+  // Migrate from hardcoded translations using comprehensive data file
   const migrateFromHardcoded = async (
     onProgress?: (current: number, total: number) => void
   ): Promise<{ success: boolean; migrated: number }> => {
-    // Import hardcoded translations from LanguageContext
-    const { translations: hardcodedTranslations } = await import('@/contexts/LanguageContext').then(m => {
-      // Access the internal translations object
-      return { translations: (m as any).hardcodedTranslations || {} };
-    }).catch(() => ({ translations: {} }));
-
-    // Fallback - get from window if available or use embedded ones
-    const translationsToMigrate = Object.keys(hardcodedTranslations).length > 0 
-      ? hardcodedTranslations 
-      : getHardcodedTranslations();
-
     const inserts: { language_code: string; namespace: string; key: string; value: string }[] = [];
     
-    for (const [langCode, keys] of Object.entries(translationsToMigrate)) {
+    for (const [langCode, keys] of Object.entries(completeTranslationsData)) {
       for (const [fullKey, value] of Object.entries(keys as Record<string, string>)) {
         const [namespace, ...keyParts] = fullKey.split('.');
         const key = keyParts.join('.');
