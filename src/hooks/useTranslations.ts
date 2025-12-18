@@ -55,6 +55,35 @@ const notifyListeners = () => {
   cacheListeners.forEach(cb => cb());
 };
 
+// Fetch all rows with pagination (bypasses 1000 row limit)
+const fetchAllTranslations = async (): Promise<I18nTranslation[]> => {
+  const allData: I18nTranslation[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('i18n_translations')
+      .select('*')
+      .range(from, from + pageSize - 1)
+      .order('namespace')
+      .order('key');
+
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      allData.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
+};
+
 export const loadTranslationsCache = async (): Promise<{ translations: TranslationsMap; languages: I18nLanguage[] }> => {
   if (translationsCache && languagesCache) {
     return { translations: translationsCache, languages: languagesCache };
@@ -74,18 +103,17 @@ export const loadTranslationsCache = async (): Promise<{ translations: Translati
   cacheLoading = true;
 
   try {
-    const [languagesRes, translationsRes] = await Promise.all([
+    const [languagesRes, translationsData] = await Promise.all([
       supabase.from('i18n_languages').select('*').eq('is_active', true).order('position'),
-      supabase.from('i18n_translations').select('*')
+      fetchAllTranslations()
     ]);
 
     if (languagesRes.error) throw languagesRes.error;
-    if (translationsRes.error) throw translationsRes.error;
 
     languagesCache = languagesRes.data || [];
     
     const map: TranslationsMap = {};
-    for (const t of translationsRes.data || []) {
+    for (const t of translationsData) {
       if (!map[t.language_code]) map[t.language_code] = {};
       if (!map[t.language_code][t.namespace]) map[t.language_code][t.namespace] = {};
       map[t.language_code][t.namespace][t.key] = t.value;
@@ -204,19 +232,14 @@ export const useTranslationsAdmin = () => {
   }, []);
 
   const fetchTranslations = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('i18n_translations')
-      .select('*')
-      .order('namespace')
-      .order('key');
+    // Use pagination to fetch all translations (bypass 1000 limit)
+    const data = await fetchAllTranslations();
+    setTranslations(data);
     
-    if (error) throw error;
-    setTranslations(data || []);
-    
-    const ns = [...new Set((data || []).map(t => t.namespace))];
+    const ns = [...new Set(data.map(t => t.namespace))];
     setNamespaces(ns);
     
-    return data || [];
+    return data;
   }, []);
 
   const loadAll = useCallback(async () => {
