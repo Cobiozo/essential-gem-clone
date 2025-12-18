@@ -1000,6 +1000,18 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               />
             </div>
             <div>
+              <Label>Flaga (emoji)</Label>
+              <Input
+                value={languageForm.flag_emoji}
+                onChange={e => setLanguageForm({ ...languageForm, flag_emoji: e.target.value })}
+                placeholder="🏳️"
+                maxLength={8}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Wklej emoji flagi (np. 🇵🇱, 🇩🇪, 🇮🇹, 🇪🇸)
+              </p>
+            </div>
+            <div>
               <Label>Pozycja</Label>
               <Input
                 type="number"
