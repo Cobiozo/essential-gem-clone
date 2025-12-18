@@ -1230,6 +1230,11 @@ export type Database = {
         Row: {
           animation_intensity: string | null
           animation_type: string | null
+          button_color: string | null
+          button_enabled: boolean | null
+          button_icon: string | null
+          button_text: string | null
+          button_url: string | null
           content: string
           created_at: string | null
           display_frequency: string
@@ -1254,6 +1259,11 @@ export type Database = {
         Insert: {
           animation_intensity?: string | null
           animation_type?: string | null
+          button_color?: string | null
+          button_enabled?: boolean | null
+          button_icon?: string | null
+          button_text?: string | null
+          button_url?: string | null
           content: string
           created_at?: string | null
           display_frequency?: string
@@ -1278,6 +1288,11 @@ export type Database = {
         Update: {
           animation_intensity?: string | null
           animation_type?: string | null
+          button_color?: string | null
+          button_enabled?: boolean | null
+          button_icon?: string | null
+          button_text?: string | null
+          button_url?: string | null
           content?: string
           created_at?: string | null
           display_frequency?: string
