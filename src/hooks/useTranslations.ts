@@ -448,8 +448,16 @@ export const useTranslationsAdmin = () => {
   const translateLanguageWithAI = async (
     sourceCode: string,
     targetCode: string,
-    onProgress?: (current: number, total: number) => void
-  ): Promise<{ success: boolean; translated: number; total: number }> => {
+    translateMode: 'all' | 'missing' = 'missing',
+    onProgress?: (progress: {
+      current: number;
+      total: number;
+      currentBatch: number;
+      totalBatches: number;
+      status: 'preparing' | 'translating' | 'saving' | 'done' | 'error';
+      errors: number;
+    }) => void
+  ): Promise<{ success: boolean; translated: number; total: number; errors: number }> => {
     // Get all translations from source language
     const sourceTranslations = translations.filter(t => t.language_code === sourceCode);
     
@@ -457,45 +465,133 @@ export const useTranslationsAdmin = () => {
       throw new Error('No translations found in source language');
     }
 
-    const keys = sourceTranslations.map(t => ({
+    // Filter keys based on mode
+    let keysToTranslate = sourceTranslations;
+    
+    if (translateMode === 'missing') {
+      // Get existing keys in target language
+      const existingKeys = new Set(
+        translations
+          .filter(t => t.language_code === targetCode && t.value.trim())
+          .map(t => `${t.namespace}.${t.key}`)
+      );
+      
+      keysToTranslate = sourceTranslations.filter(
+        t => !existingKeys.has(`${t.namespace}.${t.key}`)
+      );
+    }
+
+    if (keysToTranslate.length === 0) {
+      return { success: true, translated: 0, total: 0, errors: 0 };
+    }
+
+    const keys = keysToTranslate.map(t => ({
       namespace: t.namespace,
       key: t.key,
       value: t.value
     }));
 
-    onProgress?.(0, keys.length);
+    // Smaller batch size for better reliability
+    const batchSize = 12;
+    const parallelLimit = 3;
+    const batches: typeof keys[] = [];
+    
+    for (let i = 0; i < keys.length; i += batchSize) {
+      batches.push(keys.slice(i, i + batchSize));
+    }
 
-    const response = await supabase.functions.invoke('translate-content', {
-      body: {
-        mode: 'batch',
-        sourceLanguage: sourceCode,
-        targetLanguage: targetCode,
-        keys
-      }
+    let translatedCount = 0;
+    let errorCount = 0;
+    let processedBatches = 0;
+
+    onProgress?.({
+      current: 0,
+      total: keys.length,
+      currentBatch: 0,
+      totalBatches: batches.length,
+      status: 'translating',
+      errors: 0
     });
 
-    if (response.error) {
-      throw new Error(response.error.message || 'Translation failed');
-    }
+    // Process batches in parallel (3 at a time)
+    for (let i = 0; i < batches.length; i += parallelLimit) {
+      const chunk = batches.slice(i, i + parallelLimit);
+      
+      const results = await Promise.allSettled(
+        chunk.map(async (batch) => {
+          const response = await supabase.functions.invoke('translate-content', {
+            body: {
+              mode: 'batch',
+              sourceLanguage: sourceCode,
+              targetLanguage: targetCode,
+              keys: batch
+            }
+          });
 
-    const result = response.data;
-    
-    if (result.error) {
-      if (result.error === 'rate_limit') {
-        throw new Error('Rate limit exceeded. Please try again later.');
+          if (response.error) {
+            throw new Error(response.error.message || 'Translation failed');
+          }
+
+          const result = response.data;
+          
+          if (result.error) {
+            if (result.error === 'rate_limit') {
+              throw new Error('Rate limit exceeded. Please try again later.');
+            }
+            throw new Error(result.message || 'Translation failed');
+          }
+
+          return result.translated || 0;
+        })
+      );
+
+      // Process results
+      for (const result of results) {
+        processedBatches++;
+        if (result.status === 'fulfilled') {
+          translatedCount += result.value;
+        } else {
+          errorCount++;
+          console.error('Batch translation error:', result.reason);
+        }
       }
-      throw new Error(result.message || 'Translation failed');
+
+      onProgress?.({
+        current: translatedCount,
+        total: keys.length,
+        currentBatch: processedBatches,
+        totalBatches: batches.length,
+        status: 'translating',
+        errors: errorCount
+      });
     }
 
-    onProgress?.(result.translated || 0, keys.length);
+    onProgress?.({
+      current: translatedCount,
+      total: keys.length,
+      currentBatch: batches.length,
+      totalBatches: batches.length,
+      status: 'saving',
+      errors: errorCount
+    });
     
     await fetchTranslations();
     invalidateTranslationsCache();
 
+    onProgress?.({
+      current: translatedCount,
+      total: keys.length,
+      currentBatch: batches.length,
+      totalBatches: batches.length,
+      status: 'done',
+      errors: errorCount
+    });
+
     return {
       success: true,
-      translated: result.translated || 0,
-      total: keys.length
+      translated: translatedCount,
+      total: keys.length,
+      errors: errorCount
     };
   };
 
