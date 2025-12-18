@@ -91,8 +91,16 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   const [aiTranslateDialog, setAiTranslateDialog] = useState(false);
   const [aiTranslateTarget, setAiTranslateTarget] = useState<I18nLanguage | null>(null);
   const [aiTranslateSource, setAiTranslateSource] = useState<string>('pl');
+  const [aiTranslateMode, setAiTranslateMode] = useState<'all' | 'missing'>('missing');
   const [aiTranslating, setAiTranslating] = useState(false);
-  const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
+  const [aiProgress, setAiProgress] = useState({
+    current: 0,
+    total: 0,
+    currentBatch: 0,
+    totalBatches: 0,
+    status: 'idle' as 'idle' | 'preparing' | 'translating' | 'saving' | 'done' | 'error',
+    errors: 0
+  });
 
   // Migration state
   const [migrating, setMigrating] = useState(false);
@@ -295,21 +303,23 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     if (!aiTranslateTarget) return;
     
     setAiTranslating(true);
-    setAiProgress({ current: 0, total: 0 });
+    setAiProgress({ current: 0, total: 0, currentBatch: 0, totalBatches: 0, status: 'preparing', errors: 0 });
     
     try {
       const result = await translateLanguageWithAI(
         aiTranslateSource,
         aiTranslateTarget.code,
-        (current, total) => setAiProgress({ current, total })
+        aiTranslateMode,
+        (progress) => setAiProgress(progress)
       );
       
       toast({ 
         title: 'Sukces', 
-        description: `Przetłumaczono ${result.translated} z ${result.total} kluczy` 
+        description: `Przetłumaczono ${result.translated} z ${result.total} kluczy${result.errors > 0 ? ` (${result.errors} błędów)` : ''}` 
       });
       setAiTranslateDialog(false);
       setAiTranslateTarget(null);
+      setAiTranslateMode('missing');
     } catch (error: any) {
       toast({ 
         title: 'Błąd', 
@@ -318,6 +328,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
       });
     } finally {
       setAiTranslating(false);
+      setAiProgress({ current: 0, total: 0, currentBatch: 0, totalBatches: 0, status: 'idle', errors: 0 });
     }
   };
 
@@ -1084,17 +1095,54 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
 
       {/* AI Translation Dialog */}
       <Dialog open={aiTranslateDialog} onOpenChange={(open) => { if (!aiTranslating) setAiTranslateDialog(open); }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
               Automatyczne tłumaczenie AI
             </DialogTitle>
             <DialogDescription>
-              Przetłumacz wszystkie klucze do języka {aiTranslateTarget?.name} ({aiTranslateTarget?.code.toUpperCase()})
+              Przetłumacz klucze do języka {aiTranslateTarget?.name} ({aiTranslateTarget?.code.toUpperCase()})
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
+            {/* Translation Mode Selection */}
+            <div className="space-y-3">
+              <Label>Tryb tłumaczenia</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiTranslateMode('missing')}
+                  disabled={aiTranslating}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    aiTranslateMode === 'missing'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  } ${aiTranslating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="font-medium text-sm">Tylko brakujące</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Tłumaczy tylko klucze bez tłumaczenia (zalecane)
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiTranslateMode('all')}
+                  disabled={aiTranslating}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    aiTranslateMode === 'all'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  } ${aiTranslating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="font-medium text-sm">Wszystkie klucze</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Nadpisuje istniejące tłumaczenia
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div>
               <Label>Język źródłowy</Label>
               <Select value={aiTranslateSource} onValueChange={setAiTranslateSource} disabled={aiTranslating}>
@@ -1112,25 +1160,46 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               </Select>
             </div>
 
+            {/* Progress Section */}
             {aiTranslating && (
-              <div className="space-y-2">
+              <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span>Tłumaczenie w toku...</span>
-                  <span>{aiProgress.current} / {aiProgress.total}</span>
+                  <span className="font-medium">
+                    {aiProgress.status === 'preparing' && 'Przygotowywanie...'}
+                    {aiProgress.status === 'translating' && 'Tłumaczenie w toku...'}
+                    {aiProgress.status === 'saving' && 'Zapisywanie...'}
+                    {aiProgress.status === 'done' && 'Zakończono!'}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {aiProgress.current} / {aiProgress.total} kluczy
+                  </span>
                 </div>
-                <Progress value={aiProgress.total > 0 ? (aiProgress.current / aiProgress.total) * 100 : 0} />
+                <Progress 
+                  value={aiProgress.total > 0 ? (aiProgress.current / aiProgress.total) * 100 : 0} 
+                  className="h-2"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Batch {aiProgress.currentBatch} / {aiProgress.totalBatches}</span>
+                  <span>
+                    {aiProgress.total > 0 ? Math.round((aiProgress.current / aiProgress.total) * 100) : 0}%
+                    {aiProgress.errors > 0 && (
+                      <span className="text-destructive ml-2">({aiProgress.errors} błędów)</span>
+                    )}
+                  </span>
+                </div>
               </div>
             )}
 
-            <div className="bg-muted p-3 rounded-md text-sm">
-              <p className="font-medium mb-1">Uwaga:</p>
-              <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
-                <li>Istniejące tłumaczenia zostaną nadpisane</li>
-                <li>Proces może potrwać kilka minut</li>
-                <li>Zalecane ręczne sprawdzenie wyników</li>
-              </ul>
-            </div>
+            {!aiTranslating && (
+              <div className="bg-muted/50 p-3 rounded-md text-sm">
+                <p className="font-medium mb-1">Uwaga:</p>
+                <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
+                  <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
+                  <li>Przetwarzanie równoległe (3 batche po 12 kluczy)</li>
+                  <li>Zalecane ręczne sprawdzenie wyników</li>
+                </ul>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAiTranslateDialog(false)} disabled={aiTranslating}>
@@ -1145,7 +1214,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               ) : (
                 <>
                   <Bot className="w-4 h-4 mr-2" />
-                  Rozpocznij tłumaczenie
+                  Rozpocznij
                 </>
               )}
             </Button>

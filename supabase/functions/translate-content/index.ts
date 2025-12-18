@@ -44,8 +44,8 @@ serve(async (req) => {
       const targetLangName = languageNames[targetLanguage] || targetLanguage;
       const sourceLangName = languageNames[sourceLanguage] || sourceLanguage;
 
-      // Process in batches of 30 keys
-      const batchSize = 30;
+      // Process in batches of 12 keys for better reliability
+      const batchSize = 12;
       const results: { namespace: string; key: string; value: string }[] = [];
       
       for (let i = 0; i < keys.length; i += batchSize) {
