@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ItemEditorWrapper } from '@/components/cms/ItemEditorWrapper';
 import { SectionEditor } from '@/components/cms/SectionEditor';
 import { ElementPreview } from './ElementPreview';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   Search,
   Type, 
@@ -106,6 +107,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
   onSaveSection,
   onCancelSectionEdit,
 }) => {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['recently-used', 'layout', 'basic']);
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => {
@@ -118,65 +120,65 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
 
   const layoutElements: ElementCategory = {
     id: 'layout',
-    title: 'Układ',
+    title: t('elements.layout'),
     defaultOpen: true,
     items: [
-      { id: 'container', title: 'Kontener', icon: <Box className="w-5 h-5" />, type: 'container', description: 'Prosty kontener na elementy', tags: ['layout', 'box'] },
-      { id: 'grid', title: 'Siatka', icon: <Grid3X3 className="w-5 h-5" />, type: 'grid', description: 'Siatka z wieloma kolumnami', tags: ['layout', 'columns', 'grid'] },
-      { id: 'pure-life-container', title: 'Pure Life', icon: <Grid3X3 className="w-5 h-5 text-blue-500" />, type: 'pure-life-container', description: 'Kontener w stylu Pure Life', tags: ['layout', 'branded'] },
-      { id: 'collapsible-section', title: 'Sekcja zwijana', icon: <ChevronDown className="w-5 h-5 text-amber-500" />, type: 'collapsible-section', description: 'Akordeon z ukrywaną zawartością', tags: ['layout', 'accordion', 'collapse'] },
-      { id: 'collapsible-pure-life', title: 'Sekcja zwijana (Pure Life)', icon: <ChevronDown className="w-5 h-5 text-emerald-500" />, type: 'collapsible-pure-life', description: 'Zwijana sekcja w stylu Pure Life', tags: ['layout', 'accordion', 'pure life', 'collapse'] },
+      { id: 'container', title: t('elements.container'), icon: <Box className="w-5 h-5" />, type: 'container', description: t('elements.containerDesc'), tags: ['layout', 'box'] },
+      { id: 'grid', title: t('elements.grid'), icon: <Grid3X3 className="w-5 h-5" />, type: 'grid', description: t('elements.gridDesc'), tags: ['layout', 'columns', 'grid'] },
+      { id: 'pure-life-container', title: t('elements.pureLifeContainer'), icon: <Grid3X3 className="w-5 h-5 text-blue-500" />, type: 'pure-life-container', description: t('elements.pureLifeContainerDesc'), tags: ['layout', 'branded'] },
+      { id: 'collapsible-section', title: t('elements.collapsibleSection'), icon: <ChevronDown className="w-5 h-5 text-amber-500" />, type: 'collapsible-section', description: t('elements.collapsibleSectionDesc'), tags: ['layout', 'accordion', 'collapse'] },
+      { id: 'collapsible-pure-life', title: t('elements.collapsiblePureLife'), icon: <ChevronDown className="w-5 h-5 text-emerald-500" />, type: 'collapsible-pure-life', description: t('elements.collapsiblePureLifeDesc'), tags: ['layout', 'accordion', 'pure life', 'collapse'] },
     ]
   };
 
   const basicElements: ElementCategory = {
     id: 'basic',
-    title: 'Podstawowe',
+    title: t('elements.basic'),
     items: [
-      { id: 'heading', title: 'Nagłówek', icon: <Type className="w-5 h-5" />, type: 'heading', description: 'Nagłówek H1-H6', tags: ['text', 'title'] },
-      { id: 'image', title: 'Obrazek', icon: <ImageIcon className="w-5 h-5" />, type: 'image', description: 'Obraz z alternatywnym tekstem', tags: ['media', 'photo'] },
-      { id: 'text', title: 'Edytor tekstu', icon: <AlignLeft className="w-5 h-5" />, type: 'text', description: 'Tekst z formatowaniem', tags: ['text', 'paragraph'] },
-      { id: 'video', title: 'Film', icon: <Video className="w-5 h-5" />, type: 'video', description: 'Wideo YouTube lub lokalne', tags: ['media', 'embed'] },
-      { id: 'button', title: 'Przycisk', icon: <MousePointer2 className="w-5 h-5" />, type: 'button', description: 'Przycisk z linkiem', tags: ['cta', 'link'] },
-      { id: 'copy-to-clipboard', title: 'Kopiuj do schowka', icon: <Clipboard className="w-5 h-5" />, type: 'copy-to-clipboard', description: 'Przycisk kopiujący treść do schowka', tags: ['copy', 'clipboard', 'button'] },
-      { id: 'file-download', title: 'Pobierz plik', icon: <FileDown className="w-5 h-5" />, type: 'file-download', description: 'Przycisk pobierania pliku', tags: ['download', 'file', 'pdf'] },
-      { id: 'info-text', title: 'Tekst informacyjny', icon: <Info className="w-5 h-5" />, type: 'info_text', description: 'Ikona z tekstem', tags: ['icon', 'text'] },
-      { id: 'divider', title: 'Rozdzielacz', icon: <Minus className="w-5 h-5" />, type: 'divider', description: 'Linia pozioma', tags: ['separator', 'line'] },
-      { id: 'spacer', title: 'Odstęp', icon: <AlignLeft className="w-5 h-5 rotate-90" />, type: 'spacer', description: 'Pusta przestrzeń', tags: ['space', 'margin'] },
-      { id: 'maps', title: 'Mapy Google', icon: <MapPin className="w-5 h-5" />, type: 'maps', description: 'Interaktywna mapa', tags: ['location', 'embed'] },
-      { id: 'icon', title: 'Ikonka', icon: <Star className="w-5 h-5" />, type: 'icon', description: 'Ikona Lucide', tags: ['icon', 'symbol'] },
+      { id: 'heading', title: t('elements.heading'), icon: <Type className="w-5 h-5" />, type: 'heading', description: t('elements.headingDesc'), tags: ['text', 'title'] },
+      { id: 'image', title: t('elements.image'), icon: <ImageIcon className="w-5 h-5" />, type: 'image', description: t('elements.imageDesc'), tags: ['media', 'photo'] },
+      { id: 'text', title: t('elements.text'), icon: <AlignLeft className="w-5 h-5" />, type: 'text', description: t('elements.textDesc'), tags: ['text', 'paragraph'] },
+      { id: 'video', title: t('elements.video'), icon: <Video className="w-5 h-5" />, type: 'video', description: t('elements.videoDesc'), tags: ['media', 'embed'] },
+      { id: 'button', title: t('elements.button'), icon: <MousePointer2 className="w-5 h-5" />, type: 'button', description: t('elements.buttonDesc'), tags: ['cta', 'link'] },
+      { id: 'copy-to-clipboard', title: t('elements.copyToClipboard'), icon: <Clipboard className="w-5 h-5" />, type: 'copy-to-clipboard', description: t('elements.copyToClipboardDesc'), tags: ['copy', 'clipboard', 'button'] },
+      { id: 'file-download', title: t('elements.fileDownload'), icon: <FileDown className="w-5 h-5" />, type: 'file-download', description: t('elements.fileDownloadDesc'), tags: ['download', 'file', 'pdf'] },
+      { id: 'info-text', title: t('elements.infoText'), icon: <Info className="w-5 h-5" />, type: 'info_text', description: t('elements.infoTextDesc'), tags: ['icon', 'text'] },
+      { id: 'divider', title: t('elements.divider'), icon: <Minus className="w-5 h-5" />, type: 'divider', description: t('elements.dividerDesc'), tags: ['separator', 'line'] },
+      { id: 'spacer', title: t('elements.spacer'), icon: <AlignLeft className="w-5 h-5 rotate-90" />, type: 'spacer', description: t('elements.spacerDesc'), tags: ['space', 'margin'] },
+      { id: 'maps', title: t('elements.map'), icon: <MapPin className="w-5 h-5" />, type: 'maps', description: t('elements.mapDesc'), tags: ['location', 'embed'] },
+      { id: 'icon', title: t('elements.icon'), icon: <Star className="w-5 h-5" />, type: 'icon', description: t('elements.iconDesc'), tags: ['icon', 'symbol'] },
     ]
   };
 
   const generalElements: ElementCategory = {
     id: 'general',
-    title: 'Ogólne',
+    title: t('elements.general'),
     items: [
-      { id: 'image-field', title: 'Pole obrazka', icon: <ImagePlus className="w-5 h-5" />, type: 'image-field', description: 'Pole do wgrania obrazka', tags: ['media', 'upload'] },
-      { id: 'icon-field', title: 'Pole ikonki', icon: <Smile className="w-5 h-5" />, type: 'icon-field', description: 'Pole z wyborem ikony', tags: ['icon', 'picker'] },
-      { id: 'carousel', title: 'Karuzela', icon: <Images className="w-5 h-5" />, type: 'carousel', description: 'Slider obrazków', tags: ['gallery', 'slider'] },
-      { id: 'accessibility', title: 'Dostępność A11y', icon: <Accessibility className="w-5 h-5" />, type: 'accessibility', description: 'Informacje o dostępności', tags: ['a11y', 'aria'] },
-      { id: 'gallery', title: 'Galeria', icon: <LayoutGrid className="w-5 h-5" />, type: 'gallery', description: 'Siatka obrazków', tags: ['images', 'grid'] },
-      { id: 'icon-list', title: 'Lista ikonki', icon: <List className="w-5 h-5" />, type: 'icon-list', description: 'Lista z ikonami', tags: ['list', 'bullets'] },
-      { id: 'counter', title: 'Licznik', icon: <Hash className="w-5 h-5" />, type: 'counter', description: 'Animowany licznik', tags: ['animation', 'stats'] },
-      { id: 'progress-bar', title: 'Pasek postępu', icon: <BarChart3 className="w-5 h-5" />, type: 'progress-bar', description: 'Pasek postępu', tags: ['progress', 'bar'] },
-      { id: 'testimonial', title: 'Referencja', icon: <MessageSquare className="w-5 h-5" />, type: 'testimonial', description: 'Cytat z autorem', tags: ['quote', 'review'] },
-      { id: 'cards', title: 'Karty', icon: <CreditCard className="w-5 h-5" />, type: 'cards', description: 'Karty z treścią', tags: ['card', 'content'] },
-      { id: 'accordion', title: 'Akordeon', icon: <ChevronDown className="w-5 h-5" />, type: 'accordion', description: 'Rozwijane sekcje', tags: ['faq', 'collapse'] },
-      { id: 'toggle', title: 'Przełącznik', icon: <ToggleLeft className="w-5 h-5" />, type: 'toggle', description: 'Rozwijany element', tags: ['switch', 'expand'] },
-      { id: 'multi-cell', title: 'Wiele komórek', icon: <LayoutGrid className="w-5 h-5" />, type: 'multi_cell', description: 'Rozwijany element z nagłówkiem i komórkami', tags: ['cells', 'accordion', 'learn more', 'collapse'] },
-      { id: 'social-icons', title: 'Social Icons', icon: <Share2 className="w-5 h-5" />, type: 'social-icons', description: 'Ikonki społecznościowe', tags: ['social', 'links'] },
-      { id: 'alert', title: 'Ostrzeżenie', icon: <AlertCircle className="w-5 h-5" />, type: 'alert', description: 'Komunikat ostrzegawczy', tags: ['notice', 'warning'] },
-      { id: 'soundcloud', title: 'SoundCloud', icon: <Music className="w-5 h-5" />, type: 'soundcloud', description: 'Odtwarzacz audio', tags: ['audio', 'embed'] },
-      { id: 'shortcode', title: 'Krótki kod', icon: <Code2 className="w-5 h-5" />, type: 'shortcode', description: 'Shortcode', tags: ['code', 'embed'] },
-      { id: 'html', title: 'HTML', icon: <Code className="w-5 h-5" />, type: 'html', description: 'Własny kod HTML', tags: ['code', 'custom'] },
-      { id: 'menu-anchor', title: 'Kotwica menu', icon: <Anchor className="w-5 h-5" />, type: 'menu-anchor', description: 'Kotwica nawigacji', tags: ['anchor', 'navigation'] },
-      { id: 'sidebar', title: 'Panel boczny', icon: <PanelLeft className="w-5 h-5" />, type: 'sidebar', description: 'Boczny panel', tags: ['sidebar', 'layout'] },
-      { id: 'learn-more', title: 'Sekcja zwijana', icon: <Info className="w-5 h-5" />, type: 'learn-more', description: 'Zwijana sekcja z nagłówkiem i treścią', tags: ['accordion', 'collapse', 'layout'] },
-      { id: 'rating', title: 'Ocena', icon: <StarHalf className="w-5 h-5" />, type: 'rating', description: 'Ocena gwiazdkowa', tags: ['stars', 'rating'] },
-      { id: 'trustindex', title: 'Google Recenzje', icon: <ThumbsUp className="w-5 h-5" />, type: 'trustindex', description: 'Widget recenzji', tags: ['reviews', 'embed'] },
-      { id: 'ppom', title: 'PPOM Shortcode', icon: <FileCode className="w-5 h-5" />, type: 'ppom', description: 'PPOM produkt', tags: ['product', 'woo'] },
-      { id: 'text-path', title: 'Ścieżka tekstowa', icon: <Spline className="w-5 h-5" />, type: 'text-path', description: 'Tekst na krzywej SVG', tags: ['svg', 'animation'] },
+      { id: 'image-field', title: t('elements.imageField'), icon: <ImagePlus className="w-5 h-5" />, type: 'image-field', description: t('elements.imageFieldDesc'), tags: ['media', 'upload'] },
+      { id: 'icon-field', title: t('elements.iconField'), icon: <Smile className="w-5 h-5" />, type: 'icon-field', description: t('elements.iconFieldDesc'), tags: ['icon', 'picker'] },
+      { id: 'carousel', title: t('elements.carousel'), icon: <Images className="w-5 h-5" />, type: 'carousel', description: t('elements.carouselDesc'), tags: ['gallery', 'slider'] },
+      { id: 'accessibility', title: t('elements.accessibility'), icon: <Accessibility className="w-5 h-5" />, type: 'accessibility', description: t('elements.accessibilityDesc'), tags: ['a11y', 'aria'] },
+      { id: 'gallery', title: t('elements.gallery'), icon: <LayoutGrid className="w-5 h-5" />, type: 'gallery', description: t('elements.galleryDesc'), tags: ['images', 'grid'] },
+      { id: 'icon-list', title: t('elements.iconList'), icon: <List className="w-5 h-5" />, type: 'icon-list', description: t('elements.iconListDesc'), tags: ['list', 'bullets'] },
+      { id: 'counter', title: t('elements.counter'), icon: <Hash className="w-5 h-5" />, type: 'counter', description: t('elements.counterDesc'), tags: ['animation', 'stats'] },
+      { id: 'progress-bar', title: t('elements.progress'), icon: <BarChart3 className="w-5 h-5" />, type: 'progress-bar', description: t('elements.progressDesc'), tags: ['progress', 'bar'] },
+      { id: 'testimonial', title: t('elements.testimonial'), icon: <MessageSquare className="w-5 h-5" />, type: 'testimonial', description: t('elements.testimonialDesc'), tags: ['quote', 'review'] },
+      { id: 'cards', title: t('elements.cards'), icon: <CreditCard className="w-5 h-5" />, type: 'cards', description: t('elements.cardsDesc'), tags: ['card', 'content'] },
+      { id: 'accordion', title: t('elements.accordion'), icon: <ChevronDown className="w-5 h-5" />, type: 'accordion', description: t('elements.accordionDesc'), tags: ['faq', 'collapse'] },
+      { id: 'toggle', title: t('elements.toggle'), icon: <ToggleLeft className="w-5 h-5" />, type: 'toggle', description: t('elements.toggleDesc'), tags: ['switch', 'expand'] },
+      { id: 'multi-cell', title: t('elements.multiCell'), icon: <LayoutGrid className="w-5 h-5" />, type: 'multi_cell', description: t('elements.multiCellDesc'), tags: ['cells', 'accordion', 'learn more', 'collapse'] },
+      { id: 'social-icons', title: t('elements.social'), icon: <Share2 className="w-5 h-5" />, type: 'social-icons', description: t('elements.socialDesc'), tags: ['social', 'links'] },
+      { id: 'alert', title: t('elements.alert'), icon: <AlertCircle className="w-5 h-5" />, type: 'alert', description: t('elements.alertDesc'), tags: ['notice', 'warning'] },
+      { id: 'soundcloud', title: t('elements.soundcloud'), icon: <Music className="w-5 h-5" />, type: 'soundcloud', description: t('elements.soundcloudDesc'), tags: ['audio', 'embed'] },
+      { id: 'shortcode', title: t('elements.shortcode'), icon: <Code2 className="w-5 h-5" />, type: 'shortcode', description: t('elements.shortcodeDesc'), tags: ['code', 'embed'] },
+      { id: 'html', title: t('elements.html'), icon: <Code className="w-5 h-5" />, type: 'html', description: t('elements.htmlDesc'), tags: ['code', 'custom'] },
+      { id: 'menu-anchor', title: t('elements.menuAnchor'), icon: <Anchor className="w-5 h-5" />, type: 'menu-anchor', description: t('elements.menuAnchorDesc'), tags: ['anchor', 'navigation'] },
+      { id: 'sidebar', title: t('elements.sidebar'), icon: <PanelLeft className="w-5 h-5" />, type: 'sidebar', description: t('elements.sidebarDesc'), tags: ['sidebar', 'layout'] },
+      { id: 'learn-more', title: t('elements.learnMore'), icon: <Info className="w-5 h-5" />, type: 'learn-more', description: t('elements.learnMoreDesc'), tags: ['accordion', 'collapse', 'layout'] },
+      { id: 'rating', title: t('elements.rating'), icon: <StarHalf className="w-5 h-5" />, type: 'rating', description: t('elements.ratingDesc'), tags: ['stars', 'rating'] },
+      { id: 'trustindex', title: t('elements.trustindex'), icon: <ThumbsUp className="w-5 h-5" />, type: 'trustindex', description: t('elements.trustindexDesc'), tags: ['reviews', 'embed'] },
+      { id: 'ppom', title: t('elements.ppom'), icon: <FileCode className="w-5 h-5" />, type: 'ppom', description: t('elements.ppomDesc'), tags: ['product', 'woo'] },
+      { id: 'text-path', title: t('elements.textPath'), icon: <Spline className="w-5 h-5" />, type: 'text-path', description: t('elements.textPathDesc'), tags: ['svg', 'animation'] },
     ]
   };
 
@@ -195,11 +197,11 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     
     return {
       id: 'recently-used',
-      title: 'Ostatnio używane',
+      title: t('elements.recentlyUsed'),
       defaultOpen: true,
       items,
     };
-  }, [recentlyUsed, allItems]);
+  }, [recentlyUsed, allItems, t]);
 
   const filteredCategories = useMemo(() => {
     const categories = recentlyUsedCategory 
@@ -240,11 +242,11 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                 onClick={() => onPanelModeChange('elements')}
                 className="px-2 hover:bg-background"
               >
-                ← Powrót
+                {t('editor.back')}
               </Button>
             )}
             <h2 className="text-lg font-bold text-center flex-1">
-              {panelMode === 'elements' ? 'Elementy' : 'Właściwości'}
+              {panelMode === 'elements' ? t('editor.elements') : t('editor.properties')}
             </h2>
           </div>
         </div>
@@ -253,15 +255,15 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
           <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs defaultValue="widgets" className="flex-1 flex flex-col overflow-hidden">
               <TabsList className="grid w-full grid-cols-2 mx-4 mt-2 shrink-0">
-                <TabsTrigger value="widgets" className="text-sm">Widżety</TabsTrigger>
-                <TabsTrigger value="global" className="text-sm">Globalne</TabsTrigger>
+                <TabsTrigger value="widgets" className="text-sm">{t('editor.widgets')}</TabsTrigger>
+                <TabsTrigger value="global" className="text-sm">{t('editor.global')}</TabsTrigger>
               </TabsList>
 
               {/* Search */}
               <div className="relative px-4 py-3 shrink-0">
                 <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Szukaj widżetu..."
+                  placeholder={t('editor.searchWidget')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 pr-8 bg-muted/50 border-0 focus-visible:ring-1"
@@ -313,7 +315,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
                   {filteredCategories.length === 0 && searchQuery && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Brak wyników dla "{searchQuery}"</p>
+                      <p className="text-sm">{t('editor.noResults')} "{searchQuery}"</p>
                     </div>
                   )}
                 </div>
@@ -322,7 +324,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
               <TabsContent value="global" className="mt-4">
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   <Box className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  Globalne elementy będą dostępne wkrótce
+                  {t('editor.globalSoon')}
                 </div>
               </TabsContent>
             </Tabs>
@@ -346,7 +348,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
               />
             ) : (
               <div className="text-center text-sm text-muted-foreground py-8">
-                Wybierz element do edycji
+                {t('editor.selectElement')}
               </div>
             )}
           </div>
