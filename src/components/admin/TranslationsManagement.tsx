@@ -12,12 +12,14 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, Trash2, Pencil, Languages, Globe, Search, Download, Upload, 
-  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2, FileText
+  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2, FileText, XCircle, CheckCircle2
 } from 'lucide-react';
 import { useTranslationsAdmin, I18nLanguage, TranslationsMap, LanguageTranslations } from '@/hooks/useTranslations';
+import { useTranslationJobs } from '@/hooks/useTranslationJobs';
 import { CMSContentTranslation } from './CMSContentTranslation';
 
 interface TranslationsManagementProps {
@@ -47,6 +49,16 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     translateLanguageWithAI,
     migrateFromHardcoded
   } = useTranslationsAdmin();
+
+  // Background translation jobs
+  const { 
+    activeJob, 
+    isLoading: jobLoading, 
+    progress: jobProgress, 
+    startJob, 
+    cancelJob, 
+    clearJob 
+  } = useTranslationJobs();
 
   const [activeTab, setActiveTab] = useState('languages');
   const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null);
@@ -299,37 +311,17 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     }
   };
 
-  // AI Translation
+  // AI Translation - now uses background jobs
   const handleAiTranslate = async () => {
     if (!aiTranslateTarget) return;
     
-    setAiTranslating(true);
-    setAiProgress({ current: 0, total: 0, currentBatch: 0, totalBatches: 0, status: 'preparing', errors: 0 });
+    // Start background job
+    const job = await startJob(aiTranslateSource, aiTranslateTarget.code, aiTranslateMode);
     
-    try {
-      const result = await translateLanguageWithAI(
-        aiTranslateSource,
-        aiTranslateTarget.code,
-        aiTranslateMode,
-        (progress) => setAiProgress(progress)
-      );
-      
-      toast({ 
-        title: 'Sukces', 
-        description: `Przetłumaczono ${result.translated} z ${result.total} kluczy${result.errors > 0 ? ` (${result.errors} błędów)` : ''}` 
-      });
+    if (job) {
       setAiTranslateDialog(false);
       setAiTranslateTarget(null);
       setAiTranslateMode('missing');
-    } catch (error: any) {
-      toast({ 
-        title: 'Błąd', 
-        description: error.message || 'Wystąpił błąd podczas tłumaczenia', 
-        variant: 'destructive' 
-      });
-    } finally {
-      setAiTranslating(false);
-      setAiProgress({ current: 0, total: 0, currentBatch: 0, totalBatches: 0, status: 'idle', errors: 0 });
     }
   };
 
@@ -460,6 +452,69 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
         className="hidden"
         onChange={(e) => handleFileUpload(e)}
       />
+
+      {/* Background Job Progress Banner */}
+      {activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing') && (
+        <Alert className="mb-4 border-primary/50 bg-primary/5">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <AlertDescription className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-medium">
+                Tłumaczenie w tle: {activeJob.source_language.toUpperCase()} → {activeJob.target_language.toUpperCase()}
+              </span>
+              <span className="text-muted-foreground">
+                {activeJob.processed_keys} / {activeJob.total_keys} kluczy ({jobProgress}%)
+              </span>
+              {activeJob.errors > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {activeJob.errors} błędów
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Progress value={jobProgress} className="w-32 h-2" />
+              <Button variant="ghost" size="sm" onClick={cancelJob}>
+                <XCircle className="w-4 h-4" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Completed Job Banner */}
+      {activeJob && activeJob.status === 'completed' && (
+        <Alert className="mb-4 border-green-500/50 bg-green-500/5">
+          <CheckCircle2 className="w-4 h-4 text-green-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Zakończono tłumaczenie {activeJob.processed_keys} kluczy
+              {activeJob.errors > 0 && ` (${activeJob.errors} błędów)`}
+            </span>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => { refresh(); clearJob(); }}>
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Odśwież
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearJob}>
+                <XCircle className="w-4 h-4" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Failed Job Banner */}
+      {activeJob && activeJob.status === 'failed' && (
+        <Alert className="mb-4 border-destructive/50 bg-destructive/5" variant="destructive">
+          <AlertTriangle className="w-4 h-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Błąd tłumaczenia: {activeJob.error_message || 'Nieznany błąd'}</span>
+            <Button variant="ghost" size="sm" onClick={clearJob}>
+              <XCircle className="w-4 h-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <Card>
         <CardHeader>
@@ -1170,61 +1225,43 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               </Select>
             </div>
 
-            {/* Progress Section */}
-            {aiTranslating && (
-              <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">
-                    {aiProgress.status === 'preparing' && 'Przygotowywanie...'}
-                    {aiProgress.status === 'translating' && 'Tłumaczenie w toku...'}
-                    {aiProgress.status === 'saving' && 'Zapisywanie...'}
-                    {aiProgress.status === 'done' && 'Zakończono!'}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {aiProgress.current} / {aiProgress.total} kluczy
-                  </span>
-                </div>
-                <Progress 
-                  value={aiProgress.total > 0 ? (aiProgress.current / aiProgress.total) * 100 : 0} 
-                  className="h-2"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Batch {aiProgress.currentBatch} / {aiProgress.totalBatches}</span>
-                  <span>
-                    {aiProgress.total > 0 ? Math.round((aiProgress.current / aiProgress.total) * 100) : 0}%
-                    {aiProgress.errors > 0 && (
-                      <span className="text-destructive ml-2">({aiProgress.errors} błędów)</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* Info about background processing */}
+            <div className="bg-muted/50 p-3 rounded-md text-sm">
+              <p className="font-medium mb-1">Tryb tła:</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
+                <li>Tłumaczenie działa w tle - możesz zamknąć okno</li>
+                <li>Postęp jest zapisywany w bazie danych</li>
+                <li>Po odświeżeniu strony możesz kontynuować obserwację</li>
+                <li>Wyniki zapisują się automatycznie</li>
+              </ul>
+            </div>
 
-            {!aiTranslating && (
-              <div className="bg-muted/50 p-3 rounded-md text-sm">
-                <p className="font-medium mb-1">Uwaga:</p>
-                <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
-                  <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
-                  <li>Przetwarzanie równoległe (3 batche po 12 kluczy)</li>
-                  <li>Zalecane ręczne sprawdzenie wyników</li>
-                </ul>
-              </div>
+            {activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing') && (
+              <Alert>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <AlertDescription>
+                  Trwa już tłumaczenie w tle. Poczekaj na zakończenie.
+                </AlertDescription>
+              </Alert>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAiTranslateDialog(false)} disabled={aiTranslating}>
+            <Button variant="outline" onClick={() => setAiTranslateDialog(false)}>
               Anuluj
             </Button>
-            <Button onClick={handleAiTranslate} disabled={aiTranslating}>
-              {aiTranslating ? (
+            <Button 
+              onClick={handleAiTranslate} 
+              disabled={jobLoading || (activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing'))}
+            >
+              {jobLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Tłumaczenie...
+                  Uruchamianie...
                 </>
               ) : (
                 <>
                   <Bot className="w-4 h-4 mr-2" />
-                  Rozpocznij
+                  Rozpocznij w tle
                 </>
               )}
             </Button>

@@ -545,6 +545,54 @@ export type Database = {
           },
         ]
       }
+      cms_item_translations: {
+        Row: {
+          cells: Json | null
+          created_at: string | null
+          description: string | null
+          id: string
+          item_id: string
+          language_code: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cells?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          item_id: string
+          language_code: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cells?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          item_id?: string
+          language_code?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cms_item_translations_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "cms_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cms_item_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       cms_items: {
         Row: {
           background_color: string | null

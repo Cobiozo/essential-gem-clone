@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { I18nLanguage } from '@/hooks/useTranslations';
 import { 
   Search, Bot, Loader2, ChevronRight, ChevronDown, FileText, 
-  Pencil, Save, X, RefreshCw, Languages, AlertTriangle
+  Pencil, Save, X, RefreshCw, Languages, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 
 interface CMSContentTranslationProps {
@@ -41,6 +42,7 @@ interface CMSItem {
 }
 
 interface CMSItemTranslation {
+  id?: string;
   item_id: string;
   language_code: string;
   title: string | null;
@@ -103,9 +105,16 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       if (itemsError) throw itemsError;
       setItems(itemsData || []);
 
-      // Fetch existing translations from cms_item_translations table (if exists)
-      // For now, we'll store translations in a separate structure
-      // This could be extended to use a dedicated table
+      // Fetch existing translations from cms_item_translations table
+      const { data: translationsData, error: translationsError } = await supabase
+        .from('cms_item_translations')
+        .select('*');
+      
+      if (translationsError) {
+        console.error('Error fetching translations:', translationsError);
+      } else {
+        setTranslations(translationsData || []);
+      }
 
     } catch (error: any) {
       toast({ title: 'Błąd', description: 'Nie udało się załadować danych', variant: 'destructive' });
@@ -147,10 +156,10 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     return groups;
   }, [filteredItems]);
 
-  // Get translation for item (mock - would come from DB)
-  const getTranslation = (itemId: string, langCode: string): CMSItemTranslation | null => {
+  // Get translation for item from database
+  const getTranslation = useCallback((itemId: string, langCode: string): CMSItemTranslation | null => {
     return translations.find(t => t.item_id === itemId && t.language_code === langCode) || null;
-  };
+  }, [translations]);
 
   // Toggle item expansion
   const toggleItem = (itemId: string) => {
@@ -173,25 +182,48 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     });
   };
 
-  // Save translation
+  // Save translation to database
   const saveTranslation = async (itemId: string) => {
     setSaving(true);
     try {
-      // Update local state
-      const newTranslations = translations.filter(
-        t => !(t.item_id === itemId && t.language_code === selectedLanguage)
-      );
-      newTranslations.push({
+      const existingTranslation = getTranslation(itemId, selectedLanguage);
+      
+      const translationData = {
         item_id: itemId,
         language_code: selectedLanguage,
         title: editForm.title || null,
         description: editForm.description || null,
-        cells: null
-      });
-      setTranslations(newTranslations);
+        cells: null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingTranslation?.id) {
+        // Update existing
+        const { error } = await supabase
+          .from('cms_item_translations')
+          .update(translationData)
+          .eq('id', existingTranslation.id);
+        
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase
+          .from('cms_item_translations')
+          .insert(translationData);
+        
+        if (error) throw error;
+      }
+
+      // Refresh translations from database
+      const { data: updatedTranslations } = await supabase
+        .from('cms_item_translations')
+        .select('*');
       
-      // TODO: Save to database when cms_item_translations table is created
-      toast({ title: 'Zapisano', description: 'Tłumaczenie zostało zapisane lokalnie' });
+      if (updatedTranslations) {
+        setTranslations(updatedTranslations);
+      }
+      
+      toast({ title: 'Zapisano', description: 'Tłumaczenie zostało zapisane' });
       setEditingItem(null);
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
@@ -200,21 +232,17 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     }
   };
 
-  // AI translate single item
+  // AI translate single item and save to database
   const translateWithAI = async (item: CMSItem) => {
     if (!item.title && !item.description) return;
     
     setAiTranslating(true);
     try {
-      const textsToTranslate: string[] = [];
-      if (item.title) textsToTranslate.push(item.title);
-      if (item.description) textsToTranslate.push(item.description);
-      
       const targetLang = languages.find(l => l.code === selectedLanguage);
       
       const { data, error } = await supabase.functions.invoke('translate-content', {
         body: {
-          texts: textsToTranslate,
+          content: item.title || item.description,
           targetLanguage: targetLang?.name || selectedLanguage,
           sourceLanguage: 'Polish'
         }
@@ -222,23 +250,40 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       
       if (error) throw error;
       
-      const translated = data.translations || [];
-      let titleIndex = 0;
+      const translatedContent = data.translated || data.content;
       
-      const newTranslations = translations.filter(
-        t => !(t.item_id === item.id && t.language_code === selectedLanguage)
-      );
-      
-      newTranslations.push({
+      // Save to database
+      const existingTranslation = getTranslation(item.id, selectedLanguage);
+      const translationData = {
         item_id: item.id,
         language_code: selectedLanguage,
-        title: item.title ? translated[titleIndex++] : null,
-        description: item.description ? translated[titleIndex] : null,
-        cells: null
-      });
+        title: item.title ? translatedContent : null,
+        description: item.description && !item.title ? translatedContent : null,
+        cells: null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingTranslation?.id) {
+        await supabase
+          .from('cms_item_translations')
+          .update(translationData)
+          .eq('id', existingTranslation.id);
+      } else {
+        await supabase
+          .from('cms_item_translations')
+          .insert(translationData);
+      }
+
+      // Refresh translations
+      const { data: updatedTranslations } = await supabase
+        .from('cms_item_translations')
+        .select('*');
       
-      setTranslations(newTranslations);
-      toast({ title: 'Sukces', description: 'Element został przetłumaczony' });
+      if (updatedTranslations) {
+        setTranslations(updatedTranslations);
+      }
+      
+      toast({ title: 'Sukces', description: 'Element został przetłumaczony i zapisany' });
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     } finally {
@@ -263,51 +308,71 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     
     try {
       const targetLang = languages.find(l => l.code === selectedLanguage);
+      let successCount = 0;
       
       for (let i = 0; i < itemsToTranslate.length; i++) {
         const item = itemsToTranslate[i];
         setAiProgress({ current: i + 1, total: itemsToTranslate.length });
         
-        const textsToTranslate: string[] = [];
-        if (item.title) textsToTranslate.push(item.title);
-        if (item.description) textsToTranslate.push(item.description);
+        const contentToTranslate = item.title || item.description;
+        if (!contentToTranslate) continue;
         
-        if (textsToTranslate.length === 0) continue;
-        
-        const { data, error } = await supabase.functions.invoke('translate-content', {
-          body: {
-            texts: textsToTranslate,
-            targetLanguage: targetLang?.name || selectedLanguage,
-            sourceLanguage: 'Polish'
-          }
-        });
-        
-        if (error) continue;
-        
-        const translated = data.translations || [];
-        let titleIndex = 0;
-        
-        setTranslations(prev => {
-          const newTranslations = prev.filter(
-            t => !(t.item_id === item.id && t.language_code === selectedLanguage)
-          );
-          newTranslations.push({
+        try {
+          const { data, error } = await supabase.functions.invoke('translate-content', {
+            body: {
+              content: contentToTranslate,
+              targetLanguage: targetLang?.name || selectedLanguage,
+              sourceLanguage: 'Polish'
+            }
+          });
+          
+          if (error) continue;
+          
+          const translatedContent = data.translated || data.content;
+          
+          // Save to database
+          const existingTranslation = getTranslation(item.id, selectedLanguage);
+          const translationData = {
             item_id: item.id,
             language_code: selectedLanguage,
-            title: item.title ? translated[titleIndex++] : null,
-            description: item.description ? translated[titleIndex] : null,
-            cells: null
-          });
-          return newTranslations;
-        });
+            title: item.title ? translatedContent : null,
+            description: item.description && !item.title ? translatedContent : null,
+            cells: null,
+            updated_at: new Date().toISOString()
+          };
+
+          if (existingTranslation?.id) {
+            await supabase
+              .from('cms_item_translations')
+              .update(translationData)
+              .eq('id', existingTranslation.id);
+          } else {
+            await supabase
+              .from('cms_item_translations')
+              .insert(translationData);
+          }
+          
+          successCount++;
+        } catch {
+          // Continue with next item on error
+        }
         
         // Small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // Refresh all translations from database
+      const { data: updatedTranslations } = await supabase
+        .from('cms_item_translations')
+        .select('*');
+      
+      if (updatedTranslations) {
+        setTranslations(updatedTranslations);
       }
       
       toast({ 
         title: 'Sukces', 
-        description: `Przetłumaczono ${itemsToTranslate.length} elementów` 
+        description: `Przetłumaczono i zapisano ${successCount} z ${itemsToTranslate.length} elementów` 
       });
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
@@ -326,7 +391,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       return t?.title || t?.description;
     }).length;
     return { total, translated, percentage: total > 0 ? Math.round((translated / total) * 100) : 0 };
-  }, [filteredItems, selectedLanguage, translations]);
+  }, [filteredItems, selectedLanguage, getTranslation]);
 
   if (loading) {
     return (
@@ -415,6 +480,19 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         </CardContent>
       </Card>
 
+      {/* AI Translation Progress */}
+      {aiTranslating && aiProgress.total > 0 && (
+        <Alert className="border-primary/50 bg-primary/5">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Tłumaczenie elementów CMS: {aiProgress.current} / {aiProgress.total}
+            </span>
+            <Progress value={(aiProgress.current / aiProgress.total) * 100} className="w-32 h-2" />
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Content list */}
       <ScrollArea className="h-[500px]">
         <div className="space-y-3">
@@ -456,7 +534,9 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
                                 {item.title || item.description?.substring(0, 50) || 'Bez tytułu'}
                               </span>
                               {hasTranslation ? (
-                                <Badge className="bg-green-500/20 text-green-600">✓</Badge>
+                                <Badge className="bg-green-500/20 text-green-600">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                </Badge>
                               ) : (
                                 <Badge variant="secondary" className="text-yellow-600">
                                   <AlertTriangle className="w-3 h-3" />
@@ -473,86 +553,96 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
                                       🇵🇱 Oryginał (Polski)
                                     </Label>
                                     {item.title && (
-                                      <div className="mt-1 p-2 bg-muted rounded text-sm">
-                                        <strong>Tytuł:</strong> {item.title}
-                                      </div>
+                                      <p className="text-sm font-medium mt-1">{item.title}</p>
                                     )}
                                     {item.description && (
-                                      <div className="mt-1 p-2 bg-muted rounded text-sm">
-                                        <strong>Opis:</strong> {item.description}
-                                      </div>
+                                      <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
+                                        {item.description}
+                                      </p>
                                     )}
                                   </div>
                                   
                                   {/* Translation */}
                                   <div>
                                     <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                                      {languages.find(l => l.code === selectedLanguage)?.flag_emoji} Tłumaczenie ({selectedLanguage.toUpperCase()})
+                                      {languages.find(l => l.code === selectedLanguage)?.flag_emoji} Tłumaczenie
                                     </Label>
                                     
                                     {isEditing ? (
                                       <div className="space-y-2 mt-1">
                                         {item.title && (
-                                          <div>
-                                            <Label className="text-xs">Tytuł</Label>
-                                            <Input
-                                              value={editForm.title}
-                                              onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                                              placeholder="Przetłumaczony tytuł"
-                                            />
-                                          </div>
+                                          <Input
+                                            value={editForm.title}
+                                            onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                                            placeholder="Tytuł..."
+                                            className="text-sm"
+                                          />
                                         )}
                                         {item.description && (
-                                          <div>
-                                            <Label className="text-xs">Opis</Label>
-                                            <Textarea
-                                              value={editForm.description}
-                                              onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                                              placeholder="Przetłumaczony opis"
-                                              rows={3}
-                                            />
-                                          </div>
+                                          <Textarea
+                                            value={editForm.description}
+                                            onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                                            placeholder="Opis..."
+                                            rows={2}
+                                            className="text-sm"
+                                          />
                                         )}
                                         <div className="flex gap-2">
-                                          <Button size="sm" onClick={() => saveTranslation(item.id)} disabled={saving}>
+                                          <Button 
+                                            size="sm" 
+                                            onClick={() => saveTranslation(item.id)}
+                                            disabled={saving}
+                                          >
                                             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                                             <span className="ml-1">Zapisz</span>
                                           </Button>
-                                          <Button size="sm" variant="outline" onClick={() => setEditingItem(null)}>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            onClick={() => setEditingItem(null)}
+                                          >
                                             <X className="w-3 h-3" />
                                           </Button>
                                         </div>
                                       </div>
                                     ) : (
                                       <div className="mt-1">
-                                        {translation?.title && (
-                                          <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded text-sm">
-                                            <strong>Tytuł:</strong> {translation.title}
-                                          </div>
-                                        )}
-                                        {translation?.description && (
-                                          <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded text-sm mt-1">
-                                            <strong>Opis:</strong> {translation.description}
-                                          </div>
-                                        )}
-                                        {!hasTranslation && (
-                                          <div className="p-2 bg-yellow-50 dark:bg-yellow-950/20 rounded text-sm text-muted-foreground italic">
+                                        {hasTranslation ? (
+                                          <>
+                                            {translation?.title && (
+                                              <p className="text-sm font-medium">{translation.title}</p>
+                                            )}
+                                            {translation?.description && (
+                                              <p className="text-sm text-muted-foreground line-clamp-3">
+                                                {translation.description}
+                                              </p>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <p className="text-sm text-muted-foreground italic">
                                             Brak tłumaczenia
-                                          </div>
+                                          </p>
                                         )}
-                                        
                                         <div className="flex gap-2 mt-2">
-                                          <Button size="sm" variant="outline" onClick={() => startEditing(item)}>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            onClick={() => startEditing(item)}
+                                          >
                                             <Pencil className="w-3 h-3 mr-1" />
                                             Edytuj
                                           </Button>
                                           <Button 
                                             size="sm" 
-                                            variant="outline" 
+                                            variant="outline"
                                             onClick={() => translateWithAI(item)}
                                             disabled={aiTranslating}
                                           >
-                                            <Bot className="w-3 h-3 mr-1" />
+                                            {aiTranslating ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Bot className="w-3 h-3 mr-1" />
+                                            )}
                                             AI
                                           </Button>
                                         </div>
@@ -573,54 +663,56 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
           })}
           
           {filteredItems.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Languages className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <div className="text-center py-8 text-muted-foreground">
+              <Languages className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>Brak elementów do tłumaczenia</p>
-              <p className="text-sm mt-1">Wybierz stronę lub zmień kryteria wyszukiwania</p>
             </div>
           )}
         </div>
       </ScrollArea>
 
-      {/* AI Translation Dialog */}
-      <Dialog open={aiDialog} onOpenChange={open => !aiTranslating && setAiDialog(open)}>
+      {/* AI Translate All Dialog */}
+      <Dialog open={aiDialog} onOpenChange={setAiDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
-              Automatyczne tłumaczenie treści CMS
+              Automatyczne tłumaczenie AI
             </DialogTitle>
             <DialogDescription>
-              Przetłumacz wszystkie brakujące treści na język {languages.find(l => l.code === selectedLanguage)?.name}
+              Przetłumacz wszystkie brakujące elementy CMS do języka {languages.find(l => l.code === selectedLanguage)?.name}
             </DialogDescription>
           </DialogHeader>
-          
           <div className="py-4 space-y-4">
-            <div className="bg-muted/50 p-3 rounded-md">
-              <p className="text-sm">
-                <strong>{stats.total - stats.translated}</strong> elementów do przetłumaczenia
-              </p>
+            <div className="bg-muted/50 p-3 rounded-md text-sm">
+              <p className="font-medium mb-1">Informacje:</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
+                <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
+                <li>Przetłumaczone elementy są automatycznie zapisywane w bazie</li>
+                <li>Tylko elementy bez istniejącego tłumaczenia będą przetłumaczone</li>
+                <li>Zalecane ręczne sprawdzenie wyników</li>
+              </ul>
             </div>
             
-            {aiTranslating && (
-              <div className="space-y-2">
-                <Progress value={(aiProgress.current / aiProgress.total) * 100} />
-                <p className="text-sm text-center text-muted-foreground">
-                  {aiProgress.current} / {aiProgress.total} elementów
-                </p>
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Elementy do przetłumaczenia:</span>
+              <Badge variant="secondary">
+                {filteredItems.filter(item => {
+                  const t = getTranslation(item.id, selectedLanguage);
+                  return (item.title || item.description) && (!t?.title && !t?.description);
+                }).length}
+              </Badge>
+            </div>
           </div>
-          
           <DialogFooter>
             <Button variant="outline" onClick={() => setAiDialog(false)} disabled={aiTranslating}>
               Anuluj
             </Button>
-            <Button onClick={translateAllWithAI} disabled={aiTranslating || stats.total - stats.translated === 0}>
+            <Button onClick={translateAllWithAI} disabled={aiTranslating}>
               {aiTranslating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Tłumaczenie...
+                  Tłumaczenie ({aiProgress.current}/{aiProgress.total})...
                 </>
               ) : (
                 <>
@@ -635,3 +727,5 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     </div>
   );
 };
+
+export default CMSContentTranslation;
