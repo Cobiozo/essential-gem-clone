@@ -475,6 +475,65 @@ export const useTranslationsAdmin = () => {
     };
   };
 
+  // Migrate from hardcoded translations (from LanguageContext.tsx)
+  const migrateFromHardcoded = async (
+    onProgress?: (current: number, total: number) => void
+  ): Promise<{ success: boolean; migrated: number }> => {
+    // Import hardcoded translations from LanguageContext
+    const { translations: hardcodedTranslations } = await import('@/contexts/LanguageContext').then(m => {
+      // Access the internal translations object
+      return { translations: (m as any).hardcodedTranslations || {} };
+    }).catch(() => ({ translations: {} }));
+
+    // Fallback - get from window if available or use embedded ones
+    const translationsToMigrate = Object.keys(hardcodedTranslations).length > 0 
+      ? hardcodedTranslations 
+      : getHardcodedTranslations();
+
+    const inserts: { language_code: string; namespace: string; key: string; value: string }[] = [];
+    
+    for (const [langCode, keys] of Object.entries(translationsToMigrate)) {
+      for (const [fullKey, value] of Object.entries(keys as Record<string, string>)) {
+        const [namespace, ...keyParts] = fullKey.split('.');
+        const key = keyParts.join('.');
+        if (namespace && key && value) {
+          inserts.push({
+            language_code: langCode,
+            namespace,
+            key,
+            value
+          });
+        }
+      }
+    }
+    
+    if (inserts.length === 0) {
+      throw new Error('No translations found to migrate');
+    }
+
+    onProgress?.(0, inserts.length);
+    
+    // Insert in batches of 100
+    const batchSize = 100;
+    let migrated = 0;
+    
+    for (let i = 0; i < inserts.length; i += batchSize) {
+      const batch = inserts.slice(i, i + batchSize);
+      const { error } = await supabase
+        .from('i18n_translations')
+        .upsert(batch, { onConflict: 'language_code,namespace,key' });
+      
+      if (error) throw error;
+      migrated += batch.length;
+      onProgress?.(migrated, inserts.length);
+    }
+    
+    await fetchTranslations();
+    invalidateTranslationsCache();
+    
+    return { success: true, migrated };
+  };
+
   // Bulk operations
   const importTranslations = async (data: TranslationsMap) => {
     const inserts: { language_code: string; namespace: string; key: string; value: string }[] = [];
@@ -535,6 +594,199 @@ export const useTranslationsAdmin = () => {
     importLanguageJson,
     deleteLanguageTranslations,
     getLanguageStats,
-    translateLanguageWithAI
+    translateLanguageWithAI,
+    migrateFromHardcoded
   };
 };
+
+// Helper function with embedded hardcoded translations for migration
+function getHardcodedTranslations(): Record<string, Record<string, string>> {
+  return {
+    pl: {
+      'nav.home': 'Strona główna',
+      'nav.admin': 'Panel CMS',
+      'nav.myAccount': 'Moje konto',
+      'nav.login': 'Zaloguj się',
+      'nav.logout': 'Wyloguj się',
+      'auth.signIn': 'Zaloguj się',
+      'auth.email': 'Email',
+      'auth.password': 'Hasło',
+      'auth.confirmPassword': 'Potwierdź hasło',
+      'auth.signUp': 'Zarejestruj się',
+      'auth.signUpLink': 'Nie masz konta? Zarejestruj się',
+      'auth.signInLink': 'Masz już konto? Zaloguj się',
+      'auth.resetPassword': 'Resetuj hasło',
+      'auth.eqId': 'EQ ID',
+      'auth.role': 'Wybierz rolę',
+      'auth.roleClient': 'Klient',
+      'auth.rolePartner': 'Partner',
+      'auth.roleSpecialist': 'Specjalista',
+      'auth.selectRole': 'Wybierz swoją rolę',
+      'auth.forgotPassword': 'Zapomniałem hasła',
+      'fonts.title': 'Czcionki',
+      'fonts.editor': 'Edytor czcionek',
+      'fonts.description': 'Zarządzaj typografią aplikacji',
+      'fonts.preview': 'Podgląd czcionki',
+      'fonts.apply': 'Zastosuj zmiany',
+      'fonts.cancel': 'Anuluj',
+      'fonts.loading': 'Ładowanie czcionek...',
+      'colors.title': 'Kolory',
+      'colors.editor': 'Edytor kolorów',
+      'colors.description': 'Zarządzaj paletą kolorów aplikacji',
+      'colors.primary': 'Kolor główny',
+      'colors.secondary': 'Kolor drugorzędny',
+      'colors.accent': 'Kolor akcentu',
+      'colors.background': 'Tło',
+      'colors.text': 'Tekst',
+      'admin.title': 'Panel administracyjny',
+      'admin.sections': 'Sekcje',
+      'admin.pages': 'Strony',
+      'admin.users': 'Użytkownicy',
+      'admin.settings': 'Ustawienia',
+      'admin.save': 'Zapisz',
+      'admin.cancel': 'Anuluj',
+      'admin.edit': 'Edytuj',
+      'admin.delete': 'Usuń',
+      'admin.translations': 'Tłumaczenia',
+      'admin.active': 'Aktywna',
+      'admin.inactive': 'Nieaktywna',
+      'action.save': 'Zapisz',
+      'action.cancel': 'Anuluj',
+      'action.edit': 'Edytuj',
+      'action.delete': 'Usuń',
+      'action.add': 'Dodaj',
+      'action.create': 'Utwórz',
+      'action.close': 'Zamknij',
+      'action.confirm': 'Potwierdź',
+      'common.loading': 'Ładowanie...',
+      'common.noContent': 'Brak zawartości',
+      'training.title': 'Akademia',
+      'training.description': 'Ukończ wszystkie wymagane szkolenia',
+      'training.progress': 'Postęp',
+      'training.lessons': 'lekcji',
+      'roles.admin': 'Administrator',
+      'roles.partner': 'Partner',
+      'roles.client': 'Klient',
+      'roles.specjalista': 'Specjalista',
+      'roles.user': 'Użytkownik',
+      'chat.title': 'Asystent Pure Life',
+      'chat.open': 'Otwórz czat',
+      'chat.close': 'Zamknij czat',
+      'chat.placeholder': 'Napisz wiadomość...',
+      'chat.send': 'Wyślij',
+      'success.saved': 'Zapisano pomyślnie',
+      'success.created': 'Utworzono pomyślnie',
+      'success.deleted': 'Usunięto pomyślnie',
+      'error.saveFailed': 'Nie udało się zapisać',
+      'error.loadFailed': 'Nie udało się załadować',
+      'error.deleteFailed': 'Nie udało się usunąć',
+      'ui.viewPage': 'Zobacz stronę',
+      'ui.copyLink': 'Kopiuj link',
+      'ui.published': 'Opublikowana',
+      'ui.preview': 'Podgląd',
+      'ui.title': 'Tytuł',
+      'dialog.addSection': 'Dodaj nową sekcję',
+      'dialog.editSection': 'Edytuj sekcję',
+      'dialog.deleteSection': 'Usuń sekcję',
+      'myAccount.title': 'Moje konto',
+      'myAccount.profile': 'Profil',
+      'myAccount.changePassword': 'Zmień hasło',
+      'account.myAccount': 'Moje konto',
+      'account.profile': 'Profil',
+      'footer.allRightsReserved': 'Wszystkie prawa zastrzeżone.',
+      'footer.privacyPolicy': 'Polityka prywatności',
+      'footer.terms': 'Regulamin',
+      'rolePreview.title': 'Podgląd jako rola',
+      'rolePreview.real': 'Rzeczywisty widok',
+      'rolePreview.admin': 'Administrator',
+      'rolePreview.client': 'Klient',
+      'rolePreview.partner': 'Partner',
+      'rolePreview.specjalista': 'Specjalista',
+      'rolePreview.anonymous': 'Niezalogowany',
+      'toolbar.saving': 'Zapisywanie...',
+      'toolbar.saved': 'Zapisane',
+      'toolbar.errorSaving': 'Błąd zapisu',
+      'toolbar.preview': 'Podgląd',
+      'certificates.assignedRoles': 'Przypisane role',
+      'certificates.noRolesAssigned': 'Brak przypisanych ról'
+    },
+    de: {
+      'nav.home': 'Startseite',
+      'nav.admin': 'CMS Panel',
+      'nav.myAccount': 'Mein Konto',
+      'nav.login': 'Anmelden',
+      'nav.logout': 'Abmelden',
+      'auth.signIn': 'Anmelden',
+      'auth.email': 'E-Mail',
+      'auth.password': 'Passwort',
+      'auth.signUp': 'Registrieren',
+      'admin.title': 'Administrationsbereich',
+      'admin.sections': 'Bereiche',
+      'admin.pages': 'Seiten',
+      'admin.users': 'Benutzer',
+      'admin.settings': 'Einstellungen',
+      'admin.save': 'Speichern',
+      'admin.cancel': 'Abbrechen',
+      'admin.edit': 'Bearbeiten',
+      'admin.delete': 'Löschen',
+      'admin.translations': 'Übersetzungen',
+      'action.save': 'Speichern',
+      'action.cancel': 'Abbrechen',
+      'action.edit': 'Bearbeiten',
+      'action.delete': 'Löschen',
+      'action.add': 'Hinzufügen',
+      'action.create': 'Erstellen',
+      'common.loading': 'Laden...',
+      'common.noContent': 'Kein Inhalt',
+      'training.title': 'Akademie',
+      'roles.admin': 'Administrator',
+      'roles.partner': 'Partner',
+      'roles.client': 'Kunde',
+      'roles.specjalista': 'Spezialist',
+      'roles.user': 'Benutzer',
+      'chat.title': 'Pure Life Assistent',
+      'success.saved': 'Erfolgreich gespeichert',
+      'error.saveFailed': 'Speichern fehlgeschlagen',
+      'error.loadFailed': 'Laden fehlgeschlagen'
+    },
+    en: {
+      'nav.home': 'Home',
+      'nav.admin': 'CMS Panel',
+      'nav.myAccount': 'My Account',
+      'nav.login': 'Login',
+      'nav.logout': 'Logout',
+      'auth.signIn': 'Sign In',
+      'auth.email': 'Email',
+      'auth.password': 'Password',
+      'auth.signUp': 'Sign Up',
+      'admin.title': 'Admin Panel',
+      'admin.sections': 'Sections',
+      'admin.pages': 'Pages',
+      'admin.users': 'Users',
+      'admin.settings': 'Settings',
+      'admin.save': 'Save',
+      'admin.cancel': 'Cancel',
+      'admin.edit': 'Edit',
+      'admin.delete': 'Delete',
+      'admin.translations': 'Translations',
+      'action.save': 'Save',
+      'action.cancel': 'Cancel',
+      'action.edit': 'Edit',
+      'action.delete': 'Delete',
+      'action.add': 'Add',
+      'action.create': 'Create',
+      'common.loading': 'Loading...',
+      'common.noContent': 'No content',
+      'training.title': 'Academy',
+      'roles.admin': 'Administrator',
+      'roles.partner': 'Partner',
+      'roles.client': 'Client',
+      'roles.specjalista': 'Specialist',
+      'roles.user': 'User',
+      'chat.title': 'Pure Life Assistant',
+      'success.saved': 'Saved successfully',
+      'error.saveFailed': 'Failed to save',
+      'error.loadFailed': 'Failed to load'
+    }
+  };
+}

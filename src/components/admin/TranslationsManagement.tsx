@@ -43,7 +43,8 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     exportLanguageJson,
     importLanguageJson,
     getLanguageStats,
-    translateLanguageWithAI
+    translateLanguageWithAI,
+    migrateFromHardcoded
   } = useTranslationsAdmin();
 
   const [activeTab, setActiveTab] = useState('languages');
@@ -86,6 +87,10 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   const [aiTranslateSource, setAiTranslateSource] = useState<string>('pl');
   const [aiTranslating, setAiTranslating] = useState(false);
   const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
+
+  // Migration state
+  const [migrating, setMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState({ current: 0, total: 0 });
 
   // Group translations by namespace and key
   const groupedTranslations = useMemo(() => {
@@ -302,6 +307,30 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     }
   };
 
+  // Handle migration from hardcoded translations
+  const handleMigrate = async () => {
+    setMigrating(true);
+    setMigrationProgress({ current: 0, total: 0 });
+    
+    try {
+      const result = await migrateFromHardcoded(
+        (current, total) => setMigrationProgress({ current, total })
+      );
+      toast({ 
+        title: 'Sukces', 
+        description: `Zmigrowano ${result.migrated} tłumaczeń do bazy danych` 
+      });
+    } catch (error: any) {
+      toast({ 
+        title: 'Błąd', 
+        description: error.message || 'Wystąpił błąd podczas migracji', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   const resetLanguageForm = () => {
     setLanguageForm({
       code: '',
@@ -390,7 +419,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                 Zarządzaj językami i tłumaczeniami aplikacji
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={handleExportAll}>
                 <Download className="w-4 h-4 mr-2" />
                 Eksport wszystkich
@@ -399,6 +428,26 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                 <Upload className="w-4 h-4 mr-2" />
                 Import
               </Button>
+              {translations.length === 0 && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleMigrate}
+                  disabled={migrating}
+                >
+                  {migrating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Migracja... {migrationProgress.current}/{migrationProgress.total}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Załaduj tłumaczenia
+                    </>
+                  )}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={refresh}>
                 <RefreshCw className="w-4 h-4" />
               </Button>
@@ -414,7 +463,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               </TabsTrigger>
               <TabsTrigger value="translations">
                 <FileJson className="w-4 h-4 mr-2" />
-                Tłumaczenia
+                Tłumaczenia ({translations.length})
               </TabsTrigger>
             </TabsList>
 
