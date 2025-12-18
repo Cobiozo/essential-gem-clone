@@ -42,6 +42,16 @@ interface CMSItem {
   position: number;
 }
 
+interface CMSSection {
+  id: string;
+  page_id: string;
+  title: string | null;
+  description: string | null;
+  collapsible_header: string | null;
+  position: number;
+  section_type: string | null;
+}
+
 interface CMSItemTranslation {
   id?: string;
   item_id: string;
@@ -49,6 +59,15 @@ interface CMSItemTranslation {
   title: string | null;
   description: string | null;
   cells: any;
+}
+
+interface CMSSectionTranslation {
+  id?: string;
+  section_id: string;
+  language_code: string;
+  title: string | null;
+  description: string | null;
+  collapsible_header: string | null;
 }
 
 export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
@@ -61,17 +80,22 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
   // State
   const [pages, setPages] = useState<Page[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
+  const [sections, setSections] = useState<CMSSection[]>([]);
   const [translations, setTranslations] = useState<CMSItemTranslation[]>([]);
+  const [sectionTranslations, setSectionTranslations] = useState<CMSSectionTranslation[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedPage, setSelectedPage] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>(defaultLang === 'pl' ? 'de' : 'pl');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'items' | 'sections'>('items');
   
   // Edit state
   const [editingItem, setEditingItem] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ title: string; description: string }>({ title: '', description: '' });
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ title: string; description: string; collapsible_header?: string }>({ title: '', description: '' });
   const [saving, setSaving] = useState(false);
   
   // AI Translation dialog
@@ -118,15 +142,36 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       if (itemsError) throw itemsError;
       setItems(itemsData || []);
 
-      // Fetch existing translations from cms_item_translations table
+      // Fetch CMS sections with translatable content
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('cms_sections')
+        .select('id, page_id, title, description, collapsible_header, position, section_type')
+        .eq('is_active', true)
+        .order('position');
+      
+      if (sectionsError) throw sectionsError;
+      setSections(sectionsData || []);
+
+      // Fetch existing item translations
       const { data: translationsData, error: translationsError } = await supabase
         .from('cms_item_translations')
         .select('*');
       
       if (translationsError) {
-        console.error('Error fetching translations:', translationsError);
+        console.error('Error fetching item translations:', translationsError);
       } else {
         setTranslations(translationsData || []);
+      }
+
+      // Fetch existing section translations
+      const { data: sectionTranslationsData, error: sectionTranslationsError } = await supabase
+        .from('cms_section_translations')
+        .select('*');
+      
+      if (sectionTranslationsError) {
+        console.error('Error fetching section translations:', sectionTranslationsError);
+      } else {
+        setSectionTranslations(sectionTranslationsData || []);
       }
 
     } catch (error: any) {
@@ -159,6 +204,28 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     return result;
   }, [items, selectedPage, searchQuery]);
 
+  // Filter sections by page and search
+  const filteredSections = useMemo(() => {
+    let result = sections;
+    
+    if (selectedPage) {
+      result = result.filter(section => section.page_id === selectedPage);
+    }
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(section => 
+        (section.title?.toLowerCase().includes(query)) ||
+        (section.description?.toLowerCase().includes(query))
+      );
+    }
+    
+    // Only show sections with translatable content
+    result = result.filter(section => section.title || section.description || section.collapsible_header);
+    
+    return result;
+  }, [sections, selectedPage, searchQuery]);
+
   // Group items by page
   const itemsByPage = useMemo(() => {
     const groups: Record<string, CMSItem[]> = {};
@@ -169,10 +236,25 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     return groups;
   }, [filteredItems]);
 
+  // Group sections by page
+  const sectionsByPage = useMemo(() => {
+    const groups: Record<string, CMSSection[]> = {};
+    for (const section of filteredSections) {
+      if (!groups[section.page_id]) groups[section.page_id] = [];
+      groups[section.page_id].push(section);
+    }
+    return groups;
+  }, [filteredSections]);
+
   // Get translation for item from database
   const getTranslation = useCallback((itemId: string, langCode: string): CMSItemTranslation | null => {
     return translations.find(t => t.item_id === itemId && t.language_code === langCode) || null;
   }, [translations]);
+
+  // Get translation for section from database
+  const getSectionTranslation = useCallback((sectionId: string, langCode: string): CMSSectionTranslation | null => {
+    return sectionTranslations.find(t => t.section_id === sectionId && t.language_code === langCode) || null;
+  }, [sectionTranslations]);
 
   // Toggle item expansion
   const toggleItem = (itemId: string) => {
@@ -185,17 +267,41 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     setExpandedItems(newExpanded);
   };
 
-  // Start editing
+  // Toggle section expansion
+  const toggleSection = (sectionId: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(sectionId)) {
+      newExpanded.delete(sectionId);
+    } else {
+      newExpanded.add(sectionId);
+    }
+    setExpandedSections(newExpanded);
+  };
+
+  // Start editing item
   const startEditing = (item: CMSItem) => {
     const translation = getTranslation(item.id, selectedLanguage);
     setEditingItem(item.id);
+    setEditingSection(null);
     setEditForm({
       title: translation?.title || '',
       description: translation?.description || ''
     });
   };
 
-  // Save translation to database
+  // Start editing section
+  const startEditingSection = (section: CMSSection) => {
+    const translation = getSectionTranslation(section.id, selectedLanguage);
+    setEditingSection(section.id);
+    setEditingItem(null);
+    setEditForm({
+      title: translation?.title || '',
+      description: translation?.description || '',
+      collapsible_header: translation?.collapsible_header || ''
+    });
+  };
+
+  // Save item translation to database
   const saveTranslation = async (itemId: string) => {
     setSaving(true);
     try {
@@ -211,7 +317,6 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       };
 
       if (existingTranslation?.id) {
-        // Update existing
         const { error } = await supabase
           .from('cms_item_translations')
           .update(translationData)
@@ -219,7 +324,6 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         
         if (error) throw error;
       } else {
-        // Insert new
         const { error } = await supabase
           .from('cms_item_translations')
           .insert(translationData);
@@ -227,7 +331,6 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         if (error) throw error;
       }
 
-      // Refresh translations from database
       const { data: updatedTranslations } = await supabase
         .from('cms_item_translations')
         .select('*');
@@ -238,6 +341,53 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       
       toast({ title: 'Zapisano', description: 'Tłumaczenie zostało zapisane' });
       setEditingItem(null);
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save section translation to database
+  const saveSectionTranslation = async (sectionId: string) => {
+    setSaving(true);
+    try {
+      const existingTranslation = getSectionTranslation(sectionId, selectedLanguage);
+      
+      const translationData = {
+        section_id: sectionId,
+        language_code: selectedLanguage,
+        title: editForm.title || null,
+        description: editForm.description || null,
+        collapsible_header: editForm.collapsible_header || null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingTranslation?.id) {
+        const { error } = await supabase
+          .from('cms_section_translations')
+          .update(translationData)
+          .eq('id', existingTranslation.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('cms_section_translations')
+          .insert(translationData);
+        
+        if (error) throw error;
+      }
+
+      const { data: updatedTranslations } = await supabase
+        .from('cms_section_translations')
+        .select('*');
+      
+      if (updatedTranslations) {
+        setSectionTranslations(updatedTranslations);
+      }
+      
+      toast({ title: 'Zapisano', description: 'Tłumaczenie sekcji zostało zapisane' });
+      setEditingSection(null);
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     } finally {
@@ -339,6 +489,24 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
   const allTranslatableCount = useMemo(() => {
     return filteredItems.filter(item => item.title || item.description).length;
   }, [filteredItems]);
+
+  // Section stats
+  const sectionStats = useMemo(() => {
+    const total = filteredSections.filter(section => section.title || section.description).length;
+    const translated = filteredSections.filter(section => {
+      const t = getSectionTranslation(section.id, selectedLanguage);
+      return t?.title || t?.description;
+    }).length;
+    return { total, translated, percentage: total > 0 ? Math.round((translated / total) * 100) : 0 };
+  }, [filteredSections, selectedLanguage, getSectionTranslation]);
+
+  // Count missing section translations
+  const missingSectionCount = useMemo(() => {
+    return filteredSections.filter(section => {
+      const t = getSectionTranslation(section.id, selectedLanguage);
+      return (section.title || section.description) && (!t?.title && !t?.description);
+    }).length;
+  }, [filteredSections, selectedLanguage, getSectionTranslation]);
 
   if (loading) {
     return (
@@ -457,6 +625,26 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         </Button>
       </div>
 
+      {/* View Mode Toggle */}
+      <div className="flex gap-2">
+        <Button 
+          variant={viewMode === 'items' ? 'default' : 'outline'} 
+          size="sm"
+          onClick={() => setViewMode('items')}
+        >
+          <FileText className="w-4 h-4 mr-1" />
+          Elementy ({stats.translated}/{stats.total})
+        </Button>
+        <Button 
+          variant={viewMode === 'sections' ? 'default' : 'outline'} 
+          size="sm"
+          onClick={() => setViewMode('sections')}
+        >
+          <Languages className="w-4 h-4 mr-1" />
+          Sekcje ({sectionStats.translated}/{sectionStats.total})
+        </Button>
+      </div>
+
       {/* Stats */}
       <Card className="bg-muted/30">
         <CardContent className="py-3">
@@ -465,18 +653,22 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">
-                  <strong>{stats.translated}</strong> / {stats.total} elementów przetłumaczonych
+                  {viewMode === 'items' ? (
+                    <><strong>{stats.translated}</strong> / {stats.total} elementów</>
+                  ) : (
+                    <><strong>{sectionStats.translated}</strong> / {sectionStats.total} sekcji</>
+                  )}
                 </span>
               </div>
-              <Badge variant={stats.percentage === 100 ? 'default' : 'secondary'}>
-                {stats.percentage}%
+              <Badge variant={(viewMode === 'items' ? stats : sectionStats).percentage === 100 ? 'default' : 'secondary'}>
+                {(viewMode === 'items' ? stats : sectionStats).percentage}%
               </Badge>
             </div>
             <Button variant="ghost" size="sm" onClick={fetchData}>
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
-          <Progress value={stats.percentage} className="h-1.5 mt-2" />
+          <Progress value={(viewMode === 'items' ? stats : sectionStats).percentage} className="h-1.5 mt-2" />
         </CardContent>
       </Card>
 

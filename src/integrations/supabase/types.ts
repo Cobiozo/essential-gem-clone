@@ -779,6 +779,54 @@ export type Database = {
           },
         ]
       }
+      cms_section_translations: {
+        Row: {
+          collapsible_header: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          language_code: string
+          section_id: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          collapsible_header?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          language_code: string
+          section_id: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          collapsible_header?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          language_code?: string
+          section_id?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cms_section_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cms_section_translations_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "cms_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cms_sections: {
         Row: {
           align_items: string | null
