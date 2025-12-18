@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Eye, EyeOff, AlertTriangle, Calendar, Image } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, AlertTriangle, Calendar, CalendarX, Image } from 'lucide-react';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { MediaUpload } from '@/components/MediaUpload';
 import { format } from 'date-fns';
@@ -27,6 +27,7 @@ interface InfoBanner {
   priority: number;
   created_at: string;
   scheduled_date: string | null;
+  expiration_date: string | null;
   image_url: string | null;
   animation_type: string;
   animation_intensity: string;
@@ -59,6 +60,7 @@ export const ImportantInfoManagement: React.FC = () => {
     display_frequency: 'once',
     priority: 0,
     scheduled_date: '',
+    expiration_date: '',
     image_url: '',
     animation_type: 'fade-in',
     animation_intensity: 'subtle',
@@ -117,6 +119,7 @@ export const ImportantInfoManagement: React.FC = () => {
         display_frequency: formData.display_frequency,
         priority: formData.priority,
         scheduled_date: formData.scheduled_date ? new Date(formData.scheduled_date).toISOString() : null,
+        expiration_date: formData.expiration_date ? new Date(formData.expiration_date).toISOString() : null,
         image_url: formData.image_url || null,
         animation_type: formData.animation_type,
         animation_intensity: formData.animation_intensity,
@@ -167,7 +170,8 @@ export const ImportantInfoManagement: React.FC = () => {
       visible_to_specjalista: banner.visible_to_specjalista,
       display_frequency: banner.display_frequency,
       priority: banner.priority,
-      scheduled_date: banner.scheduled_date ? banner.scheduled_date.split('T')[0] : '',
+      scheduled_date: banner.scheduled_date ? banner.scheduled_date.slice(0, 16) : '',
+      expiration_date: banner.expiration_date ? banner.expiration_date.slice(0, 16) : '',
       image_url: banner.image_url || '',
       animation_type: banner.animation_type || 'fade-in',
       animation_intensity: banner.animation_intensity || 'subtle',
@@ -225,6 +229,7 @@ export const ImportantInfoManagement: React.FC = () => {
       display_frequency: 'once',
       priority: 0,
       scheduled_date: '',
+      expiration_date: '',
       image_url: '',
       animation_type: 'fade-in',
       animation_intensity: 'subtle',
@@ -239,6 +244,11 @@ export const ImportantInfoManagement: React.FC = () => {
   const isScheduled = (banner: InfoBanner) => {
     if (!banner.scheduled_date) return false;
     return new Date(banner.scheduled_date) > new Date();
+  };
+
+  const isExpired = (banner: InfoBanner) => {
+    if (!banner.expiration_date) return false;
+    return new Date(banner.expiration_date) < new Date();
   };
 
   const getRolesBadges = (banner: InfoBanner) => {
@@ -312,19 +322,35 @@ export const ImportantInfoManagement: React.FC = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Data publikacji (opcjonalnie)
-                    </Label>
-                    <Input
-                      type="datetime-local"
-                      value={formData.scheduled_date}
-                      onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Pozostaw puste, aby baner był aktywny natychmiast
-                    </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Data publikacji
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.scheduled_date}
+                        onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Pozostaw puste = aktywny od razu
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <CalendarX className="h-4 w-4" />
+                        Data wygaśnięcia
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.expiration_date}
+                        onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Pozostaw puste = bez wygaśnięcia
+                      </p>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -415,7 +441,12 @@ export const ImportantInfoManagement: React.FC = () => {
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <h4 className="font-medium truncate">{banner.title}</h4>
                           {banner.is_active ? (
-                            isScheduled(banner) ? (
+                            isExpired(banner) ? (
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded flex items-center gap-1">
+                                <CalendarX className="h-3 w-3" />
+                                Wygasły
+                              </span>
+                            ) : isScheduled(banner) ? (
                               <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 Zaplanowany
@@ -433,6 +464,11 @@ export const ImportantInfoManagement: React.FC = () => {
                         {banner.scheduled_date && (
                           <p className="text-xs text-muted-foreground mb-1">
                             Publikacja: {format(new Date(banner.scheduled_date), 'dd MMM yyyy, HH:mm', { locale: pl })}
+                          </p>
+                        )}
+                        {banner.expiration_date && (
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Wygasa: {format(new Date(banner.expiration_date), 'dd MMM yyyy, HH:mm', { locale: pl })}
                           </p>
                         )}
                         <div 

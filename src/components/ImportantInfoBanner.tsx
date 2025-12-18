@@ -25,6 +25,7 @@ interface ImportantInfoBannerData {
   visible_to_specjalista: boolean;
   priority: number;
   scheduled_date: string | null;
+  expiration_date: string | null;
   image_url: string | null;
   // Animation settings
   animation_type: string | null;
@@ -111,11 +112,16 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         return;
       }
 
-      // Filter by role visibility and scheduled date
+      // Filter by role visibility, scheduled date, and expiration date
       const now = new Date();
       const visibleBanners = (banners as ImportantInfoBannerData[]).filter((b) => {
         // Check scheduled date - only show if scheduled_date is null or in the past
         if (b.scheduled_date && new Date(b.scheduled_date) > now) {
+          return false;
+        }
+        
+        // Check expiration date - don't show if expired
+        if (b.expiration_date && new Date(b.expiration_date) < now) {
           return false;
         }
         
