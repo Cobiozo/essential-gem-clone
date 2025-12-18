@@ -44,3 +44,6 @@ verify_jwt = true
 
 [functions.generate-daily-signal]
 verify_jwt = true
+
+[functions.background-translate]
+verify_jwt = true

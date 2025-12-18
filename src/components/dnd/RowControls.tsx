@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Grid3X3, Columns, Columns2, Columns3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface RowControlsProps {
   isVisible: boolean;
@@ -14,6 +15,8 @@ export const RowControls: React.FC<RowControlsProps> = ({
   onAddRow,
   className,
 }) => {
+  const { t } = useLanguage();
+
   if (!isVisible) return null;
 
   return (
@@ -22,7 +25,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
         <div className="flex items-center gap-2">
           <Grid3X3 className="w-5 h-5 text-primary" />
           <span className="text-sm font-semibold text-foreground">
-            Add Row Container
+            {t('rows.addContainer')}
           </span>
         </div>
         
@@ -34,7 +37,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             className="gap-2"
           >
             <Columns className="w-3 h-3" />
-            <span className="text-xs">1 Col</span>
+            <span className="text-xs">{t('rows.oneColumn')}</span>
           </Button>
           <Button
             variant="outline"
@@ -43,7 +46,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             className="gap-2"
           >
             <Columns2 className="w-3 h-3" />
-            <span className="text-xs">2 Col</span>
+            <span className="text-xs">{t('rows.twoColumns')}</span>
           </Button>
           <Button
             variant="outline"
@@ -52,7 +55,7 @@ export const RowControls: React.FC<RowControlsProps> = ({
             className="gap-2"
           >
             <Columns3 className="w-3 h-3" />
-            <span className="text-xs">3 Col</span>
+            <span className="text-xs">{t('rows.threeColumns')}</span>
           </Button>
           <Button
             variant="outline"
@@ -61,13 +64,13 @@ export const RowControls: React.FC<RowControlsProps> = ({
             className="gap-2"
           >
             <Grid3X3 className="w-3 h-3" />
-            <span className="text-xs">4 Col</span>
+            <span className="text-xs">{t('rows.fourColumns')}</span>
           </Button>
         </div>
       </div>
       
       <p className="text-xs text-muted-foreground mt-2">
-        Row containers let you organize sections in columns with resizable widths and heights.
+        {t('rows.description')}
       </p>
     </div>
   );

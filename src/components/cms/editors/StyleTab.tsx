@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface StyleTabProps {
   item: any;
@@ -11,14 +11,16 @@ interface StyleTabProps {
 }
 
 export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
+  const { t } = useLanguage();
+
   return (
     <div className="space-y-6">
       {/* Colors */}
       <div className="space-y-4">
-        <h4 className="font-medium text-sm">Kolory</h4>
+        <h4 className="font-medium text-sm">{t('style.colors')}</h4>
         
         <div className="space-y-2">
-          <Label>Kolor tekstu</Label>
+          <Label>{t('style.textColor')}</Label>
           <div className="flex gap-2">
             <Input
               type="color"
@@ -36,7 +38,7 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
         </div>
 
         <div className="space-y-2">
-          <Label>Kolor tła</Label>
+          <Label>{t('style.backgroundColor')}</Label>
           <div className="flex gap-2">
             <Input
               type="color"
@@ -56,10 +58,10 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
 
       {/* Typography */}
       <div className="space-y-4">
-        <h4 className="font-medium text-sm">Typografia</h4>
+        <h4 className="font-medium text-sm">{t('style.typography')}</h4>
         
         <div className="space-y-2">
-          <Label>Rozmiar czcionki (px)</Label>
+          <Label>{t('style.fontSize')}</Label>
           <div className="flex gap-2 items-center">
             <Slider
               value={[item.font_size || 16]}
@@ -74,7 +76,7 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
         </div>
 
         <div className="space-y-2">
-          <Label>Grubość czcionki</Label>
+          <Label>{t('style.fontWeight')}</Label>
           <Select
             value={String(item.font_weight || 400)}
             onValueChange={(value) => onUpdate({ font_weight: parseInt(value) })}
@@ -83,18 +85,18 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="300">Light (300)</SelectItem>
-              <SelectItem value="400">Normal (400)</SelectItem>
-              <SelectItem value="500">Medium (500)</SelectItem>
-              <SelectItem value="600">Semibold (600)</SelectItem>
-              <SelectItem value="700">Bold (700)</SelectItem>
-              <SelectItem value="800">Extra Bold (800)</SelectItem>
+              <SelectItem value="300">{t('style.fontWeightLight')}</SelectItem>
+              <SelectItem value="400">{t('style.fontWeightNormal')}</SelectItem>
+              <SelectItem value="500">{t('style.fontWeightMedium')}</SelectItem>
+              <SelectItem value="600">{t('style.fontWeightSemibold')}</SelectItem>
+              <SelectItem value="700">{t('style.fontWeightBold')}</SelectItem>
+              <SelectItem value="800">{t('style.fontWeightExtraBold')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label>Wyrównanie</Label>
+          <Label>{t('style.alignment')}</Label>
           <Select
             value={item.text_align || 'left'}
             onValueChange={(value) => {
@@ -105,10 +107,10 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="left">Do lewej</SelectItem>
-              <SelectItem value="center">Wyśrodkowane</SelectItem>
-              <SelectItem value="right">Do prawej</SelectItem>
-              <SelectItem value="justify">Wyjustowane</SelectItem>
+              <SelectItem value="left">{t('style.alignLeft')}</SelectItem>
+              <SelectItem value="center">{t('style.alignCenter')}</SelectItem>
+              <SelectItem value="right">{t('style.alignRight')}</SelectItem>
+              <SelectItem value="justify">{t('style.alignJustify')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -116,10 +118,10 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
 
       {/* Spacing */}
       <div className="space-y-4">
-        <h4 className="font-medium text-sm">Odstępy</h4>
+        <h4 className="font-medium text-sm">{t('style.spacing')}</h4>
         
         <div className="space-y-2">
-          <Label>Padding (px)</Label>
+          <Label>{t('style.padding')}</Label>
           <div className="flex gap-2 items-center">
             <Slider
               value={[item.padding || 0]}
@@ -134,7 +136,7 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
         </div>
 
         <div className="space-y-2">
-          <Label>Margines górny (px)</Label>
+          <Label>{t('style.marginTop')}</Label>
           <div className="flex gap-2 items-center">
             <Slider
               value={[item.margin_top || 0]}
@@ -149,7 +151,7 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
         </div>
 
         <div className="space-y-2">
-          <Label>Margines dolny (px)</Label>
+          <Label>{t('style.marginBottom')}</Label>
           <div className="flex gap-2 items-center">
             <Slider
               value={[item.margin_bottom || 0]}
@@ -166,10 +168,10 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
 
       {/* Border & Effects */}
       <div className="space-y-4">
-        <h4 className="font-medium text-sm">Obramowanie i efekty</h4>
+        <h4 className="font-medium text-sm">{t('style.borderAndEffects')}</h4>
         
         <div className="space-y-2">
-          <Label>Zaokrąglenie rogów (px)</Label>
+          <Label>{t('style.borderRadius')}</Label>
           <div className="flex gap-2 items-center">
             <Slider
               value={[item.border_radius || 0]}
@@ -184,7 +186,7 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
         </div>
 
         <div className="space-y-2">
-          <Label>Przezroczystość (%)</Label>
+          <Label>{t('style.opacity')}</Label>
           <div className="flex gap-2 items-center">
             <Slider
               value={[item.opacity || 100]}
@@ -201,14 +203,14 @@ export const StyleTab: React.FC<StyleTabProps> = ({ item, onUpdate }) => {
 
       {/* Custom CSS Class */}
       <div className="space-y-2">
-        <Label>Niestandardowa klasa CSS</Label>
+        <Label>{t('style.customCssClass')}</Label>
         <Input
           value={item.style_class || ''}
           onChange={(e) => onUpdate({ style_class: e.target.value })}
           placeholder="np. custom-class another-class"
         />
         <p className="text-xs text-muted-foreground">
-          Dodaj niestandardowe klasy Tailwind lub CSS
+          {t('style.customCssHint')}
         </p>
       </div>
     </div>

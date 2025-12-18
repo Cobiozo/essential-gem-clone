@@ -1986,6 +1986,54 @@ export type Database = {
           },
         ]
       }
+      translation_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          errors: number | null
+          id: string
+          mode: string
+          processed_keys: number | null
+          source_language: string
+          status: string
+          target_language: string
+          total_keys: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          errors?: number | null
+          id?: string
+          mode?: string
+          processed_keys?: number | null
+          source_language: string
+          status?: string
+          target_language: string
+          total_keys?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          errors?: number | null
+          id?: string
+          mode?: string
+          processed_keys?: number | null
+          source_language?: string
+          status?: string
+          target_language?: string
+          total_keys?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_cookie_consents: {
         Row: {
           consent_given_at: string

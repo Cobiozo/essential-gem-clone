@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VisibilitySettings {
   visible_to_everyone?: boolean;
@@ -42,6 +43,7 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
   visibilityValues,
   onVisibilityChange
 }) => {
+  const { t } = useLanguage();
   const isRestricted = visibilityValues && !visibilityValues.visible_to_everyone;
 
   return (
@@ -64,7 +66,7 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
           }}
           disabled={!canMoveUp}
           className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-30"
-          title="Przesuń w górę"
+          title={t('controls.moveUp')}
         >
           <ChevronUp className="w-3.5 h-3.5" />
         </Button>
@@ -79,7 +81,7 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
           }}
           disabled={!canMoveDown}
           className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-30"
-          title="Przesuń w dół"
+          title={t('controls.moveDown')}
         >
           <ChevronDown className="w-3.5 h-3.5" />
         </Button>
@@ -98,10 +100,10 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
             onEdit();
           }}
           className="h-7 px-2 text-muted-foreground hover:text-primary hover:bg-primary/10"
-          title="Edytuj sekcję"
+          title={t('controls.editSection')}
         >
           <Edit3 className="w-3.5 h-3.5 mr-1" />
-          <span className="text-xs">Edytuj</span>
+          <span className="text-xs">{t('controls.edit')}</span>
         </Button>
       )}
       
@@ -114,7 +116,7 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
             onDuplicate();
           }}
           className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-          title="Duplikuj sekcję"
+          title={t('controls.duplicateSection')}
         >
           <Copy className="w-3.5 h-3.5" />
         </Button>
@@ -131,7 +133,7 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
                 "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted",
                 isRestricted && "text-amber-500 hover:text-amber-600"
               )}
-              title="Widoczność"
+              title={t('controls.visibility')}
             >
               {isRestricted ? <Lock className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </Button>
@@ -156,12 +158,12 @@ export const SectionControls: React.FC<SectionControlsProps> = ({
           variant="ghost"
           onClick={(e) => {
             e.stopPropagation();
-            if (confirm('Czy na pewno chcesz ukryć tę sekcję?')) {
+            if (confirm(t('controls.confirmHide'))) {
               onDeactivate();
             }
           }}
           className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          title="Ukryj sekcję"
+          title={t('controls.hideSection')}
         >
           <EyeOff className="w-3.5 h-3.5" />
         </Button>

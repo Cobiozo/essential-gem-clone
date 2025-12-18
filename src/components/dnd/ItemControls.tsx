@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VisibilitySettings {
   visible_to_everyone?: boolean;
@@ -34,6 +35,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
   visibilityValues,
   onVisibilityChange
 }) => {
+  const { t } = useLanguage();
   const isRestricted = visibilityValues && !visibilityValues.visible_to_everyone;
 
   return (
@@ -54,7 +56,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             onEdit();
           }}
           className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-          title="Edytuj"
+          title={t('controls.editElement')}
         >
           <Edit3 className="w-3 h-3" />
         </Button>
@@ -69,7 +71,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
             onDuplicate();
           }}
           className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-          title="Duplikuj"
+          title={t('controls.duplicate')}
         >
           <Copy className="w-3 h-3" />
         </Button>
@@ -86,7 +88,7 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
                 "h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted",
                 isRestricted && "text-amber-500 hover:text-amber-600"
               )}
-              title="Widoczność"
+              title={t('controls.visibility')}
             >
               {isRestricted ? <Lock className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </Button>
@@ -110,12 +112,12 @@ export const ItemControls: React.FC<ItemControlsProps> = ({
         variant="ghost"
         onClick={(e) => {
           e.stopPropagation();
-          if (confirm('Czy na pewno chcesz usunąć ten element?')) {
+          if (confirm(t('controls.confirmDelete'))) {
             onDelete();
           }
         }}
         className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-        title="Usuń"
+        title={t('controls.deleteElement')}
       >
         <Trash2 className="w-3 h-3" />
       </Button>
