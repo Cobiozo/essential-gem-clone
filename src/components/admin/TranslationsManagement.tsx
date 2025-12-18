@@ -1,0 +1,708 @@
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Plus, Trash2, Pencil, Languages, Globe, Search, Download, Upload, 
+  Star, Check, X, ChevronRight, FileJson, AlertTriangle, RefreshCw
+} from 'lucide-react';
+import { useTranslationsAdmin, I18nLanguage, I18nTranslation, TranslationsMap } from '@/hooks/useTranslations';
+
+interface TranslationsManagementProps {
+  className?: string;
+}
+
+export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ className }) => {
+  const { toast } = useToast();
+  const {
+    languages,
+    translations,
+    namespaces,
+    loading,
+    refresh,
+    createLanguage,
+    updateLanguage,
+    deleteLanguage,
+    setDefaultLanguage,
+    upsertTranslation,
+    deleteTranslationKey,
+    importTranslations,
+    exportTranslations
+  } = useTranslationsAdmin();
+
+  const [activeTab, setActiveTab] = useState('translations');
+  const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('pl');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Language dialog state
+  const [languageDialog, setLanguageDialog] = useState(false);
+  const [editingLanguage, setEditingLanguage] = useState<I18nLanguage | null>(null);
+  const [languageForm, setLanguageForm] = useState({
+    code: '',
+    name: '',
+    native_name: '',
+    flag_emoji: '🏳️',
+    is_active: true,
+    position: 0
+  });
+
+  // Translation dialog state
+  const [translationDialog, setTranslationDialog] = useState(false);
+  const [translationForm, setTranslationForm] = useState({
+    namespace: '',
+    key: '',
+    values: {} as Record<string, string>
+  });
+  const [editingKey, setEditingKey] = useState<{ namespace: string; key: string } | null>(null);
+
+  // Delete confirmation
+  const [deleteDialog, setDeleteDialog] = useState<{ type: 'language' | 'key'; item: any } | null>(null);
+
+  // Import dialog
+  const [importDialog, setImportDialog] = useState(false);
+  const [importJson, setImportJson] = useState('');
+
+  // Group translations by namespace and key
+  const groupedTranslations = useMemo(() => {
+    const groups: Record<string, Record<string, Record<string, string>>> = {};
+    
+    for (const t of translations) {
+      if (!groups[t.namespace]) groups[t.namespace] = {};
+      if (!groups[t.namespace][t.key]) groups[t.namespace][t.key] = {};
+      groups[t.namespace][t.key][t.language_code] = t.value;
+    }
+    
+    return groups;
+  }, [translations]);
+
+  // Filter translations by search query
+  const filteredKeys = useMemo(() => {
+    if (!selectedNamespace || !groupedTranslations[selectedNamespace]) return [];
+    
+    const keys = Object.keys(groupedTranslations[selectedNamespace]);
+    
+    if (!searchQuery) return keys;
+    
+    const query = searchQuery.toLowerCase();
+    return keys.filter(key => {
+      if (key.toLowerCase().includes(query)) return true;
+      const values = groupedTranslations[selectedNamespace][key];
+      return Object.values(values).some(v => v.toLowerCase().includes(query));
+    });
+  }, [selectedNamespace, groupedTranslations, searchQuery]);
+
+  // Namespace key counts
+  const namespaceCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ns of namespaces) {
+      counts[ns] = Object.keys(groupedTranslations[ns] || {}).length;
+    }
+    return counts;
+  }, [namespaces, groupedTranslations]);
+
+  // Handlers
+  const handleSaveLanguage = async () => {
+    try {
+      if (editingLanguage) {
+        await updateLanguage(editingLanguage.id, languageForm);
+        toast({ title: 'Sukces', description: 'Język został zaktualizowany' });
+      } else {
+        await createLanguage(languageForm);
+        toast({ title: 'Sukces', description: 'Język został dodany' });
+      }
+      setLanguageDialog(false);
+      resetLanguageForm();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteLanguage = async () => {
+    if (!deleteDialog || deleteDialog.type !== 'language') return;
+    try {
+      await deleteLanguage(deleteDialog.item.id);
+      toast({ title: 'Sukces', description: 'Język został usunięty' });
+      setDeleteDialog(null);
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSetDefault = async (code: string) => {
+    try {
+      await setDefaultLanguage(code);
+      toast({ title: 'Sukces', description: 'Język domyślny został zmieniony' });
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSaveTranslation = async () => {
+    try {
+      for (const [langCode, value] of Object.entries(translationForm.values)) {
+        if (value.trim()) {
+          await upsertTranslation(
+            langCode,
+            translationForm.namespace,
+            translationForm.key,
+            value.trim()
+          );
+        }
+      }
+      toast({ title: 'Sukces', description: 'Tłumaczenie zostało zapisane' });
+      setTranslationDialog(false);
+      resetTranslationForm();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteKey = async () => {
+    if (!deleteDialog || deleteDialog.type !== 'key') return;
+    try {
+      await deleteTranslationKey(deleteDialog.item.namespace, deleteDialog.item.key);
+      toast({ title: 'Sukces', description: 'Klucz został usunięty' });
+      setDeleteDialog(null);
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleExport = () => {
+    const data = exportTranslations();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `translations-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Sukces', description: 'Tłumaczenia zostały wyeksportowane' });
+  };
+
+  const handleImport = async () => {
+    try {
+      const data = JSON.parse(importJson) as TranslationsMap;
+      await importTranslations(data);
+      toast({ title: 'Sukces', description: 'Tłumaczenia zostały zaimportowane' });
+      setImportDialog(false);
+      setImportJson('');
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: 'Nieprawidłowy format JSON', variant: 'destructive' });
+    }
+  };
+
+  const resetLanguageForm = () => {
+    setLanguageForm({
+      code: '',
+      name: '',
+      native_name: '',
+      flag_emoji: '🏳️',
+      is_active: true,
+      position: languages.length
+    });
+    setEditingLanguage(null);
+  };
+
+  const resetTranslationForm = () => {
+    setTranslationForm({
+      namespace: selectedNamespace || '',
+      key: '',
+      values: {}
+    });
+    setEditingKey(null);
+  };
+
+  const openEditLanguage = (lang: I18nLanguage) => {
+    setEditingLanguage(lang);
+    setLanguageForm({
+      code: lang.code,
+      name: lang.name,
+      native_name: lang.native_name || '',
+      flag_emoji: lang.flag_emoji,
+      is_active: lang.is_active,
+      position: lang.position
+    });
+    setLanguageDialog(true);
+  };
+
+  const openEditKey = (namespace: string, key: string) => {
+    const values: Record<string, string> = {};
+    for (const lang of languages) {
+      values[lang.code] = groupedTranslations[namespace]?.[key]?.[lang.code] || '';
+    }
+    setEditingKey({ namespace, key });
+    setTranslationForm({ namespace, key, values });
+    setTranslationDialog(true);
+  };
+
+  const openAddKey = () => {
+    const values: Record<string, string> = {};
+    for (const lang of languages) {
+      values[lang.code] = '';
+    }
+    setTranslationForm({
+      namespace: selectedNamespace || 'common',
+      key: '',
+      values
+    });
+    setTranslationDialog(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+        <span>Ładowanie tłumaczeń...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className}>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Languages className="w-5 h-5" />
+                Moduł tłumaczeń (i18n)
+              </CardTitle>
+              <CardDescription>
+                Zarządzaj językami i tłumaczeniami aplikacji
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleExport}>
+                <Download className="w-4 h-4 mr-2" />
+                Eksport
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setImportDialog(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <Button variant="outline" size="sm" onClick={refresh}>
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="translations">
+                <FileJson className="w-4 h-4 mr-2" />
+                Tłumaczenia
+              </TabsTrigger>
+              <TabsTrigger value="languages">
+                <Globe className="w-4 h-4 mr-2" />
+                Języki ({languages.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Languages Tab */}
+            <TabsContent value="languages">
+              <div className="space-y-4">
+                <Button onClick={() => { resetLanguageForm(); setLanguageDialog(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Dodaj język
+                </Button>
+
+                <div className="grid gap-3">
+                  {languages.map(lang => (
+                    <Card key={lang.id} className={`p-4 ${!lang.is_active ? 'opacity-60' : ''}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{lang.flag_emoji}</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{lang.name}</span>
+                              {lang.native_name && (
+                                <span className="text-sm text-muted-foreground">({lang.native_name})</span>
+                              )}
+                              <Badge variant="outline" className="text-xs">{lang.code.toUpperCase()}</Badge>
+                              {lang.is_default && (
+                                <Badge className="bg-yellow-500/20 text-yellow-600">
+                                  <Star className="w-3 h-3 mr-1" />
+                                  Domyślny
+                                </Badge>
+                              )}
+                              {!lang.is_active && (
+                                <Badge variant="secondary">Nieaktywny</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!lang.is_default && lang.is_active && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleSetDefault(lang.code)}
+                            >
+                              <Star className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => openEditLanguage(lang)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          {!lang.is_default && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => setDeleteDialog({ type: 'language', item: lang })}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Translations Tab */}
+            <TabsContent value="translations">
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Namespace Sidebar */}
+                <Card className="lg:w-64 shrink-0">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm">Moduły (Namespace)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-2">
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-1">
+                        {namespaces.map(ns => (
+                          <button
+                            key={ns}
+                            onClick={() => setSelectedNamespace(ns)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                              selectedNamespace === ns 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'hover:bg-muted'
+                            }`}
+                          >
+                            <span className="truncate">{ns}</span>
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {namespaceCounts[ns] || 0}
+                            </Badge>
+                          </button>
+                        ))}
+                        {namespaces.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            Brak modułów
+                          </p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                {/* Translation Keys */}
+                <Card className="flex-1">
+                  <CardHeader className="py-3 px-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm">
+                          {selectedNamespace ? `${selectedNamespace}` : 'Wybierz moduł'}
+                        </CardTitle>
+                        {selectedNamespace && (
+                          <Badge variant="outline">{filteredKeys.length} kluczy</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1 sm:w-64">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Szukaj..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-8 h-8"
+                          />
+                        </div>
+                        <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                          <SelectTrigger className="w-20 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {languages.map(lang => (
+                              <SelectItem key={lang.code} value={lang.code}>
+                                {lang.flag_emoji} {lang.code.toUpperCase()}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" onClick={openAddKey} disabled={!selectedNamespace}>
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-2">
+                    <ScrollArea className="h-[400px]">
+                      {selectedNamespace ? (
+                        <div className="space-y-1">
+                          {filteredKeys.map(key => {
+                            const values = groupedTranslations[selectedNamespace][key];
+                            const currentValue = values[selectedLanguage] || '';
+                            const hasAllTranslations = languages.every(l => values[l.code]);
+                            
+                            return (
+                              <div
+                                key={key}
+                                className="group flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted cursor-pointer"
+                                onClick={() => openEditKey(selectedNamespace, key)}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <code className="text-xs bg-muted px-1 py-0.5 rounded">{key}</code>
+                                    {!hasAllTranslations && (
+                                      <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground truncate mt-0.5">
+                                    {currentValue || <span className="italic">Brak tłumaczenia</span>}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteDialog({ type: 'key', item: { namespace: selectedNamespace, key } });
+                                    }}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {filteredKeys.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-8">
+                              {searchQuery ? 'Brak wyników wyszukiwania' : 'Brak kluczy w tym module'}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full py-12 text-muted-foreground">
+                          <ChevronRight className="w-8 h-8 mb-2" />
+                          <p>Wybierz moduł z listy po lewej</p>
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Language Dialog */}
+      <Dialog open={languageDialog} onOpenChange={setLanguageDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingLanguage ? 'Edytuj język' : 'Dodaj nowy język'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Kod języka</Label>
+                <Input
+                  value={languageForm.code}
+                  onChange={e => setLanguageForm({ ...languageForm, code: e.target.value.toLowerCase() })}
+                  placeholder="np. pl, en, de"
+                  maxLength={5}
+                  disabled={!!editingLanguage}
+                />
+              </div>
+              <div>
+                <Label>Flaga (emoji)</Label>
+                <Input
+                  value={languageForm.flag_emoji}
+                  onChange={e => setLanguageForm({ ...languageForm, flag_emoji: e.target.value })}
+                  placeholder="🇵🇱"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Nazwa (angielska)</Label>
+              <Input
+                value={languageForm.name}
+                onChange={e => setLanguageForm({ ...languageForm, name: e.target.value })}
+                placeholder="Polish"
+              />
+            </div>
+            <div>
+              <Label>Nazwa natywna</Label>
+              <Input
+                value={languageForm.native_name}
+                onChange={e => setLanguageForm({ ...languageForm, native_name: e.target.value })}
+                placeholder="Polski"
+              />
+            </div>
+            <div>
+              <Label>Pozycja</Label>
+              <Input
+                type="number"
+                value={languageForm.position}
+                onChange={e => setLanguageForm({ ...languageForm, position: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={languageForm.is_active}
+                onCheckedChange={checked => setLanguageForm({ ...languageForm, is_active: checked })}
+              />
+              <Label>Aktywny</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLanguageDialog(false)}>Anuluj</Button>
+            <Button onClick={handleSaveLanguage} disabled={!languageForm.code || !languageForm.name}>
+              {editingLanguage ? 'Zapisz' : 'Dodaj'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Translation Dialog */}
+      <Dialog open={translationDialog} onOpenChange={setTranslationDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingKey ? 'Edytuj tłumaczenie' : 'Dodaj nowe tłumaczenie'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Namespace (moduł)</Label>
+                <Input
+                  value={translationForm.namespace}
+                  onChange={e => setTranslationForm({ ...translationForm, namespace: e.target.value })}
+                  placeholder="common"
+                  disabled={!!editingKey}
+                />
+              </div>
+              <div>
+                <Label>Klucz</Label>
+                <Input
+                  value={translationForm.key}
+                  onChange={e => setTranslationForm({ ...translationForm, key: e.target.value })}
+                  placeholder="button.save"
+                  disabled={!!editingKey}
+                />
+              </div>
+            </div>
+            <Separator />
+            <div className="space-y-3">
+              <Label>Wartości dla każdego języka</Label>
+              {languages.map(lang => (
+                <div key={lang.code} className="flex items-start gap-3">
+                  <div className="flex items-center gap-2 w-24 shrink-0 pt-2">
+                    <span>{lang.flag_emoji}</span>
+                    <span className="text-sm font-medium">{lang.code.toUpperCase()}</span>
+                  </div>
+                  <Textarea
+                    value={translationForm.values[lang.code] || ''}
+                    onChange={e => setTranslationForm({
+                      ...translationForm,
+                      values: { ...translationForm.values, [lang.code]: e.target.value }
+                    })}
+                    placeholder={`Tłumaczenie (${lang.name})`}
+                    rows={2}
+                    className="flex-1"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTranslationDialog(false)}>Anuluj</Button>
+            <Button 
+              onClick={handleSaveTranslation} 
+              disabled={!translationForm.namespace || !translationForm.key}
+            >
+              Zapisz
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Potwierdź usunięcie
+            </DialogTitle>
+            <DialogDescription>
+              {deleteDialog?.type === 'language' 
+                ? `Czy na pewno chcesz usunąć język "${deleteDialog.item.name}"? Wszystkie tłumaczenia dla tego języka zostaną usunięte.`
+                : `Czy na pewno chcesz usunąć klucz "${deleteDialog?.item?.key}" ze wszystkich języków?`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Anuluj</Button>
+            <Button 
+              variant="destructive" 
+              onClick={deleteDialog?.type === 'language' ? handleDeleteLanguage : handleDeleteKey}
+            >
+              Usuń
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={importDialog} onOpenChange={setImportDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Importuj tłumaczenia z JSON</DialogTitle>
+            <DialogDescription>
+              Wklej zawartość pliku JSON z tłumaczeniami. Istniejące klucze zostaną nadpisane.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={importJson}
+              onChange={e => setImportJson(e.target.value)}
+              placeholder='{"pl": {"common": {"hello": "Cześć"}}}'
+              rows={12}
+              className="font-mono text-sm"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialog(false)}>Anuluj</Button>
+            <Button onClick={handleImport} disabled={!importJson.trim()}>
+              <Upload className="w-4 h-4 mr-2" />
+              Importuj
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default TranslationsManagement;
