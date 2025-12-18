@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AdvancedStyleTabProps {
   item: any;
@@ -52,30 +53,32 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
   showEffects = true,
   showAdvanced = true,
 }) => {
+  const { t } = useLanguage();
+
   return (
     <div className="space-y-3 text-left">
-      {/* Dimensions - tylko obsługiwane kolumny */}
+      {/* Dimensions */}
       {showDimensions && (
-        <CollapsibleSection title="📐 Wymiary" defaultOpen>
+        <CollapsibleSection title={t('advancedStyle.dimensions')} defaultOpen>
           <div className="space-y-3 text-left">
             <div className="space-y-1">
-              <Label className="text-xs">Max szerokość (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.maxWidth')}</Label>
               <Input
                 type="number"
                 value={item.max_width || ''}
                 onChange={(e) => onUpdate({ max_width: parseInt(e.target.value) || null })}
-                placeholder="Brak limitu"
+                placeholder={t('advancedStyle.noLimit')}
                 className="h-8 text-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Max wysokość (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.maxHeight')}</Label>
               <Input
                 type="number"
                 value={item.max_height || ''}
                 onChange={(e) => onUpdate({ max_height: parseInt(e.target.value) || null })}
-                placeholder="Brak limitu"
+                placeholder={t('advancedStyle.noLimit')}
                 className="h-8 text-xs"
               />
             </div>
@@ -85,10 +88,10 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
 
       {/* Colors & Background */}
       {showColors && (
-        <CollapsibleSection title="🎨 Kolory i tło" defaultOpen>
+        <CollapsibleSection title={t('advancedStyle.colorsAndBackground')} defaultOpen>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-xs">Kolor tekstu</Label>
+              <Label className="text-xs">{t('advancedStyle.textColor')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -107,7 +110,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Kolor tła</Label>
+              <Label className="text-xs">{t('advancedStyle.backgroundColor')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -126,7 +129,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Przezroczystość (%)</Label>
+              <Label className="text-xs">{t('advancedStyle.opacity')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.opacity ?? 100]}
@@ -145,10 +148,10 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
 
       {/* Typography */}
       {showTypography && (
-        <CollapsibleSection title="✍️ Typografia">
+        <CollapsibleSection title={t('advancedStyle.typography')}>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-xs">Rozmiar czcionki (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.fontSize')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.font_size || 16]}
@@ -168,7 +171,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Grubość czcionki</Label>
+              <Label className="text-xs">{t('advancedStyle.fontWeight')}</Label>
               <Select
                 value={String(item.font_weight || 400)}
                 onValueChange={(value) => onUpdate({ font_weight: parseInt(value) })}
@@ -191,7 +194,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Wyrównanie elementu</Label>
+              <Label className="text-xs">{t('advancedStyle.elementAlignment')}</Label>
               <Select
                 value={item.text_align || 'left'}
                 onValueChange={(value) => onUpdate({ text_align: value })}
@@ -200,13 +203,13 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="left">Do lewej</SelectItem>
-                  <SelectItem value="center">Wyśrodkowany</SelectItem>
-                  <SelectItem value="right">Do prawej</SelectItem>
+                  <SelectItem value="left">{t('style.alignLeft')}</SelectItem>
+                  <SelectItem value="center">{t('style.alignCenter')}</SelectItem>
+                  <SelectItem value="right">{t('style.alignRight')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">
-                Kontroluje pozycję elementu w sekcji (lewo/środek/prawo)
+                {t('advancedStyle.alignmentHint')}
               </p>
             </div>
           </div>
@@ -215,10 +218,10 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
 
       {/* Spacing */}
       {showSpacing && (
-        <CollapsibleSection title="📏 Odstępy">
+        <CollapsibleSection title={t('advancedStyle.spacing')}>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-xs">Padding wewnętrzny (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.internalPadding')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.padding || 0]}
@@ -238,7 +241,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Margines górny (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.topMargin')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.margin_top || 0]}
@@ -258,7 +261,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Margines dolny (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.bottomMargin')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.margin_bottom || 0]}
@@ -282,10 +285,10 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
 
       {/* Border */}
       {showBorder && (
-        <CollapsibleSection title="🔲 Obramowanie">
+        <CollapsibleSection title={t('advancedStyle.border')}>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-xs">Zaokrąglenie rogów (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.borderRadius')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.border_radius || 0]}
@@ -307,12 +310,12 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
                 <Button variant="outline" size="sm" className="text-[10px] h-6 px-2" onClick={() => onUpdate({ border_radius: 4 })}>4</Button>
                 <Button variant="outline" size="sm" className="text-[10px] h-6 px-2" onClick={() => onUpdate({ border_radius: 8 })}>8</Button>
                 <Button variant="outline" size="sm" className="text-[10px] h-6 px-2" onClick={() => onUpdate({ border_radius: 16 })}>16</Button>
-                <Button variant="outline" size="sm" className="text-[10px] h-6 px-2" onClick={() => onUpdate({ border_radius: 9999 })}>Koło</Button>
+                <Button variant="outline" size="sm" className="text-[10px] h-6 px-2" onClick={() => onUpdate({ border_radius: 9999 })}>{t('advancedStyle.circle')}</Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Grubość obramowania (px)</Label>
+              <Label className="text-xs">{t('advancedStyle.borderWidth')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.border_width || 0]}
@@ -327,7 +330,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Styl obramowania</Label>
+              <Label className="text-xs">{t('advancedStyle.borderStyle')}</Label>
               <Select
                 value={item.border_style || 'solid'}
                 onValueChange={(value) => onUpdate({ border_style: value })}
@@ -336,17 +339,17 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Brak</SelectItem>
-                  <SelectItem value="solid">Ciągłe</SelectItem>
-                  <SelectItem value="dashed">Kreskowane</SelectItem>
-                  <SelectItem value="dotted">Kropkowane</SelectItem>
-                  <SelectItem value="double">Podwójne</SelectItem>
+                  <SelectItem value="none">{t('advancedStyle.borderStyleNone')}</SelectItem>
+                  <SelectItem value="solid">{t('advancedStyle.borderStyleSolid')}</SelectItem>
+                  <SelectItem value="dashed">{t('advancedStyle.borderStyleDashed')}</SelectItem>
+                  <SelectItem value="dotted">{t('advancedStyle.borderStyleDotted')}</SelectItem>
+                  <SelectItem value="double">{t('advancedStyle.borderStyleDouble')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Kolor obramowania</Label>
+              <Label className="text-xs">{t('advancedStyle.borderColor')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -369,10 +372,10 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
 
       {/* Effects & Shadow */}
       {showEffects && (
-        <CollapsibleSection title="✨ Efekty i cień">
+        <CollapsibleSection title={t('advancedStyle.effectsAndShadow')}>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-xs">Cień</Label>
+              <Label className="text-xs">{t('advancedStyle.shadow')}</Label>
               <Select
                 value={item.box_shadow || 'none'}
                 onValueChange={(value) => onUpdate({ box_shadow: value })}
@@ -381,20 +384,20 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Brak</SelectItem>
+                  <SelectItem value="none">{t('advancedStyle.shadowNone')}</SelectItem>
                   <SelectItem value="0 1px 2px 0 rgba(0,0,0,0.05)">XS</SelectItem>
                   <SelectItem value="0 1px 3px 0 rgba(0,0,0,0.1)">SM</SelectItem>
                   <SelectItem value="0 4px 6px -1px rgba(0,0,0,0.1)">MD</SelectItem>
                   <SelectItem value="0 10px 15px -3px rgba(0,0,0,0.1)">LG</SelectItem>
                   <SelectItem value="0 20px 25px -5px rgba(0,0,0,0.1)">XL</SelectItem>
                   <SelectItem value="0 25px 50px -12px rgba(0,0,0,0.25)">2XL</SelectItem>
-                  <SelectItem value="inset 0 2px 4px 0 rgba(0,0,0,0.06)">Inset</SelectItem>
+                  <SelectItem value="inset 0 2px 4px 0 rgba(0,0,0,0.06)">{t('advancedStyle.shadowInset')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Efekt hover - powiększenie</Label>
+              <Label className="text-xs">{t('advancedStyle.hoverScale')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[(item.hover_scale || 1) * 100]}
@@ -407,12 +410,12 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
                 <span className="w-12 text-xs text-muted-foreground">{((item.hover_scale || 1) * 100).toFixed(0)}%</span>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Powiększenie elementu po najechaniu myszką
+                {t('advancedStyle.hoverScaleHint')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Efekt hover - przezroczystość</Label>
+              <Label className="text-xs">{t('advancedStyle.hoverOpacity')}</Label>
               <div className="flex gap-2 items-center">
                 <Slider
                   value={[item.hover_opacity ?? 100]}
@@ -425,7 +428,7 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
                 <span className="w-12 text-xs text-muted-foreground">{item.hover_opacity ?? 100}%</span>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Przezroczystość elementu po najechaniu myszką
+                {t('advancedStyle.hoverOpacityHint')}
               </p>
             </div>
           </div>
@@ -434,20 +437,17 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
 
       {/* Advanced */}
       {showAdvanced && (
-        <CollapsibleSection title="⚙️ Zaawansowane">
+        <CollapsibleSection title={t('advancedStyle.advanced')}>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label className="text-xs">Własne klasy CSS</Label>
+              <Label className="text-xs">{t('advancedStyle.customCssClasses')}</Label>
               <Input
                 type="text"
                 value={item.style_class || ''}
                 onChange={(e) => onUpdate({ style_class: e.target.value })}
-                placeholder="np. my-custom-class another-class"
+                placeholder={t('advancedStyle.customCssPlaceholder')}
                 className="h-8 text-xs"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Dodaj własne klasy Tailwind CSS lub niestandardowe klasy
-              </p>
             </div>
           </div>
         </CollapsibleSection>
@@ -455,5 +455,3 @@ export const AdvancedStyleTab: React.FC<AdvancedStyleTabProps> = ({
     </div>
   );
 };
-
-export default AdvancedStyleTab;
