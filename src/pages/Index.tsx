@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCMSTranslations } from '@/hooks/useCMSTranslations';
+import { useCMSSectionTranslations } from '@/hooks/useCMSSectionTranslations';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { Header } from '@/components/Header';
@@ -53,6 +54,27 @@ const Index = () => {
   
   // Apply CMS translations based on current language
   const translatedItems = useCMSTranslations(items, language, 'pl');
+  
+  // Apply CMS section translations based on current language
+  const translatedSections = useCMSSectionTranslations(sections, language, 'pl');
+  
+  // Flatten all nested sections for translation
+  const allNestedSections = useMemo(() => {
+    return Object.values(nestedSections).flat();
+  }, [nestedSections]);
+  
+  const translatedAllNested = useCMSSectionTranslations(allNestedSections, language, 'pl');
+  
+  // Create translated nested sections map
+  const translatedNestedSections = useMemo(() => {
+    const result: {[key: string]: CMSSection[]} = {};
+    const translatedMap = new Map(translatedAllNested.map(s => [s.id, s]));
+    
+    for (const [parentId, nestedList] of Object.entries(nestedSections)) {
+      result[parentId] = nestedList.map(section => translatedMap.get(section.id) || section);
+    }
+    return result;
+  }, [nestedSections, translatedAllNested]);
 
   // Helper function to convert cells from database format
   const convertCellsFromDatabase = (cells: any): ContentCell[] => {
@@ -497,17 +519,17 @@ const Index = () => {
 
       {/* Main Content - CMS Sections */}
       <main id="main-content" className="bg-background">
-        {sections.length > 0 ? (
+        {translatedSections.length > 0 ? (
           <>
             {/* Renderuj wiersze z zagnieżdżonymi sekcjami */}
-            {sections
+            {translatedSections
               .filter(s => s.section_type === 'row' && !s.parent_id)
               .filter(s => isSectionVisible(s, user, userRole?.role || null))
               .map(row => (
                 <HomeRowContainer 
                   key={row.id}
                   row={row}
-                  children={(nestedSections[row.id] || []).filter(child => isSectionVisible(child, user, userRole?.role || null))}
+                  children={(translatedNestedSections[row.id] || []).filter(child => isSectionVisible(child, user, userRole?.role || null))}
                   items={translatedItems}
                   user={user}
                   userRole={userRole?.role || null}
@@ -515,7 +537,7 @@ const Index = () => {
               ))}
 
             {/* Renderuj płaskie sekcje (nowe stylizowane) */}
-            {sections
+            {translatedSections
               .filter(s => s.section_type === 'section' && !s.parent_id)
               .filter(s => isSectionVisible(s, user, userRole?.role || null))
               .map(section => renderCMSSection(section))}
