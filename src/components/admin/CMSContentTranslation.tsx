@@ -77,6 +77,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
   // AI Translation dialog
   const [aiDialog, setAiDialog] = useState(false);
   const [aiTranslatingSingle, setAiTranslatingSingle] = useState(false);
+  const [aiTranslateMode, setAiTranslateMode] = useState<'all' | 'missing'>('missing');
 
   // Check if there's an active CMS job
   const activeCMSJob = activeJob?.job_type === 'cms' && 
@@ -310,7 +311,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     await startJob(
       defaultLang,
       selectedLanguage,
-      'missing',
+      aiTranslateMode,
       'cms',
       selectedPage
     );
@@ -333,6 +334,11 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       return (item.title || item.description) && (!t?.title && !t?.description);
     }).length;
   }, [filteredItems, selectedLanguage, getTranslation]);
+
+  // Count all translatable items
+  const allTranslatableCount = useMemo(() => {
+    return filteredItems.filter(item => item.title || item.description).length;
+  }, [filteredItems]);
 
   if (loading) {
     return (
@@ -444,7 +450,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         
         <Button 
           onClick={() => setAiDialog(true)}
-          disabled={activeCMSJob || jobLoading || missingCount === 0}
+          disabled={activeCMSJob || jobLoading || allTranslatableCount === 0}
         >
           <Bot className="w-4 h-4 mr-2" />
           Tłumacz z AI
@@ -665,26 +671,71 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
+            {/* Mode selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Tryb tłumaczenia</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiTranslateMode('missing')}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    aiTranslateMode === 'missing'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="font-medium text-sm">Tylko brakujące</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Tłumaczy tylko elementy bez tłumaczenia
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiTranslateMode('all')}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    aiTranslateMode === 'all'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="font-medium text-sm">Wszystkie elementy</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Nadpisuje istniejące tłumaczenia
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div className="bg-muted/50 p-3 rounded-md text-sm">
               <p className="font-medium mb-1">Informacje:</p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
                 <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
                 <li>Proces działa w tle - możesz zamknąć to okno</li>
                 <li>Postęp jest zapisywany - po odświeżeniu strony tłumaczenie będzie kontynuowane</li>
-                <li>Tylko elementy bez istniejącego tłumaczenia będą przetłumaczone</li>
+                {aiTranslateMode === 'missing' 
+                  ? <li>Tylko elementy bez istniejącego tłumaczenia będą przetłumaczone</li>
+                  : <li className="text-yellow-600">Istniejące tłumaczenia zostaną nadpisane!</li>
+                }
               </ul>
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm">Elementy do przetłumaczenia:</span>
-              <Badge variant="secondary">{missingCount}</Badge>
+              <span className="text-sm">
+                {aiTranslateMode === 'missing' ? 'Elementy do przetłumaczenia:' : 'Wszystkie elementy:'}
+              </span>
+              <Badge variant="secondary">
+                {aiTranslateMode === 'missing' ? missingCount : allTranslatableCount}
+              </Badge>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAiDialog(false)}>
               Anuluj
             </Button>
-            <Button onClick={startBackgroundTranslation} disabled={jobLoading}>
+            <Button 
+              onClick={startBackgroundTranslation} 
+              disabled={jobLoading || (aiTranslateMode === 'missing' ? missingCount === 0 : allTranslatableCount === 0)}
+            >
               {jobLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
