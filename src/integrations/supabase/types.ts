@@ -2042,7 +2042,9 @@ export type Database = {
           error_message: string | null
           errors: number | null
           id: string
+          job_type: string | null
           mode: string
+          page_id: string | null
           processed_keys: number | null
           source_language: string
           status: string
@@ -2057,7 +2059,9 @@ export type Database = {
           error_message?: string | null
           errors?: number | null
           id?: string
+          job_type?: string | null
           mode?: string
+          page_id?: string | null
           processed_keys?: number | null
           source_language: string
           status?: string
@@ -2072,7 +2076,9 @@ export type Database = {
           error_message?: string | null
           errors?: number | null
           id?: string
+          job_type?: string | null
           mode?: string
+          page_id?: string | null
           processed_keys?: number | null
           source_language?: string
           status?: string

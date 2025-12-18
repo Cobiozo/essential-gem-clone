@@ -14,9 +14,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { I18nLanguage } from '@/hooks/useTranslations';
+import { useTranslationJobs } from '@/hooks/useTranslationJobs';
 import { 
   Search, Bot, Loader2, ChevronRight, ChevronDown, FileText, 
-  Pencil, Save, X, RefreshCw, Languages, AlertTriangle, CheckCircle2
+  Pencil, Save, X, RefreshCw, Languages, AlertTriangle, CheckCircle2, StopCircle
 } from 'lucide-react';
 
 interface CMSContentTranslationProps {
@@ -55,6 +56,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
   defaultLang
 }) => {
   const { toast } = useToast();
+  const { activeJob, isLoading: jobLoading, progress, startJob, cancelJob, clearJob } = useTranslationJobs();
   
   // State
   const [pages, setPages] = useState<Page[]>([]);
@@ -72,10 +74,20 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
   const [editForm, setEditForm] = useState<{ title: string; description: string }>({ title: '', description: '' });
   const [saving, setSaving] = useState(false);
   
-  // AI Translation state
+  // AI Translation dialog
   const [aiDialog, setAiDialog] = useState(false);
-  const [aiTranslating, setAiTranslating] = useState(false);
-  const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
+  const [aiTranslatingSingle, setAiTranslatingSingle] = useState(false);
+
+  // Check if there's an active CMS job
+  const activeCMSJob = activeJob?.job_type === 'cms' && 
+    (activeJob.status === 'pending' || activeJob.status === 'processing');
+
+  // Refresh translations when job completes
+  useEffect(() => {
+    if (activeJob?.job_type === 'cms' && activeJob.status === 'completed') {
+      fetchData();
+    }
+  }, [activeJob?.status]);
 
   // Fetch data
   useEffect(() => {
@@ -232,11 +244,11 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     }
   };
 
-  // AI translate single item and save to database
-  const translateWithAI = async (item: CMSItem) => {
+  // AI translate single item (synchronous for quick single translations)
+  const translateSingleWithAI = async (item: CMSItem) => {
     if (!item.title && !item.description) return;
     
-    setAiTranslating(true);
+    setAiTranslatingSingle(true);
     try {
       const targetLang = languages.find(l => l.code === selectedLanguage);
       
@@ -287,100 +299,21 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     } finally {
-      setAiTranslating(false);
+      setAiTranslatingSingle(false);
     }
   };
 
-  // AI translate all items on current page
-  const translateAllWithAI = async () => {
-    const itemsToTranslate = filteredItems.filter(item => {
-      const translation = getTranslation(item.id, selectedLanguage);
-      return (item.title || item.description) && (!translation?.title && !translation?.description);
-    });
+  // Start background job for all translations
+  const startBackgroundTranslation = async () => {
+    setAiDialog(false);
     
-    if (itemsToTranslate.length === 0) {
-      toast({ title: 'Info', description: 'Wszystkie elementy mają już tłumaczenia' });
-      return;
-    }
-    
-    setAiTranslating(true);
-    setAiProgress({ current: 0, total: itemsToTranslate.length });
-    
-    try {
-      const targetLang = languages.find(l => l.code === selectedLanguage);
-      let successCount = 0;
-      
-      for (let i = 0; i < itemsToTranslate.length; i++) {
-        const item = itemsToTranslate[i];
-        setAiProgress({ current: i + 1, total: itemsToTranslate.length });
-        
-        const contentToTranslate = item.title || item.description;
-        if (!contentToTranslate) continue;
-        
-        try {
-          const { data, error } = await supabase.functions.invoke('translate-content', {
-            body: {
-              content: contentToTranslate,
-              targetLanguage: targetLang?.name || selectedLanguage,
-              sourceLanguage: 'Polish'
-            }
-          });
-          
-          if (error) continue;
-          
-          const translatedContent = data.translated || data.content;
-          
-          // Save to database
-          const existingTranslation = getTranslation(item.id, selectedLanguage);
-          const translationData = {
-            item_id: item.id,
-            language_code: selectedLanguage,
-            title: item.title ? translatedContent : null,
-            description: item.description && !item.title ? translatedContent : null,
-            cells: null,
-            updated_at: new Date().toISOString()
-          };
-
-          if (existingTranslation?.id) {
-            await supabase
-              .from('cms_item_translations')
-              .update(translationData)
-              .eq('id', existingTranslation.id);
-          } else {
-            await supabase
-              .from('cms_item_translations')
-              .insert(translationData);
-          }
-          
-          successCount++;
-        } catch {
-          // Continue with next item on error
-        }
-        
-        // Small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // Refresh all translations from database
-      const { data: updatedTranslations } = await supabase
-        .from('cms_item_translations')
-        .select('*');
-      
-      if (updatedTranslations) {
-        setTranslations(updatedTranslations);
-      }
-      
-      toast({ 
-        title: 'Sukces', 
-        description: `Przetłumaczono i zapisano ${successCount} z ${itemsToTranslate.length} elementów` 
-      });
-    } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
-    } finally {
-      setAiTranslating(false);
-      setAiProgress({ current: 0, total: 0 });
-      setAiDialog(false);
-    }
+    await startJob(
+      defaultLang,
+      selectedLanguage,
+      'missing',
+      'cms',
+      selectedPage
+    );
   };
 
   // Stats
@@ -391,6 +324,14 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
       return t?.title || t?.description;
     }).length;
     return { total, translated, percentage: total > 0 ? Math.round((translated / total) * 100) : 0 };
+  }, [filteredItems, selectedLanguage, getTranslation]);
+
+  // Count missing translations
+  const missingCount = useMemo(() => {
+    return filteredItems.filter(item => {
+      const t = getTranslation(item.id, selectedLanguage);
+      return (item.title || item.description) && (!t?.title && !t?.description);
+    }).length;
   }, [filteredItems, selectedLanguage, getTranslation]);
 
   if (loading) {
@@ -404,6 +345,59 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Background Job Progress Banner */}
+      {activeCMSJob && (
+        <Alert className="border-primary/50 bg-primary/5">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <AlertDescription className="flex items-center justify-between w-full">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">
+                  Tłumaczenie CMS w tle: {activeJob.processed_keys} / {activeJob.total_keys}
+                </span>
+                <Badge variant="secondary">{progress}%</Badge>
+              </div>
+              <Progress value={progress} className="h-2 w-full max-w-xs" />
+            </div>
+            <Button variant="outline" size="sm" onClick={cancelJob}>
+              <StopCircle className="w-4 h-4 mr-1" />
+              Anuluj
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Job Completed Banner */}
+      {activeJob?.job_type === 'cms' && activeJob.status === 'completed' && (
+        <Alert className="border-green-500/50 bg-green-500/5">
+          <CheckCircle2 className="w-4 h-4 text-green-600" />
+          <AlertDescription className="flex items-center justify-between w-full">
+            <span>
+              Tłumaczenie zakończone! Przetłumaczono {activeJob.processed_keys} elementów
+              {activeJob.errors > 0 && ` (${activeJob.errors} błędów)`}
+            </span>
+            <Button variant="ghost" size="sm" onClick={clearJob}>
+              <X className="w-4 h-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Job Failed Banner */}
+      {activeJob?.job_type === 'cms' && activeJob.status === 'failed' && (
+        <Alert variant="destructive">
+          <AlertTriangle className="w-4 h-4" />
+          <AlertDescription className="flex items-center justify-between w-full">
+            <span>
+              Błąd tłumaczenia: {activeJob.error_message || 'Nieznany błąd'}
+            </span>
+            <Button variant="ghost" size="sm" onClick={clearJob}>
+              <X className="w-4 h-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Select value={selectedPage || 'all'} onValueChange={v => setSelectedPage(v === 'all' ? null : v)}>
@@ -450,7 +444,7 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         
         <Button 
           onClick={() => setAiDialog(true)}
-          disabled={aiTranslating || filteredItems.length === 0}
+          disabled={activeCMSJob || jobLoading || missingCount === 0}
         >
           <Bot className="w-4 h-4 mr-2" />
           Tłumacz z AI
@@ -479,19 +473,6 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
           <Progress value={stats.percentage} className="h-1.5 mt-2" />
         </CardContent>
       </Card>
-
-      {/* AI Translation Progress */}
-      {aiTranslating && aiProgress.total > 0 && (
-        <Alert className="border-primary/50 bg-primary/5">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <AlertDescription className="flex items-center justify-between">
-            <span>
-              Tłumaczenie elementów CMS: {aiProgress.current} / {aiProgress.total}
-            </span>
-            <Progress value={(aiProgress.current / aiProgress.total) * 100} className="w-32 h-2" />
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Content list */}
       <ScrollArea className="h-[500px]">
@@ -635,10 +616,10 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
                                           <Button 
                                             size="sm" 
                                             variant="outline"
-                                            onClick={() => translateWithAI(item)}
-                                            disabled={aiTranslating}
+                                            onClick={() => translateSingleWithAI(item)}
+                                            disabled={aiTranslatingSingle || activeCMSJob}
                                           >
-                                            {aiTranslating ? (
+                                            {aiTranslatingSingle ? (
                                               <Loader2 className="w-3 h-3 animate-spin" />
                                             ) : (
                                               <Bot className="w-3 h-3 mr-1" />
@@ -688,36 +669,31 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
               <p className="font-medium mb-1">Informacje:</p>
               <ul className="list-disc list-inside text-muted-foreground space-y-1 text-xs">
                 <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
-                <li>Przetłumaczone elementy są automatycznie zapisywane w bazie</li>
+                <li>Proces działa w tle - możesz zamknąć to okno</li>
+                <li>Postęp jest zapisywany - po odświeżeniu strony tłumaczenie będzie kontynuowane</li>
                 <li>Tylko elementy bez istniejącego tłumaczenia będą przetłumaczone</li>
-                <li>Zalecane ręczne sprawdzenie wyników</li>
               </ul>
             </div>
             
             <div className="flex items-center justify-between">
               <span className="text-sm">Elementy do przetłumaczenia:</span>
-              <Badge variant="secondary">
-                {filteredItems.filter(item => {
-                  const t = getTranslation(item.id, selectedLanguage);
-                  return (item.title || item.description) && (!t?.title && !t?.description);
-                }).length}
-              </Badge>
+              <Badge variant="secondary">{missingCount}</Badge>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAiDialog(false)} disabled={aiTranslating}>
+            <Button variant="outline" onClick={() => setAiDialog(false)}>
               Anuluj
             </Button>
-            <Button onClick={translateAllWithAI} disabled={aiTranslating}>
-              {aiTranslating ? (
+            <Button onClick={startBackgroundTranslation} disabled={jobLoading}>
+              {jobLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Tłumaczenie ({aiProgress.current}/{aiProgress.total})...
+                  Uruchamianie...
                 </>
               ) : (
                 <>
                   <Bot className="w-4 h-4 mr-2" />
-                  Rozpocznij
+                  Rozpocznij w tle
                 </>
               )}
             </Button>
