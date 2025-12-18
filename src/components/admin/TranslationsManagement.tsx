@@ -15,9 +15,10 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, Trash2, Pencil, Languages, Globe, Search, Download, Upload, 
-  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2
+  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2, FileText
 } from 'lucide-react';
 import { useTranslationsAdmin, I18nLanguage, TranslationsMap, LanguageTranslations } from '@/hooks/useTranslations';
+import { CMSContentTranslation } from './CMSContentTranslation';
 
 interface TranslationsManagementProps {
   className?: string;
@@ -507,7 +508,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
+            <TabsList className="mb-4 flex-wrap">
               <TabsTrigger value="languages">
                 <Globe className="w-4 h-4 mr-2" />
                 Języki ({languages.length})
@@ -515,6 +516,10 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               <TabsTrigger value="translations">
                 <FileJson className="w-4 h-4 mr-2" />
                 Klucze ({translations.length})
+              </TabsTrigger>
+              <TabsTrigger value="cms">
+                <FileText className="w-4 h-4 mr-2" />
+                Treści CMS
               </TabsTrigger>
               <TabsTrigger value="json">
                 <FileJson className="w-4 h-4 mr-2" />
@@ -779,6 +784,11 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            {/* CMS Content Tab */}
+            <TabsContent value="cms">
+              <CMSContentTranslation languages={languages} defaultLang={defaultLang} />
             </TabsContent>
 
             {/* JSON Editor Tab */}
