@@ -14,7 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { 
+import { useLanguage } from '@/contexts/LanguageContext';
+import {
   Plus, Trash2, Pencil, Languages, Globe, Search, Download, Upload, 
   Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2, FileText, XCircle, CheckCircle2
 } from 'lucide-react';
@@ -29,6 +30,7 @@ interface TranslationsManagementProps {
 
 export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ className }) => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     languages,
@@ -176,15 +178,15 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     try {
       if (editingLanguage) {
         await updateLanguage(editingLanguage.id, languageForm);
-        toast({ title: 'Sukces', description: 'Język został zaktualizowany' });
+        toast({ title: t('toast.success'), description: t('translations.languageUpdated') });
       } else {
         await createLanguage(languageForm);
-        toast({ title: 'Sukces', description: 'Język został dodany' });
+        toast({ title: t('toast.success'), description: t('translations.languageAdded') });
       }
       setLanguageDialog(false);
       resetLanguageForm();
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -192,19 +194,19 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     if (!deleteDialog || deleteDialog.type !== 'language') return;
     try {
       await deleteLanguage(deleteDialog.item.id, deleteDialog.item.code);
-      toast({ title: 'Sukces', description: 'Język i wszystkie jego tłumaczenia zostały usunięte' });
+      toast({ title: t('toast.success'), description: t('translations.languageDeleted') });
       setDeleteDialog(null);
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
     }
   };
 
   const handleSetDefault = async (code: string) => {
     try {
       await setDefaultLanguage(code);
-      toast({ title: 'Sukces', description: 'Język domyślny został zmieniony' });
+      toast({ title: t('toast.success'), description: t('translations.defaultLanguageChanged') });
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -220,11 +222,11 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
           );
         }
       }
-      toast({ title: 'Sukces', description: 'Tłumaczenie zostało zapisane' });
+      toast({ title: t('toast.success'), description: t('translations.translationSaved') });
       setTranslationDialog(false);
       resetTranslationForm();
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -232,10 +234,10 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     if (!deleteDialog || deleteDialog.type !== 'key') return;
     try {
       await deleteTranslationKey(deleteDialog.item.namespace, deleteDialog.item.key);
-      toast({ title: 'Sukces', description: 'Klucz został usunięty' });
+      toast({ title: t('toast.success'), description: t('translations.keyDeleted') });
       setDeleteDialog(null);
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -249,7 +251,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     a.download = `translations-all-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Sukces', description: 'Wszystkie tłumaczenia zostały wyeksportowane' });
+    toast({ title: t('toast.success'), description: t('translations.allExported') });
   };
 
   // Export single language
@@ -262,7 +264,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     a.download = `translations-${code}-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Sukces', description: `Tłumaczenia dla ${code.toUpperCase()} zostały wyeksportowane` });
+    toast({ title: t('toast.success'), description: t('translations.languageExported') });
   };
 
   // Import handlers
@@ -270,12 +272,12 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     try {
       const data = JSON.parse(importJson) as TranslationsMap;
       await importTranslations(data);
-      toast({ title: 'Sukces', description: 'Tłumaczenia zostały zaimportowane' });
+      toast({ title: t('toast.success'), description: t('translations.allImported') });
       setImportDialog(false);
       setImportJson('');
       setImportLanguageCode(null);
     } catch (error: any) {
-      toast({ title: 'Błąd', description: 'Nieprawidłowy format JSON', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('error.invalidJson'), variant: 'destructive' });
     }
   };
 
@@ -284,12 +286,12 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     try {
       const data = JSON.parse(importJson) as LanguageTranslations;
       await importLanguageJson(importLanguageCode, data);
-      toast({ title: 'Sukces', description: `Tłumaczenia dla ${importLanguageCode.toUpperCase()} zostały zaimportowane` });
+      toast({ title: t('toast.success'), description: t('translations.languageImported') });
       setImportDialog(false);
       setImportJson('');
       setImportLanguageCode(null);
     } catch (error: any) {
-      toast({ title: 'Błąd', description: 'Nieprawidłowy format JSON', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('error.invalidJson'), variant: 'destructive' });
     }
   };
 
@@ -336,12 +338,12 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
         (current, total) => setMigrationProgress({ current, total })
       );
       toast({ 
-        title: 'Sukces', 
-        description: `Zmigrowano ${result.migrated} tłumaczeń do bazy danych` 
+        title: t('toast.success'), 
+        description: `${t('translations.migratedCount')} ${result.migrated}` 
       });
     } catch (error: any) {
       toast({ 
-        title: 'Błąd', 
+        title: t('toast.error'),
         description: error.message || 'Wystąpił błąd podczas migracji', 
         variant: 'destructive' 
       });
@@ -365,14 +367,14 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
       setSavingJson(true);
       setJsonEditorError(null);
       await importLanguageJson(jsonEditorLanguage, data);
-      toast({ title: 'Sukces', description: `JSON dla ${jsonEditorLanguage.toUpperCase()} został zapisany` });
+      toast({ title: t('toast.success'), description: t('translations.jsonSaved') });
     } catch (error: any) {
       if (error instanceof SyntaxError) {
-        setJsonEditorError('Nieprawidłowy format JSON');
+        setJsonEditorError(t('error.invalidJson'));
       } else {
         setJsonEditorError(error.message);
       }
-      toast({ title: 'Błąd', description: 'Nie udało się zapisać JSON', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('translations.jsonSaveFailed'), variant: 'destructive' });
     } finally {
       setSavingJson(false);
     }
@@ -439,7 +441,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     return (
       <div className="flex items-center justify-center p-8">
         <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-        <span>Ładowanie tłumaczeń...</span>
+        <span>{t('translations.loading')}</span>
       </div>
     );
   }

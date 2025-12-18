@@ -1404,6 +1404,54 @@ export const completeTranslationsData: Record<string, Record<string, string>> = 
     'translationJob.errors': 'błędów',
     'translationJob.startBackground': 'Uruchom w tle',
     'translationJob.backgroundNote': 'Tłumaczenie będzie kontynuowane nawet po zamknięciu okna',
+    
+    // MyAccount page
+    'myAccount.displayPreferences': 'Preferencje wyświetlania',
+    'myAccount.customizeSettings': 'Dostosuj ustawienia swojego konta',
+    'myAccount.showDailySignal': 'Wyświetlaj Sygnał Dnia po zalogowaniu',
+    'myAccount.dailySignalDescription': 'Codzienny, wspierający komunikat na start dnia',
+    'myAccount.dailySignalEnabled': 'Sygnał Dnia włączony',
+    'myAccount.dailySignalDisabled': 'Sygnał Dnia wyłączony',
+    'myAccount.addressSaved': 'Dane adresowe zostały zapisane.',
+    'myAccount.addressSaveFailed': 'Nie udało się zapisać danych adresowych.',
+    'myAccount.addressDeleted': 'Dane adresowe zostały usunięte.',
+    'myAccount.addressDeleteFailed': 'Nie udało się usunąć danych adresowych.',
+    'myAccount.accountBlocked': 'Konto zablokowane',
+    'myAccount.accountBlockedDescription': 'Twoje konto zostało dezaktywowane przez administratora. Nie masz dostępu do funkcji aplikacji.',
+    'myAccount.contactAdmin': 'Jeśli uważasz, że to pomyłka, skontaktuj się z administratorem systemu.',
+    'myAccount.manageAccountSettings': 'Zarządzaj swoim kontem i ustawieniami',
+    'myAccount.basicAccountInfo': 'Podstawowe informacje o Twoim koncie',
+    'myAccount.notProvided': 'Nie podano',
+    'myAccount.clientId': 'ID klienta',
+    'myAccount.addressDataDescription': 'Opcjonalne dane adresowe – możesz je edytować w dowolnym momencie',
+    'myAccount.updatePasswordDescription': 'Zaktualizuj swoje hasło, aby utrzymać bezpieczeństwo konta',
+    'myAccount.gdprNotice': 'Informacja RODO',
+    'myAccount.gdprText': 'Podane dane osobowe są przetwarzane zgodnie z obowiązującymi przepisami RODO i wykorzystywane wyłącznie w celach związanych z funkcjonowaniem konta użytkownika. Masz prawo wglądu, edycji oraz usunięcia swoich danych.',
+    
+    // Roles
+    'role.administrator': 'Administrator',
+    'role.partner': 'Partner',
+    'role.specialist': 'Specjalista',
+    'role.client': 'Klient',
+    
+    // Navigation
+    'nav.training': 'Akademia',
+    
+    // Translations module
+    'translations.loading': 'Ładowanie tłumaczeń...',
+    'translations.languageUpdated': 'Język został zaktualizowany',
+    'translations.languageAdded': 'Język został dodany',
+    'translations.languageDeleted': 'Język i wszystkie jego tłumaczenia zostały usunięte',
+    'translations.defaultLanguageChanged': 'Język domyślny został zmieniony',
+    'translations.translationSaved': 'Tłumaczenie zostało zapisane',
+    'translations.keyDeleted': 'Klucz został usunięty',
+    'translations.allExported': 'Wszystkie tłumaczenia zostały wyeksportowane',
+    'translations.languageExported': 'Tłumaczenia zostały wyeksportowane',
+    'translations.allImported': 'Tłumaczenia zostały zaimportowane',
+    'translations.languageImported': 'Tłumaczenia zostały zaimportowane',
+    'translations.migratedCount': 'Zmigrowano tłumaczeń do bazy danych:',
+    'translations.jsonSaved': 'JSON został zapisany',
+    'translations.jsonSaveFailed': 'Nie udało się zapisać JSON',
   },
   de: {
     // Navigation
