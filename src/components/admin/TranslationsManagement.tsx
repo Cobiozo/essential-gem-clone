@@ -428,26 +428,24 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                 <Upload className="w-4 h-4 mr-2" />
                 Import
               </Button>
-              {translations.length === 0 && (
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={handleMigrate}
-                  disabled={migrating}
-                >
-                  {migrating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Migracja... {migrationProgress.current}/{migrationProgress.total}
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Załaduj tłumaczenia
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button 
+                variant={translations.length === 0 ? "default" : "outline"}
+                size="sm" 
+                onClick={handleMigrate}
+                disabled={migrating}
+              >
+                {migrating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {migrationProgress.current}/{migrationProgress.total}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {translations.length === 0 ? 'Załaduj tłumaczenia' : 'Synchronizuj z kodem'}
+                  </>
+                )}
+              </Button>
               <Button variant="outline" size="sm" onClick={refresh}>
                 <RefreshCw className="w-4 h-4" />
               </Button>
