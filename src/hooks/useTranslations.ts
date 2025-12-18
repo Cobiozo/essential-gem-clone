@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface I18nLanguage {
@@ -32,6 +32,18 @@ export interface TranslationsMap {
   };
 }
 
+export interface LanguageTranslations {
+  [namespace: string]: {
+    [key: string]: string;
+  };
+}
+
+export interface LanguageStats {
+  total: number;
+  translated: number;
+  percentage: number;
+}
+
 // Local cache for translations - loads once on app start
 let translationsCache: TranslationsMap | null = null;
 let languagesCache: I18nLanguage[] | null = null;
@@ -43,12 +55,10 @@ const notifyListeners = () => {
 };
 
 export const loadTranslationsCache = async (): Promise<{ translations: TranslationsMap; languages: I18nLanguage[] }> => {
-  // If already cached, return immediately
   if (translationsCache && languagesCache) {
     return { translations: translationsCache, languages: languagesCache };
   }
 
-  // If loading in progress, wait for it
   if (cacheLoading) {
     return new Promise((resolve) => {
       const listener = () => {
@@ -63,7 +73,6 @@ export const loadTranslationsCache = async (): Promise<{ translations: Translati
   cacheLoading = true;
 
   try {
-    // Fetch languages and translations in parallel
     const [languagesRes, translationsRes] = await Promise.all([
       supabase.from('i18n_languages').select('*').eq('is_active', true).order('position'),
       supabase.from('i18n_translations').select('*')
@@ -74,7 +83,6 @@ export const loadTranslationsCache = async (): Promise<{ translations: Translati
 
     languagesCache = languagesRes.data || [];
     
-    // Build translations map
     const map: TranslationsMap = {};
     for (const t of translationsRes.data || []) {
       if (!map[t.language_code]) map[t.language_code] = {};
@@ -109,15 +117,12 @@ export const getTranslation = (
 ): string | null => {
   if (!translationsCache) return null;
   
-  // Parse namespace.key format
   const [namespace, ...keyParts] = fullKey.split('.');
   const key = keyParts.join('.');
   
-  // Try current language
   const value = translationsCache[languageCode]?.[namespace]?.[key];
   if (value) return value;
   
-  // Fallback to default language
   if (languageCode !== defaultLanguageCode) {
     const fallback = translationsCache[defaultLanguageCode]?.[namespace]?.[key];
     if (fallback) return fallback;
@@ -207,7 +212,6 @@ export const useTranslationsAdmin = () => {
     if (error) throw error;
     setTranslations(data || []);
     
-    // Extract unique namespaces
     const ns = [...new Set((data || []).map(t => t.namespace))];
     setNamespaces(ns);
     
@@ -261,25 +265,30 @@ export const useTranslationsAdmin = () => {
     invalidateTranslationsCache();
   };
 
-  const deleteLanguage = async (id: string) => {
+  const deleteLanguage = async (id: string, code: string) => {
+    // First delete all translations for this language
+    await supabase
+      .from('i18n_translations')
+      .delete()
+      .eq('language_code', code);
+    
+    // Then delete the language
     const { error } = await supabase
       .from('i18n_languages')
       .delete()
       .eq('id', id);
     
     if (error) throw error;
-    await fetchLanguages();
+    await Promise.all([fetchLanguages(), fetchTranslations()]);
     invalidateTranslationsCache();
   };
 
   const setDefaultLanguage = async (code: string) => {
-    // First, unset all defaults
     await supabase
       .from('i18n_languages')
       .update({ is_default: false })
       .neq('code', code);
     
-    // Then set the new default
     const { error } = await supabase
       .from('i18n_languages')
       .update({ is_default: true })
@@ -336,6 +345,136 @@ export const useTranslationsAdmin = () => {
     invalidateTranslationsCache();
   };
 
+  // Per-language operations
+  const exportLanguageJson = (languageCode: string): LanguageTranslations => {
+    const result: LanguageTranslations = {};
+    
+    for (const t of translations) {
+      if (t.language_code === languageCode) {
+        if (!result[t.namespace]) result[t.namespace] = {};
+        result[t.namespace][t.key] = t.value;
+      }
+    }
+    
+    return result;
+  };
+
+  const importLanguageJson = async (languageCode: string, data: LanguageTranslations) => {
+    const inserts: { language_code: string; namespace: string; key: string; value: string }[] = [];
+    
+    for (const [namespace, keys] of Object.entries(data)) {
+      for (const [key, value] of Object.entries(keys)) {
+        inserts.push({
+          language_code: languageCode,
+          namespace,
+          key,
+          value
+        });
+      }
+    }
+    
+    if (inserts.length === 0) return;
+    
+    const { error } = await supabase
+      .from('i18n_translations')
+      .upsert(inserts, { onConflict: 'language_code,namespace,key' });
+    
+    if (error) throw error;
+    await fetchTranslations();
+    invalidateTranslationsCache();
+  };
+
+  const deleteLanguageTranslations = async (languageCode: string) => {
+    const { error } = await supabase
+      .from('i18n_translations')
+      .delete()
+      .eq('language_code', languageCode);
+    
+    if (error) throw error;
+    await fetchTranslations();
+    invalidateTranslationsCache();
+  };
+
+  const getLanguageStats = (languageCode: string, defaultCode: string = 'pl'): LanguageStats => {
+    // Get all unique keys from default language
+    const defaultKeys = new Set<string>();
+    for (const t of translations) {
+      if (t.language_code === defaultCode) {
+        defaultKeys.add(`${t.namespace}.${t.key}`);
+      }
+    }
+    
+    // Count translated keys for target language
+    let translated = 0;
+    for (const t of translations) {
+      if (t.language_code === languageCode && t.value.trim()) {
+        translated++;
+      }
+    }
+    
+    const total = defaultKeys.size || translations.filter(t => t.language_code === languageCode).length;
+    
+    return {
+      total,
+      translated,
+      percentage: total > 0 ? Math.round((translated / total) * 100) : 0
+    };
+  };
+
+  const translateLanguageWithAI = async (
+    sourceCode: string,
+    targetCode: string,
+    onProgress?: (current: number, total: number) => void
+  ): Promise<{ success: boolean; translated: number; total: number }> => {
+    // Get all translations from source language
+    const sourceTranslations = translations.filter(t => t.language_code === sourceCode);
+    
+    if (sourceTranslations.length === 0) {
+      throw new Error('No translations found in source language');
+    }
+
+    const keys = sourceTranslations.map(t => ({
+      namespace: t.namespace,
+      key: t.key,
+      value: t.value
+    }));
+
+    onProgress?.(0, keys.length);
+
+    const response = await supabase.functions.invoke('translate-content', {
+      body: {
+        mode: 'batch',
+        sourceLanguage: sourceCode,
+        targetLanguage: targetCode,
+        keys
+      }
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message || 'Translation failed');
+    }
+
+    const result = response.data;
+    
+    if (result.error) {
+      if (result.error === 'rate_limit') {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      throw new Error(result.message || 'Translation failed');
+    }
+
+    onProgress?.(result.translated || 0, keys.length);
+    
+    await fetchTranslations();
+    invalidateTranslationsCache();
+
+    return {
+      success: true,
+      translated: result.translated || 0,
+      total: keys.length
+    };
+  };
+
   // Bulk operations
   const importTranslations = async (data: TranslationsMap) => {
     const inserts: { language_code: string; namespace: string; key: string; value: string }[] = [];
@@ -357,9 +496,7 @@ export const useTranslationsAdmin = () => {
     
     const { error } = await supabase
       .from('i18n_translations')
-      .upsert(inserts, {
-        onConflict: 'language_code,namespace,key'
-      });
+      .upsert(inserts, { onConflict: 'language_code,namespace,key' });
     
     if (error) throw error;
     await fetchTranslations();
@@ -392,6 +529,12 @@ export const useTranslationsAdmin = () => {
     deleteTranslation,
     deleteTranslationKey,
     importTranslations,
-    exportTranslations
+    exportTranslations,
+    // New per-language functions
+    exportLanguageJson,
+    importLanguageJson,
+    deleteLanguageTranslations,
+    getLanguageStats,
+    translateLanguageWithAI
   };
 };

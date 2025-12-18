@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,17 +6,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, Trash2, Pencil, Languages, Globe, Search, Download, Upload, 
-  Star, Check, X, ChevronRight, FileJson, AlertTriangle, RefreshCw
+  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2
 } from 'lucide-react';
-import { useTranslationsAdmin, I18nLanguage, I18nTranslation, TranslationsMap } from '@/hooks/useTranslations';
+import { useTranslationsAdmin, I18nLanguage, TranslationsMap, LanguageTranslations } from '@/hooks/useTranslations';
 
 interface TranslationsManagementProps {
   className?: string;
@@ -24,6 +25,7 @@ interface TranslationsManagementProps {
 
 export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ className }) => {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     languages,
     translations,
@@ -37,10 +39,14 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     upsertTranslation,
     deleteTranslationKey,
     importTranslations,
-    exportTranslations
+    exportTranslations,
+    exportLanguageJson,
+    importLanguageJson,
+    getLanguageStats,
+    translateLanguageWithAI
   } = useTranslationsAdmin();
 
-  const [activeTab, setActiveTab] = useState('translations');
+  const [activeTab, setActiveTab] = useState('languages');
   const [selectedNamespace, setSelectedNamespace] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('pl');
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +78,14 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   // Import dialog
   const [importDialog, setImportDialog] = useState(false);
   const [importJson, setImportJson] = useState('');
+  const [importLanguageCode, setImportLanguageCode] = useState<string | null>(null);
+
+  // AI Translation state
+  const [aiTranslateDialog, setAiTranslateDialog] = useState(false);
+  const [aiTranslateTarget, setAiTranslateTarget] = useState<I18nLanguage | null>(null);
+  const [aiTranslateSource, setAiTranslateSource] = useState<string>('pl');
+  const [aiTranslating, setAiTranslating] = useState(false);
+  const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
 
   // Group translations by namespace and key
   const groupedTranslations = useMemo(() => {
@@ -111,6 +125,11 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     return counts;
   }, [namespaces, groupedTranslations]);
 
+  // Get default language
+  const defaultLang = useMemo(() => {
+    return languages.find(l => l.is_default)?.code || 'pl';
+  }, [languages]);
+
   // Handlers
   const handleSaveLanguage = async () => {
     try {
@@ -131,8 +150,8 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   const handleDeleteLanguage = async () => {
     if (!deleteDialog || deleteDialog.type !== 'language') return;
     try {
-      await deleteLanguage(deleteDialog.item.id);
-      toast({ title: 'Sukces', description: 'Język został usunięty' });
+      await deleteLanguage(deleteDialog.item.id, deleteDialog.item.code);
+      toast({ title: 'Sukces', description: 'Język i wszystkie jego tłumaczenia zostały usunięte' });
       setDeleteDialog(null);
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
@@ -179,27 +198,107 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
     }
   };
 
-  const handleExport = () => {
+  // Export all translations
+  const handleExportAll = () => {
     const data = exportTranslations();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `translations-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `translations-all-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Sukces', description: 'Tłumaczenia zostały wyeksportowane' });
+    toast({ title: 'Sukces', description: 'Wszystkie tłumaczenia zostały wyeksportowane' });
   };
 
-  const handleImport = async () => {
+  // Export single language
+  const handleExportLanguage = (code: string) => {
+    const data = exportLanguageJson(code);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `translations-${code}-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Sukces', description: `Tłumaczenia dla ${code.toUpperCase()} zostały wyeksportowane` });
+  };
+
+  // Import handlers
+  const handleImportAll = async () => {
     try {
       const data = JSON.parse(importJson) as TranslationsMap;
       await importTranslations(data);
       toast({ title: 'Sukces', description: 'Tłumaczenia zostały zaimportowane' });
       setImportDialog(false);
       setImportJson('');
+      setImportLanguageCode(null);
     } catch (error: any) {
       toast({ title: 'Błąd', description: 'Nieprawidłowy format JSON', variant: 'destructive' });
+    }
+  };
+
+  const handleImportLanguage = async () => {
+    if (!importLanguageCode) return;
+    try {
+      const data = JSON.parse(importJson) as LanguageTranslations;
+      await importLanguageJson(importLanguageCode, data);
+      toast({ title: 'Sukces', description: `Tłumaczenia dla ${importLanguageCode.toUpperCase()} zostały zaimportowane` });
+      setImportDialog(false);
+      setImportJson('');
+      setImportLanguageCode(null);
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: 'Nieprawidłowy format JSON', variant: 'destructive' });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, langCode?: string) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      setImportJson(content);
+      setImportLanguageCode(langCode || null);
+      setImportDialog(true);
+    };
+    reader.readAsText(file);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // AI Translation
+  const handleAiTranslate = async () => {
+    if (!aiTranslateTarget) return;
+    
+    setAiTranslating(true);
+    setAiProgress({ current: 0, total: 0 });
+    
+    try {
+      const result = await translateLanguageWithAI(
+        aiTranslateSource,
+        aiTranslateTarget.code,
+        (current, total) => setAiProgress({ current, total })
+      );
+      
+      toast({ 
+        title: 'Sukces', 
+        description: `Przetłumaczono ${result.translated} z ${result.total} kluczy` 
+      });
+      setAiTranslateDialog(false);
+      setAiTranslateTarget(null);
+    } catch (error: any) {
+      toast({ 
+        title: 'Błąd', 
+        description: error.message || 'Wystąpił błąd podczas tłumaczenia', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setAiTranslating(false);
     }
   };
 
@@ -271,6 +370,14 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
 
   return (
     <div className={className}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={(e) => handleFileUpload(e)}
+      />
+      
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -284,11 +391,11 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleExport}>
+              <Button variant="outline" size="sm" onClick={handleExportAll}>
                 <Download className="w-4 h-4 mr-2" />
-                Eksport
+                Eksport wszystkich
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setImportDialog(true)}>
+              <Button variant="outline" size="sm" onClick={() => { setImportLanguageCode(null); setImportDialog(true); }}>
                 <Upload className="w-4 h-4 mr-2" />
                 Import
               </Button>
@@ -301,13 +408,13 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
-              <TabsTrigger value="translations">
-                <FileJson className="w-4 h-4 mr-2" />
-                Tłumaczenia
-              </TabsTrigger>
               <TabsTrigger value="languages">
                 <Globe className="w-4 h-4 mr-2" />
                 Języki ({languages.length})
+              </TabsTrigger>
+              <TabsTrigger value="translations">
+                <FileJson className="w-4 h-4 mr-2" />
+                Tłumaczenia
               </TabsTrigger>
             </TabsList>
 
@@ -319,57 +426,108 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                   Dodaj język
                 </Button>
 
-                <div className="grid gap-3">
-                  {languages.map(lang => (
-                    <Card key={lang.id} className={`p-4 ${!lang.is_active ? 'opacity-60' : ''}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{lang.flag_emoji}</span>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{lang.name}</span>
-                              {lang.native_name && (
-                                <span className="text-sm text-muted-foreground">({lang.native_name})</span>
-                              )}
-                              <Badge variant="outline" className="text-xs">{lang.code.toUpperCase()}</Badge>
-                              {lang.is_default && (
-                                <Badge className="bg-yellow-500/20 text-yellow-600">
-                                  <Star className="w-3 h-3 mr-1" />
-                                  Domyślny
-                                </Badge>
-                              )}
-                              {!lang.is_active && (
-                                <Badge variant="secondary">Nieaktywny</Badge>
-                              )}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {languages.map(lang => {
+                    const stats = getLanguageStats(lang.code, defaultLang);
+                    const isDefault = lang.is_default;
+                    
+                    return (
+                      <Card key={lang.id} className={`relative ${!lang.is_active ? 'opacity-60' : ''}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl">{lang.flag_emoji}</span>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">{lang.name}</span>
+                                  <Badge variant="outline" className="text-xs">{lang.code.toUpperCase()}</Badge>
+                                </div>
+                                {lang.native_name && (
+                                  <span className="text-sm text-muted-foreground">{lang.native_name}</span>
+                                )}
+                              </div>
+                            </div>
+                            {isDefault && (
+                              <Badge className="bg-yellow-500/20 text-yellow-600">
+                                <Star className="w-3 h-3 mr-1" />
+                                Domyślny
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Stats */}
+                          <div className="space-y-2 mb-4">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Przetłumaczono</span>
+                              <span className="font-medium">{stats.translated} / {stats.total} kluczy</span>
+                            </div>
+                            <Progress value={stats.percentage} className="h-2" />
+                            <div className="text-right text-xs text-muted-foreground">
+                              {stats.percentage}% kompletne
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {!lang.is_default && lang.is_active && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleSetDefault(lang.code)}
-                            >
-                              <Star className="w-4 h-4" />
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleExportLanguage(lang.code)}>
+                              <Download className="w-3 h-3 mr-1" />
+                              JSON
                             </Button>
-                          )}
-                          <Button variant="ghost" size="sm" onClick={() => openEditLanguage(lang)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          {!lang.is_default && (
                             <Button 
-                              variant="ghost" 
+                              variant="outline" 
                               size="sm" 
-                              onClick={() => setDeleteDialog({ type: 'language', item: lang })}
+                              onClick={() => {
+                                setImportLanguageCode(lang.code);
+                                setImportDialog(true);
+                              }}
                             >
-                              <Trash2 className="w-4 h-4 text-destructive" />
+                              <Upload className="w-3 h-3 mr-1" />
+                              Import
                             </Button>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                            {!isDefault && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setAiTranslateTarget(lang);
+                                  setAiTranslateDialog(true);
+                                }}
+                              >
+                                <Bot className="w-3 h-3 mr-1" />
+                                AI
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Edit/Delete */}
+                          <div className="flex justify-end gap-1 mt-3 pt-3 border-t">
+                            {!isDefault && lang.is_active && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleSetDefault(lang.code)}
+                                title="Ustaw jako domyślny"
+                              >
+                                <Star className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => openEditLanguage(lang)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            {!isDefault && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setDeleteDialog({ type: 'language', item: lang })}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             </TabsContent>
@@ -403,7 +561,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                         ))}
                         {namespaces.length === 0 && (
                           <p className="text-sm text-muted-foreground text-center py-4">
-                            Brak modułów
+                            Brak modułów. Dodaj tłumaczenia aby utworzyć namespace.
                           </p>
                         )}
                       </div>
@@ -434,7 +592,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                           />
                         </div>
                         <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                          <SelectTrigger className="w-20 h-8">
+                          <SelectTrigger className="w-24 h-8">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -620,6 +778,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                   <div className="flex items-center gap-2 w-24 shrink-0 pt-2">
                     <span>{lang.flag_emoji}</span>
                     <span className="text-sm font-medium">{lang.code.toUpperCase()}</span>
+                    {lang.is_default && <Star className="w-3 h-3 text-yellow-500" />}
                   </div>
                   <Textarea
                     value={translationForm.values[lang.code] || ''}
@@ -678,25 +837,112 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
       <Dialog open={importDialog} onOpenChange={setImportDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Importuj tłumaczenia z JSON</DialogTitle>
+            <DialogTitle>
+              {importLanguageCode 
+                ? `Importuj tłumaczenia dla ${importLanguageCode.toUpperCase()}`
+                : 'Importuj tłumaczenia'
+              }
+            </DialogTitle>
             <DialogDescription>
-              Wklej zawartość pliku JSON z tłumaczeniami. Istniejące klucze zostaną nadpisane.
+              {importLanguageCode 
+                ? 'Wklej JSON z tłumaczeniami w formacie: {"namespace": {"key": "value"}}'
+                : 'Wklej JSON z tłumaczeniami w formacie: {"lang": {"namespace": {"key": "value"}}}'
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Textarea
               value={importJson}
               onChange={e => setImportJson(e.target.value)}
-              placeholder='{"pl": {"common": {"hello": "Cześć"}}}'
+              placeholder={importLanguageCode 
+                ? '{"common": {"hello": "Cześć"}, "nav": {"home": "Start"}}'
+                : '{"pl": {"common": {"hello": "Cześć"}}, "en": {"common": {"hello": "Hello"}}}'
+              }
               rows={12}
               className="font-mono text-sm"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImportDialog(false)}>Anuluj</Button>
-            <Button onClick={handleImport} disabled={!importJson.trim()}>
+            <Button variant="outline" onClick={() => { setImportDialog(false); setImportJson(''); setImportLanguageCode(null); }}>
+              Anuluj
+            </Button>
+            <Button 
+              onClick={importLanguageCode ? handleImportLanguage : handleImportAll} 
+              disabled={!importJson.trim()}
+            >
               <Upload className="w-4 h-4 mr-2" />
               Importuj
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Translation Dialog */}
+      <Dialog open={aiTranslateDialog} onOpenChange={(open) => { if (!aiTranslating) setAiTranslateDialog(open); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="w-5 h-5" />
+              Automatyczne tłumaczenie AI
+            </DialogTitle>
+            <DialogDescription>
+              Przetłumacz wszystkie klucze do języka {aiTranslateTarget?.name} ({aiTranslateTarget?.code.toUpperCase()})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label>Język źródłowy</Label>
+              <Select value={aiTranslateSource} onValueChange={setAiTranslateSource} disabled={aiTranslating}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.filter(l => l.code !== aiTranslateTarget?.code).map(lang => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.flag_emoji} {lang.name} ({lang.code.toUpperCase()})
+                      {lang.is_default && ' ★'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {aiTranslating && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Tłumaczenie w toku...</span>
+                  <span>{aiProgress.current} / {aiProgress.total}</span>
+                </div>
+                <Progress value={aiProgress.total > 0 ? (aiProgress.current / aiProgress.total) * 100 : 0} />
+              </div>
+            )}
+
+            <div className="bg-muted p-3 rounded-md text-sm">
+              <p className="font-medium mb-1">Uwaga:</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                <li>Tłumaczenie wykorzystuje AI (Google Gemini)</li>
+                <li>Istniejące tłumaczenia zostaną nadpisane</li>
+                <li>Proces może potrwać kilka minut</li>
+                <li>Zalecane ręczne sprawdzenie wyników</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiTranslateDialog(false)} disabled={aiTranslating}>
+              Anuluj
+            </Button>
+            <Button onClick={handleAiTranslate} disabled={aiTranslating}>
+              {aiTranslating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Tłumaczenie...
+                </>
+              ) : (
+                <>
+                  <Bot className="w-4 h-4 mr-2" />
+                  Rozpocznij tłumaczenie
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
