@@ -21,6 +21,7 @@ import {
 import { useTranslationsAdmin, I18nLanguage, TranslationsMap, LanguageTranslations } from '@/hooks/useTranslations';
 import { useTranslationJobs } from '@/hooks/useTranslationJobs';
 import { CMSContentTranslation } from './CMSContentTranslation';
+import { FlagEmojiPicker } from '@/components/cms/FlagEmojiPicker';
 
 interface TranslationsManagementProps {
   className?: string;
@@ -1001,15 +1002,15 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
             </div>
             <div>
               <Label>Flaga (emoji)</Label>
-              <Input
-                value={languageForm.flag_emoji}
-                onChange={e => setLanguageForm({ ...languageForm, flag_emoji: e.target.value })}
-                placeholder="🏳️"
-                maxLength={8}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Wklej emoji flagi (np. 🇵🇱, 🇩🇪, 🇮🇹, 🇪🇸)
-              </p>
+              <div className="flex items-center gap-2">
+                <div className="w-12 h-10 flex items-center justify-center border rounded-md text-2xl bg-muted/30">
+                  {languageForm.flag_emoji || '🏳️'}
+                </div>
+                <FlagEmojiPicker 
+                  value={languageForm.flag_emoji}
+                  onSelect={(emoji) => setLanguageForm({ ...languageForm, flag_emoji: emoji })}
+                />
+              </div>
             </div>
             <div>
               <Label>Pozycja</Label>
