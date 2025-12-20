@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,58 @@ import {
   Search, Bot, Loader2, ChevronRight, ChevronDown, FileText, 
   Pencil, Save, X, RefreshCw, Languages, AlertTriangle, CheckCircle2, StopCircle, LayoutGrid
 } from 'lucide-react';
+
+// Error Boundary for sections rendering
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class SectionErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[SectionErrorBoundary] Error caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="p-4 border border-destructive/50 bg-destructive/5 rounded-md">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="font-medium">Błąd renderowania sekcji</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {this.state.error?.message || 'Wystąpił nieoczekiwany błąd'}
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            Spróbuj ponownie
+          </Button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 interface CMSContentTranslationProps {
   languages: I18nLanguage[];
@@ -152,7 +204,10 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
         .order('position');
       
       if (sectionsError) throw sectionsError;
-      setSections(sectionsData || []);
+      // Validate section data to filter out invalid entries
+      const validSections = (sectionsData || []).filter(s => s && s.id && s.page_id);
+      console.log('[CMSContentTranslation] Loaded sections:', validSections.length);
+      setSections(validSections);
 
       // Fetch existing item translations
       const { data: translationsData, error: translationsError } = await supabase
@@ -594,23 +649,31 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
     return filteredItems.filter(item => item.title || item.description).length;
   }, [filteredItems]);
 
-  // Section stats
+  // Section stats - include collapsible_header
   const sectionStats = useMemo(() => {
-    const total = filteredSections.filter(section => section.title || section.description).length;
+    const total = filteredSections.filter(section => section.title || section.description || section.collapsible_header).length;
     const translated = filteredSections.filter(section => {
       const t = getSectionTranslation(section.id, selectedLanguage);
-      return t?.title || t?.description;
+      return t?.title || t?.description || t?.collapsible_header;
     }).length;
     return { total, translated, percentage: total > 0 ? Math.round((translated / total) * 100) : 0 };
   }, [filteredSections, selectedLanguage, getSectionTranslation]);
 
-  // Count missing section translations
+  // Count missing section translations - include collapsible_header
   const missingSectionCount = useMemo(() => {
     return filteredSections.filter(section => {
       const t = getSectionTranslation(section.id, selectedLanguage);
-      return (section.title || section.description) && (!t?.title && !t?.description);
+      return (section.title || section.description || section.collapsible_header) && (!t?.title && !t?.description && !t?.collapsible_header);
     }).length;
   }, [filteredSections, selectedLanguage, getSectionTranslation]);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[CMSContentTranslation] viewMode:', viewMode, 
+      'sections:', sections.length, 
+      'filteredSections:', filteredSections.length,
+      'sectionsByPage keys:', Object.keys(sectionsByPage).length);
+  }, [viewMode, sections.length, filteredSections.length, sectionsByPage]);
 
   if (loading) {
     return (
@@ -969,10 +1032,17 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
               )}
             </>
           ) : (
-            // Render sections
-            <>
-              {Object.entries(sectionsByPage).map(([pageId, pageSections]) => {
+            // Render sections wrapped in Error Boundary
+            <SectionErrorBoundary>
+              <>
+                {Object.entries(sectionsByPage).map(([pageId, pageSections]) => {
                 const page = pages.find(p => p.id === pageId);
+                
+                // Safe fallback - skip if pageSections is invalid
+                if (!pageSections || !Array.isArray(pageSections)) {
+                  console.warn('[CMSContentTranslation] Invalid pageSections for pageId:', pageId);
+                  return null;
+                }
                 
                 return (
                   <Card key={pageId}>
@@ -988,6 +1058,11 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
                     <CardContent className="p-2">
                       <div className="space-y-1">
                         {pageSections.map(section => {
+                          // Safe fallback - skip if section is invalid
+                          if (!section || !section.id) {
+                            console.warn('[CMSContentTranslation] Invalid section in pageSections');
+                            return null;
+                          }
                           const translation = getSectionTranslation(section.id, selectedLanguage);
                           const isExpanded = expandedSections.has(section.id);
                           const isEditing = editingSection === section.id;
@@ -1184,7 +1259,8 @@ export const CMSContentTranslation: React.FC<CMSContentTranslationProps> = ({
                   <p>Brak sekcji do tłumaczenia</p>
                 </div>
               )}
-            </>
+              </>
+            </SectionErrorBoundary>
           )}
         </div>
       </ScrollArea>
