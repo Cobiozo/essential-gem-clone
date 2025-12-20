@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -102,10 +102,24 @@ const Index = () => {
     };
   };
 
+  // Debounced refetch to reduce database calls during rapid CMS changes
+  const DEBOUNCE_DELAY = 2000; // 2 seconds
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const debouncedFetchBasicData = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('Debounced CMS refetch triggered');
+      fetchBasicData();
+    }, DEBOUNCE_DELAY);
+  }, []);
+
   React.useEffect(() => {
     fetchBasicData();
 
-    // Setup realtime subscriptions for CMS changes
+    // Setup realtime subscriptions for CMS changes with debounce
     const sectionsChannel = supabase
       .channel('cms-sections-changes')
       .on(
@@ -116,8 +130,8 @@ const Index = () => {
           table: 'cms_sections'
         },
         () => {
-          console.log('CMS sections updated, refetching...');
-          fetchBasicData();
+          console.log('CMS sections updated, scheduling debounced refetch...');
+          debouncedFetchBasicData();
         }
       )
       .subscribe();
@@ -132,8 +146,8 @@ const Index = () => {
           table: 'cms_items'
         },
         () => {
-          console.log('CMS items updated, refetching...');
-          fetchBasicData();
+          console.log('CMS items updated, scheduling debounced refetch...');
+          debouncedFetchBasicData();
         }
       )
       .subscribe();
@@ -141,8 +155,11 @@ const Index = () => {
     return () => {
       supabase.removeChannel(sectionsChannel);
       supabase.removeChannel(itemsChannel);
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-  }, [user]);
+  }, [user, debouncedFetchBasicData]);
 
   const fetchBasicData = async () => {
     try {

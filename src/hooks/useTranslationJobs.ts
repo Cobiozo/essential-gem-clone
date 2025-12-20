@@ -44,12 +44,30 @@ export const useTranslationJobs = () => {
   }, []);
 
   // Poll for job status updates when there's an active job
+  // Optimization: 5s interval instead of 2s, with 30 min max polling duration
+  const MAX_POLLING_DURATION = 30 * 60 * 1000; // 30 minutes
+  const POLLING_INTERVAL = 5000; // 5 seconds
+
   useEffect(() => {
     if (!activeJob || activeJob.status === 'completed' || activeJob.status === 'failed' || activeJob.status === 'cancelled') {
       return;
     }
 
+    const startTime = Date.now();
+
     const interval = setInterval(async () => {
+      // Stop polling after 30 minutes to prevent infinite polling
+      if (Date.now() - startTime > MAX_POLLING_DURATION) {
+        console.log('Translation job polling timeout reached (30 min), stopping...');
+        clearInterval(interval);
+        toast({
+          title: 'Przekroczono limit czasu',
+          description: 'Polling zadania został zatrzymany po 30 minutach. Sprawdź status ręcznie.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('translation_jobs')
         .select('*')
@@ -74,7 +92,7 @@ export const useTranslationJobs = () => {
           });
         }
       }
-    }, 2000);
+    }, POLLING_INTERVAL);
 
     return () => clearInterval(interval);
   }, [activeJob?.id, activeJob?.status, toast]);
