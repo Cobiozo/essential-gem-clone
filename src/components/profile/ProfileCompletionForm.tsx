@@ -82,10 +82,16 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user) {
+      console.error('No user found');
+      return;
+    }
+    
+    console.log('handleSave called, isSpecialist:', isSpecialist, 'userRole:', userRole);
     
     const validationError = validateForm();
     if (validationError) {
+      console.log('Validation error:', validationError);
       toast({
         title: 'Błąd walidacji',
         description: validationError,
@@ -125,10 +131,15 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
         updateData.is_searchable = true;
       }
       
-      const { error } = await supabase
+      console.log('Saving profile with data:', updateData);
+      
+      const { data, error } = await supabase
         .from('profiles')
         .update(updateData)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
+
+      console.log('Update result:', { data, error });
 
       if (error) throw error;
 
@@ -145,7 +156,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       console.error('Error saving profile:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie udało się zapisać profilu',
+        description: error?.message || 'Nie udało się zapisać profilu',
         variant: 'destructive',
       });
     } finally {
