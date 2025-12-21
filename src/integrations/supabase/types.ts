@@ -1618,6 +1618,213 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_delivery_log: {
+        Row: {
+          delivered_at: string | null
+          event_id: string | null
+          event_type_id: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          delivered_at?: string | null
+          event_id?: string | null
+          event_type_id?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          delivered_at?: string | null
+          event_id?: string | null
+          event_type_id?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_delivery_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_delivery_log_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "notification_event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_event_types: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          event_key: string
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          position: number | null
+          source_module: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_key: string
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          position?: number | null
+          source_module: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_key?: string
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          position?: number | null
+          source_module?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      notification_events: {
+        Row: {
+          created_at: string | null
+          event_key: string
+          event_type_id: string | null
+          id: string
+          payload: Json | null
+          processed: boolean | null
+          processed_at: string | null
+          related_entity_id: string | null
+          related_entity_type: string | null
+          sender_id: string
+          sender_role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_key: string
+          event_type_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+          processed_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          sender_id: string
+          sender_role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_key?: string
+          event_type_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed?: boolean | null
+          processed_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          sender_id?: string
+          sender_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_events_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "notification_event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_limits: {
+        Row: {
+          cooldown_minutes: number | null
+          created_at: string | null
+          event_type_id: string | null
+          id: string
+          is_active: boolean | null
+          max_per_day: number | null
+          max_per_hour: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          cooldown_minutes?: number | null
+          created_at?: string | null
+          event_type_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_per_day?: number | null
+          max_per_hour?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          cooldown_minutes?: number | null
+          created_at?: string | null
+          event_type_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_per_day?: number | null
+          max_per_hour?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_limits_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: true
+            referencedRelation: "notification_event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_role_routes: {
+        Row: {
+          created_at: string | null
+          event_type_id: string | null
+          id: string
+          is_enabled: boolean | null
+          source_role: string
+          target_role: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type_id?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          source_role: string
+          target_role: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type_id?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          source_role?: string
+          target_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_role_routes_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "notification_event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_settings: {
         Row: {
           column_count: number
@@ -2343,6 +2550,41 @@ export type Database = {
             columns: ["banner_id"]
             isOneToOne: false
             referencedRelation: "important_info_banners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_notification_preferences: {
+        Row: {
+          created_at: string | null
+          event_type_id: string | null
+          id: string
+          is_enabled: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type_id?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type_id?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_preferences_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "notification_event_types"
             referencedColumns: ["id"]
           },
         ]
