@@ -26,7 +26,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   isEditing = false 
 }) => {
   const navigate = useNavigate();
-  const { user, profile, userRole } = useAuth();
+  const { user, profile, userRole, isAdmin, isPartner, isSpecjalista, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   
@@ -152,8 +152,15 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       
       onProfileCompleted?.();
       
-      // Redirect to home page after successful save
-      navigate('/');
+      // Refresh profile data in context
+      await refreshProfile();
+      
+      // Redirect based on role
+      if (isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       console.error('Error saving profile:', error);
       toast({

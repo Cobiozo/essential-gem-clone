@@ -48,6 +48,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -250,6 +251,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
   const isAdmin = userRole?.role === 'admin' || profile?.role === 'admin';
   const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
   const isClient = userRole?.role === 'client' || profile?.role === 'client';
@@ -270,6 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    refreshProfile,
   };
 
   // Don't render children until auth is initialized
