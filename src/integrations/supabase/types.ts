@@ -1487,6 +1487,54 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_visibility: {
+        Row: {
+          created_at: string
+          description: string | null
+          feature_category: string
+          feature_key: string
+          feature_name: string
+          id: string
+          is_system: boolean
+          position: number
+          updated_at: string
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          feature_category?: string
+          feature_key: string
+          feature_name: string
+          id?: string
+          is_system?: boolean
+          position?: number
+          updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          feature_category?: string
+          feature_key?: string
+          feature_name?: string
+          id?: string
+          is_system?: boolean
+          position?: number
+          updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
       i18n_languages: {
         Row: {
           code: string
