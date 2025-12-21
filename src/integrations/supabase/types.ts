@@ -2239,6 +2239,57 @@ export type Database = {
         }
         Relationships: []
       }
+      specialist_message_limits: {
+        Row: {
+          created_at: string | null
+          id: string
+          message_count: number | null
+          specialist_id: string
+          user_id: string
+          window_date: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message_count?: number | null
+          specialist_id: string
+          user_id: string
+          window_date?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message_count?: number | null
+          specialist_id?: string
+          user_id?: string
+          window_date?: string | null
+        }
+        Relationships: []
+      }
+      specialist_messaging_blocks: {
+        Row: {
+          blocked_by: string
+          created_at: string | null
+          id: string
+          reason: string | null
+          specialist_id: string
+        }
+        Insert: {
+          blocked_by: string
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          specialist_id: string
+        }
+        Update: {
+          blocked_by?: string
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          specialist_id?: string
+        }
+        Relationships: []
+      }
       specialist_search_settings: {
         Row: {
           allow_messaging: boolean
@@ -2246,6 +2297,8 @@ export type Database = {
           id: string
           integrate_with_team_contacts: boolean
           is_enabled: boolean
+          max_messages_per_day: number | null
+          max_messages_per_specialist_per_day: number | null
           max_results: number
           messaging_enabled_for_clients: boolean
           messaging_enabled_for_partners: boolean
@@ -2271,6 +2324,8 @@ export type Database = {
           id?: string
           integrate_with_team_contacts?: boolean
           is_enabled?: boolean
+          max_messages_per_day?: number | null
+          max_messages_per_specialist_per_day?: number | null
           max_results?: number
           messaging_enabled_for_clients?: boolean
           messaging_enabled_for_partners?: boolean
@@ -2296,6 +2351,8 @@ export type Database = {
           id?: string
           integrate_with_team_contacts?: boolean
           is_enabled?: boolean
+          max_messages_per_day?: number | null
+          max_messages_per_specialist_per_day?: number | null
           max_results?: number
           messaging_enabled_for_clients?: boolean
           messaging_enabled_for_partners?: boolean

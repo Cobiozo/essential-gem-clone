@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -22,6 +22,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { UserNotificationCenter } from '@/components/notifications/UserNotificationCenter';
 import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionForm';
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
+import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -395,7 +396,7 @@ const MyAccount = () => {
           )}
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="profile">
                 <User className="w-4 h-4 mr-2" />
                 {t('myAccount.profile')}
@@ -403,6 +404,10 @@ const MyAccount = () => {
               <TabsTrigger value="team-contacts" disabled={mustCompleteProfile}>
                 <Users className="w-4 h-4 mr-2" />
                 Pure – Kontakty
+              </TabsTrigger>
+              <TabsTrigger value="correspondence" disabled={mustCompleteProfile}>
+                <Mail className="w-4 h-4 mr-2" />
+                Korespondencja
               </TabsTrigger>
               <TabsTrigger value="notifications" disabled={mustCompleteProfile}>
                 <Bell className="w-4 h-4 mr-2" />
@@ -703,6 +708,23 @@ const MyAccount = () => {
 
             <TabsContent value="team-contacts" className="mt-6">
               <TeamContactsTab />
+            </TabsContent>
+
+            <TabsContent value="correspondence" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    Korespondencja ze specjalistami
+                  </CardTitle>
+                  <CardDescription>
+                    Historia wiadomości e-mail wysłanych do specjalistów
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SpecialistCorrespondence />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="notifications" className="mt-6">
