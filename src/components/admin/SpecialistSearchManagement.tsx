@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Settings, Users, Save, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Search, Settings, Users, Save, Loader2, Eye, EyeOff, Mail, Phone, MapPin, MessageSquare, Info, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -19,6 +21,23 @@ interface SearchSettings {
   visible_to_specjalista: boolean;
   visible_to_anonymous: boolean;
   max_results: number;
+  // Data visibility by role
+  show_email_to_clients: boolean;
+  show_email_to_partners: boolean;
+  show_email_to_specjalista: boolean;
+  show_phone_to_clients: boolean;
+  show_phone_to_partners: boolean;
+  show_phone_to_specjalista: boolean;
+  show_address_to_clients: boolean;
+  show_address_to_partners: boolean;
+  show_address_to_specjalista: boolean;
+  // Messaging
+  allow_messaging: boolean;
+  messaging_enabled_for_clients: boolean;
+  messaging_enabled_for_partners: boolean;
+  messaging_enabled_for_specjalista: boolean;
+  // Integration
+  integrate_with_team_contacts: boolean;
 }
 
 interface SpecialistProfile {
@@ -27,8 +46,15 @@ interface SpecialistProfile {
   last_name: string | null;
   email: string;
   specialization: string | null;
-  is_searchable: boolean;
+  profile_description: string | null;
+  search_keywords: string[] | null;
+  is_searchable: boolean | null;
+  is_active: boolean;
   city: string | null;
+  country: string | null;
+  phone_number: string | null;
+  street_address: string | null;
+  postal_code: string | null;
 }
 
 export const SpecialistSearchManagement: React.FC = () => {
@@ -36,6 +62,7 @@ export const SpecialistSearchManagement: React.FC = () => {
   const [specialists, setSpecialists] = useState<SpecialistProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistProfile | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -52,17 +79,51 @@ export const SpecialistSearchManagement: React.FC = () => {
         .single();
 
       if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
-      setSettings(settingsData);
+      
+      if (settingsData) {
+        setSettings(settingsData as unknown as SearchSettings);
+      }
 
-      // Fetch specialists
+      // Fetch specialists from profiles joined with user_roles
       const { data: specialistsData, error: specialistsError } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, email, specialization, is_searchable, city')
-        .eq('role', 'specialist')
+        .select(`
+          user_id,
+          first_name,
+          last_name,
+          email,
+          specialization,
+          profile_description,
+          search_keywords,
+          is_searchable,
+          is_active,
+          city,
+          country,
+          phone_number,
+          street_address,
+          postal_code
+        `)
         .order('last_name');
 
       if (specialistsError) throw specialistsError;
-      setSpecialists(specialistsData || []);
+
+      // Filter only specialists by checking user_roles
+      if (specialistsData) {
+        const userIds = specialistsData.map(p => p.user_id);
+        
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', userIds)
+          .eq('role', 'specjalista');
+
+        if (rolesError) throw rolesError;
+
+        const specialistUserIds = new Set(rolesData?.map(r => r.user_id) || []);
+        const filteredSpecialists = specialistsData.filter(p => specialistUserIds.has(p.user_id));
+        
+        setSpecialists(filteredSpecialists);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
       toast.error('Błąd podczas ładowania danych');
@@ -84,6 +145,20 @@ export const SpecialistSearchManagement: React.FC = () => {
           visible_to_specjalista: settings.visible_to_specjalista,
           visible_to_anonymous: settings.visible_to_anonymous,
           max_results: settings.max_results,
+          show_email_to_clients: settings.show_email_to_clients,
+          show_email_to_partners: settings.show_email_to_partners,
+          show_email_to_specjalista: settings.show_email_to_specjalista,
+          show_phone_to_clients: settings.show_phone_to_clients,
+          show_phone_to_partners: settings.show_phone_to_partners,
+          show_phone_to_specjalista: settings.show_phone_to_specjalista,
+          show_address_to_clients: settings.show_address_to_clients,
+          show_address_to_partners: settings.show_address_to_partners,
+          show_address_to_specjalista: settings.show_address_to_specjalista,
+          allow_messaging: settings.allow_messaging,
+          messaging_enabled_for_clients: settings.messaging_enabled_for_clients,
+          messaging_enabled_for_partners: settings.messaging_enabled_for_partners,
+          messaging_enabled_for_specjalista: settings.messaging_enabled_for_specjalista,
+          integrate_with_team_contacts: settings.integrate_with_team_contacts,
           updated_at: new Date().toISOString(),
         })
         .eq('id', settings.id);
@@ -110,7 +185,7 @@ export const SpecialistSearchManagement: React.FC = () => {
       setSpecialists(prev => 
         prev.map(s => s.user_id === userId ? { ...s, is_searchable: isSearchable } : s)
       );
-      toast.success(isSearchable ? 'Specjalista dodany do wyszukiwarki' : 'Specjalista wykluczony z wyszukiwarki');
+      toast.success(isSearchable ? 'Specjalista widoczny w wyszukiwarce' : 'Specjalista ukryty w wyszukiwarce');
     } catch (err) {
       console.error('Error updating specialist:', err);
       toast.error('Błąd podczas aktualizacji');
@@ -168,48 +243,268 @@ export const SpecialistSearchManagement: React.FC = () => {
                     />
                   </div>
 
-                  <div className="border-t pt-4 space-y-4">
-                    <h4 className="font-medium">Widoczność według roli</h4>
-                    
-                    <div className="grid gap-3">
-                      <div className="flex items-center justify-between">
-                        <Label>Klienci</Label>
-                        <Switch
-                          checked={settings.visible_to_clients}
-                          onCheckedChange={(checked) => 
-                            setSettings(prev => prev ? { ...prev, visible_to_clients: checked } : prev)
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Partnerzy</Label>
-                        <Switch
-                          checked={settings.visible_to_partners}
-                          onCheckedChange={(checked) => 
-                            setSettings(prev => prev ? { ...prev, visible_to_partners: checked } : prev)
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Specjaliści</Label>
-                        <Switch
-                          checked={settings.visible_to_specjalista}
-                          onCheckedChange={(checked) => 
-                            setSettings(prev => prev ? { ...prev, visible_to_specjalista: checked } : prev)
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label>Niezalogowani</Label>
-                        <Switch
-                          checked={settings.visible_to_anonymous}
-                          onCheckedChange={(checked) => 
-                            setSettings(prev => prev ? { ...prev, visible_to_anonymous: checked } : prev)
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <Accordion type="multiple" className="w-full">
+                    {/* Role access to search */}
+                    <AccordionItem value="visibility">
+                      <AccordionTrigger className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          Dostęp do wyszukiwarki
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Klienci</Label>
+                          <Switch
+                            checked={settings.visible_to_clients}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, visible_to_clients: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Partnerzy</Label>
+                          <Switch
+                            checked={settings.visible_to_partners}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, visible_to_partners: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Specjaliści</Label>
+                          <Switch
+                            checked={settings.visible_to_specjalista}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, visible_to_specjalista: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Niezalogowani</Label>
+                          <Switch
+                            checked={settings.visible_to_anonymous}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, visible_to_anonymous: checked } : prev)
+                            }
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Email visibility by role */}
+                    <AccordionItem value="email-visibility">
+                      <AccordionTrigger className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          Widoczność adresu e-mail
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-3 pt-2">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Które role mogą widzieć adres e-mail specjalisty
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <Label>Klienci</Label>
+                          <Switch
+                            checked={settings.show_email_to_clients}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_email_to_clients: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Partnerzy</Label>
+                          <Switch
+                            checked={settings.show_email_to_partners}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_email_to_partners: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Specjaliści</Label>
+                          <Switch
+                            checked={settings.show_email_to_specjalista}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_email_to_specjalista: checked } : prev)
+                            }
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Phone visibility by role */}
+                    <AccordionItem value="phone-visibility">
+                      <AccordionTrigger className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          Widoczność numeru telefonu
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-3 pt-2">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Które role mogą widzieć numer telefonu specjalisty
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <Label>Klienci</Label>
+                          <Switch
+                            checked={settings.show_phone_to_clients}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_phone_to_clients: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Partnerzy</Label>
+                          <Switch
+                            checked={settings.show_phone_to_partners}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_phone_to_partners: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Specjaliści</Label>
+                          <Switch
+                            checked={settings.show_phone_to_specjalista}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_phone_to_specjalista: checked } : prev)
+                            }
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Address visibility by role */}
+                    <AccordionItem value="address-visibility">
+                      <AccordionTrigger className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4" />
+                          Widoczność adresu
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-3 pt-2">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Które role mogą widzieć pełny adres specjalisty
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <Label>Klienci</Label>
+                          <Switch
+                            checked={settings.show_address_to_clients}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_address_to_clients: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Partnerzy</Label>
+                          <Switch
+                            checked={settings.show_address_to_partners}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_address_to_partners: checked } : prev)
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label>Specjaliści</Label>
+                          <Switch
+                            checked={settings.show_address_to_specjalista}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, show_address_to_specjalista: checked } : prev)
+                            }
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Messaging options */}
+                    <AccordionItem value="messaging">
+                      <AccordionTrigger className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Wiadomości do specjalistów
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Włącz opcję wysyłania wiadomości</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Pozwól użytkownikom kontaktować się ze specjalistami
+                            </p>
+                          </div>
+                          <Switch
+                            checked={settings.allow_messaging}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, allow_messaging: checked } : prev)
+                            }
+                          />
+                        </div>
+                        
+                        {settings.allow_messaging && (
+                          <div className="border-t pt-3 space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                              Które role mogą wysyłać wiadomości
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <Label>Klienci</Label>
+                              <Switch
+                                checked={settings.messaging_enabled_for_clients}
+                                onCheckedChange={(checked) => 
+                                  setSettings(prev => prev ? { ...prev, messaging_enabled_for_clients: checked } : prev)
+                                }
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label>Partnerzy</Label>
+                              <Switch
+                                checked={settings.messaging_enabled_for_partners}
+                                onCheckedChange={(checked) => 
+                                  setSettings(prev => prev ? { ...prev, messaging_enabled_for_partners: checked } : prev)
+                                }
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label>Specjaliści</Label>
+                              <Switch
+                                checked={settings.messaging_enabled_for_specjalista}
+                                onCheckedChange={(checked) => 
+                                  setSettings(prev => prev ? { ...prev, messaging_enabled_for_specjalista: checked } : prev)
+                                }
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Integration with team contacts */}
+                    <AccordionItem value="integration">
+                      <AccordionTrigger className="text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4" />
+                          Integracja z modułami
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Integracja z "Moja lista kontaktów"</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Pozwól dodawać specjalistów do listy kontaktów
+                            </p>
+                          </div>
+                          <Switch
+                            checked={settings.integrate_with_team_contacts}
+                            onCheckedChange={(checked) => 
+                              setSettings(prev => prev ? { ...prev, integrate_with_team_contacts: checked } : prev)
+                            }
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
 
                   <div className="border-t pt-4 space-y-2">
                     <Label htmlFor="max-results">Maksymalna liczba wyników</Label>
@@ -245,7 +540,7 @@ export const SpecialistSearchManagement: React.FC = () => {
             <CardHeader>
               <CardTitle>Zarządzanie specjalistami</CardTitle>
               <CardDescription>
-                Kontroluj, którzy specjaliści są widoczni w wyszukiwarce
+                Pełna kontrola nad widocznością i danymi specjalistów w platformie
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -255,6 +550,7 @@ export const SpecialistSearchManagement: React.FC = () => {
                     <TableHead>Specjalista</TableHead>
                     <TableHead>Specjalizacja</TableHead>
                     <TableHead>Lokalizacja</TableHead>
+                    <TableHead>Kontakt</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Widoczność</TableHead>
                   </TableRow>
@@ -263,24 +559,136 @@ export const SpecialistSearchManagement: React.FC = () => {
                   {specialists.map((specialist) => (
                     <TableRow key={specialist.user_id}>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {specialist.first_name} {specialist.last_name}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {specialist.email}
-                          </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button 
+                              className="text-left hover:underline"
+                              onClick={() => setSelectedSpecialist(specialist)}
+                            >
+                              <div className="font-medium">
+                                {specialist.first_name} {specialist.last_name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {specialist.email}
+                              </div>
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                <Info className="h-5 w-5" />
+                                Szczegóły specjalisty
+                              </DialogTitle>
+                              <DialogDescription>
+                                Pełne dane specjalisty widoczne dla administratora
+                              </DialogDescription>
+                            </DialogHeader>
+                            {selectedSpecialist && (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-muted-foreground">Imię i nazwisko</Label>
+                                    <p className="font-medium">{selectedSpecialist.first_name} {selectedSpecialist.last_name}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-muted-foreground">E-mail</Label>
+                                    <p className="font-medium">{selectedSpecialist.email}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-muted-foreground">Telefon</Label>
+                                    <p className="font-medium">{selectedSpecialist.phone_number || '-'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-muted-foreground">Status konta</Label>
+                                    <Badge variant={selectedSpecialist.is_active ? "default" : "destructive"}>
+                                      {selectedSpecialist.is_active ? 'Aktywne' : 'Nieaktywne'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                
+                                <div className="border-t pt-4">
+                                  <Label className="text-muted-foreground">Specjalizacja</Label>
+                                  <p className="font-medium">{selectedSpecialist.specialization || '-'}</p>
+                                </div>
+                                
+                                <div>
+                                  <Label className="text-muted-foreground">Opis profilu</Label>
+                                  <p className="font-medium">{selectedSpecialist.profile_description || '-'}</p>
+                                </div>
+                                
+                                <div>
+                                  <Label className="text-muted-foreground">Słowa kluczowe</Label>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {selectedSpecialist.search_keywords?.map((keyword, idx) => (
+                                      <Badge key={idx} variant="secondary">{keyword}</Badge>
+                                    )) || <span className="text-muted-foreground">-</span>}
+                                  </div>
+                                </div>
+                                
+                                <div className="border-t pt-4">
+                                  <Label className="text-muted-foreground">Adres</Label>
+                                  <p className="font-medium">
+                                    {[
+                                      selectedSpecialist.street_address,
+                                      selectedSpecialist.postal_code,
+                                      selectedSpecialist.city,
+                                      selectedSpecialist.country
+                                    ].filter(Boolean).join(', ') || '-'}
+                                  </p>
+                                </div>
+                                
+                                <div className="border-t pt-4 flex items-center justify-between">
+                                  <div>
+                                    <Label className="text-muted-foreground">Widoczność w wyszukiwarce</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                      Kontroluj czy specjalista jest widoczny w wynikach wyszukiwania
+                                    </p>
+                                  </div>
+                                  <Switch
+                                    checked={selectedSpecialist.is_searchable ?? false}
+                                    onCheckedChange={(checked) => {
+                                      toggleSpecialistSearchable(selectedSpecialist.user_id, checked);
+                                      setSelectedSpecialist(prev => prev ? { ...prev, is_searchable: checked } : prev);
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-[200px]">
+                          {specialist.specialization ? (
+                            <span className="text-sm">{specialist.specialization}</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {specialist.specialization || (
+                        {specialist.city ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span>{specialist.city}</span>
+                          </div>
+                        ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {specialist.city || (
-                          <span className="text-muted-foreground">-</span>
-                        )}
+                        <div className="flex gap-2">
+                          {specialist.email && (
+                            <span title={specialist.email}>
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                            </span>
+                          )}
+                          {specialist.phone_number && (
+                            <span title={specialist.phone_number}>
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={specialist.is_searchable ? "default" : "secondary"}>
@@ -299,7 +707,7 @@ export const SpecialistSearchManagement: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <Switch
-                          checked={specialist.is_searchable}
+                          checked={specialist.is_searchable ?? false}
                           onCheckedChange={(checked) => 
                             toggleSpecialistSearchable(specialist.user_id, checked)
                           }
@@ -309,7 +717,7 @@ export const SpecialistSearchManagement: React.FC = () => {
                   ))}
                   {specialists.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         Brak specjalistów w systemie
                       </TableCell>
                     </TableRow>
