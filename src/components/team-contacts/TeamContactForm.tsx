@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useLanguage } from '@/contexts/LanguageContext';
 import type { TeamContact } from './types';
 import { User, Briefcase, Calendar, Bell } from 'lucide-react';
 
@@ -27,7 +26,6 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
-  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -147,7 +145,7 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
         <TabsContent value="basic" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="first_name">{t('teamContacts.firstName') || 'Imię'} *</Label>
+              <Label htmlFor="first_name">Imię *</Label>
               <Input
                 id="first_name"
                 value={formData.first_name}
@@ -156,7 +154,7 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">{t('teamContacts.lastName') || 'Nazwisko'} *</Label>
+              <Label htmlFor="last_name">Nazwisko *</Label>
               <Input
                 id="last_name"
                 value={formData.last_name}
@@ -221,7 +219,7 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
         <TabsContent value="structure" className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="role">{t('teamContacts.role') || 'Rola'} *</Label>
+              <Label htmlFor="role">Rola *</Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value as 'client' | 'partner' | 'specjalista' })}
@@ -230,9 +228,9 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="client">{t('role.client') || 'Klient'}</SelectItem>
-                  <SelectItem value="partner">{t('role.partner') || 'Partner'}</SelectItem>
-                  <SelectItem value="specjalista">{t('role.specialist') || 'Specjalista'}</SelectItem>
+                  <SelectItem value="client">Klient</SelectItem>
+                  <SelectItem value="partner">Partner</SelectItem>
+                  <SelectItem value="specjalista">Specjalista</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -444,14 +442,14 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          {t('admin.cancel') || 'Anuluj'}
+          Anuluj
         </Button>
         <Button type="submit" disabled={loading}>
           {loading 
-            ? (t('common.loading') || 'Zapisywanie...')
+            ? 'Zapisywanie...'
             : contact 
-              ? (t('admin.save') || 'Zapisz')
-              : (t('teamContacts.addContact') || 'Dodaj kontakt')
+              ? 'Zapisz'
+              : 'Dodaj kontakt'
           }
         </Button>
       </div>
