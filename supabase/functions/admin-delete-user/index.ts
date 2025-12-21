@@ -37,15 +37,22 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Check if the user is an admin based on the profiles table
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('role, is_active')
+    // Check if the user is an admin based on the user_roles table
+    const { data: userRole, error: roleError } = await supabaseClient
+      .from('user_roles')
+      .select('role')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (profileError || !profile || profile.role !== 'admin' || profile.is_active === false) {
-      console.error('Admin check failed. Profile:', profile, 'Error:', profileError);
+    // Also check if user profile is active
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('is_active')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (roleError || !userRole || userRole.role !== 'admin' || profile?.is_active === false) {
+      console.error('Admin check failed. Role:', userRole, 'Profile:', profile, 'Errors:', roleError, profileError);
       return new Response(
         JSON.stringify({ error: 'Access denied: admin only' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
