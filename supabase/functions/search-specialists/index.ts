@@ -6,6 +6,57 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to filter specialist data based on visibility settings and user role
+function filterSpecialistData(
+  specialist: any, 
+  settings: any, 
+  userRole: string | null
+): any {
+  const filtered: any = {
+    user_id: specialist.user_id,
+    first_name: specialist.first_name,
+    last_name: specialist.last_name,
+    city: specialist.city,
+    country: specialist.country,
+    specialization: specialist.specialization,
+    profile_description: specialist.profile_description,
+    search_keywords: specialist.search_keywords,
+  };
+
+  // Determine what data to show based on role and settings
+  const showEmail = userRole === 'admin' || 
+    (userRole === 'client' && settings.show_email_to_clients) ||
+    (userRole === 'partner' && settings.show_email_to_partners) ||
+    (userRole === 'specjalista' && settings.show_email_to_specjalista);
+    
+  const showPhone = userRole === 'admin' ||
+    (userRole === 'client' && settings.show_phone_to_clients) ||
+    (userRole === 'partner' && settings.show_phone_to_partners) ||
+    (userRole === 'specjalista' && settings.show_phone_to_specjalista);
+    
+  const showAddress = userRole === 'admin' ||
+    (userRole === 'client' && settings.show_address_to_clients) ||
+    (userRole === 'partner' && settings.show_address_to_partners) ||
+    (userRole === 'specjalista' && settings.show_address_to_specjalista);
+
+  // Only include data if allowed for this role
+  filtered.email = showEmail ? specialist.email : null;
+  filtered.phone_number = showPhone ? specialist.phone_number : null;
+  filtered.street_address = showAddress ? specialist.street_address : null;
+  filtered.postal_code = showAddress ? specialist.postal_code : null;
+  
+  // Include messaging availability info
+  const canMessage = settings.allow_messaging && (
+    userRole === 'admin' ||
+    (userRole === 'client' && settings.messaging_enabled_for_clients) ||
+    (userRole === 'partner' && settings.messaging_enabled_for_partners) ||
+    (userRole === 'specjalista' && settings.messaging_enabled_for_specjalista)
+  );
+  filtered.can_message = canMessage;
+
+  return filtered;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -33,6 +84,31 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Get the user's role from the Authorization header
+    let userRole: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") || "", {
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      });
+      
+      const { data: { user } } = await userClient.auth.getUser(token);
+      
+      if (user) {
+        // Get user role from user_roles table
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .single();
+        
+        userRole = roleData?.role || 'client';
+        console.log("User role:", userRole);
+      }
+    }
+
     // Check if search is enabled
     const { data: settings } = await supabase
       .from("specialist_search_settings")
@@ -49,7 +125,21 @@ serve(async (req) => {
       );
     }
 
-    // Get all searchable specialists - JOIN with user_roles to filter by role
+    // Check if user's role has access to search
+    const hasAccess = userRole === 'admin' ||
+      (!userRole && settings.visible_to_anonymous) ||
+      (userRole === 'client' && settings.visible_to_clients) ||
+      (userRole === 'partner' && settings.visible_to_partners) ||
+      (userRole === 'specjalista' && settings.visible_to_specjalista);
+
+    if (!hasAccess) {
+      return new Response(
+        JSON.stringify({ specialists: [], message: "Access denied for your role" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get all searchable specialists with full data (we'll filter later)
     const { data: specialists, error: specialistsError } = await supabase
       .from("profiles")
       .select(`
@@ -57,6 +147,9 @@ serve(async (req) => {
         first_name,
         last_name,
         email,
+        phone_number,
+        street_address,
+        postal_code,
         city,
         country,
         specialization,
@@ -111,10 +204,16 @@ serve(async (req) => {
         return searchText.includes(queryLower);
       });
       
+      // Apply visibility settings to each specialist
+      const visibleSpecialists = filtered
+        .slice(0, settings.max_results || 20)
+        .map(s => filterSpecialistData(s, settings, userRole));
+      
       return new Response(
         JSON.stringify({ 
-          specialists: filtered.slice(0, settings.max_results || 20),
-          fallback: true 
+          specialists: visibleSpecialists,
+          fallback: true,
+          settings: { allow_messaging: settings.allow_messaging }
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -192,10 +291,16 @@ Zwróć tablicę indeksów pasujących specjalistów.`
         return searchText.includes(queryLower);
       });
       
+      // Apply visibility settings
+      const visibleSpecialists = filtered
+        .slice(0, settings.max_results || 20)
+        .map(s => filterSpecialistData(s, settings, userRole));
+      
       return new Response(
         JSON.stringify({ 
-          specialists: filtered.slice(0, settings.max_results || 20),
-          fallback: true 
+          specialists: visibleSpecialists,
+          fallback: true,
+          settings: { allow_messaging: settings.allow_messaging }
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -224,16 +329,20 @@ Zwróć tablicę indeksów pasujących specjalistów.`
       }
     }
 
-    // Map indices to specialists
+    // Map indices to specialists and apply visibility settings
     const matchedSpecialists = matchedIndices
       .slice(0, settings.max_results || 20)
       .map(idx => filteredSpecialists[idx])
-      .filter(Boolean);
+      .filter(Boolean)
+      .map(s => filterSpecialistData(s, settings, userRole));
 
     console.log("Matched specialists:", matchedSpecialists.length);
 
     return new Response(
-      JSON.stringify({ specialists: matchedSpecialists }),
+      JSON.stringify({ 
+        specialists: matchedSpecialists,
+        settings: { allow_messaging: settings.allow_messaging }
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
