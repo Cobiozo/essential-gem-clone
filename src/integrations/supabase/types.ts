@@ -1934,10 +1934,14 @@ export type Database = {
           first_name: string | null
           id: string
           is_active: boolean
+          is_searchable: boolean | null
           last_name: string | null
           phone_number: string | null
           postal_code: string | null
+          profile_description: string | null
           role: string
+          search_keywords: string[] | null
+          specialization: string | null
           street_address: string | null
           updated_at: string
           upline_eq_id: string | null
@@ -1954,10 +1958,14 @@ export type Database = {
           first_name?: string | null
           id?: string
           is_active?: boolean
+          is_searchable?: boolean | null
           last_name?: string | null
           phone_number?: string | null
           postal_code?: string | null
+          profile_description?: string | null
           role?: string
+          search_keywords?: string[] | null
+          specialization?: string | null
           street_address?: string | null
           updated_at?: string
           upline_eq_id?: string | null
@@ -1974,10 +1982,14 @@ export type Database = {
           first_name?: string | null
           id?: string
           is_active?: boolean
+          is_searchable?: boolean | null
           last_name?: string | null
           phone_number?: string | null
           postal_code?: string | null
+          profile_description?: string | null
           role?: string
+          search_keywords?: string[] | null
+          specialization?: string | null
           street_address?: string | null
           updated_at?: string
           upline_eq_id?: string | null
@@ -2056,6 +2068,42 @@ export type Database = {
           id?: string
           role?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      specialist_search_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          max_results: number
+          updated_at: string
+          visible_to_anonymous: boolean
+          visible_to_clients: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_results?: number
+          updated_at?: string
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_results?: number
+          updated_at?: string
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
         }
         Relationships: []
       }
