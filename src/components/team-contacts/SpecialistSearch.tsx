@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/use-debounce';
+import { SendMessageDialog } from '@/components/specialist-correspondence/SendMessageDialog';
 
 interface Specialist {
   user_id: string;
@@ -25,20 +26,25 @@ interface Specialist {
 
 interface SpecialistSearchProps {
   onSelectSpecialist?: (specialist: Specialist) => void;
-  onMessageSpecialist?: (specialist: Specialist) => void;
 }
 
 export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({ 
-  onSelectSpecialist,
-  onMessageSpecialist 
+  onSelectSpecialist 
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [selectedSpecialist, setSelectedSpecialist] = useState<Specialist | null>(null);
 
   const debouncedQuery = useDebounce(query, 500);
+
+  const handleOpenMessageDialog = (specialist: Specialist) => {
+    setSelectedSpecialist(specialist);
+    setMessageDialogOpen(true);
+  };
 
   const searchSpecialists = useCallback(async (searchQuery: string) => {
     if (!searchQuery || searchQuery.trim().length < 2) {
@@ -130,7 +136,6 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
                     </div>
                   )}
 
-                  {/* Contact info - only shown if available based on settings */}
                   <div className="flex flex-wrap gap-3 mt-2">
                     {specialist.email && (
                       <a 
@@ -154,7 +159,6 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
                     )}
                   </div>
 
-                  {/* Address - only shown if available */}
                   {(specialist.street_address || specialist.postal_code) && (
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
                       <Home className="h-3.5 w-3.5" />
@@ -180,19 +184,18 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
                     </div>
                   )}
 
-                  {/* Message button - only shown if messaging is enabled for this user */}
-                  {specialist.can_message && onMessageSpecialist && (
+                  {specialist.can_message && (
                     <Button
                       variant="outline"
                       size="sm"
                       className="mt-3"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onMessageSpecialist(specialist);
+                        handleOpenMessageDialog(specialist);
                       }}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      Napisz wiadomość
+                      Wyślij wiadomość
                     </Button>
                   )}
                 </div>
@@ -201,6 +204,12 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
           </Card>
         ))}
       </div>
+
+      <SendMessageDialog
+        open={messageDialogOpen}
+        onOpenChange={setMessageDialogOpen}
+        specialist={selectedSpecialist}
+      />
     </div>
   );
 };

@@ -50,3 +50,9 @@ verify_jwt = false
 
 [functions.send-activation-email]
 verify_jwt = false
+
+[functions.search-specialists]
+verify_jwt = false
+
+[functions.send-specialist-message]
+verify_jwt = true
