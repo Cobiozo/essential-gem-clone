@@ -43,6 +43,7 @@ import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagem
 import TranslationsManagement from '@/components/admin/TranslationsManagement';
 import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
+import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -2711,6 +2712,10 @@ const Admin = () => {
               <Bell className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">Powiadomienia</span>
             </TabsTrigger>
+            <TabsTrigger value="emails" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Mail className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">E-mail</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="content">
@@ -4247,6 +4252,10 @@ const Admin = () => {
 
           <TabsContent value="notifications">
             <NotificationSystemManagement />
+          </TabsContent>
+
+          <TabsContent value="emails">
+            <EmailTemplatesManagement />
           </TabsContent>
         </Tabs>
       </div>

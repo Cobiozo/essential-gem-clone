@@ -1325,6 +1325,168 @@ export type Database = {
         }
         Relationships: []
       }
+      email_event_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_key: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_key: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_key?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      email_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type_id: string | null
+          id: string
+          metadata: Json | null
+          recipient_email: string
+          recipient_user_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          template_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type_id?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          template_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type_id?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email?: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "email_event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_template_events: {
+        Row: {
+          created_at: string
+          event_type_id: string
+          id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type_id: string
+          id?: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type_id?: string
+          id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_events_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "email_event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_template_events_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          body_html: string
+          body_text: string | null
+          created_at: string
+          footer_html: string | null
+          id: string
+          internal_name: string
+          is_active: boolean
+          name: string
+          subject: string
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          body_html: string
+          body_text?: string | null
+          created_at?: string
+          footer_html?: string | null
+          id?: string
+          internal_name: string
+          is_active?: boolean
+          name: string
+          subject: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          body_html?: string
+          body_text?: string | null
+          created_at?: string
+          footer_html?: string | null
+          id?: string
+          internal_name?: string
+          is_active?: boolean
+          name?: string
+          subject?: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: []
+      }
       i18n_languages: {
         Row: {
           code: string
