@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import { GuardianSearchInput, Guardian } from '@/components/auth/GuardianSearchInput';
 
 const getPolishErrorMessage = (error: any): string => {
   const errorMessage = error?.message?.toLowerCase() || '';
@@ -60,7 +61,8 @@ const Auth = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [eqId, setEqId] = useState('');
   const [role, setRole] = useState('');
-  const [guardianName, setGuardianName] = useState('');
+  const [selectedGuardian, setSelectedGuardian] = useState<Guardian | null>(null);
+  const [guardianError, setGuardianError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -176,17 +178,18 @@ const Auth = () => {
       return;
     }
 
-    // Check if guardian name is provided
-    if (!guardianName.trim()) {
-      setError('Imię i nazwisko opiekuna jest wymagane');
+    // Check if guardian is selected
+    if (!selectedGuardian) {
+      setGuardianError('Musisz wybrać opiekuna z listy');
       toast({
         title: "Błąd rejestracji",
-        description: "Imię i nazwisko opiekuna jest wymagane",
+        description: "Musisz wybrać opiekuna z listy",
         variant: "destructive",
       });
       setLoading(false);
       return;
     }
+    setGuardianError('');
 
     try {
       // Check if user already exists using RPC (bypasses RLS safely)
@@ -229,7 +232,10 @@ const Auth = () => {
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             phone_number: phoneNumber.trim(),
-            guardian_name: guardianName.trim()
+            guardian_name: `${selectedGuardian.first_name || ''} ${selectedGuardian.last_name || ''}`.trim(),
+            upline_eq_id: selectedGuardian.eq_id,
+            upline_first_name: selectedGuardian.first_name,
+            upline_last_name: selectedGuardian.last_name
           }
         }
       });
@@ -277,7 +283,7 @@ const Auth = () => {
         setPhoneNumber('');
         setEqId('');
         setRole('');
-        setGuardianName('');
+        setSelectedGuardian(null);
         setError('');
       }
     } catch (error) {
@@ -551,18 +557,12 @@ const Auth = () => {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="guardian-name">Imię i nazwisko opiekuna *</Label>
-                    <Input
-                      id="guardian-name"
-                      type="text"
-                      value={guardianName}
-                      onChange={(e) => setGuardianName(e.target.value)}
-                      placeholder="Wprowadź imię i nazwisko opiekuna"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
+                  <GuardianSearchInput
+                    value={selectedGuardian}
+                    onChange={setSelectedGuardian}
+                    disabled={loading}
+                    error={guardianError}
+                  />
                   
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">{t('auth.password')}</Label>
