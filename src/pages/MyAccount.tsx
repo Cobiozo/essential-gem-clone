@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -658,6 +658,45 @@ const MyAccount = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Specialist Fields - Always visible for specjalista role */}
+              {(userRole?.role === 'specjalista' || (profile as any)?.specialization || (profile as any)?.profile_description) && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="w-5 h-5" />
+                      Specjalizacje i dziedziny
+                    </CardTitle>
+                    <CardDescription>
+                      Twoje dane specjalistyczne widoczne w wyszukiwarce
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium">Specjalizacje i dziedziny</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md whitespace-pre-wrap">
+                        {(profile as any)?.specialization || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Opis profilu</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md whitespace-pre-wrap">
+                        {(profile as any)?.profile_description || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
+                      </div>
+                    </div>
+                    
+                    {((profile as any)?.search_keywords?.length > 0) && (
+                      <div>
+                        <Label className="text-sm font-medium">Słowa kluczowe</Label>
+                        <div className="mt-1 p-3 bg-muted rounded-md">
+                          {(profile as any)?.search_keywords?.join(', ')}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
               </>
               )}
             </TabsContent>
