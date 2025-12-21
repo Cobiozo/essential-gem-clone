@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,7 @@ import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionFor
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
 import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { useFeatureVisibility } from '@/hooks/useFeatureVisibility';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -90,6 +91,7 @@ const MyAccount = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { isComplete } = useProfileCompletion();
+  const { isVisible } = useFeatureVisibility();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -103,6 +105,20 @@ const MyAccount = () => {
   const profileNotCompleted = !(profile as any)?.profile_completed;
   const showProfileForm = profileIncomplete || isEditingProfile || (!isComplete && profileNotCompleted);
   const mustCompleteProfile = forceComplete || (!isComplete && profileNotCompleted);
+  
+  // Memoized visible tabs based on feature visibility
+  const visibleTabs = useMemo(() => ({
+    profile: isVisible('my_account.profile'),
+    teamContacts: isVisible('my_account.team_contacts'),
+    correspondence: isVisible('my_account.correspondence'),
+    notifications: isVisible('feature.notifications'),
+    preferences: isVisible('feature.daily_signal'),
+    aiCompass: isVisible('my_account.ai_compass'),
+    security: true, // Always visible
+  }), [isVisible]);
+  
+  // Count visible tabs for grid columns
+  const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
   
   // Address fields state
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || '');
@@ -396,35 +412,49 @@ const MyAccount = () => {
           )}
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="profile">
-                <User className="w-4 h-4 mr-2" />
-                {t('myAccount.profile')}
-              </TabsTrigger>
-              <TabsTrigger value="team-contacts" disabled={mustCompleteProfile}>
-                <Users className="w-4 h-4 mr-2" />
-                Pure – Kontakty
-              </TabsTrigger>
-              <TabsTrigger value="correspondence" disabled={mustCompleteProfile}>
-                <Mail className="w-4 h-4 mr-2" />
-                Korespondencja
-              </TabsTrigger>
-              <TabsTrigger value="notifications" disabled={mustCompleteProfile}>
-                <Bell className="w-4 h-4 mr-2" />
-                Powiadomienia
-              </TabsTrigger>
-              <TabsTrigger value="preferences" disabled={mustCompleteProfile}>
-                <Sparkles className="w-4 h-4 mr-2" />
-                {t('myAccount.preferences')}
-              </TabsTrigger>
-              <TabsTrigger value="ai-compass" disabled={mustCompleteProfile}>
-                <Compass className="w-4 h-4 mr-2" />
-                {t('admin.aiCompass')}
-              </TabsTrigger>
-              <TabsTrigger value="security" disabled={mustCompleteProfile}>
-                <Key className="w-4 h-4 mr-2" />
-                {t('myAccount.security')}
-              </TabsTrigger>
+            <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${visibleTabCount}, minmax(0, 1fr))` }}>
+              {visibleTabs.profile && (
+                <TabsTrigger value="profile">
+                  <User className="w-4 h-4 mr-2" />
+                  {t('myAccount.profile')}
+                </TabsTrigger>
+              )}
+              {visibleTabs.teamContacts && (
+                <TabsTrigger value="team-contacts" disabled={mustCompleteProfile}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Pure – Kontakty
+                </TabsTrigger>
+              )}
+              {visibleTabs.correspondence && (
+                <TabsTrigger value="correspondence" disabled={mustCompleteProfile}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Korespondencja
+                </TabsTrigger>
+              )}
+              {visibleTabs.notifications && (
+                <TabsTrigger value="notifications" disabled={mustCompleteProfile}>
+                  <Bell className="w-4 h-4 mr-2" />
+                  Powiadomienia
+                </TabsTrigger>
+              )}
+              {visibleTabs.preferences && (
+                <TabsTrigger value="preferences" disabled={mustCompleteProfile}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {t('myAccount.preferences')}
+                </TabsTrigger>
+              )}
+              {visibleTabs.aiCompass && (
+                <TabsTrigger value="ai-compass" disabled={mustCompleteProfile}>
+                  <Compass className="w-4 h-4 mr-2" />
+                  {t('admin.aiCompass')}
+                </TabsTrigger>
+              )}
+              {visibleTabs.security && (
+                <TabsTrigger value="security" disabled={mustCompleteProfile}>
+                  <Key className="w-4 h-4 mr-2" />
+                  {t('myAccount.security')}
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="profile" className="mt-6">
@@ -706,38 +736,48 @@ const MyAccount = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="team-contacts" className="mt-6">
-              <TeamContactsTab />
-            </TabsContent>
+            {visibleTabs.teamContacts && (
+              <TabsContent value="team-contacts" className="mt-6">
+                <TeamContactsTab />
+              </TabsContent>
+            )}
 
-            <TabsContent value="correspondence" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Korespondencja ze specjalistami
-                  </CardTitle>
-                  <CardDescription>
-                    Historia wiadomości e-mail wysłanych do specjalistów
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <SpecialistCorrespondence />
-                </CardContent>
-              </Card>
-            </TabsContent>
+            {visibleTabs.correspondence && (
+              <TabsContent value="correspondence" className="mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mail className="w-5 h-5" />
+                      Korespondencja ze specjalistami
+                    </CardTitle>
+                    <CardDescription>
+                      Historia wiadomości e-mail wysłanych do specjalistów
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SpecialistCorrespondence />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
-            <TabsContent value="notifications" className="mt-6">
-              <UserNotificationCenter />
-            </TabsContent>
+            {visibleTabs.notifications && (
+              <TabsContent value="notifications" className="mt-6">
+                <UserNotificationCenter />
+              </TabsContent>
+            )}
 
-            <TabsContent value="preferences" className="mt-6">
-              <PreferencesTab userId={user.id} t={t} />
-            </TabsContent>
+            {visibleTabs.preferences && (
+              <TabsContent value="preferences" className="mt-6">
+                <PreferencesTab userId={user.id} t={t} />
+              </TabsContent>
+            )}
 
-            <TabsContent value="ai-compass" className="mt-6">
-              <AiCompassWidget />
-            </TabsContent>
+            {visibleTabs.aiCompass && (
+              <TabsContent value="ai-compass" className="mt-6">
+                <AiCompassWidget />
+              </TabsContent>
+            )}
 
             <TabsContent value="security" className="mt-6">
 
