@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { X, Search } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 import type { TeamContactFilters as Filters } from './types';
 
 interface TeamContactFiltersProps {
@@ -24,8 +23,6 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
   onFiltersChange,
   isAdmin,
 }) => {
-  const { t } = useLanguage();
-
   const clearFilters = () => {
     onFiltersChange({
       role: '',
@@ -42,11 +39,11 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
   return (
     <div className="bg-muted/50 p-4 rounded-lg mb-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="font-medium text-sm">{t('teamContacts.filters') || 'Filtry'}</h4>
+        <h4 className="font-medium text-sm">Filtry</h4>
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
             <X className="w-4 h-4 mr-1" />
-            {t('teamContacts.clearFilters') || 'Wyczyść'}
+            Wyczyść
           </Button>
         )}
       </div>
@@ -54,11 +51,11 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Search */}
         <div className="space-y-2">
-          <Label className="text-xs">{t('teamContacts.search') || 'Szukaj'}</Label>
+          <Label className="text-xs">Szukaj</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder={t('teamContacts.searchPlaceholder') || 'Imię, nazwisko, EQID...'}
+              placeholder="Imię, nazwisko, EQID..."
               value={filters.search}
               onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
               className="pl-9"
@@ -68,35 +65,35 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
 
         {/* Role */}
         <div className="space-y-2">
-          <Label className="text-xs">{t('teamContacts.role') || 'Rola'}</Label>
+          <Label className="text-xs">Rola</Label>
           <Select
             value={filters.role}
             onValueChange={(value) => onFiltersChange({ ...filters, role: value === 'all' ? '' : value })}
           >
             <SelectTrigger>
-              <SelectValue placeholder={t('teamContacts.allRoles') || 'Wszystkie role'} />
+              <SelectValue placeholder="Wszystkie role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('teamContacts.allRoles') || 'Wszystkie role'}</SelectItem>
-              <SelectItem value="client">{t('role.client') || 'Klient'}</SelectItem>
-              <SelectItem value="partner">{t('role.partner') || 'Partner'}</SelectItem>
-              <SelectItem value="specjalista">{t('role.specialist') || 'Specjalista'}</SelectItem>
+              <SelectItem value="all">Wszystkie role</SelectItem>
+              <SelectItem value="client">Klient</SelectItem>
+              <SelectItem value="partner">Partner</SelectItem>
+              <SelectItem value="specjalista">Specjalista</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Status */}
         <div className="space-y-2">
-          <Label className="text-xs">{t('teamContacts.status') || 'Status relacji'}</Label>
+          <Label className="text-xs">Status relacji</Label>
           <Select
             value={filters.status}
             onValueChange={(value) => onFiltersChange({ ...filters, status: value === 'all' ? '' : value })}
           >
             <SelectTrigger>
-              <SelectValue placeholder={t('teamContacts.allStatuses') || 'Wszystkie statusy'} />
+              <SelectValue placeholder="Wszystkie statusy" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('teamContacts.allStatuses') || 'Wszystkie statusy'}</SelectItem>
+              <SelectItem value="all">Wszystkie statusy</SelectItem>
               <SelectItem value="active">Aktywny</SelectItem>
               <SelectItem value="suspended">Wstrzymany</SelectItem>
               <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
@@ -107,7 +104,7 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
 
         {/* Date Range */}
         <div className="space-y-2">
-          <Label className="text-xs">{t('teamContacts.dateRange') || 'Zakres dat'}</Label>
+          <Label className="text-xs">Zakres dat</Label>
           <div className="flex gap-2">
             <Input
               type="date"
@@ -129,9 +126,9 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
       {isAdmin && (
         <div className="pt-2 border-t">
           <div className="space-y-2">
-            <Label className="text-xs">{t('teamContacts.filterByUser') || 'Filtruj po użytkowniku (ID)'}</Label>
+            <Label className="text-xs">Filtruj po użytkowniku (ID)</Label>
             <Input
-              placeholder={t('teamContacts.userIdPlaceholder') || 'UUID użytkownika...'}
+              placeholder="UUID użytkownika..."
               value={filters.userId || ''}
               onChange={(e) => onFiltersChange({ ...filters, userId: e.target.value })}
             />
