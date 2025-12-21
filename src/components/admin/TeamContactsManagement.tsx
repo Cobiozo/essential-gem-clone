@@ -11,6 +11,7 @@ import { Users, Settings, Eye, Download, Filter, Search, Save, Loader2 } from 'l
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TeamContactAccordion } from '@/components/team-contacts/TeamContactAccordion';
+import { SpecialistSearchManagement } from './SpecialistSearchManagement';
 import type { TeamContact, TeamContactFilters, TeamContactHistory } from '@/components/team-contacts/types';
 
 interface UserProfile {
@@ -220,6 +221,10 @@ export const TeamContactsManagement: React.FC = () => {
             <Users className="w-4 h-4" />
             Przegląd kontaktów
           </TabsTrigger>
+          <TabsTrigger value="specialist-search" className="flex items-center gap-2">
+            <Search className="w-4 h-4" />
+            Wyszukiwarka specjalistów
+          </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
             Ustawienia modułu
@@ -378,6 +383,11 @@ export const TeamContactsManagement: React.FC = () => {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Specialist Search Tab */}
+        <TabsContent value="specialist-search">
+          <SpecialistSearchManagement />
         </TabsContent>
 
         {/* Settings Tab */}
