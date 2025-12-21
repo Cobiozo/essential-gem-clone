@@ -73,6 +73,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (user) {
+      // Redirect to my-account if profile needs completion, otherwise to home
       navigate('/');
     }
     // Check if user just activated their account
@@ -209,11 +210,11 @@ const Auth = () => {
         return;
       }
 
-      // Map display roles to database roles
-      const roleMapping = {
+      // Map display roles to database roles - MUST match app_role enum in database
+      const roleMapping: Record<string, string> = {
         'client': 'client',
         'partner': 'partner',
-        'specialist': 'specialist'
+        'specjalista': 'specjalista'  // Database uses 'specjalista' not 'specialist'
       };
 
       // Proceed with signup if user doesn't exist
