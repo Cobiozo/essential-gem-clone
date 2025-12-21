@@ -1885,18 +1885,31 @@ export type Database = {
       team_contacts: {
         Row: {
           added_at: string | null
+          address: string | null
           client_status: string | null
           collaboration_level: string | null
+          contact_upline_eq_id: string | null
+          contact_upline_first_name: string | null
+          contact_upline_last_name: string | null
           created_at: string | null
+          email: string | null
           eq_id: string | null
           first_name: string
           id: string
           is_active: boolean | null
           last_name: string
+          next_contact_date: string | null
           notes: string | null
           partner_status: string | null
+          phone_number: string | null
+          products: string | null
+          profession: string | null
           purchase_date: string | null
           purchased_product: string | null
+          relationship_status: string | null
+          reminder_date: string | null
+          reminder_note: string | null
+          reminder_sent: boolean | null
           role: string
           start_date: string | null
           updated_at: string | null
@@ -1904,18 +1917,31 @@ export type Database = {
         }
         Insert: {
           added_at?: string | null
+          address?: string | null
           client_status?: string | null
           collaboration_level?: string | null
+          contact_upline_eq_id?: string | null
+          contact_upline_first_name?: string | null
+          contact_upline_last_name?: string | null
           created_at?: string | null
+          email?: string | null
           eq_id?: string | null
           first_name: string
           id?: string
           is_active?: boolean | null
           last_name: string
+          next_contact_date?: string | null
           notes?: string | null
           partner_status?: string | null
+          phone_number?: string | null
+          products?: string | null
+          profession?: string | null
           purchase_date?: string | null
           purchased_product?: string | null
+          relationship_status?: string | null
+          reminder_date?: string | null
+          reminder_note?: string | null
+          reminder_sent?: boolean | null
           role: string
           start_date?: string | null
           updated_at?: string | null
@@ -1923,18 +1949,31 @@ export type Database = {
         }
         Update: {
           added_at?: string | null
+          address?: string | null
           client_status?: string | null
           collaboration_level?: string | null
+          contact_upline_eq_id?: string | null
+          contact_upline_first_name?: string | null
+          contact_upline_last_name?: string | null
           created_at?: string | null
+          email?: string | null
           eq_id?: string | null
           first_name?: string
           id?: string
           is_active?: boolean | null
           last_name?: string
+          next_contact_date?: string | null
           notes?: string | null
           partner_status?: string | null
+          phone_number?: string | null
+          products?: string | null
+          profession?: string | null
           purchase_date?: string | null
           purchased_product?: string | null
+          relationship_status?: string | null
+          reminder_date?: string | null
+          reminder_note?: string | null
+          reminder_sent?: boolean | null
           role?: string
           start_date?: string | null
           updated_at?: string | null

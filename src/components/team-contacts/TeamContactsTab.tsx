@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Plus, Download, Filter } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, Plus, Download, Filter, Map, List } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
@@ -9,6 +10,7 @@ import { TeamContactsTable } from './TeamContactsTable';
 import { TeamContactForm } from './TeamContactForm';
 import { TeamContactFilters } from './TeamContactFilters';
 import { TeamContactExport } from './TeamContactExport';
+import { TeamMap } from './TeamMap';
 import type { TeamContact } from './types';
 import {
   Dialog,
@@ -27,6 +29,7 @@ export const TeamContactsTab: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editingContact, setEditingContact] = useState<TeamContact | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
   const handleAddContact = async (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     const result = await addContact(data);
@@ -55,17 +58,39 @@ export const TeamContactsTab: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                {t('teamContacts.title') || 'Baza kontaktów zespołu'}
+                Pure – Moja Lista Kontaktów
               </CardTitle>
               <CardDescription>
-                {t('teamContacts.description') || 'Zarządzaj kontaktami swojego zespołu'}
+                Zarządzaj kontaktami i strukturą swojego zespołu
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* View Toggle */}
+              <div className="flex border rounded-md overflow-hidden">
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="rounded-none"
+                >
+                  <List className="w-4 h-4 mr-1" />
+                  Lista
+                </Button>
+                <Button
+                  variant={viewMode === 'map' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('map')}
+                  className="rounded-none"
+                >
+                  <Map className="w-4 h-4 mr-1" />
+                  Mapa
+                </Button>
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -74,16 +99,14 @@ export const TeamContactsTab: React.FC = () => {
                 <Filter className="w-4 h-4 mr-2" />
                 {t('teamContacts.filters') || 'Filtry'}
               </Button>
-              {isAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowExport(true)}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {t('teamContacts.export') || 'Eksport'}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExport(true)}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {t('teamContacts.export') || 'Eksport'}
+              </Button>
               <Button size="sm" onClick={() => setShowForm(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 {t('teamContacts.addContact') || 'Dodaj kontakt'}
@@ -100,14 +123,18 @@ export const TeamContactsTab: React.FC = () => {
             />
           )}
           
-          <TeamContactsTable
-            contacts={contacts}
-            loading={loading}
-            onEdit={openEditForm}
-            onDelete={handleDeleteContact}
-            getContactHistory={getContactHistory}
-            isAdmin={isAdmin}
-          />
+          {viewMode === 'table' ? (
+            <TeamContactsTable
+              contacts={contacts}
+              loading={loading}
+              onEdit={openEditForm}
+              onDelete={handleDeleteContact}
+              getContactHistory={getContactHistory}
+              isAdmin={isAdmin}
+            />
+          ) : (
+            <TeamMap contacts={contacts} />
+          )}
         </CardContent>
       </Card>
 

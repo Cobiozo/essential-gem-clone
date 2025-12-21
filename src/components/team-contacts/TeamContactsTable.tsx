@@ -61,6 +61,21 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   };
 
   const getStatusBadge = (contact: TeamContact) => {
+    // First check relationship_status
+    if (contact.relationship_status) {
+      const statusLabels: Record<string, { label: string; className: string }> = {
+        active: { label: 'Aktywny', className: 'bg-green-100 text-green-800' },
+        suspended: { label: 'Wstrzymany', className: 'bg-yellow-100 text-yellow-800' },
+        closed_success: { label: 'Sukces', className: 'bg-blue-100 text-blue-800' },
+        closed_not_now: { label: 'Nie teraz', className: 'bg-gray-100 text-gray-800' },
+      };
+      const status = statusLabels[contact.relationship_status];
+      if (status) {
+        return <Badge className={status.className}>{status.label}</Badge>;
+      }
+    }
+    
+    // Fallback to role-specific status
     if (contact.role === 'client') {
       return contact.client_status === 'active' ? (
         <Badge className="bg-green-100 text-green-800">{t('admin.active') || 'Aktywny'}</Badge>

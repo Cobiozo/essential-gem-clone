@@ -11,8 +11,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TeamContact } from './types';
+import { User, Briefcase, Calendar, Bell } from 'lucide-react';
 
 interface TeamContactFormProps {
   contact?: TeamContact;
@@ -29,13 +31,34 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
+    // Basic info
     first_name: contact?.first_name || '',
     last_name: contact?.last_name || '',
     eq_id: contact?.eq_id || '',
     role: contact?.role || 'client',
-    notes: contact?.notes || '',
+    address: contact?.address || '',
+    phone_number: contact?.phone_number || '',
+    email: contact?.email || '',
+    profession: contact?.profession || '',
     added_at: contact?.added_at || new Date().toISOString().split('T')[0],
     is_active: contact?.is_active ?? true,
+    
+    // Contact's upline
+    contact_upline_eq_id: contact?.contact_upline_eq_id || '',
+    contact_upline_first_name: contact?.contact_upline_first_name || '',
+    contact_upline_last_name: contact?.contact_upline_last_name || '',
+    
+    // Relationship
+    relationship_status: contact?.relationship_status || 'active',
+    products: contact?.products || '',
+    
+    // Reminder
+    next_contact_date: contact?.next_contact_date || '',
+    reminder_date: contact?.reminder_date ? contact.reminder_date.split('T')[0] : '',
+    reminder_note: contact?.reminder_note || '',
+    
+    // Notes
+    notes: contact?.notes || '',
     
     // Client fields
     purchased_product: contact?.purchased_product || '',
@@ -57,6 +80,19 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
       last_name: formData.last_name,
       eq_id: formData.eq_id || null,
       role: formData.role as 'client' | 'partner' | 'specjalista',
+      address: formData.address || null,
+      phone_number: formData.phone_number || null,
+      email: formData.email || null,
+      profession: formData.profession || null,
+      contact_upline_eq_id: formData.contact_upline_eq_id || null,
+      contact_upline_first_name: formData.contact_upline_first_name || null,
+      contact_upline_last_name: formData.contact_upline_last_name || null,
+      relationship_status: formData.relationship_status || 'active',
+      products: formData.products || null,
+      next_contact_date: formData.next_contact_date || null,
+      reminder_date: formData.reminder_date ? new Date(formData.reminder_date).toISOString() : null,
+      reminder_note: formData.reminder_note || null,
+      reminder_sent: false,
       notes: formData.notes || null,
       added_at: formData.added_at,
       is_active: formData.is_active,
@@ -87,175 +123,326 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Basic Info */}
-      <div className="space-y-4">
-        <h4 className="font-medium">{t('teamContacts.basicInfo') || 'Dane podstawowe'}</h4>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="first_name">{t('teamContacts.firstName') || 'Imię'} *</Label>
-            <Input
-              id="first_name"
-              value={formData.first_name}
-              onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="last_name">{t('teamContacts.lastName') || 'Nazwisko'} *</Label>
-            <Input
-              id="last_name"
-              value={formData.last_name}
-              onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-              required
-            />
-          </div>
-        </div>
+      <Tabs defaultValue="basic" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="basic" className="text-xs">
+            <User className="w-3 h-3 mr-1" />
+            Podstawowe
+          </TabsTrigger>
+          <TabsTrigger value="structure" className="text-xs">
+            <Briefcase className="w-3 h-3 mr-1" />
+            Struktura
+          </TabsTrigger>
+          <TabsTrigger value="details" className="text-xs">
+            <Calendar className="w-3 h-3 mr-1" />
+            Szczegóły
+          </TabsTrigger>
+          <TabsTrigger value="reminder" className="text-xs">
+            <Bell className="w-3 h-3 mr-1" />
+            Przypomnienia
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="eq_id">EQID</Label>
-            <Input
-              id="eq_id"
-              value={formData.eq_id}
-              onChange={(e) => setFormData({ ...formData, eq_id: e.target.value })}
-              placeholder="Opcjonalne"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">{t('teamContacts.role') || 'Rola'} *</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value) => setFormData({ ...formData, role: value as 'client' | 'partner' | 'specjalista' })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="client">{t('role.client') || 'Klient'}</SelectItem>
-                <SelectItem value="partner">{t('role.partner') || 'Partner'}</SelectItem>
-                <SelectItem value="specjalista">{t('role.specialist') || 'Specjalista'}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="added_at">{t('teamContacts.addedAt') || 'Data dodania'}</Label>
-          <Input
-            id="added_at"
-            type="date"
-            value={formData.added_at}
-            onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Role-specific fields */}
-      <div className="space-y-4">
-        <h4 className="font-medium">
-          {isClient 
-            ? (t('teamContacts.clientDetails') || 'Dane klienta')
-            : (t('teamContacts.partnerDetails') || 'Dane partnera/specjalisty')
-          }
-        </h4>
-
-        {isClient ? (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="purchased_product">{t('teamContacts.purchasedProduct') || 'Zakupiony produkt'}</Label>
-                <Input
-                  id="purchased_product"
-                  value={formData.purchased_product}
-                  onChange={(e) => setFormData({ ...formData, purchased_product: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="purchase_date">{t('teamContacts.purchaseDate') || 'Data zakupu'}</Label>
-                <Input
-                  id="purchase_date"
-                  type="date"
-                  value={formData.purchase_date}
-                  onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
-                />
-              </div>
+        {/* Basic Info Tab */}
+        <TabsContent value="basic" className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">{t('teamContacts.firstName') || 'Imię'} *</Label>
+              <Input
+                id="first_name"
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                required
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="client_status">{t('teamContacts.status') || 'Status'}</Label>
+              <Label htmlFor="last_name">{t('teamContacts.lastName') || 'Nazwisko'} *</Label>
+              <Input
+                id="last_name"
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone_number">Telefon</Label>
+              <Input
+                id="phone_number"
+                value={formData.phone_number}
+                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address">Adres</Label>
+            <Input
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="Opcjonalny"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="profession">Zawód</Label>
+              <Input
+                id="profession"
+                value={formData.profession}
+                onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="eq_id">EQID</Label>
+              <Input
+                id="eq_id"
+                value={formData.eq_id}
+                onChange={(e) => setFormData({ ...formData, eq_id: e.target.value })}
+                placeholder="Jeśli dotyczy"
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Structure Tab */}
+        <TabsContent value="structure" className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="role">{t('teamContacts.role') || 'Rola'} *</Label>
               <Select
-                value={formData.client_status || 'active'}
-                onValueChange={(value) => setFormData({ ...formData, client_status: value as 'active' | 'inactive' })}
+                value={formData.role}
+                onValueChange={(value) => setFormData({ ...formData, role: value as 'client' | 'partner' | 'specjalista' })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">{t('admin.active') || 'Aktywny'}</SelectItem>
-                  <SelectItem value="inactive">{t('admin.inactive') || 'Nieaktywny'}</SelectItem>
+                  <SelectItem value="client">{t('role.client') || 'Klient'}</SelectItem>
+                  <SelectItem value="partner">{t('role.partner') || 'Partner'}</SelectItem>
+                  <SelectItem value="specjalista">{t('role.specialist') || 'Specjalista'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="collaboration_level">{t('teamContacts.collaborationLevel') || 'Poziom współpracy'}</Label>
-                <Input
-                  id="collaboration_level"
-                  value={formData.collaboration_level}
-                  onChange={(e) => setFormData({ ...formData, collaboration_level: e.target.value })}
-                  placeholder="np. Bronze, Silver, Gold"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="start_date">{t('teamContacts.startDate') || 'Data rozpoczęcia'}</Label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                />
-              </div>
-            </div>
             <div className="space-y-2">
-              <Label htmlFor="partner_status">{t('teamContacts.status') || 'Status'}</Label>
+              <Label htmlFor="relationship_status">Status relacji</Label>
               <Select
-                value={formData.partner_status || 'active'}
-                onValueChange={(value) => setFormData({ ...formData, partner_status: value as 'active' | 'suspended' })}
+                value={formData.relationship_status || 'active'}
+                onValueChange={(value) => setFormData({ ...formData, relationship_status: value as 'active' | 'suspended' | 'closed_success' | 'closed_not_now' })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">{t('admin.active') || 'Aktywny'}</SelectItem>
-                  <SelectItem value="suspended">{t('teamContacts.suspended') || 'Wstrzymany'}</SelectItem>
+                  <SelectItem value="active">Aktywny</SelectItem>
+                  <SelectItem value="suspended">Wstrzymany</SelectItem>
+                  <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
+                  <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </>
-        )}
-      </div>
+          </div>
 
-      <Separator />
+          <Separator className="my-4" />
+          
+          <h4 className="font-medium text-sm text-muted-foreground">Upline kontaktu</h4>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="contact_upline_first_name">Imię</Label>
+              <Input
+                id="contact_upline_first_name"
+                value={formData.contact_upline_first_name}
+                onChange={(e) => setFormData({ ...formData, contact_upline_first_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact_upline_last_name">Nazwisko</Label>
+              <Input
+                id="contact_upline_last_name"
+                value={formData.contact_upline_last_name}
+                onChange={(e) => setFormData({ ...formData, contact_upline_last_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact_upline_eq_id">EQID</Label>
+              <Input
+                id="contact_upline_eq_id"
+                value={formData.contact_upline_eq_id}
+                onChange={(e) => setFormData({ ...formData, contact_upline_eq_id: e.target.value })}
+              />
+            </div>
+          </div>
+        </TabsContent>
 
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label htmlFor="notes">{t('teamContacts.notes') || 'Notatki'}</Label>
-        <Textarea
-          id="notes"
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          placeholder={t('teamContacts.notesPlaceholder') || 'Dodatkowe informacje o kontakcie...'}
-          rows={3}
-        />
-      </div>
+        {/* Details Tab */}
+        <TabsContent value="details" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="added_at">Data dołączenia</Label>
+            <Input
+              id="added_at"
+              type="date"
+              value={formData.added_at}
+              onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="products">Produkt / Produkty</Label>
+            <Input
+              id="products"
+              value={formData.products}
+              onChange={(e) => setFormData({ ...formData, products: e.target.value })}
+              placeholder="np. Koneser, Life Pack"
+            />
+          </div>
+
+          <Separator className="my-4" />
+
+          {/* Role-specific fields */}
+          <h4 className="font-medium text-sm text-muted-foreground">
+            {isClient ? 'Dane klienta' : 'Dane partnera/specjalisty'}
+          </h4>
+
+          {isClient ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="purchased_product">Zakupiony produkt</Label>
+                  <Input
+                    id="purchased_product"
+                    value={formData.purchased_product}
+                    onChange={(e) => setFormData({ ...formData, purchased_product: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="purchase_date">Data zakupu</Label>
+                  <Input
+                    id="purchase_date"
+                    type="date"
+                    value={formData.purchase_date}
+                    onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client_status">Status klienta</Label>
+                <Select
+                  value={formData.client_status || 'active'}
+                  onValueChange={(value) => setFormData({ ...formData, client_status: value as 'active' | 'inactive' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Aktywny</SelectItem>
+                    <SelectItem value="inactive">Nieaktywny</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="collaboration_level">Poziom współpracy</Label>
+                  <Input
+                    id="collaboration_level"
+                    value={formData.collaboration_level}
+                    onChange={(e) => setFormData({ ...formData, collaboration_level: e.target.value })}
+                    placeholder="np. Bronze, Silver, Gold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="start_date">Data rozpoczęcia</Label>
+                  <Input
+                    id="start_date"
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partner_status">Status partnera</Label>
+                <Select
+                  value={formData.partner_status || 'active'}
+                  onValueChange={(value) => setFormData({ ...formData, partner_status: value as 'active' | 'suspended' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Aktywny</SelectItem>
+                    <SelectItem value="suspended">Wstrzymany</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        {/* Reminder Tab */}
+        <TabsContent value="reminder" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="next_contact_date">Kiedy się odezwać ponownie</Label>
+            <Input
+              id="next_contact_date"
+              type="date"
+              value={formData.next_contact_date}
+              onChange={(e) => setFormData({ ...formData, next_contact_date: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="reminder_date">Data przypomnienia</Label>
+            <Input
+              id="reminder_date"
+              type="date"
+              value={formData.reminder_date}
+              onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="reminder_note">Treść przypomnienia</Label>
+            <Textarea
+              id="reminder_note"
+              value={formData.reminder_note}
+              onChange={(e) => setFormData({ ...formData, reminder_note: e.target.value })}
+              placeholder="Co chcesz zapamiętać przy następnym kontakcie..."
+              rows={3}
+            />
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notatki / Uwagi</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Dodatkowe informacje o kontakcie..."
+              rows={3}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 pt-4">
+      <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
           {t('admin.cancel') || 'Anuluj'}
         </Button>

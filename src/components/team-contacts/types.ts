@@ -12,6 +12,29 @@ export interface TeamContact {
   added_at: string;
   notes: string | null;
   
+  // New basic fields
+  address: string | null;
+  phone_number: string | null;
+  email: string | null;
+  profession: string | null;
+  
+  // Contact's upline (not user's upline)
+  contact_upline_eq_id: string | null;
+  contact_upline_first_name: string | null;
+  contact_upline_last_name: string | null;
+  
+  // Relationship status
+  relationship_status: 'active' | 'suspended' | 'closed_success' | 'closed_not_now' | null;
+  
+  // Products
+  products: string | null;
+  
+  // Reminder fields
+  next_contact_date: string | null;
+  reminder_date: string | null;
+  reminder_note: string | null;
+  reminder_sent: boolean;
+  
   // Client-specific fields
   purchased_product: string | null;
   purchase_date: string | null;
@@ -58,10 +81,21 @@ export interface TeamContactFilters {
   dateTo: string;
   search: string;
   userId?: string; // For admin filtering by user
+  relationshipStatus?: string;
 }
 
 export interface UplineInfo {
   upline_eq_id: string | null;
   upline_first_name: string | null;
   upline_last_name: string | null;
+}
+
+// For team map visualization
+export interface TeamMapNode {
+  id: string;
+  name: string;
+  eq_id: string | null;
+  role: string;
+  upline_eq_id: string | null;
+  children: TeamMapNode[];
 }

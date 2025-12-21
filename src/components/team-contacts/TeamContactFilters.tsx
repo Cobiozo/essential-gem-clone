@@ -87,7 +87,7 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
 
         {/* Status */}
         <div className="space-y-2">
-          <Label className="text-xs">{t('teamContacts.status') || 'Status'}</Label>
+          <Label className="text-xs">{t('teamContacts.status') || 'Status relacji'}</Label>
           <Select
             value={filters.status}
             onValueChange={(value) => onFiltersChange({ ...filters, status: value === 'all' ? '' : value })}
@@ -97,9 +97,10 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('teamContacts.allStatuses') || 'Wszystkie statusy'}</SelectItem>
-              <SelectItem value="active">{t('admin.active') || 'Aktywny'}</SelectItem>
-              <SelectItem value="inactive">{t('admin.inactive') || 'Nieaktywny'}</SelectItem>
-              <SelectItem value="suspended">{t('teamContacts.suspended') || 'Wstrzymany'}</SelectItem>
+              <SelectItem value="active">Aktywny</SelectItem>
+              <SelectItem value="suspended">Wstrzymany</SelectItem>
+              <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
+              <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
             </SelectContent>
           </Select>
         </div>

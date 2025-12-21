@@ -372,7 +372,7 @@ const MyAccount = () => {
               </TabsTrigger>
               <TabsTrigger value="team-contacts">
                 <Users className="w-4 h-4 mr-2" />
-                {t('teamContacts.title') || 'Baza kontaktów'}
+                Pure – Kontakty
               </TabsTrigger>
               <TabsTrigger value="preferences">
                 <Sparkles className="w-4 h-4 mr-2" />

@@ -35,8 +35,8 @@ export const useTeamContacts = () => {
       }
       
       if (filters.status) {
-        // Status depends on role
-        query = query.or(`client_status.eq.${filters.status},partner_status.eq.${filters.status}`);
+        // Status depends on relationship_status or role-specific status
+        query = query.or(`relationship_status.eq.${filters.status},client_status.eq.${filters.status},partner_status.eq.${filters.status}`);
       }
       
       if (filters.dateFrom) {
