@@ -1932,12 +1932,14 @@ export type Database = {
           email: string
           eq_id: string | null
           first_name: string | null
+          guardian_name: string | null
           id: string
           is_active: boolean
           is_searchable: boolean | null
           last_name: string | null
           phone_number: string | null
           postal_code: string | null
+          profile_completed: boolean | null
           profile_description: string | null
           role: string
           search_keywords: string[] | null
@@ -1956,12 +1958,14 @@ export type Database = {
           email: string
           eq_id?: string | null
           first_name?: string | null
+          guardian_name?: string | null
           id?: string
           is_active?: boolean
           is_searchable?: boolean | null
           last_name?: string | null
           phone_number?: string | null
           postal_code?: string | null
+          profile_completed?: boolean | null
           profile_description?: string | null
           role?: string
           search_keywords?: string[] | null
@@ -1980,12 +1984,14 @@ export type Database = {
           email?: string
           eq_id?: string | null
           first_name?: string | null
+          guardian_name?: string | null
           id?: string
           is_active?: boolean
           is_searchable?: boolean | null
           last_name?: string | null
           phone_number?: string | null
           postal_code?: string | null
+          profile_completed?: boolean | null
           profile_description?: string | null
           role?: string
           search_keywords?: string[] | null

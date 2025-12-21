@@ -60,6 +60,7 @@ const Auth = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [eqId, setEqId] = useState('');
   const [role, setRole] = useState('');
+  const [guardianName, setGuardianName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn, signUp, user } = useAuth();
@@ -163,6 +164,18 @@ const Auth = () => {
       return;
     }
 
+    // Check if guardian name is provided
+    if (!guardianName.trim()) {
+      setError('Imię i nazwisko opiekuna jest wymagane');
+      toast({
+        title: "Błąd rejestracji",
+        description: "Imię i nazwisko opiekuna jest wymagane",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       // Check if user already exists using RPC (bypasses RLS safely)
       const { data: emailExists, error: existsError } = await supabase.rpc('email_exists', {
@@ -203,7 +216,8 @@ const Auth = () => {
             role: roleMapping[role] || 'client',
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-            phone_number: phoneNumber.trim()
+            phone_number: phoneNumber.trim(),
+            guardian_name: guardianName.trim()
           }
         }
       });
@@ -230,6 +244,7 @@ const Auth = () => {
         setPhoneNumber('');
         setEqId('');
         setRole('');
+        setGuardianName('');
         setError('');
       }
     } catch (error) {
@@ -459,6 +474,19 @@ const Auth = () => {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="guardian-name">Imię i nazwisko opiekuna *</Label>
+                    <Input
+                      id="guardian-name"
+                      type="text"
+                      value={guardianName}
+                      onChange={(e) => setGuardianName(e.target.value)}
+                      placeholder="Wprowadź imię i nazwisko opiekuna"
+                      required
+                      disabled={loading}
+                    />
                   </div>
                   
                   <div className="space-y-2">
