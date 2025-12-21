@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,9 @@ import { AiCompassWidget } from '@/components/ai-compass/AiCompassWidget';
 import { TeamContactsTab } from '@/components/team-contacts/TeamContactsTab';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { UserNotificationCenter } from '@/components/notifications/UserNotificationCenter';
+import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionForm';
+import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
+import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -83,12 +86,20 @@ const MyAccount = () => {
   const { user, profile, userRole, signOut } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { isComplete } = useProfileCompletion();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  
+  // Check if redirected due to incomplete profile
+  const profileIncomplete = location.state?.profileIncomplete || false;
+  const profileNotCompleted = !(profile as any)?.profile_completed;
+  const showProfileForm = profileIncomplete || isEditingProfile || (!isComplete && profileNotCompleted);
   
   // Address fields state
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || '');
@@ -394,17 +405,25 @@ const MyAccount = () => {
             </TabsList>
 
             <TabsContent value="profile" className="mt-6">
-              {/* Account Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    {t('account.profile')}
-                  </CardTitle>
-                  <CardDescription>
-                    {t('myAccount.basicAccountInfo')}
-                  </CardDescription>
-                </CardHeader>
+              {/* Profile Completion Form for incomplete profiles */}
+              {showProfileForm ? (
+                <ProfileCompletionForm 
+                  isEditing={isEditingProfile}
+                  onCancel={() => setIsEditingProfile(false)}
+                />
+              ) : (
+                <>
+                  {/* Account Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        {t('account.profile')}
+                      </CardTitle>
+                      <CardDescription>
+                        {t('myAccount.basicAccountInfo')}
+                      </CardDescription>
+                    </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Dane osobowe */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -437,6 +456,25 @@ const MyAccount = () => {
                         {profile.phone_number || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Imię i nazwisko opiekuna</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md">
+                        {(profile as any).guardian_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edit Profile Button */}
+                  <div className="pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsEditingProfile(true)}
+                    >
+                      Edytuj dane profilu
+                    </Button>
                   </div>
 
                   <Separator className="my-4" />
@@ -602,6 +640,8 @@ const MyAccount = () => {
                   </div>
                 </CardContent>
               </Card>
+              </>
+              )}
             </TabsContent>
 
             <TabsContent value="team-contacts" className="mt-6">

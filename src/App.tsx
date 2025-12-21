@@ -7,6 +7,7 @@ import { MedicalChatWidget } from "@/components/MedicalChatWidget";
 import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
 import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
 import { DailySignalBanner } from "@/components/DailySignalBanner";
+import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -63,18 +64,20 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/my-account" element={<MyAccount />} />
-          <Route path="/training" element={<Training />} />
-          <Route path="/training/:moduleId" element={<TrainingModule />} />
-          <Route path="/knowledge" element={<KnowledgeCenter />} />
-          <Route path="/page/:slug" element={<Page />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <ProfileCompletionGuard>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/my-account" element={<MyAccount />} />
+            <Route path="/training" element={<Training />} />
+            <Route path="/training/:moduleId" element={<TrainingModule />} />
+            <Route path="/knowledge" element={<KnowledgeCenter />} />
+            <Route path="/page/:slug" element={<Page />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ProfileCompletionGuard>
       </BrowserRouter>
       <CookieConsentBanner />
       
