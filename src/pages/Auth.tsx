@@ -63,6 +63,9 @@ const Auth = () => {
   const [guardianName, setGuardianName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [resendingEmail, setResendingEmail] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -71,6 +74,14 @@ const Auth = () => {
   useEffect(() => {
     if (user) {
       navigate('/');
+    }
+    // Check if user just activated their account
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('activated') === 'true') {
+      toast({
+        title: 'Konto aktywowane',
+        description: 'Twoje konto zostało pomyślnie aktywowane. Możesz się teraz zalogować.',
+      });
     }
   }, [user, navigate]);
 
@@ -231,12 +242,33 @@ const Auth = () => {
           variant: "destructive",
         });
       } else {
+        // Send activation email via edge function
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          await supabase.functions.invoke('send-activation-email', {
+            body: {
+              userId: userData?.user?.id || '',
+              email: email,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              role: roleMapping[role] || 'client',
+            },
+          });
+        } catch (emailError) {
+          console.error('Error sending activation email:', emailError);
+          // Don't block registration if email fails
+        }
+
+        // Show success state
+        setRegisteredEmail(email);
+        setRegistrationSuccess(true);
+        
         toast({
           title: "Rejestracja pomyślna",
-          description: "Sprawdź swoją skrzynkę email w celu potwierdzenia konta.",
+          description: "Sprawdź swoją skrzynkę email i aktywuj konto.",
         });
+        
         // Clear form after successful registration
-        setEmail('');
         setPassword('');
         setConfirmPassword('');
         setFirstName('');
@@ -295,6 +327,48 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  const handleResendActivationEmail = async () => {
+    if (!registeredEmail) return;
+    setResendingEmail(true);
+    try {
+      await supabase.functions.invoke('send-activation-email', {
+        body: { userId: '', email: registeredEmail, resend: true },
+      });
+      toast({ title: 'Sukces', description: 'E-mail aktywacyjny został wysłany ponownie.' });
+    } catch (error) {
+      toast({ title: 'Błąd', description: 'Nie udało się wysłać e-maila.', variant: 'destructive' });
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Sprawdź swoją skrzynkę e-mail</CardTitle>
+            <CardDescription>Wysłaliśmy link aktywacyjny na: <strong>{registeredEmail}</strong></CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert><AlertDescription>Kliknij link w wiadomości, aby aktywować konto.</AlertDescription></Alert>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-2">Nie otrzymałeś wiadomości?</p>
+              <Button variant="outline" onClick={handleResendActivationEmail} disabled={resendingEmail}>
+                {resendingEmail ? 'Wysyłanie...' : 'Wyślij ponownie'}
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="ghost" className="w-full" onClick={() => { setRegistrationSuccess(false); setEmail(''); }}>
+              Powrót do logowania
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 lg:p-8">
