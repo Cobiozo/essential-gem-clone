@@ -4,11 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Settings, Eye, Download, Filter, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, Settings, Eye, Download, Filter, Search, Save, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TeamContactAccordion } from '@/components/team-contacts/TeamContactAccordion';
@@ -22,9 +21,32 @@ interface UserProfile {
   eq_id: string | null;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  first_name: 'Imię',
+  last_name: 'Nazwisko',
+  role: 'Rola',
+  eq_id: 'EQID',
+  relationship_status: 'Status relacji',
+  phone_number: 'Telefon',
+  email: 'Email',
+  address: 'Adres',
+  profession: 'Zawód',
+  products: 'Produkty',
+  purchased_product: 'Zakupiony produkt',
+  purchase_date: 'Data zakupu',
+  notes: 'Notatki',
+  reminder_date: 'Data przypomnienia',
+  reminder_note: 'Treść przypomnienia',
+  next_contact_date: 'Następny kontakt',
+  added_at: 'Data dodania',
+  start_date: 'Data startu',
+  collaboration_level: 'Poziom współpracy',
+};
+
 export const TeamContactsManagement: React.FC = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<TeamContact[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filters, setFilters] = useState<TeamContactFilters>({
@@ -38,14 +60,7 @@ export const TeamContactsManagement: React.FC = () => {
   });
 
   // Settings state
-  const [settings, setSettings] = useState({
-    allowExport: true,
-    allowExportExcel: true,
-    allowExportHtml: true,
-    allowExportWord: true,
-    showCollapsedFields: ['first_name', 'last_name', 'role', 'eq_id'],
-    showExpandedFields: ['phone_number', 'email', 'address', 'profession', 'products', 'notes', 'reminder_date'],
-  });
+  const [allowExport, setAllowExport] = useState(false);
 
   const fetchContacts = async () => {
     setLoading(true);
@@ -102,6 +117,52 @@ export const TeamContactsManagement: React.FC = () => {
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_compass_settings')
+        .select('allow_team_contacts_export')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data) {
+        setAllowExport(data.allow_team_contacts_export ?? false);
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  };
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('ai_compass_settings')
+        .update({
+          allow_team_contacts_export: allowExport,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', (await supabase.from('ai_compass_settings').select('id').single()).data?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Zapisano',
+        description: 'Ustawienia modułu zostały zapisane',
+      });
+    } catch (error: any) {
+      console.error('Error saving settings:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się zapisać ustawień',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getContactHistory = async (contactId: string): Promise<TeamContactHistory[]> => {
     try {
       const { data, error } = await supabase
@@ -121,6 +182,11 @@ export const TeamContactsManagement: React.FC = () => {
   useEffect(() => {
     fetchContacts();
     fetchUsers();
+    fetchSettings();
+  }, []);
+
+  useEffect(() => {
+    fetchContacts();
   }, [filters]);
 
   const clearFilters = () => {
@@ -333,41 +399,21 @@ export const TeamContactsManagement: React.FC = () => {
                   <Download className="w-4 h-4" />
                   Opcje eksportu
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <Label>Eksport Excel</Label>
-                      <p className="text-xs text-muted-foreground">Pozwól na eksport do .xlsx</p>
-                    </div>
-                    <Switch
-                      checked={settings.allowExportExcel}
-                      onCheckedChange={(checked) => setSettings({ ...settings, allowExportExcel: checked })}
-                    />
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <Label className="text-base">Zezwól na eksport kontaktów</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Użytkownicy będą mogli eksportować swoje kontakty do plików Excel, HTML i Word
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <Label>Eksport HTML</Label>
-                      <p className="text-xs text-muted-foreground">Pozwól na podgląd HTML</p>
-                    </div>
-                    <Switch
-                      checked={settings.allowExportHtml}
-                      onCheckedChange={(checked) => setSettings({ ...settings, allowExportHtml: checked })}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <Label>Eksport Word</Label>
-                      <p className="text-xs text-muted-foreground">Pozwól na eksport do .docx</p>
-                    </div>
-                    <Switch
-                      checked={settings.allowExportWord}
-                      onCheckedChange={(checked) => setSettings({ ...settings, allowExportWord: checked })}
-                    />
-                  </div>
+                  <Switch
+                    checked={allowExport}
+                    onCheckedChange={setAllowExport}
+                  />
                 </div>
               </div>
 
-              {/* Field Visibility Settings */}
+              {/* Field Visibility Info */}
               <div className="space-y-4">
                 <h4 className="font-medium flex items-center gap-2">
                   <Eye className="w-4 h-4" />
@@ -378,26 +424,11 @@ export const TeamContactsManagement: React.FC = () => {
                   {/* Collapsed View Fields */}
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Widok zwinięty (zawsze widoczne)</Label>
-                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                    <div className="p-4 border rounded-lg bg-muted/30 space-y-2">
                       {['first_name', 'last_name', 'role', 'eq_id', 'relationship_status'].map((field) => (
-                        <div key={field} className="flex items-center justify-between">
-                          <span className="text-sm">{getFieldLabel(field)}</span>
-                          <Switch
-                            checked={settings.showCollapsedFields.includes(field)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSettings({
-                                  ...settings,
-                                  showCollapsedFields: [...settings.showCollapsedFields, field],
-                                });
-                              } else {
-                                setSettings({
-                                  ...settings,
-                                  showCollapsedFields: settings.showCollapsedFields.filter(f => f !== field),
-                                });
-                              }
-                            }}
-                          />
+                        <div key={field} className="flex items-center gap-2 text-sm">
+                          <span className="w-2 h-2 rounded-full bg-primary" />
+                          {FIELD_LABELS[field] || field}
                         </div>
                       ))}
                     </div>
@@ -406,26 +437,11 @@ export const TeamContactsManagement: React.FC = () => {
                   {/* Expanded View Fields */}
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Widok rozwinięty (po kliknięciu)</Label>
-                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                    <div className="p-4 border rounded-lg bg-muted/30 space-y-2">
                       {['phone_number', 'email', 'address', 'profession', 'products', 'purchased_product', 'purchase_date', 'notes', 'reminder_date', 'reminder_note', 'next_contact_date'].map((field) => (
-                        <div key={field} className="flex items-center justify-between">
-                          <span className="text-sm">{getFieldLabel(field)}</span>
-                          <Switch
-                            checked={settings.showExpandedFields.includes(field)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSettings({
-                                  ...settings,
-                                  showExpandedFields: [...settings.showExpandedFields, field],
-                                });
-                              } else {
-                                setSettings({
-                                  ...settings,
-                                  showExpandedFields: settings.showExpandedFields.filter(f => f !== field),
-                                });
-                              }
-                            }}
-                          />
+                        <div key={field} className="flex items-center gap-2 text-sm">
+                          <span className="w-2 h-2 rounded-full bg-secondary" />
+                          {FIELD_LABELS[field] || field}
                         </div>
                       ))}
                     </div>
@@ -433,9 +449,22 @@ export const TeamContactsManagement: React.FC = () => {
                 </div>
               </div>
 
-              <Button className="w-full md:w-auto">
-                Zapisz ustawienia
-              </Button>
+              {/* Save Button */}
+              <div className="flex justify-end pt-4 border-t">
+                <Button onClick={saveSettings} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Zapisywanie...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Zapisz ustawienia
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -443,28 +472,3 @@ export const TeamContactsManagement: React.FC = () => {
     </div>
   );
 };
-
-// Helper function to get field labels
-function getFieldLabel(field: string): string {
-  const labels: Record<string, string> = {
-    first_name: 'Imię',
-    last_name: 'Nazwisko',
-    role: 'Rola',
-    eq_id: 'EQID',
-    relationship_status: 'Status relacji',
-    phone_number: 'Telefon',
-    email: 'Email',
-    address: 'Adres',
-    profession: 'Zawód',
-    products: 'Produkty',
-    purchased_product: 'Zakupiony produkt',
-    purchase_date: 'Data zakupu',
-    notes: 'Notatki',
-    reminder_date: 'Data przypomnienia',
-    reminder_note: 'Treść przypomnienia',
-    next_contact_date: 'Następny kontakt',
-    start_date: 'Data rozpoczęcia',
-    collaboration_level: 'Poziom współpracy',
-  };
-  return labels[field] || field;
-}
