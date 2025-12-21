@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { Search, User, MapPin, Briefcase, Loader2 } from 'lucide-react';
+import { Search, User, MapPin, Briefcase, Loader2, Mail, Phone, MessageSquare, Home } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/use-debounce';
 
@@ -11,18 +12,26 @@ interface Specialist {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  phone_number: string | null;
+  street_address: string | null;
+  postal_code: string | null;
   city: string | null;
   country: string | null;
   specialization: string | null;
   profile_description: string | null;
   search_keywords: string[] | null;
+  can_message?: boolean;
 }
 
 interface SpecialistSearchProps {
   onSelectSpecialist?: (specialist: Specialist) => void;
+  onMessageSpecialist?: (specialist: Specialist) => void;
 }
 
-export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({ onSelectSpecialist }) => {
+export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({ 
+  onSelectSpecialist,
+  onMessageSpecialist 
+}) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,6 +129,40 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({ onSelectSpec
                       </span>
                     </div>
                   )}
+
+                  {/* Contact info - only shown if available based on settings */}
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {specialist.email && (
+                      <a 
+                        href={`mailto:${specialist.email}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        <span>{specialist.email}</span>
+                      </a>
+                    )}
+                    {specialist.phone_number && (
+                      <a 
+                        href={`tel:${specialist.phone_number}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                      >
+                        <Phone className="h-3.5 w-3.5" />
+                        <span>{specialist.phone_number}</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Address - only shown if available */}
+                  {(specialist.street_address || specialist.postal_code) && (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                      <Home className="h-3.5 w-3.5" />
+                      <span className="truncate">
+                        {[specialist.street_address, specialist.postal_code].filter(Boolean).join(', ')}
+                      </span>
+                    </div>
+                  )}
                   
                   {specialist.profile_description && (
                     <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
@@ -135,6 +178,22 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({ onSelectSpec
                         </Badge>
                       ))}
                     </div>
+                  )}
+
+                  {/* Message button - only shown if messaging is enabled for this user */}
+                  {specialist.can_message && onMessageSpecialist && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMessageSpecialist(specialist);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Napisz wiadomość
+                    </Button>
                   )}
                 </div>
               </div>
