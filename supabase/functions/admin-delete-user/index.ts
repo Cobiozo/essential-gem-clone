@@ -23,19 +23,41 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization');
+    // Get the authorization header (check both cases)
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
-      throw new Error('No authorization header');
+      console.error('No authorization header found');
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Verify the user is authenticated and get their user id
     const token = authHeader.replace('Bearer ', '');
+    console.log('Token length:', token?.length);
+    
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    if (authError) {
+      console.error('Auth error:', authError.message);
+      return new Response(
+        JSON.stringify({ error: `Authentication failed: ${authError.message}` }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    if (!user) {
+      console.error('No user found for token');
+      return new Response(
+        JSON.stringify({ error: 'User not found for provided token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('Authenticated user:', user.id, user.email);
 
     // Check if the user is an admin based on the user_roles table
     const { data: userRole, error: roleError } = await supabaseClient
