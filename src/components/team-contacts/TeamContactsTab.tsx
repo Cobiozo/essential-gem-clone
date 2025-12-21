@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Plus, Download, Filter, Map, List } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { TeamContactsTable } from './TeamContactsTable';
+import { TeamContactAccordion } from './TeamContactAccordion';
 import { TeamContactForm } from './TeamContactForm';
 import { TeamContactFilters } from './TeamContactFilters';
 import { TeamContactExport } from './TeamContactExport';
@@ -21,7 +20,6 @@ import {
 } from '@/components/ui/dialog';
 
 export const TeamContactsTab: React.FC = () => {
-  const { t } = useLanguage();
   const { isAdmin } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory } = useTeamContacts();
   
@@ -29,7 +27,7 @@ export const TeamContactsTab: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editingContact, setEditingContact] = useState<TeamContact | null>(null);
   const [showExport, setShowExport] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+  const [viewMode, setViewMode] = useState<'accordion' | 'table' | 'map'>('accordion');
 
   const handleAddContact = async (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     const result = await addContact(data);
@@ -72,22 +70,31 @@ export const TeamContactsTab: React.FC = () => {
               {/* View Toggle */}
               <div className="flex border rounded-md overflow-hidden">
                 <Button
+                  variant={viewMode === 'accordion' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('accordion')}
+                  className="rounded-none"
+                  title="Widok zwijany"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+                <Button
                   variant={viewMode === 'table' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('table')}
                   className="rounded-none"
+                  title="Widok tabeli"
                 >
-                  <List className="w-4 h-4 mr-1" />
-                  Lista
+                  <List className="w-4 h-4" />
                 </Button>
                 <Button
                   variant={viewMode === 'map' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('map')}
                   className="rounded-none"
+                  title="Mapa zespołu"
                 >
-                  <Map className="w-4 h-4 mr-1" />
-                  Mapa
+                  <Map className="w-4 h-4" />
                 </Button>
               </div>
 
@@ -97,7 +104,7 @@ export const TeamContactsTab: React.FC = () => {
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <Filter className="w-4 h-4 mr-2" />
-                {t('teamContacts.filters') || 'Filtry'}
+                Filtry
               </Button>
               <Button
                 variant="outline"
@@ -105,11 +112,11 @@ export const TeamContactsTab: React.FC = () => {
                 onClick={() => setShowExport(true)}
               >
                 <Download className="w-4 h-4 mr-2" />
-                {t('teamContacts.export') || 'Eksport'}
+                Eksport
               </Button>
               <Button size="sm" onClick={() => setShowForm(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                {t('teamContacts.addContact') || 'Dodaj kontakt'}
+                Dodaj kontakt
               </Button>
             </div>
           </div>
@@ -123,7 +130,16 @@ export const TeamContactsTab: React.FC = () => {
             />
           )}
           
-          {viewMode === 'table' ? (
+          {viewMode === 'accordion' ? (
+            <TeamContactAccordion
+              contacts={contacts}
+              loading={loading}
+              onEdit={openEditForm}
+              onDelete={handleDeleteContact}
+              getContactHistory={getContactHistory}
+              isAdmin={isAdmin}
+            />
+          ) : viewMode === 'table' ? (
             <TeamContactsTable
               contacts={contacts}
               loading={loading}
@@ -142,9 +158,9 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('teamContacts.addContact') || 'Dodaj kontakt'}</DialogTitle>
+            <DialogTitle>Dodaj kontakt</DialogTitle>
             <DialogDescription>
-              {t('teamContacts.addContactDescription') || 'Wprowadź dane nowego kontaktu'}
+              Wprowadź dane nowego kontaktu
             </DialogDescription>
           </DialogHeader>
           <TeamContactForm
@@ -158,9 +174,9 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={!!editingContact} onOpenChange={() => setEditingContact(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('teamContacts.editContact') || 'Edytuj kontakt'}</DialogTitle>
+            <DialogTitle>Edytuj kontakt</DialogTitle>
             <DialogDescription>
-              {t('teamContacts.editContactDescription') || 'Zaktualizuj dane kontaktu'}
+              Zaktualizuj dane kontaktu
             </DialogDescription>
           </DialogHeader>
           {editingContact && (
@@ -177,7 +193,7 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={showExport} onOpenChange={setShowExport}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('teamContacts.exportTitle') || 'Eksportuj kontakty'}</DialogTitle>
+            <DialogTitle>Eksportuj kontakty</DialogTitle>
           </DialogHeader>
           <TeamContactExport
             contacts={contacts}

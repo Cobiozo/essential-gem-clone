@@ -41,6 +41,7 @@ import { AiCompassManagement } from '@/components/admin/AiCompassManagement';
 import { DailySignalManagement } from '@/components/admin/DailySignalManagement';
 import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagement';
 import TranslationsManagement from '@/components/admin/TranslationsManagement';
+import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -2701,6 +2702,10 @@ const Admin = () => {
               <Languages className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">Tłumaczenia</span>
             </TabsTrigger>
+            <TabsTrigger value="team-contacts" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Pure – Kontakty</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="content">
@@ -4229,6 +4234,10 @@ const Admin = () => {
 
           <TabsContent value="translations">
             <TranslationsManagement />
+          </TabsContent>
+
+          <TabsContent value="team-contacts">
+            <TeamContactsManagement />
           </TabsContent>
         </Tabs>
       </div>
