@@ -98,8 +98,10 @@ const MyAccount = () => {
   
   // Check if redirected due to incomplete profile
   const profileIncomplete = location.state?.profileIncomplete || false;
+  const forceComplete = location.state?.forceComplete || false;
   const profileNotCompleted = !(profile as any)?.profile_completed;
   const showProfileForm = profileIncomplete || isEditingProfile || (!isComplete && profileNotCompleted);
+  const mustCompleteProfile = forceComplete || (!isComplete && profileNotCompleted);
   
   // Address fields state
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || '');
@@ -352,14 +354,18 @@ const MyAccount = () => {
             <NotificationBell />
             <LanguageSelector />
             <ThemeSelector />
-            <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
-              <BookOpen className="w-4 h-4 mr-2" />
-              {t('nav.training')}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-              <Home className="w-4 h-4 mr-2" />
-              {t('nav.home')}
-            </Button>
+            {!mustCompleteProfile && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  {t('nav.training')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+                  <Home className="w-4 h-4 mr-2" />
+                  {t('nav.home')}
+                </Button>
+              </>
+            )}
             <Button variant="outline" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               {t('nav.logout')}
@@ -376,29 +382,41 @@ const MyAccount = () => {
             <p className="text-muted-foreground">{t('myAccount.manageAccountSettings')}</p>
           </div>
 
+          {/* Mandatory Profile Completion Alert */}
+          {mustCompleteProfile && (
+            <Alert variant="destructive" className="border-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="ml-2">
+                <strong>Uzupełnij swoje dane, aby kontynuować korzystanie z aplikacji.</strong>
+                <br />
+                <span className="text-sm">Przed uzyskaniem dostępu do pozostałych funkcji musisz wypełnić wszystkie wymagane pola w formularzu poniżej.</span>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Tabs defaultValue="profile" className="w-full">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="profile">
                 <User className="w-4 h-4 mr-2" />
                 {t('myAccount.profile')}
               </TabsTrigger>
-              <TabsTrigger value="team-contacts">
+              <TabsTrigger value="team-contacts" disabled={mustCompleteProfile}>
                 <Users className="w-4 h-4 mr-2" />
                 Pure – Kontakty
               </TabsTrigger>
-              <TabsTrigger value="notifications">
+              <TabsTrigger value="notifications" disabled={mustCompleteProfile}>
                 <Bell className="w-4 h-4 mr-2" />
                 Powiadomienia
               </TabsTrigger>
-              <TabsTrigger value="preferences">
+              <TabsTrigger value="preferences" disabled={mustCompleteProfile}>
                 <Sparkles className="w-4 h-4 mr-2" />
                 {t('myAccount.preferences')}
               </TabsTrigger>
-              <TabsTrigger value="ai-compass">
+              <TabsTrigger value="ai-compass" disabled={mustCompleteProfile}>
                 <Compass className="w-4 h-4 mr-2" />
                 {t('admin.aiCompass')}
               </TabsTrigger>
-              <TabsTrigger value="security">
+              <TabsTrigger value="security" disabled={mustCompleteProfile}>
                 <Key className="w-4 h-4 mr-2" />
                 {t('myAccount.security')}
               </TabsTrigger>

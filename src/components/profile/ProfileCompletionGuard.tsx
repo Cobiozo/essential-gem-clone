@@ -10,17 +10,22 @@ interface ProfileCompletionGuardProps {
 }
 
 export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ children }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, rolesReady } = useAuth();
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   const location = useLocation();
   
-  // Don't guard if loading or not logged in
-  if (loading || !user) {
+  // Allow auth page to render without restrictions
+  if (location.pathname === '/auth') {
     return <>{children}</>;
   }
   
-  // Wait for profile to load
-  if (!profile) {
+  // Don't guard if not logged in
+  if (!user) {
+    return <>{children}</>;
+  }
+  
+  // Wait for profile and roles to load
+  if (loading || !rolesReady || !profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -28,15 +33,16 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     );
   }
   
-  // Check if profile_completed is true (existing users)
+  // Check if profile_completed is true (existing users who already completed)
   const profileAny = profile as any;
   if (profileAny.profile_completed === true) {
     return <>{children}</>;
   }
   
-  // If profile is not complete and we're not on MyAccount page, redirect
-  if (!isComplete && location.pathname !== '/my-account') {
-    return <Navigate to="/my-account" state={{ profileIncomplete: true }} replace />;
+  // FORCE redirect to my-account if profile is not complete
+  // This ensures users MUST complete their profile before accessing any other page
+  if (location.pathname !== '/my-account') {
+    return <Navigate to="/my-account" state={{ profileIncomplete: true, forceComplete: true }} replace />;
   }
   
   return <>{children}</>;
