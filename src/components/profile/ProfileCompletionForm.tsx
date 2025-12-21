@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   onCancel,
   isEditing = false 
 }) => {
+  const navigate = useNavigate();
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
@@ -150,8 +152,8 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       
       onProfileCompleted?.();
       
-      // Reload page to refresh profile data
-      window.location.reload();
+      // Redirect to home page after successful save
+      navigate('/');
     } catch (error: any) {
       console.error('Error saving profile:', error);
       toast({
