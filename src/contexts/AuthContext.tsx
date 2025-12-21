@@ -18,6 +18,12 @@ interface Profile {
   created_at: string;
   updated_at: string;
   role?: string;
+  guardian_name?: string | null;
+  profile_completed?: boolean;
+  specialization?: string | null;
+  profile_description?: string | null;
+  search_keywords?: string[] | null;
+  is_searchable?: boolean;
 }
 
 interface UserRole {
