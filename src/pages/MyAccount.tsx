@@ -12,13 +12,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { AiCompassWidget } from '@/components/ai-compass/AiCompassWidget';
 import { TeamContactsTab } from '@/components/team-contacts/TeamContactsTab';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { UserNotificationCenter } from '@/components/notifications/UserNotificationCenter';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -365,7 +366,7 @@ const MyAccount = () => {
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="profile">
                 <User className="w-4 h-4 mr-2" />
                 {t('myAccount.profile')}
@@ -373,6 +374,10 @@ const MyAccount = () => {
               <TabsTrigger value="team-contacts">
                 <Users className="w-4 h-4 mr-2" />
                 Pure – Kontakty
+              </TabsTrigger>
+              <TabsTrigger value="notifications">
+                <Bell className="w-4 h-4 mr-2" />
+                Powiadomienia
               </TabsTrigger>
               <TabsTrigger value="preferences">
                 <Sparkles className="w-4 h-4 mr-2" />
@@ -601,6 +606,10 @@ const MyAccount = () => {
 
             <TabsContent value="team-contacts" className="mt-6">
               <TeamContactsTab />
+            </TabsContent>
+
+            <TabsContent value="notifications" className="mt-6">
+              <UserNotificationCenter />
             </TabsContent>
 
             <TabsContent value="preferences" className="mt-6">
