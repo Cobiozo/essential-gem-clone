@@ -12,11 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { AiCompassWidget } from '@/components/ai-compass/AiCompassWidget';
+import { TeamContactsTab } from '@/components/team-contacts/TeamContactsTab';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -335,6 +337,7 @@ const MyAccount = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <LanguageSelector />
             <ThemeSelector />
             <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
@@ -362,10 +365,14 @@ const MyAccount = () => {
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="profile">
                 <User className="w-4 h-4 mr-2" />
                 {t('myAccount.profile')}
+              </TabsTrigger>
+              <TabsTrigger value="team-contacts">
+                <Users className="w-4 h-4 mr-2" />
+                {t('teamContacts.title') || 'Baza kontaktów'}
               </TabsTrigger>
               <TabsTrigger value="preferences">
                 <Sparkles className="w-4 h-4 mr-2" />
@@ -590,6 +597,10 @@ const MyAccount = () => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="team-contacts" className="mt-6">
+              <TeamContactsTab />
             </TabsContent>
 
             <TabsContent value="preferences" className="mt-6">

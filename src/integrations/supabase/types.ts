@@ -360,6 +360,7 @@ export type Database = {
           allow_edit_contacts: boolean | null
           allow_export: boolean
           allow_multiple_decisions: boolean | null
+          allow_team_contacts_export: boolean | null
           created_at: string
           data_retention_days: number | null
           enabled_for_clients: boolean
@@ -379,6 +380,7 @@ export type Database = {
           allow_edit_contacts?: boolean | null
           allow_export?: boolean
           allow_multiple_decisions?: boolean | null
+          allow_team_contacts_export?: boolean | null
           created_at?: string
           data_retention_days?: number | null
           enabled_for_clients?: boolean
@@ -398,6 +400,7 @@ export type Database = {
           allow_edit_contacts?: boolean | null
           allow_export?: boolean
           allow_multiple_decisions?: boolean | null
+          allow_team_contacts_export?: boolean | null
           created_at?: string
           data_retention_days?: number | null
           enabled_for_clients?: boolean
@@ -1730,6 +1733,9 @@ export type Database = {
           role: string
           street_address: string | null
           updated_at: string
+          upline_eq_id: string | null
+          upline_first_name: string | null
+          upline_last_name: string | null
           user_id: string
         }
         Insert: {
@@ -1747,6 +1753,9 @@ export type Database = {
           role?: string
           street_address?: string | null
           updated_at?: string
+          upline_eq_id?: string | null
+          upline_first_name?: string | null
+          upline_last_name?: string | null
           user_id: string
         }
         Update: {
@@ -1764,6 +1773,9 @@ export type Database = {
           role?: string
           street_address?: string | null
           updated_at?: string
+          upline_eq_id?: string | null
+          upline_first_name?: string | null
+          upline_last_name?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1869,6 +1881,104 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      team_contacts: {
+        Row: {
+          added_at: string | null
+          client_status: string | null
+          collaboration_level: string | null
+          created_at: string | null
+          eq_id: string | null
+          first_name: string
+          id: string
+          is_active: boolean | null
+          last_name: string
+          notes: string | null
+          partner_status: string | null
+          purchase_date: string | null
+          purchased_product: string | null
+          role: string
+          start_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          client_status?: string | null
+          collaboration_level?: string | null
+          created_at?: string | null
+          eq_id?: string | null
+          first_name: string
+          id?: string
+          is_active?: boolean | null
+          last_name: string
+          notes?: string | null
+          partner_status?: string | null
+          purchase_date?: string | null
+          purchased_product?: string | null
+          role: string
+          start_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          client_status?: string | null
+          collaboration_level?: string | null
+          created_at?: string | null
+          eq_id?: string | null
+          first_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_name?: string
+          notes?: string | null
+          partner_status?: string | null
+          purchase_date?: string | null
+          purchased_product?: string | null
+          role?: string
+          start_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      team_contacts_history: {
+        Row: {
+          change_type: string
+          changed_by: string
+          contact_id: string
+          created_at: string | null
+          id: string
+          new_values: Json | null
+          previous_values: Json | null
+        }
+        Insert: {
+          change_type: string
+          changed_by: string
+          contact_id: string
+          created_at?: string | null
+          id?: string
+          new_values?: Json | null
+          previous_values?: Json | null
+        }
+        Update: {
+          change_type?: string
+          changed_by?: string
+          contact_id?: string
+          created_at?: string | null
+          id?: string
+          new_values?: Json | null
+          previous_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_contacts_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "team_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       training_assignments: {
         Row: {
@@ -2194,6 +2304,62 @@ export type Database = {
             columns: ["banner_id"]
             isOneToOne: false
             referencedRelation: "important_info_banners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          related_contact_id: string | null
+          sender_id: string | null
+          source_module: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          related_contact_id?: string | null
+          sender_id?: string | null
+          source_module: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          related_contact_id?: string | null
+          sender_id?: string | null
+          source_module?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notifications_related_contact_id_fkey"
+            columns: ["related_contact_id"]
+            isOneToOne: false
+            referencedRelation: "team_contacts"
             referencedColumns: ["id"]
           },
         ]
