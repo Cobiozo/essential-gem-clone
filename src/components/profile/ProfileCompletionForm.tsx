@@ -55,7 +55,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       setPhoneNumber(profileAny.phone_number || '');
       setGuardianName(profileAny.guardian_name || '');
       // Address
-      setAddress(profileAny.address || '');
+      setAddress(profileAny.street_address || '');
       setCity(profileAny.city || '');
       setPostalCode(profileAny.postal_code || '');
       setCountry(profileAny.country || '');
@@ -108,7 +108,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
         phone_number: phoneNumber.trim(),
         guardian_name: guardianName.trim(),
         // Address fields
-        address: address.trim() || null,
+        street_address: address.trim() || null,
         city: city.trim() || null,
         postal_code: postalCode.trim() || null,
         country: country.trim() || null,
