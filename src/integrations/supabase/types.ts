@@ -2241,10 +2241,24 @@ export type Database = {
       }
       specialist_search_settings: {
         Row: {
+          allow_messaging: boolean
           created_at: string
           id: string
+          integrate_with_team_contacts: boolean
           is_enabled: boolean
           max_results: number
+          messaging_enabled_for_clients: boolean
+          messaging_enabled_for_partners: boolean
+          messaging_enabled_for_specjalista: boolean
+          show_address_to_clients: boolean
+          show_address_to_partners: boolean
+          show_address_to_specjalista: boolean
+          show_email_to_clients: boolean
+          show_email_to_partners: boolean
+          show_email_to_specjalista: boolean
+          show_phone_to_clients: boolean
+          show_phone_to_partners: boolean
+          show_phone_to_specjalista: boolean
           updated_at: string
           visible_to_anonymous: boolean
           visible_to_clients: boolean
@@ -2252,10 +2266,24 @@ export type Database = {
           visible_to_specjalista: boolean
         }
         Insert: {
+          allow_messaging?: boolean
           created_at?: string
           id?: string
+          integrate_with_team_contacts?: boolean
           is_enabled?: boolean
           max_results?: number
+          messaging_enabled_for_clients?: boolean
+          messaging_enabled_for_partners?: boolean
+          messaging_enabled_for_specjalista?: boolean
+          show_address_to_clients?: boolean
+          show_address_to_partners?: boolean
+          show_address_to_specjalista?: boolean
+          show_email_to_clients?: boolean
+          show_email_to_partners?: boolean
+          show_email_to_specjalista?: boolean
+          show_phone_to_clients?: boolean
+          show_phone_to_partners?: boolean
+          show_phone_to_specjalista?: boolean
           updated_at?: string
           visible_to_anonymous?: boolean
           visible_to_clients?: boolean
@@ -2263,10 +2291,24 @@ export type Database = {
           visible_to_specjalista?: boolean
         }
         Update: {
+          allow_messaging?: boolean
           created_at?: string
           id?: string
+          integrate_with_team_contacts?: boolean
           is_enabled?: boolean
           max_results?: number
+          messaging_enabled_for_clients?: boolean
+          messaging_enabled_for_partners?: boolean
+          messaging_enabled_for_specjalista?: boolean
+          show_address_to_clients?: boolean
+          show_address_to_partners?: boolean
+          show_address_to_specjalista?: boolean
+          show_email_to_clients?: boolean
+          show_email_to_partners?: boolean
+          show_email_to_specjalista?: boolean
+          show_phone_to_clients?: boolean
+          show_phone_to_partners?: boolean
+          show_phone_to_specjalista?: boolean
           updated_at?: string
           visible_to_anonymous?: boolean
           visible_to_clients?: boolean
