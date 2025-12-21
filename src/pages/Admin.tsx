@@ -4068,17 +4068,58 @@ const Admin = () => {
                                       <Users className="w-4 h-4 mr-1" />
                                       Ustaw jako Partner
                                     </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'specjalista')}
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
+                                    >
+                                      <Users className="w-4 h-4 mr-1" />
+                                      Ustaw jako Specjalista
+                                    </Button>
                                   </>
                                 ) : userProfile.role === 'partner' ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => updateUserRole(userProfile.user_id, 'user')}
-                                    className="text-sm min-h-[44px] sm:min-h-auto"
-                                  >
-                                    <Users className="w-4 h-4 mr-1" />
-                                    Zmień na Klienta
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'client')}
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
+                                    >
+                                      <Users className="w-4 h-4 mr-1" />
+                                      Zmień na Klienta
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'specjalista')}
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
+                                    >
+                                      <Users className="w-4 h-4 mr-1" />
+                                      Ustaw jako Specjalista
+                                    </Button>
+                                  </>
+                                ) : userProfile.role === 'specjalista' ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'client')}
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
+                                    >
+                                      <Users className="w-4 h-4 mr-1" />
+                                      Zmień na Klienta
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateUserRole(userProfile.user_id, 'partner')}
+                                      className="text-sm min-h-[44px] sm:min-h-auto"
+                                    >
+                                      <Users className="w-4 h-4 mr-1" />
+                                      Ustaw jako Partner
+                                    </Button>
+                                  </>
                                 ) : userProfile.role === 'admin' ? (
                                   userProfile.user_id === user?.id ? (
                                     <Badge variant="default" className="text-xs">
@@ -4088,7 +4129,7 @@ const Admin = () => {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'user')}
+                                      onClick={() => updateUserRole(userProfile.user_id, 'client')}
                                       className="text-sm min-h-[44px] sm:min-h-auto"
                                     >
                                       <Users className="w-4 h-4 mr-1" />
