@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Save, User, AlertCircle, CheckCircle, Briefcase } from 'lucide-react';
+import { Save, User, AlertCircle, CheckCircle, Briefcase, MapPin } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +34,12 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [guardianName, setGuardianName] = useState('');
+  // Address fields
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('');
+  // Specialist fields
   const [specialization, setSpecialization] = useState('');
   const [profileDescription, setProfileDescription] = useState('');
   const [searchKeywords, setSearchKeywords] = useState('');
@@ -43,11 +49,17 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   useEffect(() => {
     if (profile) {
       const profileAny = profile as any;
-      setFirstName(profile.first_name || '');
-      setLastName(profile.last_name || '');
-      setEmail(profile.email || '');
-      setPhoneNumber(profile.phone_number || '');
+      setFirstName(profileAny.first_name || '');
+      setLastName(profileAny.last_name || '');
+      setEmail(profileAny.email || '');
+      setPhoneNumber(profileAny.phone_number || '');
       setGuardianName(profileAny.guardian_name || '');
+      // Address
+      setAddress(profileAny.address || '');
+      setCity(profileAny.city || '');
+      setPostalCode(profileAny.postal_code || '');
+      setCountry(profileAny.country || '');
+      // Specialist
       setSpecialization(profileAny.specialization || '');
       setProfileDescription(profileAny.profile_description || '');
       setSearchKeywords(profileAny.search_keywords?.join(', ') || '');
@@ -95,6 +107,12 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
         last_name: lastName.trim(),
         phone_number: phoneNumber.trim(),
         guardian_name: guardianName.trim(),
+        // Address fields
+        address: address.trim() || null,
+        city: city.trim() || null,
+        postal_code: postalCode.trim() || null,
+        country: country.trim() || null,
+        // Specialist fields
         specialization: specialization.trim() || null,
         profile_description: profileDescription.trim() || null,
         search_keywords: keywordsArray.length > 0 ? keywordsArray : null,
@@ -263,6 +281,66 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">Osoba, z którą można się skontaktować</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Address Fields */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            Dane adresowe
+          </CardTitle>
+          <CardDescription>
+            Opcjonalne dane adresowe
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="address">Adres (ulica i numer)</Label>
+            <Input
+              id="address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="ul. Przykładowa 123/4"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="postalCode">Kod pocztowy</Label>
+              <Input
+                id="postalCode"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                placeholder="00-000"
+                disabled={loading}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="city">Miasto</Label>
+              <Input
+                id="city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Warszawa"
+                disabled={loading}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="country">Kraj</Label>
+              <Input
+                id="country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="Polska"
+                disabled={loading}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
