@@ -14,6 +14,8 @@ serve(async (req) => {
   try {
     const { query } = await req.json();
     
+    console.log("Search query received:", query);
+    
     if (!query || query.trim().length < 2) {
       return new Response(
         JSON.stringify({ specialists: [], message: "Query too short" }),
@@ -25,8 +27,8 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Missing environment variables");
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing Supabase environment variables");
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -38,6 +40,8 @@ serve(async (req) => {
       .limit(1)
       .single();
 
+    console.log("Search settings:", settings);
+
     if (!settings?.is_enabled) {
       return new Response(
         JSON.stringify({ specialists: [], message: "Search is disabled" }),
@@ -45,7 +49,7 @@ serve(async (req) => {
       );
     }
 
-    // Get all searchable specialists
+    // Get all searchable specialists - JOIN with user_roles to filter by role
     const { data: specialists, error: specialistsError } = await supabase
       .from("profiles")
       .select(`
@@ -59,24 +63,65 @@ serve(async (req) => {
         profile_description,
         search_keywords
       `)
-      .eq("role", "specialist")
       .eq("is_searchable", true)
       .eq("is_active", true);
 
     if (specialistsError) {
-      console.error("Error fetching specialists:", specialistsError);
+      console.error("Error fetching profiles:", specialistsError);
       throw specialistsError;
     }
 
-    if (!specialists || specialists.length === 0) {
+    // Filter to only include specialists by checking user_roles
+    const { data: specialistRoles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "specjalista");
+
+    if (rolesError) {
+      console.error("Error fetching roles:", rolesError);
+      throw rolesError;
+    }
+
+    const specialistUserIds = new Set(specialistRoles?.map(r => r.user_id) || []);
+    const filteredSpecialists = specialists?.filter(s => specialistUserIds.has(s.user_id)) || [];
+
+    console.log("Found specialists:", filteredSpecialists.length);
+
+    if (filteredSpecialists.length === 0) {
       return new Response(
         JSON.stringify({ specialists: [], message: "No specialists found" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Check if we have Lovable API key for AI semantic matching
+    if (!LOVABLE_API_KEY) {
+      console.log("No LOVABLE_API_KEY, using basic text search");
+      // Fallback to basic text search
+      const queryLower = query.toLowerCase();
+      const filtered = filteredSpecialists.filter(s => {
+        const searchText = [
+          s.first_name,
+          s.last_name,
+          s.specialization,
+          s.profile_description,
+          s.city,
+          ...(s.search_keywords || [])
+        ].filter(Boolean).join(" ").toLowerCase();
+        return searchText.includes(queryLower);
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          specialists: filtered.slice(0, settings.max_results || 20),
+          fallback: true 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Build context for AI semantic matching
-    const specialistContext = specialists.map((s, idx) => {
+    const specialistContext = filteredSpecialists.map((s, idx) => {
       const parts = [
         `[${idx}] ${s.first_name || ""} ${s.last_name || ""}`.trim(),
         s.specialization ? `Specjalizacja: ${s.specialization}` : "",
@@ -86,6 +131,8 @@ serve(async (req) => {
       ].filter(Boolean);
       return parts.join(". ");
     }).join("\n\n");
+
+    console.log("Calling AI Gateway for semantic matching...");
 
     // Use AI for semantic matching
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -99,13 +146,15 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Jesteś systemem dopasowywania semantycznego. Twoje zadanie to przeanalizować listę specjalistów i znaleźć tych, którzy najlepiej pasują do zapytania użytkownika.
+            content: `Jesteś systemem dopasowywania semantycznego dla wyszukiwarki specjalistów. Twoje zadanie to przeanalizować listę specjalistów i znaleźć tych, którzy najlepiej pasują do zapytania użytkownika.
 
 Rozważ:
 - Dokładne dopasowania słów
-- Synonimy i słowa bliskoznaczne
+- Synonimy i słowa bliskoznaczne (np. "dietetyk" = "specjalista ds. żywienia", "coach" = "trener")
 - Kontekst i znaczenie zapytania
-- Lokalizację jeśli podana
+- Lokalizację jeśli podana w zapytaniu
+- Powiązane specjalizacje (np. "autyzm" może pasować do "spektrum autyzmu", "asperger", "tyflopedagog")
+- Podobne słowa i dziedziny
 
 WAŻNE: Odpowiedz TYLKO tablicą JSON z indeksami pasujących specjalistów w kolejności od najlepszego dopasowania.
 Format: [0, 5, 2] - gdzie liczby to indeksy specjalistów z listy.
@@ -128,10 +177,10 @@ Zwróć tablicę indeksów pasujących specjalistów.`
     });
 
     if (!aiResponse.ok) {
-      console.error("AI Gateway error:", aiResponse.status);
+      console.error("AI Gateway error:", aiResponse.status, await aiResponse.text());
       // Fallback to basic text search
       const queryLower = query.toLowerCase();
-      const filtered = specialists.filter(s => {
+      const filtered = filteredSpecialists.filter(s => {
         const searchText = [
           s.first_name,
           s.last_name,
@@ -155,12 +204,14 @@ Zwróć tablicę indeksów pasujących specjalistów.`
     const aiData = await aiResponse.json();
     const aiContent = aiData.choices?.[0]?.message?.content || "[]";
     
+    console.log("AI response:", aiContent);
+
     // Parse AI response
     let matchedIndices: number[] = [];
     try {
       const parsed = JSON.parse(aiContent.replace(/```json?|```/g, "").trim());
       if (Array.isArray(parsed)) {
-        matchedIndices = parsed.filter(i => typeof i === "number" && i >= 0 && i < specialists.length);
+        matchedIndices = parsed.filter(i => typeof i === "number" && i >= 0 && i < filteredSpecialists.length);
       }
     } catch (e) {
       console.error("Error parsing AI response:", e, aiContent);
@@ -169,15 +220,17 @@ Zwróć tablicę indeksów pasujących specjalistów.`
       if (numbers) {
         matchedIndices = numbers
           .map(Number)
-          .filter(i => i >= 0 && i < specialists.length);
+          .filter(i => i >= 0 && i < filteredSpecialists.length);
       }
     }
 
     // Map indices to specialists
     const matchedSpecialists = matchedIndices
       .slice(0, settings.max_results || 20)
-      .map(idx => specialists[idx])
+      .map(idx => filteredSpecialists[idx])
       .filter(Boolean);
+
+    console.log("Matched specialists:", matchedSpecialists.length);
 
     return new Response(
       JSON.stringify({ specialists: matchedSpecialists }),
