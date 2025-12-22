@@ -10,18 +10,20 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { X, Search } from 'lucide-react';
-import type { TeamContactFilters as Filters } from './types';
+import type { TeamContactFilters as Filters, ContactType } from './types';
 
 interface TeamContactFiltersProps {
   filters: Filters;
   onFiltersChange: (filters: Filters) => void;
   isAdmin: boolean;
+  contactType?: ContactType;
 }
 
 export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
   filters,
   onFiltersChange,
   isAdmin,
+  contactType,
 }) => {
   const clearFilters = () => {
     onFiltersChange({
@@ -31,6 +33,7 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
       dateTo: '',
       search: '',
       userId: '',
+      contactType,
     });
   };
 
@@ -94,10 +97,23 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Wszystkie statusy</SelectItem>
-              <SelectItem value="active">Aktywny</SelectItem>
-              <SelectItem value="suspended">Wstrzymany</SelectItem>
-              <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
-              <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+              {contactType === 'private' ? (
+                <>
+                  <SelectItem value="observation">Obserwacja</SelectItem>
+                  <SelectItem value="active">Klient</SelectItem>
+                  <SelectItem value="potential_partner">Potencjalny partner</SelectItem>
+                  <SelectItem value="potential_specialist">Potencjalny specjalista</SelectItem>
+                  <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
+                  <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="active">Aktywny</SelectItem>
+                  <SelectItem value="suspended">Wstrzymany</SelectItem>
+                  <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
+                  <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

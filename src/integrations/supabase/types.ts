@@ -2458,6 +2458,7 @@ export type Database = {
           address: string | null
           client_status: string | null
           collaboration_level: string | null
+          contact_type: string
           contact_upline_eq_id: string | null
           contact_upline_first_name: string | null
           contact_upline_last_name: string | null
@@ -2468,6 +2469,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_name: string
+          linked_user_id: string | null
           next_contact_date: string | null
           notes: string | null
           partner_status: string | null
@@ -2490,6 +2492,7 @@ export type Database = {
           address?: string | null
           client_status?: string | null
           collaboration_level?: string | null
+          contact_type?: string
           contact_upline_eq_id?: string | null
           contact_upline_first_name?: string | null
           contact_upline_last_name?: string | null
@@ -2500,6 +2503,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_name: string
+          linked_user_id?: string | null
           next_contact_date?: string | null
           notes?: string | null
           partner_status?: string | null
@@ -2522,6 +2526,7 @@ export type Database = {
           address?: string | null
           client_status?: string | null
           collaboration_level?: string | null
+          contact_type?: string
           contact_upline_eq_id?: string | null
           contact_upline_first_name?: string | null
           contact_upline_last_name?: string | null
@@ -2532,6 +2537,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_name?: string
+          linked_user_id?: string | null
           next_contact_date?: string | null
           notes?: string | null
           partner_status?: string | null

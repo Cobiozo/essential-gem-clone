@@ -19,12 +19,14 @@ interface TeamContactFormProps {
   contact?: TeamContact;
   onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => void;
   onCancel: () => void;
+  readOnly?: boolean;
 }
 
 export const TeamContactForm: React.FC<TeamContactFormProps> = ({
   contact,
   onSubmit,
   onCancel,
+  readOnly = false,
 }) => {
   const [loading, setLoading] = useState(false);
   
@@ -442,16 +444,18 @@ export const TeamContactForm: React.FC<TeamContactFormProps> = ({
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          Anuluj
+          {readOnly ? 'Zamknij' : 'Anuluj'}
         </Button>
-        <Button type="submit" disabled={loading}>
-          {loading 
-            ? 'Zapisywanie...'
-            : contact 
-              ? 'Zapisz'
-              : 'Dodaj kontakt'
-          }
-        </Button>
+        {!readOnly && (
+          <Button type="submit" disabled={loading}>
+            {loading 
+              ? 'Zapisywanie...'
+              : contact 
+                ? 'Zapisz'
+                : 'Dodaj kontakt'
+            }
+          </Button>
+        )}
       </div>
     </form>
   );

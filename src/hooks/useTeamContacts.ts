@@ -16,6 +16,7 @@ export const useTeamContacts = () => {
     dateTo: '',
     search: '',
     userId: '',
+    contactType: undefined,
   });
 
   const fetchContacts = useCallback(async () => {
@@ -30,6 +31,10 @@ export const useTeamContacts = () => {
         .order('created_at', { ascending: false });
 
       // Apply filters
+      if (filters.contactType) {
+        query = query.eq('contact_type', filters.contactType);
+      }
+
       if (filters.role) {
         query = query.eq('role', filters.role);
       }

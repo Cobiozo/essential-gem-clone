@@ -1,5 +1,7 @@
 // Types for Team Contacts module
 
+export type ContactType = 'private' | 'team_member';
+
 export interface TeamContact {
   id: string;
   user_id: string;
@@ -12,7 +14,11 @@ export interface TeamContact {
   added_at: string;
   notes: string | null;
   
-  // New basic fields
+  // Contact type: private (CRM) or team_member (registered user)
+  contact_type: ContactType;
+  linked_user_id: string | null;
+  
+  // Basic fields
   address: string | null;
   phone_number: string | null;
   email: string | null;
@@ -24,7 +30,7 @@ export interface TeamContact {
   contact_upline_last_name: string | null;
   
   // Relationship status
-  relationship_status: 'active' | 'suspended' | 'closed_success' | 'closed_not_now' | null;
+  relationship_status: 'active' | 'suspended' | 'closed_success' | 'closed_not_now' | 'observation' | 'potential_partner' | 'potential_specialist' | null;
   
   // Products
   products: string | null;
@@ -82,6 +88,7 @@ export interface TeamContactFilters {
   search: string;
   userId?: string; // For admin filtering by user
   relationshipStatus?: string;
+  contactType?: ContactType; // Filter by contact type
 }
 
 export interface UplineInfo {

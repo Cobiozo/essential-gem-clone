@@ -33,6 +33,8 @@ interface TeamContactsTableProps {
   onDelete: (id: string) => void;
   getContactHistory: (contactId: string) => Promise<TeamContactHistory[]>;
   isAdmin: boolean;
+  contactType?: 'private' | 'team_member';
+  readOnly?: boolean;
 }
 
 export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
@@ -42,6 +44,8 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   onDelete,
   getContactHistory,
   isAdmin,
+  contactType,
+  readOnly = false,
 }) => {
   const { t } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -138,7 +142,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <UplineHelpButton contact={contact} />
+                    {!readOnly && <UplineHelpButton contact={contact} />}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -147,22 +151,26 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                     >
                       <History className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEdit(contact)}
-                      title={t('admin.edit') || 'Edytuj'}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteConfirm(contact.id)}
-                      title={t('admin.delete') || 'Usuń'}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    {!readOnly && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onEdit(contact)}
+                          title={t('admin.edit') || 'Edytuj'}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteConfirm(contact.id)}
+                          title={t('admin.delete') || 'Usuń'}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
