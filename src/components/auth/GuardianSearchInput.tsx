@@ -60,12 +60,14 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
 
       try {
         // Search by name or EQID - using public profiles data
+        // Note: RLS policy "Anyone can search for guardians" allows searching
+        // for active partners, specjalists, and admins
         const { data, error: searchError } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name, eq_id, email')
           .eq('is_active', true)
+          .in('role', ['partner', 'specjalista', 'admin'])
           .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,eq_id.ilike.%${searchQuery}%`)
-          .not('eq_id', 'is', null)
           .limit(10);
 
         if (searchError) {
@@ -204,7 +206,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       )}
       
       <p className="text-xs text-muted-foreground">
-        Wyszukaj i wybierz osobę, która Cię wprowadza do Pure Life
+        Wyszukaj i wybierz osobę, która Cię wprowadza do Pure Life/Eqology
       </p>
     </div>
   );
