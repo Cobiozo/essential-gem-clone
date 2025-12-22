@@ -26,6 +26,7 @@ interface TeamContactAccordionProps {
   getContactHistory: (contactId: string) => Promise<TeamContactHistory[]>;
   isAdmin: boolean;
   readOnly?: boolean;
+  contactType?: 'private' | 'team_member';
 }
 
 export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
@@ -36,6 +37,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   getContactHistory,
   isAdmin,
   readOnly = false,
+  contactType,
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -57,9 +59,12 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
 
   const getStatusBadge = (contact: TeamContact) => {
     const statusLabels: Record<string, { label: string; className: string }> = {
-      active: { label: 'Aktywny', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+      active: { label: 'Klient', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+      observation: { label: 'Obserwacja', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+      potential_partner: { label: 'Pot. partner', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+      potential_specialist: { label: 'Pot. specjalista', className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
       suspended: { label: 'Wstrzymany', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      closed_success: { label: 'Sukces', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+      closed_success: { label: 'Sukces', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
       closed_not_now: { label: 'Nie teraz', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
     };
     
