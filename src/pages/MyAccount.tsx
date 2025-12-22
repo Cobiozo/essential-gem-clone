@@ -24,7 +24,6 @@ import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionFor
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
 import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { useFeatureVisibility } from '@/hooks/useFeatureVisibility';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -85,19 +84,63 @@ const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> =
 };
 
 const MyAccount = () => {
-  const { user, profile, userRole, signOut } = useAuth();
+  const { user, profile, userRole, signOut, isPartner, isSpecjalista, isClient } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const { isComplete } = useProfileCompletion();
-  const { isVisible } = useFeatureVisibility();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  
+  // Visibility settings from database
+  const [aiCompassVisible, setAiCompassVisible] = useState(false);
+  const [dailySignalVisible, setDailySignalVisible] = useState(false);
+  
+  // Fetch visibility settings from existing database tables
+  useEffect(() => {
+    const fetchVisibilitySettings = async () => {
+      // Fetch AI Compass settings
+      const { data: compassSettings } = await supabase
+        .from('ai_compass_settings')
+        .select('is_enabled, enabled_for_clients, enabled_for_partners, enabled_for_specjalista')
+        .limit(1)
+        .maybeSingle();
+      
+      if (compassSettings?.is_enabled) {
+        const role = userRole?.role?.toLowerCase();
+        const visible = 
+          (role === 'client' && compassSettings.enabled_for_clients) ||
+          (role === 'partner' && compassSettings.enabled_for_partners) ||
+          (role === 'specjalista' && compassSettings.enabled_for_specjalista);
+        setAiCompassVisible(visible);
+      }
+      
+      // Fetch Daily Signal settings
+      const { data: signalSettings } = await supabase
+        .from('daily_signal_settings')
+        .select('is_enabled, visible_to_clients, visible_to_partners, visible_to_specjalista')
+        .limit(1)
+        .maybeSingle();
+      
+      if (signalSettings?.is_enabled) {
+        const role = userRole?.role?.toLowerCase();
+        const visible = 
+          (role === 'client' && signalSettings.visible_to_clients) ||
+          (role === 'partner' && signalSettings.visible_to_partners) ||
+          (role === 'specjalista' && signalSettings.visible_to_specjalista);
+        setDailySignalVisible(visible);
+      }
+    };
+    
+    if (userRole) {
+      fetchVisibilitySettings();
+    }
+  }, [userRole]);
   
   // Check if redirected due to incomplete profile
   const profileIncomplete = location.state?.profileIncomplete || false;
@@ -106,16 +149,16 @@ const MyAccount = () => {
   const showProfileForm = profileIncomplete || isEditingProfile || (!isComplete && profileNotCompleted);
   const mustCompleteProfile = forceComplete || (!isComplete && profileNotCompleted);
   
-  // Memoized visible tabs based on feature visibility
+  // Visible tabs based on existing visibility settings (no new feature_visibility table)
   const visibleTabs = useMemo(() => ({
-    profile: isVisible('my_account.profile'),
-    teamContacts: isVisible('my_account.team_contacts'),
-    correspondence: isVisible('my_account.correspondence'),
-    notifications: isVisible('feature.notifications'),
-    preferences: isVisible('feature.daily_signal'),
-    aiCompass: isVisible('my_account.ai_compass'),
+    profile: true, // Always visible
+    teamContacts: isPartner || isSpecjalista, // Based on role
+    correspondence: isClient, // Only for clients
+    notifications: true, // Always visible
+    preferences: dailySignalVisible, // Based on daily_signal_settings
+    aiCompass: aiCompassVisible, // Based on ai_compass_settings
     security: true, // Always visible
-  }), [isVisible]);
+  }), [isPartner, isSpecjalista, isClient, dailySignalVisible, aiCompassVisible]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
