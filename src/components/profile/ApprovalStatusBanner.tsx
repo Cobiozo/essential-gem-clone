@@ -1,7 +1,9 @@
 import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Clock, CheckCircle, UserCheck, ShieldCheck } from 'lucide-react';
+import { Clock, CheckCircle, UserCheck, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 export const ApprovalStatusBanner: React.FC = () => {
   const { profile } = useAuth();
