@@ -13,9 +13,10 @@ export function blocksToHtml(blocks: EmailBlock[]): string {
   const blocksHtml = sortedBlocks.map(block => {
     switch (block.type) {
       case 'header':
+        const logoSrc = block.content.logoUrl || '/logo.png';
         return `
           <div style="background-color: ${block.content.backgroundColor}; padding: 20px; text-align: center;">
-            ${block.content.showLogo ? '<img src="/logo.png" alt="Logo" style="max-height: 50px; margin-bottom: 10px;" />' : ''}
+            ${block.content.showLogo ? `<img src="${logoSrc}" alt="Logo" style="max-height: 50px; margin-bottom: 10px;" />` : ''}
             <h1 style="color: ${block.content.textColor}; margin: 0; font-size: 24px; font-weight: bold;">
               ${block.content.text}
             </h1>

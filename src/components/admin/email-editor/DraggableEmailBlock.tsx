@@ -41,16 +41,16 @@ export const DraggableEmailBlock: React.FC<DraggableEmailBlockProps> = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "relative group bg-card border rounded-md overflow-hidden",
+        "relative group bg-card border rounded-md",
         isDragging && "opacity-50 z-50",
         isSelected && "ring-2 ring-primary"
       )}
       onClick={onSelect}
     >
-      {/* Drag handle & controls */}
+      {/* Drag handle & controls - positioned absolutely but with proper z-index */}
       <div className={cn(
-        "absolute top-0 left-0 right-0 flex items-center justify-between px-2 py-1",
-        "bg-muted/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        "absolute top-2 left-2 right-2 flex items-center justify-between px-2 py-1 rounded",
+        "bg-background/90 border shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity z-20"
       )}>
         <div
           {...attributes}
@@ -86,8 +86,8 @@ export const DraggableEmailBlock: React.FC<DraggableEmailBlockProps> = ({
         </div>
       </div>
 
-      {/* Block content preview */}
-      <div className="pt-6">
+      {/* Block content preview - no overlap */}
+      <div className="min-h-[40px]">
         <BlockPreview block={block} />
       </div>
     </div>

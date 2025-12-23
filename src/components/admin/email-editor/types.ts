@@ -22,6 +22,7 @@ export const BLOCK_TYPES: BlockType[] = [
       backgroundColor: '#16a34a',
       textColor: '#ffffff',
       showLogo: true,
+      logoUrl: '',
     },
   },
   {
