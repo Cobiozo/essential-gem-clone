@@ -14,10 +14,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2, LayoutGrid } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2, LayoutGrid, GripVertical } from 'lucide-react';
 import { SmtpConfigurationPanel } from './SmtpConfigurationPanel';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { EmailBlockInserter } from './EmailBlockInserter';
+import { EmailDndEditor } from './email-editor/EmailDndEditor';
+import { EmailBlock } from './email-editor/types';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -117,6 +119,10 @@ export const EmailTemplatesManagement: React.FC = () => {
     is_active: true,
     selectedEvents: [] as string[],
   });
+  
+  // DnD editor state
+  const [useDndEditor, setUseDndEditor] = useState(true);
+  const [emailBlocks, setEmailBlocks] = useState<EmailBlock[]>([]);
 
   // Ref for RichTextEditor to insert variables
   const editorRef = useRef<HTMLDivElement>(null);
@@ -203,6 +209,8 @@ export const EmailTemplatesManagement: React.FC = () => {
       is_active: true,
       selectedEvents: [],
     });
+    setEmailBlocks([]);
+    setUseDndEditor(true);
     setShowTemplateDialog(true);
   };
 
@@ -222,7 +230,15 @@ export const EmailTemplatesManagement: React.FC = () => {
       is_active: template.is_active,
       selectedEvents: events,
     });
+    setEmailBlocks([]);
+    // For existing templates, start with RichTextEditor to preserve existing HTML
+    setUseDndEditor(false);
     setShowTemplateDialog(true);
+  };
+  
+  const handleDndEditorChange = (html: string, blocks: EmailBlock[]) => {
+    setTemplateForm(prev => ({ ...prev, body_html: html }));
+    setEmailBlocks(blocks);
   };
 
   const getDefaultTemplateHtml = () => {
@@ -950,37 +966,74 @@ export const EmailTemplatesManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual Editor */}
-            <div className="space-y-2" ref={editorRef}>
-              <div className="flex items-center justify-between">
-                <Label>Treść e-maila (edytor wizualny)</Label>
-                <div className="flex items-center gap-2">
-                  <EmailBlockInserter onInsert={insertBlock} />
-                  <Button variant="outline" size="sm" onClick={showLivePreview}>
-                    <Eye className="w-4 h-4 mr-2" />
-                    Podgląd na żywo
-                  </Button>
-                </div>
+            {/* Editor Mode Toggle */}
+            <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                <Label>Tryb edytora:</Label>
               </div>
-              <RichTextEditor
-                value={templateForm.body_html}
-                onChange={(val) => setTemplateForm(prev => ({ ...prev, body_html: val }))}
-                placeholder="Zaprojektuj treść e-maila... Użyj przycisku 'Wstaw blok' aby dodać gotowe elementy."
-                rows={12}
-              />
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant={useDndEditor ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setUseDndEditor(true)}
+                >
+                  <LayoutGrid className="w-4 h-4 mr-1" />
+                  Blokowy (przeciągnij i upuść)
+                </Button>
+                <Button 
+                  variant={!useDndEditor ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setUseDndEditor(false)}
+                >
+                  <Variable className="w-4 h-4 mr-1" />
+                  Klasyczny (HTML)
+                </Button>
+              </div>
+              <Button variant="outline" size="sm" onClick={showLivePreview} className="ml-auto">
+                <Eye className="w-4 h-4 mr-2" />
+                Podgląd
+              </Button>
             </div>
 
-            {/* Footer Editor */}
-            <div className="space-y-2">
-              <Label>Stopka e-maila (edytor wizualny)</Label>
-              <RichTextEditor
-                value={templateForm.footer_html}
-                onChange={(val) => setTemplateForm(prev => ({ ...prev, footer_html: val }))}
-                placeholder="Stopka e-maila..."
-                rows={4}
-                compact
-              />
-            </div>
+            {/* DnD Block Editor */}
+            {useDndEditor ? (
+              <div className="space-y-2">
+                <Label>Treść e-maila (edytor blokowy)</Label>
+                <EmailDndEditor
+                  initialBlocks={emailBlocks}
+                  onChange={handleDndEditorChange}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Classic Visual Editor */}
+                <div className="space-y-2" ref={editorRef}>
+                  <div className="flex items-center justify-between">
+                    <Label>Treść e-maila (edytor wizualny)</Label>
+                    <EmailBlockInserter onInsert={insertBlock} />
+                  </div>
+                  <RichTextEditor
+                    value={templateForm.body_html}
+                    onChange={(val) => setTemplateForm(prev => ({ ...prev, body_html: val }))}
+                    placeholder="Zaprojektuj treść e-maila... Użyj przycisku 'Wstaw blok' aby dodać gotowe elementy."
+                    rows={12}
+                  />
+                </div>
+
+                {/* Footer Editor */}
+                <div className="space-y-2">
+                  <Label>Stopka e-maila (edytor wizualny)</Label>
+                  <RichTextEditor
+                    value={templateForm.footer_html}
+                    onChange={(val) => setTemplateForm(prev => ({ ...prev, footer_html: val }))}
+                    placeholder="Stopka e-maila..."
+                    rows={4}
+                    compact
+                  />
+                </div>
+              </>
+            )}
 
             <Separator />
 
