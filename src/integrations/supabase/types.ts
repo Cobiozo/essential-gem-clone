@@ -3282,6 +3282,7 @@ export type Database = {
         }[]
       }
       email_exists: { Args: { email_param: string }; Returns: boolean }
+      eq_id_exists: { Args: { eq_id_param: string }; Returns: boolean }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_role_level: { Args: { role_name: string }; Returns: number }
