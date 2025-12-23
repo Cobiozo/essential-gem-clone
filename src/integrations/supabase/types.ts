@@ -3210,6 +3210,17 @@ export type Database = {
         Args: { new_role: string; user_id_param: string }
         Returns: boolean
       }
+      search_guardians: {
+        Args: { search_query: string }
+        Returns: {
+          email: string
+          eq_id: string
+          first_name: string
+          last_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       set_default_certificate_template: {
         Args: { template_id: string }
         Returns: undefined
