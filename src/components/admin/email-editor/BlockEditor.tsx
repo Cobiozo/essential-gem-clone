@@ -94,32 +94,32 @@ const LogoPicker: React.FC<{
   }, [tab]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 w-full overflow-hidden">
       <Label>Logo</Label>
       
       {logoUrl && (
-        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-          <img src={logoUrl} alt="Logo" className="h-8 w-auto max-w-[100px] object-contain" />
-          <span className="text-xs text-muted-foreground truncate flex-1">{logoUrl}</span>
-          <Button variant="ghost" size="sm" onClick={() => onChange('')}>
+        <div className="flex items-center gap-2 p-2 bg-muted rounded-md overflow-hidden">
+          <img src={logoUrl} alt="Logo" className="h-8 w-8 flex-shrink-0 object-contain" />
+          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">{logoUrl}</span>
+          <Button variant="ghost" size="sm" className="flex-shrink-0" onClick={() => onChange('')}>
             Usuń
           </Button>
         </div>
       )}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'library' | 'url' | 'upload')}>
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="library" className="text-xs">
-            <Image className="h-3 w-3 mr-1" />
-            Biblioteka
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'library' | 'url' | 'upload')} className="w-full">
+        <TabsList className="w-full grid grid-cols-3 h-auto">
+          <TabsTrigger value="library" className="text-xs px-1 py-1.5">
+            <Image className="h-3 w-3 mr-1 flex-shrink-0" />
+            <span className="truncate">Biblioteka</span>
           </TabsTrigger>
-          <TabsTrigger value="url" className="text-xs">
-            <Link className="h-3 w-3 mr-1" />
-            URL
+          <TabsTrigger value="url" className="text-xs px-1 py-1.5">
+            <Link className="h-3 w-3 mr-1 flex-shrink-0" />
+            <span className="truncate">URL</span>
           </TabsTrigger>
-          <TabsTrigger value="upload" className="text-xs">
-            <Upload className="h-3 w-3 mr-1" />
-            Prześlij
+          <TabsTrigger value="upload" className="text-xs px-1 py-1.5">
+            <Upload className="h-3 w-3 mr-1 flex-shrink-0" />
+            <span className="truncate">Prześlij</span>
           </TabsTrigger>
         </TabsList>
 
@@ -130,19 +130,19 @@ const LogoPicker: React.FC<{
               Ładowanie...
             </div>
           ) : (
-            <ScrollArea className="h-[150px]">
-              <div className="grid grid-cols-4 gap-2 p-1">
+            <ScrollArea className="h-[120px] w-full">
+              <div className="grid grid-cols-3 gap-1.5 p-1">
                 {libraryImages.map((img) => (
                   <button
                     key={img.name}
                     className="aspect-square border rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all bg-white"
                     onClick={() => onChange(img.url)}
                   >
-                    <img src={img.url} alt={img.name} className="w-full h-full object-contain p-1" />
+                    <img src={img.url} alt={img.name} className="w-full h-full object-contain p-0.5" />
                   </button>
                 ))}
                 {libraryImages.length === 0 && (
-                  <div className="col-span-4 text-center text-muted-foreground text-sm py-4">
+                  <div className="col-span-3 text-center text-muted-foreground text-sm py-4">
                     Brak obrazów w bibliotece
                   </div>
                 )}

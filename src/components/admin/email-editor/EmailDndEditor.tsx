@@ -225,25 +225,27 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
         </div>
 
         {/* Block Editor */}
-        <div className="col-span-4">
-          <Card className="h-full">
+        <div className="col-span-4 min-w-0">
+          <Card className="h-full overflow-hidden">
             <CardHeader className="py-3">
-              <CardTitle className="text-sm">
+              <CardTitle className="text-sm truncate">
                 {selectedBlock ? `Edycja: ${BLOCK_TYPES.find(t => t.type === selectedBlock.type)?.label}` : 'Właściwości'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3">
-              <ScrollArea className="h-[520px]">
-                {selectedBlock ? (
-                  <BlockEditor
-                    block={selectedBlock}
-                    onChange={handleBlockContentChange}
-                  />
-                ) : (
-                  <div className="text-muted-foreground text-sm text-center py-8">
-                    Wybierz blok, aby edytować jego właściwości
-                  </div>
-                )}
+            <CardContent className="p-3 overflow-hidden">
+              <ScrollArea className="h-[520px] w-full">
+                <div className="pr-3">
+                  {selectedBlock ? (
+                    <BlockEditor
+                      block={selectedBlock}
+                      onChange={handleBlockContentChange}
+                    />
+                  ) : (
+                    <div className="text-muted-foreground text-sm text-center py-8">
+                      Wybierz blok, aby edytować jego właściwości
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
