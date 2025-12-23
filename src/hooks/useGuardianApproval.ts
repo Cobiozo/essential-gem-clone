@@ -45,8 +45,38 @@ export const useGuardianApproval = () => {
     }
   }, [toast]);
 
+  const rejectUser = useCallback(async (targetUserId: string, reason?: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('guardian_reject_user', {
+        target_user_id: targetUserId,
+        rejection_reason: reason || null
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Odrzucono',
+        description: 'Rejestracja użytkownika została odrzucona.',
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('Error rejecting user:', error);
+      toast({
+        title: 'Błąd',
+        description: error.message || 'Nie udało się odrzucić użytkownika.',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   return {
     approveUser,
+    rejectUser,
     loading,
   };
 };
