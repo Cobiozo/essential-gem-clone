@@ -93,6 +93,19 @@ const LogoPicker: React.FC<{
     }
   }, [tab]);
 
+  // Extract filename from URL
+  const getFilenameFromUrl = (url: string): string => {
+    if (!url) return '';
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const filename = pathname.split('/').pop() || '';
+      return decodeURIComponent(filename);
+    } catch {
+      return url.split('/').pop() || url;
+    }
+  };
+
   return (
     <div className="space-y-3 w-full overflow-hidden">
       <Label>Logo</Label>
@@ -100,8 +113,10 @@ const LogoPicker: React.FC<{
       {logoUrl && (
         <div className="flex items-center gap-2 p-2 bg-muted rounded-md overflow-hidden">
           <img src={logoUrl} alt="Logo" className="h-8 w-8 flex-shrink-0 object-contain" />
-          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">{logoUrl}</span>
-          <Button variant="ghost" size="sm" className="flex-shrink-0" onClick={() => onChange('')}>
+          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0" title={logoUrl}>
+            {getFilenameFromUrl(logoUrl)}
+          </span>
+          <Button variant="ghost" size="sm" className="flex-shrink-0 h-7 px-2" onClick={() => onChange('')}>
             Usuń
           </Button>
         </div>

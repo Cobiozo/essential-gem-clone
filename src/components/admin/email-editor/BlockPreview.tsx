@@ -20,8 +20,17 @@ export const BlockPreview: React.FC<BlockPreviewProps> = ({ block }) => {
           style={{ backgroundColor: block.content.backgroundColor }}
           className="p-4 text-center"
         >
-          {block.content.showLogo && (
-            <div className="text-xs text-white/70 mb-1">[Logo]</div>
+          {block.content.showLogo && block.content.logoUrl && (
+            <div className="flex justify-center mb-2">
+              <img 
+                src={block.content.logoUrl} 
+                alt="Logo" 
+                className="max-h-8 w-auto object-contain"
+              />
+            </div>
+          )}
+          {block.content.showLogo && !block.content.logoUrl && (
+            <div className="text-xs text-white/70 mb-1">[Wybierz logo]</div>
           )}
           <h2 style={{ color: block.content.textColor }} className="font-bold text-lg m-0">
             {block.content.text}

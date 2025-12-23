@@ -159,15 +159,16 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-12 gap-3">
+      {/* Responsive: 1 col mobile, stack on tablet, 12-col on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* Block Palette */}
-        <div className="col-span-2">
-          <Card className="max-h-[55vh]">
-            <CardHeader className="py-3">
+        <div className="lg:col-span-2 order-2 lg:order-1">
+          <Card className="h-auto lg:max-h-[55vh]">
+            <CardHeader className="py-2 px-3">
               <CardTitle className="text-sm">Bloki</CardTitle>
             </CardHeader>
             <CardContent className="p-2">
-              <ScrollArea className="h-[calc(55vh-70px)]">
+              <ScrollArea className="h-[120px] lg:h-[calc(55vh-60px)]">
                 <BlockPalette onAddBlock={handleAddBlockFromPalette} />
               </ScrollArea>
             </CardContent>
@@ -175,21 +176,22 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
         </div>
 
         {/* Canvas */}
-        <div className="col-span-6">
-          <Card className="max-h-[55vh] flex flex-col">
-            <CardHeader className="py-3 flex-row items-center justify-between shrink-0">
+        <div className="lg:col-span-6 order-1 lg:order-2">
+          <Card className="lg:max-h-[55vh] flex flex-col">
+            <CardHeader className="py-2 px-3 flex-row items-center justify-between shrink-0">
               <CardTitle className="text-sm">Kanwa</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowPreview(!showPreview)}
+                className="h-7 px-2"
               >
-                {showPreview ? <Code className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                {showPreview ? 'Edytor' : 'Podgląd'}
+                {showPreview ? <Code className="h-3 w-3 mr-1" /> : <Eye className="h-3 w-3 mr-1" />}
+                <span className="hidden sm:inline">{showPreview ? 'Edytor' : 'Podgląd'}</span>
               </Button>
             </CardHeader>
             <CardContent className="flex-1 p-2 overflow-hidden min-h-0">
-              <ScrollArea className="h-[calc(55vh-70px)]">
+              <ScrollArea className="h-[200px] lg:h-[calc(55vh-60px)]">
                 {showPreview ? (
                   <div
                     className="bg-white rounded border p-2"
@@ -200,10 +202,10 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
                     items={blocks.map((b) => b.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="space-y-2 min-h-[200px]">
+                    <div className="space-y-2 min-h-[150px]">
                       {blocks.length === 0 && (
-                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center text-muted-foreground">
-                          Przeciągnij bloki tutaj, aby rozpocząć
+                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center text-muted-foreground text-sm">
+                          Przeciągnij bloki tutaj
                         </div>
                       )}
                       {blocks.map((block) => (
@@ -225,24 +227,24 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
         </div>
 
         {/* Block Editor */}
-        <div className="col-span-4 min-w-0">
-          <Card className="max-h-[55vh] overflow-hidden">
-            <CardHeader className="py-3">
+        <div className="lg:col-span-4 min-w-0 order-3">
+          <Card className="lg:max-h-[55vh] overflow-hidden">
+            <CardHeader className="py-2 px-3">
               <CardTitle className="text-sm truncate">
                 {selectedBlock ? `Edycja: ${BLOCK_TYPES.find(t => t.type === selectedBlock.type)?.label}` : 'Właściwości'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 overflow-hidden">
-              <ScrollArea className="h-[calc(55vh-70px)] w-full">
-                <div className="pr-3">
+            <CardContent className="p-2 overflow-hidden">
+              <ScrollArea className="h-[200px] lg:h-[calc(55vh-60px)] w-full">
+                <div className="pr-2">
                   {selectedBlock ? (
                     <BlockEditor
                       block={selectedBlock}
                       onChange={handleBlockContentChange}
                     />
                   ) : (
-                    <div className="text-muted-foreground text-sm text-center py-8">
-                      Wybierz blok, aby edytować jego właściwości
+                    <div className="text-muted-foreground text-sm text-center py-6">
+                      Wybierz blok, aby edytować
                     </div>
                   )}
                 </div>
