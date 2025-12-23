@@ -20,6 +20,8 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { EmailBlockInserter } from './EmailBlockInserter';
 import { EmailDndEditor } from './email-editor/EmailDndEditor';
 import { EmailBlock } from './email-editor/types';
+import { createDefaultBlocks, getTemplateBlocks } from './email-editor/defaultBlocks';
+import { blocksToHtml } from './email-editor/blocksToHtml';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -202,18 +204,19 @@ export const EmailTemplatesManagement: React.FC = () => {
 
   const openNewTemplateDialog = () => {
     setEditingTemplate(null);
+    const defaultBlocks = createDefaultBlocks();
     setTemplateForm({
       name: '',
       internal_name: '',
       subject: '',
-      body_html: '',
+      body_html: blocksToHtml(defaultBlocks),
       body_text: '',
-      footer_html: getDefaultFooterHtml(),
+      footer_html: '',
       is_active: true,
       selectedEvents: [],
       editor_mode: 'block',
     });
-    setEmailBlocks([]);
+    setEmailBlocks(defaultBlocks);
     setUseDndEditor(true);
     setShowTemplateDialog(true);
   };
@@ -224,14 +227,19 @@ export const EmailTemplatesManagement: React.FC = () => {
       .filter(te => te.template_id === template.id)
       .map(te => te.event_type_id);
     
-    const editorMode = template.editor_mode || 'classic';
-    const blocks = (template.blocks_json as EmailBlock[]) || [];
+    const editorMode = template.editor_mode || 'block';
+    let blocks = (template.blocks_json as EmailBlock[]) || [];
+    
+    // If block mode but no blocks exist, generate default blocks for this template type
+    if (editorMode === 'block' && (!blocks || blocks.length === 0)) {
+      blocks = getTemplateBlocks(template.internal_name);
+    }
     
     setTemplateForm({
       name: template.name,
       internal_name: template.internal_name,
       subject: template.subject,
-      body_html: template.body_html,
+      body_html: editorMode === 'block' && blocks.length > 0 ? blocksToHtml(blocks) : template.body_html,
       body_text: template.body_text || '',
       footer_html: template.footer_html || '',
       is_active: template.is_active,
@@ -246,24 +254,6 @@ export const EmailTemplatesManagement: React.FC = () => {
   const handleDndEditorChange = (html: string, blocks: EmailBlock[]) => {
     setTemplateForm(prev => ({ ...prev, body_html: html }));
     setEmailBlocks(blocks);
-  };
-
-  const getDefaultTemplateHtml = () => {
-    // Minimalny pusty szablon - użytkownik dodaje bloki sam
-    return `<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-  <!-- Użyj przycisku "Wstaw blok" aby dodać elementy -->
-</div>`;
-  };
-
-  const getDefaultFooterHtml = () => {
-    return `<div style="background-color: #f9fafb; padding: 25px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-  <p style="color: #9ca3af; font-size: 12px; margin: 0 0 10px 0;">
-    © ${new Date().getFullYear()} Pure Life / Eqology. Wszelkie prawa zastrzeżone.
-  </p>
-  <p style="color: #9ca3af; font-size: 11px; margin: 0;">
-    Otrzymujesz tę wiadomość, ponieważ jesteś zarejestrowany w systemie Pure Life.
-  </p>
-</div>`;
   };
 
   const handleSaveTemplate = async () => {
