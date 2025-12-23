@@ -2299,6 +2299,57 @@ export type Database = {
         }
         Relationships: []
       }
+      smtp_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_result: boolean | null
+          sender_email: string
+          sender_name: string
+          smtp_encryption: string
+          smtp_host: string
+          smtp_password: string
+          smtp_port: number
+          smtp_username: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_result?: boolean | null
+          sender_email?: string
+          sender_name?: string
+          smtp_encryption?: string
+          smtp_host?: string
+          smtp_password?: string
+          smtp_port?: number
+          smtp_username?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_result?: boolean | null
+          sender_email?: string
+          sender_name?: string
+          smtp_encryption?: string
+          smtp_host?: string
+          smtp_password?: string
+          smtp_port?: number
+          smtp_username?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       specialist_message_limits: {
         Row: {
           created_at: string | null
