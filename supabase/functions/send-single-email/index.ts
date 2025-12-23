@@ -224,14 +224,26 @@ serve(async (req) => {
     }
 
     const smtpSettings: SmtpSettings = {
-      host: smtpData.host,
-      port: smtpData.port,
-      encryption: smtpData.encryption,
-      username: smtpData.username,
-      password: smtpData.password,
-      from_email: smtpData.from_email,
-      from_name: smtpData.from_name,
+      host: smtpData.smtp_host,
+      port: Number(smtpData.smtp_port),
+      encryption: smtpData.smtp_encryption,
+      username: smtpData.smtp_username,
+      password: smtpData.smtp_password,
+      from_email: smtpData.sender_email,
+      from_name: smtpData.sender_name,
     };
+
+    // Validate SMTP settings
+    if (!smtpSettings.host || !smtpSettings.port || !smtpSettings.username || !smtpSettings.password) {
+      throw new Error("Incomplete SMTP configuration. Please check SMTP settings.");
+    }
+
+    console.log('[send-single-email] SMTP config loaded:', {
+      host: smtpSettings.host,
+      port: smtpSettings.port,
+      encryption: smtpSettings.encryption,
+      from_email: smtpSettings.from_email
+    });
 
     // Fetch email template
     const { data: templateData, error: templateError } = await supabase
