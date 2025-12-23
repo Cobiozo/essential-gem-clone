@@ -14,9 +14,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2, LayoutGrid } from 'lucide-react';
 import { SmtpConfigurationPanel } from './SmtpConfigurationPanel';
 import { RichTextEditor } from '@/components/RichTextEditor';
+import { EmailBlockInserter } from './EmailBlockInserter';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -225,29 +226,9 @@ export const EmailTemplatesManagement: React.FC = () => {
   };
 
   const getDefaultTemplateHtml = () => {
+    // Minimalny pusty szablon - użytkownik dodaje bloki sam
     return `<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-  <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-    <img src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/pure-life-logo.png" alt="Pure Life" style="max-height: 60px; max-width: 200px;">
-  </div>
-  
-  <div style="padding: 40px 30px;">
-    <h1 style="color: #1f2937; font-size: 24px; margin-bottom: 20px;">Witaj {{imię}}!</h1>
-    
-    <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
-      Treść Twojej wiadomości...
-    </p>
-    
-    <div style="text-align: center; margin: 35px 0;">
-      <a href="{{link_aktywacyjny}}" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px;">
-        Przycisk akcji
-      </a>
-    </div>
-    
-    <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">
-      Pozdrawiamy,<br>
-      <strong>Zespół Pure Life</strong>
-    </p>
-  </div>
+  <!-- Użyj przycisku "Wstaw blok" aby dodać elementy -->
 </div>`;
   };
 
@@ -452,6 +433,21 @@ export const EmailTemplatesManagement: React.FC = () => {
       ...prev,
       body_html: prev.body_html + variable,
     }));
+  };
+
+  const insertBlock = (blockHtml: string) => {
+    // Wstaw blok przed zamykającym </div> głównego kontenera lub na końcu
+    setTemplateForm(prev => {
+      let html = prev.body_html;
+      // Znajdź ostatni </div> i wstaw przed nim
+      const lastDivIndex = html.lastIndexOf('</div>');
+      if (lastDivIndex > 0) {
+        html = html.slice(0, lastDivIndex) + blockHtml + '\n' + html.slice(lastDivIndex);
+      } else {
+        html = html + blockHtml;
+      }
+      return { ...prev, body_html: html };
+    });
   };
 
   // Event management functions
@@ -958,15 +954,18 @@ export const EmailTemplatesManagement: React.FC = () => {
             <div className="space-y-2" ref={editorRef}>
               <div className="flex items-center justify-between">
                 <Label>Treść e-maila (edytor wizualny)</Label>
-                <Button variant="outline" size="sm" onClick={showLivePreview}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Podgląd na żywo
-                </Button>
+                <div className="flex items-center gap-2">
+                  <EmailBlockInserter onInsert={insertBlock} />
+                  <Button variant="outline" size="sm" onClick={showLivePreview}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    Podgląd na żywo
+                  </Button>
+                </div>
               </div>
               <RichTextEditor
                 value={templateForm.body_html}
                 onChange={(val) => setTemplateForm(prev => ({ ...prev, body_html: val }))}
-                placeholder="Zaprojektuj treść e-maila..."
+                placeholder="Zaprojektuj treść e-maila... Użyj przycisku 'Wstaw blok' aby dodać gotowe elementy."
                 rows={12}
               />
             </div>
