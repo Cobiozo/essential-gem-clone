@@ -1,13 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface ResetPasswordRequest {
@@ -16,20 +12,161 @@ interface ResetPasswordRequest {
   admin_name: string;
 }
 
-const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
+interface SmtpSettings {
+  host: string;
+  port: number;
+  encryption: string;
+  username: string;
+  password: string;
+  from_email: string;
+  from_name: string;
+}
+
+// Base64 encode for SMTP (handles UTF-8)
+function base64Encode(str: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64EncodeAscii(str: string): string {
+  return btoa(str);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]);
+}
+
+// Send email via SMTP
+async function sendSmtpEmail(
+  settings: SmtpSettings,
+  to: string,
+  subject: string,
+  htmlBody: string
+): Promise<{ success: boolean; error?: string }> {
+  console.log(`[SMTP] Sending password reset email to ${to}`);
+  console.log(`[SMTP] Server: ${settings.host}:${settings.port} (${settings.encryption})`);
+
+  let conn: Deno.Conn | null = null;
+  
+  try {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    if (settings.encryption === 'ssl') {
+      conn = await withTimeout(
+        Deno.connectTls({ hostname: settings.host, port: settings.port }),
+        30000
+      );
+    } else {
+      conn = await withTimeout(
+        Deno.connect({ hostname: settings.host, port: settings.port }),
+        30000
+      );
+    }
+
+    const readResponse = async (): Promise<string> => {
+      const buffer = new Uint8Array(4096);
+      const n = await conn!.read(buffer);
+      if (n === null) return '';
+      const response = decoder.decode(buffer.subarray(0, n));
+      console.log('[SMTP] Response:', response.trim());
+      return response;
+    };
+
+    const sendCommand = async (command: string, hideLog = false): Promise<string> => {
+      if (!hideLog) {
+        console.log('[SMTP] Sending:', command.trim());
+      } else {
+        console.log('[SMTP] Sending: [HIDDEN]');
+      }
+      await conn!.write(encoder.encode(command + '\r\n'));
+      return await readResponse();
+    };
+
+    await readResponse();
+    await sendCommand(`EHLO ${settings.host}`);
+
+    if (settings.encryption === 'starttls') {
+      await sendCommand('STARTTLS');
+      conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
+      await sendCommand(`EHLO ${settings.host}`);
+    }
+
+    await sendCommand('AUTH LOGIN');
+    await sendCommand(base64EncodeAscii(settings.username), true);
+    const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
+    
+    if (!authResponse.startsWith('235')) {
+      throw new Error(`Authentication failed: ${authResponse}`);
+    }
+
+    await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    await sendCommand(`RCPT TO:<${to}>`);
+    await sendCommand('DATA');
+
+    const emailContent = [
+      `From: ${settings.from_name} <${settings.from_email}>`,
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      base64Encode(htmlBody),
+      '.',
+    ].join('\r\n');
+
+    const dataResponse = await sendCommand(emailContent);
+    
+    if (!dataResponse.startsWith('250')) {
+      throw new Error(`Failed to send: ${dataResponse}`);
+    }
+
+    await sendCommand('QUIT');
+    conn.close();
+
+    console.log('[SMTP] Password reset email sent successfully');
+    return { success: true };
+    
+  } catch (error) {
+    console.error('[SMTP] Error:', error);
+    if (conn) {
+      try { conn.close(); } catch {}
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+// Replace template variables
+function replaceVariables(text: string, variables: Record<string, string>): string {
+  let result = text;
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    result = result.replace(regex, value || '');
+  }
+  return result;
+}
+
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create Supabase client with service role key for admin operations
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { user_email, new_password, admin_name }: ResetPasswordRequest = await req.json();
+    console.log("[admin-reset-password] Request for:", user_email, "by:", admin_name);
 
     // Get user by email
     const { data: users, error: getUserError } = await supabase.auth.admin.listUsers();
@@ -50,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
       user.id,
       { 
         password: new_password,
-        email_confirm: true // Automatically confirm email if needed
+        email_confirm: true
       }
     );
 
@@ -59,72 +196,102 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Nie udało się zaktualizować hasła");
     }
 
-    // Send email with new password
-    const emailResponse = await resend.emails.send({
-      from: "Pure Life Admin <admin@resend.dev>",
-      to: [user_email],
-      subject: "Nowe hasło do konta Pure Life",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">Pure Life</h1>
-            <p style="color: #f0f0f0; margin: 10px 0 0 0;">Nowe hasło do Twojego konta</p>
-          </div>
-          
-          <div style="padding: 30px; background: white;">
-            <h2 style="color: #333; margin-bottom: 20px;">Witaj!</h2>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Administrator <strong>${admin_name}</strong> wygenerował dla Ciebie nowe hasło do systemu Pure Life.
-            </p>
-            
-            <div style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0;">
-              <p style="margin: 0; color: #333;"><strong>Email:</strong> ${user_email}</p>
-              <p style="margin: 10px 0 0 0; color: #333;"><strong>Nowe hasło:</strong></p>
-              <div style="font-family: monospace; font-size: 18px; font-weight: bold; color: #667eea; background: white; padding: 15px; border-radius: 5px; margin-top: 10px; word-break: break-all;">
-                ${new_password}
-              </div>
-            </div>
-            
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0; color: #856404; font-weight: bold;">⚠️ Ważne przypomnienie bezpieczeństwa:</p>
-              <ul style="margin: 10px 0 0 0; color: #856404; padding-left: 20px;">
-                <li>Zaloguj się jak najszybciej i zmień hasło na własne</li>
-                <li>Nie udostępniaj tego hasła nikomu</li>
-                <li>Usuń tego emaila po zalogowaniu</li>
-              </ul>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${Deno.env.get("SUPABASE_URL")?.replace('/rest/v1', '') || 'https://pure-life.lovable.app'}/auth" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; display: inline-block; font-weight: bold;">
-                Zaloguj się do systemu
-              </a>
-            </div>
-            
-            <p style="color: #999; font-size: 14px; text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-              Ten email został wysłany automatycznie przez system Pure Life.<br>
-              Jeśli nie oczekiwałeś tego emaila, skontaktuj się z administratorem.
-            </p>
-          </div>
-        </div>
-      `,
+    // Get SMTP settings
+    const { data: smtpData, error: smtpError } = await supabase
+      .from("smtp_settings")
+      .select("*")
+      .eq("is_active", true)
+      .single();
+
+    if (smtpError || !smtpData) {
+      throw new Error("No active SMTP configuration found");
+    }
+
+    const smtpSettings: SmtpSettings = {
+      host: smtpData.smtp_host,
+      port: Number(smtpData.smtp_port),
+      encryption: smtpData.smtp_encryption,
+      username: smtpData.smtp_username,
+      password: smtpData.smtp_password,
+      from_email: smtpData.sender_email,
+      from_name: smtpData.sender_name,
+    };
+
+    // Get email template
+    const { data: templateData, error: templateError } = await supabase
+      .from("email_templates")
+      .select("*")
+      .eq("internal_name", "password_reset_admin")
+      .eq("is_active", true)
+      .single();
+
+    if (templateError || !templateData) {
+      throw new Error("Email template 'password_reset_admin' not found");
+    }
+
+    // Build login URL
+    const loginUrl = `${supabaseUrl.replace('/rest/v1', '')}/auth`;
+
+    // Build variables
+    const variables: Record<string, string> = {
+      admin_name: admin_name || 'Administrator',
+      user_email: user_email,
+      new_password: new_password,
+      login_url: loginUrl,
+    };
+
+    // Replace variables in template
+    const subject = replaceVariables(templateData.subject, variables);
+    let htmlBody = replaceVariables(templateData.body_html, variables);
+    if (templateData.footer_html) {
+      htmlBody += replaceVariables(templateData.footer_html, variables);
+    }
+
+    // Send email via SMTP
+    const result = await sendSmtpEmail(smtpSettings, user_email, subject, htmlBody);
+
+    // Log the email
+    await supabase.from("email_logs").insert({
+      template_id: templateData.id,
+      recipient_email: user_email,
+      recipient_user_id: user.id,
+      subject: subject,
+      status: result.success ? "sent" : "error",
+      error_message: result.error || null,
+      sent_at: result.success ? new Date().toISOString() : null,
+      metadata: { 
+        admin_name: admin_name,
+        event: 'password_reset_admin'
+      },
     });
 
-    console.log("Password reset email sent successfully:", emailResponse);
+    if (!result.success) {
+      // Password was changed but email failed - still return success with warning
+      console.warn("Password changed but email failed:", result.error);
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Hasło zostało zmienione, ale nie udało się wysłać emaila",
+        email_sent: false,
+        email_error: result.error
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log("[admin-reset-password] Password reset email sent to:", user_email);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: "Hasło zostało zmienione i wysłane na email użytkownika" 
+      message: "Hasło zostało zmienione i wysłane na email użytkownika",
+      email_sent: true
     }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     });
+
   } catch (error: any) {
-    console.error("Error in admin-reset-password function:", error);
+    console.error("[admin-reset-password] Error:", error);
     return new Response(
       JSON.stringify({ 
         error: error.message || "Wystąpił błąd podczas resetowania hasła" 
@@ -135,6 +302,4 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   }
-};
-
-serve(handler);
+});
