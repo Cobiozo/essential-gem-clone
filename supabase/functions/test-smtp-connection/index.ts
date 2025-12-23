@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,92 +40,109 @@ const handler = async (req: Request): Promise<Response> => {
           message: "Brakuje wymaganych pól: host, użytkownik lub email nadawcy",
         }),
         {
-          status: 400,
+          status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
     }
 
-    // Determine TLS settings based on encryption type
-    const useTls = requestData.smtp_encryption === 'ssl';
-    const useStartTls = requestData.smtp_encryption === 'tls';
-
-    console.log(`TLS settings - useTls: ${useTls}, useStartTls: ${useStartTls}`);
-
-    // Create SMTP client
-    const client = new SMTPClient({
-      connection: {
-        hostname: requestData.smtp_host,
-        port: requestData.smtp_port,
-        tls: useTls,
-        auth: {
-          username: requestData.smtp_username,
-          password: requestData.smtp_password,
-        },
-      },
-    });
+    // Try to establish a TCP connection to the SMTP server to test connectivity
+    const port = requestData.smtp_port || 465;
+    const hostname = requestData.smtp_host;
 
     try {
-      // Send a test email
-      await client.send({
-        from: requestData.sender_name 
-          ? `${requestData.sender_name} <${requestData.sender_email}>`
-          : requestData.sender_email,
-        to: requestData.sender_email, // Send to self for testing
-        subject: "Test połączenia SMTP - Pure Life",
-        content: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #10b981;">✅ Połączenie SMTP działa!</h2>
-            <p>Ten email został wysłany automatycznie w celu przetestowania konfiguracji SMTP.</p>
-            <hr style="border: 1px solid #e5e7eb; margin: 20px 0;" />
-            <p style="color: #6b7280; font-size: 12px;">
-              Wysłano: ${new Date().toLocaleString('pl-PL')}<br/>
-              Serwer: ${requestData.smtp_host}:${requestData.smtp_port}<br/>
-              Szyfrowanie: ${requestData.smtp_encryption.toUpperCase()}
-            </p>
-          </div>
-        `,
-        html: true,
+      // Test basic connectivity by trying to connect
+      const conn = await Deno.connect({
+        hostname: hostname,
+        port: port,
       });
-
-      await client.close();
-
-      console.log("SMTP test successful - email sent to:", requestData.sender_email);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Połączenie działa! Email testowy wysłany na ${requestData.sender_email}`,
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+      
+      // Read the initial greeting from the server
+      const buffer = new Uint8Array(1024);
+      const bytesRead = await conn.read(buffer);
+      
+      if (bytesRead && bytesRead > 0) {
+        const greeting = new TextDecoder().decode(buffer.subarray(0, bytesRead));
+        console.log("SMTP server greeting:", greeting);
+        
+        // Check if we got a valid SMTP response (starts with 220)
+        if (greeting.startsWith("220")) {
+          // Send EHLO command
+          const ehloCommand = `EHLO test.local\r\n`;
+          await conn.write(new TextEncoder().encode(ehloCommand));
+          
+          // Read EHLO response
+          const ehloBuffer = new Uint8Array(2048);
+          const ehloBytesRead = await conn.read(ehloBuffer);
+          
+          if (ehloBytesRead && ehloBytesRead > 0) {
+            const ehloResponse = new TextDecoder().decode(ehloBuffer.subarray(0, ehloBytesRead));
+            console.log("EHLO response:", ehloResponse);
+            
+            // Send QUIT command
+            await conn.write(new TextEncoder().encode("QUIT\r\n"));
+          }
+          
+          conn.close();
+          
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: `Połączenie z serwerem ${hostname}:${port} udane! Serwer odpowiada poprawnie.`,
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
+        } else {
+          conn.close();
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: `Serwer odpowiedział niepoprawnie: ${greeting.substring(0, 100)}`,
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            }
+          );
         }
-      );
-    } catch (smtpError: any) {
-      console.error("SMTP send error:", smtpError);
-      
-      await client.close().catch(() => {});
-
-      let errorMessage = "Błąd połączenia SMTP";
-      
-      if (smtpError.message?.includes("authentication")) {
-        errorMessage = "Błąd autoryzacji - sprawdź nazwę użytkownika i hasło";
-      } else if (smtpError.message?.includes("connect")) {
-        errorMessage = "Nie można połączyć się z serwerem - sprawdź host i port";
-      } else if (smtpError.message?.includes("certificate")) {
-        errorMessage = "Błąd certyfikatu SSL/TLS - sprawdź ustawienia szyfrowania";
-      } else if (smtpError.message) {
-        errorMessage = smtpError.message;
+      } else {
+        conn.close();
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: "Serwer nie odpowiedział na połączenie",
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
       }
-
+    } catch (connectError: any) {
+      console.error("Connection error:", connectError);
+      
+      let errorMessage = "Nie można połączyć się z serwerem SMTP";
+      
+      if (connectError.message?.includes("connection refused")) {
+        errorMessage = `Połączenie odrzucone - sprawdź czy serwer ${hostname} nasłuchuje na porcie ${port}`;
+      } else if (connectError.message?.includes("timeout")) {
+        errorMessage = "Przekroczono limit czasu połączenia - sprawdź adres serwera i port";
+      } else if (connectError.message?.includes("dns") || connectError.message?.includes("resolve")) {
+        errorMessage = `Nie można rozwiązać adresu serwera: ${hostname}`;
+      } else if (connectError.message) {
+        errorMessage = `Błąd połączenia: ${connectError.message}`;
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
           message: errorMessage,
         }),
         {
-          status: 200, // Return 200 so the frontend can process the error
+          status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
@@ -140,7 +156,7 @@ const handler = async (req: Request): Promise<Response> => {
         message: error.message || "Nieoczekiwany błąd podczas testu połączenia",
       }),
       {
-        status: 500,
+        status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
