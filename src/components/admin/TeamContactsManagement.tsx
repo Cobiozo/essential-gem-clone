@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Users, Settings, Eye, Download, Filter, Search, Save, Loader2, UserX, Trash2, RotateCcw } from 'lucide-react';
+import { Users, Settings, Eye, Download, Filter, Search, Save, Loader2, UserX, Trash2, RotateCcw, UsersRound, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TeamContactAccordion } from '@/components/team-contacts/TeamContactAccordion';
@@ -63,7 +63,11 @@ export const TeamContactsManagement: React.FC = () => {
     search: '',
     userId: '',
     relationshipStatus: '',
+    contactType: undefined,
   });
+
+  // Internal tab for contact type in overview
+  const [contactTypeTab, setContactTypeTab] = useState<'all' | 'system' | 'private'>('all');
 
   // Settings state
   const [allowExport, setAllowExport] = useState(false);
@@ -309,9 +313,18 @@ export const TeamContactsManagement: React.FC = () => {
 
   const hasFilters = filters.role || filters.relationshipStatus || filters.search || filters.userId;
 
+  // Filter contacts based on contactTypeTab
+  const displayedContacts = contacts.filter(c => {
+    if (contactTypeTab === 'system') return c.contact_type === 'team_member';
+    if (contactTypeTab === 'private') return c.contact_type === 'private';
+    return true; // 'all'
+  });
+
   // Stats
   const stats = {
     total: contacts.length,
+    systemContacts: contacts.filter(c => c.contact_type === 'team_member').length,
+    privateContacts: contacts.filter(c => c.contact_type === 'private').length,
     clients: contacts.filter(c => c.role === 'client').length,
     partners: contacts.filter(c => c.role === 'partner').length,
     specialists: contacts.filter(c => c.role === 'specjalista').length,
@@ -348,11 +361,29 @@ export const TeamContactsManagement: React.FC = () => {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="text-2xl font-bold">{stats.total}</div>
-                <p className="text-xs text-muted-foreground">Wszystkich kontaktów</p>
+                <p className="text-xs text-muted-foreground">Wszystkich</p>
+              </CardContent>
+            </Card>
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-primary flex items-center gap-2">
+                  <UsersRound className="w-5 h-5" />
+                  {stats.systemContacts}
+                </div>
+                <p className="text-xs text-muted-foreground">Systemowych</p>
+              </CardContent>
+            </Card>
+            <Card className="border-secondary/30 bg-secondary/5">
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-secondary-foreground flex items-center gap-2">
+                  <UserPlus className="w-5 h-5" />
+                  {stats.privateContacts}
+                </div>
+                <p className="text-xs text-muted-foreground">Prywatnych</p>
               </CardContent>
             </Card>
             <Card>
@@ -380,6 +411,52 @@ export const TeamContactsManagement: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Contact Type Tabs */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Podział kontaktów
+                </CardTitle>
+                <div className="flex border rounded-lg overflow-hidden">
+                  <Button
+                    variant={contactTypeTab === 'all' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setContactTypeTab('all')}
+                    className="rounded-none"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Wszystkie ({stats.total})
+                  </Button>
+                  <Button
+                    variant={contactTypeTab === 'system' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setContactTypeTab('system')}
+                    className="rounded-none"
+                  >
+                    <UsersRound className="w-4 h-4 mr-2" />
+                    Systemowe ({stats.systemContacts})
+                  </Button>
+                  <Button
+                    variant={contactTypeTab === 'private' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setContactTypeTab('private')}
+                    className="rounded-none"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Prywatne ({stats.privateContacts})
+                  </Button>
+                </div>
+              </div>
+              <CardDescription>
+                {contactTypeTab === 'all' && 'Wszystkie kontakty w systemie'}
+                {contactTypeTab === 'system' && 'Kontakty systemowe - zarejestrowani użytkownicy platformy powiązani z opiekunami'}
+                {contactTypeTab === 'private' && 'Kontakty prywatne - osoby spoza systemu dodane przez użytkowników'}
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
           {/* Filters */}
           <Card>
@@ -478,22 +555,37 @@ export const TeamContactsManagement: React.FC = () => {
           {/* Contacts List */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Lista kontaktów ({contacts.length})
-              </CardTitle>
-              <CardDescription>
-                Przegląd wszystkich kontaktów - możliwość usuwania
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {contactTypeTab === 'system' && <UsersRound className="w-4 h-4" />}
+                    {contactTypeTab === 'private' && <UserPlus className="w-4 h-4" />}
+                    {contactTypeTab === 'all' && <Users className="w-4 h-4" />}
+                    Lista kontaktów ({displayedContacts.length})
+                  </CardTitle>
+                  <CardDescription>
+                    {contactTypeTab === 'system' && 'Kontakty systemowe - zarejestrowani użytkownicy'}
+                    {contactTypeTab === 'private' && 'Kontakty prywatne - osoby spoza systemu'}
+                    {contactTypeTab === 'all' && 'Wszystkie kontakty'}
+                  </CardDescription>
+                </div>
+                {contactTypeTab !== 'all' && (
+                  <Badge variant={contactTypeTab === 'system' ? 'default' : 'secondary'}>
+                    {contactTypeTab === 'system' ? 'Systemowe' : 'Prywatne'}
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <TeamContactAccordion
-                contacts={contacts}
+                contacts={displayedContacts}
                 loading={loading}
                 onEdit={() => {}}
                 onDelete={deleteContact}
                 getContactHistory={getContactHistory}
                 isAdmin={true}
                 readOnly={false}
+                contactType={contactTypeTab === 'system' ? 'team_member' : contactTypeTab === 'private' ? 'private' : undefined}
               />
             </CardContent>
           </Card>

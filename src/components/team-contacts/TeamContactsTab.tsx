@@ -3,7 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
@@ -50,7 +53,7 @@ export const TeamContactsTab: React.FC = () => {
   const { isAdmin, profile } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
-  const { approveUser, loading: approvalLoading } = useGuardianApproval();
+  const { approveUser, rejectUser, loading: approvalLoading } = useGuardianApproval();
   
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -61,6 +64,8 @@ export const TeamContactsTab: React.FC = () => {
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
+  const [confirmReject, setConfirmReject] = useState<PendingApproval | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Fetch pending approvals for guardian
   const fetchPendingApprovals = async () => {
@@ -131,6 +136,16 @@ export const TeamContactsTab: React.FC = () => {
     if (success) {
       setPendingApprovals(prev => prev.filter(p => p.user_id !== pending.user_id));
       setConfirmApproval(null);
+      refetch();
+    }
+  };
+
+  const handleRejectUser = async (pending: PendingApproval) => {
+    const success = await rejectUser(pending.user_id, rejectionReason || undefined);
+    if (success) {
+      setPendingApprovals(prev => prev.filter(p => p.user_id !== pending.user_id));
+      setConfirmReject(null);
+      setRejectionReason('');
       refetch();
     }
   };
@@ -355,14 +370,26 @@ export const TeamContactsTab: React.FC = () => {
                             {pending.email} {pending.eq_id && `• ${pending.eq_id}`}
                           </p>
                         </div>
-                        <Button 
-                          size="sm" 
-                          onClick={() => setConfirmApproval(pending)}
-                          disabled={approvalLoading}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Zatwierdź
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmReject(pending)}
+                            disabled={approvalLoading}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Odrzuć
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={() => setConfirmApproval(pending)}
+                            disabled={approvalLoading}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Zatwierdź
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -446,6 +473,46 @@ export const TeamContactsTab: React.FC = () => {
               disabled={approvalLoading}
             >
               {approvalLoading ? 'Zatwierdzanie...' : 'Zatwierdź'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Reject Dialog */}
+      <AlertDialog open={!!confirmReject} onOpenChange={() => { setConfirmReject(null); setRejectionReason(''); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Potwierdź odrzucenie</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Czy na pewno chcesz odrzucić rejestrację użytkownika{' '}
+                  <strong>{confirmReject?.first_name} {confirmReject?.last_name}</strong>?
+                </p>
+                <p className="text-destructive">
+                  Ta operacja dezaktywuje konto użytkownika.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="rejection-reason">Powód odrzucenia (opcjonalnie)</Label>
+                  <Textarea
+                    id="rejection-reason"
+                    placeholder="Podaj powód odrzucenia rejestracji..."
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRejectionReason('')}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => confirmReject && handleRejectUser(confirmReject)}
+              disabled={approvalLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {approvalLoading ? 'Odrzucanie...' : 'Odrzuć rejestrację'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
