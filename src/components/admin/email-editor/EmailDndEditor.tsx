@@ -159,7 +159,7 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-12 gap-4 h-[600px]">
+      <div className="grid grid-cols-12 gap-4 min-h-[500px]">
         {/* Block Palette */}
         <div className="col-span-2">
           <Card className="h-full">
@@ -167,7 +167,7 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
               <CardTitle className="text-sm">Bloki</CardTitle>
             </CardHeader>
             <CardContent className="p-2">
-              <ScrollArea className="h-[520px]">
+              <ScrollArea className="h-[400px]">
                 <BlockPalette onAddBlock={handleAddBlockFromPalette} />
               </ScrollArea>
             </CardContent>
@@ -233,7 +233,7 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 overflow-hidden">
-              <ScrollArea className="h-[520px] w-full">
+              <ScrollArea className="h-[400px] w-full">
                 <div className="pr-3">
                   {selectedBlock ? (
                     <BlockEditor

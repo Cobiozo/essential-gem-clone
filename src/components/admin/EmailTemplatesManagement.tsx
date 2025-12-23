@@ -903,7 +903,9 @@ export const EmailTemplatesManagement: React.FC = () => {
 
       {/* Template Edit Dialog */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] flex flex-col p-0">
+          <ScrollArea className="flex-1 h-full">
+            <div className="p-6">
           <DialogHeader>
             <DialogTitle>
               {editingTemplate ? 'Edytuj szablon' : 'Nowy szablon e-mail'}
@@ -1087,7 +1089,7 @@ export const EmailTemplatesManagement: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
               Anuluj
             </Button>
@@ -1095,6 +1097,8 @@ export const EmailTemplatesManagement: React.FC = () => {
               {editingTemplate ? 'Zapisz zmiany' : 'Utwórz szablon'}
             </Button>
           </DialogFooter>
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
