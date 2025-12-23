@@ -12,18 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-
-    // Get the authorization header (check both cases)
+    // Get the authorization header
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     console.log('Auth header present:', !!authHeader);
     
@@ -35,11 +24,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify the user is authenticated and get their user id
-    const token = authHeader.replace('Bearer ', '');
-    console.log('Token length:', token?.length);
-    
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    // Create a client with anon key and auth header to verify the user
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        }
+      }
+    );
+
+    // Create a service role client for admin operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Verify the user is authenticated
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
     if (authError) {
       console.error('Auth error:', authError.message);
@@ -50,9 +59,9 @@ Deno.serve(async (req) => {
     }
 
     if (!user) {
-      console.error('No user found for token');
+      console.error('No user found');
       return new Response(
-        JSON.stringify({ error: 'User not found for provided token' }),
+        JSON.stringify({ error: 'User not found' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -60,14 +69,14 @@ Deno.serve(async (req) => {
     console.log('Authenticated user:', user.id, user.email);
 
     // Check if the user is an admin based on the user_roles table
-    const { data: userRole, error: roleError } = await supabaseClient
+    const { data: userRole, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .maybeSingle();
 
     // Also check if user profile is active
-    const { data: profile, error: profileError } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('is_active')
       .eq('user_id', user.id)
@@ -101,7 +110,7 @@ Deno.serve(async (req) => {
 
     // Mark all team_contacts linked to this user as "user deleted"
     // This preserves the contact data but indicates the user no longer exists
-    const { error: markError } = await supabaseClient
+    const { error: markError } = await supabaseAdmin
       .from('team_contacts')
       .update({ linked_user_deleted_at: new Date().toISOString() })
       .eq('linked_user_id', userId);
@@ -115,7 +124,7 @@ Deno.serve(async (req) => {
 
     // Delete the user from auth.users
     // This will cascade delete related records in profiles and user_roles tables
-    const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(userId);
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
       console.error('Error deleting user:', deleteError);
