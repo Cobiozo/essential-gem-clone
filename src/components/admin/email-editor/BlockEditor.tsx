@@ -1,16 +1,196 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EmailBlock } from './types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { Image, Upload, Link, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface BlockEditorProps {
   block: EmailBlock;
   onChange: (content: Record<string, any>) => void;
 }
+
+// Logo picker sub-component
+const LogoPicker: React.FC<{
+  logoUrl: string;
+  onChange: (url: string) => void;
+}> = ({ logoUrl, onChange }) => {
+  const [tab, setTab] = useState<'library' | 'url' | 'upload'>('library');
+  const [urlInput, setUrlInput] = useState(logoUrl || '');
+  const [libraryImages, setLibraryImages] = useState<Array<{name: string, url: string}>>([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const loadLibrary = async () => {
+    if (libraryImages.length > 0) return;
+    setLoadingLibrary(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('training-media')
+        .list('', { limit: 50, sortBy: { column: 'created_at', order: 'desc' } });
+
+      if (error) throw error;
+
+      const images = (data || [])
+        .filter(file => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name))
+        .map(file => {
+          const { data: urlData } = supabase.storage
+            .from('training-media')
+            .getPublicUrl(file.name);
+          return { name: file.name, url: urlData.publicUrl };
+        });
+
+      setLibraryImages(images);
+    } catch (error) {
+      console.error('Error loading library:', error);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Błąd', description: 'Wybierz plik obrazu', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('training-media')
+        .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('training-media').getPublicUrl(fileName);
+      onChange(data.publicUrl);
+      toast({ title: 'Sukces', description: 'Logo zostało przesłane' });
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (tab === 'library') {
+      loadLibrary();
+    }
+  }, [tab]);
+
+  return (
+    <div className="space-y-3">
+      <Label>Logo</Label>
+      
+      {logoUrl && (
+        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+          <img src={logoUrl} alt="Logo" className="h-8 w-auto max-w-[100px] object-contain" />
+          <span className="text-xs text-muted-foreground truncate flex-1">{logoUrl}</span>
+          <Button variant="ghost" size="sm" onClick={() => onChange('')}>
+            Usuń
+          </Button>
+        </div>
+      )}
+
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'library' | 'url' | 'upload')}>
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="library" className="text-xs">
+            <Image className="h-3 w-3 mr-1" />
+            Biblioteka
+          </TabsTrigger>
+          <TabsTrigger value="url" className="text-xs">
+            <Link className="h-3 w-3 mr-1" />
+            URL
+          </TabsTrigger>
+          <TabsTrigger value="upload" className="text-xs">
+            <Upload className="h-3 w-3 mr-1" />
+            Prześlij
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="library" className="mt-2">
+          {loadingLibrary ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Ładowanie...
+            </div>
+          ) : (
+            <ScrollArea className="h-[150px]">
+              <div className="grid grid-cols-4 gap-2 p-1">
+                {libraryImages.map((img) => (
+                  <button
+                    key={img.name}
+                    className="aspect-square border rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all bg-white"
+                    onClick={() => onChange(img.url)}
+                  >
+                    <img src={img.url} alt={img.name} className="w-full h-full object-contain p-1" />
+                  </button>
+                ))}
+                {libraryImages.length === 0 && (
+                  <div className="col-span-4 text-center text-muted-foreground text-sm py-4">
+                    Brak obrazów w bibliotece
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+        </TabsContent>
+
+        <TabsContent value="url" className="mt-2 space-y-2">
+          <Input
+            placeholder="https://example.com/logo.png"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+          />
+          <Button size="sm" onClick={() => onChange(urlInput)} disabled={!urlInput}>
+            Zastosuj URL
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="upload" className="mt-2">
+          <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 text-center">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleUpload}
+              className="hidden"
+              id="logo-upload"
+              disabled={uploading}
+            />
+            <label htmlFor="logo-upload" className="cursor-pointer">
+              {uploading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Przesyłanie...
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  <Upload className="h-6 w-6 mx-auto mb-2" />
+                  Kliknij, aby przesłać logo
+                </div>
+              )}
+            </label>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
 
 export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => {
   const updateField = (field: string, value: any) => {
@@ -53,6 +233,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
             />
             <Label>Pokaż logo</Label>
           </div>
+          {block.content.showLogo && (
+            <LogoPicker
+              logoUrl={block.content.logoUrl || ''}
+              onChange={(url) => updateField('logoUrl', url)}
+            />
+          )}
         </div>
       );
 
@@ -60,12 +246,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
       return (
         <div className="space-y-4">
           <div>
-            <Label>Treść (HTML)</Label>
-            <Textarea
-              value={block.content.html}
-              onChange={(e) => updateField('html', e.target.value)}
+            <Label className="mb-2 block">Treść</Label>
+            <RichTextEditor
+              value={block.content.html || ''}
+              onChange={(html) => updateField('html', html)}
               rows={6}
-              className="font-mono text-sm"
+              compact
             />
           </div>
         </div>
@@ -126,14 +312,10 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
     case 'image':
       return (
         <div className="space-y-4">
-          <div>
-            <Label>URL obrazu</Label>
-            <Input
-              value={block.content.src}
-              onChange={(e) => updateField('src', e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
+          <LogoPicker
+            logoUrl={block.content.src || ''}
+            onChange={(url) => updateField('src', url)}
+          />
           <div>
             <Label>Tekst alternatywny</Label>
             <Input
@@ -189,11 +371,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
             />
           </div>
           <div>
-            <Label>Treść</Label>
-            <Textarea
-              value={block.content.content}
-              onChange={(e) => updateField('content', e.target.value)}
+            <Label className="mb-2 block">Treść</Label>
+            <RichTextEditor
+              value={block.content.content || ''}
+              onChange={(html) => updateField('content', html)}
               rows={3}
+              compact
             />
           </div>
         </div>
@@ -247,12 +430,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
       return (
         <div className="space-y-4">
           <div>
-            <Label>Treść stopki (HTML)</Label>
-            <Textarea
-              value={block.content.html}
-              onChange={(e) => updateField('html', e.target.value)}
-              rows={6}
-              className="font-mono text-sm"
+            <Label className="mb-2 block">Treść stopki</Label>
+            <RichTextEditor
+              value={block.content.html || ''}
+              onChange={(html) => updateField('html', html)}
+              rows={4}
+              compact
             />
           </div>
         </div>
