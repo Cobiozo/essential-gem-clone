@@ -35,6 +35,8 @@ interface EmailTemplate {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  editor_mode: string;
+  blocks_json: any;
 }
 
 interface EmailEventType {
@@ -118,6 +120,7 @@ export const EmailTemplatesManagement: React.FC = () => {
     footer_html: '',
     is_active: true,
     selectedEvents: [] as string[],
+    editor_mode: 'block' as string,
   });
   
   // DnD editor state
@@ -203,11 +206,12 @@ export const EmailTemplatesManagement: React.FC = () => {
       name: '',
       internal_name: '',
       subject: '',
-      body_html: getDefaultTemplateHtml(),
+      body_html: '',
       body_text: '',
       footer_html: getDefaultFooterHtml(),
       is_active: true,
       selectedEvents: [],
+      editor_mode: 'block',
     });
     setEmailBlocks([]);
     setUseDndEditor(true);
@@ -220,6 +224,9 @@ export const EmailTemplatesManagement: React.FC = () => {
       .filter(te => te.template_id === template.id)
       .map(te => te.event_type_id);
     
+    const editorMode = template.editor_mode || 'classic';
+    const blocks = (template.blocks_json as EmailBlock[]) || [];
+    
     setTemplateForm({
       name: template.name,
       internal_name: template.internal_name,
@@ -229,10 +236,10 @@ export const EmailTemplatesManagement: React.FC = () => {
       footer_html: template.footer_html || '',
       is_active: template.is_active,
       selectedEvents: events,
+      editor_mode: editorMode,
     });
-    setEmailBlocks([]);
-    // For existing templates, start with RichTextEditor to preserve existing HTML
-    setUseDndEditor(false);
+    setEmailBlocks(blocks);
+    setUseDndEditor(editorMode === 'block');
     setShowTemplateDialog(true);
   };
   
@@ -261,17 +268,21 @@ export const EmailTemplatesManagement: React.FC = () => {
 
   const handleSaveTemplate = async () => {
     try {
+      const saveData = {
+        name: templateForm.name,
+        subject: templateForm.subject,
+        body_html: templateForm.body_html,
+        body_text: templateForm.body_text || null,
+        footer_html: templateForm.footer_html || null,
+        is_active: templateForm.is_active,
+        editor_mode: templateForm.editor_mode,
+        blocks_json: templateForm.editor_mode === 'block' ? JSON.parse(JSON.stringify(emailBlocks)) : null,
+      };
+
       if (editingTemplate) {
         const { error } = await supabase
           .from('email_templates')
-          .update({
-            name: templateForm.name,
-            subject: templateForm.subject,
-            body_html: templateForm.body_html,
-            body_text: templateForm.body_text || null,
-            footer_html: templateForm.footer_html || null,
-            is_active: templateForm.is_active,
-          })
+          .update(saveData)
           .eq('id', editingTemplate.id);
 
         if (error) throw error;
@@ -297,13 +308,8 @@ export const EmailTemplatesManagement: React.FC = () => {
         const { data: newTemplate, error } = await supabase
           .from('email_templates')
           .insert({
-            name: templateForm.name,
+            ...saveData,
             internal_name: templateForm.internal_name,
-            subject: templateForm.subject,
-            body_html: templateForm.body_html,
-            body_text: templateForm.body_text || null,
-            footer_html: templateForm.footer_html || null,
-            is_active: templateForm.is_active,
           })
           .select()
           .single();
@@ -708,8 +714,14 @@ export const EmailTemplatesManagement: React.FC = () => {
                             <Badge variant="outline" className="text-xs">
                               {template.internal_name}
                             </Badge>
+                            <Badge 
+                              variant={template.editor_mode === 'block' ? 'default' : 'secondary'} 
+                              className="text-xs"
+                            >
+                              {template.editor_mode === 'block' ? '📦 Blokowy' : '📝 Klasyczny'}
+                            </Badge>
                             {!template.is_active && (
-                              <Badge variant="secondary">Nieaktywny</Badge>
+                              <Badge variant="destructive">Nieaktywny</Badge>
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">
@@ -967,29 +979,43 @@ export const EmailTemplatesManagement: React.FC = () => {
             </div>
 
             {/* Editor Mode Toggle */}
-            <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border">
               <div className="flex items-center gap-2">
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
-                <Label>Tryb edytora:</Label>
+                <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                <Label className="font-medium">Tryb edytora:</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
-                  variant={useDndEditor ? "default" : "outline"} 
+                  variant={templateForm.editor_mode === 'block' ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => setUseDndEditor(true)}
+                  onClick={() => {
+                    setUseDndEditor(true);
+                    setTemplateForm(prev => ({ ...prev, editor_mode: 'block' }));
+                  }}
                 >
                   <LayoutGrid className="w-4 h-4 mr-1" />
-                  Blokowy (przeciągnij i upuść)
+                  Blokowy (zalecany)
                 </Button>
                 <Button 
-                  variant={!useDndEditor ? "default" : "outline"} 
+                  variant={templateForm.editor_mode === 'classic' ? "default" : "outline"} 
                   size="sm"
-                  onClick={() => setUseDndEditor(false)}
+                  onClick={() => {
+                    if (emailBlocks.length > 0) {
+                      if (!confirm('Przejście do trybu klasycznego może spowodować utratę struktury bloków. Kontynuować?')) {
+                        return;
+                      }
+                    }
+                    setUseDndEditor(false);
+                    setTemplateForm(prev => ({ ...prev, editor_mode: 'classic' }));
+                  }}
                 >
                   <Variable className="w-4 h-4 mr-1" />
-                  Klasyczny (HTML)
+                  Klasyczny HTML
                 </Button>
               </div>
+              <Badge variant={templateForm.editor_mode === 'block' ? 'default' : 'secondary'} className="ml-2">
+                {templateForm.editor_mode === 'block' ? 'Tryb blokowy' : 'Tryb klasyczny'}
+              </Badge>
               <Button variant="outline" size="sm" onClick={showLivePreview} className="ml-auto">
                 <Eye className="w-4 h-4 mr-2" />
                 Podgląd
