@@ -15,25 +15,39 @@ interface SmtpTestRequest {
   sender_name: string;
 }
 
+// Timeout wrapper for promises
+const withTimeout = <T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(errorMsg)), ms)
+    )
+  ]);
+};
+
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let conn: Deno.Conn | Deno.TlsConn | null = null;
+
   try {
     const requestData: SmtpTestRequest = await req.json();
     
+    const port = requestData.smtp_port || 465;
+    const hostname = requestData.smtp_host;
+    const encryption = requestData.smtp_encryption || 'ssl';
+
     console.log("Testing SMTP connection:", {
-      host: requestData.smtp_host,
-      port: requestData.smtp_port,
-      encryption: requestData.smtp_encryption,
+      host: hostname,
+      port: port,
+      encryption: encryption,
       username: requestData.smtp_username,
       passwordSet: !!requestData.smtp_password,
     });
 
-    // Validate required fields
-    if (!requestData.smtp_host || !requestData.smtp_username || !requestData.sender_email) {
+    if (!hostname || !requestData.smtp_username || !requestData.sender_email) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -46,49 +60,78 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Try to establish a TCP connection to the SMTP server to test connectivity
-    const port = requestData.smtp_port || 465;
-    const hostname = requestData.smtp_host;
-
     try {
-      // Test basic connectivity by trying to connect
-      const conn = await Deno.connect({
-        hostname: hostname,
-        port: port,
-      });
-      
+      console.log(`Attempting ${encryption} connection to ${hostname}:${port}...`);
+
+      // Use TLS connection for SSL (port 465)
+      if (encryption === 'ssl') {
+        console.log("Using Deno.connectTls for SSL connection...");
+        conn = await withTimeout(
+          Deno.connectTls({
+            hostname: hostname,
+            port: port,
+          }),
+          10000,
+          `Przekroczono limit czasu połączenia SSL (10s) - sprawdź czy serwer ${hostname} nasłuchuje na porcie ${port}`
+        );
+      } else {
+        // For STARTTLS or None - use regular TCP connection
+        console.log("Using Deno.connect for TCP connection...");
+        conn = await withTimeout(
+          Deno.connect({
+            hostname: hostname,
+            port: port,
+          }),
+          10000,
+          `Przekroczono limit czasu połączenia TCP (10s) - sprawdź czy serwer ${hostname} nasłuchuje na porcie ${port}`
+        );
+      }
+
+      console.log("Connection established, waiting for server greeting...");
+
       // Read the initial greeting from the server
       const buffer = new Uint8Array(1024);
-      const bytesRead = await conn.read(buffer);
+      const bytesRead = await withTimeout(
+        conn.read(buffer),
+        10000,
+        "Serwer nie odpowiedział na połączenie (timeout 10s)"
+      );
       
       if (bytesRead && bytesRead > 0) {
         const greeting = new TextDecoder().decode(buffer.subarray(0, bytesRead));
-        console.log("SMTP server greeting:", greeting);
+        console.log("SMTP server greeting:", greeting.trim());
         
         // Check if we got a valid SMTP response (starts with 220)
         if (greeting.startsWith("220")) {
           // Send EHLO command
           const ehloCommand = `EHLO test.local\r\n`;
+          console.log("Sending EHLO command...");
           await conn.write(new TextEncoder().encode(ehloCommand));
           
           // Read EHLO response
           const ehloBuffer = new Uint8Array(2048);
-          const ehloBytesRead = await conn.read(ehloBuffer);
+          const ehloBytesRead = await withTimeout(
+            conn.read(ehloBuffer),
+            5000,
+            "Serwer nie odpowiedział na komendę EHLO"
+          );
           
           if (ehloBytesRead && ehloBytesRead > 0) {
             const ehloResponse = new TextDecoder().decode(ehloBuffer.subarray(0, ehloBytesRead));
-            console.log("EHLO response:", ehloResponse);
+            console.log("EHLO response:", ehloResponse.trim());
             
             // Send QUIT command
+            console.log("Sending QUIT command...");
             await conn.write(new TextEncoder().encode("QUIT\r\n"));
           }
           
           conn.close();
+          conn = null;
           
           return new Response(
             JSON.stringify({
               success: true,
-              message: `Połączenie z serwerem ${hostname}:${port} udane! Serwer odpowiada poprawnie.`,
+              message: `Połączenie z serwerem ${hostname}:${port} (${encryption.toUpperCase()}) udane! Serwer odpowiada poprawnie.`,
             }),
             {
               status: 200,
@@ -97,6 +140,7 @@ const handler = async (req: Request): Promise<Response> => {
           );
         } else {
           conn.close();
+          conn = null;
           return new Response(
             JSON.stringify({
               success: false,
@@ -109,7 +153,10 @@ const handler = async (req: Request): Promise<Response> => {
           );
         }
       } else {
-        conn.close();
+        if (conn) {
+          conn.close();
+          conn = null;
+        }
         return new Response(
           JSON.stringify({
             success: false,
@@ -121,25 +168,37 @@ const handler = async (req: Request): Promise<Response> => {
           }
         );
       }
-    } catch (connectError: any) {
+    } catch (connectError: unknown) {
       console.error("Connection error:", connectError);
       
-      let errorMessage = "Nie można połączyć się z serwerem SMTP";
+      if (conn) {
+        try {
+          conn.close();
+        } catch (e) {
+          console.error("Error closing connection:", e);
+        }
+        conn = null;
+      }
       
-      if (connectError.message?.includes("connection refused")) {
-        errorMessage = `Połączenie odrzucone - sprawdź czy serwer ${hostname} nasłuchuje na porcie ${port}`;
-      } else if (connectError.message?.includes("timeout")) {
-        errorMessage = "Przekroczono limit czasu połączenia - sprawdź adres serwera i port";
-      } else if (connectError.message?.includes("dns") || connectError.message?.includes("resolve")) {
-        errorMessage = `Nie można rozwiązać adresu serwera: ${hostname}`;
-      } else if (connectError.message) {
-        errorMessage = `Błąd połączenia: ${connectError.message}`;
+      const errorMessage = connectError instanceof Error ? connectError.message : String(connectError);
+      let userMessage = "Nie można połączyć się z serwerem SMTP";
+      
+      if (errorMessage.includes("Przekroczono limit czasu") || errorMessage.includes("timeout")) {
+        userMessage = errorMessage;
+      } else if (errorMessage.includes("connection refused")) {
+        userMessage = `Połączenie odrzucone - sprawdź czy serwer ${hostname} nasłuchuje na porcie ${port}`;
+      } else if (errorMessage.includes("dns") || errorMessage.includes("resolve") || errorMessage.includes("getaddrinfo")) {
+        userMessage = `Nie można rozwiązać adresu serwera: ${hostname}`;
+      } else if (errorMessage.includes("certificate") || errorMessage.includes("ssl") || errorMessage.includes("tls")) {
+        userMessage = `Błąd certyfikatu SSL/TLS: ${errorMessage}`;
+      } else {
+        userMessage = `Błąd połączenia: ${errorMessage}`;
       }
       
       return new Response(
         JSON.stringify({
           success: false,
-          message: errorMessage,
+          message: userMessage,
         }),
         {
           status: 200,
@@ -147,13 +206,23 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in test-smtp-connection:", error);
+    
+    if (conn) {
+      try {
+        conn.close();
+      } catch (e) {
+        console.error("Error closing connection in outer catch:", e);
+      }
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : "Nieoczekiwany błąd podczas testu połączenia";
     
     return new Response(
       JSON.stringify({
         success: false,
-        message: error.message || "Nieoczekiwany błąd podczas testu połączenia",
+        message: errorMessage,
       }),
       {
         status: 200,
