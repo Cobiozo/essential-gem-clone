@@ -14,7 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Copy, Variable } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Copy, Variable, Server } from 'lucide-react';
+import { SmtpConfigurationPanel } from './SmtpConfigurationPanel';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -373,16 +374,24 @@ export const EmailTemplatesManagement: React.FC = () => {
             Zarządzanie wiadomościami e-mail
           </CardTitle>
           <CardDescription>
-            Konfiguruj szablony e-mail, przypisuj je do zdarzeń i przeglądaj historię wysyłek
+            Konfiguruj serwer SMTP, szablony e-mail, przypisuj je do zdarzeń i przeglądaj historię wysyłek
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
+            <TabsList className="mb-4 flex-wrap">
+              <TabsTrigger value="smtp" className="flex items-center gap-1">
+                <Server className="w-4 h-4" />
+                SMTP
+              </TabsTrigger>
               <TabsTrigger value="templates">Szablony</TabsTrigger>
               <TabsTrigger value="events">Zdarzenia</TabsTrigger>
               <TabsTrigger value="logs">Historia wysyłek</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="smtp">
+              <SmtpConfigurationPanel />
+            </TabsContent>
 
             <TabsContent value="templates">
               <div className="space-y-4">

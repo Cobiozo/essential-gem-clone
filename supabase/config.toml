@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.send-specialist-message]
 verify_jwt = true
+
+[functions.test-smtp-connection]
+verify_jwt = true
