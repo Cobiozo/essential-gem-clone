@@ -1878,12 +1878,14 @@ export type Database = {
           color: string | null
           created_at: string | null
           description: string | null
+          email_template_id: string | null
           event_key: string
           icon_name: string | null
           id: string
           is_active: boolean | null
           name: string
           position: number | null
+          send_email: boolean | null
           source_module: string
           updated_at: string | null
         }
@@ -1891,12 +1893,14 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           description?: string | null
+          email_template_id?: string | null
           event_key: string
           icon_name?: string | null
           id?: string
           is_active?: boolean | null
           name: string
           position?: number | null
+          send_email?: boolean | null
           source_module: string
           updated_at?: string | null
         }
@@ -1904,16 +1908,26 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           description?: string | null
+          email_template_id?: string | null
           event_key?: string
           icon_name?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
           position?: number | null
+          send_email?: boolean | null
           source_module?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_event_types_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_events: {
         Row: {
