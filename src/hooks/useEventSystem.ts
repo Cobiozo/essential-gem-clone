@@ -18,10 +18,10 @@ export const useEventSystem = () => {
     }
 
     try {
-      // Get event type id
+      // Get event type id with email settings
       const { data: eventType } = await supabase
         .from('notification_event_types')
-        .select('id')
+        .select('id, send_email, email_template_id')
         .eq('event_key', eventKey)
         .eq('is_active', true)
         .single();
@@ -49,8 +49,16 @@ export const useEventSystem = () => {
         return false;
       }
 
-      // Process event and create notifications
-      await processEvent(eventType.id, user.id, payload, relatedEntityType, relatedEntityId);
+      // Process event and create notifications (also sends emails if configured)
+      await processEvent(
+        eventType.id, 
+        user.id, 
+        payload, 
+        relatedEntityType, 
+        relatedEntityId,
+        eventType.send_email,
+        eventType.email_template_id
+      );
 
       return true;
     } catch (error) {
@@ -67,7 +75,9 @@ async function processEvent(
   senderId: string,
   payload: Record<string, any>,
   relatedEntityType?: string,
-  relatedEntityId?: string
+  relatedEntityId?: string,
+  sendEmail?: boolean,
+  emailTemplateId?: string | null
 ) {
   try {
     // Get event type info
@@ -191,6 +201,27 @@ async function processEvent(
         user_id: targetUser.user_id,
         event_type_id: eventTypeId,
       });
+
+      // Send email notification if configured
+      if (sendEmail && emailTemplateId) {
+        try {
+          console.log(`[EventSystem] Sending email notification to user ${targetUser.user_id}`);
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              event_type_id: eventTypeId,
+              recipient_user_id: targetUser.user_id,
+              payload: {
+                ...payload,
+                related_entity_type: relatedEntityType,
+                related_entity_id: relatedEntityId,
+              },
+            },
+          });
+        } catch (emailError) {
+          console.error('[EventSystem] Error sending email notification:', emailError);
+          // Don't fail the whole process if email fails
+        }
+      }
     }
   } catch (error) {
     console.error('Error processing event:', error);

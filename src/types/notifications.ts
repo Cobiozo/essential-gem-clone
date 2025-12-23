@@ -10,6 +10,8 @@ export interface NotificationEventType {
   position: number;
   created_at: string;
   updated_at: string;
+  email_template_id: string | null;
+  send_email: boolean;
 }
 
 export interface NotificationRoleRoute {

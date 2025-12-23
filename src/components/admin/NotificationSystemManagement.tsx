@@ -9,16 +9,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Bell, Settings, Route, Clock, Activity, Plus, Trash2, Save } from 'lucide-react';
+import { Bell, Settings, Route, Clock, Activity, Plus, Trash2, Save, Mail } from 'lucide-react';
 import type { NotificationEventType, NotificationRoleRoute, NotificationLimit } from '@/types/notifications';
 import { MODULE_NAMES, ROLE_NAMES } from '@/types/notifications';
 
 const ROLES = ['admin', 'partner', 'specjalista', 'client'];
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  internal_name: string;
+  is_active: boolean;
+}
+
 export const NotificationSystemManagement = () => {
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
   const [roleRoutes, setRoleRoutes] = useState<NotificationRoleRoute[]>([]);
   const [limits, setLimits] = useState<NotificationLimit[]>([]);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
 
@@ -29,15 +37,17 @@ export const NotificationSystemManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [eventTypesRes, routesRes, limitsRes] = await Promise.all([
+      const [eventTypesRes, routesRes, limitsRes, templatesRes] = await Promise.all([
         supabase.from('notification_event_types').select('*').order('position'),
         supabase.from('notification_role_routes').select('*'),
         supabase.from('notification_limits').select('*'),
+        supabase.from('email_templates').select('id, name, internal_name, is_active').eq('is_active', true),
       ]);
 
       if (eventTypesRes.data) setEventTypes(eventTypesRes.data as NotificationEventType[]);
       if (routesRes.data) setRoleRoutes(routesRes.data as NotificationRoleRoute[]);
       if (limitsRes.data) setLimits(limitsRes.data as NotificationLimit[]);
+      if (templatesRes.data) setEmailTemplates(templatesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Błąd podczas ładowania danych');
@@ -59,6 +69,39 @@ export const NotificationSystemManagement = () => {
 
     setEventTypes(prev => prev.map(e => e.id === id ? { ...e, is_active: isActive } : e));
     toast.success('Zaktualizowano typ zdarzenia');
+  };
+
+  const toggleSendEmail = async (id: string, sendEmail: boolean) => {
+    const { error } = await supabase
+      .from('notification_event_types')
+      .update({ send_email: sendEmail, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Błąd podczas aktualizacji');
+      return;
+    }
+
+    setEventTypes(prev => prev.map(e => e.id === id ? { ...e, send_email: sendEmail } : e));
+    toast.success('Zaktualizowano ustawienia email');
+  };
+
+  const updateEmailTemplate = async (id: string, templateId: string | null) => {
+    const { error } = await supabase
+      .from('notification_event_types')
+      .update({ 
+        email_template_id: templateId === 'none' ? null : templateId, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Błąd podczas aktualizacji szablonu');
+      return;
+    }
+
+    setEventTypes(prev => prev.map(e => e.id === id ? { ...e, email_template_id: templateId === 'none' ? null : templateId } : e));
+    toast.success('Zaktualizowano szablon email');
   };
 
   const updateLimit = async (eventTypeId: string, field: string, value: number) => {
@@ -161,10 +204,14 @@ export const NotificationSystemManagement = () => {
       </div>
 
       <Tabs defaultValue="events" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="events" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Typy zdarzeń
+          </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Email
           </TabsTrigger>
           <TabsTrigger value="routing" className="flex items-center gap-2">
             <Route className="h-4 w-4" />
@@ -199,6 +246,12 @@ export const NotificationSystemManagement = () => {
                           <Badge variant="secondary" className="text-xs">
                             {eventType.event_key}
                           </Badge>
+                          {eventType.send_email && (
+                            <Badge className="text-xs bg-green-500/20 text-green-700 border-green-500/30">
+                              <Mail className="h-3 w-3 mr-1" />
+                              Email
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -206,6 +259,77 @@ export const NotificationSystemManagement = () => {
                       checked={eventType.is_active}
                       onCheckedChange={(checked) => toggleEventType(eventType.id, checked)}
                     />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Konfiguracja wysyłki email
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Włącz wysyłkę email i przypisz szablon do każdego typu zdarzenia. 
+                Gdy zdarzenie zostanie wywołane, oprócz powiadomienia w aplikacji, 
+                zostanie wysłany email do użytkowników docelowych.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4">
+            {eventTypes.filter(e => e.is_active).map(eventType => (
+              <Card key={eventType.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div 
+                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: eventType.color + '20', color: eventType.color }}
+                      >
+                        <Bell className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-medium">{eventType.name}</h3>
+                        <p className="text-sm text-muted-foreground truncate">{eventType.event_key}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Wysyłaj email</Label>
+                        <Switch
+                          checked={eventType.send_email}
+                          onCheckedChange={(checked) => toggleSendEmail(eventType.id, checked)}
+                        />
+                      </div>
+
+                      <div className="w-64">
+                        <Select 
+                          value={eventType.email_template_id || 'none'} 
+                          onValueChange={(value) => updateEmailTemplate(eventType.id, value)}
+                          disabled={!eventType.send_email}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Wybierz szablon" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">-- Brak szablonu --</SelectItem>
+                            {emailTemplates.map(template => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
