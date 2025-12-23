@@ -2319,6 +2319,89 @@ export type Database = {
         }
         Relationships: []
       }
+      role_chat_channels: {
+        Row: {
+          channel_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sender_role: string
+          target_role: string
+          updated_at: string | null
+        }
+        Insert: {
+          channel_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sender_role: string
+          target_role: string
+          updated_at?: string | null
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sender_role?: string
+          target_role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      role_chat_messages: {
+        Row: {
+          channel_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          read_at: string | null
+          recipient_id: string | null
+          recipient_role: string
+          sender_id: string
+          sender_role: string
+        }
+        Insert: {
+          channel_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          read_at?: string | null
+          recipient_id?: string | null
+          recipient_role: string
+          sender_id: string
+          sender_role: string
+        }
+        Update: {
+          channel_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          read_at?: string | null
+          recipient_id?: string | null
+          recipient_role?: string
+          sender_id?: string
+          sender_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_chat_messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "role_chat_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smtp_settings: {
         Row: {
           created_at: string
@@ -3057,6 +3140,7 @@ export type Database = {
           related_contact_id: string | null
           sender_id: string | null
           source_module: string
+          target_role: string | null
           title: string
           user_id: string
         }
@@ -3072,6 +3156,7 @@ export type Database = {
           related_contact_id?: string | null
           sender_id?: string | null
           source_module: string
+          target_role?: string | null
           title: string
           user_id: string
         }
@@ -3087,6 +3172,7 @@ export type Database = {
           related_contact_id?: string | null
           sender_id?: string | null
           source_module?: string
+          target_role?: string | null
           title?: string
           user_id?: string
         }
@@ -3183,6 +3269,10 @@ export type Database = {
         Args: { target_role: string; target_user_id: string }
         Returns: boolean
       }
+      can_send_to_role: {
+        Args: { sender_role: string; target_role: string }
+        Returns: boolean
+      }
       debug_user_access: {
         Args: never
         Returns: {
@@ -3194,6 +3284,7 @@ export type Database = {
       email_exists: { Args: { email_param: string }; Returns: boolean }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
+      get_role_level: { Args: { role_name: string }; Returns: number }
       get_user_profiles_with_confirmation: {
         Args: never
         Returns: {
@@ -3217,6 +3308,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_role_name: { Args: { user_uuid: string }; Returns: string }
       guardian_approve_user: {
         Args: { target_user_id: string }
         Returns: boolean
