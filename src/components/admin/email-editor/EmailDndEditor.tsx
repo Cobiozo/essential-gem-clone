@@ -40,6 +40,13 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Sync with initialBlocks when they change (e.g., loading existing template)
+  React.useEffect(() => {
+    if (initialBlocks && initialBlocks.length > 0) {
+      setBlocks(initialBlocks);
+    }
+  }, [initialBlocks]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -132,6 +139,17 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
     updateBlocks(newBlocks);
   };
 
+  const handleAddBlockFromPalette = (blockType: BlockType) => {
+    const newBlock: EmailBlock = {
+      id: `block-${Date.now()}`,
+      type: blockType.type,
+      content: { ...blockType.defaultContent },
+      position: blocks.length,
+    };
+    updateBlocks([...blocks, newBlock]);
+    setSelectedBlockId(newBlock.id);
+  };
+
   const activeBlock = activeId ? blocks.find((b) => b.id === activeId) : null;
 
   return (
@@ -150,7 +168,7 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
             </CardHeader>
             <CardContent className="p-2">
               <ScrollArea className="h-[520px]">
-                <BlockPalette />
+                <BlockPalette onAddBlock={handleAddBlockFromPalette} />
               </ScrollArea>
             </CardContent>
           </Card>
