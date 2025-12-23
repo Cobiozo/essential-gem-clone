@@ -22,8 +22,19 @@ interface SmtpSettings {
   from_name: string;
 }
 
-// Base64 encode for SMTP AUTH
+// Base64 encode for SMTP AUTH (handles UTF-8 characters)
 function base64Encode(str: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// Base64 encode for simple ASCII strings (like credentials)
+function base64EncodeAscii(str: string): string {
   return btoa(str);
 }
 
@@ -107,11 +118,11 @@ async function sendSmtpEmail(
       await sendCommand(`EHLO ${settings.host}`);
     }
 
-    // AUTH LOGIN
+    // AUTH LOGIN - use ASCII encoding for credentials
     console.log('[SMTP] Authenticating...');
     await sendCommand('AUTH LOGIN');
-    await sendCommand(base64Encode(settings.username), true);
-    const authResponse = await sendCommand(base64Encode(settings.password), true);
+    await sendCommand(base64EncodeAscii(settings.username), true);
+    const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
     
     if (!authResponse.startsWith('235')) {
       throw new Error(`Authentication failed: ${authResponse}`);
