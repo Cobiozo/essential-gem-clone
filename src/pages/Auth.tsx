@@ -47,6 +47,9 @@ const getPolishErrorMessage = (error: any): string => {
   if (errorMessage.includes('network') || errorMessage.includes('connection')) {
     return 'Problem z połączeniem internetowym. Sprawdź połączenie i spróbuj ponownie';
   }
+  if (errorMessage.includes('eq_id') || errorMessage.includes('eqid') || errorMessage.includes('profiles_eq_id_unique')) {
+    return 'Użytkownik z tym numerem EQ ID już istnieje w systemie';
+  }
   
   // Default fallback
   return error?.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie';
@@ -235,6 +238,27 @@ const Auth = () => {
 
       if (emailExists) {
         const errorMessage = 'Użytkownik z tym adresem email już istnieje. Zaloguj się lub sprawdź skrzynkę pocztową.';
+        setError(errorMessage);
+        toast({
+          title: "Błąd rejestracji",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if EQ ID already exists using RPC
+      const { data: eqIdExists, error: eqIdError } = await supabase.rpc('eq_id_exists', {
+        eq_id_param: eqId.trim(),
+      });
+
+      if (eqIdError) {
+        console.error('Error checking existing EQ ID via RPC:', eqIdError);
+      }
+
+      if (eqIdExists) {
+        const errorMessage = 'Użytkownik z tym numerem EQ ID już istnieje w systemie. Sprawdź poprawność numeru.';
         setError(errorMessage);
         toast({
           title: "Błąd rejestracji",
