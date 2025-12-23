@@ -2136,12 +2136,16 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_approved: boolean | null
+          admin_approved_at: string | null
           city: string | null
           country: string | null
           created_at: string
           email: string
           eq_id: string | null
           first_name: string | null
+          guardian_approved: boolean | null
+          guardian_approved_at: string | null
           guardian_name: string | null
           id: string
           is_active: boolean
@@ -2162,12 +2166,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_approved?: boolean | null
+          admin_approved_at?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
           email: string
           eq_id?: string | null
           first_name?: string | null
+          guardian_approved?: boolean | null
+          guardian_approved_at?: string | null
           guardian_name?: string | null
           id?: string
           is_active?: boolean
@@ -2188,12 +2196,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_approved?: boolean | null
+          admin_approved_at?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
           email?: string
           eq_id?: string | null
           first_name?: string | null
+          guardian_approved?: boolean | null
+          guardian_approved_at?: string | null
           guardian_name?: string | null
           id?: string
           is_active?: boolean
@@ -3078,6 +3090,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_approve_user: { Args: { target_user_id: string }; Returns: boolean }
       admin_confirm_user_email: {
         Args: { target_user_id: string }
         Returns: boolean
@@ -3117,6 +3130,10 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      guardian_approve_user: {
+        Args: { target_user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
