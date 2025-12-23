@@ -903,10 +903,8 @@ export const EmailTemplatesManagement: React.FC = () => {
 
       {/* Template Edit Dialog */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] flex flex-col p-0">
-          <ScrollArea className="flex-1 h-full">
-            <div className="p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle>
               {editingTemplate ? 'Edytuj szablon' : 'Nowy szablon e-mail'}
             </DialogTitle>
@@ -915,181 +913,183 @@ export const EmailTemplatesManagement: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nazwa szablonu</Label>
-                <Input
-                  value={templateForm.name}
-                  onChange={e => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="np. E-mail aktywacyjny"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Nazwa wewnętrzna (klucz)</Label>
-                <Input
-                  value={templateForm.internal_name}
-                  onChange={e => setTemplateForm(prev => ({ ...prev, internal_name: e.target.value }))}
-                  placeholder="np. activation_email"
-                  disabled={!!editingTemplate}
-                  className="font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Temat wiadomości</Label>
-              <Input
-                value={templateForm.subject}
-                onChange={e => setTemplateForm(prev => ({ ...prev, subject: e.target.value }))}
-                placeholder="np. Aktywuj swoje konto w Pure Life"
-              />
-            </div>
-
-            <Separator />
-
-            {/* Variables section */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Variable className="w-4 h-4 text-muted-foreground" />
-                <Label>Wstaw zmienne (kliknij aby wstawić do treści)</Label>
-              </div>
-              <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
-                {defaultVariables.map(v => (
-                  <Button
-                    key={v.name}
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => insertVariable(v.name)}
-                    title={v.description}
-                    className="font-mono text-xs"
-                  >
-                    {`{{${v.name}}}`}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Editor Mode Toggle */}
-            <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border">
-              <div className="flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-muted-foreground" />
-                <Label className="font-medium">Tryb edytora:</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant={templateForm.editor_mode === 'block' ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => {
-                    setUseDndEditor(true);
-                    setTemplateForm(prev => ({ ...prev, editor_mode: 'block' }));
-                  }}
-                >
-                  <LayoutGrid className="w-4 h-4 mr-1" />
-                  Blokowy (zalecany)
-                </Button>
-                <Button 
-                  variant={templateForm.editor_mode === 'classic' ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => {
-                    if (emailBlocks.length > 0) {
-                      if (!confirm('Przejście do trybu klasycznego może spowodować utratę struktury bloków. Kontynuować?')) {
-                        return;
-                      }
-                    }
-                    setUseDndEditor(false);
-                    setTemplateForm(prev => ({ ...prev, editor_mode: 'classic' }));
-                  }}
-                >
-                  <Variable className="w-4 h-4 mr-1" />
-                  Klasyczny HTML
-                </Button>
-              </div>
-              <Badge variant={templateForm.editor_mode === 'block' ? 'default' : 'secondary'} className="ml-2">
-                {templateForm.editor_mode === 'block' ? 'Tryb blokowy' : 'Tryb klasyczny'}
-              </Badge>
-              <Button variant="outline" size="sm" onClick={showLivePreview} className="ml-auto">
-                <Eye className="w-4 h-4 mr-2" />
-                Podgląd
-              </Button>
-            </div>
-
-            {/* DnD Block Editor */}
-            {useDndEditor ? (
-              <div className="space-y-2">
-                <Label>Treść e-maila (edytor blokowy)</Label>
-                <EmailDndEditor
-                  initialBlocks={emailBlocks}
-                  onChange={handleDndEditorChange}
-                />
-              </div>
-            ) : (
-              <>
-                {/* Classic Visual Editor */}
-                <div className="space-y-2" ref={editorRef}>
-                  <div className="flex items-center justify-between">
-                    <Label>Treść e-maila (edytor wizualny)</Label>
-                    <EmailBlockInserter onInsert={insertBlock} />
-                  </div>
-                  <RichTextEditor
-                    value={templateForm.body_html}
-                    onChange={(val) => setTemplateForm(prev => ({ ...prev, body_html: val }))}
-                    placeholder="Zaprojektuj treść e-maila... Użyj przycisku 'Wstaw blok' aby dodać gotowe elementy."
-                    rows={12}
-                  />
-                </div>
-
-                {/* Footer Editor */}
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Stopka e-maila (edytor wizualny)</Label>
-                  <RichTextEditor
-                    value={templateForm.footer_html}
-                    onChange={(val) => setTemplateForm(prev => ({ ...prev, footer_html: val }))}
-                    placeholder="Stopka e-maila..."
-                    rows={4}
-                    compact
+                  <Label>Nazwa szablonu</Label>
+                  <Input
+                    value={templateForm.name}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="np. E-mail aktywacyjny"
                   />
                 </div>
-              </>
-            )}
+                <div className="space-y-2">
+                  <Label>Nazwa wewnętrzna (klucz)</Label>
+                  <Input
+                    value={templateForm.internal_name}
+                    onChange={e => setTemplateForm(prev => ({ ...prev, internal_name: e.target.value }))}
+                    placeholder="np. activation_email"
+                    disabled={!!editingTemplate}
+                    className="font-mono"
+                  />
+                </div>
+              </div>
 
-            <Separator />
+              <div className="space-y-2">
+                <Label>Temat wiadomości</Label>
+                <Input
+                  value={templateForm.subject}
+                  onChange={e => setTemplateForm(prev => ({ ...prev, subject: e.target.value }))}
+                  placeholder="np. Aktywuj swoje konto w Pure Life"
+                />
+              </div>
 
-            {/* Event assignment */}
-            <div className="space-y-2">
-              <Label>Przypisz do zdarzeń</Label>
-              <div className="flex flex-wrap gap-2">
-                {eventTypes.map(event => (
-                  <Button
-                    key={event.id}
-                    variant={templateForm.selectedEvents.includes(event.id) ? 'default' : 'outline'}
+              <Separator />
+
+              {/* Variables section */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Variable className="w-4 h-4 text-muted-foreground" />
+                  <Label>Wstaw zmienne (kliknij aby wstawić do treści)</Label>
+                </div>
+                <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
+                  {defaultVariables.map(v => (
+                    <Button
+                      key={v.name}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => insertVariable(v.name)}
+                      title={v.description}
+                      className="font-mono text-xs"
+                    >
+                      {`{{${v.name}}}`}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Editor Mode Toggle */}
+              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-muted-foreground" />
+                  <Label className="font-medium">Tryb edytora:</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant={templateForm.editor_mode === 'block' ? "default" : "outline"} 
                     size="sm"
                     onClick={() => {
-                      setTemplateForm(prev => ({
-                        ...prev,
-                        selectedEvents: prev.selectedEvents.includes(event.id)
-                          ? prev.selectedEvents.filter(id => id !== event.id)
-                          : [...prev.selectedEvents, event.id],
-                      }));
+                      setUseDndEditor(true);
+                      setTemplateForm(prev => ({ ...prev, editor_mode: 'block' }));
                     }}
                   >
-                    <Zap className="w-3 h-3 mr-1" />
-                    {event.name}
+                    <LayoutGrid className="w-4 h-4 mr-1" />
+                    Blokowy (zalecany)
                   </Button>
-                ))}
+                  <Button 
+                    variant={templateForm.editor_mode === 'classic' ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => {
+                      if (emailBlocks.length > 0) {
+                        if (!confirm('Przejście do trybu klasycznego może spowodować utratę struktury bloków. Kontynuować?')) {
+                          return;
+                        }
+                      }
+                      setUseDndEditor(false);
+                      setTemplateForm(prev => ({ ...prev, editor_mode: 'classic' }));
+                    }}
+                  >
+                    <Variable className="w-4 h-4 mr-1" />
+                    Klasyczny HTML
+                  </Button>
+                </div>
+                <Badge variant={templateForm.editor_mode === 'block' ? 'default' : 'secondary'} className="ml-2">
+                  {templateForm.editor_mode === 'block' ? 'Tryb blokowy' : 'Tryb klasyczny'}
+                </Badge>
+                <Button variant="outline" size="sm" onClick={showLivePreview} className="ml-auto">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Podgląd
+                </Button>
+              </div>
+
+              {/* DnD Block Editor */}
+              {useDndEditor ? (
+                <div className="space-y-2">
+                  <Label>Treść e-maila (edytor blokowy)</Label>
+                  <EmailDndEditor
+                    initialBlocks={emailBlocks}
+                    onChange={handleDndEditorChange}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Classic Visual Editor */}
+                  <div className="space-y-2" ref={editorRef}>
+                    <div className="flex items-center justify-between">
+                      <Label>Treść e-maila (edytor wizualny)</Label>
+                      <EmailBlockInserter onInsert={insertBlock} />
+                    </div>
+                    <RichTextEditor
+                      value={templateForm.body_html}
+                      onChange={(val) => setTemplateForm(prev => ({ ...prev, body_html: val }))}
+                      placeholder="Zaprojektuj treść e-maila... Użyj przycisku 'Wstaw blok' aby dodać gotowe elementy."
+                      rows={12}
+                    />
+                  </div>
+
+                  {/* Footer Editor */}
+                  <div className="space-y-2">
+                    <Label>Stopka e-maila (edytor wizualny)</Label>
+                    <RichTextEditor
+                      value={templateForm.footer_html}
+                      onChange={(val) => setTemplateForm(prev => ({ ...prev, footer_html: val }))}
+                      placeholder="Stopka e-maila..."
+                      rows={4}
+                      compact
+                    />
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              {/* Event assignment */}
+              <div className="space-y-2">
+                <Label>Przypisz do zdarzeń</Label>
+                <div className="flex flex-wrap gap-2">
+                  {eventTypes.map(event => (
+                    <Button
+                      key={event.id}
+                      variant={templateForm.selectedEvents.includes(event.id) ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setTemplateForm(prev => ({
+                          ...prev,
+                          selectedEvents: prev.selectedEvents.includes(event.id)
+                            ? prev.selectedEvents.filter(id => id !== event.id)
+                            : [...prev.selectedEvents, event.id],
+                        }));
+                      }}
+                    >
+                      <Zap className="w-3 h-3 mr-1" />
+                      {event.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={templateForm.is_active}
+                  onCheckedChange={checked => setTemplateForm(prev => ({ ...prev, is_active: checked }))}
+                />
+                <Label>Szablon aktywny</Label>
               </div>
             </div>
+          </ScrollArea>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={templateForm.is_active}
-                onCheckedChange={checked => setTemplateForm(prev => ({ ...prev, is_active: checked }))}
-              />
-              <Label>Szablon aktywny</Label>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-4">
+          <DialogFooter className="shrink-0 px-6 py-4 border-t">
             <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
               Anuluj
             </Button>
@@ -1097,8 +1097,6 @@ export const EmailTemplatesManagement: React.FC = () => {
               {editingTemplate ? 'Zapisz zmiany' : 'Utwórz szablon'}
             </Button>
           </DialogFooter>
-            </div>
-          </ScrollArea>
         </DialogContent>
       </Dialog>
 
