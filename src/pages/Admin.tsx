@@ -65,6 +65,12 @@ interface UserProfile {
   updated_at: string;
   email_confirmed_at?: string | null;
   confirmation_sent_at?: string | null;
+  guardian_approved?: boolean;
+  guardian_approved_at?: string | null;
+  admin_approved?: boolean;
+  admin_approved_at?: string | null;
+  upline_eq_id?: string | null;
+  guardian_name?: string | null;
 }
 
 interface Page {
@@ -536,6 +542,34 @@ const Admin = () => {
       toast({
         title: t('toast.error'),
         description: error.message || t('error.changeStatus'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const adminApproveUser = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('admin_approve_user', {
+        target_user_id: userId
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setUsers(users.map(user => 
+          user.user_id === userId ? { ...user, admin_approved: true, admin_approved_at: new Date().toISOString() } : user
+        ));
+        
+        toast({
+          title: "Sukces",
+          description: "Użytkownik został zatwierdzony przez administratora.",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error approving user:', error);
+      toast({
+        title: t('toast.error'),
+        description: error.message || 'Nie udało się zatwierdzić użytkownika.',
         variant: "destructive",
       });
     }
@@ -3981,6 +4015,23 @@ const Admin = () => {
                                       Oczekuje potwierdzenia
                                     </Badge>
                                   )}
+                                  {/* Approval status badge */}
+                                  {userProfile.guardian_approved === false ? (
+                                    <Badge variant="outline" className="text-xs border-red-200 bg-red-50 text-red-700">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Oczekuje na opiekuna
+                                    </Badge>
+                                  ) : userProfile.admin_approved === false ? (
+                                    <Badge variant="outline" className="text-xs border-amber-200 bg-amber-50 text-amber-700">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Oczekuje na admina
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Zatwierdzony
+                                    </Badge>
+                                  )}
                                 </div>
                                <p className="text-xs text-muted-foreground">
                                   Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
@@ -3995,12 +4046,29 @@ const Admin = () => {
                                     Email potwierdzony: {new Date(userProfile.email_confirmed_at).toLocaleDateString('pl-PL')}
                                   </p>
                                 )}
+                                {userProfile.guardian_name && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Opiekun: {userProfile.guardian_name} {userProfile.upline_eq_id && `(${userProfile.upline_eq_id})`}
+                                  </p>
+                                )}
                                 <p className="text-xs text-muted-foreground">
                                   ID: {userProfile.user_id.slice(0, 8)}...
                                 </p>
                              </div>
                             
                               <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2 w-full sm:w-auto">
+                                {/* Admin Approve Button - only show if guardian approved but admin not approved */}
+                                {userProfile.guardian_approved === true && userProfile.admin_approved === false && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => adminApproveUser(userProfile.user_id)}
+                                    className="text-sm min-h-[44px] sm:min-h-auto bg-green-600 hover:bg-green-700"
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-1" />
+                                    Zatwierdź konto
+                                  </Button>
+                                )}
                                 {!userProfile.email_confirmed_at && (
                                   <Button
                                     variant="outline"
