@@ -392,11 +392,13 @@ const Auth = () => {
         resetEmail = profile.email;
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth`
+      // Use edge function to send password reset via SMTP
+      const { data, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email: resetEmail }
       });
 
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'Failed to send reset email');
 
       toast({
         title: "Sukces",
