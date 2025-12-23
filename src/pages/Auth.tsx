@@ -53,6 +53,7 @@ const getPolishErrorMessage = (error: any): string => {
 };
 
 const Auth = () => {
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -93,7 +94,38 @@ const Auth = () => {
     setLoading(true);
     setError('');
 
-    const { error } = await signIn(email, password);
+    // Determine if identifier is email or eq_id
+    const isEmail = loginIdentifier.includes('@');
+    let loginEmail = loginIdentifier;
+    
+    // If it's an eq_id, look up the email
+    if (!isEmail) {
+      try {
+        const { data: profile, error: lookupError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('eq_id', loginIdentifier)
+          .single();
+        
+        if (lookupError || !profile) {
+          setError('Nie znaleziono użytkownika z podanym EQ ID');
+          toast({
+            title: "Błąd logowania",
+            description: "Nie znaleziono użytkownika z podanym EQ ID",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        loginEmail = profile.email;
+      } catch (err) {
+        setError('Błąd podczas wyszukiwania użytkownika');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const { error } = await signIn(loginEmail, password);
     
     if (error) {
       const polishErrorMessage = getPolishErrorMessage(error);
@@ -300,10 +332,11 @@ const Auth = () => {
   };
 
   const handleForgotPassword = async () => {
-    if (!email.trim()) {
+    // Check if identifier is provided
+    if (!loginIdentifier.trim()) {
       toast({
         title: "Błąd",
-        description: "Wprowadź adres email aby zresetować hasło",
+        description: "Wprowadź adres email lub EQ ID aby zresetować hasło",
         variant: "destructive",
       });
       return;
@@ -312,7 +345,30 @@ const Auth = () => {
     setLoading(true);
     
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Determine if identifier is email or eq_id
+      const isEmail = loginIdentifier.includes('@');
+      let resetEmail = loginIdentifier;
+      
+      if (!isEmail) {
+        const { data: profile, error: lookupError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('eq_id', loginIdentifier)
+          .single();
+        
+        if (lookupError || !profile) {
+          toast({
+            title: "Błąd",
+            description: "Nie znaleziono użytkownika z podanym EQ ID",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        resetEmail = profile.email;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/auth`
       });
 
@@ -320,7 +376,7 @@ const Auth = () => {
 
       toast({
         title: "Sukces",
-        description: `Link do resetowania hasła został wysłany na adres ${email}`,
+        description: `Link do resetowania hasła został wysłany na adres ${resetEmail}`,
       });
     } catch (error: any) {
       console.error('Password reset error:', error);
@@ -414,12 +470,13 @@ const Auth = () => {
               <form onSubmit={handleSignIn}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">{t('auth.email')}</Label>
+                    <Label htmlFor="loginIdentifier">Email lub EQ ID</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      id="loginIdentifier"
+                      type="text"
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value)}
+                      placeholder="Wprowadź email lub EQ ID"
                       required
                       disabled={loading}
                     />
