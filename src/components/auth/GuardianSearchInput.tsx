@@ -117,8 +117,11 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
 
   return (
     <div className="space-y-2" ref={containerRef}>
-      <Label htmlFor="guardian-search" className="flex items-center gap-2">
-        Opiekun (osoba wprowadzająca) *
+      <Label htmlFor="guardian-search" className="flex flex-col gap-1">
+        <span>Opiekun (osoba wprowadzająca Partner/Specjalista Zespołu Pure Life) *</span>
+        <span className="font-normal text-xs text-muted-foreground">
+          Jeżeli osobą wprowadzającą jest inny klient Zespołu Pure Life, skontaktuj się z najbliższym upline struktury i wpisz dane opiekuna.
+        </span>
       </Label>
       
       {value ? (
@@ -206,7 +209,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       )}
       
       <p className="text-xs text-muted-foreground">
-        Wyszukaj i wybierz osobę, która Cię wprowadza do Pure Life/Eqology
+        Wyszukaj i wybierz Partnera lub Specjalistę, który Cię wprowadza do Pure Life/Eqology
       </p>
     </div>
   );
