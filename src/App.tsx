@@ -28,12 +28,15 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   useDynamicMetaTags();
-  const { loginTrigger } = useAuth();
+  const { loginTrigger, profile, user } = useAuth();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
+
+  // Check if user is fully approved
+  const isFullyApproved = user ? (profile?.guardian_approved === true && profile?.admin_approved === true) : true;
 
   // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
   useEffect(() => {
@@ -81,23 +84,28 @@ const AppContent = () => {
       </BrowserRouter>
       <CookieConsentBanner />
       
-      {/* BANNER PRIORITY ORDER:
-          1. Daily Signal ALWAYS first after login
-          2. Info Banners sequentially by priority (after Signal dismissed)
-          3. No Info Banner can appear before Daily Signal
-      */}
-      {!dailySignalDismissed ? (
-        <DailySignalBanner onDismiss={handleDailySignalDismiss} />
-      ) : !infoBannersComplete ? (
-        <ImportantInfoBanner 
-          onDismiss={handleInfoBannerDismiss}
-          bannerIndex={currentInfoBannerIndex}
-          onComplete={handleInfoBannersComplete}
-        />
-      ) : null}
-      
-      <MedicalChatWidget />
-      <ChatWidget />
+      {/* Only show banners and widgets for fully approved users */}
+      {isFullyApproved && (
+        <>
+          {/* BANNER PRIORITY ORDER:
+              1. Daily Signal ALWAYS first after login
+              2. Info Banners sequentially by priority (after Signal dismissed)
+              3. No Info Banner can appear before Daily Signal
+          */}
+          {!dailySignalDismissed ? (
+            <DailySignalBanner onDismiss={handleDailySignalDismiss} />
+          ) : !infoBannersComplete ? (
+            <ImportantInfoBanner 
+              onDismiss={handleInfoBannerDismiss}
+              bannerIndex={currentInfoBannerIndex}
+              onComplete={handleInfoBannersComplete}
+            />
+          ) : null}
+          
+          <MedicalChatWidget />
+          <ChatWidget />
+        </>
+      )}
     </TooltipProvider>
   );
 };

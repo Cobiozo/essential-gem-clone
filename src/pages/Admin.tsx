@@ -547,22 +547,31 @@ const Admin = () => {
     }
   };
 
-  const adminApproveUser = async (userId: string) => {
+  const adminApproveUser = async (userId: string, bypassGuardian: boolean = false) => {
     try {
       const { data, error } = await supabase.rpc('admin_approve_user', {
-        target_user_id: userId
+        target_user_id: userId,
+        bypass_guardian: bypassGuardian
       });
 
       if (error) throw error;
 
       if (data) {
         setUsers(users.map(user => 
-          user.user_id === userId ? { ...user, admin_approved: true, admin_approved_at: new Date().toISOString() } : user
+          user.user_id === userId ? { 
+            ...user, 
+            guardian_approved: bypassGuardian ? true : user.guardian_approved,
+            guardian_approved_at: bypassGuardian ? new Date().toISOString() : user.guardian_approved_at,
+            admin_approved: true, 
+            admin_approved_at: new Date().toISOString() 
+          } : user
         ));
         
         toast({
           title: "Sukces",
-          description: "Użytkownik został zatwierdzony przez administratora.",
+          description: bypassGuardian 
+            ? "Użytkownik został zatwierdzony z pominięciem opiekuna."
+            : "Użytkownik został zatwierdzony przez administratora.",
         });
       }
     } catch (error: any) {
@@ -4057,17 +4066,32 @@ const Admin = () => {
                              </div>
                             
                               <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2 w-full sm:w-auto">
-                                {/* Admin Approve Button - only show if guardian approved but admin not approved */}
-                                {userProfile.guardian_approved === true && userProfile.admin_approved === false && (
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => adminApproveUser(userProfile.user_id)}
-                                    className="text-sm min-h-[44px] sm:min-h-auto bg-green-600 hover:bg-green-700"
-                                  >
-                                    <CheckCircle className="w-4 h-4 mr-1" />
-                                    Zatwierdź konto
-                                  </Button>
+                                {/* Admin Approve Button - show if not admin approved */}
+                                {userProfile.admin_approved === false && (
+                                  <>
+                                    {userProfile.guardian_approved === true ? (
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => adminApproveUser(userProfile.user_id)}
+                                        className="text-sm min-h-[44px] sm:min-h-auto bg-green-600 hover:bg-green-700"
+                                      >
+                                        <CheckCircle className="w-4 h-4 mr-1" />
+                                        Zatwierdź konto
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => adminApproveUser(userProfile.user_id, true)}
+                                        className="text-sm min-h-[44px] sm:min-h-auto bg-amber-600 hover:bg-amber-700"
+                                        title="Zatwierdź z pominięciem opiekuna"
+                                      >
+                                        <CheckCircle className="w-4 h-4 mr-1" />
+                                        Zatwierdź (pomiń opiekuna)
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                                 {!userProfile.email_confirmed_at && (
                                   <Button

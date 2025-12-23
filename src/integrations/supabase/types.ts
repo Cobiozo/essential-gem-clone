@@ -3090,7 +3090,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_approve_user: { Args: { target_user_id: string }; Returns: boolean }
+      admin_approve_user:
+        | { Args: { target_user_id: string }; Returns: boolean }
+        | {
+            Args: { bypass_guardian?: boolean; target_user_id: string }
+            Returns: boolean
+          }
       admin_confirm_user_email: {
         Args: { target_user_id: string }
         Returns: boolean
