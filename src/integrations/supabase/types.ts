@@ -3117,17 +3117,23 @@ export type Database = {
       get_user_profiles_with_confirmation: {
         Args: never
         Returns: {
+          admin_approved: boolean
+          admin_approved_at: string
           confirmation_sent_at: string
           created_at: string
           email: string
           email_confirmed_at: string
           eq_id: string
           first_name: string
+          guardian_approved: boolean
+          guardian_approved_at: string
+          guardian_name: string
           id: string
           is_active: boolean
           last_name: string
           role: string
           updated_at: string
+          upline_eq_id: string
           user_id: string
         }[]
       }
