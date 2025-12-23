@@ -28,6 +28,7 @@ export const useTeamContacts = () => {
         .from('team_contacts')
         .select('*')
         .eq('is_active', true)
+        .is('linked_user_deleted_at', null) // Hide contacts where linked user was deleted
         .order('created_at', { ascending: false });
 
       // Apply filters

@@ -2538,6 +2538,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_name: string
+          linked_user_deleted_at: string | null
           linked_user_id: string | null
           next_contact_date: string | null
           notes: string | null
@@ -2572,6 +2573,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_name: string
+          linked_user_deleted_at?: string | null
           linked_user_id?: string | null
           next_contact_date?: string | null
           notes?: string | null
@@ -2606,6 +2608,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_name?: string
+          linked_user_deleted_at?: string | null
           linked_user_id?: string | null
           next_contact_date?: string | null
           notes?: string | null

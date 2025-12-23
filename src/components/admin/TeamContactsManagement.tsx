@@ -7,12 +7,15 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Settings, Eye, Download, Filter, Search, Save, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Users, Settings, Eye, Download, Filter, Search, Save, Loader2, UserX, Trash2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TeamContactAccordion } from '@/components/team-contacts/TeamContactAccordion';
 import { SpecialistSearchManagement } from './SpecialistSearchManagement';
 import type { TeamContact, TeamContactFilters, TeamContactHistory } from '@/components/team-contacts/types';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 interface UserProfile {
   user_id: string;
@@ -49,6 +52,8 @@ export const TeamContactsManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [contacts, setContacts] = useState<TeamContact[]>([]);
+  const [deletedUserContacts, setDeletedUserContacts] = useState<TeamContact[]>([]);
+  const [loadingDeleted, setLoadingDeleted] = useState(true);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
@@ -70,6 +75,7 @@ export const TeamContactsManagement: React.FC = () => {
         .from('team_contacts')
         .select('*')
         .eq('is_active', true)
+        .is('linked_user_deleted_at', null) // Exclude deleted user contacts
         .order('created_at', { ascending: false });
 
       if (filters.role && filters.role !== 'all') {
@@ -180,10 +186,83 @@ export const TeamContactsManagement: React.FC = () => {
     }
   };
 
+  // Fetch contacts where linked user was deleted
+  const fetchDeletedUserContacts = async () => {
+    setLoadingDeleted(true);
+    try {
+      const { data, error } = await supabase
+        .from('team_contacts')
+        .select('*')
+        .eq('is_active', true)
+        .not('linked_user_deleted_at', 'is', null)
+        .order('linked_user_deleted_at', { ascending: false });
+
+      if (error) throw error;
+      setDeletedUserContacts((data || []) as TeamContact[]);
+    } catch (error: any) {
+      console.error('Error fetching deleted user contacts:', error);
+    } finally {
+      setLoadingDeleted(false);
+    }
+  };
+
+  // Restore a contact (clear the deleted_at flag)
+  const restoreContact = async (contactId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_contacts')
+        .update({ linked_user_deleted_at: null })
+        .eq('id', contactId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Przywrócono',
+        description: 'Kontakt został przywrócony do właściciela',
+      });
+
+      fetchDeletedUserContacts();
+    } catch (error: any) {
+      console.error('Error restoring contact:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się przywrócić kontaktu',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Permanently delete a contact
+  const permanentlyDeleteContact = async (contactId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_contacts')
+        .update({ is_active: false })
+        .eq('id', contactId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Usunięto',
+        description: 'Kontakt został trwale usunięty',
+      });
+
+      fetchDeletedUserContacts();
+    } catch (error: any) {
+      console.error('Error deleting contact:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się usunąć kontaktu',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchContacts();
     fetchUsers();
     fetchSettings();
+    fetchDeletedUserContacts();
   }, []);
 
   useEffect(() => {
@@ -228,6 +307,15 @@ export const TeamContactsManagement: React.FC = () => {
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
             Ustawienia modułu
+          </TabsTrigger>
+          <TabsTrigger value="deleted-users" className="flex items-center gap-2">
+            <UserX className="w-4 h-4" />
+            Usunięci użytkownicy
+            {deletedUserContacts.length > 0 && (
+              <Badge variant="destructive" className="ml-1 text-xs px-1.5 py-0.5">
+                {deletedUserContacts.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -475,6 +563,92 @@ export const TeamContactsManagement: React.FC = () => {
                   )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Deleted Users Tab */}
+        <TabsContent value="deleted-users" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserX className="w-5 h-5 text-destructive" />
+                Kontakty z usuniętymi użytkownikami
+              </CardTitle>
+              <CardDescription>
+                Kontakty, których powiązani użytkownicy zostali usunięci z systemu. Możesz je przywrócić (usunąć powiązanie) lub trwale usunąć.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingDeleted ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : deletedUserContacts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <UserX className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Brak kontaktów z usuniętymi użytkownikami</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {deletedUserContacts.map((contact) => {
+                    const ownerUser = users.find(u => u.user_id === contact.user_id);
+                    return (
+                      <Card key={contact.id} className="border-destructive/30 bg-destructive/5">
+                        <CardContent className="pt-4">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  {contact.first_name} {contact.last_name}
+                                </span>
+                                {contact.eq_id && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {contact.eq_id}
+                                  </Badge>
+                                )}
+                                <Badge variant="secondary" className="text-xs">
+                                  {contact.role === 'client' ? 'Klient' : contact.role === 'partner' ? 'Partner' : 'Specjalista'}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Właściciel kontaktu: {ownerUser ? `${ownerUser.first_name} ${ownerUser.last_name} (${ownerUser.email})` : 'Nieznany'}
+                              </p>
+                              <p className="text-xs text-destructive">
+                                Użytkownik usunięty: {contact.linked_user_deleted_at 
+                                  ? format(new Date(contact.linked_user_deleted_at), 'dd.MM.yyyy HH:mm', { locale: pl })
+                                  : 'Nieznana data'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => restoreContact(contact.id)}
+                                className="gap-1"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                                Przywróć
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => permanentlyDeleteContact(contact.id)}
+                                className="gap-1"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Usuń trwale
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

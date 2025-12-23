@@ -52,6 +52,9 @@ export interface TeamContact {
   partner_status: 'active' | 'suspended' | null;
   
   is_active: boolean;
+  
+  // Deleted user tracking
+  linked_user_deleted_at: string | null;
 }
 
 export interface TeamContactHistory {
