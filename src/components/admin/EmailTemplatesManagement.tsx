@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Image, Monitor, Smartphone } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2 } from 'lucide-react';
 import { SmtpConfigurationPanel } from './SmtpConfigurationPanel';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { format } from 'date-fns';
@@ -61,6 +61,14 @@ interface TemplateEvent {
   event_type_id: string;
 }
 
+interface UserProfile {
+  user_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  eq_id: string | null;
+}
+
 export const EmailTemplatesManagement: React.FC = () => {
   const { toast } = useToast();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -87,6 +95,15 @@ export const EmailTemplatesManagement: React.FC = () => {
     description: '',
     is_active: true,
   });
+
+  // Force send email states
+  const [showForceSendDialog, setShowForceSendDialog] = useState(false);
+  const [forceSendLoading, setForceSendLoading] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState<UserProfile[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   
   // Form state
   const [templateForm, setTemplateForm] = useState({
@@ -542,6 +559,89 @@ export const EmailTemplatesManagement: React.FC = () => {
     }
   };
 
+  // Force send email functions
+  const openForceSendDialog = () => {
+    setSelectedUser(null);
+    setSelectedTemplateId('');
+    setUserSearchQuery('');
+    setUserSearchResults([]);
+    setShowForceSendDialog(true);
+  };
+
+  const searchUsers = async (query: string) => {
+    if (query.length < 2) {
+      setUserSearchResults([]);
+      return;
+    }
+
+    setUserSearchLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, email, first_name, last_name, eq_id')
+        .eq('is_active', true)
+        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%,eq_id.ilike.%${query}%`)
+        .limit(10);
+
+      if (error) throw error;
+      setUserSearchResults(data || []);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setUserSearchResults([]);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const debounce = setTimeout(() => {
+      if (showForceSendDialog) {
+        searchUsers(userSearchQuery);
+      }
+    }, 300);
+    return () => clearTimeout(debounce);
+  }, [userSearchQuery, showForceSendDialog]);
+
+  const handleForceSendEmail = async () => {
+    if (!selectedUser || !selectedTemplateId) {
+      toast({
+        title: 'Błąd',
+        description: 'Wybierz użytkownika i szablon',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setForceSendLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-single-email', {
+        body: {
+          template_id: selectedTemplateId,
+          recipient_user_id: selectedUser.user_id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+
+      toast({
+        title: 'Sukces',
+        description: data.message || `Email wysłany do ${selectedUser.email}`,
+      });
+      setShowForceSendDialog(false);
+      fetchLogs();
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      toast({
+        title: 'Błąd wysyłki',
+        description: error.message || 'Nie udało się wysłać emaila',
+        variant: 'destructive',
+      });
+    } finally {
+      setForceSendLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -575,7 +675,11 @@ export const EmailTemplatesManagement: React.FC = () => {
 
             <TabsContent value="templates">
               <div className="space-y-4">
-                <div className="flex justify-end">
+                <div className="flex justify-between">
+                  <Button variant="outline" onClick={openForceSendDialog}>
+                    <Send className="w-4 h-4 mr-2" />
+                    Wymuś wysyłkę do użytkownika
+                  </Button>
                   <Button onClick={openNewTemplateDialog}>
                     <Plus className="w-4 h-4 mr-2" />
                     Nowy szablon
@@ -1053,6 +1157,135 @@ export const EmailTemplatesManagement: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Zamknij
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Force Send Email Dialog */}
+      <Dialog open={showForceSendDialog} onOpenChange={setShowForceSendDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5" />
+              Wymuś wysyłkę e-maila
+            </DialogTitle>
+            <DialogDescription>
+              Wyślij wybrany szablon e-mail do konkretnego użytkownika
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* User search */}
+            <div className="space-y-2">
+              <Label>Wybierz użytkownika</Label>
+              {selectedUser ? (
+                <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-md">
+                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-foreground truncate">
+                      {selectedUser.first_name || ''} {selectedUser.last_name || selectedUser.email}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {selectedUser.email} {selectedUser.eq_id && `• EQID: ${selectedUser.eq_id}`}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedUser(null)}
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={userSearchQuery}
+                    onChange={e => setUserSearchQuery(e.target.value)}
+                    placeholder="Szukaj po imieniu, nazwisku, emailu lub EQID..."
+                    className="pl-10"
+                  />
+                  {userSearchLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  
+                  {userSearchResults.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-auto">
+                      {userSearchResults.map((user) => (
+                        <button
+                          key={user.user_id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setUserSearchQuery('');
+                            setUserSearchResults([]);
+                          }}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-accent text-left transition-colors"
+                        >
+                          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-foreground truncate">
+                              {user.first_name || ''} {user.last_name || ''}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {user.email}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Template selection */}
+            <div className="space-y-2">
+              <Label>Wybierz szablon</Label>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={setSelectedTemplateId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz szablon e-mail..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.filter(t => t.is_active).map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedTemplateId && (
+                <p className="text-xs text-muted-foreground">
+                  Temat: {templates.find(t => t.id === selectedTemplateId)?.subject}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForceSendDialog(false)}>
+              Anuluj
+            </Button>
+            <Button 
+              onClick={handleForceSendEmail} 
+              disabled={!selectedUser || !selectedTemplateId || forceSendLoading}
+            >
+              {forceSendLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Wysyłanie...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Wyślij e-mail
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -46,7 +46,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Search for guardians
+  // Search for guardians using the database function that joins user_roles
   useEffect(() => {
     const searchGuardians = async () => {
       if (searchQuery.length < 2) {
@@ -59,16 +59,10 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       setNoResults(false);
 
       try {
-        // Search by name or EQID - using public profiles data
-        // Note: RLS policy "Anyone can search for guardians" allows searching
-        // for active partners, specjalists, and admins
+        // Use the database function that properly joins with user_roles table
+        // This ensures we get users who actually have partner/specjalista/admin roles
         const { data, error: searchError } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name, eq_id, email')
-          .eq('is_active', true)
-          .in('role', ['partner', 'specjalista', 'admin'])
-          .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,eq_id.ilike.%${searchQuery}%`)
-          .limit(10);
+          .rpc('search_guardians', { search_query: searchQuery });
 
         if (searchError) {
           console.error('Error searching guardians:', searchError);
