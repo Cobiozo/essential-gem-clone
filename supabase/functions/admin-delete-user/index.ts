@@ -99,6 +99,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Mark all team_contacts linked to this user as "user deleted"
+    // This preserves the contact data but indicates the user no longer exists
+    const { error: markError } = await supabaseClient
+      .from('team_contacts')
+      .update({ linked_user_deleted_at: new Date().toISOString() })
+      .eq('linked_user_id', userId);
+
+    if (markError) {
+      console.warn('Warning: Could not mark team contacts for deleted user:', markError.message);
+      // Continue with deletion even if marking fails
+    } else {
+      console.log(`Marked team contacts for user ${userId} as deleted`);
+    }
+
     // Delete the user from auth.users
     // This will cascade delete related records in profiles and user_roles tables
     const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(userId);
