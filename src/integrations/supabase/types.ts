@@ -1447,9 +1447,11 @@ export type Database = {
       }
       email_templates: {
         Row: {
+          blocks_json: Json | null
           body_html: string
           body_text: string | null
           created_at: string
+          editor_mode: string | null
           footer_html: string | null
           id: string
           internal_name: string
@@ -1460,9 +1462,11 @@ export type Database = {
           variables: Json | null
         }
         Insert: {
+          blocks_json?: Json | null
           body_html: string
           body_text?: string | null
           created_at?: string
+          editor_mode?: string | null
           footer_html?: string | null
           id?: string
           internal_name: string
@@ -1473,9 +1477,11 @@ export type Database = {
           variables?: Json | null
         }
         Update: {
+          blocks_json?: Json | null
           body_html?: string
           body_text?: string | null
           created_at?: string
+          editor_mode?: string | null
           footer_html?: string | null
           id?: string
           internal_name?: string
