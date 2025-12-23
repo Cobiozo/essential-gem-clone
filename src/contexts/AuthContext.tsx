@@ -24,6 +24,14 @@ interface Profile {
   profile_description?: string | null;
   search_keywords?: string[] | null;
   is_searchable?: boolean;
+  // Approval fields
+  guardian_approved?: boolean;
+  guardian_approved_at?: string | null;
+  admin_approved?: boolean;
+  admin_approved_at?: string | null;
+  upline_eq_id?: string | null;
+  upline_first_name?: string | null;
+  upline_last_name?: string | null;
 }
 
 interface UserRole {

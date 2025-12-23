@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { ApprovalStatusBanner } from './ApprovalStatusBanner';
 
 interface ProfileCompletionGuardProps {
   children: React.ReactNode;
@@ -31,6 +32,15 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
+  }
+  
+  // Check approval status FIRST (before profile completion)
+  const guardianApproved = profile.guardian_approved === true;
+  const adminApproved = profile.admin_approved === true;
+  
+  // If not fully approved, show approval status banner
+  if (!guardianApproved || !adminApproved) {
+    return <ApprovalStatusBanner />;
   }
   
   // Check if profile_completed is true (existing users who already completed)

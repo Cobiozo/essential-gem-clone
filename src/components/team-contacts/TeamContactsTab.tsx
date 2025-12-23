@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
+import { useGuardianApproval } from '@/hooks/useGuardianApproval';
 import { TeamContactsTable } from './TeamContactsTable';
 import { TeamContactAccordion } from './TeamContactAccordion';
 import { TeamContactForm } from './TeamContactForm';
@@ -14,6 +16,7 @@ import { TeamContactFilters } from './TeamContactFilters';
 import { TeamContactExport } from './TeamContactExport';
 import { TeamMap } from './TeamMap';
 import { SpecialistSearch } from './SpecialistSearch';
+import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
   Dialog,
@@ -22,11 +25,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+interface PendingApproval {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  eq_id: string | null;
+  guardian_approved: boolean;
+  created_at: string;
+}
 
 export const TeamContactsTab: React.FC = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
+  const { approveUser, loading: approvalLoading } = useGuardianApproval();
   
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -34,6 +58,36 @@ export const TeamContactsTab: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [viewMode, setViewMode] = useState<'accordion' | 'table' | 'map'>('accordion');
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search'>('private');
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
+
+  // Fetch pending approvals for guardian
+  const fetchPendingApprovals = async () => {
+    if (!profile?.eq_id) return;
+    
+    setPendingLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email, eq_id, guardian_approved, created_at')
+        .eq('upline_eq_id', profile.eq_id)
+        .eq('guardian_approved', false);
+      
+      if (error) throw error;
+      setPendingApprovals(data || []);
+    } catch (error) {
+      console.error('Error fetching pending approvals:', error);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'team') {
+      fetchPendingApprovals();
+    }
+  }, [activeTab, profile?.eq_id]);
 
   // Update filters when tab changes
   useEffect(() => {
@@ -72,6 +126,15 @@ export const TeamContactsTab: React.FC = () => {
     setEditingContact(contact);
   };
 
+  const handleApproveUser = async (pending: PendingApproval) => {
+    const success = await approveUser(pending.user_id);
+    if (success) {
+      setPendingApprovals(prev => prev.filter(p => p.user_id !== pending.user_id));
+      setConfirmApproval(null);
+      refetch();
+    }
+  };
+
   // Filter contacts by type for display
   const filteredContacts = contacts.filter(c => {
     if (activeTab === 'private') return c.contact_type === 'private';
@@ -91,10 +154,15 @@ export const TeamContactsTab: React.FC = () => {
             <span className="hidden sm:inline">Kontakty prywatne</span>
             <span className="sm:hidden">Prywatne</span>
           </TabsTrigger>
-          <TabsTrigger value="team" className="flex items-center gap-2">
+          <TabsTrigger value="team" className="flex items-center gap-2 relative">
             <UsersRound className="w-4 h-4" />
             <span className="hidden sm:inline">Członkowie zespołu</span>
             <span className="sm:hidden">Zespół</span>
+            {pendingApprovals.length > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                {pendingApprovals.length}
+              </Badge>
+            )}
           </TabsTrigger>
           {canSearchSpecialists && (
             <TabsTrigger value="search" className="flex items-center gap-2">
@@ -265,7 +333,42 @@ export const TeamContactsTab: React.FC = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Pending Approvals Section */}
+              {pendingApprovals.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2 mb-3">
+                    <Clock className="w-4 h-4" />
+                    Oczekujące zatwierdzenia ({pendingApprovals.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {pendingApprovals.map((pending) => (
+                      <div 
+                        key={pending.user_id} 
+                        className="flex items-center justify-between bg-white dark:bg-background rounded-md p-3 border"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {pending.first_name} {pending.last_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {pending.email} {pending.eq_id && `• ${pending.eq_id}`}
+                          </p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setConfirmApproval(pending)}
+                          disabled={approvalLoading}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Zatwierdź
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {showFilters && (
                 <TeamContactFilters
                   filters={filters}
@@ -323,6 +426,30 @@ export const TeamContactsTab: React.FC = () => {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Confirm Approval Dialog */}
+      <AlertDialog open={!!confirmApproval} onOpenChange={() => setConfirmApproval(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Potwierdź zatwierdzenie</AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno chcesz zatwierdzić użytkownika{' '}
+              <strong>{confirmApproval?.first_name} {confirmApproval?.last_name}</strong>?
+              <br /><br />
+              Po zatwierdzeniu, konto użytkownika zostanie przekazane do Administratora do ostatecznej weryfikacji.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => confirmApproval && handleApproveUser(confirmApproval)}
+              disabled={approvalLoading}
+            >
+              {approvalLoading ? 'Zatwierdzanie...' : 'Zatwierdź'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add Contact Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
