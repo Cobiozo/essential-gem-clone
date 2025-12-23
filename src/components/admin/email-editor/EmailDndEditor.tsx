@@ -159,15 +159,15 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-12 gap-4 min-h-[500px]">
+      <div className="grid grid-cols-12 gap-3">
         {/* Block Palette */}
         <div className="col-span-2">
-          <Card className="h-full">
+          <Card className="max-h-[55vh]">
             <CardHeader className="py-3">
               <CardTitle className="text-sm">Bloki</CardTitle>
             </CardHeader>
             <CardContent className="p-2">
-              <ScrollArea className="h-[400px]">
+              <ScrollArea className="h-[calc(55vh-70px)]">
                 <BlockPalette onAddBlock={handleAddBlockFromPalette} />
               </ScrollArea>
             </CardContent>
@@ -176,8 +176,8 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
 
         {/* Canvas */}
         <div className="col-span-6">
-          <Card className="h-full flex flex-col">
-            <CardHeader className="py-3 flex-row items-center justify-between">
+          <Card className="max-h-[55vh] flex flex-col">
+            <CardHeader className="py-3 flex-row items-center justify-between shrink-0">
               <CardTitle className="text-sm">Kanwa</CardTitle>
               <Button
                 variant="ghost"
@@ -188,8 +188,8 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
                 {showPreview ? 'Edytor' : 'Podgląd'}
               </Button>
             </CardHeader>
-            <CardContent className="flex-1 p-2 overflow-hidden">
-              <ScrollArea className="h-full">
+            <CardContent className="flex-1 p-2 overflow-hidden min-h-0">
+              <ScrollArea className="h-[calc(55vh-70px)]">
                 {showPreview ? (
                   <div
                     className="bg-white rounded border p-2"
@@ -226,14 +226,14 @@ export const EmailDndEditor: React.FC<EmailDndEditorProps> = ({
 
         {/* Block Editor */}
         <div className="col-span-4 min-w-0">
-          <Card className="h-full overflow-hidden">
+          <Card className="max-h-[55vh] overflow-hidden">
             <CardHeader className="py-3">
               <CardTitle className="text-sm truncate">
                 {selectedBlock ? `Edycja: ${BLOCK_TYPES.find(t => t.type === selectedBlock.type)?.label}` : 'Właściwości'}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 overflow-hidden">
-              <ScrollArea className="h-[400px] w-full">
+              <ScrollArea className="h-[calc(55vh-70px)] w-full">
                 <div className="pr-3">
                   {selectedBlock ? (
                     <BlockEditor
