@@ -6,7 +6,13 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 export const ApprovalStatusBanner: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleLogoutAndReturn = async () => {
+    await signOut();
+    navigate('/');
+  };
   
   if (!profile) return null;
   
@@ -74,6 +80,17 @@ export const ApprovalStatusBanner: React.FC = () => {
               <span className="text-sm text-muted-foreground">Gotowe</span>
             </div>
           </div>
+          
+          <div className="mt-6 flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={handleLogoutAndReturn}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Powrót do strony głównej
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -122,6 +139,17 @@ export const ApprovalStatusBanner: React.FC = () => {
             </div>
             <span className="text-sm text-muted-foreground">Gotowe</span>
           </div>
+        </div>
+        
+        <div className="mt-6 flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={handleLogoutAndReturn}
+            className="gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Powrót do strony głównej
+          </Button>
         </div>
       </div>
     </div>
