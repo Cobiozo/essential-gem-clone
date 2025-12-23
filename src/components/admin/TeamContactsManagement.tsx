@@ -68,6 +68,32 @@ export const TeamContactsManagement: React.FC = () => {
   // Settings state
   const [allowExport, setAllowExport] = useState(false);
 
+  // Delete contact function for admin
+  const deleteContact = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_contacts')
+        .update({ is_active: false })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Usunięto',
+        description: 'Kontakt został usunięty',
+      });
+
+      fetchContacts();
+    } catch (error: any) {
+      console.error('Error deleting contact:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się usunąć kontaktu',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const fetchContacts = async () => {
     setLoading(true);
     try {
@@ -456,7 +482,7 @@ export const TeamContactsManagement: React.FC = () => {
                 Lista kontaktów ({contacts.length})
               </CardTitle>
               <CardDescription>
-                Widok tylko do odczytu - wszystkie kontakty wszystkich użytkowników
+                Przegląd wszystkich kontaktów - możliwość usuwania
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -464,10 +490,10 @@ export const TeamContactsManagement: React.FC = () => {
                 contacts={contacts}
                 loading={loading}
                 onEdit={() => {}}
-                onDelete={() => {}}
+                onDelete={deleteContact}
                 getContactHistory={getContactHistory}
                 isAdmin={true}
-                readOnly={true}
+                readOnly={false}
               />
             </CardContent>
           </Card>
