@@ -35,7 +35,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import jsPDF from "jspdf";
+// jsPDF imported dynamically when generating certificates
 
 interface TrainingModule {
   id: string;
@@ -480,6 +480,8 @@ const TrainingManagement = () => {
       const layoutData = template.layout as { elements?: any[] };
       console.log('Template layout elements count:', layoutData?.elements?.length || 0);
 
+      // Dynamic import of jsPDF
+      const { default: jsPDF } = await import('jspdf');
       const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',

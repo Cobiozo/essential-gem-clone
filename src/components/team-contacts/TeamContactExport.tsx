@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Download, FileSpreadsheet, FileText, Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import * as XLSX from 'xlsx';
 import type { TeamContact } from './types';
 
 interface TeamContactExportProps {
@@ -20,6 +19,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
   const { toast } = useToast();
   const [exportEnabled, setExportEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [includeNotes, setIncludeNotes] = useState(true);
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'html' | 'docx'>('xlsx');
 
@@ -36,60 +36,75 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     checkExportPermission();
   }, []);
 
-  const getRoleLabel = (role: string) => {
+  const getRoleLabel = useCallback((role: string) => {
     switch (role) {
       case 'client': return 'Klient';
       case 'partner': return 'Partner';
       case 'specjalista': return 'Specjalista';
       default: return role;
     }
-  };
+  }, []);
 
-  const handleExportExcel = () => {
-    const exportData = contacts.map((contact) => ({
-      'Imię': contact.first_name,
-      'Nazwisko': contact.last_name,
-      'EQID': contact.eq_id || '',
-      'Rola': getRoleLabel(contact.role),
-      'Status': contact.role === 'client'
-        ? (contact.client_status || '-')
-        : (contact.partner_status || '-'),
-      'Status relacji': contact.relationship_status || '-',
-      'Telefon': contact.phone_number || '',
-      'Email': contact.email || '',
-      'Adres': contact.address || '',
-      'Zawód': contact.profession || '',
-      'Data dodania': contact.added_at ? new Date(contact.added_at).toLocaleDateString('pl-PL') : '',
-      ...(includeNotes ? { 'Notatki': contact.notes || '' } : {}),
-      ...(contact.role === 'client' ? {
-        'Zakupiony produkt': contact.purchased_product || '',
-        'Data zakupu': contact.purchase_date 
-          ? new Date(contact.purchase_date).toLocaleDateString('pl-PL')
-          : '',
-      } : {}),
-      ...(contact.role !== 'client' ? {
-        'Poziom współpracy': contact.collaboration_level || '',
-        'Data rozpoczęcia': contact.start_date
-          ? new Date(contact.start_date).toLocaleDateString('pl-PL')
-          : '',
-      } : {}),
-    }));
+  const handleExportExcel = useCallback(async () => {
+    setExporting(true);
+    try {
+      // Dynamic import of xlsx library
+      const XLSX = await import('xlsx');
+      
+      const exportData = contacts.map((contact) => ({
+        'Imię': contact.first_name,
+        'Nazwisko': contact.last_name,
+        'EQID': contact.eq_id || '',
+        'Rola': getRoleLabel(contact.role),
+        'Status': contact.role === 'client'
+          ? (contact.client_status || '-')
+          : (contact.partner_status || '-'),
+        'Status relacji': contact.relationship_status || '-',
+        'Telefon': contact.phone_number || '',
+        'Email': contact.email || '',
+        'Adres': contact.address || '',
+        'Zawód': contact.profession || '',
+        'Data dodania': contact.added_at ? new Date(contact.added_at).toLocaleDateString('pl-PL') : '',
+        ...(includeNotes ? { 'Notatki': contact.notes || '' } : {}),
+        ...(contact.role === 'client' ? {
+          'Zakupiony produkt': contact.purchased_product || '',
+          'Data zakupu': contact.purchase_date 
+            ? new Date(contact.purchase_date).toLocaleDateString('pl-PL')
+            : '',
+        } : {}),
+        ...(contact.role !== 'client' ? {
+          'Poziom współpracy': contact.collaboration_level || '',
+          'Data rozpoczęcia': contact.start_date
+            ? new Date(contact.start_date).toLocaleDateString('pl-PL')
+            : '',
+        } : {}),
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Kontakty');
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Kontakty');
 
-    const fileName = `kontakty-zespolu-${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+      const fileName = `kontakty-zespolu-${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
 
-    toast({
-      title: 'Eksport zakończony',
-      description: `Wyeksportowano ${contacts.length} kontaktów do Excel`,
-    });
-    onClose();
-  };
+      toast({
+        title: 'Eksport zakończony',
+        description: `Wyeksportowano ${contacts.length} kontaktów do Excel`,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast({
+        title: 'Błąd eksportu',
+        description: 'Nie udało się wyeksportować do Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [contacts, includeNotes, getRoleLabel, toast, onClose]);
 
-  const handleExportHtml = () => {
+  const handleExportHtml = useCallback(() => {
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="pl">
@@ -157,9 +172,9 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       description: `Wyeksportowano ${contacts.length} kontaktów do HTML`,
     });
     onClose();
-  };
+  }, [contacts, includeNotes, getRoleLabel, toast, onClose]);
 
-  const handleExportDocx = () => {
+  const handleExportDocx = useCallback(() => {
     // Simple DOCX-like content (actually HTML that Word can open)
     const docContent = `
 <html xmlns:o="urn:schemas-microsoft-com:office:office" 
@@ -218,9 +233,9 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       description: `Wyeksportowano ${contacts.length} kontaktów do Word`,
     });
     onClose();
-  };
+  }, [contacts, getRoleLabel, toast, onClose]);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (contacts.length === 0) {
       toast({
         title: 'Brak danych',
@@ -241,7 +256,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
         handleExportDocx();
         break;
     }
-  };
+  }, [contacts.length, exportFormat, handleExportExcel, handleExportHtml, handleExportDocx, toast]);
 
   if (loading) {
     return <div className="py-8 text-center text-muted-foreground">Ładowanie...</div>;
@@ -323,12 +338,12 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       </div>
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="outline" onClick={onClose} disabled={exporting}>
           Anuluj
         </Button>
-        <Button onClick={handleExport}>
+        <Button onClick={handleExport} disabled={exporting}>
           <Download className="w-4 h-4 mr-2" />
-          Eksportuj
+          {exporting ? 'Eksportowanie...' : 'Eksportuj'}
         </Button>
       </div>
     </div>

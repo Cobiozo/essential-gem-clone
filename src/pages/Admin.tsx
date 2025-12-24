@@ -45,9 +45,10 @@ import { TeamContactsManagement } from '@/components/admin/TeamContactsManagemen
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
-import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
-import JSZip from 'jszip';
+// Heavy libraries imported dynamically when needed
+// import jsPDF from 'jspdf';
+// import * as XLSX from 'xlsx';
+// import JSZip from 'jszip';
 import { ContentCell, CMSItem, CMSSection } from '@/types/cms';
 
 // Remove duplicate interfaces - using shared types from @/types/cms
@@ -1576,7 +1577,8 @@ const Admin = () => {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.text('Lista Klientów', 20, 20);
@@ -1600,7 +1602,8 @@ const Admin = () => {
     doc.save('klienci.pdf');
   };
 
-  const exportToXLSX = () => {
+  const exportToXLSX = async () => {
+    const XLSX = await import('xlsx');
     const worksheet = XLSX.utils.json_to_sheet(
       users.map(user => ({
         Email: user.email,
@@ -1646,6 +1649,12 @@ const Admin = () => {
   };
 
   const exportToZIP = async () => {
+    const [{ default: JSZip }, { default: jsPDF }, XLSX] = await Promise.all([
+      import('jszip'),
+      import('jspdf'),
+      import('xlsx'),
+    ]);
+    
     const zip = new JSZip();
     
     // Add PDF
