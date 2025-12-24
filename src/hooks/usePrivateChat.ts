@@ -169,6 +169,17 @@ export const usePrivateChat = () => {
         await sendMessage(newThread.id, data.initial_message);
       }
 
+      // Send notification to the specialist about new thread
+      await supabase.from('user_notifications').insert({
+        user_id: data.participant_id,
+        notification_type: 'private_chat',
+        source_module: 'private_chat',
+        title: 'Nowa wiadomość prywatna',
+        message: data.subject ? `Administrator rozpoczął z Tobą czat: ${data.subject}` : 'Administrator rozpoczął z Tobą nowy czat',
+        link: '/my-account?tab=private-chats',
+        sender_id: user.id,
+      });
+
       await fetchThreads();
       
       toast({
@@ -206,6 +217,25 @@ export const usePrivateChat = () => {
 
       if (error) throw error;
 
+      // Find thread to get recipient id
+      const thread = threads.find(t => t.id === threadId);
+      if (thread) {
+        const recipientId = thread.initiator_id === user.id 
+          ? thread.participant_id 
+          : thread.initiator_id;
+
+        // Send notification to recipient about new message
+        await supabase.from('user_notifications').insert({
+          user_id: recipientId,
+          notification_type: 'private_chat_message',
+          source_module: 'private_chat',
+          title: 'Nowa wiadomość w czacie',
+          message: content.length > 100 ? content.substring(0, 100) + '...' : content,
+          link: '/my-account?tab=private-chats',
+          sender_id: user.id,
+        });
+      }
+
       await fetchMessages(threadId);
       return true;
     } catch (error) {
@@ -217,7 +247,7 @@ export const usePrivateChat = () => {
       });
       return false;
     }
-  }, [user, fetchMessages, toast]);
+  }, [user, fetchMessages, threads, toast]);
 
   // Mark messages as read
   const markAsRead = useCallback(async (threadId: string) => {

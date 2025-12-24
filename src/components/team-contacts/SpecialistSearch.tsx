@@ -1,12 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { Search, User, MapPin, Briefcase, Loader2, Mail, Phone, MessageSquare, Home } from 'lucide-react';
+import { Search, User, MapPin, Briefcase, Loader2, Mail, Phone, Home } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/use-debounce';
-import { PrivateChatDialog } from '@/components/private-chat';
 
 interface Specialist {
   user_id: string;
@@ -21,7 +19,6 @@ interface Specialist {
   specialization: string | null;
   profile_description: string | null;
   search_keywords: string[] | null;
-  can_message?: boolean;
 }
 
 interface SpecialistSearchProps {
@@ -36,15 +33,8 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [chatDialogOpen, setChatDialogOpen] = useState(false);
-  const [selectedSpecialist, setSelectedSpecialist] = useState<Specialist | null>(null);
 
   const debouncedQuery = useDebounce(query, 500);
-
-  const handleOpenChat = (specialist: Specialist) => {
-    setSelectedSpecialist(specialist);
-    setChatDialogOpen(true);
-  };
 
   const searchSpecialists = useCallback(async (searchQuery: string) => {
     if (!searchQuery || searchQuery.trim().length < 2) {
@@ -184,32 +174,12 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
                     </div>
                   )}
 
-                  {specialist.can_message && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenChat(specialist);
-                      }}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Otwórz czat
-                    </Button>
-                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      <PrivateChatDialog
-        open={chatDialogOpen}
-        onOpenChange={setChatDialogOpen}
-        specialist={selectedSpecialist}
-      />
     </div>
   );
 };
