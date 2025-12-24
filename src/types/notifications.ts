@@ -81,6 +81,14 @@ export const EVENT_KEYS = {
   BANNER_NEW: 'banner_new',
   TRAINING_ASSIGNED: 'training_assigned',
   TRAINING_COMPLETED: 'training_completed',
+  // Auth events
+  PASSWORD_RESET: 'password_reset',
+  PASSWORD_CHANGED: 'password_changed',
+  FIRST_LOGIN: 'first_login',
+  ACCOUNT_APPROVED: 'account_approved',
+  USER_REGISTRATION: 'user_registration',
+  PASSWORD_RESET_ADMIN: 'password_reset_admin',
+  SPECIALIST_MESSAGE: 'specialist_message',
 } as const;
 
 export const MODULE_NAMES: Record<string, string> = {
