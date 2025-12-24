@@ -20,8 +20,7 @@ import {
   PopoverTrigger 
 } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+// html2canvas and jsPDF imported dynamically when exporting
 
 
 
@@ -742,6 +741,12 @@ Provide a structured summary:`;
     console.log('Container size:', container.offsetWidth, container.offsetHeight);
     
     try {
+      // Dynamic import of heavy libraries
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+      
       // 1. CAPTURE WITH HTML2CANVAS
       const canvas = await html2canvas(container, {
         scale: 2,

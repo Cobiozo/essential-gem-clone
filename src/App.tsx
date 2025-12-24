@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,15 +14,20 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+
+// Eager load - critical pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import Admin from "./pages/Admin";
-import MyAccount from "./pages/MyAccount";
-import Page from "./pages/Page";
-import Training from "./pages/Training";
-import TrainingModule from "./pages/TrainingModule";
-import KnowledgeCenter from "./pages/KnowledgeCenter";
 import NotFound from "./pages/NotFound";
+
+// Lazy load - heavy pages
+const Admin = lazy(() => import("./pages/Admin"));
+const MyAccount = lazy(() => import("./pages/MyAccount"));
+const Page = lazy(() => import("./pages/Page"));
+const Training = lazy(() => import("./pages/Training"));
+const TrainingModule = lazy(() => import("./pages/TrainingModule"));
+const KnowledgeCenter = lazy(() => import("./pages/KnowledgeCenter"));
 
 const queryClient = new QueryClient();
 
@@ -68,18 +73,20 @@ const AppContent = () => {
       <Sonner />
       <BrowserRouter>
         <ProfileCompletionGuard>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/my-account" element={<MyAccount />} />
-            <Route path="/training" element={<Training />} />
-            <Route path="/training/:moduleId" element={<TrainingModule />} />
-            <Route path="/knowledge" element={<KnowledgeCenter />} />
-            <Route path="/page/:slug" element={<Page />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/my-account" element={<MyAccount />} />
+              <Route path="/training" element={<Training />} />
+              <Route path="/training/:moduleId" element={<TrainingModule />} />
+              <Route path="/knowledge" element={<KnowledgeCenter />} />
+              <Route path="/page/:slug" element={<Page />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </ProfileCompletionGuard>
       </BrowserRouter>
       <CookieConsentBanner />

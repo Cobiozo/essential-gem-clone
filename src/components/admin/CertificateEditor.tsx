@@ -14,7 +14,7 @@ import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2, AlertTriangle, In
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TemplateDndEditor from './TemplateDndEditor';
-import jsPDF from 'jspdf';
+// jsPDF imported dynamically when generating certificates
 
 interface CertificateTemplate {
   id: string;
@@ -728,6 +728,8 @@ const CertificateEditor = () => {
     try {
       console.log('🔍 Generating preview certificate for template:', template.name);
       
+      // Dynamic import of jsPDF
+      const { default: jsPDF } = await import('jspdf');
       const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
