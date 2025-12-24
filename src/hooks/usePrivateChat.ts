@@ -224,15 +224,45 @@ export const usePrivateChat = () => {
           ? thread.participant_id 
           : thread.initiator_id;
 
+        // Check if recipient is admin to determine correct notification link
+        const { data: recipientRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', recipientId)
+          .single();
+
+        const isRecipientAdmin = recipientRole?.role === 'admin';
+        
+        // Set appropriate link based on recipient role
+        const notificationLink = isRecipientAdmin 
+          ? '/admin?tab=pure-contacts' // Admin widzi czaty w module Pure - Kontakty
+          : '/my-account?tab=private-chats'; // Specjalista widzi w Moim koncie
+
+        // Fetch sender profile for notification title
+        const { data: senderProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', user.id)
+          .single();
+
+        const senderName = senderProfile 
+          ? `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() 
+          : 'Nieznany użytkownik';
+
         // Send notification to recipient about new message
         await supabase.from('user_notifications').insert({
           user_id: recipientId,
           notification_type: 'private_chat_message',
           source_module: 'private_chat',
-          title: 'Nowa wiadomość w czacie',
+          title: `Nowa wiadomość od: ${senderName}`,
           message: content.length > 100 ? content.substring(0, 100) + '...' : content,
-          link: '/my-account?tab=private-chats',
+          link: notificationLink,
           sender_id: user.id,
+          metadata: {
+            thread_id: threadId,
+            sender_name: senderName,
+            thread_subject: thread.subject
+          }
         });
       }
 
