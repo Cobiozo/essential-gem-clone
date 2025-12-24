@@ -557,6 +557,8 @@ const Admin = () => {
       if (error) throw error;
 
       if (data) {
+        const userToApprove = users.find(u => u.user_id === userId);
+        
         setUsers(users.map(user => 
           user.user_id === userId ? { 
             ...user, 
@@ -566,6 +568,29 @@ const Admin = () => {
             admin_approved_at: new Date().toISOString() 
           } : user
         ));
+
+        // Send welcome email via SMTP
+        if (userToApprove) {
+          try {
+            const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+              body: {
+                userId: userId,
+                email: userToApprove.email,
+                firstName: userToApprove.first_name,
+                lastName: userToApprove.last_name,
+                role: userToApprove.role
+              }
+            });
+            
+            if (emailError) {
+              console.error('Failed to send welcome email:', emailError);
+            } else {
+              console.log('Welcome email sent successfully to:', userToApprove.email);
+            }
+          } catch (emailError) {
+            console.error('Failed to send welcome email:', emailError);
+          }
+        }
         
         toast({
           title: "Sukces",
