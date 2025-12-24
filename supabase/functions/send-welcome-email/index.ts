@@ -244,7 +244,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`[send-welcome-email] Using template: ${template.name}`);
 
     // Build login link
-    const siteUrl = Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", "") || "https://your-app.com";
+    const siteUrl = "https://purelife.info.pl";
     const loginLink = `${siteUrl}/auth`;
 
     // Map role to Polish display name
