@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { PrivateChatThread, PrivateChatMessage, CreateThreadData } from '@/types/privateChat';
+import { PrivateChatThread, PrivateChatMessage, CreateThreadData, CreateGroupThreadData, PrivateChatParticipant } from '@/types/privateChat';
 import { useToast } from '@/hooks/use-toast';
 
 export const usePrivateChat = () => {
@@ -21,21 +21,54 @@ export const usePrivateChat = () => {
     try {
       setLoading(true);
       
-      // Fetch threads where user is initiator or participant
+      // Fetch threads where user is initiator, participant, or in participants table
       const { data: threadsData, error } = await supabase
         .from('private_chat_threads')
         .select('*')
-        .or(`initiator_id.eq.${user.id},participant_id.eq.${user.id}`)
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
 
+      // Filter threads where user is involved
+      const userThreadIds = new Set<string>();
+      
+      // Check participant table for group memberships
+      const { data: participantData } = await supabase
+        .from('private_chat_participants')
+        .select('thread_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      participantData?.forEach(p => userThreadIds.add(p.thread_id));
+
+      // Filter threads
+      const filteredThreads = (threadsData || []).filter(t => 
+        t.initiator_id === user.id || 
+        t.participant_id === user.id ||
+        userThreadIds.has(t.id)
+      );
+
       // Fetch profile data for all participants
       const userIds = new Set<string>();
-      threadsData?.forEach(t => {
+      filteredThreads.forEach(t => {
         userIds.add(t.initiator_id);
-        userIds.add(t.participant_id);
+        if (t.participant_id) userIds.add(t.participant_id);
       });
+
+      // Fetch group participants
+      const groupThreadIds = filteredThreads.filter(t => t.is_group).map(t => t.id);
+      let groupParticipants: PrivateChatParticipant[] = [];
+      
+      if (groupThreadIds.length > 0) {
+        const { data: groupParticipantsData } = await supabase
+          .from('private_chat_participants')
+          .select('*')
+          .in('thread_id', groupThreadIds)
+          .eq('is_active', true);
+        
+        groupParticipantsData?.forEach(p => userIds.add(p.user_id));
+        groupParticipants = groupParticipantsData || [];
+      }
 
       const { data: profiles } = await supabase
         .from('profiles')
@@ -45,7 +78,7 @@ export const usePrivateChat = () => {
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
       // Fetch unread counts
-      const threadIds = threadsData?.map(t => t.id) || [];
+      const threadIds = filteredThreads.map(t => t.id);
       const { data: unreadData } = await supabase
         .from('private_chat_messages')
         .select('thread_id')
@@ -58,13 +91,23 @@ export const usePrivateChat = () => {
         unreadCounts.set(m.thread_id, (unreadCounts.get(m.thread_id) || 0) + 1);
       });
 
-      const enrichedThreads: PrivateChatThread[] = (threadsData || []).map(t => ({
-        ...t,
-        status: t.status as 'active' | 'closed' | 'archived',
-        initiator: profileMap.get(t.initiator_id),
-        participant: profileMap.get(t.participant_id),
-        unread_count: unreadCounts.get(t.id) || 0,
-      }));
+      const enrichedThreads: PrivateChatThread[] = filteredThreads.map(t => {
+        const threadParticipants = groupParticipants
+          .filter(p => p.thread_id === t.id)
+          .map(p => ({
+            ...p,
+            profile: profileMap.get(p.user_id),
+          }));
+
+        return {
+          ...t,
+          status: t.status as 'active' | 'closed' | 'archived',
+          initiator: profileMap.get(t.initiator_id),
+          participant: t.participant_id ? profileMap.get(t.participant_id) : undefined,
+          participants: t.is_group ? threadParticipants : undefined,
+          unread_count: unreadCounts.get(t.id) || 0,
+        };
+      });
 
       setThreads(enrichedThreads);
       setUnreadCount(unreadData?.length || 0);
@@ -112,7 +155,7 @@ export const usePrivateChat = () => {
     }
   }, [user]);
 
-  // Create new thread or get existing one
+  // Create new thread or get existing one (for 1:1 chats)
   const createOrGetThread = useCallback(async (data: CreateThreadData): Promise<PrivateChatThread | null> => {
     if (!user) return null;
 
@@ -121,6 +164,7 @@ export const usePrivateChat = () => {
       const { data: existingThread } = await supabase
         .from('private_chat_threads')
         .select('*')
+        .eq('is_group', false)
         .or(
           `and(initiator_id.eq.${user.id},participant_id.eq.${data.participant_id}),and(initiator_id.eq.${data.participant_id},participant_id.eq.${user.id})`
         )
@@ -158,6 +202,7 @@ export const usePrivateChat = () => {
           initiator_id: user.id,
           participant_id: data.participant_id,
           subject: data.subject || null,
+          is_group: false,
         })
         .select()
         .single();
@@ -202,6 +247,96 @@ export const usePrivateChat = () => {
     }
   }, [user, fetchThreads, threads, toast]);
 
+  // Create group thread with multiple participants
+  const createGroupThread = useCallback(async (data: CreateGroupThreadData): Promise<PrivateChatThread | null> => {
+    if (!user || data.participant_ids.length < 1) return null;
+
+    try {
+      // Create new group thread
+      const { data: newThread, error: threadError } = await supabase
+        .from('private_chat_threads')
+        .insert({
+          initiator_id: user.id,
+          participant_id: null, // Group chats don't use this field
+          subject: data.subject,
+          is_group: true,
+        })
+        .select()
+        .single();
+
+      if (threadError) throw threadError;
+
+      // Add all participants to the participants table
+      const participantInserts = data.participant_ids.map(userId => ({
+        thread_id: newThread.id,
+        user_id: userId,
+      }));
+
+      const { error: participantsError } = await supabase
+        .from('private_chat_participants')
+        .insert(participantInserts);
+
+      if (participantsError) throw participantsError;
+
+      // Send initial message if provided
+      if (data.initial_message) {
+        await sendMessage(newThread.id, data.initial_message);
+      }
+
+      // Fetch sender profile for notification
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email')
+        .eq('user_id', user.id)
+        .single();
+
+      let senderName = 'Administrator';
+      if (senderProfile) {
+        const fullName = `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim();
+        senderName = fullName || senderProfile.email || 'Administrator';
+      }
+
+      // Send notifications to all participants
+      const notifications = data.participant_ids.map(participantId => ({
+        user_id: participantId,
+        notification_type: 'private_chat',
+        source_module: 'private_chat',
+        title: 'Nowy czat grupowy',
+        message: `${senderName} dodał Cię do czatu grupowego: ${data.subject}`,
+        link: '/my-account?tab=private-chats',
+        sender_id: user.id,
+        metadata: {
+          thread_id: newThread.id,
+          is_group: true,
+          participant_count: data.participant_ids.length,
+        }
+      }));
+
+      await supabase.from('user_notifications').insert(notifications);
+
+      await fetchThreads();
+      
+      toast({
+        title: 'Czat grupowy utworzony',
+        description: `Utworzono czat z ${data.participant_ids.length} uczestnikami.`,
+      });
+
+      return {
+        ...newThread,
+        status: newThread.status as 'active' | 'closed' | 'archived',
+        is_group: true,
+      };
+    } catch (error) {
+      console.error('Error creating group thread:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się utworzyć czatu grupowego.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  }, [user, fetchThreads, toast]);
+
   // Send message
   const sendMessage = useCallback(async (threadId: string, content: string): Promise<boolean> => {
     if (!user || !content.trim()) return false;
@@ -217,27 +352,9 @@ export const usePrivateChat = () => {
 
       if (error) throw error;
 
-      // Find thread to get recipient id
+      // Find thread to get recipients
       const thread = threads.find(t => t.id === threadId);
       if (thread) {
-        const recipientId = thread.initiator_id === user.id 
-          ? thread.participant_id 
-          : thread.initiator_id;
-
-        // Check if recipient is admin to determine correct notification link
-        const { data: recipientRole } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', recipientId)
-          .single();
-
-        const isRecipientAdmin = recipientRole?.role === 'admin';
-        
-        // Set appropriate link based on recipient role
-        const notificationLink = isRecipientAdmin 
-          ? '/admin?tab=pure-contacts' // Admin widzi czaty w module Pure - Kontakty
-          : '/my-account?tab=private-chats'; // Specjalista widzi w Moim koncie
-
         // Fetch sender profile for notification title (with email fallback)
         const { data: senderProfile } = await supabase
           .from('profiles')
@@ -245,28 +362,65 @@ export const usePrivateChat = () => {
           .eq('user_id', user.id)
           .single();
 
-        // Use name if available, otherwise fall back to email
         let senderName = 'Nieznany użytkownik';
         if (senderProfile) {
           const fullName = `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim();
           senderName = fullName || senderProfile.email || 'Nieznany użytkownik';
         }
 
-        // Send notification to recipient about new message
-        await supabase.from('user_notifications').insert({
-          user_id: recipientId,
-          notification_type: 'private_chat_message',
-          source_module: 'private_chat',
-          title: `Nowa wiadomość od: ${senderName}`,
-          message: content.length > 100 ? content.substring(0, 100) + '...' : content,
-          link: notificationLink,
-          sender_id: user.id,
-          metadata: {
-            thread_id: threadId,
-            sender_name: senderName,
-            thread_subject: thread.subject
+        // Get all recipients (different logic for group vs 1:1)
+        const recipientIds: string[] = [];
+        
+        if (thread.is_group && thread.participants) {
+          // Group chat: notify all participants except sender
+          thread.participants
+            .filter(p => p.user_id !== user.id)
+            .forEach(p => recipientIds.push(p.user_id));
+          
+          // Also notify initiator if not sender
+          if (thread.initiator_id !== user.id) {
+            recipientIds.push(thread.initiator_id);
           }
-        });
+        } else {
+          // 1:1 chat: notify the other person
+          const recipientId = thread.initiator_id === user.id 
+            ? thread.participant_id 
+            : thread.initiator_id;
+          if (recipientId) recipientIds.push(recipientId);
+        }
+
+        // Send notifications to all recipients
+        for (const recipientId of recipientIds) {
+          // Check if recipient is admin to determine correct notification link
+          const { data: recipientRole } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', recipientId)
+            .single();
+
+          const isRecipientAdmin = recipientRole?.role === 'admin';
+          const notificationLink = isRecipientAdmin 
+            ? '/admin?tab=pure-contacts'
+            : '/my-account?tab=private-chats';
+
+          await supabase.from('user_notifications').insert({
+            user_id: recipientId,
+            notification_type: 'private_chat_message',
+            source_module: 'private_chat',
+            title: thread.is_group 
+              ? `Nowa wiadomość w grupie: ${thread.subject || 'Czat grupowy'}`
+              : `Nowa wiadomość od: ${senderName}`,
+            message: content.length > 100 ? content.substring(0, 100) + '...' : content,
+            link: notificationLink,
+            sender_id: user.id,
+            metadata: {
+              thread_id: threadId,
+              sender_name: senderName,
+              thread_subject: thread.subject,
+              is_group: thread.is_group || false,
+            }
+          });
+        }
       }
 
       await fetchMessages(threadId);
@@ -394,11 +548,33 @@ export const usePrivateChat = () => {
     }
   }, [fetchMessages, markAsRead]);
 
-  // Get the other participant (not the current user)
+  // Get the other participant (not the current user) - for 1:1 chats
   const getOtherParticipant = useCallback((thread: PrivateChatThread) => {
     if (!user) return thread.participant;
     return thread.initiator_id === user.id ? thread.participant : thread.initiator;
   }, [user]);
+
+  // Get display name for thread (handles both 1:1 and group)
+  const getThreadDisplayName = useCallback((thread: PrivateChatThread): string => {
+    if (thread.is_group) {
+      if (thread.participants && thread.participants.length > 0) {
+        const names = thread.participants
+          .slice(0, 3)
+          .map(p => p.profile?.first_name || p.profile?.email || 'Uczestnik')
+          .join(', ');
+        if (thread.participants.length > 3) {
+          return `${names} +${thread.participants.length - 3}`;
+        }
+        return names;
+      }
+      return thread.subject || 'Czat grupowy';
+    }
+    
+    const other = getOtherParticipant(thread);
+    return other 
+      ? `${other.first_name || ''} ${other.last_name || ''}`.trim() || other.email 
+      : 'Nieznany uczestnik';
+  }, [getOtherParticipant]);
 
   // Initial fetch
   useEffect(() => {
@@ -459,11 +635,13 @@ export const usePrivateChat = () => {
     fetchThreads,
     fetchMessages,
     createOrGetThread,
+    createGroupThread,
     sendMessage,
     markAsRead,
     updateThreadStatus,
     deleteThread,
     selectThread,
     getOtherParticipant,
+    getThreadDisplayName,
   };
 };

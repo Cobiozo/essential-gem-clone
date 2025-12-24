@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MessageSquare, User, Clock, X, RefreshCw, Archive, Trash2 } from 'lucide-react';
+import { MessageSquare, User, Users, Clock, X, RefreshCw, Archive, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +24,7 @@ interface PrivateChatThreadListProps {
   onUpdateStatus: (threadId: string, status: 'active' | 'closed' | 'archived') => void;
   onDeleteThread: (threadId: string) => void;
   getOtherParticipant: (thread: PrivateChatThread) => PrivateChatThread['participant'];
+  getThreadDisplayName?: (thread: PrivateChatThread) => string;
 }
 
 const ThreadStatusBadge = ({ status }: { status: string }) => {
@@ -50,6 +51,7 @@ export const PrivateChatThreadList = ({
   onUpdateStatus,
   onDeleteThread,
   getOtherParticipant,
+  getThreadDisplayName,
 }: PrivateChatThreadListProps) => {
   const { user } = useAuth();
 
@@ -81,17 +83,42 @@ export const PrivateChatThreadList = ({
     );
   }
 
+  const getDisplayName = (thread: PrivateChatThread): string => {
+    if (getThreadDisplayName) {
+      return getThreadDisplayName(thread);
+    }
+    
+    // Fallback for group threads
+    if (thread.is_group) {
+      if (thread.participants && thread.participants.length > 0) {
+        const names = thread.participants
+          .slice(0, 3)
+          .map(p => p.profile?.first_name || p.profile?.email || 'Uczestnik')
+          .join(', ');
+        if (thread.participants.length > 3) {
+          return `${names} +${thread.participants.length - 3}`;
+        }
+        return names;
+      }
+      return thread.subject || 'Czat grupowy';
+    }
+    
+    // Fallback for 1:1 threads
+    const otherParticipant = getOtherParticipant(thread);
+    return otherParticipant
+      ? `${otherParticipant.first_name || ''} ${otherParticipant.last_name || ''}`.trim() || otherParticipant.email
+      : 'Nieznany uczestnik';
+  };
+
   return (
     <ScrollArea className="h-[400px]">
       <div className="space-y-2 p-2">
         {threads.map((thread) => {
-          const otherParticipant = getOtherParticipant(thread);
-          const participantName = otherParticipant
-            ? `${otherParticipant.first_name || ''} ${otherParticipant.last_name || ''}`.trim() || otherParticipant.email
-            : 'Nieznany uczestnik';
-
+          const displayName = getDisplayName(thread);
           const isSelected = selectedThread?.id === thread.id;
           const isInitiator = thread.initiator_id === user?.id;
+          const isGroup = thread.is_group;
+          const participantCount = thread.participants?.length || 0;
 
           return (
             <div
@@ -104,8 +131,14 @@ export const PrivateChatThreadList = ({
               onClick={() => onSelectThread(thread)}
             >
               <div className="relative">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-5 w-5 text-primary" />
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                  isGroup ? 'bg-secondary/20' : 'bg-primary/10'
+                }`}>
+                  {isGroup ? (
+                    <Users className="h-5 w-5 text-secondary-foreground" />
+                  ) : (
+                    <User className="h-5 w-5 text-primary" />
+                  )}
                 </div>
                 {thread.unread_count && thread.unread_count > 0 ? (
                   <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
@@ -115,9 +148,15 @@ export const PrivateChatThreadList = ({
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium truncate">{participantName}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-medium truncate">{displayName}</p>
                   <ThreadStatusBadge status={thread.status} />
+                  {isGroup && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Users className="h-3 w-3 mr-1" />
+                      {participantCount}
+                    </Badge>
+                  )}
                 </div>
                 {thread.subject && (
                   <p className="text-sm text-muted-foreground truncate">{thread.subject}</p>
