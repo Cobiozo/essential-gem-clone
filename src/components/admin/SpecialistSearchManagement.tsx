@@ -9,11 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Settings, Users, Save, Loader2, Eye, EyeOff, Mail, Phone, MapPin, MessageSquare, Info, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PrivateChatDialog } from '@/components/private-chat/PrivateChatDialog';
 import { PrivateChatWidget } from '@/components/private-chat/PrivateChatWidget';
+import { MultiSelectChatDialog } from '@/components/private-chat/MultiSelectChatDialog';
 
 interface SearchSettings {
   id: string;
@@ -67,10 +69,28 @@ export const SpecialistSearchManagement: React.FC = () => {
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistProfile | null>(null);
   const [chatDialogOpen, setChatDialogOpen] = useState(false);
   const [chatSpecialist, setChatSpecialist] = useState<SpecialistProfile | null>(null);
+  const [selectedSpecialistIds, setSelectedSpecialistIds] = useState<string[]>([]);
+  const [groupChatDialogOpen, setGroupChatDialogOpen] = useState(false);
 
   const handleOpenChat = (specialist: SpecialistProfile) => {
     setChatSpecialist(specialist);
     setChatDialogOpen(true);
+  };
+
+  const toggleSpecialistSelection = (userId: string) => {
+    setSelectedSpecialistIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const selectAllSpecialists = () => {
+    setSelectedSpecialistIds(specialists.map(s => s.user_id));
+  };
+
+  const deselectAllSpecialists = () => {
+    setSelectedSpecialistIds([]);
   };
 
   useEffect(() => {
@@ -557,9 +577,39 @@ export const SpecialistSearchManagement: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Group chat action bar */}
+              {selectedSpecialistIds.length > 0 && (
+                <div className="mb-4 p-3 bg-primary/10 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{selectedSpecialistIds.length} wybranych</Badge>
+                    <Button variant="ghost" size="sm" onClick={deselectAllSpecialists}>
+                      Odznacz wszystkich
+                    </Button>
+                  </div>
+                  <Button onClick={() => setGroupChatDialogOpen(true)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Utwórz czat grupowy
+                  </Button>
+                </div>
+              )}
+              
+              {selectedSpecialistIds.length === 0 && specialists.length > 0 && (
+                <div className="mb-4">
+                  <Button variant="outline" size="sm" onClick={selectAllSpecialists}>
+                    Zaznacz wszystkich ({specialists.length})
+                  </Button>
+                </div>
+              )}
+
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={selectedSpecialistIds.length === specialists.length && specialists.length > 0}
+                        onCheckedChange={(checked) => checked ? selectAllSpecialists() : deselectAllSpecialists()}
+                      />
+                    </TableHead>
                     <TableHead>Specjalista</TableHead>
                     <TableHead>Specjalizacja</TableHead>
                     <TableHead>Lokalizacja</TableHead>
@@ -571,6 +621,13 @@ export const SpecialistSearchManagement: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {specialists.map((specialist) => (
+                    <TableRow key={specialist.user_id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedSpecialistIds.includes(specialist.user_id)}
+                          onCheckedChange={() => toggleSpecialistSelection(specialist.user_id)}
+                        />
+                      </TableCell>
                     <TableRow key={specialist.user_id}>
                       <TableCell>
                         <Dialog>
@@ -751,7 +808,7 @@ export const SpecialistSearchManagement: React.FC = () => {
                   ))}
                   {specialists.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         Brak specjalistów w systemie
                       </TableCell>
                     </TableRow>
@@ -793,6 +850,23 @@ export const SpecialistSearchManagement: React.FC = () => {
         } : null}
         onThreadCreated={() => {
           toast.success('Czat został utworzony');
+        }}
+      />
+
+      <MultiSelectChatDialog
+        open={groupChatDialogOpen}
+        onOpenChange={setGroupChatDialogOpen}
+        specialists={specialists.map(s => ({
+          user_id: s.user_id,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          email: s.email,
+          specialization: s.specialization,
+        }))}
+        selectedIds={selectedSpecialistIds}
+        onThreadCreated={() => {
+          toast.success('Czat grupowy został utworzony');
+          setSelectedSpecialistIds([]);
         }}
       />
     </div>

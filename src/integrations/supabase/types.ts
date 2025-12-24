@@ -2192,12 +2192,45 @@ export type Database = {
           },
         ]
       }
+      private_chat_participants: {
+        Row: {
+          id: string
+          is_active: boolean | null
+          joined_at: string | null
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string | null
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string | null
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_chat_participants_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "private_chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       private_chat_threads: {
         Row: {
           closed_at: string | null
           created_at: string | null
           id: string
           initiator_id: string
+          is_group: boolean | null
           last_message_at: string | null
           participant_id: string
           status: string
@@ -2209,6 +2242,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           initiator_id: string
+          is_group?: boolean | null
           last_message_at?: string | null
           participant_id: string
           status?: string
@@ -2220,6 +2254,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           initiator_id?: string
+          is_group?: boolean | null
           last_message_at?: string | null
           participant_id?: string
           status?: string

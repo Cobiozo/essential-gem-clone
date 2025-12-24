@@ -1,9 +1,25 @@
+export interface PrivateChatParticipant {
+  id: string;
+  thread_id: string;
+  user_id: string;
+  joined_at: string;
+  is_active: boolean;
+  // Joined data
+  profile?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    specialization?: string | null;
+  };
+}
+
 export interface PrivateChatThread {
   id: string;
   initiator_id: string;
-  participant_id: string;
+  participant_id: string | null;
   status: 'active' | 'closed' | 'archived';
   subject: string | null;
+  is_group?: boolean;
   created_at: string;
   updated_at: string;
   closed_at: string | null;
@@ -21,6 +37,8 @@ export interface PrivateChatThread {
     email: string;
     specialization?: string | null;
   };
+  // For group chats
+  participants?: PrivateChatParticipant[];
   unread_count?: number;
 }
 
@@ -43,5 +61,11 @@ export interface PrivateChatMessage {
 export interface CreateThreadData {
   participant_id: string;
   subject?: string;
+  initial_message?: string;
+}
+
+export interface CreateGroupThreadData {
+  participant_ids: string[];
+  subject: string;
   initial_message?: string;
 }
