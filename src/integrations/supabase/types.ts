@@ -2232,7 +2232,7 @@ export type Database = {
           initiator_id: string
           is_group: boolean | null
           last_message_at: string | null
-          participant_id: string
+          participant_id: string | null
           status: string
           subject: string | null
           updated_at: string | null
@@ -2244,7 +2244,7 @@ export type Database = {
           initiator_id: string
           is_group?: boolean | null
           last_message_at?: string | null
-          participant_id: string
+          participant_id?: string | null
           status?: string
           subject?: string | null
           updated_at?: string | null
@@ -2256,7 +2256,7 @@ export type Database = {
           initiator_id?: string
           is_group?: boolean | null
           last_message_at?: string | null
-          participant_id?: string
+          participant_id?: string | null
           status?: string
           subject?: string | null
           updated_at?: string | null
