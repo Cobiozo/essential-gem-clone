@@ -13,6 +13,7 @@ import { Search, Settings, Users, Save, Loader2, Eye, EyeOff, Mail, Phone, MapPi
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PrivateChatDialog } from '@/components/private-chat/PrivateChatDialog';
+import { PrivateChatWidget } from '@/components/private-chat/PrivateChatWidget';
 
 interface SearchSettings {
   id: string;
@@ -219,6 +220,10 @@ export const SpecialistSearchManagement: React.FC = () => {
           <TabsTrigger value="specialists" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
             Specjaliści ({specialists.length})
+          </TabsTrigger>
+          <TabsTrigger value="chats" className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            Czaty prywatne
           </TabsTrigger>
         </TabsList>
 
@@ -753,6 +758,24 @@ export const SpecialistSearchManagement: React.FC = () => {
                   )}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Czaty prywatne - pełny widok z listą wątków */}
+        <TabsContent value="chats" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Czaty prywatne ze specjalistami
+              </CardTitle>
+              <CardDescription>
+                Zarządzaj konwersacjami ze specjalistami. Możesz zamykać, archiwizować lub wznawiać wątki.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PrivateChatWidget />
             </CardContent>
           </Card>
         </TabsContent>
