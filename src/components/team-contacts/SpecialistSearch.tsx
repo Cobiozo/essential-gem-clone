@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/use-debounce';
-import { SendMessageDialog } from '@/components/specialist-correspondence/SendMessageDialog';
+import { PrivateChatDialog } from '@/components/private-chat';
 
 interface Specialist {
   user_id: string;
@@ -36,14 +36,14 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [chatDialogOpen, setChatDialogOpen] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<Specialist | null>(null);
 
   const debouncedQuery = useDebounce(query, 500);
 
-  const handleOpenMessageDialog = (specialist: Specialist) => {
+  const handleOpenChat = (specialist: Specialist) => {
     setSelectedSpecialist(specialist);
-    setMessageDialogOpen(true);
+    setChatDialogOpen(true);
   };
 
   const searchSpecialists = useCallback(async (searchQuery: string) => {
@@ -191,11 +191,11 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
                       className="mt-3"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenMessageDialog(specialist);
+                        handleOpenChat(specialist);
                       }}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      Wyślij wiadomość
+                      Otwórz czat
                     </Button>
                   )}
                 </div>
@@ -205,9 +205,9 @@ export const SpecialistSearch: React.FC<SpecialistSearchProps> = ({
         ))}
       </div>
 
-      <SendMessageDialog
-        open={messageDialogOpen}
-        onOpenChange={setMessageDialogOpen}
+      <PrivateChatDialog
+        open={chatDialogOpen}
+        onOpenChange={setChatDialogOpen}
         specialist={selectedSpecialist}
       />
     </div>

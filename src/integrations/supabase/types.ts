@@ -2154,6 +2154,80 @@ export type Database = {
         }
         Relationships: []
       }
+      private_chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          read_at: string | null
+          sender_id: string
+          thread_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          read_at?: string | null
+          sender_id: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          read_at?: string | null
+          sender_id?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_chat_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "private_chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_chat_threads: {
+        Row: {
+          closed_at: string | null
+          created_at: string | null
+          id: string
+          initiator_id: string
+          last_message_at: string | null
+          participant_id: string
+          status: string
+          subject: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          initiator_id: string
+          last_message_at?: string | null
+          participant_id: string
+          status?: string
+          subject?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          initiator_id?: string
+          last_message_at?: string | null
+          participant_id?: string
+          status?: string
+          subject?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           admin_approved: boolean | null
