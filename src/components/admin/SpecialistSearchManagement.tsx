@@ -12,6 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Search, Settings, Users, Save, Loader2, Eye, EyeOff, Mail, Phone, MapPin, MessageSquare, Info, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { PrivateChatDialog } from '@/components/private-chat/PrivateChatDialog';
 
 interface SearchSettings {
   id: string;
@@ -63,6 +64,13 @@ export const SpecialistSearchManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistProfile | null>(null);
+  const [chatDialogOpen, setChatDialogOpen] = useState(false);
+  const [chatSpecialist, setChatSpecialist] = useState<SpecialistProfile | null>(null);
+
+  const handleOpenChat = (specialist: SpecialistProfile) => {
+    setChatSpecialist(specialist);
+    setChatDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchData();
@@ -552,7 +560,8 @@ export const SpecialistSearchManagement: React.FC = () => {
                     <TableHead>Lokalizacja</TableHead>
                     <TableHead>Kontakt</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Widoczność</TableHead>
+                    <TableHead>Widoczność</TableHead>
+                    <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -652,6 +661,16 @@ export const SpecialistSearchManagement: React.FC = () => {
                                     }}
                                   />
                                 </div>
+
+                                <div className="border-t pt-4">
+                                  <Button 
+                                    onClick={() => handleOpenChat(selectedSpecialist)}
+                                    className="w-full"
+                                  >
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    Otwórz czat ze specjalistą
+                                  </Button>
+                                </div>
                               </div>
                             )}
                           </DialogContent>
@@ -705,7 +724,7 @@ export const SpecialistSearchManagement: React.FC = () => {
                           )}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         <Switch
                           checked={specialist.is_searchable ?? false}
                           onCheckedChange={(checked) => 
@@ -713,11 +732,21 @@ export const SpecialistSearchManagement: React.FC = () => {
                           }
                         />
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleOpenChat(specialist)}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          Czat
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {specialists.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         Brak specjalistów w systemie
                       </TableCell>
                     </TableRow>
@@ -728,6 +757,21 @@ export const SpecialistSearchManagement: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <PrivateChatDialog
+        open={chatDialogOpen}
+        onOpenChange={setChatDialogOpen}
+        specialist={chatSpecialist ? {
+          user_id: chatSpecialist.user_id,
+          first_name: chatSpecialist.first_name,
+          last_name: chatSpecialist.last_name,
+          email: chatSpecialist.email,
+          specialization: chatSpecialist.specialization,
+        } : null}
+        onThreadCreated={() => {
+          toast.success('Czat został utworzony');
+        }}
+      />
     </div>
   );
 };
