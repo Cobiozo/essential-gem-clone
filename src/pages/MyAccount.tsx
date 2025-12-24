@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -23,6 +23,7 @@ import { UserNotificationCenter } from '@/components/notifications/UserNotificat
 import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionForm';
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
 import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
+import { PrivateChatWidget } from '@/components/private-chat';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
@@ -156,7 +157,8 @@ const MyAccount = () => {
   const visibleTabs = useMemo(() => ({
     profile: true, // Always visible
     teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists), // Partners/specialists always, clients if specialist search enabled
-    correspondence: isClient && !canSearchSpecialists, // Only for clients when specialist search is disabled
+    privateChats: isSpecjalista, // Only for specialists - to receive messages from admins
+    correspondence: false, // Disabled - replaced by private chats
     notifications: true, // Always visible
     preferences: dailySignalVisible, // Based on daily_signal_settings
     aiCompass: aiCompassVisible, // Based on ai_compass_settings
@@ -469,6 +471,12 @@ const MyAccount = () => {
                 <TabsTrigger value="team-contacts" disabled={mustCompleteProfile}>
                   <Users className="w-4 h-4 mr-2" />
                   Pure – Kontakty
+                </TabsTrigger>
+              )}
+              {visibleTabs.privateChats && (
+                <TabsTrigger value="private-chats" disabled={mustCompleteProfile}>
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Czaty prywatne
                 </TabsTrigger>
               )}
               {visibleTabs.correspondence && (
@@ -785,6 +793,25 @@ const MyAccount = () => {
             {visibleTabs.teamContacts && (
               <TabsContent value="team-contacts" className="mt-6">
                 <TeamContactsTab />
+              </TabsContent>
+            )}
+
+            {visibleTabs.privateChats && (
+              <TabsContent value="private-chats" className="mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5" />
+                      Czaty prywatne
+                    </CardTitle>
+                    <CardDescription>
+                      Wiadomości od administratorów
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <PrivateChatWidget />
+                  </CardContent>
+                </Card>
               </TabsContent>
             )}
 
