@@ -238,16 +238,19 @@ export const usePrivateChat = () => {
           ? '/admin?tab=pure-contacts' // Admin widzi czaty w module Pure - Kontakty
           : '/my-account?tab=private-chats'; // Specjalista widzi w Moim koncie
 
-        // Fetch sender profile for notification title
+        // Fetch sender profile for notification title (with email fallback)
         const { data: senderProfile } = await supabase
           .from('profiles')
-          .select('first_name, last_name')
+          .select('first_name, last_name, email')
           .eq('user_id', user.id)
           .single();
 
-        const senderName = senderProfile 
-          ? `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() 
-          : 'Nieznany użytkownik';
+        // Use name if available, otherwise fall back to email
+        let senderName = 'Nieznany użytkownik';
+        if (senderProfile) {
+          const fullName = `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim();
+          senderName = fullName || senderProfile.email || 'Nieznany użytkownik';
+        }
 
         // Send notification to recipient about new message
         await supabase.from('user_notifications').insert({
