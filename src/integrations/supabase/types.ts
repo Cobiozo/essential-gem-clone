@@ -3439,6 +3439,7 @@ export type Database = {
         Args: { new_role: string; user_id_param: string }
         Returns: boolean
       }
+      is_thread_participant: { Args: { thread_uuid: string }; Returns: boolean }
       search_guardians: {
         Args: { search_query: string }
         Returns: {
