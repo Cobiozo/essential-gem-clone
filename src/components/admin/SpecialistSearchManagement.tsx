@@ -628,7 +628,6 @@ export const SpecialistSearchManagement: React.FC = () => {
                           onCheckedChange={() => toggleSpecialistSelection(specialist.user_id)}
                         />
                       </TableCell>
-                    <TableRow key={specialist.user_id}>
                       <TableCell>
                         <Dialog>
                           <DialogTrigger asChild>
