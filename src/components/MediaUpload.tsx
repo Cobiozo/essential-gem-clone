@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { Upload, X, Image, Video, Loader2, FileText, Music, File, FolderOpen, Li
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SecureMedia } from './SecureMedia';
+import { useImageCompressionWorker } from '@/hooks/useImageCompressionWorker';
 
 interface MediaUploadProps {
   onMediaUploaded: (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string) => void;
@@ -38,84 +39,23 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const { toast } = useToast();
 
-  const compressFile = async (file: File): Promise<File> => {
-    const fileSizeMB = file.size / (1024 * 1024);
-    
-    // Only compress images over 49MB
-    if (fileSizeMB <= 49 || !file.type.startsWith('image/')) {
-      return file; // Return original file without any modifications
-    }
-
-    showCompressionProgress("Rozpoczynanie kompresji obrazu...");
-    return compressImage(file);
-  };
-
-  const compressImage = async (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = document.createElement('img');
-      
-      img.onload = () => {
-        const fileSizeMB = file.size / (1024 * 1024);
-        let scaleFactor = 0.8; // Default compression
-        let quality = 0.8;
-        
-        // Aggressive compression for very large files
-        if (fileSizeMB > 100) {
-          scaleFactor = 0.5;
-          quality = 0.6;
-        } else if (fileSizeMB > 75) {
-          scaleFactor = 0.6;
-          quality = 0.7;
-        } else if (fileSizeMB > 50) {
-          scaleFactor = 0.7;
-          quality = 0.75;
-        }
-
-        canvas.width = img.width * scaleFactor;
-        canvas.height = img.height * scaleFactor;
-        
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }
-        
-        canvas.toBlob(async (blob) => {
-          if (blob) {
-            try {
-              // Convert Blob to File properly
-              const buffer = await blob.arrayBuffer();
-              const compressedFile = new (File as any)(
-                [buffer], 
-                file.name, 
-                { type: blob.type }
-              );
-              
-              const newSizeMB = blob.size / (1024 * 1024);
-              showCompressionProgress(`Kompresja zakończona: ${Math.round(fileSizeMB)}MB → ${Math.round(newSizeMB)}MB`);
-              resolve(compressedFile);
-            } catch (e) {
-              console.error('Blob to File conversion failed:', e);
-              resolve(file); // Fallback to original
-            }
-          } else {
-            resolve(file); // Fallback to original
-          }
-        }, file.type, quality);
-      };
-      
-      img.onerror = () => resolve(file);
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  const showCompressionProgress = (message: string) => {
+  // Use Web Worker for image compression with automatic fallback
+  const showCompressionProgress = useCallback((message: string) => {
     toast({
       title: "Kompresja pliku",
       description: message,
       duration: 3000,
     });
-  };
+  }, [toast]);
+
+  const { compressImage, isSupported: isWorkerSupported } = useImageCompressionWorker(showCompressionProgress);
+
+  // Log worker support status (dev only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[MediaUpload] Web Worker compression supported:', isWorkerSupported);
+    }
+  }, [isWorkerSupported]);
 
   const uploadMedia = async (originalFile: File) => {
     if (!originalFile) return;
@@ -124,10 +64,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     const isVideo = originalFile.type.startsWith('video/');
     let file = originalFile;
     
-    // Only compress large images
+    // Only compress large images using Web Worker (with automatic fallback)
     if (!isVideo && originalFile.size > 49 * 1024 * 1024) {
       try {
-        file = await compressFile(originalFile);
+        file = await compressImage(originalFile);
       } catch (error) {
         console.error('Compression error:', error);
         toast({
