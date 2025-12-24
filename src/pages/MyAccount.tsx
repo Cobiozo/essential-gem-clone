@@ -24,6 +24,7 @@ import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionFor
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
 import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -90,6 +91,7 @@ const MyAccount = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { isComplete } = useProfileCompletion();
+  const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -150,15 +152,16 @@ const MyAccount = () => {
   const mustCompleteProfile = forceComplete || (!isComplete && profileNotCompleted);
   
   // Visible tabs based on existing visibility settings (no new feature_visibility table)
+  // For clients: show teamContacts (Pure-Kontakty) if canSearchSpecialists, otherwise show correspondence
   const visibleTabs = useMemo(() => ({
     profile: true, // Always visible
-    teamContacts: isPartner || isSpecjalista, // Based on role
-    correspondence: isClient, // Only for clients
+    teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists), // Partners/specialists always, clients if specialist search enabled
+    correspondence: isClient && !canSearchSpecialists, // Only for clients when specialist search is disabled
     notifications: true, // Always visible
     preferences: dailySignalVisible, // Based on daily_signal_settings
     aiCompass: aiCompassVisible, // Based on ai_compass_settings
     security: true, // Always visible
-  }), [isPartner, isSpecjalista, isClient, dailySignalVisible, aiCompassVisible]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;

@@ -50,9 +50,12 @@ interface PendingApproval {
 }
 
 export const TeamContactsTab: React.FC = () => {
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
+  
+  // Clients only see the specialist search tab, not private/team contacts
+  const clientOnlyView = isClient && !isPartner && !isSpecjalista && !isAdmin;
   const { approveUser, rejectUser, loading: approvalLoading } = useGuardianApproval();
   
   const [showForm, setShowForm] = useState(false);
@@ -60,7 +63,8 @@ export const TeamContactsTab: React.FC = () => {
   const [editingContact, setEditingContact] = useState<TeamContact | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [viewMode, setViewMode] = useState<'accordion' | 'table' | 'map'>('accordion');
-  const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search'>('private');
+  // For clients with specialist search access, default to search tab
+  const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -160,25 +164,32 @@ export const TeamContactsTab: React.FC = () => {
   const isTeamMemberTab = activeTab === 'team';
   const isPrivateTab = activeTab === 'private';
 
+  // Calculate visible tabs count for grid
+  const visibleTabsCount = (clientOnlyView ? 0 : 2) + (canSearchSpecialists ? 1 : 0);
+
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'team' | 'search')} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
-          <TabsTrigger value="private" className="flex items-center gap-2">
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">Kontakty prywatne</span>
-            <span className="sm:hidden">Prywatne</span>
-          </TabsTrigger>
-          <TabsTrigger value="team" className="flex items-center gap-2 relative">
-            <UsersRound className="w-4 h-4" />
-            <span className="hidden sm:inline">Członkowie zespołu</span>
-            <span className="sm:hidden">Zespół</span>
-            {pendingApprovals.length > 0 && (
-              <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                {pendingApprovals.length}
-              </Badge>
-            )}
-          </TabsTrigger>
+        <TabsList className={`grid w-full lg:w-auto lg:inline-flex`} style={{ gridTemplateColumns: `repeat(${visibleTabsCount}, minmax(0, 1fr))` }}>
+          {!clientOnlyView && (
+            <TabsTrigger value="private" className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">Kontakty prywatne</span>
+              <span className="sm:hidden">Prywatne</span>
+            </TabsTrigger>
+          )}
+          {!clientOnlyView && (
+            <TabsTrigger value="team" className="flex items-center gap-2 relative">
+              <UsersRound className="w-4 h-4" />
+              <span className="hidden sm:inline">Członkowie zespołu</span>
+              <span className="sm:hidden">Zespół</span>
+              {pendingApprovals.length > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {pendingApprovals.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
           {canSearchSpecialists && (
             <TabsTrigger value="search" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
