@@ -273,17 +273,17 @@ async function processI18nJob(supabase: any, job: any, lovableApiKey: string | u
 async function processCMSJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language, page_id, processed_keys: alreadyProcessed = 0 } = job;
 
-  // Get CMS items to translate
-  let query = supabase
+  // ============ CMS ITEMS ============
+  let itemsQuery = supabase
     .from('cms_items')
     .select('id, title, description, cells')
     .eq('is_active', true);
   
   if (page_id) {
-    query = query.eq('page_id', page_id);
+    itemsQuery = itemsQuery.eq('page_id', page_id);
   }
 
-  const { data: items, error: itemsError } = await query;
+  const { data: items, error: itemsError } = await itemsQuery;
 
   if (itemsError) {
     throw new Error(`Failed to fetch CMS items: ${itemsError.message}`);
@@ -294,20 +294,56 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
     item.title || item.description || (item.cells && item.cells.length > 0)
   );
 
-  // Get existing translations
-  const { data: existingTranslations } = await supabase
+  // Get existing item translations
+  const { data: existingItemTranslations } = await supabase
     .from('cms_item_translations')
     .select('item_id')
     .eq('language_code', target_language);
 
-  const existingItemIds = new Set(existingTranslations?.map(t => t.item_id) || []);
+  const existingItemIds = new Set(existingItemTranslations?.map(t => t.item_id) || []);
 
-  // Filter based on mode: 'all' translates everything, 'missing' only untranslated
+  // Filter items based on mode
   const itemsToTranslate = job.mode === 'all' 
     ? translatableItems 
     : translatableItems.filter(item => !existingItemIds.has(item.id));
 
-  const totalKeys = itemsToTranslate.length;
+  // ============ CMS SECTIONS ============
+  let sectionsQuery = supabase
+    .from('cms_sections')
+    .select('id, title, description, collapsible_header')
+    .eq('is_active', true);
+  
+  if (page_id) {
+    sectionsQuery = sectionsQuery.eq('page_id', page_id);
+  }
+
+  const { data: sections, error: sectionsError } = await sectionsQuery;
+
+  if (sectionsError) {
+    console.error(`Failed to fetch CMS sections: ${sectionsError.message}`);
+    // Don't throw, continue with items only
+  }
+
+  // Filter sections with translatable content
+  const translatableSections = (sections || []).filter(section => 
+    section.title || section.description || section.collapsible_header
+  );
+
+  // Get existing section translations
+  const { data: existingSectionTranslations } = await supabase
+    .from('cms_section_translations')
+    .select('section_id')
+    .eq('language_code', target_language);
+
+  const existingSectionIds = new Set(existingSectionTranslations?.map(t => t.section_id) || []);
+
+  // Filter sections based on mode
+  const sectionsToTranslate = job.mode === 'all' 
+    ? translatableSections 
+    : translatableSections.filter(section => !existingSectionIds.has(section.id));
+
+  // ============ TOTAL COUNT ============
+  const totalKeys = itemsToTranslate.length + sectionsToTranslate.length;
 
   await supabase
     .from('translation_jobs')
@@ -323,17 +359,17 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         updated_at: new Date().toISOString()
       })
       .eq('id', jobId);
-    console.log('No CMS items to translate');
+    console.log('No CMS items or sections to translate');
     return;
   }
 
-  console.log(`Translating ${totalKeys} CMS items to ${target_language}`);
+  console.log(`Translating ${itemsToTranslate.length} CMS items and ${sectionsToTranslate.length} sections to ${target_language}`);
 
   let processedKeys = alreadyProcessed;
   let errors = job.errors || 0;
 
-  // Process in batches
-  for (let i = alreadyProcessed; i < itemsToTranslate.length; i += BATCH_SIZE) {
+  // ============ PROCESS ITEMS ============
+  for (let i = 0; i < itemsToTranslate.length; i += BATCH_SIZE) {
     // Check if job was cancelled
     const { data: currentJob } = await supabase
       .from('translation_jobs')
@@ -352,25 +388,18 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
       try {
         const translations: any = {};
         
-        // Translate title
         if (item.title) {
-          const titleResult = await translateText(item.title, source_language, target_language, lovableApiKey);
-          translations.title = titleResult;
+          translations.title = await translateText(item.title, source_language, target_language, lovableApiKey);
         }
 
-        // Translate description
         if (item.description) {
-          const descResult = await translateText(item.description, source_language, target_language, lovableApiKey);
-          translations.description = descResult;
+          translations.description = await translateText(item.description, source_language, target_language, lovableApiKey);
         }
 
-        // Translate cells content
         if (item.cells && Array.isArray(item.cells)) {
-          const translatedCells = await translateCells(item.cells, source_language, target_language, lovableApiKey);
-          translations.cells = translatedCells;
+          translations.cells = await translateCells(item.cells, source_language, target_language, lovableApiKey);
         }
 
-        // Save translation
         const { error: upsertError } = await supabase
           .from('cms_item_translations')
           .upsert({
@@ -385,7 +414,7 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
           });
 
         if (upsertError) {
-          console.error(`Failed to save CMS translation for ${item.id}:`, upsertError);
+          console.error(`Failed to save CMS item translation for ${item.id}:`, upsertError);
           errors++;
         } else {
           processedKeys++;
@@ -395,7 +424,76 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         errors++;
       }
 
-      // Small delay between items
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    // Update progress after each batch
+    await supabase
+      .from('translation_jobs')
+      .update({ 
+        processed_keys: processedKeys, 
+        errors,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+  }
+
+  // ============ PROCESS SECTIONS ============
+  for (let i = 0; i < sectionsToTranslate.length; i += BATCH_SIZE) {
+    // Check if job was cancelled
+    const { data: currentJob } = await supabase
+      .from('translation_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .single();
+
+    if (currentJob?.status === 'cancelled') {
+      console.log('Job was cancelled, stopping');
+      return;
+    }
+
+    const batch = sectionsToTranslate.slice(i, i + BATCH_SIZE);
+
+    for (const section of batch) {
+      try {
+        const translations: any = {};
+        
+        if (section.title) {
+          translations.title = await translateText(section.title, source_language, target_language, lovableApiKey);
+        }
+
+        if (section.description) {
+          translations.description = await translateText(section.description, source_language, target_language, lovableApiKey);
+        }
+
+        if (section.collapsible_header) {
+          translations.collapsible_header = await translateText(section.collapsible_header, source_language, target_language, lovableApiKey);
+        }
+
+        const { error: upsertError } = await supabase
+          .from('cms_section_translations')
+          .upsert({
+            section_id: section.id,
+            language_code: target_language,
+            title: translations.title || null,
+            description: translations.description || null,
+            collapsible_header: translations.collapsible_header || null,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'section_id,language_code'
+          });
+
+        if (upsertError) {
+          console.error(`Failed to save CMS section translation for ${section.id}:`, upsertError);
+          errors++;
+        } else {
+          processedKeys++;
+        }
+      } catch (sectionError) {
+        console.error(`Error translating CMS section ${section.id}:`, sectionError);
+        errors++;
+      }
+
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
@@ -422,7 +520,7 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
     })
     .eq('id', jobId);
 
-  console.log(`CMS Translation job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
+  console.log(`CMS Translation job ${jobId} completed. Items: ${itemsToTranslate.length}, Sections: ${sectionsToTranslate.length}, Processed: ${processedKeys}, Errors: ${errors}`);
 }
 
 async function translateCells(cells: any[], sourceLanguage: string, targetLanguage: string, apiKey: string | undefined): Promise<any[]> {
