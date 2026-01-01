@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export const PrivateChatWidget = () => {
+  // Enable realtime since this widget is only rendered when visible (on private-chats tab)
   const {
     threads,
     messages,
@@ -31,7 +32,7 @@ export const PrivateChatWidget = () => {
     deleteThread,
     selectThread,
     getOtherParticipant,
-  } = usePrivateChat();
+  } = usePrivateChat({ enableRealtime: true });
 
   const [deleteConfirmThread, setDeleteConfirmThread] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'closed' | 'archived'>('active');

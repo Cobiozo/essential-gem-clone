@@ -4,7 +4,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PrivateChatThread, PrivateChatMessage, CreateThreadData, CreateGroupThreadData, PrivateChatParticipant } from '@/types/privateChat';
 import { useToast } from '@/hooks/use-toast';
 
-export const usePrivateChat = () => {
+interface UsePrivateChatOptions {
+  enableRealtime?: boolean;
+}
+
+export const usePrivateChat = (options?: UsePrivateChatOptions) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [threads, setThreads] = useState<PrivateChatThread[]>([]);
@@ -13,6 +17,8 @@ export const usePrivateChat = () => {
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const enableRealtime = options?.enableRealtime ?? false;
 
   // Fetch all threads for current user
   const fetchThreads = useCallback(async () => {
@@ -581,9 +587,9 @@ export const usePrivateChat = () => {
     fetchThreads();
   }, [fetchThreads]);
 
-  // Realtime subscription for new messages
+  // Realtime subscription for new messages - ONLY when enableRealtime is true
   useEffect(() => {
-    if (!user) return;
+    if (!user || !enableRealtime) return;
 
     const channel = supabase
       .channel('private-chat-messages')
@@ -623,7 +629,7 @@ export const usePrivateChat = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, selectedThread, markAsRead, fetchThreads]);
+  }, [user, selectedThread, markAsRead, fetchThreads, enableRealtime]);
 
   return {
     threads,
