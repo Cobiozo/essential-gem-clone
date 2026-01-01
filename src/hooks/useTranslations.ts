@@ -45,17 +45,51 @@ export interface LanguageStats {
   percentage: number;
 }
 
-// Local cache for translations - loads once on app start
+// Local cache for translations - loads only needed languages
 let translationsCache: TranslationsMap | null = null;
 let languagesCache: I18nLanguage[] | null = null;
 let cacheLoading = false;
 let cacheListeners: (() => void)[] = [];
+let loadedLanguages: Set<string> = new Set(); // Track which languages are loaded
 
 const notifyListeners = () => {
   cacheListeners.forEach(cb => cb());
 };
 
-// Fetch all rows with pagination (bypasses 1000 row limit)
+// Fetch translations for specific languages only (optimization)
+const fetchTranslationsForLanguages = async (languageCodes: string[]): Promise<I18nTranslation[]> => {
+  const allData: I18nTranslation[] = [];
+  
+  for (const langCode of languageCodes) {
+    const pageSize = 1000;
+    let from = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('i18n_translations')
+        .select('*')
+        .eq('language_code', langCode)
+        .range(from, from + pageSize - 1)
+        .order('namespace')
+        .order('key');
+
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        allData.push(...data);
+        from += pageSize;
+        hasMore = data.length === pageSize;
+      } else {
+        hasMore = false;
+      }
+    }
+  }
+
+  return allData;
+};
+
+// Fetch all rows with pagination (for admin panel only)
 const fetchAllTranslations = async (): Promise<I18nTranslation[]> => {
   const allData: I18nTranslation[] = [];
   const pageSize = 1000;
@@ -84,8 +118,30 @@ const fetchAllTranslations = async (): Promise<I18nTranslation[]> => {
   return allData;
 };
 
-export const loadTranslationsCache = async (): Promise<{ translations: TranslationsMap; languages: I18nLanguage[] }> => {
-  if (translationsCache && languagesCache) {
+// Load translations for specific language (lazy loading)
+export const loadLanguageTranslations = async (langCode: string): Promise<void> => {
+  if (loadedLanguages.has(langCode)) return;
+  
+  try {
+    const translations = await fetchTranslationsForLanguages([langCode]);
+    
+    if (!translationsCache) translationsCache = {};
+    
+    for (const t of translations) {
+      if (!translationsCache[t.language_code]) translationsCache[t.language_code] = {};
+      if (!translationsCache[t.language_code][t.namespace]) translationsCache[t.language_code][t.namespace] = {};
+      translationsCache[t.language_code][t.namespace][t.key] = t.value;
+    }
+    
+    loadedLanguages.add(langCode);
+    console.log(`Lazy loaded translations for: ${langCode}`);
+  } catch (error) {
+    console.error(`Error loading translations for ${langCode}:`, error);
+  }
+};
+
+export const loadTranslationsCache = async (currentLanguage: string = 'pl'): Promise<{ translations: TranslationsMap; languages: I18nLanguage[] }> => {
+  if (translationsCache && languagesCache && loadedLanguages.has('pl') && loadedLanguages.has(currentLanguage)) {
     return { translations: translationsCache, languages: languagesCache };
   }
 
@@ -103,14 +159,24 @@ export const loadTranslationsCache = async (): Promise<{ translations: Translati
   cacheLoading = true;
 
   try {
-    const [languagesRes, translationsData] = await Promise.all([
-      supabase.from('i18n_languages').select('*').eq('is_active', true).order('position'),
-      fetchAllTranslations()
-    ]);
+    // Load languages first
+    const languagesRes = await supabase
+      .from('i18n_languages')
+      .select('*')
+      .eq('is_active', true)
+      .order('position');
 
     if (languagesRes.error) throw languagesRes.error;
-
     languagesCache = languagesRes.data || [];
+    
+    // Load only default language (pl) + current language (optimization: ~67% less data)
+    const languagesToLoad = ['pl'];
+    if (currentLanguage !== 'pl') {
+      languagesToLoad.push(currentLanguage);
+    }
+    
+    const translationsData = await fetchTranslationsForLanguages(languagesToLoad);
+    console.log(`Loaded ${translationsData.length} translations for languages: ${languagesToLoad.join(', ')}`);
     
     const map: TranslationsMap = {};
     for (const t of translationsData) {
@@ -119,6 +185,7 @@ export const loadTranslationsCache = async (): Promise<{ translations: Translati
       map[t.language_code][t.namespace][t.key] = t.value;
     }
     translationsCache = map;
+    languagesToLoad.forEach(lang => loadedLanguages.add(lang));
 
     notifyListeners();
     cacheListeners = [];
@@ -137,6 +204,7 @@ export const loadTranslationsCache = async (): Promise<{ translations: Translati
 export const invalidateTranslationsCache = () => {
   translationsCache = null;
   languagesCache = null;
+  loadedLanguages.clear();
 };
 
 export const getTranslation = (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, TranslationsMap } from '@/hooks/useTranslations';
+import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, loadLanguageTranslations, TranslationsMap } from '@/hooks/useTranslations';
 import { completeTranslationsData } from '@/lib/translationsData';
 
 export type Language = 'pl' | 'de' | 'en' | string;
@@ -1450,7 +1450,17 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, []);
 
+  // Lazy load translations when language changes
   useEffect(() => {
+    const loadLangTranslations = async () => {
+      // Lazy load translations for new language if not already loaded
+      await loadLanguageTranslations(language);
+      // Force re-render by updating dbTranslations
+      const { translations: t } = await loadTranslationsCache(language);
+      setDbTranslations(t);
+    };
+    loadLangTranslations();
+    
     try {
       localStorage.setItem('pure-life-language', language);
       document.documentElement.lang = language;
@@ -1461,11 +1471,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refreshTranslations = useCallback(async () => {
     invalidateTranslationsCache();
-    const { translations: t, languages } = await loadTranslationsCache();
+    const { translations: t, languages } = await loadTranslationsCache(language);
     setDbTranslations(t);
     const def = languages.find(l => l.is_default);
     if (def) setDefaultLang(def.code);
-  }, []);
+  }, [language]);
 
   const t = useCallback((key: string): string => {
     // First try database translation
