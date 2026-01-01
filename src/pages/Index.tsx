@@ -1,10 +1,12 @@
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCMSTranslations } from '@/hooks/useCMSTranslations';
 import { useCMSSectionTranslations } from '@/hooks/useCMSSectionTranslations';
+import { usePublishedPages } from '@/hooks/usePublishedPages';
+import { useSystemTexts } from '@/hooks/useSystemTexts';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { Header } from '@/components/Header';
@@ -32,14 +34,45 @@ const Index = () => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const [headerText, setHeaderText] = React.useState<string>('');
-  const [authorText, setAuthorText] = React.useState<string>('');
-  const [siteLogo, setSiteLogo] = React.useState<string>(newPureLifeLogo);
-  const [headerImage, setHeaderImage] = React.useState<string>(niezbednikLogo);
-  const [headerImageSize, setHeaderImageSize] = React.useState<'small' | 'medium' | 'large' | 'xlarge' | 'custom'>('medium');
-  const [headerImageCustomWidth, setHeaderImageCustomWidth] = React.useState<number>(128);
-  const [headerImageCustomHeight, setHeaderImageCustomHeight] = React.useState<number>(128);
-  const [publishedPages, setPublishedPages] = React.useState<any[]>([]);
+  
+  // React Query hooks for cached static data (5 min staleTime)
+  const { data: publishedPages = [] } = usePublishedPages();
+  const { data: systemTextsData = [] } = useSystemTexts();
+  
+  // Derive header values from cached system texts
+  const { headerText, authorText, siteLogo, headerImage, headerImageSize, headerImageCustomWidth, headerImageCustomHeight } = useMemo(() => {
+    const headerSystemText = systemTextsData.find(item => item.type === 'header_text');
+    const authorSystemText = systemTextsData.find(item => item.type === 'author');
+    const logoSystemText = systemTextsData.find(item => item.type === 'site_logo');
+    const headerImageSystemText = systemTextsData.find(item => item.type === 'header_image');
+    const headerImageSizeSystemText = systemTextsData.find(item => item.type === 'header_image_size');
+    
+    let size: 'small' | 'medium' | 'large' | 'xlarge' | 'custom' = 'medium';
+    let customWidth = 128;
+    let customHeight = 128;
+    
+    if (headerImageSizeSystemText?.content) {
+      try {
+        const parsed = JSON.parse(headerImageSizeSystemText.content);
+        size = parsed.size || 'medium';
+        customWidth = parsed.customWidth || 128;
+        customHeight = parsed.customHeight || 128;
+      } catch {
+        // Invalid JSON, use defaults
+      }
+    }
+    
+    return {
+      headerText: headerSystemText?.content || '',
+      authorText: authorSystemText?.content || '',
+      siteLogo: logoSystemText?.content || newPureLifeLogo,
+      headerImage: headerImageSystemText?.content || niezbednikLogo,
+      headerImageSize: size,
+      headerImageCustomWidth: customWidth,
+      headerImageCustomHeight: customHeight,
+    };
+  }, [systemTextsData]);
+  
   const [sections, setSections] = React.useState<CMSSection[]>([]);
   const [items, setItems] = React.useState<CMSItem[]>([]);
   const [nestedSections, setNestedSections] = React.useState<{[key: string]: CMSSection[]}>({});
@@ -106,20 +139,20 @@ const Index = () => {
   const DEBOUNCE_DELAY = 2000; // 2 seconds
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const debouncedFetchBasicData = useCallback(() => {
+  const debouncedFetchCMSData = useCallback(() => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
       console.log('Debounced CMS refetch triggered');
-      fetchBasicData();
+      fetchCMSData();
     }, DEBOUNCE_DELAY);
   }, []);
 
   const isAdmin = userRole?.role === 'admin';
 
-  React.useEffect(() => {
-    fetchBasicData();
+  useEffect(() => {
+    fetchCMSData();
 
     // CMS realtime subscriptions only for admins (optimization: reduces subscriptions by ~50%)
     if (!isAdmin) {
@@ -142,7 +175,7 @@ const Index = () => {
         },
         () => {
           console.log('CMS sections updated, scheduling debounced refetch...');
-          debouncedFetchBasicData();
+          debouncedFetchCMSData();
         }
       )
       .subscribe();
@@ -158,7 +191,7 @@ const Index = () => {
         },
         () => {
           console.log('CMS items updated, scheduling debounced refetch...');
-          debouncedFetchBasicData();
+          debouncedFetchCMSData();
         }
       )
       .subscribe();
@@ -170,51 +203,10 @@ const Index = () => {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [user, isAdmin, debouncedFetchBasicData]);
+  }, [user, isAdmin, debouncedFetchCMSData]);
 
-  const fetchBasicData = async () => {
+  const fetchCMSData = async () => {
     try {
-      // Pobierz teksty nagłówka, autora, logo i zdjęcie nagłówka z system_texts
-      const { data: systemTexts } = await supabase
-        .from('system_texts')
-        .select('type, content, text_formatting')
-        .eq('is_active', true)
-        .in('type', ['header_text', 'author', 'site_logo', 'header_image', 'header_image_size']);
-      
-      const headerSystemText = systemTexts?.find((item: any) => item.type === 'header_text');
-      const authorSystemText = systemTexts?.find((item: any) => item.type === 'author');
-      const logoSystemText = systemTexts?.find((item: any) => item.type === 'site_logo');
-      const headerImageSystemText = systemTexts?.find((item: any) => item.type === 'header_image');
-      const headerImageSizeSystemText = systemTexts?.find((item: any) => item.type === 'header_image_size');
-      
-      if (headerSystemText?.content) setHeaderText(headerSystemText.content);
-      if (authorSystemText?.content) setAuthorText(authorSystemText.content);
-      if (logoSystemText?.content) setSiteLogo(logoSystemText.content);
-      if (headerImageSystemText?.content) setHeaderImage(headerImageSystemText.content);
-      
-      // Parse header image size settings
-      if (headerImageSizeSystemText?.content) {
-        try {
-          const parsed = JSON.parse(headerImageSizeSystemText.content);
-          setHeaderImageSize(parsed.size || 'medium');
-          setHeaderImageCustomWidth(parsed.customWidth || 128);
-          setHeaderImageCustomHeight(parsed.customHeight || 128);
-        } catch {
-          // Invalid JSON, use defaults
-        }
-      }
-      
-      // Pobierz opublikowane strony
-      const { data: pagesData } = await supabase
-        .from('pages')
-        .select('id, title, slug, meta_description, created_at')
-        .eq('is_published', true)
-        .eq('is_active', true)
-        .eq('visible_to_everyone', true)
-        .order('position', { ascending: true });
-      
-      setPublishedPages(pagesData || []);
-
       // Pobierz stronę główną "Główna"
       const { data: mainPage } = await supabase
         .from('pages')
