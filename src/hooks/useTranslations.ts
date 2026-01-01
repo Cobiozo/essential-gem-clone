@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { completeTranslationsData } from '@/lib/translationsData';
 
 export interface I18nLanguage {
   id: string;
@@ -725,13 +724,14 @@ export const useTranslationsAdmin = () => {
     };
   };
 
-  // Migrate from hardcoded translations using comprehensive data file
+  // Migrate from hardcoded translations (legacy - uses minimal fallback data)
   const migrateFromHardcoded = async (
     onProgress?: (current: number, total: number) => void
   ): Promise<{ success: boolean; migrated: number }> => {
+    const hardcodedData = getHardcodedTranslations();
     const inserts: { language_code: string; namespace: string; key: string; value: string }[] = [];
     
-    for (const [langCode, keys] of Object.entries(completeTranslationsData)) {
+    for (const [langCode, keys] of Object.entries(hardcodedData)) {
       for (const [fullKey, value] of Object.entries(keys as Record<string, string>)) {
         const [namespace, ...keyParts] = fullKey.split('.');
         const key = keyParts.join('.');
