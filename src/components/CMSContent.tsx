@@ -1174,35 +1174,35 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const isJustify = item.text_align === 'justify';
       
       return (
-        <div 
-          className={cn('flex w-full', getButtonJustify())}
-          style={{
+        <div className={cn('flex w-full', getButtonJustify())}>
+          <div style={{
             maxWidth: btnMaxWidth,
             maxHeight: btnMaxHeight,
-          }}
-        >
-          <Button
-            onClick={handleButtonClick}
-            className={cn(
-              'transition-all duration-300',
-              hasButtonHover && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
-              buttonStyles.className
-            )}
-            style={{
-              ...buttonInlineStyles,
-              '--hover-scale': buttonStyles.hoverScale || 1,
-              '--hover-opacity': (buttonStyles.hoverOpacity || 100) / 100,
-              width: (btnMaxWidth || isJustify) ? '100%' : undefined,
-            } as React.CSSProperties}
-          >
-            {ButtonIcon && iconPosition === 'before' && (
-              <ButtonIcon className="w-4 h-4 mr-2" />
-            )}
-            {buttonCell?.content || item.title || 'Kliknij'}
-            {ButtonIcon && iconPosition === 'after' && (
-              <ButtonIcon className="w-4 h-4 ml-2" />
-            )}
-          </Button>
+            width: btnMaxWidth ? undefined : (isJustify ? '100%' : undefined),
+          }}>
+            <Button
+              onClick={handleButtonClick}
+              className={cn(
+                'transition-all duration-300',
+                hasButtonHover && 'hover:scale-[var(--hover-scale)] hover:opacity-[var(--hover-opacity)]',
+                buttonStyles.className
+              )}
+              style={{
+                ...buttonInlineStyles,
+                '--hover-scale': buttonStyles.hoverScale || 1,
+                '--hover-opacity': (buttonStyles.hoverOpacity || 100) / 100,
+                width: '100%',
+              } as React.CSSProperties}
+            >
+              {ButtonIcon && iconPosition === 'before' && (
+                <ButtonIcon className="w-4 h-4 mr-2" />
+              )}
+              {buttonCell?.content || item.title || 'Kliknij'}
+              {ButtonIcon && iconPosition === 'after' && (
+                <ButtonIcon className="w-4 h-4 ml-2" />
+              )}
+            </Button>
+          </div>
         </div>
       );
 
@@ -1319,27 +1319,27 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const isCopyJustify = item.text_align === 'justify';
       
       return (
-        <div 
-          className={cn('flex w-full', getCopyJustify())}
-          style={{
+        <div className={cn('flex w-full', getCopyJustify())}>
+          <div style={{
             maxWidth: copyMaxWidth,
             maxHeight: copyMaxHeight,
-          }}
-        >
-          <Button
-            onClick={handleCopyToClipboard}
-            className={copyStyles.className}
-            style={{
-              ...copyInlineStyles,
-              width: (copyMaxWidth || isCopyJustify) ? '100%' : undefined,
-            }}
-            variant="outline"
-          >
-            {CopyIcon && (
-              <CopyIcon className="w-4 h-4 mr-2" />
-            )}
-            {item.title || 'Kopiuj do schowka'}
-          </Button>
+            width: copyMaxWidth ? undefined : (isCopyJustify ? '100%' : undefined),
+          }}>
+            <Button
+              onClick={handleCopyToClipboard}
+              className={copyStyles.className}
+              style={{
+                ...copyInlineStyles,
+                width: '100%',
+              }}
+              variant="outline"
+            >
+              {CopyIcon && (
+                <CopyIcon className="w-4 h-4 mr-2" />
+              )}
+              {item.title || 'Kopiuj do schowka'}
+            </Button>
+          </div>
         </div>
       );
 
