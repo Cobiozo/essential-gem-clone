@@ -99,6 +99,34 @@ export const CopyToClipboardEditor: React.FC<CopyToClipboardEditorProps> = ({ it
                 />
               </div>
 
+              {/* Alignment buttons */}
+              <div className="space-y-2">
+                <Label>Wyrównanie przycisku</Label>
+                <div className="flex gap-2">
+                  <Button 
+                    variant={editedItem.text_align === 'left' || !editedItem.text_align ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'left' })}
+                  >
+                    ←
+                  </Button>
+                  <Button 
+                    variant={editedItem.text_align === 'center' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'center' })}
+                  >
+                    ↔
+                  </Button>
+                  <Button 
+                    variant={editedItem.text_align === 'right' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'right' })}
+                  >
+                    →
+                  </Button>
+                </div>
+              </div>
+
               {/* Icon picker */}
               <div className="space-y-2">
                 <Label>Ikona</Label>

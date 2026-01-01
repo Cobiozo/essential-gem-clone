@@ -1162,15 +1162,25 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         switch (item.text_align) {
           case 'center': return 'justify-center';
           case 'right': return 'justify-end';
+          case 'justify': return 'justify-stretch';
           default: return 'justify-start';
         }
       };
       
       // Usuń textAlign z buttonStyles.style - używamy flex
-      const { textAlign: _btnTextAlign, ...buttonInlineStyles } = buttonStyles.style;
+      const { textAlign: _btnTextAlign, maxWidth: btnMaxWidth, maxHeight: btnMaxHeight, ...buttonInlineStyles } = buttonStyles.style;
+      
+      // Dla justify - przycisk zajmuje całą szerokość
+      const isJustify = item.text_align === 'justify';
       
       return (
-        <div className={cn('flex w-full', getButtonJustify())}>
+        <div 
+          className={cn('flex w-full', getButtonJustify())}
+          style={{
+            maxWidth: btnMaxWidth,
+            maxHeight: btnMaxHeight,
+          }}
+        >
           <Button
             onClick={handleButtonClick}
             className={cn(
@@ -1182,6 +1192,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
               ...buttonInlineStyles,
               '--hover-scale': buttonStyles.hoverScale || 1,
               '--hover-opacity': (buttonStyles.hoverOpacity || 100) / 100,
+              width: (btnMaxWidth || isJustify) ? '100%' : undefined,
             } as React.CSSProperties}
           >
             {ButtonIcon && iconPosition === 'before' && (
@@ -1299,18 +1310,29 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         switch (item.text_align) {
           case 'center': return 'justify-center';
           case 'right': return 'justify-end';
+          case 'justify': return 'justify-stretch';
           default: return 'justify-start';
         }
       };
       
-      const { textAlign: _copyTextAlign, ...copyInlineStyles } = copyStyles.style;
+      const { textAlign: _copyTextAlign, maxWidth: copyMaxWidth, maxHeight: copyMaxHeight, ...copyInlineStyles } = copyStyles.style;
+      const isCopyJustify = item.text_align === 'justify';
       
       return (
-        <div className={cn('flex w-full', getCopyJustify())}>
+        <div 
+          className={cn('flex w-full', getCopyJustify())}
+          style={{
+            maxWidth: copyMaxWidth,
+            maxHeight: copyMaxHeight,
+          }}
+        >
           <Button
             onClick={handleCopyToClipboard}
             className={copyStyles.className}
-            style={copyInlineStyles}
+            style={{
+              ...copyInlineStyles,
+              width: (copyMaxWidth || isCopyJustify) ? '100%' : undefined,
+            }}
             variant="outline"
           >
             {CopyIcon && (

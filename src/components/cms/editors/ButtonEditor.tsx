@@ -276,10 +276,34 @@ export const ButtonEditor: React.FC<ButtonEditorProps> = ({ item, onSave, onCanc
               <div className="space-y-2">
                 <Label>Wyrównanie</Label>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">←</Button>
-                  <Button variant="outline" size="sm">↔</Button>
-                  <Button variant="outline" size="sm">→</Button>
-                  <Button variant="outline" size="sm">☰</Button>
+                  <Button 
+                    variant={editedItem.text_align === 'left' || !editedItem.text_align ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'left' })}
+                  >
+                    ←
+                  </Button>
+                  <Button 
+                    variant={editedItem.text_align === 'center' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'center' })}
+                  >
+                    ↔
+                  </Button>
+                  <Button 
+                    variant={editedItem.text_align === 'right' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'right' })}
+                  >
+                    →
+                  </Button>
+                  <Button 
+                    variant={editedItem.text_align === 'justify' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setEditedItem({ ...editedItem, text_align: 'justify' })}
+                  >
+                    ☰
+                  </Button>
                 </div>
               </div>
 
