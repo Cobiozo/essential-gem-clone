@@ -52,15 +52,64 @@ let cacheLoading = false;
 let cacheListeners: (() => void)[] = [];
 let loadedLanguages: Set<string> = new Set(); // Track which languages are loaded
 
+// localStorage cache with 5-minute TTL (optimization)
+const LS_CACHE_KEY = 'i18n_translations_cache';
+const LS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface LSCacheEntry {
+  data: I18nTranslation[];
+  timestamp: number;
+}
+
+const getLocalStorageCache = (langCode: string): I18nTranslation[] | null => {
+  try {
+    const cached = localStorage.getItem(`${LS_CACHE_KEY}_${langCode}`);
+    if (cached) {
+      const { data, timestamp }: LSCacheEntry = JSON.parse(cached);
+      if (Date.now() - timestamp < LS_CACHE_TTL) {
+        console.log(`Using localStorage cache for translations: ${langCode}`);
+        return data;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to read localStorage translation cache:', e);
+  }
+  return null;
+};
+
+const setLocalStorageCache = (langCode: string, data: I18nTranslation[]): void => {
+  try {
+    localStorage.setItem(`${LS_CACHE_KEY}_${langCode}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.warn('Failed to save localStorage translation cache:', e);
+  }
+};
+
 const notifyListeners = () => {
   cacheListeners.forEach(cb => cb());
 };
 
-// Fetch translations for specific languages only (optimization)
+// Fetch translations for specific languages only (optimization with localStorage cache)
 const fetchTranslationsForLanguages = async (languageCodes: string[]): Promise<I18nTranslation[]> => {
   const allData: I18nTranslation[] = [];
+  const langsToFetch: string[] = [];
   
+  // Check localStorage cache first for each language
   for (const langCode of languageCodes) {
+    const cached = getLocalStorageCache(langCode);
+    if (cached) {
+      allData.push(...cached);
+    } else {
+      langsToFetch.push(langCode);
+    }
+  }
+  
+  // Fetch only non-cached languages from DB
+  for (const langCode of langsToFetch) {
+    const langData: I18nTranslation[] = [];
     const pageSize = 1000;
     let from = 0;
     let hasMore = true;
@@ -77,13 +126,19 @@ const fetchTranslationsForLanguages = async (languageCodes: string[]): Promise<I
       if (error) throw error;
       
       if (data && data.length > 0) {
-        allData.push(...data);
+        langData.push(...data);
         from += pageSize;
         hasMore = data.length === pageSize;
       } else {
         hasMore = false;
       }
     }
+    
+    // Save to localStorage cache
+    if (langData.length > 0) {
+      setLocalStorageCache(langCode, langData);
+    }
+    allData.push(...langData);
   }
 
   return allData;
@@ -205,6 +260,13 @@ export const invalidateTranslationsCache = () => {
   translationsCache = null;
   languagesCache = null;
   loadedLanguages.clear();
+  // Also clear localStorage cache
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(LS_CACHE_KEY));
+    keys.forEach(k => localStorage.removeItem(k));
+  } catch (e) {
+    console.warn('Failed to clear localStorage translation cache:', e);
+  }
 };
 
 export const getTranslation = (

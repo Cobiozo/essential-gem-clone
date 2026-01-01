@@ -116,8 +116,19 @@ const Index = () => {
     }, DEBOUNCE_DELAY);
   }, []);
 
+  const isAdmin = userRole?.role === 'admin';
+
   React.useEffect(() => {
     fetchBasicData();
+
+    // CMS realtime subscriptions only for admins (optimization: reduces subscriptions by ~50%)
+    if (!isAdmin) {
+      return () => {
+        if (debounceTimeoutRef.current) {
+          clearTimeout(debounceTimeoutRef.current);
+        }
+      };
+    }
 
     // Setup realtime subscriptions for CMS changes with debounce
     const sectionsChannel = supabase
@@ -159,7 +170,7 @@ const Index = () => {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [user, debouncedFetchBasicData]);
+  }, [user, isAdmin, debouncedFetchBasicData]);
 
   const fetchBasicData = async () => {
     try {

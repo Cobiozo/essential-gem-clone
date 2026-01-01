@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { UserNotification } from '@/components/team-contacts/types';
 
 export const useNotifications = () => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const currentRole = userRole?.role || 'client';
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -13,10 +14,12 @@ export const useNotifications = () => {
     if (!user) return;
     
     try {
+      // Include target_role filtering (consolidated from useRoleNotifications)
       const { data, error } = await supabase
         .from('user_notifications')
         .select('*')
         .eq('user_id', user.id)
+        .or(`target_role.is.null,target_role.eq.${currentRole}`)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -30,7 +33,7 @@ export const useNotifications = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, currentRole]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -102,7 +105,7 @@ export const useNotifications = () => {
     }
   };
 
-  // Setup realtime subscription
+  // Setup realtime subscription with target_role filtering
   useEffect(() => {
     if (!user) return;
 
@@ -119,9 +122,12 @@ export const useNotifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const newNotification = payload.new as UserNotification;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
+          const newNotification = payload.new as UserNotification & { target_role?: string };
+          // Filter by target_role (consolidated from useRoleNotifications)
+          if (!newNotification.target_role || newNotification.target_role === currentRole) {
+            setNotifications(prev => [newNotification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+          }
         }
       )
       .subscribe();
@@ -129,7 +135,7 @@ export const useNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchNotifications]);
+  }, [user, currentRole, fetchNotifications]);
 
   return {
     notifications,
