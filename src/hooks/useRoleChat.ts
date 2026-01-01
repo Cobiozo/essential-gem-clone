@@ -3,7 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RoleChatChannel, RoleChatMessage } from '@/types/roleChat';
 
-export const useRoleChat = () => {
+interface UseRoleChatOptions {
+  enableRealtime?: boolean;
+}
+
+export const useRoleChat = (options?: UseRoleChatOptions) => {
   const { user, profile } = useAuth();
   const [channels, setChannels] = useState<RoleChatChannel[]>([]);
   const [messages, setMessages] = useState<RoleChatMessage[]>([]);
@@ -11,6 +15,7 @@ export const useRoleChat = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChannel, setSelectedChannel] = useState<RoleChatChannel | null>(null);
 
+  const enableRealtime = options?.enableRealtime ?? false;
   const userRole = profile?.role || 'client';
 
   const fetchChannels = useCallback(async () => {
@@ -149,12 +154,16 @@ export const useRoleChat = () => {
     }
   };
 
-  // Setup realtime subscription
+  // Initial fetch
   useEffect(() => {
     if (!user) return;
-
     fetchChannels();
     fetchUnreadCount();
+  }, [user, fetchChannels, fetchUnreadCount]);
+
+  // Realtime subscription - ONLY when enableRealtime is true
+  useEffect(() => {
+    if (!user || !enableRealtime) return;
 
     const channel = supabase
       .channel('role-chat-messages')
@@ -189,7 +198,7 @@ export const useRoleChat = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, userRole, fetchChannels, fetchUnreadCount]);
+  }, [user, userRole, enableRealtime]);
 
   // Fetch messages when channel changes
   useEffect(() => {

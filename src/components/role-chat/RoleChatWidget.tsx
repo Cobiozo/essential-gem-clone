@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
 export const RoleChatWidget = () => {
+  // Enable realtime since this widget is only rendered when visible
   const {
     channels,
     messages,
@@ -20,7 +21,7 @@ export const RoleChatWidget = () => {
     selectedChannel,
     setSelectedChannel,
     sendMessage,
-  } = useRoleChat();
+  } = useRoleChat({ enableRealtime: true });
 
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);

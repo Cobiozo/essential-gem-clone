@@ -1,14 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserNotification } from '@/components/team-contacts/types';
 
-export const useNotifications = () => {
+interface UseNotificationsOptions {
+  enableRealtime?: boolean;
+}
+
+export const useNotifications = (options?: UseNotificationsOptions) => {
   const { user, userRole } = useAuth();
   const currentRole = userRole?.role || 'client';
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  const enableRealtime = options?.enableRealtime ?? false;
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -32,6 +39,25 @@ export const useNotifications = () => {
       console.error('Error fetching notifications:', error);
     } finally {
       setLoading(false);
+    }
+  }, [user, currentRole]);
+
+  // Lightweight fetch for just unread count (used in polling)
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const { count, error } = await supabase
+        .from('user_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+        .or(`target_role.is.null,target_role.eq.${currentRole}`);
+
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
     }
   }, [user, currentRole]);
 
@@ -105,11 +131,39 @@ export const useNotifications = () => {
     }
   };
 
-  // Setup realtime subscription with target_role filtering
+  // Initial fetch on mount
   useEffect(() => {
     if (!user) return;
-
     fetchNotifications();
+  }, [user, fetchNotifications]);
+
+  // Polling for unread count when realtime is disabled (60 second interval)
+  useEffect(() => {
+    if (!user || enableRealtime) {
+      // Clear polling if realtime is enabled or no user
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Start polling when realtime is disabled
+    pollingIntervalRef.current = setInterval(() => {
+      fetchUnreadCount();
+    }, 60000); // 60 seconds
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [user, enableRealtime, fetchUnreadCount]);
+
+  // Realtime subscription - ONLY when enableRealtime is true
+  useEffect(() => {
+    if (!user || !enableRealtime) return;
 
     const channel = supabase
       .channel('user-notifications')
@@ -135,7 +189,7 @@ export const useNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, currentRole, fetchNotifications]);
+  }, [user, currentRole, enableRealtime]);
 
   return {
     notifications,

@@ -15,9 +15,13 @@ import { pl } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 
 export const RoleChatBell = () => {
-  const { messages, unreadCount, userRole, markAsRead } = useRoleChat();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  
+  // Enable realtime only when popover is open to reduce server load
+  const { messages, unreadCount, userRole, markAsRead } = useRoleChat({ 
+    enableRealtime: open 
+  });
 
   // Get recent unread messages for this user
   const unreadMessages = messages

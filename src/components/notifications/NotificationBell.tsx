@@ -17,8 +17,12 @@ import { useNavigate } from 'react-router-dom';
 export const NotificationBell: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [open, setOpen] = useState(false);
+  
+  // Enable realtime only when popover is open to reduce server load
+  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications({ 
+    enableRealtime: open 
+  });
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
