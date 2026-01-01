@@ -1176,9 +1176,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       return (
         <div className={cn('flex w-full', getButtonJustify())}>
           <div style={{
-            maxWidth: btnMaxWidth,
+            width: btnMaxWidth || (isJustify ? '100%' : 'fit-content'),
             maxHeight: btnMaxHeight,
-            width: btnMaxWidth ? undefined : (isJustify ? '100%' : undefined),
           }}>
             <Button
               onClick={handleButtonClick}
@@ -1321,9 +1320,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       return (
         <div className={cn('flex w-full', getCopyJustify())}>
           <div style={{
-            maxWidth: copyMaxWidth,
+            width: copyMaxWidth || (isCopyJustify ? '100%' : 'fit-content'),
             maxHeight: copyMaxHeight,
-            width: copyMaxWidth ? undefined : (isCopyJustify ? '100%' : undefined),
           }}>
             <Button
               onClick={handleCopyToClipboard}
