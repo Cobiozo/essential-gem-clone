@@ -6,8 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 8; // Reduced for better stability
 const PAGE_SIZE = 1000;
+const MAX_EXECUTION_TIME = 25000; // 25 seconds (Supabase limit is 30s)
 
 // Paginated fetch to overcome Supabase's 1000 row limit
 async function fetchAllRows(
@@ -272,6 +273,7 @@ async function processI18nJob(supabase: any, job: any, lovableApiKey: string | u
 
 async function processCMSJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language, page_id, processed_keys: alreadyProcessed = 0 } = job;
+  const startTime = Date.now();
 
   // ============ CMS ITEMS ============
   let itemsQuery = supabase
@@ -370,6 +372,21 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   // ============ PROCESS ITEMS ============
   for (let i = 0; i < itemsToTranslate.length; i += BATCH_SIZE) {
+    // Check timeout
+    if (Date.now() - startTime > MAX_EXECUTION_TIME) {
+      console.log(`Timeout reached after ${Math.round((Date.now() - startTime) / 1000)}s, saving progress`);
+      await supabase
+        .from('translation_jobs')
+        .update({ 
+          processed_keys: processedKeys, 
+          errors,
+          status: 'processing', // Keep as processing for resume
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+      return;
+    }
+
     // Check if job was cancelled
     const { data: currentJob } = await supabase
       .from('translation_jobs')
@@ -440,6 +457,21 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   // ============ PROCESS SECTIONS ============
   for (let i = 0; i < sectionsToTranslate.length; i += BATCH_SIZE) {
+    // Check timeout
+    if (Date.now() - startTime > MAX_EXECUTION_TIME) {
+      console.log(`Timeout reached after ${Math.round((Date.now() - startTime) / 1000)}s, saving progress`);
+      await supabase
+        .from('translation_jobs')
+        .update({ 
+          processed_keys: processedKeys, 
+          errors,
+          status: 'processing', // Keep as processing for resume
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+      return;
+    }
+
     // Check if job was cancelled
     const { data: currentJob } = await supabase
       .from('translation_jobs')
