@@ -928,7 +928,7 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                               </div>
                             )}
 
-                            {/* URL dla przycisków */}
+                            {/* Ustawienia dla przycisków */}
                             {cell.type.includes('button') && (
                               <>
                                 <div className="space-y-1">
@@ -953,6 +953,164 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                     }
                                   />
                                 </div>
+                                
+                                {/* Szerokość przycisku */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Szerokość</Label>
+                                  <Select
+                                    value={cell.width_type || 'auto'}
+                                    onValueChange={(value) => updateCell(cell.id!, { 
+                                      width_type: value as 'auto' | 'custom' | 'full',
+                                      width: value === 'custom' ? (cell.width || 200) : undefined
+                                    })}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="auto">Auto (dopasuj do tekstu)</SelectItem>
+                                      <SelectItem value="custom">Własna szerokość (px)</SelectItem>
+                                      <SelectItem value="full">Pełna szerokość</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {cell.width_type === 'custom' && (
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Szerokość (px): {cell.width || 200}</Label>
+                                    <Slider
+                                      value={[cell.width || 200]}
+                                      onValueChange={([v]) => updateCell(cell.id!, { width: v })}
+                                      min={80}
+                                      max={500}
+                                      step={10}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Kolor tła przycisku */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Kolor tła</Label>
+                                  <div className="flex gap-2 items-center">
+                                    <Input
+                                      type="color"
+                                      value={cell.background_color || '#22c55e'}
+                                      onChange={(e) => updateCell(cell.id!, { background_color: e.target.value })}
+                                      className="w-10 h-7 p-0.5 cursor-pointer"
+                                    />
+                                    <Input
+                                      value={cell.background_color || ''}
+                                      onChange={(e) => updateCell(cell.id!, { background_color: e.target.value })}
+                                      placeholder="Domyślny"
+                                      className="h-7 text-xs flex-1"
+                                    />
+                                    {cell.background_color && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 w-7 p-0"
+                                        onClick={() => updateCell(cell.id!, { background_color: undefined })}
+                                      >
+                                        <icons.X className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Kolor tekstu przycisku */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Kolor tekstu</Label>
+                                  <div className="flex gap-2 items-center">
+                                    <Input
+                                      type="color"
+                                      value={cell.text_color || '#ffffff'}
+                                      onChange={(e) => updateCell(cell.id!, { text_color: e.target.value })}
+                                      className="w-10 h-7 p-0.5 cursor-pointer"
+                                    />
+                                    <Input
+                                      value={cell.text_color || ''}
+                                      onChange={(e) => updateCell(cell.id!, { text_color: e.target.value })}
+                                      placeholder="Domyślny"
+                                      className="h-7 text-xs flex-1"
+                                    />
+                                    {cell.text_color && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 w-7 p-0"
+                                        onClick={() => updateCell(cell.id!, { text_color: undefined })}
+                                      >
+                                        <icons.X className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Ikona przycisku */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Ikona</Label>
+                                  <IconPicker
+                                    value={cell.icon}
+                                    onChange={(iconName) => updateCell(cell.id!, { icon: iconName })}
+                                    trigger={
+                                      <Button variant="outline" size="sm" className="w-full h-7 justify-start text-xs">
+                                        {cell.icon ? (
+                                          <>
+                                            {(() => {
+                                              const IconComp = (icons as any)[cell.icon];
+                                              return IconComp ? <IconComp className="w-3 h-3 mr-2" /> : null;
+                                            })()}
+                                            <span className="truncate">{cell.icon}</span>
+                                          </>
+                                        ) : (
+                                          <span className="text-muted-foreground">Wybierz ikonę...</span>
+                                        )}
+                                      </Button>
+                                    }
+                                  />
+                                </div>
+
+                                {cell.icon && (
+                                  <>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Pozycja ikony</Label>
+                                      <Select
+                                        value={cell.icon_position || 'before'}
+                                        onValueChange={(value) => updateCell(cell.id!, { icon_position: value as 'before' | 'after' })}
+                                      >
+                                        <SelectTrigger className="h-7 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="before">Przed tekstem</SelectItem>
+                                          <SelectItem value="after">Po tekście</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Rozmiar ikony: {cell.icon_size || 16}px</Label>
+                                      <Slider
+                                        value={[cell.icon_size || 16]}
+                                        onValueChange={([v]) => updateCell(cell.id!, { icon_size: v })}
+                                        min={12}
+                                        max={32}
+                                        step={2}
+                                      />
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Odstęp ikony: {cell.icon_spacing || 8}px</Label>
+                                      <Slider
+                                        value={[cell.icon_spacing || 8]}
+                                        onValueChange={([v]) => updateCell(cell.id!, { icon_spacing: v })}
+                                        min={0}
+                                        max={24}
+                                        step={2}
+                                      />
+                                    </div>
+                                  </>
+                                )}
                               </>
                             )}
 
