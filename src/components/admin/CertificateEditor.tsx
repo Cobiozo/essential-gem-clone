@@ -21,6 +21,12 @@ interface CertificateTemplate {
   name: string;
   layout: {
     elements: TemplateElement[];
+    format?: {
+      width: number;
+      height: number;
+      name?: string;
+    };
+    language?: 'pl' | 'en' | 'de';
   };
   is_active: boolean;
   roles: Array<'admin' | 'partner' | 'client' | 'specjalista' | 'user'>;
@@ -500,17 +506,25 @@ const CertificateEditor = () => {
     if (!selectedTemplate) return;
 
     try {
+      // Merge with existing layout to preserve format and language if not provided
+      const mergedLayout = {
+        ...selectedTemplate.layout,
+        ...layout,
+        format: layout.format || selectedTemplate.layout?.format,
+        language: layout.language || selectedTemplate.layout?.language
+      };
+
       const { error } = await supabase
         .from('certificate_templates')
-        .update({ layout })
+        .update({ layout: mergedLayout })
         .eq('id', selectedTemplate.id);
 
       if (error) throw error;
 
       setTemplates(templates.map(t =>
-        t.id === selectedTemplate.id ? { ...t, layout } : t
+        t.id === selectedTemplate.id ? { ...t, layout: mergedLayout } : t
       ));
-      setSelectedTemplate({ ...selectedTemplate, layout });
+      setSelectedTemplate({ ...selectedTemplate, layout: mergedLayout });
 
       toast({
         title: "Sukces",
@@ -730,8 +744,13 @@ const CertificateEditor = () => {
       
       // Dynamic import of jsPDF
       const { default: jsPDF } = await import('jspdf');
+      
+      // Determine orientation based on template format
+      const format = template.layout?.format;
+      const isPortrait = format && format.height > format.width;
+      
       const doc = new jsPDF({
-        orientation: 'landscape',
+        orientation: isPortrait ? 'portrait' : 'landscape',
         unit: 'mm',
         format: 'a4'
       });

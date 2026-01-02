@@ -756,7 +756,11 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       };
     });
 
-    await onSave({ elements });
+    await onSave({ 
+      elements,
+      format: template.layout.format,
+      language: template.layout.language
+    });
   };
 
   return (
