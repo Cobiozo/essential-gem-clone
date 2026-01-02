@@ -200,13 +200,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     subscriptionRef = subscription;
 
-    // Check for existing session
+    // Check for existing session AND fetch profile immediately
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       if (!mounted) return;
       
-      // If no session exists, set initialized immediately
-      // If session exists, onAuthStateChange will handle it
-      if (!existingSession?.user) {
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
+      
+      if (existingSession?.user) {
+        // Fetch profile immediately for existing session
+        fetchProfile(existingSession.user.id).then(() => {
+          if (mounted) {
+            setLoading(false);
+            setInitialized(true);
+            setInitialLoadComplete(true);
+          }
+        });
+      } else {
+        // No session - set initialized immediately
         setRolesReady(true);
         setLoading(false);
         setInitialized(true);
