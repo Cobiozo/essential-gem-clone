@@ -164,13 +164,44 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         case 'button_anchor':
         case 'button_external':
         case 'button_functional':
+          // Styl szerokości
+          const btnStyle: React.CSSProperties = {};
+          let btnClass = '';
+          
+          if (cell.width_type === 'full' || isFullWidth) {
+            btnClass = 'w-full';
+          } else if (cell.width_type === 'custom' && cell.width) {
+            btnStyle.width = `${cell.width}px`;
+          }
+          
+          // Kolory
+          if (cell.background_color) {
+            btnStyle.backgroundColor = cell.background_color;
+            btnStyle.borderColor = cell.background_color;
+          }
+          if (cell.text_color) {
+            btnStyle.color = cell.text_color;
+          }
+          
+          // Ikona
+          const BtnIcon = cell.icon ? (icons as any)[cell.icon] : null;
+          const btnIconSize = cell.icon_size || 16;
+          const btnIconSpacing = cell.icon_spacing || 8;
+          
           return (
             <Button
-              variant={cell.type === 'button_external' ? 'default' : cell.type === 'button_anchor' ? 'secondary' : 'outline'}
+              variant={cell.background_color ? undefined : (cell.type === 'button_external' ? 'default' : cell.type === 'button_anchor' ? 'secondary' : 'outline')}
               onClick={() => cell.url && window.open(cell.url, cell.type === 'button_external' ? '_blank' : '_self')}
-              className={isFullWidth ? 'flex-1' : ''}
+              className={btnClass}
+              style={btnStyle}
             >
+              {BtnIcon && cell.icon_position !== 'after' && (
+                <BtnIcon style={{ width: btnIconSize, height: btnIconSize, marginRight: btnIconSpacing }} />
+              )}
               {cell.content || 'Przycisk'}
+              {BtnIcon && cell.icon_position === 'after' && (
+                <BtnIcon style={{ width: btnIconSize, height: btnIconSize, marginLeft: btnIconSpacing }} />
+              )}
             </Button>
           );
         

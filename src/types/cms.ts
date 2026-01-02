@@ -47,6 +47,14 @@ export interface ContentCell {
   loop?: boolean;
   muted?: boolean;
   controls?: boolean;
+  // Button specific settings
+  width_type?: 'auto' | 'custom' | 'full';
+  background_color?: string;
+  text_color?: string;
+  icon?: string;
+  icon_position?: 'before' | 'after';
+  icon_size?: number;
+  icon_spacing?: number;
 }
 
 export interface CMSItem {

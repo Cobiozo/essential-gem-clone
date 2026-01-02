@@ -450,19 +450,55 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
               case 'button_functional':
               case 'button_anchor':
               case 'button_external':
+                // Styl szerokości
+                const btnCellStyle: React.CSSProperties = {};
+                let btnWidthClass = '';
+                
+                if (cell.width_type === 'full') {
+                  btnWidthClass = 'w-full';
+                } else if (cell.width_type === 'custom' && cell.width) {
+                  btnCellStyle.width = `${cell.width}px`;
+                }
+                
+                // Kolory
+                if (cell.background_color) {
+                  btnCellStyle.backgroundColor = cell.background_color;
+                  btnCellStyle.borderColor = cell.background_color;
+                }
+                if (cell.text_color) {
+                  btnCellStyle.color = cell.text_color;
+                }
+                
+                // Wyrównanie kontenera
+                const btnAlignment = cell.alignment || 'left';
+                const btnAlignClass = btnAlignment === 'center' ? 'flex justify-center w-full' 
+                  : btnAlignment === 'right' ? 'flex justify-end w-full'
+                  : btnAlignment === 'full' ? 'w-full' 
+                  : '';
+                
+                // Ikona
+                const BtnCellIcon = cell.icon ? (icons as any)[cell.icon] : null;
+                const iconSize = cell.icon_size || 16;
+                const iconSpacing = cell.icon_spacing || 8;
+                
                 return (
-                  <Button
-                    key={cell.id}
-                    onClick={() => handleCellClick(cell)}
-                    variant={cell.type === 'button_external' ? 'outline' : 'default'}
-                    size="sm"
-                    className="w-full justify-start"
-                  >
-                    {cell.type === 'button_external' && '🔗 '}
-                    {cell.type === 'button_anchor' && '⚓ '}
-                    {cell.type === 'button_functional' && '🔘 '}
-                    {cell.content}
-                  </Button>
+                  <div key={cell.id} className={btnAlignClass}>
+                    <Button
+                      onClick={() => handleCellClick(cell)}
+                      variant={cell.background_color ? undefined : (cell.type === 'button_external' ? 'outline' : 'default')}
+                      size="sm"
+                      className={`${btnWidthClass} justify-center`}
+                      style={btnCellStyle}
+                    >
+                      {BtnCellIcon && cell.icon_position !== 'after' && (
+                        <BtnCellIcon style={{ width: iconSize, height: iconSize, marginRight: iconSpacing }} />
+                      )}
+                      {cell.content}
+                      {BtnCellIcon && cell.icon_position === 'after' && (
+                        <BtnCellIcon style={{ width: iconSize, height: iconSize, marginLeft: iconSpacing }} />
+                      )}
+                    </Button>
+                  </div>
                 );
               
               case 'text':
