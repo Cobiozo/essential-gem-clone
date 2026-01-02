@@ -122,7 +122,7 @@ const Admin = () => {
     };
   };
 
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, signOut, loading: authLoading, rolesReady } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -1754,8 +1754,8 @@ const Admin = () => {
   }, [isAdmin]);
 
   useEffect(() => {
-    // CRITICAL: Nie przekierowuj podczas ładowania - user może być tymczasowo null przy tab switch
-    if (loading) return;
+    // Wait for auth to complete before checking user state
+    if (authLoading || !rolesReady) return;
     
     if (!user) {
       navigate('/auth');
@@ -1763,7 +1763,7 @@ const Admin = () => {
     }
 
     fetchData();
-  }, [user, loading, isAdmin, navigate, toast]);
+  }, [user, authLoading, rolesReady, isAdmin, navigate, toast]);
 
   const fetchData = async () => {
     try {
