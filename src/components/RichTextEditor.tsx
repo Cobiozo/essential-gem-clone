@@ -774,38 +774,34 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
           {/* Toolbar */}
           <div className={`flex items-center gap-0.5 p-1.5 ${compact ? 'flex-wrap' : 'overflow-x-auto'}`}>
-            {/* Font Controls - hide in compact mode */}
-            {!compact && (
-              <>
-                <Select onValueChange={applyFontFamily}>
-                  <SelectTrigger className="w-32 h-8 text-xs">
-                    <SelectValue placeholder="Czcionka" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fontFamilies.map((font) => (
-                      <SelectItem key={font.value} value={font.value} className="text-xs">
-                        <span style={{ fontFamily: font.value }}>{font.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Font Controls - kompaktowa wersja dla compact mode */}
+            <Select onValueChange={applyFontFamily}>
+              <SelectTrigger className={compact ? "w-24 h-6 text-[10px]" : "w-32 h-8 text-xs"}>
+                <SelectValue placeholder="Czcionka" />
+              </SelectTrigger>
+              <SelectContent>
+                {fontFamilies.map((font) => (
+                  <SelectItem key={font.value} value={font.value} className={compact ? "text-[10px]" : "text-xs"}>
+                    <span style={{ fontFamily: font.value }}>{font.label}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-                <Select onValueChange={applyFontSize}>
-                  <SelectTrigger className="w-16 h-8 text-xs">
-                    <SelectValue placeholder="Rozmiar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fontSizes.map((size) => (
-                      <SelectItem key={size} value={size} className="text-xs">
-                        {size}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <Select onValueChange={applyFontSize}>
+              <SelectTrigger className={compact ? "w-14 h-6 text-[10px]" : "w-16 h-8 text-xs"}>
+                <SelectValue placeholder="Rozmiar" />
+              </SelectTrigger>
+              <SelectContent>
+                {fontSizes.map((size) => (
+                  <SelectItem key={size} value={size} className={compact ? "text-[10px]" : "text-xs"}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-                <Separator orientation="vertical" className="h-6 mx-1" />
-              </>
-            )}
+            {!compact && <Separator orientation="vertical" className="h-6 mx-1" />}
 
             {/* Basic Formatting */}
             <Button
