@@ -138,12 +138,15 @@ const Index = () => {
   // Debounced refetch to reduce database calls during rapid CMS changes
   const DEBOUNCE_DELAY = 2000; // 2 seconds
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
 
   const debouncedFetchCMSData = useCallback(() => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
+      // Only fetch if component is still mounted
+      if (!mountedRef.current) return;
       console.log('Debounced CMS refetch triggered');
       fetchCMSData();
     }, DEBOUNCE_DELAY);
@@ -152,11 +155,13 @@ const Index = () => {
   const isAdmin = userRole?.role === 'admin';
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchCMSData();
 
     // CMS realtime subscriptions only for admins (optimization: reduces subscriptions by ~50%)
     if (!isAdmin) {
       return () => {
+        mountedRef.current = false;
         if (debounceTimeoutRef.current) {
           clearTimeout(debounceTimeoutRef.current);
         }
@@ -207,6 +212,7 @@ const Index = () => {
       .subscribe();
 
     return () => {
+      mountedRef.current = false;
       supabase.removeChannel(sectionsChannel);
       supabase.removeChannel(itemsChannel);
       if (debounceTimeoutRef.current) {

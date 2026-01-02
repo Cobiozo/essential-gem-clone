@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type ChatMessage = {
@@ -14,6 +14,14 @@ export function useChatStream({ language = 'pl' }: UseChatStreamOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount - abort any pending requests
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim()) return;
@@ -22,6 +30,10 @@ export function useChatStream({ language = 'pl' }: UseChatStreamOptions = {}) {
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
     setError(null);
+
+    // Abort any previous pending request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -39,6 +51,7 @@ export function useChatStream({ language = 'pl' }: UseChatStreamOptions = {}) {
             messages: [...messages, userMsg],
             language,
           }),
+          signal: abortControllerRef.current.signal,
         }
       );
 
@@ -133,6 +146,10 @@ export function useChatStream({ language = 'pl' }: UseChatStreamOptions = {}) {
       }
 
     } catch (err) {
+      // Ignore abort errors - they're expected when component unmounts
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       console.error('Chat stream error:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił nieznany błąd');
       // Remove the empty assistant message on error

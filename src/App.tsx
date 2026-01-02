@@ -2,8 +2,6 @@ import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ChatWidget } from "@/components/ChatWidget";
-import { MedicalChatWidget } from "@/components/MedicalChatWidget";
 import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
 import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
 import { DailySignalBanner } from "@/components/DailySignalBanner";
@@ -15,6 +13,10 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+
+// Lazy load chat widgets - only mount when first opened
+const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
+const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget").then(m => ({ default: m.MedicalChatWidget })));
 
 // Eager load - critical pages
 import Index from "./pages/Index";
@@ -117,8 +119,12 @@ const AppContent = () => {
             />
           ) : null}
           
-          <MedicalChatWidget />
-          <ChatWidget />
+          <Suspense fallback={null}>
+            <MedicalChatWidget />
+          </Suspense>
+          <Suspense fallback={null}>
+            <ChatWidget />
+          </Suspense>
         </>
       )}
     </TooltipProvider>
