@@ -338,8 +338,11 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
     savePageSettings(layoutMode, count);
   }, [layoutMode, savePageSettings]);
 
-  // Setup realtime subscription
+  // Setup realtime subscription - only for admins
   useEffect(() => {
+    // Only admins need realtime CMS updates
+    if (!isAdmin) return;
+
     const channel = supabase
       .channel(`cms-items-changes-${pageId}`)
       .on(
@@ -383,7 +386,7 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [pageId]);
+  }, [pageId, isAdmin]);
 
   return {
     // State

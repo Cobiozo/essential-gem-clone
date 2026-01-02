@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,6 +116,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   const [inactiveRefresh, setInactiveRefresh] = useState(0);
   const [copiedElement, setCopiedElement] = useState<{ type: 'section' | 'item'; data: any } | null>(null);
   const [previewRole, setPreviewRole] = useState<PreviewRole>('real');
+  
+  // Ref for broadcast channel cleanup
+  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // ✅ Force immediate preview refresh after reorder actions (arrows / DnD)
   const refreshPreview = useCallback(() => {
@@ -281,6 +284,16 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   }, [isSectionEditorOpen, editingSectionId]);
 
 
+  // Cleanup broadcast channel on unmount
+  useEffect(() => {
+    return () => {
+      if (broadcastChannelRef.current) {
+        supabase.removeChannel(broadcastChannelRef.current);
+        broadcastChannelRef.current = null;
+      }
+    };
+  }, []);
+
   // Save page-level layout settings (sections grid)
   const savePageSettings = useCallback(async (mode: 'single' | 'columns' | 'grid', count: number) => {
     try {
@@ -292,12 +305,20 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
         );
       if (error) throw error;
 
+      // Cleanup previous broadcast channel if exists
+      if (broadcastChannelRef.current) {
+        supabase.removeChannel(broadcastChannelRef.current);
+      }
+
       // Broadcast so homepage refreshes
       const channel = supabase.channel('cms-live');
+      broadcastChannelRef.current = channel;
+      
       channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.send({ type: 'broadcast', event: 'layout-updated', payload: { at: Date.now() } });
           supabase.removeChannel(channel);
+          broadcastChannelRef.current = null;
         }
       });
 
