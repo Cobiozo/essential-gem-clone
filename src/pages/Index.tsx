@@ -174,6 +174,11 @@ const Index = () => {
           table: 'cms_sections'
         },
         () => {
+          // Ignoruj aktualizacje gdy strona jest w tle (tab switch)
+          if (document.hidden) {
+            console.log('CMS sections update ignored - page is hidden');
+            return;
+          }
           console.log('CMS sections updated, scheduling debounced refetch...');
           debouncedFetchCMSData();
         }
@@ -190,6 +195,11 @@ const Index = () => {
           table: 'cms_items'
         },
         () => {
+          // Ignoruj aktualizacje gdy strona jest w tle (tab switch)
+          if (document.hidden) {
+            console.log('CMS items update ignored - page is hidden');
+            return;
+          }
           console.log('CMS items updated, scheduling debounced refetch...');
           debouncedFetchCMSData();
         }

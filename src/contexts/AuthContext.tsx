@@ -140,7 +140,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         if (newSession?.user) {
-          // CRITICAL: Use setTimeout(0) to defer fetchProfile and prevent deadlock
+          // TOKEN_REFRESHED - tylko odśwież token, nie resetuj UI
+          // Jeśli profil już istnieje dla tego użytkownika - pomiń refetch
+          const profileAlreadyLoaded = profile && profile.user_id === newSession.user.id;
+          
+          if (event === 'TOKEN_REFRESHED' && profileAlreadyLoaded) {
+            // Token odświeżony w tle - zachowaj stan UI
+            return;
+          }
+          
+          // Tylko przy prawdziwym logowaniu lub zmianie użytkownika
           setRolesReady(false);
           setTimeout(() => {
             if (mounted) {

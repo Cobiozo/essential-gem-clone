@@ -29,7 +29,15 @@ const Training = lazy(() => import("./pages/Training"));
 const TrainingModule = lazy(() => import("./pages/TrainingModule"));
 const KnowledgeCenter = lazy(() => import("./pages/KnowledgeCenter"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const AppContent = () => {
   useDynamicMetaTags();
