@@ -468,6 +468,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                 if (cell.text_color) {
                   btnCellStyle.color = cell.text_color;
                 }
+                if (cell.font_size) {
+                  btnCellStyle.fontSize = `${cell.font_size}px`;
+                }
+                if (cell.font_family) {
+                  btnCellStyle.fontFamily = cell.font_family;
+                }
                 
                 // Wyrównanie kontenera
                 const btnAlignment = cell.alignment || 'left';

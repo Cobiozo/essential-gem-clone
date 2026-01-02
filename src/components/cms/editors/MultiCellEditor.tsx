@@ -1046,6 +1046,43 @@ export const MultiCellEditor: React.FC<MultiCellEditorProps> = ({ item, onSave, 
                                   </div>
                                 </div>
 
+                                {/* Rozmiar czcionki */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Rozmiar czcionki: {cell.font_size || 14}px</Label>
+                                  <Slider
+                                    value={[cell.font_size || 14]}
+                                    onValueChange={([v]) => updateCell(cell.id!, { font_size: v })}
+                                    min={10}
+                                    max={32}
+                                    step={1}
+                                  />
+                                </div>
+
+                                {/* Styl czcionki */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Styl czcionki</Label>
+                                  <Select
+                                    value={cell.font_family || 'default'}
+                                    onValueChange={(value) => updateCell(cell.id!, { 
+                                      font_family: value === 'default' ? undefined : value 
+                                    })}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <SelectValue placeholder="Domyślna" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="default">Domyślna</SelectItem>
+                                      <SelectItem value="Arial, sans-serif">Arial</SelectItem>
+                                      <SelectItem value="'Times New Roman', serif">Times New Roman</SelectItem>
+                                      <SelectItem value="Georgia, serif">Georgia</SelectItem>
+                                      <SelectItem value="'Courier New', monospace">Courier New</SelectItem>
+                                      <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
+                                      <SelectItem value="'Trebuchet MS', sans-serif">Trebuchet MS</SelectItem>
+                                      <SelectItem value="Impact, sans-serif">Impact</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
                                 {/* Ikona przycisku */}
                                 <div className="space-y-1">
                                   <Label className="text-xs">Ikona</Label>

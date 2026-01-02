@@ -55,6 +55,9 @@ export interface ContentCell {
   icon_position?: 'before' | 'after';
   icon_size?: number;
   icon_spacing?: number;
+  // Button font settings
+  font_size?: number;
+  font_family?: string;
 }
 
 export interface CMSItem {

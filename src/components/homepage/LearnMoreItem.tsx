@@ -182,6 +182,12 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           if (cell.text_color) {
             btnStyle.color = cell.text_color;
           }
+          if (cell.font_size) {
+            btnStyle.fontSize = `${cell.font_size}px`;
+          }
+          if (cell.font_family) {
+            btnStyle.fontFamily = cell.font_family;
+          }
           
           // Ikona
           const BtnIcon = cell.icon ? (icons as any)[cell.icon] : null;
