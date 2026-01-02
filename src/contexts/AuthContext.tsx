@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -78,6 +78,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [rolesReady, setRolesReady] = useState(false);
   const [loginTrigger, setLoginTrigger] = useState(0);
   const [initialized, setInitialized] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Ref to track if page is hidden (tab switch) - prevents state resets
+  const isPageHiddenRef = useRef(false);
+  
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isPageHiddenRef.current = document.hidden;
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   const fetchProfile = useCallback(async (userId: string): Promise<void> => {
     try {
@@ -126,6 +139,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, newSession) => {
         if (!mounted) return;
         
+        // CRITICAL: Ignoruj eventy auth gdy strona jest ukryta (tab switch)
+        // Zapobiega resetowaniu stanu UI przy przełączaniu kart
+        if (isPageHiddenRef.current && event !== 'SIGNED_OUT') {
+          // Cicho zaktualizuj sesję bez resetowania UI
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+          return;
+        }
+        
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
@@ -144,19 +166,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Jeśli profil już istnieje dla tego użytkownika - pomiń refetch
           const profileAlreadyLoaded = profile && profile.user_id === newSession.user.id;
           
-          if (event === 'TOKEN_REFRESHED' && profileAlreadyLoaded) {
-            // Token odświeżony w tle - zachowaj stan UI
+          if (event === 'TOKEN_REFRESHED' || profileAlreadyLoaded) {
+            // Token odświeżony lub profil już załadowany - zachowaj stan UI
             return;
           }
           
-          // Tylko przy prawdziwym logowaniu lub zmianie użytkownika
-          setRolesReady(false);
+          // Tylko przy prawdziwym pierwszym logowaniu lub zmianie użytkownika
+          // NIE resetuj rolesReady jeśli już zakończono inicjalizację
+          if (!initialLoadComplete) {
+            setRolesReady(false);
+          }
+          
           setTimeout(() => {
             if (mounted) {
               fetchProfile(newSession.user.id).then(() => {
                 if (mounted) {
                   setLoading(false);
                   setInitialized(true);
+                  setInitialLoadComplete(true);
                 }
               });
             }

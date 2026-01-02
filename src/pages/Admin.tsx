@@ -1754,14 +1754,16 @@ const Admin = () => {
   }, [isAdmin]);
 
   useEffect(() => {
+    // CRITICAL: Nie przekierowuj podczas ładowania - user może być tymczasowo null przy tab switch
+    if (loading) return;
+    
     if (!user) {
       navigate('/auth');
       return;
     }
-    
 
     fetchData();
-  }, [user, isAdmin, navigate, toast]);
+  }, [user, loading, isAdmin, navigate, toast]);
 
   const fetchData = async () => {
     try {
