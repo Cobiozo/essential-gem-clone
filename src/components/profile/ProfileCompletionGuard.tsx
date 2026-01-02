@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
@@ -15,6 +15,15 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   const location = useLocation();
   
+  // Track if profile was ever loaded - prevents spinner on tab switch
+  const [hadProfile, setHadProfile] = useState(false);
+  
+  useEffect(() => {
+    if (profile) {
+      setHadProfile(true);
+    }
+  }, [profile]);
+  
   // Allow auth page to render without restrictions
   if (location.pathname === '/auth') {
     return <>{children}</>;
@@ -26,7 +35,13 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   }
   
   // Wait for profile and roles to load
+  // BUT: If profile was already loaded once, keep showing children (prevents flash on tab switch)
   if (loading || !rolesReady || !profile) {
+    // If we had a profile before, don't show spinner - just keep current content
+    if (hadProfile) {
+      return <>{children}</>;
+    }
+    // Only show spinner on first load
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
