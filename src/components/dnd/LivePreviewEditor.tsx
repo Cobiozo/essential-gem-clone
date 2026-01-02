@@ -1999,7 +1999,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       />
 
       <div className={`${editMode ? 'flex gap-0' : ''}`}>
-        <div className={`space-y-6 ${editMode ? 'pb-32 ml-80' : ''} flex-1`}>
+        <div className={`space-y-6 ${editMode ? 'pb-32 ml-96' : ''} flex-1`}>
           <DeviceFrame device={currentDevice} className="mx-auto">
           <DragDropProvider
             items={[
