@@ -82,6 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Ref to track if page is hidden (tab switch) - prevents state resets
   const isPageHiddenRef = useRef(false);
+  // Ref to track setTimeout for cleanup
+  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -177,7 +179,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setRolesReady(false);
           }
           
-          setTimeout(() => {
+          // Clear any previous timeout
+          if (timeoutIdRef.current) {
+            clearTimeout(timeoutIdRef.current);
+          }
+          timeoutIdRef.current = setTimeout(() => {
             if (mounted) {
               fetchProfile(newSession.user.id).then(() => {
                 if (mounted) {
@@ -234,6 +240,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Proper cleanup
     return () => {
       mounted = false;
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+      }
       subscriptionRef?.unsubscribe();
     };
   }, [fetchProfile]);

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +26,14 @@ export const useMedicalChatStream = () => {
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const { language } = useLanguage();
   const { user } = useAuth();
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount - abort any pending requests
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // Load chat history on mount
   useEffect(() => {
@@ -76,6 +84,10 @@ export const useMedicalChatStream = () => {
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim()) return;
 
+    // Abort any previous pending request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
     const userMsg: MedicalChatMessage = { role: 'user', content: userMessage };
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
@@ -92,6 +104,7 @@ export const useMedicalChatStream = () => {
           language,
           resultsCount: resultsCount === 0 ? 100 : resultsCount, // 0 = max = 100
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -189,6 +202,10 @@ export const useMedicalChatStream = () => {
         await saveChatHistory(userMessage, assistantContent);
       }
     } catch (err) {
+      // Ignore abort errors - they're expected when component unmounts
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       console.error('Medical chat error:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił błąd');
       // Remove the empty assistant message on error
