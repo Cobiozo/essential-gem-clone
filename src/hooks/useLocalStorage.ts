@@ -112,7 +112,6 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
       // Send request
       xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
-      xhr.setRequestHeader('X-API-Key', STORAGE_CONFIG.API_KEY);
       xhr.send(formData);
     });
   }, []);
@@ -123,11 +122,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         ? `${STORAGE_CONFIG.LIST_API_URL}?folder=${encodeURIComponent(folder)}`
         : STORAGE_CONFIG.LIST_API_URL;
         
-      const response = await fetch(url, {
-        headers: {
-          'X-API-Key': STORAGE_CONFIG.API_KEY
-        }
-      });
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
