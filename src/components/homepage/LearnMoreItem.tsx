@@ -143,7 +143,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
       case 'text':
         return (
           <div 
-            className={`leading-relaxed text-muted-foreground ${isFullWidth ? 'flex-1' : ''}`}
+            className={`leading-relaxed text-foreground/80 dark:text-foreground/90 ${isFullWidth ? 'flex-1' : ''}`}
             style={{ textAlign }}
             dangerouslySetInnerHTML={{ __html: cell.content || '' }}
           />
@@ -438,7 +438,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
                 contentCells.map((cell, index) => renderCell(cell, index))
               ) : (
                 <div 
-                  className="leading-relaxed text-muted-foreground"
+                  className="leading-relaxed text-foreground/80 dark:text-foreground/90"
                   dangerouslySetInnerHTML={{ __html: item.description || '' }}
                 />
               )}

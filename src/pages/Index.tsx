@@ -386,7 +386,7 @@ const Index = () => {
                     {/* Show description in trigger if custom header is set */}
                     {hasCustomHeader && section.description && (
                       <span 
-                        className="text-sm font-normal text-muted-foreground"
+                        className="text-sm font-normal text-foreground/70 dark:text-foreground/80"
                         dangerouslySetInnerHTML={{ __html: section.description }}
                       />
                     )}
@@ -395,7 +395,7 @@ const Index = () => {
                 <AccordionContent className="pb-6">
                   {/* Show description in content only if custom header is NOT set */}
                   {!hasCustomHeader && section.description && (
-                    <p className="text-muted-foreground mb-6" dangerouslySetInnerHTML={{ __html: section.description }} />
+                    <p className="text-foreground/70 dark:text-foreground/80 mb-6" dangerouslySetInnerHTML={{ __html: section.description }} />
                   )}
                   {/* Show title in content if custom header is set */}
                   {hasCustomHeader && section.title && section.show_title !== false && (

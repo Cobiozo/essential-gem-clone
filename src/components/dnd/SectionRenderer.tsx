@@ -744,7 +744,7 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
                 {/* Show description in trigger if collapsible_header is set */}
                 {(section as any).collapsible_header && section.description && (
                   <span 
-                    className="text-sm font-normal text-muted-foreground"
+                    className="text-sm font-normal text-foreground/70 dark:text-foreground/80"
                     dangerouslySetInnerHTML={{ __html: section.description }}
                   />
                 )}
@@ -754,7 +754,7 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
               {/* Show description in content only if collapsible_header is NOT set */}
               {!(section as any).collapsible_header && section.description && (
                 <p 
-                  className="text-muted-foreground mb-6"
+                  className="text-foreground/70 dark:text-foreground/80 mb-6"
                   dangerouslySetInnerHTML={{ __html: section.description }}
                 />
               )}

@@ -199,7 +199,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                       )}
                       {slotSection.description && (
                         <div 
-                          className="text-center text-muted-foreground mb-6 max-w-3xl mx-auto"
+                          className="text-center text-foreground/70 dark:text-foreground/80 mb-6 max-w-3xl mx-auto"
                           dangerouslySetInnerHTML={{ __html: slotSection.description }}
                         />
                       )}

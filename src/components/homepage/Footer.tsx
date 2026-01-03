@@ -16,17 +16,17 @@ const Footer = () => {
           </div>
           
           {/* Copyright */}
-          <p className="text-muted-foreground text-sm">
+          <p className="text-foreground/60 dark:text-foreground/70 text-sm">
             © {new Date().getFullYear()} Pure Life. {t('footer.allRightsReserved')}
           </p>
           
           {/* Links */}
           <div className="flex items-center gap-4 text-sm">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="#" className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors">
               {t('footer.privacyPolicy')}
             </a>
-            <span className="text-muted-foreground/50">•</span>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <span className="text-foreground/30 dark:text-foreground/40">•</span>
+            <a href="#" className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors">
               {t('footer.terms')}
             </a>
           </div>

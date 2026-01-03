@@ -26,7 +26,7 @@ const LearnMoreSection = () => {
           <h2 className="text-4xl font-bold mb-6 text-foreground uppercase tracking-wide">
             Dowiedz się więcej
           </h2>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-foreground/70 dark:text-foreground/80 text-lg">
             Tu znajdziesz materiały dla wszystkich zainteresowanych omega-3
           </p>
         </div>
@@ -58,7 +58,7 @@ const LearnMoreSection = () => {
                   expandedIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
-                <div className="px-6 pb-6 text-muted-foreground leading-relaxed">
+                <div className="px-6 pb-6 text-foreground/70 dark:text-foreground/80 leading-relaxed">
                   {item.content}
                 </div>
               </div>
