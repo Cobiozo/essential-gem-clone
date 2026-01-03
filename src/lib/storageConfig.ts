@@ -4,12 +4,9 @@ export const STORAGE_CONFIG = {
   MAX_FILE_SIZE_MB: 2048, // 2GB
   MAX_FILE_SIZE_BYTES: 2 * 1024 * 1024 * 1024,
   
-  // URL do API uploadu (względny dla tego samego serwera)
-  UPLOAD_API_URL: '/api/upload.php',
-  LIST_API_URL: '/api/list-files.php',
-  
-  // Klucz API (powinien odpowiadać kluczowi w PHP!)
-  API_KEY: 'PURE_LIFE_UPLOAD_SECRET_2024',
+  // URL do API uploadu (Node.js Express)
+  UPLOAD_API_URL: '/upload',
+  LIST_API_URL: '/list-files',
   
   // Dozwolone typy plików
   ALLOWED_TYPES: {
