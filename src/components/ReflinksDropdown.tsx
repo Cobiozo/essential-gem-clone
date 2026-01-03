@@ -122,36 +122,61 @@ export const ReflinksDropdown: React.FC = () => {
   };
 
   const handleCopy = async (reflink: Reflink) => {
-    let description: string;
-    
-    if (reflink.link_type === 'clipboard') {
-      const content = reflink.clipboard_content || '';
-      description = 'Treść została skopiowana do schowka';
+    try {
+      let description: string;
       
-      try {
-        const blob = new Blob([content], { type: 'text/html' });
-        const plainBlob = new Blob([content.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html': blob,
-            'text/plain': plainBlob
-          })
-        ]);
-      } catch {
-        await navigator.clipboard.writeText(content.replace(/<[^>]*>/g, ''));
+      if (reflink.link_type === 'clipboard') {
+        const content = reflink.clipboard_content || '';
+        console.log('Clipboard content to copy:', content);
+        description = 'Treść została skopiowana do schowka';
+        
+        if (!content) {
+          toast({
+            title: 'Błąd',
+            description: 'Brak treści do skopiowania',
+            variant: 'destructive',
+          });
+          return;
+        }
+        
+        // Try to copy with HTML formatting
+        try {
+          const htmlBlob = new Blob([content], { type: 'text/html' });
+          const plainText = content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+          const plainBlob = new Blob([plainText], { type: 'text/plain' });
+          
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/html': htmlBlob,
+              'text/plain': plainBlob
+            })
+          ]);
+          console.log('Copied with HTML formatting');
+        } catch (htmlError) {
+          console.log('HTML copy failed, falling back to plain text:', htmlError);
+          const plainText = content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+          await navigator.clipboard.writeText(plainText);
+        }
+      } else {
+        const textToCopy = getFullLink(reflink);
+        description = 'Link został skopiowany do schowka';
+        await navigator.clipboard.writeText(textToCopy);
       }
-    } else {
-      const textToCopy = getFullLink(reflink);
-      description = 'Link został skopiowany do schowka';
-      await navigator.clipboard.writeText(textToCopy);
+      
+      setCopiedId(reflink.id);
+      toast({
+        title: 'Skopiowano!',
+        description,
+      });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      console.error('Copy error:', error);
+      toast({
+        title: 'Błąd kopiowania',
+        description: 'Nie udało się skopiować do schowka',
+        variant: 'destructive',
+      });
     }
-    
-    setCopiedId(reflink.id);
-    toast({
-      title: 'Skopiowano!',
-      description,
-    });
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const roleLabels: Record<string, string> = {
