@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from '@/components/ThemeProvider';
-import { isProblematicColor } from '@/lib/colorUtils';
+import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 
 interface TextStyle {
   fontSize: number;
@@ -73,13 +73,16 @@ export const FormattedText: React.FC<FormattedTextProps> = ({
   const Component = as;
 
   // Combine base classes with custom classes for proper text handling
-  const combinedClassName = `${className} ${formatting ? 'break-words hyphens-auto' : ''}`.trim();
+  const combinedClassName = `${className} ${formatting ? 'break-words hyphens-auto' : ''} dark:text-foreground`.trim();
+
+  // Sanitize HTML to remove problematic inline colors in dark mode
+  const sanitizedText = sanitizeHtmlForDarkMode(text, isDarkMode);
 
   return (
     <Component 
       className={combinedClassName} 
       style={style}
-      dangerouslySetInnerHTML={{ __html: text }}
+      dangerouslySetInnerHTML={{ __html: sanitizedText }}
     />
   );
 };

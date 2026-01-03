@@ -225,3 +225,17 @@ All colors MUST be HSL.
     opacity: var(--hover-opacity, 1);
   }
 }
+
+/* Fix dark mode text visibility for CMS content with hardcoded black colors */
+@layer utilities {
+  .dark [style*="color: rgb(0, 0, 0)"],
+  .dark [style*="color:rgb(0,0,0)"],
+  .dark [style*="color: black"],
+  .dark [style*="color:#000"],
+  .dark [style*="color: #000"],
+  .dark font[color="#000000"],
+  .dark font[color="#000"],
+  .dark font[color="black"] {
+    color: hsl(var(--foreground)) !important;
+  }
+}
