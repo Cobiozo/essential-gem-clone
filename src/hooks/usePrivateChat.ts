@@ -592,7 +592,7 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel('private-chat-messages')
+      .channel(`private-chat-messages-${user.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         {

@@ -287,6 +287,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      // NPROC fix: Cleanup all realtime channels before signing out
+      try {
+        const channels = supabase.getChannels();
+        for (const channel of channels) {
+          await supabase.removeChannel(channel);
+        }
+      } catch (channelError) {
+        console.warn('Channel cleanup warning:', channelError);
+      }
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);

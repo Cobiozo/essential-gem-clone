@@ -166,7 +166,7 @@ export const useRoleChat = (options?: UseRoleChatOptions) => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel('role-chat-messages')
+      .channel(`role-chat-messages-${user.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         {

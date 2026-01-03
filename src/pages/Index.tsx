@@ -169,8 +169,10 @@ const Index = () => {
     }
 
     // Setup realtime subscriptions for CMS changes with debounce
+    // NPROC fix: unique channel names to prevent collisions
+    const channelId = Date.now();
     const sectionsChannel = supabase
-      .channel('cms-sections-changes')
+      .channel(`cms-sections-changes-${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -191,7 +193,7 @@ const Index = () => {
       .subscribe();
 
     const itemsChannel = supabase
-      .channel('cms-items-changes')
+      .channel(`cms-items-changes-${channelId}`)
       .on(
         'postgres_changes',
         {
