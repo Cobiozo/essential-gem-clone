@@ -144,3 +144,23 @@ export function isProblematicColor(
 
   return false;
 }
+
+/**
+ * Sanitize HTML content by removing problematic dark colors in dark mode
+ * This fixes hardcoded black text that becomes invisible in dark mode
+ */
+export function sanitizeHtmlForDarkMode(html: string, isDarkMode: boolean): string {
+  if (!isDarkMode || !html) return html;
+  
+  return html
+    // Remove inline color styles with black/dark colors
+    .replace(/color:\s*rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)/gi, '')
+    .replace(/color:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*[\d.]+\)/gi, '')
+    .replace(/color:\s*#0{3,6}/gi, '')
+    .replace(/color:\s*black/gi, '')
+    // Remove font color attributes
+    .replace(/(<font[^>]*)\scolor=["'][^"']*["']/gi, '$1')
+    // Clean up empty style attributes
+    .replace(/style=["']\s*;?\s*["']/gi, '')
+    .replace(/style=["'];+["']/gi, '');
+}
