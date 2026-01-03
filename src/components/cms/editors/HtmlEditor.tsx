@@ -102,7 +102,7 @@ export const HtmlEditor: React.FC<HtmlEditorProps> = ({ item, onSave, onCancel }
             <div>
               <Label>Podgląd</Label>
               <div 
-                className="border rounded-lg p-4 bg-muted/30"
+                className="border rounded-lg p-4 bg-muted/30 prose dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
             </div>

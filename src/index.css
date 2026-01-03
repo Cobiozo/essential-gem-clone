@@ -228,14 +228,34 @@ All colors MUST be HSL.
 
 /* Fix dark mode text visibility for CMS content with hardcoded black colors */
 @layer utilities {
+  /* Override inline black text colors in dark mode */
   .dark [style*="color: rgb(0, 0, 0)"],
   .dark [style*="color:rgb(0,0,0)"],
   .dark [style*="color: black"],
   .dark [style*="color:#000"],
   .dark [style*="color: #000"],
+  .dark [style*="color:#000000"],
+  .dark [style*="color: #000000"],
   .dark font[color="#000000"],
   .dark font[color="#000"],
-  .dark font[color="black"] {
+  .dark font[color="black"],
+  .dark [style*="color: rgb(51, 51, 51)"],
+  .dark [style*="color: rgb(0, 0, 0)"] {
     color: hsl(var(--foreground)) !important;
+  }
+
+  /* Ensure prose content inherits proper colors in dark mode */
+  .dark .prose p,
+  .dark .prose li,
+  .dark .prose span,
+  .dark .prose div {
+    color: inherit;
+  }
+
+  /* Force text colors for common CMS elements in dark mode */
+  .dark [class*="dangerouslySetInnerHTML"] span,
+  .dark [class*="dangerouslySetInnerHTML"] p,
+  .dark [class*="dangerouslySetInnerHTML"] div {
+    color: inherit !important;
   }
 }

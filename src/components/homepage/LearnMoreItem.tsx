@@ -2,6 +2,8 @@ import React, { lazy, Suspense } from 'react';
 import { ChevronDown, icons } from 'lucide-react';
 import { CMSItem, ContentCell } from '@/types/cms';
 import { Button } from '@/components/ui/button';
+import { useTheme } from '@/components/ThemeProvider';
+import { sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 
 interface LearnMoreItemProps {
   item: CMSItem;
@@ -26,6 +28,9 @@ const getYouTubeVideoId = (url: string): string | null => {
 };
 
 export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, isExpanded, onToggle, isEditMode = false }) => {
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   // Parse cells from item
   const cells = (item.cells || []) as ContentCell[];
   const activeCells = cells
@@ -145,7 +150,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           <div 
             className={`leading-relaxed text-foreground/80 dark:text-foreground/90 ${isFullWidth ? 'flex-1' : ''}`}
             style={{ textAlign }}
-            dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.content || '', isDarkMode) }}
           />
         );
         
@@ -154,9 +159,9 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
             <div className={`flex items-start gap-2 ${isFullWidth ? 'flex-1' : ''}`}>
               <span className="text-primary mt-1">•</span>
               <span 
-                className={isFullWidth ? 'flex-1' : ''}
+                className={`text-foreground ${isFullWidth ? 'flex-1' : ''}`}
                 style={{ textAlign }}
-                dangerouslySetInnerHTML={{ __html: cell.content || '' }} 
+                dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.content || '', isDarkMode) }} 
               />
             </div>
           );
@@ -371,9 +376,9 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         default:
           return cell.content ? (
             <div 
-              className={`leading-relaxed ${isFullWidth ? 'flex-1 w-full' : ''}`}
+              className={`leading-relaxed text-foreground ${isFullWidth ? 'flex-1 w-full' : ''}`}
               style={{ textAlign }}
-              dangerouslySetInnerHTML={{ __html: cell.content || '' }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.content || '', isDarkMode) }}
             />
           ) : null;
       }
@@ -412,9 +417,9 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
         <div className="flex items-center gap-5">
           {renderNumber()}
           <span 
-            className="text-left font-semibold text-lg"
+            className="text-left font-semibold text-lg text-foreground"
             style={titleStyle}
-            dangerouslySetInnerHTML={{ __html: headerContent }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(headerContent, isDarkMode) }}
           />
         </div>
         <ChevronDown 
@@ -439,7 +444,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
               ) : (
                 <div 
                   className="leading-relaxed text-foreground/80 dark:text-foreground/90"
-                  dangerouslySetInnerHTML={{ __html: item.description || '' }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(item.description || '', isDarkMode) }}
                 />
               )}
             </div>

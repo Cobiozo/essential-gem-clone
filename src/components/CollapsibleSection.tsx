@@ -9,7 +9,7 @@ import { CMSSection, CMSItem } from '@/types/cms';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { DeviceType } from '@/components/dnd/DevicePreview';
 import { useTheme } from '@/components/ThemeProvider';
-import { isProblematicColor } from '@/lib/colorUtils';
+import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 interface CollapsibleSectionProps {
   title: string;
   description?: string;
@@ -374,10 +374,10 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 {sectionStyle?.show_title !== false && (
                   <h3 
                     className={cn(
-                      "font-semibold leading-tight",
+                      "font-semibold leading-tight text-foreground",
                       isEditMode && "cursor-text hover:bg-muted/30 px-3 py-2 rounded transition-colors border-2 border-dashed border-border"
                     )}
-                    dangerouslySetInnerHTML={{ __html: title }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(title, isDarkMode) }}
                     onClick={(e) => {
                       if (isEditMode) {
                         e.stopPropagation();
@@ -428,11 +428,11 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
                 <>
                   <p 
                     className={cn(
-                      "text-sm opacity-90 mt-2 leading-relaxed max-w-md",
+                      "text-sm opacity-90 mt-2 leading-relaxed max-w-md text-foreground",
                       isEditMode && "cursor-text hover:bg-muted/30 px-3 py-2 rounded transition-colors border-2 border-dashed border-border",
                       !description && isEditMode && "text-muted-foreground italic"
                     )}
-                    dangerouslySetInnerHTML={{ __html: description || (isEditMode ? 'Kliknij aby dodać opis...' : '') }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(description || (isEditMode ? 'Kliknij aby dodać opis...' : ''), isDarkMode) }}
                     onClick={(e) => {
                       if (isEditMode) {
                         e.stopPropagation();

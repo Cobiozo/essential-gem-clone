@@ -6,7 +6,7 @@ import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { cn } from '@/lib/utils';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { useTheme } from '@/components/ThemeProvider';
-import { isProblematicColor } from '@/lib/colorUtils';
+import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 import { isItemVisible } from '@/lib/visibilityUtils';
 import { User } from '@supabase/supabase-js';
 
@@ -200,7 +200,7 @@ export const HomeRowContainer: React.FC<HomeRowContainerProps> = ({
                       {slotSection.description && (
                         <div 
                           className="text-center text-foreground/70 dark:text-foreground/80 mb-6 max-w-3xl mx-auto"
-                          dangerouslySetInnerHTML={{ __html: slotSection.description }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(slotSection.description, isDarkMode) }}
                         />
                       )}
                       <div className="space-y-4">

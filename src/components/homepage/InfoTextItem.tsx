@@ -2,7 +2,7 @@ import React from 'react';
 import * as LucideIcons from 'lucide-react';
 import { CMSItem } from '@/types/cms';
 import { useTheme } from '@/components/ThemeProvider';
-import { isProblematicColor } from '@/lib/colorUtils';
+import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 
 interface InfoTextItemProps {
   item: CMSItem;
@@ -52,20 +52,20 @@ export const InfoTextItem: React.FC<InfoTextItemProps> = ({ item }) => {
       <h3 
         className="text-xl font-bold mb-3 text-foreground"
         style={titleStyle}
-        dangerouslySetInnerHTML={{ __html: item.title || '' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(item.title || '', isDarkMode) }}
       />
       {item.url ? (
         <a 
           href={item.url} 
           className="hover:opacity-80 transition-colors font-medium text-muted-foreground"
           style={item.text_color && !isProblematicColor(item.text_color, isDarkMode, 'text') ? { color: item.text_color } : undefined}
-          dangerouslySetInnerHTML={{ __html: item.description || '' }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(item.description || '', isDarkMode) }}
         />
       ) : (
         <p 
           className="leading-relaxed text-muted-foreground"
           style={item.text_color && !isProblematicColor(item.text_color, isDarkMode, 'text') ? { color: item.text_color } : undefined}
-          dangerouslySetInnerHTML={{ __html: item.description || '' }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(item.description || '', isDarkMode) }}
         />
       )}
     </div>

@@ -15,6 +15,8 @@ import { ItemControls } from './ItemControls';
 import { SectionControls } from './SectionControls';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
+import { useTheme } from '@/components/ThemeProvider';
+import { sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 
 // Extracted to avoid re-mount loops of inline components causing DnD measuring cascades
 interface RowColumnDropZoneProps {
@@ -533,6 +535,9 @@ export const RowContainer: React.FC<RowContainerProps> = ({
     Array.from({ length: columnCount }, (_, i) => `${row.id}-col-${i}`)
   , [row.id, columnCount]);
 
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   const rowStyles: React.CSSProperties = {
     marginTop: row.section_margin_top ? `${row.section_margin_top}px` : undefined,
     marginBottom: row.section_margin_bottom ? `${row.section_margin_bottom}px` : undefined,
@@ -680,21 +685,21 @@ export const RowContainer: React.FC<RowContainerProps> = ({
           }}
         >
           <h2 
-            className="text-3xl font-bold mb-4"
+            className="text-3xl font-bold mb-4 text-foreground"
             style={{ 
-              color: row.text_color || 'inherit',
+              color: (row.text_color && !row.text_color.match(/^(#0{3,6}|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\))$/i)) ? row.text_color : undefined,
               textAlign: row.alignment as any || 'left'
             }}
-            dangerouslySetInnerHTML={{ __html: row.title }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(row.title, isDarkMode) }}
           />
           {row.description && (
             <div 
-              className="text-lg"
+              className="text-lg text-foreground"
               style={{ 
-                color: row.text_color || 'inherit',
+                color: (row.text_color && !row.text_color.match(/^(#0{3,6}|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\))$/i)) ? row.text_color : undefined,
                 textAlign: row.alignment as any || 'left'
               }}
-              dangerouslySetInnerHTML={{ __html: row.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(row.description, isDarkMode) }}
             />
           )}
         </div>
