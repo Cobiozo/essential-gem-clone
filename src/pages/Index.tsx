@@ -20,7 +20,7 @@ import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/ThemeProvider';
-import { isProblematicColor } from '@/lib/colorUtils';
+import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 import { isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
 import {
   Accordion,
@@ -377,9 +377,9 @@ const Index = () => {
                   <div className="flex flex-col items-start gap-2 text-left">
                     {/* Custom header or title */}
                     {hasCustomHeader ? (
-                      <span dangerouslySetInnerHTML={{ __html: (section as any).collapsible_header }} />
+                      <span className="text-foreground" dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode((section as any).collapsible_header, isDarkMode) }} />
                     ) : section.title ? (
-                      <span dangerouslySetInnerHTML={{ __html: section.title }} />
+                      <span className="text-foreground" dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(section.title, isDarkMode) }} />
                     ) : (
                       <span className="text-muted-foreground">Kliknij aby rozwinąć</span>
                     )}
@@ -387,7 +387,7 @@ const Index = () => {
                     {hasCustomHeader && section.description && (
                       <span 
                         className="text-sm font-normal text-foreground/70 dark:text-foreground/80"
-                        dangerouslySetInnerHTML={{ __html: section.description }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(section.description, isDarkMode) }}
                       />
                     )}
                   </div>
@@ -395,17 +395,17 @@ const Index = () => {
                 <AccordionContent className="pb-6">
                   {/* Show description in content only if custom header is NOT set */}
                   {!hasCustomHeader && section.description && (
-                    <p className="text-foreground/70 dark:text-foreground/80 mb-6" dangerouslySetInnerHTML={{ __html: section.description }} />
+                    <p className="text-foreground/70 dark:text-foreground/80 mb-6" dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(section.description, isDarkMode) }} />
                   )}
                   {/* Show title in content if custom header is set */}
                   {hasCustomHeader && section.title && section.show_title !== false && (
                     <h3 
-                      className="text-2xl font-bold mb-4"
+                      className="text-2xl font-bold mb-4 text-foreground"
                       style={{ 
                         color: (section.text_color && !isProblematicColor(section.text_color, isDarkMode, 'text')) 
                               ? section.text_color : undefined 
                       }}
-                      dangerouslySetInnerHTML={{ __html: section.title }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(section.title, isDarkMode) }}
                     />
                   )}
                   <div className="space-y-3 md:space-y-4">

@@ -153,13 +153,21 @@ export function sanitizeHtmlForDarkMode(html: string, isDarkMode: boolean): stri
   if (!isDarkMode || !html) return html;
   
   return html
-    // Remove inline color styles with black/dark colors
+    // Remove inline color styles with black/dark colors (various formats)
     .replace(/color:\s*rgb\(\s*0\s*,\s*0\s*,\s*0\s*\)/gi, '')
     .replace(/color:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*[\d.]+\)/gi, '')
+    .replace(/color:\s*rgb\(\s*51\s*,\s*51\s*,\s*51\s*\)/gi, '') // #333333
+    .replace(/color:\s*rgb\(\s*34\s*,\s*34\s*,\s*34\s*\)/gi, '') // #222222
     .replace(/color:\s*#0{3,6}/gi, '')
+    .replace(/color:\s*#(00){1,3}/gi, '')
+    .replace(/color:\s*#111/gi, '')
+    .replace(/color:\s*#222/gi, '')
+    .replace(/color:\s*#333/gi, '')
     .replace(/color:\s*black/gi, '')
-    // Remove font color attributes
-    .replace(/(<font[^>]*)\scolor=["'][^"']*["']/gi, '$1')
+    .replace(/color:\s*windowtext/gi, '') // MS Word black
+    // Remove font color attributes (legacy HTML)
+    .replace(/(<font[^>]*)\scolor=["']#?0{3,6}["']/gi, '$1')
+    .replace(/(<font[^>]*)\scolor=["']black["']/gi, '$1')
     // Clean up empty style attributes
     .replace(/style=["']\s*;?\s*["']/gi, '')
     .replace(/style=["'];+["']/gi, '');

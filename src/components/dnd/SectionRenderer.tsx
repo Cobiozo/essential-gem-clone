@@ -11,6 +11,8 @@ import { CMSContent } from '@/components/CMSContent';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
 import { InfoTextItem } from '@/components/homepage/InfoTextItem';
 import { CMSSection, CMSItem } from '@/types/cms';
+import { useTheme } from '@/components/ThemeProvider';
+import { sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 import {
   Accordion,
   AccordionContent,
@@ -735,9 +737,9 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
               <div className="flex flex-col items-start gap-2">
                 {/* Collapsible header - custom header text or fallback to title */}
                 {(section as any).collapsible_header ? (
-                  <span dangerouslySetInnerHTML={{ __html: (section as any).collapsible_header }} />
+                  <span className="text-foreground" dangerouslySetInnerHTML={{ __html: (section as any).collapsible_header }} />
                 ) : section.title ? (
-                  <span dangerouslySetInnerHTML={{ __html: section.title }} />
+                  <span className="text-foreground" dangerouslySetInnerHTML={{ __html: section.title }} />
                 ) : (
                   <span className="text-muted-foreground">Kliknij aby rozwinąć</span>
                 )}
@@ -761,7 +763,7 @@ const CollapsibleSectionRenderer: React.FC<CollapsibleSectionRendererProps> = ({
               {/* Show title in content if collapsible_header is set */}
               {(section as any).collapsible_header && section.title && section.show_title !== false && (
                 <h3 
-                  className="text-2xl font-bold mb-4"
+                  className="text-2xl font-bold mb-4 text-foreground"
                   style={{ color: section.text_color || undefined }}
                   dangerouslySetInnerHTML={{ __html: section.title }}
                 />

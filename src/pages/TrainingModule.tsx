@@ -496,7 +496,7 @@ const TrainingModule = () => {
 
                 {/* Text Content */}
                 {currentLesson.content && (
-                  <div className="prose max-w-none">
+                  <div className="prose dark:prose-invert max-w-none">
                     <div dangerouslySetInnerHTML={{ __html: currentLesson.content }} />
                   </div>
                 )}

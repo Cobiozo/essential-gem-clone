@@ -22,7 +22,7 @@ import { ToggleContainerElement } from './elements/ToggleContainerElement';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useTheme } from '@/components/ThemeProvider';
-import { isProblematicColor } from '@/lib/colorUtils';
+import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
 
 interface CMSContentProps {
   item: CMSItem;
@@ -233,12 +233,12 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         <div className="space-y-3">
           {activeCells.map((cell) => {
             switch (cell.type) {
-               case 'header':
+              case 'header':
                  return (
                    <h3 
                      key={cell.id} 
                      className="text-lg font-semibold text-foreground leading-tight"
-                     dangerouslySetInnerHTML={{ __html: cell.content }}
+                     dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.content, isDarkMode) }}
                    />
                  );
               
@@ -247,7 +247,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                    <p 
                      key={cell.id} 
                      className="text-sm text-muted-foreground leading-relaxed"
-                     dangerouslySetInnerHTML={{ __html: cell.content }}
+                     dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.content, isDarkMode) }}
                    />
                  );
               
@@ -256,8 +256,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                    <div key={cell.id} className="flex items-start space-x-2">
                      <span className="text-primary mt-1">•</span>
                      <span 
-                       className="text-sm leading-relaxed"
-                       dangerouslySetInnerHTML={{ __html: cell.content }}
+                       className="text-sm leading-relaxed text-foreground"
+                       dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.content, isDarkMode) }}
                      />
                    </div>
                  );
@@ -277,7 +277,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                         <h4 
                           key={subCell.id} 
                           className="text-base font-semibold text-foreground leading-tight"
-                          dangerouslySetInnerHTML={{ __html: subCell.content }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(subCell.content, isDarkMode) }}
                         />
                       );
                     case 'description':
@@ -286,7 +286,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                         <p 
                           key={subCell.id} 
                           className="text-sm text-muted-foreground leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: subCell.content }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(subCell.content, isDarkMode) }}
                         />
                       );
                     case 'list_item':
@@ -294,8 +294,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                         <div key={subCell.id} className="flex items-start space-x-2">
                           <span className="text-primary mt-1">•</span>
                           <span 
-                            className="text-sm leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: subCell.content }}
+                            className="text-sm leading-relaxed text-foreground"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(subCell.content, isDarkMode) }}
                           />
                         </div>
                       );
@@ -408,7 +408,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                       );
                     default:
                       return (
-                        <div key={subCell.id} className="text-sm" dangerouslySetInnerHTML={{ __html: subCell.content }} />
+                        <div key={subCell.id} className="text-sm text-foreground" dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(subCell.content, isDarkMode) }} />
                       );
                   }
                 };
@@ -417,13 +417,13 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                   return (
                      <div key={cell.id} className="border rounded-lg p-4 my-4 bg-muted/30">
                        <h4 
-                         className="font-semibold mb-2"
-                         dangerouslySetInnerHTML={{ __html: cell.section_title || cell.content }}
+                         className="font-semibold mb-2 text-foreground"
+                         dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.section_title || cell.content, isDarkMode) }}
                        />
                        {cell.section_description && (
                          <p 
                            className="text-sm text-muted-foreground mb-2"
-                           dangerouslySetInnerHTML={{ __html: cell.section_description }}
+                           dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(cell.section_description, isDarkMode) }}
                          />
                        )}
                        <p className="text-sm text-muted-foreground">Brak elementów w tej sekcji</p>
@@ -1154,8 +1154,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const htmlCell = (item.cells as any[])?.[0];
       return (
         <div
-          className="prose prose-sm max-w-none overflow-x-auto [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full"
-          dangerouslySetInnerHTML={{ __html: htmlCell?.content || '' }}
+          className="prose prose-sm dark:prose-invert max-w-none overflow-x-auto [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(htmlCell?.content || '', isDarkMode) }}
         />
       );
 
@@ -1475,14 +1475,14 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                   <h4 
                     className="font-semibold text-sm sm:text-base mb-1 text-foreground group-hover:text-primary transition-colors line-clamp-2"
                     style={titleStyle}
-                    dangerouslySetInnerHTML={{ __html: item.title }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(item.title, isDarkMode) }}
                   />
                 )}
                 {item.description && (
                   <p 
                     className="text-xs sm:text-sm text-muted-foreground line-clamp-2"
                     style={textStyle}
-                    dangerouslySetInnerHTML={{ __html: item.description }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtmlForDarkMode(item.description, isDarkMode) }}
                   />
                 )}
               </div>

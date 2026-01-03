@@ -41,7 +41,7 @@ export const BlockPreview: React.FC<BlockPreviewProps> = ({ block }) => {
     case 'text':
       return (
         <div
-          className="p-3 prose prose-sm max-w-none"
+          className="p-3 prose prose-sm dark:prose-invert max-w-none"
           dangerouslySetInnerHTML={{ __html: block.content.html }}
         />
       );
@@ -124,7 +124,7 @@ export const BlockPreview: React.FC<BlockPreviewProps> = ({ block }) => {
     case 'footer':
       return (
         <div
-          className="p-3 bg-muted/50 prose prose-sm max-w-none"
+          className="p-3 bg-muted/50 prose prose-sm dark:prose-invert max-w-none"
           dangerouslySetInnerHTML={{ __html: block.content.html }}
         />
       );

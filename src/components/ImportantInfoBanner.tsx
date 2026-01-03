@@ -304,7 +304,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
             </div>
           )}
           <div 
-            className="text-base text-center text-muted-foreground leading-relaxed prose prose-sm max-w-none"
+            className="text-base text-center text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: banner.content }}
           />
           
