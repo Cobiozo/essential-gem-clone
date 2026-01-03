@@ -19,6 +19,7 @@ interface Reflink {
   link_type: string;
   visible_to_roles: string[];
   position: number;
+  clipboard_content: string | null;
 }
 
 export const ReflinksDropdown: React.FC = () => {
@@ -77,7 +78,7 @@ export const ReflinksDropdown: React.FC = () => {
     const fetchReflinks = async () => {
       const { data, error } = await supabase
         .from('reflinks')
-        .select('id, target_role, reflink_code, title, link_url, link_type, visible_to_roles, position')
+        .select('id, target_role, reflink_code, title, link_url, link_type, visible_to_roles, position, clipboard_content')
         .eq('is_active', true)
         .order('target_role')
         .order('position');
@@ -121,12 +122,22 @@ export const ReflinksDropdown: React.FC = () => {
   };
 
   const handleCopy = async (reflink: Reflink) => {
-    const fullUrl = getFullLink(reflink);
-    await navigator.clipboard.writeText(fullUrl);
+    let textToCopy: string;
+    let description: string;
+    
+    if (reflink.link_type === 'clipboard') {
+      textToCopy = reflink.clipboard_content || '';
+      description = 'Treść została skopiowana do schowka';
+    } else {
+      textToCopy = getFullLink(reflink);
+      description = 'Link został skopiowany do schowka';
+    }
+    
+    await navigator.clipboard.writeText(textToCopy);
     setCopiedId(reflink.id);
     toast({
       title: 'Skopiowano!',
-      description: 'Link został skopiowany do schowka',
+      description,
     });
     setTimeout(() => setCopiedId(null), 2000);
   };
