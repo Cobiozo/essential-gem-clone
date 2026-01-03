@@ -159,18 +159,30 @@ export const ReflinksManagement: React.FC = () => {
   };
 
   const handleCopy = async (reflink: Reflink) => {
-    let textToCopy: string;
     let description: string;
     
     if (reflink.link_type === 'clipboard') {
-      textToCopy = reflink.clipboard_content || '';
+      const content = reflink.clipboard_content || '';
       description = 'Treść została skopiowana do schowka';
+      
+      try {
+        const blob = new Blob([content], { type: 'text/html' });
+        const plainBlob = new Blob([content.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': plainBlob
+          })
+        ]);
+      } catch {
+        await navigator.clipboard.writeText(content.replace(/<[^>]*>/g, ''));
+      }
     } else {
-      textToCopy = getLinkDisplay(reflink);
+      const textToCopy = getLinkDisplay(reflink);
       description = textToCopy;
+      await navigator.clipboard.writeText(textToCopy);
     }
     
-    await navigator.clipboard.writeText(textToCopy);
     setCopiedId(reflink.id);
     toast({
       title: 'Skopiowano!',

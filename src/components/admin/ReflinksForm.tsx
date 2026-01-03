@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MediaUpload } from '@/components/MediaUpload';
-
+import { RichTextEditor } from '@/components/RichTextEditor';
 interface ReflinkFormData {
   target_role: string;
   reflink_code: string;
@@ -52,18 +52,14 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
     onDataChange(newData);
   }, [onDataChange]);
 
-  // Handle text input changes - only update local state
+  // Handle text input changes - update local state AND sync with parent immediately
   const handleTextChange = useCallback((field: keyof ReflinkFormData, value: string) => {
     setLocalData(prev => {
       const updated = { ...prev, [field]: value };
+      updateParent(updated);
       return updated;
     });
-  }, []);
-
-  // Handle text input blur - sync with parent
-  const handleTextBlur = useCallback(() => {
-    updateParent(localData);
-  }, [localData, updateParent]);
+  }, [updateParent]);
 
   // Handle non-text field changes - update both local and parent immediately
   const handleSelectChange = useCallback((field: keyof ReflinkFormData, value: string | string[] | number) => {
@@ -137,7 +133,6 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
         <Input
           value={localData.title || ''}
           onChange={(e) => handleTextChange('title', e.target.value)}
-          onBlur={handleTextBlur}
           placeholder="np. Zarejestruj się jako partner"
           required
         />
@@ -152,7 +147,6 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
           <Input
             value={localData.reflink_code || ''}
             onChange={(e) => handleTextChange('reflink_code', e.target.value)}
-            onBlur={handleTextBlur}
             placeholder="np. partner-jan-2024"
           />
           <p className="text-xs text-muted-foreground">
@@ -167,7 +161,6 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
           <Input
             value={localData.link_url || ''}
             onChange={(e) => handleTextChange('link_url', e.target.value)}
-            onBlur={handleTextBlur}
             placeholder={localData.link_type === 'internal' ? '/strona' : 'https://example.com'}
           />
         </div>
@@ -176,15 +169,15 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
       {localData.link_type === 'clipboard' && (
         <div className="space-y-2">
           <Label>Treść do skopiowania *</Label>
-          <textarea
-            className="w-full min-h-[100px] p-3 rounded-md border border-input bg-background text-sm resize-y"
+          <RichTextEditor
             value={localData.clipboard_content || ''}
-            onChange={(e) => handleTextChange('clipboard_content', e.target.value)}
-            onBlur={handleTextBlur}
+            onChange={(value) => handleTextChange('clipboard_content', value)}
             placeholder="Wpisz tekst, który zostanie skopiowany do schowka..."
+            compact={true}
+            rows={4}
           />
           <p className="text-xs text-muted-foreground">
-            Ta treść zostanie skopiowana do schowka użytkownika po kliknięciu przycisku
+            Ta treść zostanie skopiowana do schowka użytkownika po kliknięciu przycisku. Możesz formatować tekst używając przycisków powyżej.
           </p>
         </div>
       )}
@@ -194,7 +187,6 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
         <Input
           value={localData.description || ''}
           onChange={(e) => handleTextChange('description', e.target.value)}
-          onBlur={handleTextBlur}
           placeholder="np. Link dla nowych partnerów"
         />
       </div>
