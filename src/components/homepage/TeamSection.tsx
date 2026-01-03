@@ -24,7 +24,7 @@ const TeamSection = () => {
           <h2 className="text-4xl font-bold mb-6 text-foreground uppercase tracking-wide">
             Zespół "Pure Life"
           </h2>
-          <p className="text-muted-foreground text-lg max-w-3xl mx-auto leading-relaxed">
+          <p className="text-foreground/70 dark:text-foreground/80 text-lg max-w-3xl mx-auto leading-relaxed">
             Jesteśmy grupą entuzjastów zdrowia naturalnego, którzy wierzą w moc wysokiej jakości suplementów omega-3. 
             Nasza misja to dzielenie się wiedzą i wspieranie Cię w budowaniu swojej kariery.
           </p>
@@ -42,7 +42,7 @@ const TeamSection = () => {
                 </div>
               </div>
               <h3 className="text-2xl font-bold mb-4 text-foreground">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+              <p className="text-foreground/70 dark:text-foreground/80 leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>

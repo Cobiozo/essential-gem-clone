@@ -30,7 +30,7 @@ const ContactSection = () => {
           <h2 className="text-4xl font-bold mb-6 text-foreground uppercase tracking-wide">
             Kontakt
           </h2>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-foreground/70 dark:text-foreground/80 text-lg">
             W tym miejscu znajdziesz informacje o kontakcie do Pure Life
           </p>
         </div>
@@ -52,12 +52,12 @@ const ContactSection = () => {
                 {contact.link ? (
                   <a 
                     href={contact.link} 
-                    className="text-muted-foreground hover:text-primary transition-colors font-medium"
+                    className="text-foreground/70 dark:text-foreground/80 hover:text-primary transition-colors font-medium"
                   >
                     {contact.value}
                   </a>
                 ) : (
-                  <p className="text-muted-foreground font-medium">{contact.value}</p>
+                  <p className="text-foreground/70 dark:text-foreground/80 font-medium">{contact.value}</p>
                 )}
               </div>
             );
@@ -66,7 +66,7 @@ const ContactSection = () => {
 
         <div className="text-center border-t border-border pt-12">
           <h3 className="text-xl font-bold mb-3 text-foreground">Osoba do kontaktu</h3>
-          <p className="text-muted-foreground text-lg">Sebastian Snopek</p>
+          <p className="text-foreground/70 dark:text-foreground/80 text-lg">Sebastian Snopek</p>
         </div>
       </div>
     </section>
