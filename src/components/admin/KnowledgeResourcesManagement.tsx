@@ -14,13 +14,15 @@ import { toast } from 'sonner';
 import { 
   Plus, Pencil, Trash2, FileText, Link as LinkIcon, Archive, 
   Download, Star, Sparkles, RefreshCw, Eye, EyeOff, Upload,
-  Search, Filter, BarChart3, Copy, Share2, MousePointer, ExternalLink
+  Search, Filter, BarChart3, Copy, Share2, MousePointer, ExternalLink, Loader2
 } from 'lucide-react';
 import { 
   KnowledgeResource, ResourceType, ResourceStatus,
   RESOURCE_TYPE_LABELS, RESOURCE_STATUS_LABELS, RESOURCE_CATEGORIES 
 } from '@/types/knowledge';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { formatFileSize } from '@/lib/storageConfig';
 
 const emptyResource: Partial<KnowledgeResource> = {
   title: '',
@@ -53,11 +55,12 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Partial<KnowledgeResource> | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [tagsInput, setTagsInput] = useState('');
+  
+  const { uploadFile, isUploading, uploadProgress } = useLocalStorage();
 
   useEffect(() => {
     fetchResources();
@@ -82,34 +85,21 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
     
-    setUploading(true);
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
-      .from('knowledge-resources')
-      .upload(fileName, file);
-    
-    if (error) {
-      toast.error('Błąd przesyłania pliku');
+    try {
+      const result = await uploadFile(file, { folder: 'knowledge-resources' });
+      
+      setEditingResource(prev => ({
+        ...prev,
+        source_url: result.url,
+        file_name: result.fileName,
+        file_size: result.fileSize
+      }));
+      
+      toast.success(`Plik przesłany (${formatFileSize(result.fileSize)})`);
+    } catch (error: any) {
+      toast.error(error.message || 'Błąd przesyłania pliku');
       console.error(error);
-      setUploading(false);
-      return;
     }
-    
-    const { data: urlData } = supabase.storage
-      .from('knowledge-resources')
-      .getPublicUrl(fileName);
-    
-    setEditingResource(prev => ({
-      ...prev,
-      source_url: urlData.publicUrl,
-      file_name: file.name,
-      file_size: file.size
-    }));
-    
-    setUploading(false);
-    toast.success('Plik przesłany');
   };
 
   const handleSave = async () => {
@@ -444,23 +434,23 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     <Input
                       value={editingResource.version || ''}
                       onChange={(e) => setEditingResource({ ...editingResource, version: e.target.value })}
-                      placeholder="1.0"
+                      placeholder="np. 1.0, 2.1"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Etap pracy (opcjonalnie)</Label>
+                  <Label>Etap pracy (opcjonalny)</Label>
                   <Input
                     value={editingResource.work_stage || ''}
                     onChange={(e) => setEditingResource({ ...editingResource, work_stage: e.target.value })}
-                    placeholder="np. Onboarding, Krok 1"
+                    placeholder="np. początkujący, zaawansowany"
                   />
                 </div>
               </TabsContent>
 
               <TabsContent value="source" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Źródło</Label>
+                  <Label>Typ źródła</Label>
                   <Select
                     value={editingResource.source_type}
                     onValueChange={(v) => setEditingResource({ ...editingResource, source_type: v as 'file' | 'link' })}
@@ -469,49 +459,54 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="file">Plik na platformie</SelectItem>
+                      <SelectItem value="file">Plik</SelectItem>
                       <SelectItem value="link">Link zewnętrzny</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {editingResource.source_type === 'file' ? (
+                {editingResource.source_type !== 'link' ? (
                   <div className="space-y-4">
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                      <input
-                        type="file"
-                        id="file-upload"
-                        className="hidden"
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="cursor-pointer flex flex-col items-center gap-2"
-                      >
-                        <Upload className="h-8 w-8 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {uploading ? 'Przesyłanie...' : 'Kliknij, aby przesłać plik'}
-                        </span>
-                      </label>
+                    <div className="space-y-2">
+                      <Label>Prześlij plik (max 2GB)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="file"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file);
+                          }}
+                          disabled={isUploading}
+                        />
+                      </div>
+                      {isUploading && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Przesyłanie... {uploadProgress}%
+                        </div>
+                      )}
                     </div>
-                    {editingResource.file_name && (
-                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        <FileText className="h-5 w-5" />
-                        <span className="flex-1 truncate">{editingResource.file_name}</span>
-                        {editingResource.file_size && (
-                          <span className="text-xs text-muted-foreground">
-                            {(editingResource.file_size / 1024 / 1024).toFixed(2)} MB
-                          </span>
-                        )}
+                    {editingResource.source_url && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {editingResource.file_name || 'Plik'}
+                            </p>
+                            {editingResource.file_size && (
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(editingResource.file_size)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      Przesłanie nowego pliku podmieni poprzedni bez zmiany linku udostępnienia.
-                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label>URL</Label>
+                    <Label>URL zasobu</Label>
                     <Input
                       value={editingResource.source_url || ''}
                       onChange={(e) => setEditingResource({ ...editingResource, source_url: e.target.value })}
@@ -521,146 +516,119 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="visibility" className="space-y-4 mt-4">
+              <TabsContent value="visibility" className="mt-4">
                 <VisibilityEditor
                   value={{
-                    visible_to_everyone: editingResource.visible_to_everyone || false,
                     visible_to_clients: editingResource.visible_to_clients || false,
                     visible_to_partners: editingResource.visible_to_partners || false,
                     visible_to_specjalista: editingResource.visible_to_specjalista || false,
-                    visible_to_anonymous: false
+                    visible_to_everyone: editingResource.visible_to_everyone || false,
                   }}
-                  onChange={(visibility) => setEditingResource({
-                    ...editingResource,
-                    ...visibility
-                  })}
+                  onChange={(settings) => setEditingResource({ ...editingResource, ...settings })}
                 />
               </TabsContent>
 
               <TabsContent value="actions" className="space-y-4 mt-4">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Wybierz, które akcje będą dostępne dla użytkowników tego zasobu.
-                </p>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Copy className="h-5 w-5 text-muted-foreground" />
-                      <div className="space-y-0.5">
-                        <Label>Kopiuj link</Label>
-                        <p className="text-xs text-muted-foreground">Pozwól kopiować link do zasobu</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={editingResource.allow_copy_link ?? true}
-                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_copy_link: checked })}
-                    />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Copy className="h-4 w-4" />
+                    <Label>Pokaż przycisk kopiowania linku</Label>
                   </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Download className="h-5 w-5 text-muted-foreground" />
-                      <div className="space-y-0.5">
-                        <Label>Pobierz plik</Label>
-                        <p className="text-xs text-muted-foreground">Pozwól pobrać/otworzyć zasób</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={editingResource.allow_download ?? true}
-                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_download: checked })}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Share2 className="h-5 w-5 text-muted-foreground" />
-                      <div className="space-y-0.5">
-                        <Label>Udostępnij (reflink)</Label>
-                        <p className="text-xs text-muted-foreground">Pozwól udostępniać zasób przez reflink</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={editingResource.allow_share ?? false}
-                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_share: checked })}
-                    />
-                  </div>
-                  <div className="p-3 rounded-lg border space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <ExternalLink className="h-5 w-5 text-muted-foreground" />
-                        <div className="space-y-0.5">
-                          <Label>Kliknij i przejdź</Label>
-                          <p className="text-xs text-muted-foreground">Przekieruj do strony wewnętrznej lub zewnętrznej</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={editingResource.allow_click_redirect ?? false}
-                        onCheckedChange={(checked) => setEditingResource({ ...editingResource, allow_click_redirect: checked })}
-                      />
-                    </div>
-                    {editingResource.allow_click_redirect && (
-                      <div className="space-y-2 pl-8">
-                        <Label className="text-xs">URL docelowy</Label>
-                        <Input
-                          value={editingResource.click_redirect_url || ''}
-                          onChange={(e) => setEditingResource({ ...editingResource, click_redirect_url: e.target.value })}
-                          placeholder="np. /formularz lub https://example.com"
-                          className="text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Dla stron wewnętrznych użyj ścieżki (np. /formularz), dla zewnętrznych pełny URL
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  <Switch
+                    checked={editingResource.allow_copy_link ?? true}
+                    onCheckedChange={(v) => setEditingResource({ ...editingResource, allow_copy_link: v })}
+                  />
                 </div>
-                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                  <p className="text-xs text-muted-foreground">
-                    <strong>Uwaga:</strong> Jeśli żadna akcja nie jest włączona, użytkownik zobaczy informację "Dostępne wkrótce".
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    <Label>Pokaż przycisk pobierania</Label>
+                  </div>
+                  <Switch
+                    checked={editingResource.allow_download ?? true}
+                    onCheckedChange={(v) => setEditingResource({ ...editingResource, allow_download: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Share2 className="h-4 w-4" />
+                    <Label>Pokaż przycisk udostępniania</Label>
+                  </div>
+                  <Switch
+                    checked={editingResource.allow_share ?? false}
+                    onCheckedChange={(v) => setEditingResource({ ...editingResource, allow_share: v })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MousePointer className="h-4 w-4" />
+                      <Label>Przekieruj po kliknięciu</Label>
+                    </div>
+                    <Switch
+                      checked={editingResource.allow_click_redirect ?? false}
+                      onCheckedChange={(v) => setEditingResource({ ...editingResource, allow_click_redirect: v })}
+                    />
+                  </div>
+                  {editingResource.allow_click_redirect && (
+                    <Input
+                      value={editingResource.click_redirect_url || ''}
+                      onChange={(e) => setEditingResource({ ...editingResource, click_redirect_url: e.target.value })}
+                      placeholder="https://..."
+                      className="mt-2"
+                    />
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="badges" className="space-y-4 mt-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Polecany</Label>
-                      <p className="text-xs text-muted-foreground">Wyróżnij zasób gwiazdką</p>
-                    </div>
-                    <Switch
-                      checked={editingResource.is_featured || false}
-                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, is_featured: checked })}
-                    />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-4 w-4 text-yellow-500" />
+                    <Label>Wyróżniony</Label>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Nowy</Label>
-                      <p className="text-xs text-muted-foreground">Oznacz jako nowy zasób</p>
-                    </div>
-                    <Switch
-                      checked={editingResource.is_new || false}
-                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, is_new: checked })}
-                    />
+                  <Switch
+                    checked={editingResource.is_featured ?? false}
+                    onCheckedChange={(v) => setEditingResource({ ...editingResource, is_featured: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-blue-500" />
+                    <Label>Oznacz jako nowy</Label>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Zaktualizowany</Label>
-                      <p className="text-xs text-muted-foreground">Oznacz jako zaktualizowany</p>
-                    </div>
-                    <Switch
-                      checked={editingResource.is_updated || false}
-                      onCheckedChange={(checked) => setEditingResource({ ...editingResource, is_updated: checked })}
-                    />
+                  <Switch
+                    checked={editingResource.is_new ?? false}
+                    onCheckedChange={(v) => setEditingResource({ ...editingResource, is_new: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-purple-500" />
+                    <Label>Oznacz jako zaktualizowany</Label>
                   </div>
+                  <Switch
+                    checked={editingResource.is_updated ?? false}
+                    onCheckedChange={(v) => setEditingResource({ ...editingResource, is_updated: v })}
+                  />
                 </div>
               </TabsContent>
             </Tabs>
           )}
 
-          <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+          <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Anuluj
             </Button>
-            <Button onClick={handleSave}>
-              {editingResource?.id ? 'Zapisz zmiany' : 'Utwórz zasób'}
+            <Button onClick={handleSave} disabled={isUploading}>
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Przesyłanie...
+                </>
+              ) : (
+                'Zapisz'
+              )}
             </Button>
           </div>
         </DialogContent>

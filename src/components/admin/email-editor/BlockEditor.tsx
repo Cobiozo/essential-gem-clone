@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { Image, Upload, Link, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface BlockEditorProps {
   block: EmailBlock;
@@ -27,29 +27,18 @@ const LogoPicker: React.FC<{
   const [urlInput, setUrlInput] = useState(logoUrl || '');
   const [libraryImages, setLibraryImages] = useState<Array<{name: string, url: string}>>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const { uploadFile, isUploading, listFiles } = useLocalStorage();
 
   const loadLibrary = async () => {
     if (libraryImages.length > 0) return;
     setLoadingLibrary(true);
     try {
-      const { data, error } = await supabase.storage
-        .from('training-media')
-        .list('', { limit: 50, sortBy: { column: 'created_at', order: 'desc' } });
-
-      if (error) throw error;
-
-      const images = (data || [])
-        .filter(file => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name))
-        .map(file => {
-          const { data: urlData } = supabase.storage
-            .from('training-media')
-            .getPublicUrl(file.name);
-          return { name: file.name, url: urlData.publicUrl };
-        });
-
-      setLibraryImages(images);
+      const files = await listFiles('training-media');
+      const images = files.filter(file => 
+        /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name)
+      );
+      setLibraryImages(images.map(f => ({ name: f.name, url: f.url })));
     } catch (error) {
       console.error('Error loading library:', error);
     } finally {
@@ -66,24 +55,12 @@ const LogoPicker: React.FC<{
       return;
     }
 
-    setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `logo-${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('training-media')
-        .upload(fileName, file, { cacheControl: '3600', upsert: false });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('training-media').getPublicUrl(fileName);
-      onChange(data.publicUrl);
+      const result = await uploadFile(file, { folder: 'email-logos' });
+      onChange(result.url);
       toast({ title: 'Sukces', description: 'Logo zostało przesłane' });
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -185,10 +162,10 @@ const LogoPicker: React.FC<{
               onChange={handleUpload}
               className="hidden"
               id="logo-upload"
-              disabled={uploading}
+              disabled={isUploading}
             />
             <label htmlFor="logo-upload" className="cursor-pointer">
-              {uploading ? (
+              {isUploading ? (
                 <div className="flex items-center justify-center">
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Przesyłanie...

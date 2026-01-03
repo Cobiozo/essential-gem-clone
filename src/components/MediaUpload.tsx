@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,11 +6,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { Upload, X, Image, Video, Loader2, FileText, Music, File, FolderOpen, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { SecureMedia } from './SecureMedia';
-import { useImageCompressionWorker } from '@/hooks/useImageCompressionWorker';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 
 interface MediaUploadProps {
   onMediaUploaded: (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string) => void;
@@ -28,58 +28,21 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   currentMediaType,
   currentAltText,
   allowedTypes,
-  maxSizeMB = 50,
+  maxSizeMB = 2048, // 2GB domyślny limit
   compact = false
 }) => {
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [altText, setAltText] = useState(currentAltText || '');
   const [urlInput, setUrlInput] = useState('');
   const [libraryFiles, setLibraryFiles] = useState<Array<{name: string, url: string, type: string}>>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const { toast } = useToast();
+  const { uploadFile, uploadProgress, isUploading, listFiles } = useLocalStorage();
 
-  // Use Web Worker for image compression with automatic fallback
-  const showCompressionProgress = useCallback((message: string) => {
-    toast({
-      title: "Kompresja pliku",
-      description: message,
-      duration: 3000,
-    });
-  }, [toast]);
-
-  const { compressImage, isSupported: isWorkerSupported } = useImageCompressionWorker(showCompressionProgress);
-
-  // Log worker support status (dev only)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[MediaUpload] Web Worker compression supported:', isWorkerSupported);
-    }
-  }, [isWorkerSupported]);
-
-  const uploadMedia = async (originalFile: File) => {
-    if (!originalFile) return;
-
-    // For videos, skip compression entirely - upload original
-    const isVideo = originalFile.type.startsWith('video/');
-    let file = originalFile;
-    
-    // Only compress large images using Web Worker (with automatic fallback)
-    if (!isVideo && originalFile.size > 49 * 1024 * 1024) {
-      try {
-        file = await compressImage(originalFile);
-      } catch (error) {
-        console.error('Compression error:', error);
-        toast({
-          title: "Ostrzeżenie",
-          description: "Nie udało się skompresować pliku. Kontynuowanie z oryginalnym plikiem.",
-          variant: "default",
-        });
-      }
-    }
+  const uploadMedia = async (file: File) => {
+    if (!file) return;
 
     const isImage = file.type.startsWith('image/');
-    // isVideo already declared above
+    const isVideo = file.type.startsWith('video/');
     const isAudio = file.type.startsWith('audio/');
     const isDocument = file.type === 'application/pdf' || 
                      file.type === 'application/msword' || 
@@ -91,35 +54,18 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                      file.type === 'text/plain';
 
     let mediaType: 'image' | 'video' | 'document' | 'audio' | 'other';
-    let bucket: string;
 
     if (isImage) {
       mediaType = 'image';
-      bucket = 'training-media';
     } else if (isVideo) {
       mediaType = 'video';
-      bucket = 'training-media';
     } else if (isAudio) {
       mediaType = 'audio';
-      bucket = 'training-media';
     } else if (isDocument) {
       mediaType = 'document';
-      bucket = 'training-media';
     } else {
       mediaType = 'other';
-      bucket = 'training-media';
     }
-    
-    console.log('=== UPLOAD DEBUG ===');
-    console.log('Media type:', mediaType);
-    console.log('Bucket:', bucket);
-    console.log('File details:', {
-      name: file.name,
-      type: file.type,
-      size: Math.round(file.size / (1024 * 1024)) + 'MB',
-      isVideo,
-      isImage
-    });
 
     // Check allowed types
     if (allowedTypes && allowedTypes.length > 0) {
@@ -148,97 +94,28 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       }
     }
 
-    // Check file size if limit is set (skip for videos in training)
-    if (maxSizeMB !== null && maxSizeMB > 0) {
-      const maxSize = maxSizeMB * 1024 * 1024;
-      if (file.size > maxSize) {
-        // For videos, show warning but allow upload
-        if (isVideo) {
-          toast({
-            title: "Duży plik wideo",
-            description: `Plik ma ${Math.round(file.size / (1024 * 1024))}MB. Upload może potrwać dłużej.`,
-            variant: "default",
-          });
-        } else {
-          toast({
-            title: "Plik za duży",
-            description: `Maksymalny rozmiar pliku to ${maxSizeMB}MB.`,
-            variant: "destructive",
-          });
-          return;
-        }
-      }
+    // Check file size
+    const effectiveMaxSize = maxSizeMB !== null ? maxSizeMB : STORAGE_CONFIG.MAX_FILE_SIZE_MB;
+    const maxSizeBytes = effectiveMaxSize * 1024 * 1024;
+    
+    if (file.size > maxSizeBytes) {
+      toast({
+        title: "Plik za duży",
+        description: `Maksymalny rozmiar pliku to ${effectiveMaxSize}MB. Twój plik: ${formatFileSize(file.size)}`,
+        variant: "destructive",
+      });
+      return;
     }
 
-    setUploading(true);
-    setUploadProgress(0);
-
-    // Adjust progress simulation for large files
-    const fileSize = file.size / (1024 * 1024); // Size in MB
-    const progressSpeed = fileSize > 100 ? 500 : fileSize > 50 ? 300 : 200; // Slower for larger files
-
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 90) return prev;
-        return prev + (fileSize > 100 ? 5 : 10); // Smaller increments for large files
-      });
-    }, progressSpeed);
-
     try {
-      console.log('=== UPLOAD START ===');
-      
-      // Debug: Check auth state
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session exists:', !!session);
-      console.log('User ID:', session?.user?.id);
-      
-      if (!session) {
-        throw new Error('Musisz być zalogowany, aby przesyłać pliki');
-      }
+      const result = await uploadFile(file, {
+        folder: 'training-media',
+        onProgress: (percent) => {
+          console.log('Upload progress:', percent);
+        }
+      });
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = fileName;
-
-      console.log('=== UPLOAD DETAILS ===');
-      console.log('Target bucket:', bucket);
-      console.log('File path:', filePath);
-      console.log('File size:', Math.round(fileSize), 'MB');
-      console.log('File type:', file.type);
-      console.log('File name:', file.name);
-      console.log('Content type:', file.type);
-
-      console.log('=== CALLING SUPABASE STORAGE ===');
-      // Direct upload without bucket test
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
-      
-      console.log('=== SUPABASE RESPONSE ===');
-      console.log('Error:', uploadError);
-      console.log('Data:', uploadData);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      if (uploadError) {
-        console.error('Upload error details:', uploadError);
-        console.error('Upload error message:', uploadError.message);
-        console.error('Upload error status:', (uploadError as any).statusCode);
-        throw uploadError;
-      }
-      
-      console.log('Upload successful:', uploadData);
-
-      const { data } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      onMediaUploaded(data.publicUrl, mediaType, altText);
+      onMediaUploaded(result.url, mediaType, altText);
 
       const typeNames = {
         image: 'Zdjęcie',
@@ -250,59 +127,15 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
       toast({
         title: "Sukces",
-        description: `${typeNames[mediaType]} zostało przesłane.`,
+        description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
       });
     } catch (error: any) {
-      clearInterval(progressInterval);
       console.error('Error uploading media:', error);
-      
-      // Better error handling - don't break the form
-      let errorMessage = "Nie udało się przesłać pliku.";
-      let errorTitle = "Błąd uploadu";
-      
-      const isVideo = file.type.startsWith('video/');
-      const fileSizeMB = file.size / (1024 * 1024);
-      
-      // Check for specific error types
-      if (error.message?.includes('413') || 
-          error.message?.includes('too large') ||
-          error.message?.includes('exceeded the maximum allowed size') ||
-          (error.error === 'Payload too large')) {
-        errorTitle = "Plik za duży";
-        errorMessage = `Plik wideo jest za duży dla serwera (limit Supabase: ~50MB). 
-        
-Sugestie:
-• Zmniejsz jakość wideo (np. z 4K na 1080p)
-• Skróć długość filmu
-• Użyj kompresji wideo (np. HandBrake, FFmpeg)
-• Podziel długi film na krótsze części`;
-      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('fetch')) {
-        // "Failed to fetch" for videos often means file too large
-        if (isVideo && fileSizeMB > 40) {
-          errorTitle = "Prawdopodobnie plik za duży";
-          errorMessage = `Upload wideo nie powiódł się. Plik ma ${Math.round(fileSizeMB)}MB.
-
-Supabase ma limit ~50MB. Sugestie:
-• Skompresuj wideo (HandBrake, FFmpeg, lub online)
-• Zmniejsz rozdzielczość (np. 1080p → 720p)
-• Skróć długość filmu
-• Podziel na krótsze części`;
-        } else {
-          errorMessage = "Problem z połączeniem lub plik jest za duży. Sprawdź połączenie i rozmiar pliku.";
-        }
-      } else if (error.message?.includes('timeout')) {
-        errorMessage = "Upload trwał zbyt długo. Spróbuj ponownie z mniejszym plikiem.";
-      }
-      
       toast({
-        title: errorTitle,
-        description: errorMessage,
+        title: "Błąd uploadu",
+        description: error.message || "Nie udało się przesłać pliku.",
         variant: "destructive",
-        duration: 10000, // Longer duration for important error info
       });
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -316,35 +149,7 @@ Supabase ma limit ~50MB. Sugestie:
   const loadLibraryFiles = async () => {
     setLoadingLibrary(true);
     try {
-      const { data, error } = await supabase.storage
-        .from('training-media')
-        .list('', {
-          limit: 100,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
-
-      if (error) throw error;
-
-      const files = data?.map(file => {
-        const { data: urlData } = supabase.storage
-          .from('training-media')
-          .getPublicUrl(file.name);
-        
-        // Detect type from file extension
-        const ext = file.name.split('.').pop()?.toLowerCase() || '';
-        let type = 'other';
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) type = 'image';
-        else if (['mp4', 'mov', 'avi', 'webm', 'mkv'].includes(ext)) type = 'video';
-        else if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) type = 'audio';
-        else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) type = 'document';
-
-        return {
-          name: file.name,
-          url: urlData.publicUrl,
-          type
-        };
-      }) || [];
-
+      const files = await listFiles('training-media');
       setLibraryFiles(files);
     } catch (error) {
       console.error('Error loading library:', error);
@@ -420,15 +225,10 @@ Supabase ma limit ~50MB. Sugestie:
   };
 
   const getHelpText = () => {
+    const effectiveMaxSize = maxSizeMB !== null ? maxSizeMB : STORAGE_CONFIG.MAX_FILE_SIZE_MB;
+    
     if (!allowedTypes || allowedTypes.length === 0) {
-      if (maxSizeMB === null || maxSizeMB === 0) {
-        return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT
-        
-⚠️ Uwaga: Supabase ma limit ~50MB na plik. Dla większych plików wideo użyj kompresji.`;
-      }
-      return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max ${maxSizeMB}MB)
-      
-⚠️ Supabase ma limit ~50MB na plik. Dla większych filmów użyj kompresji.`;
+      return `Dozwolone formaty: JPG, PNG, GIF, MP4, MOV, AVI, MP3, WAV, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max ${effectiveMaxSize >= 1024 ? (effectiveMaxSize / 1024) + 'GB' : effectiveMaxSize + 'MB'})`;
     }
     
     const formatMap = {
@@ -439,14 +239,7 @@ Supabase ma limit ~50MB. Sugestie:
     };
     const formats = allowedTypes.map(t => formatMap[t]).join(', ');
     
-    if (maxSizeMB === null || maxSizeMB === 0) {
-      return `Dozwolone formaty: ${formats}
-      
-⚠️ Uwaga: Supabase ma limit ~50MB na plik. Dla większych plików wideo użyj kompresji.`;
-    }
-    return `Dozwolone formaty: ${formats} (max ${maxSizeMB}MB)
-    
-⚠️ Supabase ma limit ~50MB na plik. Dla większych filmów użyj kompresji.`;
+    return `Dozwolone formaty: ${formats} (max ${effectiveMaxSize >= 1024 ? (effectiveMaxSize / 1024) + 'GB' : effectiveMaxSize + 'MB'})`;
   };
 
   return (
@@ -475,9 +268,17 @@ Supabase ma limit ~50MB. Sugestie:
               type="file"
               accept={getAcceptString()}
               onChange={handleFileSelect}
-              disabled={uploading}
+              disabled={isUploading}
               className={compact ? "cursor-pointer h-7 text-[10px]" : "cursor-pointer"}
             />
+            {isUploading && (
+              <div className="space-y-2">
+                <Progress value={uploadProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-center">
+                  Przesyłanie... {uploadProgress}%
+                </p>
+              </div>
+            )}
             {!compact && (
               <p className="text-xs text-muted-foreground">
                 {getHelpText()}
@@ -492,70 +293,54 @@ Supabase ma limit ~50MB. Sugestie:
                 placeholder="https://..."
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleUrlSubmit();
-                  }
-                }}
-                className={compact ? "h-6 text-[10px]" : ""}
+                className={compact ? "h-7 text-[10px]" : ""}
               />
-              <Button
-                type="button"
-                onClick={handleUrlSubmit}
-                size="sm"
-                className={compact ? "h-6 px-2 text-[10px]" : ""}
+              <Button 
+                onClick={handleUrlSubmit} 
+                size={compact ? "sm" : "default"}
+                className={compact ? "h-7 px-2 text-[10px]" : ""}
               >
                 Dodaj
               </Button>
             </div>
           </TabsContent>
 
-          <TabsContent value="library" className={compact ? "space-y-1 mt-1" : "space-y-3"}>
+          <TabsContent value="library" className={compact ? "mt-1" : "mt-2"}>
             {loadingLibrary ? (
-              <div className={`flex items-center justify-center ${compact ? "py-3" : "py-8"}`}>
-                <Loader2 className={compact ? "w-4 h-4 animate-spin" : "w-6 h-6 animate-spin"} />
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <span className="text-sm">Ładowanie...</span>
               </div>
             ) : libraryFiles.length === 0 ? (
-              <div className={`text-center text-muted-foreground ${compact ? "py-3 text-[10px]" : "py-8 text-sm"}`}>
-                Brak plików
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                Brak plików w bibliotece
               </div>
             ) : (
-              <ScrollArea className={compact ? "h-32 border rounded p-1" : "h-64 border rounded-md p-2"}>
-                <div className={compact ? "grid grid-cols-4 gap-1" : "grid grid-cols-3 gap-2"}>
-                  {libraryFiles.map((file, index) => (
-                    <Card 
-                      key={index} 
-                      className="cursor-pointer hover:border-primary transition-colors overflow-hidden"
+              <ScrollArea className={compact ? "h-24" : "h-40"}>
+                <div className="grid grid-cols-3 gap-1.5 p-1">
+                  {libraryFiles.filter(f => f.type === 'image').map((file) => (
+                    <button
+                      key={file.name}
                       onClick={() => selectFromLibrary(file)}
+                      className="aspect-square border rounded overflow-hidden hover:ring-2 hover:ring-primary transition-all bg-muted"
                     >
-                      <CardContent className={compact ? "p-0.5" : "p-2"}>
-                        {file.type === 'image' ? (
-                          <img 
-                            src={file.url} 
-                            alt={file.name}
-                            className={compact ? "w-full h-10 object-cover rounded" : "w-full h-20 object-cover rounded"}
-                          />
-                        ) : file.type === 'video' ? (
-                          <div className={`w-full bg-secondary rounded flex items-center justify-center ${compact ? "h-10" : "h-20"}`}>
-                            <Video className={compact ? "w-4 h-4 text-muted-foreground" : "w-8 h-8 text-muted-foreground"} />
-                          </div>
-                        ) : file.type === 'audio' ? (
-                          <div className={`w-full bg-secondary rounded flex items-center justify-center ${compact ? "h-10" : "h-20"}`}>
-                            <Music className={compact ? "w-4 h-4 text-muted-foreground" : "w-8 h-8 text-muted-foreground"} />
-                          </div>
-                        ) : (
-                          <div className={`w-full bg-secondary rounded flex items-center justify-center ${compact ? "h-10" : "h-20"}`}>
-                            <FileText className={compact ? "w-4 h-4 text-muted-foreground" : "w-8 h-8 text-muted-foreground"} />
-                          </div>
-                        )}
-                        {!compact && (
-                          <p className="text-xs mt-1 truncate" title={file.name}>
-                            {file.name}
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
+                      <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {libraryFiles.filter(f => f.type !== 'image').map((file) => (
+                    <button
+                      key={file.name}
+                      onClick={() => selectFromLibrary(file)}
+                      className="aspect-square border rounded flex flex-col items-center justify-center hover:ring-2 hover:ring-primary transition-all bg-muted p-1"
+                    >
+                      {file.type === 'video' && <Video className="w-6 h-6 text-primary" />}
+                      {file.type === 'audio' && <Music className="w-6 h-6 text-primary" />}
+                      {file.type === 'document' && <FileText className="w-6 h-6 text-primary" />}
+                      {file.type === 'other' && <File className="w-6 h-6 text-primary" />}
+                      <span className="text-[8px] text-muted-foreground mt-1 truncate w-full text-center">
+                        {file.name.split('/').pop()?.substring(0, 12)}...
+                      </span>
+                    </button>
                   ))}
                 </div>
               </ScrollArea>
@@ -564,83 +349,66 @@ Supabase ma limit ~50MB. Sugestie:
         </Tabs>
       </div>
 
-      {uploading && (
-        <Card>
-          <CardContent className={compact ? "p-2 space-y-1" : "p-6 space-y-3"}>
-            <div className="flex items-center justify-center">
-              <Loader2 className={compact ? "w-3 h-3 animate-spin mr-1" : "w-6 h-6 animate-spin mr-2"} />
-              <span className={compact ? "text-[10px]" : "text-sm"}>Przesyłanie... {uploadProgress}%</span>
-            </div>
-            <div className={`w-full bg-secondary rounded-full ${compact ? "h-1" : "h-2"}`}>
-              <div 
-                className={`bg-primary rounded-full transition-all duration-300 ${compact ? "h-1" : "h-2"}`}
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Alt text input */}
+      {!compact && (
+        <div>
+          <Label htmlFor="alt-text">Tekst alternatywny (opcjonalnie)</Label>
+          <Input
+            id="alt-text"
+            value={altText}
+            onChange={(e) => setAltText(e.target.value)}
+            placeholder="Opis dla osób niewidomych"
+            className="mt-1"
+          />
+        </div>
       )}
 
+      {/* Current media preview */}
       {currentMediaUrl && (
-        <Card>
-          <CardContent className={compact ? "p-1.5" : "p-4"}>
-            <div className={`flex items-start justify-between ${compact ? "mb-1" : "mb-3"}`}>
-              {!compact && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  {currentMediaType === 'image' ? (
-                    <Image className="w-3 h-3" />
-                  ) : currentMediaType === 'video' ? (
-                    <Video className="w-3 h-3" />
-                  ) : currentMediaType === 'audio' ? (
-                    <Music className="w-3 h-3" />
-                  ) : (
-                    <FileText className="w-3 h-3" />
-                  )}
-                  {currentMediaType === 'image' ? 'Zdjęcie' : 
-                   currentMediaType === 'video' ? 'Film' :
-                   currentMediaType === 'audio' ? 'Audio' :
-                   currentMediaType === 'document' ? 'Dokument' : 'Plik'}
+        <Card className={compact ? "mt-1" : "mt-4"}>
+          <CardContent className={compact ? "p-2" : "p-4"}>
+            <div className="flex items-start gap-3">
+              <div className={compact ? "w-12 h-12 flex-shrink-0" : "w-20 h-20 flex-shrink-0"}>
+              {currentMediaType === 'image' ? (
+                  <img
+                    src={currentMediaUrl}
+                    alt={currentAltText || 'Media'}
+                    className="w-full h-full object-cover rounded"
+                  />
+                ) : currentMediaType === 'video' ? (
+                  <div className="w-full h-full bg-muted rounded flex items-center justify-center">
+                    <Video className={compact ? "w-4 h-4" : "w-8 h-8"} />
+                  </div>
+                ) : currentMediaType === 'audio' ? (
+                  <div className="w-full h-full bg-muted rounded flex items-center justify-center">
+                    <Music className={compact ? "w-4 h-4" : "w-8 h-8"} />
+                  </div>
+                ) : currentMediaType === 'document' ? (
+                  <div className="w-full h-full bg-muted rounded flex items-center justify-center">
+                    <FileText className={compact ? "w-4 h-4" : "w-8 h-8"} />
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-muted rounded flex items-center justify-center">
+                    <File className={compact ? "w-4 h-4" : "w-8 h-8"} />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <Badge variant="outline" className={compact ? "text-[9px] px-1 py-0" : "mb-1"}>
+                  {currentMediaType}
                 </Badge>
-              )}
+                <p className={`truncate text-muted-foreground ${compact ? "text-[9px]" : "text-xs"}`}>
+                  {currentMediaUrl.split('/').pop()}
+                </p>
+              </div>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={removeMedia}
-                className={compact ? "h-5 w-5 p-0 text-destructive hover:text-destructive ml-auto" : "h-6 w-6 p-0 text-destructive hover:text-destructive"}
+                className={compact ? "h-5 w-5" : "h-8 w-8"}
               >
                 <X className={compact ? "w-3 h-3" : "w-4 h-4"} />
               </Button>
-            </div>
-            
-            <div className={compact ? "space-y-1" : "space-y-3"}>
-              <SecureMedia
-                mediaUrl={currentMediaUrl}
-                mediaType={currentMediaType}
-                altText={currentAltText || 'Podgląd'}
-                className={compact ? "w-full max-h-20 object-cover rounded border" : "w-full max-h-48 object-cover rounded border"}
-              />
-              
-              {!compact && (
-                <div>
-                  <Label htmlFor="alt-text" className="text-xs">
-                    {currentMediaType === 'image' ? 'Tekst alternatywny' : 
-                     currentMediaType === 'video' ? 'Opis filmu' :
-                     currentMediaType === 'audio' ? 'Opis audio' : 'Opis pliku'}
-                  </Label>
-                  <Input
-                    id="alt-text"
-                    value={altText}
-                    onChange={(e) => {
-                      setAltText(e.target.value);
-                      onMediaUploaded(currentMediaUrl, currentMediaType, e.target.value);
-                    }}
-                    placeholder={currentMediaType === 'image' ? 'Opisz zdjęcie...' : 
-                                currentMediaType === 'video' ? 'Opisz film...' :
-                                currentMediaType === 'audio' ? 'Opisz plik audio...' : 'Opisz plik...'}
-                    className="mt-1"
-                  />
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>

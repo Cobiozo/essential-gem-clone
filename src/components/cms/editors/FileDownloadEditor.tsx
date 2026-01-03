@@ -8,11 +8,12 @@ import { CMSItem } from '@/types/cms';
 import { X, CheckCircle2, Download, Upload, Loader2, Link, ExternalLink } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
 import { StyleTab } from './StyleTab';
 import { IconPicker } from '../IconPicker';
 import * as icons from 'lucide-react';
 import { toast } from 'sonner';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { formatFileSize } from '@/lib/storageConfig';
 
 interface FileDownloadEditorProps {
   item: CMSItem;
@@ -26,8 +27,8 @@ export const FileDownloadEditor: React.FC<FileDownloadEditorProps> = ({ item, on
   const prevItemRef = useRef<string>(JSON.stringify(item));
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useLocalStorage();
 
   // Auto-save on debounced changes
   useEffect(() => {
@@ -49,44 +50,29 @@ export const FileDownloadEditor: React.FC<FileDownloadEditorProps> = ({ item, on
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `downloads/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('cms-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('cms-files')
-        .getPublicUrl(filePath);
+      const result = await uploadFile(file, { folder: 'cms-files' });
 
       // Update cells with file info
       const newCells = [{
         type: 'file-download',
         content: editedItem.cells?.[0]?.content || 'Pobierz plik',
-        url: publicUrl,
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type
+        url: result.url,
+        fileName: result.fileName,
+        fileSize: result.fileSize,
+        fileType: result.fileType
       }];
 
       setEditedItem({
         ...editedItem,
-        url: publicUrl,
+        url: result.url,
         cells: newCells as any
       });
 
-      toast.success('Plik został wgrany pomyślnie');
-    } catch (error) {
+      toast.success(`Plik został wgrany pomyślnie (${formatFileSize(result.fileSize)})`);
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error('Błąd podczas wgrywania pliku');
-    } finally {
-      setIsUploading(false);
+      toast.error(error.message || 'Błąd podczas wgrywania pliku');
     }
   };
 
@@ -100,14 +86,6 @@ export const FileDownloadEditor: React.FC<FileDownloadEditorProps> = ({ item, on
       externalUrl: cell?.externalUrl || '',
       openMode: cell?.openMode || 'download' // 'download' or 'newTab'
     };
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const fileInfo = getFileInfo();
@@ -141,7 +119,7 @@ export const FileDownloadEditor: React.FC<FileDownloadEditorProps> = ({ item, on
             <div className="space-y-4 pb-4">
               {/* File Upload */}
               <div className="space-y-2">
-                <Label>Plik do pobrania</Label>
+                <Label>Plik do pobrania (max 2GB)</Label>
                 <input
                   ref={fileInputRef}
                   type="file"
