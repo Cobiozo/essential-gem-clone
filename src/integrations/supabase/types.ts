@@ -2358,6 +2358,7 @@ export type Database = {
       }
       reflinks: {
         Row: {
+          clipboard_content: string | null
           created_at: string
           description: string | null
           id: string
@@ -2373,6 +2374,7 @@ export type Database = {
           visible_to_roles: string[] | null
         }
         Insert: {
+          clipboard_content?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -2388,6 +2390,7 @@ export type Database = {
           visible_to_roles?: string[] | null
         }
         Update: {
+          clipboard_content?: string | null
           created_at?: string
           description?: string | null
           id?: string

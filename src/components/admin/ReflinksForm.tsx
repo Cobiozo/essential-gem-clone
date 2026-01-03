@@ -15,6 +15,7 @@ interface ReflinkFormData {
   link_type: string;
   visible_to_roles: string[];
   position: number;
+  clipboard_content: string | null;
 }
 
 interface ReflinksFormProps {
@@ -125,6 +126,7 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
               <SelectItem value="reflink">Reflink (rejestracja)</SelectItem>
               <SelectItem value="internal">Link wewnętrzny</SelectItem>
               <SelectItem value="external">Link zewnętrzny</SelectItem>
+              <SelectItem value="clipboard">Kopiuj do schowka</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -168,6 +170,22 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
             onBlur={handleTextBlur}
             placeholder={localData.link_type === 'internal' ? '/strona' : 'https://example.com'}
           />
+        </div>
+      )}
+
+      {localData.link_type === 'clipboard' && (
+        <div className="space-y-2">
+          <Label>Treść do skopiowania *</Label>
+          <textarea
+            className="w-full min-h-[100px] p-3 rounded-md border border-input bg-background text-sm resize-y"
+            value={localData.clipboard_content || ''}
+            onChange={(e) => handleTextChange('clipboard_content', e.target.value)}
+            onBlur={handleTextBlur}
+            placeholder="Wpisz tekst, który zostanie skopiowany do schowka..."
+          />
+          <p className="text-xs text-muted-foreground">
+            Ta treść zostanie skopiowana do schowka użytkownika po kliknięciu przycisku
+          </p>
         </div>
       )}
 

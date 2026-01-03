@@ -30,6 +30,7 @@ interface Reflink {
   link_type: string;
   visible_to_roles: string[];
   position: number;
+  clipboard_content: string | null;
 }
 
 const availableRoles = [
@@ -59,6 +60,7 @@ export const ReflinksManagement: React.FC = () => {
     link_type: 'reflink',
     visible_to_roles: ['partner', 'specjalista'] as string[],
     position: 0,
+    clipboard_content: '',
   });
   const { toast } = useToast();
 
@@ -72,6 +74,7 @@ export const ReflinksManagement: React.FC = () => {
     reflink: 'Reflink (rejestracja)',
     internal: 'Link wewnętrzny',
     external: 'Link zewnętrzny',
+    clipboard: 'Kopiuj do schowka',
   };
 
   useEffect(() => {
@@ -156,12 +159,22 @@ export const ReflinksManagement: React.FC = () => {
   };
 
   const handleCopy = async (reflink: Reflink) => {
-    const fullUrl = getLinkDisplay(reflink);
-    await navigator.clipboard.writeText(fullUrl);
+    let textToCopy: string;
+    let description: string;
+    
+    if (reflink.link_type === 'clipboard') {
+      textToCopy = reflink.clipboard_content || '';
+      description = 'Treść została skopiowana do schowka';
+    } else {
+      textToCopy = getLinkDisplay(reflink);
+      description = textToCopy;
+    }
+    
+    await navigator.clipboard.writeText(textToCopy);
     setCopiedId(reflink.id);
     toast({
       title: 'Skopiowano!',
-      description: fullUrl,
+      description,
     });
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -185,6 +198,15 @@ export const ReflinksManagement: React.FC = () => {
       return;
     }
 
+    if (newReflink.link_type === 'clipboard' && !newReflink.clipboard_content?.trim()) {
+      toast({
+        title: 'Błąd',
+        description: 'Treść do skopiowania jest wymagana',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from('reflinks')
       .insert({
@@ -197,6 +219,7 @@ export const ReflinksManagement: React.FC = () => {
         link_type: newReflink.link_type,
         visible_to_roles: newReflink.visible_to_roles,
         position: newReflink.position,
+        clipboard_content: newReflink.clipboard_content?.trim() || null,
         is_active: true,
       });
 
@@ -225,6 +248,7 @@ export const ReflinksManagement: React.FC = () => {
         link_type: 'reflink',
         visible_to_roles: ['partner', 'specjalista'],
         position: 0,
+        clipboard_content: '',
       });
       fetchReflinks();
     }
@@ -245,6 +269,7 @@ export const ReflinksManagement: React.FC = () => {
         link_type: editingReflink.link_type,
         visible_to_roles: editingReflink.visible_to_roles,
         position: editingReflink.position,
+        clipboard_content: editingReflink.clipboard_content?.trim() || null,
         is_active: editingReflink.is_active,
       })
       .eq('id', editingReflink.id);
