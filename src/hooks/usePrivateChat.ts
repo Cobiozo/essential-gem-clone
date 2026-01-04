@@ -591,6 +591,8 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
   useEffect(() => {
     if (!user || !enableRealtime) return;
 
+    let mounted = true;
+
     const channel = supabase
       .channel(`private-chat-messages-${user.id}-${Date.now()}`)
       .on(
@@ -601,6 +603,8 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
           table: 'private_chat_messages',
         },
         async (payload) => {
+          if (!mounted) return;
+          
           const newMessage = payload.new as PrivateChatMessage;
           
           // If message is in currently selected thread, add it
@@ -612,6 +616,8 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
               .eq('user_id', newMessage.sender_id)
               .single();
 
+            if (!mounted) return;
+            
             setMessages(prev => [...prev, { ...newMessage, sender: profile || undefined }]);
             
             // Mark as read if not from current user
@@ -620,6 +626,8 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
             }
           }
           
+          if (!mounted) return;
+          
           // Refresh threads to update last_message_at and unread counts
           await fetchThreads();
         }
@@ -627,6 +635,7 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
       .subscribe();
 
     return () => {
+      mounted = false;
       supabase.removeChannel(channel);
     };
   }, [user, selectedThread, markAsRead, fetchThreads, enableRealtime]);

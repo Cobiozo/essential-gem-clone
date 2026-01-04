@@ -184,7 +184,7 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
 
   const handleTouchEnd = useCallback(() => {
     handleMouseUp();
-  }, []);
+  }, [handleMouseUp]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent, direction: string) => {
     if (!isEditMode) return;
@@ -213,7 +213,17 @@ export const ResizableElement: React.FC<ResizableElementProps> = ({
     document.addEventListener('touchmove', handleTouchMove as any, { passive: false } as any);
     document.addEventListener('touchend', handleTouchEnd as any);
     console.info('Resize start (touch)', { direction });
-  }, [isEditMode]);
+  }, [isEditMode, handleTouchMove, handleTouchEnd]);
+
+  // Cleanup all event listeners on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove as any);
+      document.removeEventListener('touchend', handleTouchEnd as any);
+    };
+  }, [handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   const resetSize = () => {
     setDimensions({

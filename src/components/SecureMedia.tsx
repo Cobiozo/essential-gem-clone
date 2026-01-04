@@ -21,6 +21,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    let mounted = true;
+
     const getSignedUrl = async () => {
       try {
         // Extract bucket and path from the media URL
@@ -32,6 +34,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           .from(bucketName)
           .createSignedUrl(fileName, 3600); // 1 hour expiry
 
+        if (!mounted) return;
+
         if (error) {
           console.error('Error creating signed URL:', error);
           return;
@@ -41,13 +45,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       } catch (error) {
         console.error('Error processing media URL:', error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     if (mediaUrl) {
       getSignedUrl();
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [mediaUrl]);
 
   // Block seeking for training videos
