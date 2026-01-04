@@ -30,8 +30,12 @@ import {
   ExternalLink,
   Send,
   UserPlus,
-  Award
+  Award,
+  RefreshCw,
+  Download,
+  Calendar
 } from "lucide-react";
+import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -81,6 +85,13 @@ interface UserProgress {
   }[];
 }
 
+interface CertificateHistory {
+  id: string;
+  module_id: string;
+  created_at: string;
+  file_url: string;
+}
+
 const TrainingManagement = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
@@ -95,9 +106,12 @@ const TrainingManagement = () => {
   const [loading, setLoading] = useState(true);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(false);
+  const [certificateHistory, setCertificateHistory] = useState<Record<string, CertificateHistory[]>>({});
+  const [regeneratingCert, setRegeneratingCert] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { generateCertificate } = useCertificateGeneration();
 
   useEffect(() => {
     fetchModules();
@@ -112,6 +126,7 @@ const TrainingManagement = () => {
   useEffect(() => {
     if (activeTab === 'progress') {
       fetchUserProgress();
+      fetchAllCertificates();
     }
   }, [activeTab]);
 
@@ -390,305 +405,105 @@ const TrainingManagement = () => {
     }
   };
 
-  const generateCertificate = async (
-    userName: string,
-    moduleTitle: string,
-    completedDate: string,
-    userId: string,
-    moduleId: string
-  ) => {
+  // Fetch all certificates for history display
+  const fetchAllCertificates = async () => {
     try {
-      console.log('=== GENERATING CERTIFICATE ===');
-      console.log('User:', userName, 'Module:', moduleTitle);
-      
-      // STEP 1: Fetch user role
-      const { data: userRoles, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('id, user_id, module_id, created_at, file_url')
+        .order('created_at', { ascending: false });
 
-      if (roleError) {
-        console.error('Error fetching user role:', roleError);
-      }
+      if (error) throw error;
 
-      const userRole = userRoles?.role || 'user'; // Default to 'user' if not found
-      console.log('✅ User role:', userRole);
-
-      // STEP 2: Fetch ALL templates (not just active - module-specific take priority)
-      const { data: templates, error: templateError } = await supabase
-        .from('certificate_templates')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      if (templateError) {
-        console.error('Error fetching templates:', templateError);
-        toast({
-          title: "Błąd",
-          description: "Błąd podczas pobierania szablonu certyfikatu",
-          variant: "destructive"
+      // Group by user_id-module_id
+      const historyMap: Record<string, CertificateHistory[]> = {};
+      data?.forEach(cert => {
+        const key = `${cert.user_id}-${cert.module_id}`;
+        if (!historyMap[key]) {
+          historyMap[key] = [];
+        }
+        historyMap[key].push({
+          id: cert.id,
+          module_id: cert.module_id,
+          created_at: cert.created_at,
+          file_url: cert.file_url
         });
-        return;
-      }
-
-      if (!templates || templates.length === 0) {
-        console.error('NO TEMPLATES FOUND!');
-        toast({
-          title: "Błąd",
-          description: "Nie znaleziono żadnego szablonu certyfikatu.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('📋 Found', templates.length, 'templates. Looking for moduleId:', moduleId);
-
-      // Helper function for safe UUID comparison
-      const hasModuleMatch = (templateModuleIds: string[] | null | undefined): boolean => {
-        if (!templateModuleIds || !Array.isArray(templateModuleIds) || templateModuleIds.length === 0) return false;
-        return templateModuleIds.some((id: string) => String(id) === String(moduleId));
-      };
-
-      // PRIORITY 1: Template assigned to THIS MODULE and user's role
-      let template = templates.find(t => {
-        const hasModule = hasModuleMatch(t.module_ids);
-        const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
-        return hasModule && hasRole;
       });
 
-      // PRIORITY 2: Template assigned to THIS MODULE (any role - KEY FIX)
-      if (!template) {
-        template = templates.find(t => hasModuleMatch(t.module_ids));
-      }
+      setCertificateHistory(historyMap);
+    } catch (error) {
+      console.error('Error fetching certificate history:', error);
+    }
+  };
 
-      // PRIORITY 3: Active template with user's role (no module restriction)
-      if (!template) {
-        template = templates.find(t => {
-          const isActive = t.is_active === true;
-          const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
-          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return isActive && hasRole && noModuleRestriction;
-        });
-      }
+  // Regenerate certificate with correct template
+  const regenerateCertificateAdmin = async (userId: string, moduleId: string, moduleTitle: string, userName: string) => {
+    const key = `${userId}-${moduleId}`;
+    setRegeneratingCert(key);
 
-      // PRIORITY 4: Default active template with no restrictions
-      if (!template) {
-        template = templates.find(t => {
-          const isActive = t.is_active === true;
-          const noRoleRestriction = !t.roles || t.roles.length === 0;
-          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return isActive && noRoleRestriction && noModuleRestriction;
-        });
-      }
-
-      // FALLBACK: Any active template
-      if (!template) {
-        template = templates.find(t => t.is_active === true) || templates[0];
-      }
-
-      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id, 'for role:', userRole, 'module:', moduleId);
-      const layoutData = template.layout as { elements?: any[] };
-      console.log('Template layout elements count:', layoutData?.elements?.length || 0);
-
-      // Dynamic import of jsPDF
-      const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4'
+    try {
+      toast({
+        title: "Regenerowanie certyfikatu...",
+        description: `Trwa generowanie certyfikatu dla ${userName}`,
       });
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      
-      // A4 landscape: 297mm x 210mm
-      // Canvas in editor: 842px x 595px
-      // Conversion factor: 297/842 = 0.352729 mm/px
-      const PX_TO_MM = 0.352729;
+      const result = await generateCertificate(userId, moduleId, moduleTitle, true);
 
-      // Helper function to load image as base64
-      const loadImageAsBase64 = async (url: string): Promise<string | null> => {
-        try {
-          console.log('📥 Loading image:', url);
-          const response = await fetch(url);
-          if (!response.ok) {
-            console.error('Failed to fetch image:', response.status, response.statusText);
-            return null;
-          }
-          const blob = await response.blob();
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => {
-              console.error('Failed to read image blob');
-              resolve(null);
-            };
-            reader.readAsDataURL(blob);
-          });
-        } catch (error) {
-          console.error('Error loading image:', url, error);
-          return null;
-        }
-      };
-
-      // Render template elements
-      if (template.layout && typeof template.layout === 'object' && 'elements' in template.layout) {
-        const layoutData = template.layout as { elements: any[] };
-        
-        // Process elements sequentially to handle async image loading
-        for (const element of layoutData.elements) {
-          try {
-            // Replace variables in text content
-            let content = element.content || '';
-            content = content.replace('{userName}', userName);
-            content = content.replace('{moduleTitle}', moduleTitle);
-            content = content.replace('{completionDate}', new Date(completedDate).toLocaleDateString('pl-PL'));
-
-            if (element.type === 'text') {
-              doc.setFontSize(element.fontSize || 16);
-              
-              // Convert hex color to RGB
-              const color = element.color || '#000000';
-              const r = parseInt(color.slice(1, 3), 16);
-              const g = parseInt(color.slice(3, 5), 16);
-              const b = parseInt(color.slice(5, 7), 16);
-              doc.setTextColor(r, g, b);
-
-              // Convert fontWeight to jsPDF format
-              if (element.fontWeight === 'bold' || element.fontWeight === '700') {
-                doc.setFont('helvetica', 'bold');
-              } else {
-                doc.setFont('helvetica', 'normal');
-              }
-
-              // Convert position from pixels to mm
-              const x = element.x * PX_TO_MM;
-              const y = element.y * PX_TO_MM;
-
-              doc.text(content, x, y, { 
-                align: element.align || 'left',
-                maxWidth: pageWidth - 20
-              });
-            } else if (element.type === 'image' && element.imageUrl) {
-              console.log('🖼️ Processing image element:', element.imageUrl);
-              
-              // Load image as base64
-              const base64Image = await loadImageAsBase64(element.imageUrl);
-              
-              if (base64Image) {
-                try {
-                  // Convert position and dimensions from pixels to mm
-                  const x = element.x * PX_TO_MM;
-                  const y = element.y * PX_TO_MM;
-                  const width = (element.width || 100) * PX_TO_MM;
-                  const height = (element.height || 100) * PX_TO_MM;
-
-                  // Determine image format from base64 string
-                  let format = 'PNG';
-                  if (base64Image.includes('image/jpeg') || base64Image.includes('image/jpg')) {
-                    format = 'JPEG';
-                  } else if (base64Image.includes('image/png')) {
-                    format = 'PNG';
-                  }
-
-                  doc.addImage(base64Image, format, x, y, width, height);
-                  console.log('✅ Image added to PDF at', x, y, 'size', width, 'x', height);
-                } catch (imgError) {
-                  console.error('Failed to add image to PDF:', imgError);
-                  toast({
-                    title: "Ostrzeżenie",
-                    description: "Nie udało się dodać obrazu do certyfikatu",
-                    variant: "default"
-                  });
-                }
-              } else {
-                console.warn('⚠️ Skipping image - failed to load:', element.imageUrl);
-              }
-            } else if (element.type === 'shape') {
-              // Shapes are handled but not implemented in this version
-              console.log('ℹ️ Shape element skipped (not implemented in PDF generation)');
-            }
-          } catch (elementError) {
-            console.error('Error processing element:', element, elementError);
-          }
-        }
+      if (!result.success) {
+        throw new Error(result.error || 'Błąd generowania certyfikatu');
       }
-
-      // Convert PDF to blob
-      const pdfBlob = doc.output('blob');
-      // FIRST: Check if certificates already exist and delete them
-      const { data: existingCerts } = await supabase
-        .from('certificates')
-        .select('id, file_url')
-        .eq('user_id', userId)
-        .eq('module_id', moduleId);
-
-      // Delete old files from storage and records BEFORE uploading new one
-      if (existingCerts && existingCerts.length > 0) {
-        console.log(`🗑️ Deleting ${existingCerts.length} old certificate(s) BEFORE generating new one`);
-        
-        // Delete files from storage
-        const filePaths = existingCerts.map(cert => cert.file_url);
-        const { error: removeError } = await supabase.storage
-          .from('certificates')
-          .remove(filePaths);
-        
-        if (removeError) {
-          console.error('Error removing old certificate files:', removeError);
-        }
-        
-        // Delete all old certificate records
-        const { error: deleteError } = await supabase
-          .from('certificates')
-          .delete()
-          .eq('user_id', userId)
-          .eq('module_id', moduleId);
-        
-        if (deleteError) {
-          console.error('Error deleting old certificate records:', deleteError);
-        }
-      }
-
-      // NOW: Upload the new certificate
-      const fileName = `${userId}/certificate-${moduleId}-${Date.now()}.pdf`;
-      console.log('📤 Uploading new certificate:', fileName);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('certificates')
-        .upload(fileName, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: false
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Save new certificate record to database with file path (not signed URL)
-      const { error: dbError } = await supabase
-        .from('certificates')
-        .insert({
-          user_id: userId,
-          module_id: moduleId,
-          issued_by: user?.id,
-          file_url: fileName  // Store just the file path, not signed URL
-        });
-
-      if (dbError) throw dbError;
-
-      console.log('✅ Certificate saved to database:', fileName);
-      console.log('=== CERTIFICATE GENERATION COMPLETE ===');
 
       toast({
         title: "Sukces",
-        description: `Certyfikat wygenerowany przy użyciu szablonu "${template.name}"`,
+        description: `Certyfikat dla ${userName} został wygenerowany`,
       });
 
-      // Refresh the user progress to show the certificate
-      fetchUserProgress();
+      // Refresh data
+      await fetchAllCertificates();
+      await fetchUserProgress();
     } catch (error) {
-      console.error('Error generating certificate:', error);
+      console.error('Error regenerating certificate:', error);
       toast({
         title: "Błąd",
-        description: "Nie udało się wygenerować certyfikatu",
+        description: error instanceof Error ? error.message : "Nie udało się wygenerować certyfikatu",
+        variant: "destructive"
+      });
+    } finally {
+      setRegeneratingCert(null);
+    }
+  };
+
+  // Download certificate for admin
+  const downloadCertificateAdmin = async (certificateId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-certificate-url', {
+        body: { certificateId }
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        const response = await fetch(data.url);
+        const blob = await response.blob();
+        
+        const timestamp = new Date().getTime();
+        const filename = `certyfikat-purelife-${timestamp}.pdf`;
+        
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading certificate:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się pobrać certyfikatu",
         variant: "destructive"
       });
     }
@@ -950,17 +765,17 @@ const TrainingManagement = () => {
             </Card>
           ) : (
             <div className="space-y-4">
-              {userProgress.map((user) => (
-                <Card key={user.user_id}>
+              {userProgress.map((progressUser) => (
+                <Card key={progressUser.user_id}>
                   <CardHeader>
                     <CardTitle className="text-lg">
-                      {user.first_name} {user.last_name}
+                      {progressUser.first_name} {progressUser.last_name}
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="text-sm text-muted-foreground">{progressUser.email}</p>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {user.modules.map((module) => (
+                      {progressUser.modules.map((module) => (
                         <div key={module.module_id} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
                             <div className="font-medium">{module.module_title}</div>
@@ -980,26 +795,80 @@ const TrainingManagement = () => {
                               style={{ width: `${module.progress_percentage}%` }}
                             />
                           </div>
+                          {/* Certificate section */}
+                          {module.progress_percentage === 100 && (
+                            <div className="mt-3 space-y-2 border-t pt-3">
+                              {/* Certificate history */}
+                              {(() => {
+                                const key = `${progressUser.user_id}-${module.module_id}`;
+                                const history = certificateHistory[key];
+                                const latestCert = history?.[0];
+                                
+                                return (
+                                  <>
+                                    {latestCert ? (
+                                      <div className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                          <Calendar className="h-3 w-3" />
+                                          <span>
+                                            Ostatni certyfikat: {new Date(latestCert.created_at).toLocaleString('pl-PL', {
+                                              day: '2-digit',
+                                              month: '2-digit',
+                                              year: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            })}
+                                          </span>
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => downloadCertificateAdmin(latestCert.id)}
+                                        >
+                                          <Download className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs text-muted-foreground">
+                                        Brak wygenerowanego certyfikatu
+                                      </div>
+                                    )}
+                                    
+                                    {/* Regenerate button */}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full"
+                                      onClick={() => regenerateCertificateAdmin(
+                                        progressUser.user_id,
+                                        module.module_id,
+                                        module.module_title,
+                                        `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email
+                                      )}
+                                      disabled={regeneratingCert === key}
+                                    >
+                                      {regeneratingCert === key ? (
+                                        <>
+                                          <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                          Generowanie...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <RefreshCw className="h-4 w-4 mr-1" />
+                                          {latestCert ? 'Regeneruj certyfikat' : 'Wygeneruj certyfikat'}
+                                        </>
+                                      )}
+                                    </Button>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
+                          
                           <div className="flex items-center justify-between mt-3">
                             <div className="text-xs text-muted-foreground">
                               Przypisano: {new Date(module.assigned_at).toLocaleDateString('pl-PL')}
                             </div>
-                            {module.progress_percentage === 100 && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => generateCertificate(
-                                  `${user.first_name} ${user.last_name}`.trim() || user.email,
-                                  module.module_title,
-                                  module.assigned_at,
-                                  user.user_id,
-                                  module.module_id
-                                )}
-                              >
-                                <Award className="h-4 w-4 mr-1" />
-                                Wystaw certyfikat
-                              </Button>
-                            )}
                           </div>
                         </div>
                       ))}

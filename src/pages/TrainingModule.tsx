@@ -353,20 +353,10 @@ const TrainingModule = () => {
         console.error('❌ Error checking existing cert:', existingError);
       }
 
+      // Always delete existing certificate to regenerate with correct template
       if (existingCert) {
-        console.log('Found existing cert:', existingCert.file_url);
-        
-        if (!existingCert.file_url.startsWith('pending-generation')) {
-          console.log('📜 Valid certificate already exists - skipping generation');
-          toast({
-            title: "Moduł ukończony!",
-            description: "Certyfikat został już wcześniej wystawiony.",
-          });
-          return;
-        }
-        
-        // Delete placeholder certificate
-        console.log('🗑️ Deleting placeholder certificate:', existingCert.id);
+        console.log('🔄 Deleting existing certificate for regeneration with correct template...');
+        console.log('Old cert ID:', existingCert.id, 'URL:', existingCert.file_url);
         await supabase.from('certificates').delete().eq('id', existingCert.id);
       }
 

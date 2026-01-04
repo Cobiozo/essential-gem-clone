@@ -6,10 +6,11 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft, Award, Download } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft, Award, Download, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 
 interface TrainingModule {
   id: string;
@@ -27,11 +28,13 @@ interface TrainingModule {
 const Training = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string}}>({});
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { generateCertificate } = useCertificateGeneration();
 
   useEffect(() => {
     const loadData = async () => {
@@ -74,24 +77,42 @@ const Training = () => {
     }
   };
 
-  const downloadCertificate = async (certificateId: string) => {
+  // Regenerate certificate and download it
+  const regenerateAndDownloadCertificate = async (moduleId: string, moduleTitle: string) => {
+    if (!user) return;
+
+    setRegenerating(moduleId);
+    
     try {
+      toast({
+        title: "Generowanie certyfikatu...",
+        description: "Trwa przygotowywanie certyfikatu z aktualnym szablonem.",
+      });
+
+      // Always regenerate with the correct template
+      const result = await generateCertificate(user.id, moduleId, moduleTitle, true);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Błąd generowania certyfikatu');
+      }
+
+      // Refresh certificates list
+      const newCertMap = await fetchCertificates();
+
+      // Download the newly generated certificate
       const { data, error } = await supabase.functions.invoke('get-certificate-url', {
-        body: { certificateId }
+        body: { certificateId: result.certificateId }
       });
 
       if (error) throw error;
 
       if (data?.url) {
-        // Fetch the file as a blob and download with custom filename
         const response = await fetch(data.url);
         const blob = await response.blob();
         
-        // Create custom filename with purelife branding
         const timestamp = new Date().getTime();
         const filename = `certyfikat-purelife-${timestamp}.pdf`;
         
-        // Create download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -99,22 +120,23 @@ const Training = () => {
         document.body.appendChild(link);
         link.click();
         
-        // Cleanup
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         
         toast({
           title: t('common.success'),
-          description: t('training.downloadSuccess'),
+          description: "Certyfikat został wygenerowany i pobrany.",
         });
       }
     } catch (error) {
-      console.error('Error downloading certificate:', error);
+      console.error('Error regenerating certificate:', error);
       toast({
         title: t('common.error'),
-        description: t('training.downloadError'),
+        description: error instanceof Error ? error.message : t('training.downloadError'),
         variant: "destructive"
       });
+    } finally {
+      setRegenerating(null);
     }
   };
 
@@ -331,8 +353,8 @@ const Training = () => {
                         )}
                       </div>
 
-                      {/* Certificate */}
-                      {module.certificate_id && (
+                      {/* Certificate - always regenerate on download */}
+                      {progress === 100 && (
                         <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -342,9 +364,14 @@ const Training = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => downloadCertificate(module.certificate_id!)}
+                              onClick={() => regenerateAndDownloadCertificate(module.id, module.title)}
+                              disabled={regenerating === module.id}
                             >
-                              <Download className="h-4 w-4" />
+                              {regenerating === module.id ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         </div>
