@@ -174,6 +174,13 @@ export const ElementPreview: React.FC<ElementPreviewProps> = ({ type, className 
             </div>
           </div>
         );
+      case 'image-link':
+        return (
+          <div className="aspect-video bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center relative">
+            <div className="w-4 h-4 border-2 border-blue-400/60 rounded" />
+            <div className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-blue-500/60 rounded-sm" />
+          </div>
+        );
       case 'html':
       case 'shortcode':
         return (

@@ -11,8 +11,9 @@ import { toast } from 'sonner';
 import { 
   Search, Download, ExternalLink, Copy, FileText, File, 
   Archive, Link as LinkIcon, FileSpreadsheet, Star, Sparkles,
-  RefreshCw, Filter, X, Share2, Clock
+  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag
 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   KnowledgeResource, ResourceType,
   RESOURCE_TYPE_LABELS, RESOURCE_CATEGORIES 
@@ -35,6 +36,8 @@ export default function KnowledgeCenter() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterTag, setFilterTag] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'grouped'>('list');
   const [siteLogo, setSiteLogo] = useState<string>(newPureLifeLogo);
 
   useEffect(() => {
@@ -104,11 +107,32 @@ export default function KnowledgeCenter() {
       r.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
     const matchesType = filterType === 'all' || r.resource_type === filterType;
-    return matchesSearch && matchesCategory && matchesType;
+    const matchesTag = filterTag === 'all' || r.tags?.includes(filterTag);
+    return matchesSearch && matchesCategory && matchesType && matchesTag;
   });
 
   const featuredResources = filteredResources.filter(r => r.is_featured);
   const regularResources = filteredResources.filter(r => !r.is_featured);
+
+  // Get unique tags from all resources
+  const allTags = [...new Set(resources.flatMap(r => r.tags || []))].sort();
+
+  // Group resources by category
+  const groupedByCategory = regularResources.reduce((acc, r) => {
+    const category = r.category || 'Inne';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(r);
+    return acc;
+  }, {} as Record<string, KnowledgeResource[]>);
+
+  // Group resources by tag
+  const groupedByTag = regularResources.reduce((acc, r) => {
+    (r.tags || ['Bez tagów']).forEach(tag => {
+      if (!acc[tag]) acc[tag] = [];
+      acc[tag].push(r);
+    });
+    return acc;
+  }, {} as Record<string, KnowledgeResource[]>);
 
   const handleShare = (resource: KnowledgeResource) => {
     if (resource.source_url) {
@@ -220,9 +244,53 @@ export default function KnowledgeCenter() {
     setSearchTerm('');
     setFilterCategory('all');
     setFilterType('all');
+    setFilterTag('all');
   };
 
-  const hasActiveFilters = searchTerm || filterCategory !== 'all' || filterType !== 'all';
+  const hasActiveFilters = searchTerm || filterCategory !== 'all' || filterType !== 'all' || filterTag !== 'all';
+
+  // Render resource card (reusable for grid/list views)
+  const renderResourceCard = (resource: KnowledgeResource, isGrid: boolean = false) => (
+    <Card key={resource.id} className={`hover:shadow-md transition-shadow ${isGrid ? 'h-full' : ''}`}>
+      <CardContent className="p-4">
+        <div className={isGrid ? "flex flex-col h-full" : "flex flex-col sm:flex-row sm:items-center gap-4"}>
+          <div className={`flex items-start gap-3 ${isGrid ? 'mb-3' : 'flex-1 min-w-0'}`}>
+            <div className="p-2 rounded-lg bg-muted shrink-0">
+              {RESOURCE_ICONS[resource.resource_type]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h3 className="font-semibold truncate">{resource.title}</h3>
+                {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700 text-[10px]">Nowy</Badge>}
+                {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700 text-[10px]">Zaktualizowany</Badge>}
+              </div>
+              <p className={`text-sm text-muted-foreground ${isGrid ? 'line-clamp-2' : 'line-clamp-1'} mb-2`}>
+                {resource.description || 'Brak opisu'}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="text-[10px]">
+                  {RESOURCE_TYPE_LABELS[resource.resource_type]}
+                </Badge>
+                {resource.category && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {resource.category}
+                  </Badge>
+                )}
+                {resource.tags?.slice(0, 2).map(tag => (
+                  <Badge key={tag} variant="outline" className="text-[10px] bg-muted">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className={`flex items-center gap-2 ${isGrid ? 'mt-auto pt-3' : 'sm:shrink-0'}`}>
+            {getActionButtons(resource)}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -231,9 +299,9 @@ export default function KnowledgeCenter() {
       <main className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">ZDROWA WIEDZA</h1>
+          <h1 className="text-3xl font-bold mb-2">Centrum Zasobów</h1>
           <p className="text-muted-foreground">
-            Centrum Zasobów - dokumenty, materiały i narzędzia do Twojej dyspozycji
+            Dokumenty, materiały i narzędzia do Twojej dyspozycji
           </p>
         </div>
 
@@ -272,11 +340,41 @@ export default function KnowledgeCenter() {
                   ))}
                 </SelectContent>
               </Select>
+              {allTags.length > 0 && (
+                <Select value={filterTag} onValueChange={setFilterTag}>
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Tag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie tagi</SelectItem>
+                    {allTags.map(tag => (
+                      <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               {hasActiveFilters && (
                 <Button variant="ghost" size="icon" onClick={clearFilters}>
                   <X className="h-4 w-4" />
                 </Button>
               )}
+            </div>
+            {/* View mode toggle */}
+            <div className="flex items-center gap-2 mt-4 sm:mt-0">
+              <span className="text-sm text-muted-foreground">Widok:</span>
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'grid' | 'grouped')}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="list" className="h-6 px-2">
+                    <List className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="grid" className="h-6 px-2">
+                    <LayoutGrid className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="grouped" className="h-6 px-2">
+                    <Tag className="h-4 w-4" />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </CardContent>
         </Card>
@@ -340,55 +438,43 @@ export default function KnowledgeCenter() {
               </div>
             )}
 
-            {/* Regular Resources */}
+            {/* Regular Resources - Different views */}
             {regularResources.length > 0 && (
               <div>
                 {featuredResources.length > 0 && (
                   <h2 className="text-lg font-semibold mb-3">Wszystkie zasoby</h2>
                 )}
-                <div className="space-y-3">
-                  {regularResources.map(resource => (
-                    <Card key={resource.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className="p-2 rounded-lg bg-muted shrink-0">
-                              {RESOURCE_ICONS[resource.resource_type]}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <h3 className="font-semibold truncate">{resource.title}</h3>
-                                {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700 text-[10px]">Nowy</Badge>}
-                                {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700 text-[10px]">Zaktualizowany</Badge>}
-                              </div>
-                              <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                                {resource.description || 'Brak opisu'}
-                              </p>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge variant="outline" className="text-[10px]">
-                                  {RESOURCE_TYPE_LABELS[resource.resource_type]}
-                                </Badge>
-                                {resource.category && (
-                                  <Badge variant="secondary" className="text-[10px]">
-                                    {resource.category}
-                                  </Badge>
-                                )}
-                                {resource.tags?.slice(0, 3).map(tag => (
-                                  <Badge key={tag} variant="outline" className="text-[10px] bg-muted">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 sm:shrink-0">
-                            {getActionButtons(resource)}
-                          </div>
+                
+                {/* List View */}
+                {viewMode === 'list' && (
+                  <div className="space-y-3">
+                    {regularResources.map(resource => renderResourceCard(resource, false))}
+                  </div>
+                )}
+
+                {/* Grid View */}
+                {viewMode === 'grid' && (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {regularResources.map(resource => renderResourceCard(resource, true))}
+                  </div>
+                )}
+
+                {/* Grouped View */}
+                {viewMode === 'grouped' && (
+                  <div className="space-y-6">
+                    {Object.entries(groupedByCategory).sort(([a], [b]) => a.localeCompare(b)).map(([category, categoryResources]) => (
+                      <div key={category}>
+                        <h3 className="text-md font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
+                          <Tag className="h-4 w-4" />
+                          {category} ({categoryResources.length})
+                        </h3>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {categoryResources.map(resource => renderResourceCard(resource, true))}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

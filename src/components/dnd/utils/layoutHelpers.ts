@@ -92,6 +92,10 @@ export const createDefaultContent = (elementType: string): any[] => {
       ];
     case 'file-download':
       return [{ type: 'file-download', content: 'Pobierz plik', url: '' }];
+    case 'image-link':
+      return [{ type: 'image-link', content: '', link_type: 'external', url: '', open_in_new_tab: true }];
+    case 'copy-to-clipboard':
+      return [{ type: 'copy-to-clipboard', content: 'Tekst do skopiowania', buttonText: 'Kopiuj' }];
     default:
       warn('[createDefaultContent] Unknown element type:', elementType);
       return [{ type: 'text', content: `Element typu: ${elementType}` }];
@@ -141,6 +145,8 @@ export const getElementTypeName = (elementType: string): string => {
     'text-path': 'Ścieżka tekstowa',
     'multi_cell': 'Wiele komórek',
     'file-download': 'Przycisk pobierania',
+    'image-link': 'Obrazek z linkiem',
+    'copy-to-clipboard': 'Kopiuj do schowka',
   };
   return names[elementType] || 'Element';
 };

@@ -2942,6 +2942,7 @@ export type Database = {
       }
       training_lessons: {
         Row: {
+          action_buttons: Json | null
           content: string | null
           created_at: string
           id: string
@@ -2957,6 +2958,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_buttons?: Json | null
           content?: string | null
           created_at?: string
           id?: string
@@ -2972,6 +2974,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_buttons?: Json | null
           content?: string | null
           created_at?: string
           id?: string
@@ -3004,6 +3007,7 @@ export type Database = {
           id: string
           is_active: boolean
           position: number
+          resource_ids: string[] | null
           title: string
           updated_at: string
           visible_to_anonymous: boolean
@@ -3019,6 +3023,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           position?: number
+          resource_ids?: string[] | null
           title: string
           updated_at?: string
           visible_to_anonymous?: boolean
@@ -3034,6 +3039,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           position?: number
+          resource_ids?: string[] | null
           title?: string
           updated_at?: string
           visible_to_anonymous?: boolean

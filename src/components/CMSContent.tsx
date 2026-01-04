@@ -1451,6 +1451,59 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       }
       return null;
 
+    case 'image-link': {
+      const cellData = item.cells as any;
+      const linkType = cellData?.link_type || 'external';
+      const openInNewTab = cellData?.open_in_new_tab ?? true;
+      
+      const handleImageLinkClick = async () => {
+        let targetUrl = item.url || '';
+        
+        if (linkType === 'resource' && cellData?.resource_id) {
+          // Fetch resource URL
+          const { data } = await (await import('@/integrations/supabase/client')).supabase
+            .from('knowledge_resources')
+            .select('source_url')
+            .eq('id', cellData.resource_id)
+            .single();
+          if (data?.source_url) {
+            targetUrl = data.source_url;
+          }
+        }
+        
+        if (targetUrl) {
+          if (openInNewTab) {
+            window.open(targetUrl, '_blank');
+          } else {
+            window.location.href = targetUrl;
+          }
+        }
+      };
+
+      const itemStyles = applyItemStyles(item);
+      
+      return (
+        <div 
+          className={cn("cursor-pointer transition-all hover:opacity-90 hover:scale-[1.02]", itemStyles.className)}
+          style={itemStyles.style}
+          onClick={handleImageLinkClick}
+        >
+          {item.media_url && (
+            <img
+              src={item.media_url}
+              alt={item.media_alt_text || 'Obrazek z linkiem'}
+              className="w-full h-auto object-cover"
+              style={{
+                borderRadius: item.border_radius ? `${item.border_radius}px` : undefined,
+                maxWidth: item.max_width ? `${item.max_width}px` : undefined,
+              }}
+              loading={item.lazy_loading ? 'lazy' : undefined}
+            />
+          )}
+        </div>
+      );
+    }
+
     default:
       // Get icon component if specified
       const IconComponent = item.icon ? (icons as any)[item.icon] : null;
