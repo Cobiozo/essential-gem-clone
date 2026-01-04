@@ -282,11 +282,24 @@ serve(async (req) => {
       throw new Error('Certificate is still being generated');
     }
 
+    // Extract file path from URL if it's a full URL
+    let filePath = certificate.file_url;
+    console.log('[send-certificate-email] Original file_url:', filePath);
+    
+    if (filePath.includes('/storage/v1/object/')) {
+      // Extract path after 'certificates/'
+      const parts = filePath.split('certificates/');
+      if (parts.length > 1) {
+        filePath = parts[1];
+      }
+    }
+    console.log('[send-certificate-email] Extracted file path:', filePath);
+
     // 4. Generate signed URL for certificate (valid for 7 days)
     console.log('[send-certificate-email] Generating signed URL...');
     const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
       .from('certificates')
-      .createSignedUrl(certificate.file_url, 60 * 60 * 24 * 7); // 7 days
+      .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days
 
     if (urlError) {
       console.error('[send-certificate-email] Signed URL error:', urlError);
