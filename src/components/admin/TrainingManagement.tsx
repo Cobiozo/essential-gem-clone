@@ -415,11 +415,10 @@ const TrainingManagement = () => {
       const userRole = userRoles?.role || 'user'; // Default to 'user' if not found
       console.log('✅ User role:', userRole);
 
-      // STEP 2: Fetch all active templates
+      // STEP 2: Fetch ALL templates (not just active - module-specific take priority)
       const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
         .select('*')
-        .eq('is_active', true)
         .order('updated_at', { ascending: false });
 
       if (templateError) {
@@ -433,47 +432,58 @@ const TrainingManagement = () => {
       }
 
       if (!templates || templates.length === 0) {
-        console.error('NO ACTIVE TEMPLATE FOUND!');
+        console.error('NO TEMPLATES FOUND!');
         toast({
           title: "Błąd",
-          description: "Nie znaleziono aktywnego szablonu certyfikatu. Ustaw szablon jako domyślny w zakładce Certyfikaty.",
+          description: "Nie znaleziono żadnego szablonu certyfikatu.",
           variant: "destructive"
         });
         return;
       }
 
-      // STEP 3: Find template matching role AND module (highest priority)
+      console.log('📋 Found', templates.length, 'templates. Looking for moduleId:', moduleId);
+
+      // Helper function for safe UUID comparison
+      const hasModuleMatch = (templateModuleIds: string[] | null | undefined): boolean => {
+        if (!templateModuleIds || !Array.isArray(templateModuleIds) || templateModuleIds.length === 0) return false;
+        return templateModuleIds.some((id: string) => String(id) === String(moduleId));
+      };
+
+      // PRIORITY 1: Template assigned to THIS MODULE and user's role
       let template = templates.find(t => {
+        const hasModule = hasModuleMatch(t.module_ids);
         const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
-        const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
-        return hasRole && hasModule;
+        return hasModule && hasRole;
       });
 
-      // STEP 4: Fallback - match only module (any role)
+      // PRIORITY 2: Template assigned to THIS MODULE (any role - KEY FIX)
       if (!template) {
-        template = templates.find(t => {
-          const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
-          const noRoleRestriction = !t.roles || t.roles.length === 0;
-          return hasModule && noRoleRestriction;
-        });
+        template = templates.find(t => hasModuleMatch(t.module_ids));
       }
 
-      // STEP 5: Fallback - match only role (any module)
+      // PRIORITY 3: Active template with user's role (no module restriction)
       if (!template) {
         template = templates.find(t => {
+          const isActive = t.is_active === true;
           const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
           const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return hasRole && noModuleRestriction;
+          return isActive && hasRole && noModuleRestriction;
         });
       }
 
-      // STEP 6: Fallback - first active template with no restrictions
+      // PRIORITY 4: Default active template with no restrictions
       if (!template) {
         template = templates.find(t => {
+          const isActive = t.is_active === true;
           const noRoleRestriction = !t.roles || t.roles.length === 0;
           const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return noRoleRestriction && noModuleRestriction;
-        }) || templates[0];
+          return isActive && noRoleRestriction && noModuleRestriction;
+        });
+      }
+
+      // FALLBACK: Any active template
+      if (!template) {
+        template = templates.find(t => t.is_active === true) || templates[0];
       }
 
       console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id, 'for role:', userRole, 'module:', moduleId);
