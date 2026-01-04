@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SecureMedia } from "@/components/SecureMedia";
+// jsPDF imported dynamically when generating certificates
 
 interface TrainingModule {
   id: string;
@@ -238,39 +239,15 @@ const TrainingModule = () => {
         return lessonProgress?.is_completed;
       });
 
-      if (allCompleted && user) {
-        // Auto-generate certificate
+      if (allCompleted && user && module) {
+        // Auto-generate certificate with full PDF generation
         toast({
           title: "Generowanie certyfikatu...",
           description: "Trwa automatyczne wystawianie certyfikatu.",
         });
 
         try {
-          const { data, error } = await supabase.functions.invoke('auto-generate-certificate', {
-            body: { userId: user.id, moduleId }
-          });
-
-          if (error) throw error;
-
-          if (data?.success) {
-            if (data.alreadyExists) {
-              toast({
-                title: "Moduł ukończony!",
-                description: "Certyfikat został już wcześniej wystawiony.",
-              });
-            } else {
-              toast({
-                title: "🎉 Certyfikat wystawiony!",
-                description: `Gratulacje! Ukończyłeś "${data.moduleTitle}" i otrzymałeś certyfikat.`,
-              });
-            }
-          } else {
-            console.error('Certificate generation failed:', data?.error);
-            toast({
-              title: "Moduł ukończony!",
-              description: "Gratulacje! Ukończyłeś wszystkie lekcje.",
-            });
-          }
+          await generateAndSendCertificate(user.id, moduleId!, module.title);
         } catch (certError) {
           console.error('Error generating certificate:', certError);
           toast({
@@ -313,6 +290,284 @@ const TrainingModule = () => {
 
     await saveProgress();
     setCurrentLessonIndex(index);
+  };
+
+  // Generate certificate PDF locally and upload to storage
+  const generateAndSendCertificate = async (userId: string, moduleId: string, moduleTitle: string) => {
+    try {
+      console.log('=== GENERATING CERTIFICATE ===');
+      
+      // 1. Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+      
+      const userName = profile?.first_name && profile?.last_name
+        ? `${profile.first_name} ${profile.last_name}`
+        : profile?.email || 'Unknown User';
+
+      // 2. Get user role
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      const userRole = userRoles?.role || 'client';
+      console.log('✅ User role:', userRole);
+
+      // 3. Check if certificate already exists
+      const { data: existingCert } = await supabase
+        .from('certificates')
+        .select('id, file_url')
+        .eq('user_id', userId)
+        .eq('module_id', moduleId)
+        .maybeSingle();
+
+      if (existingCert && !existingCert.file_url.startsWith('pending-generation')) {
+        console.log('📜 Valid certificate already exists');
+        toast({
+          title: "Moduł ukończony!",
+          description: "Certyfikat został już wcześniej wystawiony.",
+        });
+        navigate('/training');
+        return;
+      }
+
+      // 4. Fetch certificate templates
+      const { data: templates, error: templateError } = await supabase
+        .from('certificate_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false });
+
+      if (templateError) throw templateError;
+
+      if (!templates || templates.length === 0) {
+        console.error('NO ACTIVE TEMPLATE FOUND!');
+        toast({
+          title: "Błąd",
+          description: "Nie znaleziono aktywnego szablonu certyfikatu.",
+          variant: "destructive"
+        });
+        navigate('/training');
+        return;
+      }
+
+      // 5. Find best matching template
+      let template = templates.find(t => {
+        const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
+        const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
+        return hasRole && hasModule;
+      });
+
+      if (!template) {
+        template = templates.find(t => {
+          const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
+          const noRoleRestriction = !t.roles || t.roles.length === 0;
+          return hasModule && noRoleRestriction;
+        });
+      }
+
+      if (!template) {
+        template = templates.find(t => {
+          const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
+          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
+          return hasRole && noModuleRestriction;
+        });
+      }
+
+      if (!template) {
+        template = templates.find(t => {
+          const noRoleRestriction = !t.roles || t.roles.length === 0;
+          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
+          return noRoleRestriction && noModuleRestriction;
+        }) || templates[0];
+      }
+
+      console.log('✅ USING TEMPLATE:', template.name);
+
+      // 6. Dynamic import of jsPDF
+      const { default: jsPDF } = await import('jspdf');
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const PX_TO_MM = 0.352729;
+
+      // Helper function to load image as base64
+      const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          const blob = await response.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          return null;
+        }
+      };
+
+      const completedDate = new Date().toLocaleDateString('pl-PL');
+
+      // 7. Render template elements
+      if (template.layout && typeof template.layout === 'object' && 'elements' in template.layout) {
+        const layoutData = template.layout as { elements: any[] };
+        
+        for (const element of layoutData.elements) {
+          try {
+            let content = element.content || '';
+            content = content.replace('{userName}', userName);
+            content = content.replace('{moduleTitle}', moduleTitle);
+            content = content.replace('{completionDate}', completedDate);
+
+            if (element.type === 'text') {
+              doc.setFontSize(element.fontSize || 16);
+              
+              const color = element.color || '#000000';
+              const r = parseInt(color.slice(1, 3), 16);
+              const g = parseInt(color.slice(3, 5), 16);
+              const b = parseInt(color.slice(5, 7), 16);
+              doc.setTextColor(r, g, b);
+
+              if (element.fontWeight === 'bold' || element.fontWeight === '700') {
+                doc.setFont('helvetica', 'bold');
+              } else {
+                doc.setFont('helvetica', 'normal');
+              }
+
+              const x = element.x * PX_TO_MM;
+              const y = element.y * PX_TO_MM;
+
+              doc.text(content, x, y, { 
+                align: element.align || 'left',
+                maxWidth: pageWidth - 20
+              });
+            } else if (element.type === 'image' && element.imageUrl) {
+              const base64Image = await loadImageAsBase64(element.imageUrl);
+              
+              if (base64Image) {
+                try {
+                  const x = element.x * PX_TO_MM;
+                  const y = element.y * PX_TO_MM;
+                  const width = (element.width || 100) * PX_TO_MM;
+                  const height = (element.height || 100) * PX_TO_MM;
+
+                  let format = 'PNG';
+                  if (base64Image.includes('image/jpeg') || base64Image.includes('image/jpg')) {
+                    format = 'JPEG';
+                  }
+
+                  doc.addImage(base64Image, format, x, y, width, height);
+                } catch (imgError) {
+                  console.error('Failed to add image to PDF:', imgError);
+                }
+              }
+            }
+          } catch (elementError) {
+            console.error('Error processing element:', element, elementError);
+          }
+        }
+      }
+
+      // 8. Convert PDF to blob
+      const pdfBlob = doc.output('blob');
+
+      // 9. Delete old certificates if any
+      if (existingCert) {
+        console.log('🗑️ Deleting old certificate placeholder');
+        await supabase.storage.from('certificates').remove([existingCert.file_url]);
+        await supabase.from('certificates').delete().eq('id', existingCert.id);
+      }
+
+      // 10. Upload new certificate
+      const fileName = `${userId}/certificate-${moduleId}-${Date.now()}.pdf`;
+      console.log('📤 Uploading certificate:', fileName);
+
+      const { error: uploadError } = await supabase.storage
+        .from('certificates')
+        .upload(fileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 11. Save certificate record
+      const { data: newCert, error: dbError } = await supabase
+        .from('certificates')
+        .insert({
+          user_id: userId,
+          module_id: moduleId,
+          issued_by: userId,
+          file_url: fileName
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      console.log('✅ Certificate saved:', fileName);
+
+      // 12. Update training assignment
+      await supabase
+        .from('training_assignments')
+        .update({
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('module_id', moduleId);
+
+      // 13. Send certificate email
+      try {
+        console.log('📧 Sending certificate email...');
+        const { error: emailError } = await supabase.functions.invoke('send-certificate-email', {
+          body: { 
+            userId, 
+            moduleId, 
+            certificateId: newCert.id,
+            moduleTitle,
+            userName
+          }
+        });
+
+        if (emailError) {
+          console.error('Email sending failed:', emailError);
+        } else {
+          console.log('✅ Certificate email sent');
+        }
+      } catch (emailErr) {
+        console.error('Email error:', emailErr);
+      }
+
+      toast({
+        title: "🎉 Certyfikat wystawiony!",
+        description: `Gratulacje! Ukończyłeś "${moduleTitle}" i otrzymałeś certyfikat. Sprawdź email!`,
+      });
+
+      navigate('/training');
+
+    } catch (error) {
+      console.error('❌ Error generating certificate:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się wygenerować certyfikatu",
+        variant: "destructive"
+      });
+      navigate('/training');
+    }
   };
 
   const getMediaIcon = (mediaType: string) => {
