@@ -26,7 +26,7 @@ import { toast } from '@/hooks/use-toast';
 
 type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
 
-const TRANSLATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/translate-content`;
+const TRANSLATE_URL = 'https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/translate-content';
 
 // Cache structure for unified document content
 interface CachedDocumentContent {
@@ -113,7 +113,7 @@ export const MedicalChatWidget: React.FC = () => {
     }
   };
 
-  const SUMMARIZE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/medical-assistant`;
+  const SUMMARIZE_URL = 'https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/medical-assistant';
 
   const exportTranslations: Record<string, Record<ExportLanguage, string>> = {
     title: {
@@ -296,7 +296,7 @@ Provide a structured summary:`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA`,
         },
         body: JSON.stringify({
           query: summaryPrompt,
@@ -363,7 +363,7 @@ Provide a structured summary:`;
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA`,
         },
         body: JSON.stringify({
           content,
