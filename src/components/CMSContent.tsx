@@ -1456,6 +1456,19 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const linkType = cellData?.link_type || 'external';
       const openInNewTab = cellData?.open_in_new_tab ?? true;
       
+      // Show placeholder in edit mode when no image
+      if (!item.media_url && isEditMode) {
+        return (
+          <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center bg-muted/20">
+            <div className="flex flex-col items-center gap-2">
+              <icons.Image className="w-8 h-8 text-muted-foreground/50" />
+              <p className="text-xs text-muted-foreground">Obrazek z linkiem</p>
+              <p className="text-[10px] text-muted-foreground/70">Kliknij aby dodać obrazek</p>
+            </div>
+          </div>
+        );
+      }
+      
       const handleImageLinkClick = async () => {
         let targetUrl = item.url || '';
         
