@@ -22,8 +22,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export const NotificationBellEnhanced = () => {
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [open, setOpen] = useState(false);
+  
+  // Enable realtime only when popover is open to reduce unnecessary subscriptions
+  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications({ 
+    enableRealtime: open 
+  });
 
   const handleNotificationClick = (notification: typeof notifications[0]) => {
     if (!notification.is_read) {

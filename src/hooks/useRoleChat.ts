@@ -200,13 +200,23 @@ export const useRoleChat = (options?: UseRoleChatOptions) => {
     };
   }, [user, userRole, enableRealtime]);
 
-  // Fetch messages when channel changes
+  // Fetch messages when channel changes - with proper cleanup to prevent memory leaks
   useEffect(() => {
+    let mounted = true;
+    
     if (selectedChannel) {
-      fetchMessages(selectedChannel.id);
-      markChannelAsRead(selectedChannel.id);
+      fetchMessages(selectedChannel.id).then(() => {
+        // Only mark as read if component is still mounted
+        if (mounted) {
+          markChannelAsRead(selectedChannel.id);
+        }
+      });
     }
-  }, [selectedChannel, fetchMessages]);
+    
+    return () => {
+      mounted = false;
+    };
+  }, [selectedChannel?.id]); // Use only ID to prevent unnecessary re-runs
 
   return {
     channels,

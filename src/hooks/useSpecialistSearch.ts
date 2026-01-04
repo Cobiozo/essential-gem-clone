@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,12 +14,10 @@ interface SpecialistSearchSettings {
 
 export const useSpecialistSearch = () => {
   const { user, userRole } = useAuth();
-  const [settings, setSettings] = useState<SpecialistSearchSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [canAccess, setCanAccess] = useState(false);
 
-  const fetchSettings = useCallback(async () => {
-    try {
+  const { data: settings, isLoading: loading, refetch } = useQuery({
+    queryKey: ['specialist-search-settings'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('specialist_search_settings')
         .select('*')
@@ -27,46 +26,40 @@ export const useSpecialistSearch = () => {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching settings:', error);
-        return;
+        return null;
       }
 
-      setSettings(data);
+      return data as SpecialistSearchSettings | null;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+  });
 
-      // Check access based on role
-      if (!data?.is_enabled) {
-        setCanAccess(false);
-      } else if (!user) {
-        setCanAccess(data.visible_to_anonymous);
-      } else {
-        const role = String(userRole || 'client').toLowerCase();
-        switch (role) {
-          case 'admin':
-            setCanAccess(true);
-            break;
-          case 'client':
-            setCanAccess(data.visible_to_clients);
-            break;
-          case 'partner':
-            setCanAccess(data.visible_to_partners);
-            break;
-          case 'specjalista':
-          case 'specialist':
-            setCanAccess(data.visible_to_specjalista);
-            break;
-          default:
-            setCanAccess(data.visible_to_clients);
-        }
-      }
-    } catch (err) {
-      console.error('Error:', err);
-    } finally {
-      setLoading(false);
+  // Compute access based on settings and role - memoized to prevent unnecessary recalculations
+  const canAccess = useMemo(() => {
+    if (!settings?.is_enabled) {
+      return false;
     }
-  }, [user, userRole]);
+    
+    if (!user) {
+      return settings.visible_to_anonymous;
+    }
+    
+    const role = String(userRole || 'client').toLowerCase();
+    switch (role) {
+      case 'admin':
+        return true;
+      case 'client':
+        return settings.visible_to_clients;
+      case 'partner':
+        return settings.visible_to_partners;
+      case 'specjalista':
+      case 'specialist':
+        return settings.visible_to_specjalista;
+      default:
+        return settings.visible_to_clients;
+    }
+  }, [settings, user, userRole]);
 
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
-  return { settings, loading, canAccess, refetch: fetchSettings };
+  return { settings: settings ?? null, loading, canAccess, refetch };
 };
