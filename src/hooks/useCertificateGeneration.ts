@@ -312,11 +312,11 @@ export const useCertificateGeneration = () => {
       try {
         await supabase.functions.invoke('send-certificate-email', {
           body: {
+            userId: userId,
+            moduleId: moduleId,
             certificateId: certificate.id,
-            userEmail: profile.email,
-            userName: userName,
             moduleTitle: moduleTitle,
-            fileUrl: publicUrl
+            userName: userName
           }
         });
         console.log('✅ Email sent');
