@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Clock, CheckCircle, Lock, ArrowLeft, Award, Download, RefreshCw } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -28,7 +28,8 @@ interface TrainingModule {
 const Training = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [regenerating, setRegenerating] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string}}>({});
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -77,31 +78,63 @@ const Training = () => {
     }
   };
 
-  // Regenerate certificate and download it
-  const regenerateAndDownloadCertificate = async (moduleId: string, moduleTitle: string) => {
+  // Generate certificate (one-time only)
+  const handleGenerateCertificate = async (moduleId: string, moduleTitle: string) => {
     if (!user) return;
 
-    setRegenerating(moduleId);
+    // Check if certificate already exists
+    if (certificates[moduleId]) {
+      toast({
+        title: "Certyfikat już wygenerowany",
+        description: "Możesz go pobrać klikając przycisk 'Pobierz certyfikat'.",
+      });
+      return;
+    }
+
+    setGenerating(moduleId);
     
     try {
       toast({
         title: "Generowanie certyfikatu...",
-        description: "Trwa przygotowywanie certyfikatu z aktualnym szablonem.",
+        description: "Trwa przygotowywanie certyfikatu.",
       });
 
-      // Always regenerate with the correct template
-      const result = await generateCertificate(user.id, moduleId, moduleTitle, true);
+      // Generate without forceRegenerate (one-time only)
+      const result = await generateCertificate(user.id, moduleId, moduleTitle, false);
 
       if (!result.success) {
         throw new Error(result.error || 'Błąd generowania certyfikatu');
       }
 
       // Refresh certificates list
-      const newCertMap = await fetchCertificates();
+      await fetchCertificates();
 
-      // Download the newly generated certificate
+      toast({
+        title: "Sukces!",
+        description: "Certyfikat został wygenerowany. Możesz go teraz pobrać.",
+      });
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      toast({
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : "Nie udało się wygenerować certyfikatu",
+        variant: "destructive"
+      });
+    } finally {
+      setGenerating(null);
+    }
+  };
+
+  // Download existing certificate (no regeneration)
+  const downloadCertificate = async (moduleId: string, moduleTitle: string) => {
+    const cert = certificates[moduleId];
+    if (!cert) return;
+
+    setDownloading(moduleId);
+    
+    try {
       const { data, error } = await supabase.functions.invoke('get-certificate-url', {
-        body: { certificateId: result.certificateId }
+        body: { certificateId: cert.id }
       });
 
       if (error) throw error;
@@ -110,8 +143,7 @@ const Training = () => {
         const response = await fetch(data.url);
         const blob = await response.blob();
         
-        const timestamp = new Date().getTime();
-        const filename = `certyfikat-purelife-${timestamp}.pdf`;
+        const filename = `certyfikat-${moduleTitle.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
         
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -122,21 +154,16 @@ const Training = () => {
         
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
-        toast({
-          title: t('common.success'),
-          description: "Certyfikat został wygenerowany i pobrany.",
-        });
       }
     } catch (error) {
-      console.error('Error regenerating certificate:', error);
+      console.error('Error downloading certificate:', error);
       toast({
         title: t('common.error'),
-        description: error instanceof Error ? error.message : t('training.downloadError'),
+        description: "Nie udało się pobrać certyfikatu",
         variant: "destructive"
       });
     } finally {
-      setRegenerating(null);
+      setDownloading(null);
     }
   };
 
@@ -313,6 +340,7 @@ const Training = () => {
             {modules.map((module) => {
               const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
               const status = getModuleStatus(module.completed_lessons, module.lessons_count);
+              const hasCertificate = !!certificates[module.id];
               
               return (
                 <Card key={module.id} className="hover:shadow-lg transition-shadow">
@@ -353,26 +381,47 @@ const Training = () => {
                         )}
                       </div>
 
-                      {/* Certificate - always regenerate on download */}
+                      {/* Certificate Section - Only show when 100% completed */}
                       {progress === 100 && (
                         <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Award className="h-5 w-5 text-primary" />
-                              <span className="text-sm font-medium">{t('training.certificateCompleted')}</span>
+                              <span className="text-sm font-medium">
+                                {hasCertificate 
+                                  ? "Certyfikat gotowy do pobrania" 
+                                  : "Certyfikat dostępny do wygenerowania"}
+                              </span>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => regenerateAndDownloadCertificate(module.id, module.title)}
-                              disabled={regenerating === module.id}
-                            >
-                              {regenerating === module.id ? (
-                                <RefreshCw className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Download className="h-4 w-4" />
-                              )}
-                            </Button>
+                            
+                            {hasCertificate ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => downloadCertificate(module.id, module.title)}
+                                disabled={downloading === module.id}
+                              >
+                                {downloading === module.id ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                                <span className="ml-2">Pobierz</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleGenerateCertificate(module.id, module.title)}
+                                disabled={generating === module.id}
+                              >
+                                {generating === module.id ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Award className="h-4 w-4" />
+                                )}
+                                <span className="ml-2">Wygeneruj</span>
+                              </Button>
+                            )}
                           </div>
                         </div>
                       )}
