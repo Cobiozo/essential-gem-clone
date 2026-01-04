@@ -72,14 +72,24 @@ serve(async (req) => {
     }
 
     // Extract file path from the stored URL
-    // If file_url is a full URL, extract just the path part
     let filePath = certificate.file_url;
     
     console.log('Original file_url:', filePath);
+
+    // Check if file_url is a placeholder (not yet generated)
+    if (filePath.startsWith('pending-generation')) {
+      console.error('Certificate file not yet generated:', filePath);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Certificate is still being generated. Please try again in a moment.',
+          pending: true 
+        }),
+        { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // If it's a full URL, extract the path after the bucket name
     if (filePath.includes('/storage/v1/object/')) {
-      // Extract path after "certificates/"
       const parts = filePath.split('certificates/');
       if (parts.length > 1) {
         filePath = parts[1];
