@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 
 interface UploadOptions {
@@ -22,6 +23,21 @@ interface UseLocalStorageReturn {
   listFiles: (folder?: string) => Promise<Array<{ name: string; url: string; type: string }>>;
 }
 
+const detectMediaType = (fileName: string): string => {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'image';
+  if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) return 'video';
+  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
+  if (['pdf'].includes(ext)) return 'pdf';
+  return 'file';
+};
+
+const getBucketForFileType = (fileType: string): string => {
+  if (fileType.startsWith('video/')) return 'cms-videos';
+  if (fileType.startsWith('audio/') || fileType.includes('pdf')) return 'cms-files';
+  return 'cms-images';
+};
+
 export const useLocalStorage = (): UseLocalStorageReturn => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -40,96 +56,89 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       throw new Error(errorMsg);
     }
 
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      const formData = new FormData();
+    try {
+      setUploadProgress(10);
       
-      formData.append('file', file);
-      if (options?.folder) {
-        formData.append('folder', options.folder);
+      const folder = options?.folder || 'uploads';
+      const bucket = getBucketForFileType(file.type);
+      
+      // Generowanie unikalnej nazwy pliku
+      const timestamp = Date.now();
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `${folder}/${timestamp}-${sanitizedName}`;
+      
+      setUploadProgress(30);
+      
+      // Upload do Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, {
+          contentType: file.type,
+          upsert: true
+        });
+      
+      if (uploadError) {
+        throw new Error(uploadError.message);
       }
-
-      // Progress event
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(percent);
-          options?.onProgress?.(percent);
-        }
-      });
-
-      // Complete event
-      xhr.addEventListener('load', () => {
-        setIsUploading(false);
-        
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            if (response.success) {
-              resolve({
-                success: true,
-                url: response.url,
-                fileName: response.fileName || file.name,
-                fileSize: response.fileSize || file.size,
-                fileType: response.fileType || file.type
-              });
-            } else {
-              const errorMsg = response.error || 'Błąd uploadu';
-              setError(errorMsg);
-              reject(new Error(errorMsg));
-            }
-          } catch (e) {
-            const errorMsg = 'Nieprawidłowa odpowiedź serwera';
-            setError(errorMsg);
-            reject(new Error(errorMsg));
-          }
-        } else {
-          let errorMsg = `Błąd HTTP ${xhr.status}`;
-          try {
-            const response = JSON.parse(xhr.responseText);
-            errorMsg = response.error || errorMsg;
-          } catch {}
-          setError(errorMsg);
-          reject(new Error(errorMsg));
-        }
-      });
-
-      // Error event
-      xhr.addEventListener('error', () => {
-        setIsUploading(false);
-        const errorMsg = 'Błąd połączenia z serwerem';
-        setError(errorMsg);
-        reject(new Error(errorMsg));
-      });
-
-      // Abort event
-      xhr.addEventListener('abort', () => {
-        setIsUploading(false);
-        const errorMsg = 'Upload został przerwany';
-        setError(errorMsg);
-        reject(new Error(errorMsg));
-      });
-
-      // Send request
-      xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
-      xhr.send(formData);
-    });
+      
+      setUploadProgress(80);
+      
+      // Pobierz publiczny URL
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+      
+      setUploadProgress(100);
+      setIsUploading(false);
+      
+      options?.onProgress?.(100);
+      
+      return {
+        success: true,
+        url: urlData.publicUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
+      setError(errorMsg);
+      setIsUploading(false);
+      throw new Error(errorMsg);
+    }
   }, []);
 
   const listFiles = useCallback(async (folder?: string): Promise<Array<{ name: string; url: string; type: string }>> => {
     try {
-      const url = folder 
-        ? `${STORAGE_CONFIG.LIST_API_URL}?folder=${encodeURIComponent(folder)}`
-        : STORAGE_CONFIG.LIST_API_URL;
-        
-      const response = await fetch(url);
+      const bucket = 'cms-images';
+      const folderPath = folder || '';
+      
+      const { data, error: listError } = await supabase.storage
+        .from(bucket)
+        .list(folderPath, { 
+          limit: 100,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (listError || !data) {
+        console.error('Error listing files:', listError);
+        return [];
       }
 
-      const data = await response.json();
-      return data.files || [];
+      return data
+        .filter(file => file.name && !file.name.startsWith('.'))
+        .map(file => {
+          const fullPath = folderPath ? `${folderPath}/${file.name}` : file.name;
+          const { data: urlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(fullPath);
+          
+          return {
+            name: file.name,
+            url: urlData.publicUrl,
+            type: detectMediaType(file.name)
+          };
+        });
     } catch (error) {
       console.error('Error listing files:', error);
       return [];
