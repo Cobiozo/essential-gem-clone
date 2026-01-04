@@ -128,10 +128,23 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
       if (itemsError) throw itemsError;
       
       const convertedSections = convertSupabaseSections(sectionsData || []);
-      const convertedItems = (itemsData || []).map((item: any) => ({
-        ...item,
-        cells: item.cells ? (Array.isArray(item.cells) ? item.cells : JSON.parse(item.cells)) : []
-      }));
+      const convertedItems = (itemsData || []).map((item: any) => {
+        let cells = [];
+        if (item.cells) {
+          if (Array.isArray(item.cells)) {
+            cells = item.cells;
+          } else if (typeof item.cells === 'string') {
+            try {
+              cells = JSON.parse(item.cells);
+            } catch {
+              cells = [];
+            }
+          } else if (typeof item.cells === 'object') {
+            cells = item.cells;
+          }
+        }
+        return { ...item, cells };
+      });
       
       setSections(convertedSections);
       setItems(convertedItems);
