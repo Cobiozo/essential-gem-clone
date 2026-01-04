@@ -15,7 +15,7 @@ export const useCertificateGeneration = () => {
     userId: string,
     moduleId: string,
     moduleTitle: string,
-    forceRegenerate: boolean = true
+    forceRegenerate: boolean = false  // Changed default to false - certificates are one-time only
   ): Promise<CertificateResult> => {
     console.log('=== CERTIFICATE GENERATION START ===');
     console.log('User ID:', userId);
@@ -24,8 +24,29 @@ export const useCertificateGeneration = () => {
     console.log('Force Regenerate:', forceRegenerate);
 
     try {
-      // 1. Always delete existing certificate when regenerating
-      if (forceRegenerate) {
+      // 1. Check if certificate already exists
+      const { data: existingCert, error: existingError } = await supabase
+        .from('certificates')
+        .select('id, file_url')
+        .eq('user_id', userId)
+        .eq('module_id', moduleId)
+        .maybeSingle();
+
+      if (existingError) {
+        console.warn('Warning: Could not check existing cert:', existingError);
+      }
+
+      // If certificate exists and we're not forcing regeneration, return error
+      if (existingCert && !forceRegenerate) {
+        console.log('Certificate already exists, returning existing');
+        return {
+          success: false,
+          error: 'Certyfikat już został wygenerowany. Skontaktuj się z Administratorem, aby go ponownie wygenerować.'
+        };
+      }
+
+      // Delete existing certificate only if forceRegenerate is true
+      if (existingCert && forceRegenerate) {
         console.log('🗑️ Deleting existing certificate for regeneration...');
         const { error: deleteError } = await supabase
           .from('certificates')
