@@ -105,6 +105,15 @@ export const ImageLinkEditor: React.FC<ImageLinkEditorProps> = ({ item, onSave, 
       <div className="space-y-4">
         <div>
           <Label className="text-base font-semibold">Obrazek</Label>
+          {formData.media_url && (
+            <div className="mb-3 border rounded-lg overflow-hidden">
+              <img 
+                src={formData.media_url} 
+                alt={formData.media_alt_text || 'Podgląd'} 
+                className="w-full max-h-48 object-contain bg-muted/20"
+              />
+            </div>
+          )}
           <MediaUpload
             onMediaUploaded={handleMediaUploaded}
             currentMediaUrl={formData.media_url}

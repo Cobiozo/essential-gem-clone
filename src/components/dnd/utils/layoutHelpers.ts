@@ -93,7 +93,7 @@ export const createDefaultContent = (elementType: string): any[] => {
     case 'file-download':
       return [{ type: 'file-download', content: 'Pobierz plik', url: '' }];
     case 'image-link':
-      return [{ type: 'image-link', content: '', link_type: 'external', url: '', open_in_new_tab: true }];
+      return [{ type: 'image-link', content: '', link_type: 'external', url: '', open_in_new_tab: true, media_url: '' }];
     case 'copy-to-clipboard':
       return [{ type: 'copy-to-clipboard', content: 'Tekst do skopiowania', buttonText: 'Kopiuj' }];
     default:
