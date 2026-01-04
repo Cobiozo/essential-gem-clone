@@ -223,21 +223,30 @@ const TrainingModule = () => {
   };
 
   const goToNextLesson = async () => {
+    // Save progress first and get completion status
+    const currentLesson = lessons[currentLessonIndex];
+    const totalTimeSpent = (progress[currentLesson?.id]?.time_spent_seconds || 0) + timeSpent;
+    const currentLessonWillBeCompleted = totalTimeSpent >= (currentLesson?.min_time_seconds || 0);
+    
     await saveProgress();
     
     if (currentLessonIndex < lessons.length - 1) {
       setCurrentLessonIndex(currentLessonIndex + 1);
     } else {
-      // Check if all lessons are completed
-      const allCompleted = lessons.every(lesson => {
-        const lessonProgress = progress[lesson.id];
-        if (lesson.id === lessons[currentLessonIndex].id) {
-          // Current lesson - check if it will be completed after save
-          const totalTime = (lessonProgress?.time_spent_seconds || 0) + timeSpent;
-          return totalTime >= (lesson.min_time_seconds || 0);
-        }
-        return lessonProgress?.is_completed;
+      // This is the last lesson - check if ALL lessons are now completed
+      // We need to check: all previous lessons + current lesson (which we just calculated)
+      const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
+        return progress[lesson.id]?.is_completed === true;
       });
+      
+      const allCompleted = allPreviousCompleted && currentLessonWillBeCompleted;
+      
+      console.log('=== MODULE COMPLETION CHECK ===');
+      console.log('All previous lessons completed:', allPreviousCompleted);
+      console.log('Current lesson will be completed:', currentLessonWillBeCompleted);
+      console.log('All completed:', allCompleted);
+      console.log('User:', user?.id);
+      console.log('Module:', module?.title);
 
       if (allCompleted && user && module) {
         // Auto-generate certificate with full PDF generation
@@ -247,12 +256,14 @@ const TrainingModule = () => {
         });
 
         try {
+          console.log('🎓 Starting certificate generation...');
           await generateAndSendCertificate(user.id, moduleId!, module.title);
         } catch (certError) {
-          console.error('Error generating certificate:', certError);
+          console.error('❌ Error generating certificate:', certError);
           toast({
-            title: "Moduł ukończony!",
-            description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
+            title: "Błąd generowania certyfikatu",
+            description: `Wystąpił błąd: ${certError instanceof Error ? certError.message : 'Nieznany błąd'}`,
+            variant: "destructive"
           });
         }
       } else {
@@ -294,23 +305,32 @@ const TrainingModule = () => {
 
   // Generate certificate PDF locally and upload to storage
   const generateAndSendCertificate = async (userId: string, moduleId: string, moduleTitle: string) => {
+    console.log('=== GENERATING CERTIFICATE ===');
+    console.log('User ID:', userId);
+    console.log('Module ID:', moduleId);
+    console.log('Module Title:', moduleTitle);
+    
     try {
-      console.log('=== GENERATING CERTIFICATE ===');
-      
       // 1. Get user profile
+      console.log('Step 1: Fetching user profile...');
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('first_name, last_name, email')
         .eq('user_id', userId)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('❌ Profile fetch error:', profileError);
+        throw new Error(`Profile error: ${profileError.message}`);
+      }
       
       const userName = profile?.first_name && profile?.last_name
         ? `${profile.first_name} ${profile.last_name}`
         : profile?.email || 'Unknown User';
+      console.log('✅ User name:', userName);
 
       // 2. Get user role
+      console.log('Step 2: Fetching user role...');
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('role')
@@ -320,45 +340,60 @@ const TrainingModule = () => {
       const userRole = userRoles?.role || 'client';
       console.log('✅ User role:', userRole);
 
-      // 3. Check if certificate already exists
-      const { data: existingCert } = await supabase
+      // 3. Check if certificate already exists (delete placeholders, keep valid ones)
+      console.log('Step 3: Checking existing certificates...');
+      const { data: existingCert, error: existingError } = await supabase
         .from('certificates')
         .select('id, file_url')
         .eq('user_id', userId)
         .eq('module_id', moduleId)
         .maybeSingle();
 
-      if (existingCert && !existingCert.file_url.startsWith('pending-generation')) {
-        console.log('📜 Valid certificate already exists');
-        toast({
-          title: "Moduł ukończony!",
-          description: "Certyfikat został już wcześniej wystawiony.",
-        });
-        navigate('/training');
-        return;
+      if (existingError) {
+        console.error('❌ Error checking existing cert:', existingError);
+      }
+
+      if (existingCert) {
+        console.log('Found existing cert:', existingCert.file_url);
+        
+        if (!existingCert.file_url.startsWith('pending-generation')) {
+          console.log('📜 Valid certificate already exists - skipping generation');
+          toast({
+            title: "Moduł ukończony!",
+            description: "Certyfikat został już wcześniej wystawiony.",
+          });
+          return;
+        }
+        
+        // Delete placeholder certificate
+        console.log('🗑️ Deleting placeholder certificate:', existingCert.id);
+        await supabase.from('certificates').delete().eq('id', existingCert.id);
       }
 
       // 4. Fetch certificate templates
+      console.log('Step 4: Fetching certificate templates...');
       const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
         .select('*')
         .eq('is_active', true)
         .order('updated_at', { ascending: false });
 
-      if (templateError) throw templateError;
+      if (templateError) {
+        console.error('❌ Template fetch error:', templateError);
+        throw new Error(`Template error: ${templateError.message}`);
+      }
+
+      console.log('Templates found:', templates?.length || 0);
 
       if (!templates || templates.length === 0) {
-        console.error('NO ACTIVE TEMPLATE FOUND!');
-        toast({
-          title: "Błąd",
-          description: "Nie znaleziono aktywnego szablonu certyfikatu.",
-          variant: "destructive"
-        });
-        navigate('/training');
-        return;
+        console.error('❌ NO ACTIVE TEMPLATE FOUND!');
+        throw new Error('Nie znaleziono aktywnego szablonu certyfikatu');
       }
 
       // 5. Find best matching template
+      console.log('Step 5: Finding best matching template...');
+      console.log('Looking for role:', userRole, 'and module:', moduleId);
+      
       let template = templates.find(t => {
         const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
         const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
@@ -389,10 +424,13 @@ const TrainingModule = () => {
         }) || templates[0];
       }
 
-      console.log('✅ USING TEMPLATE:', template.name);
+      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id);
 
       // 6. Dynamic import of jsPDF
+      console.log('Step 6: Loading jsPDF library...');
       const { default: jsPDF } = await import('jspdf');
+      console.log('✅ jsPDF loaded successfully');
+      
       const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -400,6 +438,9 @@ const TrainingModule = () => {
       });
 
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      console.log('PDF dimensions:', pageWidth, 'x', pageHeight, 'mm');
+      
       const PX_TO_MM = 0.352729;
 
       // Helper function to load image as base64
@@ -420,10 +461,13 @@ const TrainingModule = () => {
       };
 
       const completedDate = new Date().toLocaleDateString('pl-PL');
+      console.log('Completion date:', completedDate);
 
       // 7. Render template elements
+      console.log('Step 7: Rendering template elements...');
       if (template.layout && typeof template.layout === 'object' && 'elements' in template.layout) {
         const layoutData = template.layout as { elements: any[] };
+        console.log('Template has', layoutData.elements?.length || 0, 'elements');
         
         for (const element of layoutData.elements) {
           try {
@@ -479,21 +523,18 @@ const TrainingModule = () => {
             console.error('Error processing element:', element, elementError);
           }
         }
+      } else {
+        console.warn('⚠️ Template has no elements or invalid layout');
       }
 
       // 8. Convert PDF to blob
+      console.log('Step 8: Converting PDF to blob...');
       const pdfBlob = doc.output('blob');
+      console.log('✅ PDF blob created, size:', pdfBlob.size, 'bytes');
 
-      // 9. Delete old certificates if any
-      if (existingCert) {
-        console.log('🗑️ Deleting old certificate placeholder');
-        await supabase.storage.from('certificates').remove([existingCert.file_url]);
-        await supabase.from('certificates').delete().eq('id', existingCert.id);
-      }
-
-      // 10. Upload new certificate
+      // 9. Upload new certificate
       const fileName = `${userId}/certificate-${moduleId}-${Date.now()}.pdf`;
-      console.log('📤 Uploading certificate:', fileName);
+      console.log('Step 9: Uploading certificate to storage:', fileName);
 
       const { error: uploadError } = await supabase.storage
         .from('certificates')
@@ -502,9 +543,14 @@ const TrainingModule = () => {
           upsert: false
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('❌ Upload error:', uploadError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+      console.log('✅ Certificate uploaded successfully');
 
-      // 11. Save certificate record
+      // 10. Save certificate record
+      console.log('Step 10: Saving certificate record to database...');
       const { data: newCert, error: dbError } = await supabase
         .from('certificates')
         .insert({
@@ -516,12 +562,15 @@ const TrainingModule = () => {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('❌ Database save error:', dbError);
+        throw new Error(`Database error: ${dbError.message}`);
+      }
+      console.log('✅ Certificate record saved, ID:', newCert.id);
 
-      console.log('✅ Certificate saved:', fileName);
-
-      // 12. Update training assignment
-      await supabase
+      // 11. Update training assignment
+      console.log('Step 11: Updating training assignment...');
+      const { error: assignmentError } = await supabase
         .from('training_assignments')
         .update({
           is_completed: true,
@@ -530,10 +579,16 @@ const TrainingModule = () => {
         .eq('user_id', userId)
         .eq('module_id', moduleId);
 
-      // 13. Send certificate email
+      if (assignmentError) {
+        console.warn('⚠️ Training assignment update failed:', assignmentError);
+      } else {
+        console.log('✅ Training assignment updated');
+      }
+
+      // 12. Send certificate email
+      console.log('Step 12: Sending certificate email...');
       try {
-        console.log('📧 Sending certificate email...');
-        const { error: emailError } = await supabase.functions.invoke('send-certificate-email', {
+        const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-certificate-email', {
           body: { 
             userId, 
             moduleId, 
@@ -544,12 +599,13 @@ const TrainingModule = () => {
         });
 
         if (emailError) {
-          console.error('Email sending failed:', emailError);
+          console.error('❌ Email sending failed:', emailError);
         } else {
-          console.log('✅ Certificate email sent');
+          console.log('✅ Certificate email sent successfully');
+          console.log('Email response:', emailResponse);
         }
       } catch (emailErr) {
-        console.error('Email error:', emailErr);
+        console.error('❌ Email invocation error:', emailErr);
       }
 
       toast({
@@ -557,16 +613,14 @@ const TrainingModule = () => {
         description: `Gratulacje! Ukończyłeś "${moduleTitle}" i otrzymałeś certyfikat. Sprawdź email!`,
       });
 
-      navigate('/training');
-
     } catch (error) {
-      console.error('❌ Error generating certificate:', error);
+      console.error('❌ CERTIFICATE GENERATION FAILED:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się wygenerować certyfikatu",
+        title: "Błąd generowania certyfikatu",
+        description: error instanceof Error ? error.message : 'Nieznany błąd',
         variant: "destructive"
       });
-      navigate('/training');
+      throw error; // Re-throw to be caught by caller
     }
   };
 
