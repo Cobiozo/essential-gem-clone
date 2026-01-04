@@ -39,6 +39,9 @@ import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { ActionButtonsEditor } from "./ActionButtonsEditor";
+import { ModuleResourcesSelector } from "./ModuleResourcesSelector";
+import { LessonActionButton } from "@/types/training";
 // jsPDF imported dynamically when generating certificates
 
 interface TrainingModule {
@@ -53,6 +56,7 @@ interface TrainingModule {
   visible_to_partners: boolean;
   visible_to_specjalista: boolean;
   visible_to_anonymous: boolean;
+  resource_ids?: string[];
   created_at: string;
 }
 
@@ -68,6 +72,7 @@ interface TrainingLesson {
   min_time_seconds: number;
   is_required: boolean;
   is_active: boolean;
+  action_buttons?: LessonActionButton[];
 }
 
 interface UserProgress {
@@ -160,7 +165,12 @@ const TrainingManagement = () => {
         .order('position');
 
       if (error) throw error;
-      setLessons(data || []);
+      // Map action_buttons from JSON to typed array (with proper casting)
+      const mappedData = (data || []).map(lesson => ({
+        ...lesson,
+        action_buttons: (Array.isArray(lesson.action_buttons) ? lesson.action_buttons : []) as unknown as LessonActionButton[]
+      }));
+      setLessons(mappedData);
     } catch (error) {
       console.error('Error fetching lessons:', error);
       toast({
@@ -205,10 +215,16 @@ const TrainingManagement = () => {
 
   const saveLesson = async (lessonData: Partial<TrainingLesson>) => {
     try {
+      // Prepare data for Supabase (cast action_buttons to Json)
+      const dbData = {
+        ...lessonData,
+        action_buttons: lessonData.action_buttons as unknown as any
+      };
+
       if (editingLesson) {
         const { error } = await supabase
           .from('training_lessons')
-          .update(lessonData)
+          .update(dbData)
           .eq('id', editingLesson.id);
         
         if (error) throw error;
@@ -217,7 +233,7 @@ const TrainingManagement = () => {
         const { error } = await supabase
           .from('training_lessons')
           .insert([{ 
-            ...lessonData, 
+            ...dbData, 
             module_id: selectedModule,
             position: lessons.length,
             title: lessonData.title || 'Nowa lekcja'
@@ -927,6 +943,7 @@ const ModuleForm = ({
     visible_to_partners: module?.visible_to_partners ?? false,
     visible_to_specjalista: module?.visible_to_specjalista ?? false,
     visible_to_anonymous: module?.visible_to_anonymous ?? false,
+    resource_ids: module?.resource_ids || [],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1032,6 +1049,12 @@ const ModuleForm = ({
         <Label htmlFor="is_active">Aktywny</Label>
       </div>
 
+      {/* Module Resources Selector */}
+      <ModuleResourcesSelector
+        selectedIds={formData.resource_ids}
+        onChange={(ids) => setFormData(prev => ({ ...prev, resource_ids: ids }))}
+      />
+
       <div className="flex gap-2">
         <Button type="submit">Zapisz</Button>
         <Button type="button" variant="outline" onClick={onCancel}>
@@ -1061,11 +1084,16 @@ const LessonForm = ({
     min_time_seconds: lesson?.min_time_seconds || 60,
     is_required: lesson?.is_required ?? true,
     is_active: lesson?.is_active ?? true,
+    action_buttons: lesson?.action_buttons || [],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
+  };
+
+  const handleActionButtonsChange = (buttons: LessonActionButton[]) => {
+    setFormData(prev => ({ ...prev, action_buttons: buttons }));
   };
 
   const handleMediaUploaded = (url: string, type: string, altText?: string) => {
@@ -1150,6 +1178,12 @@ const LessonForm = ({
           <Label htmlFor="lesson-is_active">Aktywna</Label>
         </div>
       </div>
+
+      {/* Action Buttons Editor */}
+      <ActionButtonsEditor
+        buttons={formData.action_buttons}
+        onChange={handleActionButtonsChange}
+      />
 
       <div className="flex gap-2">
         <Button type="submit">Zapisz</Button>

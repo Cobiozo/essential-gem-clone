@@ -137,6 +137,7 @@ export const ElementsPanel: React.FC<ElementsPanelProps> = ({
     items: [
       { id: 'heading', title: t('elements.heading'), icon: <Type className="w-5 h-5" />, type: 'heading', description: t('elements.headingDesc'), tags: ['text', 'title'] },
       { id: 'image', title: t('elements.image'), icon: <ImageIcon className="w-5 h-5" />, type: 'image', description: t('elements.imageDesc'), tags: ['media', 'photo'] },
+      { id: 'image-link', title: 'Obrazek z linkiem', icon: <ImageIcon className="w-5 h-5 text-blue-500" />, type: 'image-link', description: 'Obrazek przekierowujący pod wskazany URL', tags: ['image', 'link', 'redirect'] },
       { id: 'text', title: t('elements.text'), icon: <AlignLeft className="w-5 h-5" />, type: 'text', description: t('elements.textDesc'), tags: ['text', 'paragraph'] },
       { id: 'video', title: t('elements.video'), icon: <Video className="w-5 h-5" />, type: 'video', description: t('elements.videoDesc'), tags: ['media', 'embed'] },
       { id: 'button', title: t('elements.button'), icon: <MousePointer2 className="w-5 h-5" />, type: 'button', description: t('elements.buttonDesc'), tags: ['cta', 'link'] },

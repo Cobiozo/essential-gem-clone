@@ -17,10 +17,14 @@ import {
   FileText,
   Video,
   Volume2,
-  File
+  File,
+  ExternalLink,
+  Link,
+  Download
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SecureMedia } from "@/components/SecureMedia";
+import { LessonActionButton } from "@/types/training";
 // jsPDF imported dynamically when generating certificates
 
 interface TrainingModule {
@@ -39,6 +43,7 @@ interface TrainingLesson {
   min_time_seconds: number;
   is_required: boolean;
   position: number;
+  action_buttons?: LessonActionButton[];
 }
 
 interface LessonProgress {
@@ -93,7 +98,12 @@ const TrainingModule = () => {
 
         if (!mounted) return;
         if (lessonsError) throw lessonsError;
-        setLessons(lessonsData);
+        // Map action_buttons from JSON to typed array
+        const mappedLessons = (lessonsData || []).map(lesson => ({
+          ...lesson,
+          action_buttons: (Array.isArray(lesson.action_buttons) ? lesson.action_buttons : []) as unknown as LessonActionButton[]
+        }));
+        setLessons(mappedLessons);
 
         // Fetch user progress if logged in
         if (user) {
@@ -667,6 +677,60 @@ const TrainingModule = () => {
     }
   };
 
+  // Action Button component for lesson action buttons
+  const ActionButton = ({ button }: { button: LessonActionButton }) => {
+    const handleClick = async () => {
+      let targetUrl = button.url || '';
+      
+      if (button.type === 'resource' && button.resource_id) {
+        const { data } = await supabase
+          .from('knowledge_resources')
+          .select('source_url')
+          .eq('id', button.resource_id)
+          .single();
+        if (data?.source_url) targetUrl = data.source_url;
+      }
+      
+      if (button.type === 'file' && button.file_url) {
+        const { data } = await supabase.storage
+          .from('training-media')
+          .createSignedUrl(button.file_url, 3600);
+        if (data?.signedUrl) {
+          const link = document.createElement('a');
+          link.href = data.signedUrl;
+          link.download = button.file_name || 'file';
+          link.click();
+          return;
+        }
+      }
+      
+      if (targetUrl) {
+        if (button.open_in_new_tab) {
+          window.open(targetUrl, '_blank');
+        } else {
+          window.location.href = targetUrl;
+        }
+      }
+    };
+
+    const getIcon = () => {
+      switch (button.type) {
+        case 'file': return <Download className="h-4 w-4 mr-2" />;
+        case 'external': return <ExternalLink className="h-4 w-4 mr-2" />;
+        case 'internal': return <Link className="h-4 w-4 mr-2" />;
+        case 'resource': return <FileText className="h-4 w-4 mr-2" />;
+        default: return null;
+      }
+    };
+
+    return (
+      <Button variant="outline" onClick={handleClick}>
+        {getIcon()}
+        {button.label}
+      </Button>
+    );
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -854,6 +918,15 @@ const TrainingModule = () => {
                 {currentLesson.content && (
                   <div className="prose dark:prose-invert max-w-none">
                     <div dangerouslySetInnerHTML={{ __html: currentLesson.content }} />
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                {currentLesson.action_buttons && currentLesson.action_buttons.length > 0 && (
+                  <div className="flex flex-wrap gap-2 py-4">
+                    {currentLesson.action_buttons.map((btn) => (
+                      <ActionButton key={btn.id} button={btn} />
+                    ))}
                   </div>
                 )}
 
