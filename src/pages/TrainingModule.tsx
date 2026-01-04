@@ -397,26 +397,36 @@ const TrainingModule = () => {
 
       // 5. Find best matching template using STRICT priority system
       console.log('Step 5: Finding best matching template...');
-      console.log('🔍 Looking for module:', moduleId);
+      console.log('🔍 Looking for module:', moduleId, '(type:', typeof moduleId, ')');
       console.log('🔍 Looking for role:', userRole);
+      
+      // Debug: Log each template's module_ids for comparison
+      templates?.forEach(t => {
+        const moduleIds = t.module_ids || [];
+        const matchResult = moduleIds.some((id: string) => String(id) === String(moduleId));
+        console.log(`  📋 "${t.name}": module_ids=${JSON.stringify(moduleIds)}, match=${matchResult}`);
+      });
       
       let template = null;
       let priorityUsed = '';
 
+      // Helper function for safe UUID comparison (handles type mismatches)
+      const hasModuleMatch = (templateModuleIds: string[] | null | undefined): boolean => {
+        if (!templateModuleIds || !Array.isArray(templateModuleIds) || templateModuleIds.length === 0) return false;
+        return templateModuleIds.some((id: string) => String(id) === String(moduleId));
+      };
+
       // PRIORITY 1: Template assigned to THIS MODULE and user's role
       template = templates.find(t => {
-        const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.includes(moduleId);
+        const hasModule = hasModuleMatch(t.module_ids);
         const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
         return hasModule && hasRole;
       });
       if (template) priorityUsed = 'PRIORITY 1: Module + Role match';
 
-      // PRIORITY 2: Template assigned to THIS MODULE (any role or no role restriction)
+      // PRIORITY 2: Template assigned to THIS MODULE (any role - THIS IS THE KEY FIX)
       if (!template) {
-        template = templates.find(t => {
-          const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.includes(moduleId);
-          return hasModule;
-        });
+        template = templates.find(t => hasModuleMatch(t.module_ids));
         if (template) priorityUsed = 'PRIORITY 2: Module match (ignoring role)';
       }
 
