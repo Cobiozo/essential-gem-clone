@@ -271,12 +271,9 @@ export const useCertificateGeneration = () => {
         throw new Error(`Upload error: ${uploadError.message}`);
       }
 
-      const { data: publicUrlData } = supabase.storage
-        .from('certificates')
-        .getPublicUrl(fileName);
-
-      const publicUrl = publicUrlData?.publicUrl || fileName;
-      console.log('✅ PDF uploaded:', publicUrl);
+      // For private bucket - store only file path, not full URL
+      const filePath = fileName;
+      console.log('✅ PDF uploaded, file path:', filePath);
 
       // 9. Save certificate record
       console.log('Step 6: Saving certificate record...');
@@ -286,7 +283,7 @@ export const useCertificateGeneration = () => {
           user_id: userId,
           module_id: moduleId,
           issued_by: userId,
-          file_url: publicUrl,
+          file_url: filePath,
         })
         .select()
         .single();
@@ -329,7 +326,7 @@ export const useCertificateGeneration = () => {
       return {
         success: true,
         certificateId: certificate.id,
-        certificateUrl: publicUrl
+        certificateUrl: filePath
       };
 
     } catch (error) {
