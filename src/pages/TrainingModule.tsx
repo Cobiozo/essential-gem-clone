@@ -65,10 +65,84 @@ const TrainingModule = () => {
   const startTimeRef = useRef<number>();
 
   useEffect(() => {
-    if (moduleId) {
-      fetchModuleData();
-    }
-  }, [moduleId, user]);
+    let mounted = true;
+
+    const loadData = async () => {
+      if (!moduleId) return;
+      
+      try {
+        // Fetch module details
+        const { data: moduleData, error: moduleError } = await supabase
+          .from('training_modules')
+          .select('*')
+          .eq('id', moduleId)
+          .single();
+
+        if (!mounted) return;
+        if (moduleError) throw moduleError;
+        setModule(moduleData);
+
+        // Fetch lessons
+        const { data: lessonsData, error: lessonsError } = await supabase
+          .from('training_lessons')
+          .select('*')
+          .eq('module_id', moduleId)
+          .eq('is_active', true)
+          .order('position');
+
+        if (!mounted) return;
+        if (lessonsError) throw lessonsError;
+        setLessons(lessonsData);
+
+        // Fetch user progress if logged in
+        if (user) {
+          const { data: progressData, error: progressError } = await supabase
+            .from('training_progress')
+            .select('*')
+            .eq('user_id', user.id)
+            .in('lesson_id', lessonsData.map(l => l.id));
+
+          if (!mounted) return;
+          if (progressError) throw progressError;
+
+          const progressMap = progressData.reduce((acc, p) => {
+            acc[p.lesson_id] = p;
+            return acc;
+          }, {} as Record<string, LessonProgress>);
+
+          setProgress(progressMap);
+
+          // Find the first incomplete lesson to start from
+          const firstIncompleteIndex = lessonsData.findIndex(lesson => 
+            !progressMap[lesson.id]?.is_completed
+          );
+          
+          if (firstIncompleteIndex !== -1) {
+            setCurrentLessonIndex(firstIncompleteIndex);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching module data:', error);
+        if (mounted) {
+          toast({
+            title: "Błąd",
+            description: "Nie można załadować danych szkolenia",
+            variant: "destructive"
+          });
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      mounted = false;
+    };
+  }, [moduleId, user, toast]);
 
   useEffect(() => {
     // Start timer when lesson changes
@@ -100,67 +174,6 @@ const TrainingModule = () => {
       }
     };
   }, [currentLessonIndex, lessons, progress]);
-
-  const fetchModuleData = async () => {
-    try {
-      // Fetch module details
-      const { data: moduleData, error: moduleError } = await supabase
-        .from('training_modules')
-        .select('*')
-        .eq('id', moduleId)
-        .single();
-
-      if (moduleError) throw moduleError;
-      setModule(moduleData);
-
-      // Fetch lessons
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('training_lessons')
-        .select('*')
-        .eq('module_id', moduleId)
-        .eq('is_active', true)
-        .order('position');
-
-      if (lessonsError) throw lessonsError;
-      setLessons(lessonsData);
-
-      // Fetch user progress if logged in
-      if (user) {
-        const { data: progressData, error: progressError } = await supabase
-          .from('training_progress')
-          .select('*')
-          .eq('user_id', user.id)
-          .in('lesson_id', lessonsData.map(l => l.id));
-
-        if (progressError) throw progressError;
-
-        const progressMap = progressData.reduce((acc, p) => {
-          acc[p.lesson_id] = p;
-          return acc;
-        }, {} as Record<string, LessonProgress>);
-
-        setProgress(progressMap);
-
-        // Find the first incomplete lesson to start from
-        const firstIncompleteIndex = lessonsData.findIndex(lesson => 
-          !progressMap[lesson.id]?.is_completed
-        );
-        
-        if (firstIncompleteIndex !== -1) {
-          setCurrentLessonIndex(firstIncompleteIndex);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching module data:', error);
-      toast({
-        title: "Błąd",
-        description: "Nie można załadować danych szkolenia",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const saveProgress = async () => {
     if (!user || lessons.length === 0) return;

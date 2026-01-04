@@ -54,138 +54,157 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
   }, [loginTrigger]);
 
   useEffect(() => {
-    // Wait for auth AND roles to be fully ready
-    if (authLoading || !rolesReady || !user || checked) {
-      return;
-    }
-    
-    // Mark as checked to prevent re-running
-    setChecked(true);
-    checkAndShowSignal();
-  }, [user, authLoading, rolesReady, checked]);
+    let mounted = true;
 
-  const checkAndShowSignal = async () => {
-    try {
-      // CRITICAL: Check if this is a real login (not refresh/tab switch)
-      const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
-      if (!shouldShowBanner) {
-        // Not a fresh login - don't show banner
-        onDismiss?.();
+    const checkAndShow = async () => {
+      // Wait for auth AND roles to be fully ready
+      if (authLoading || !rolesReady || !user || checked) {
         return;
       }
-      // DON'T remove flag here - ImportantInfoBanner also needs it
-
-      // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('daily_signal_settings')
-        .select('*')
-        .limit(1)
-        .single();
-
-      if (settingsError || !settingsData?.is_enabled) {
-        onDismiss?.();
-        return;
-      }
-
-      const typedSettings = settingsData as SignalSettings;
-      setSettings(typedSettings);
-
-      // 2. Check role visibility - Admin sees everything
-      const isVisible = 
-        isAdmin ||
-        (isClient && typedSettings.visible_to_clients) ||
-        (isPartner && typedSettings.visible_to_partners) ||
-        (isSpecjalista && typedSettings.visible_to_specjalista);
-
-      if (!isVisible) {
-        onDismiss?.();
-        return;
-      }
-
-      // 3. Check user preferences - but ADMIN display_frequency overrides local blocks
-      const { data: preferences } = await supabase
-        .from('user_signal_preferences')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      // If user explicitly disabled signals, respect that (unless we want to override)
-      if (preferences && !(preferences as UserPreferences).show_daily_signal) {
-        onDismiss?.();
-        return;
-      }
-
-      // 4. CRITICAL: Admin display_frequency has ABSOLUTE PRIORITY over cache
-      const displayFrequency = typedSettings.display_frequency || 'daily';
       
-      if (displayFrequency === 'every_login') {
-        // Admin forces every login - IGNORE all session/local storage blocks
-        // Only check if already shown in THIS exact page load (via state, not storage)
-        // Session storage check is removed for every_login mode
-      } else {
-        // daily mode - check if 24 hours passed since last shown
-        if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
-          const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
-          const now = new Date();
-          const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
-          
-          if (hoursDiff < 24) {
-            onDismiss?.();
-            return;
+      // Mark as checked to prevent re-running
+      setChecked(true);
+
+      try {
+        // CRITICAL: Check if this is a real login (not refresh/tab switch)
+        const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
+        if (!shouldShowBanner) {
+          // Not a fresh login - don't show banner
+          onDismiss?.();
+          return;
+        }
+        // DON'T remove flag here - ImportantInfoBanner also needs it
+
+        // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('daily_signal_settings')
+          .select('*')
+          .limit(1)
+          .single();
+
+        if (!mounted) return;
+
+        if (settingsError || !settingsData?.is_enabled) {
+          onDismiss?.();
+          return;
+        }
+
+        const typedSettings = settingsData as SignalSettings;
+        setSettings(typedSettings);
+
+        // 2. Check role visibility - Admin sees everything
+        const isVisible = 
+          isAdmin ||
+          (isClient && typedSettings.visible_to_clients) ||
+          (isPartner && typedSettings.visible_to_partners) ||
+          (isSpecjalista && typedSettings.visible_to_specjalista);
+
+        if (!isVisible) {
+          onDismiss?.();
+          return;
+        }
+
+        // 3. Check user preferences - but ADMIN display_frequency overrides local blocks
+        const { data: preferences } = await supabase
+          .from('user_signal_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        // If user explicitly disabled signals, respect that (unless we want to override)
+        if (preferences && !(preferences as UserPreferences).show_daily_signal) {
+          onDismiss?.();
+          return;
+        }
+
+        // 4. CRITICAL: Admin display_frequency has ABSOLUTE PRIORITY over cache
+        const displayFrequency = typedSettings.display_frequency || 'daily';
+        
+        if (displayFrequency === 'every_login') {
+          // Admin forces every login - IGNORE all session/local storage blocks
+          // Only check if already shown in THIS exact page load (via state, not storage)
+          // Session storage check is removed for every_login mode
+        } else {
+          // daily mode - check if 24 hours passed since last shown
+          if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
+            const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
+            const now = new Date();
+            const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
+            
+            if (hoursDiff < 24) {
+              onDismiss?.();
+              return;
+            }
           }
         }
-      }
 
-      // 5. Get today's signal
-      const today = new Date().toISOString().split('T')[0];
-      
-      // First try to get a signal scheduled for today
-      let { data: todaySignal } = await supabase
-        .from('daily_signals')
-        .select('*')
-        .eq('scheduled_date', today)
-        .eq('is_approved', true)
-        .limit(1)
-        .maybeSingle();
-
-      // If no scheduled signal, get a random approved one
-      if (!todaySignal) {
-        const { data: randomSignals } = await supabase
+        // 5. Get today's signal
+        const today = new Date().toISOString().split('T')[0];
+        
+        // First try to get a signal scheduled for today
+        let { data: todaySignal } = await supabase
           .from('daily_signals')
           .select('*')
+          .eq('scheduled_date', today)
           .eq('is_approved', true)
-          .limit(10);
+          .limit(1)
+          .maybeSingle();
 
-        if (randomSignals && randomSignals.length > 0) {
-          todaySignal = randomSignals[Math.floor(Math.random() * randomSignals.length)];
+        if (!mounted) return;
+
+        // If no scheduled signal, get a random approved one
+        if (!todaySignal) {
+          const { data: randomSignals } = await supabase
+            .from('daily_signals')
+            .select('*')
+            .eq('is_approved', true)
+            .limit(10);
+
+          if (!mounted) return;
+
+          if (randomSignals && randomSignals.length > 0) {
+            todaySignal = randomSignals[Math.floor(Math.random() * randomSignals.length)];
+          }
+        }
+
+        if (!mounted) return;
+
+        if (todaySignal) {
+          setSignal(todaySignal as DailySignal);
+          setShowBanner(true);
+          bannerShownAtRef.current = Date.now();
+          
+          // Track view interaction
+          trackBannerInteraction(supabase, {
+            bannerType: 'signal',
+            bannerId: todaySignal.id,
+            userId: user.id,
+            userRole: userRole ? String(userRole) : null,
+            interactionType: 'view',
+            bannerTone: todaySignal.signal_type || 'supportive',
+            contentLength: todaySignal.main_message?.length || 0,
+            hasAnimation: typedSettings.animation_intensity !== 'off',
+            animationLevel: typedSettings.animation_intensity,
+          });
+        } else {
+          onDismiss?.();
+        }
+      } catch (error) {
+        console.error('Error checking daily signal:', error);
+        if (mounted) {
+          onDismiss?.();
         }
       }
+    };
 
-      if (todaySignal) {
-        setSignal(todaySignal as DailySignal);
-        setShowBanner(true);
-        bannerShownAtRef.current = Date.now();
-        
-        // Track view interaction
-        trackBannerInteraction(supabase, {
-          bannerType: 'signal',
-          bannerId: todaySignal.id,
-          userId: user.id,
-          userRole: userRole ? String(userRole) : null,
-          interactionType: 'view',
-          bannerTone: todaySignal.signal_type || 'supportive',
-          contentLength: todaySignal.main_message?.length || 0,
-          hasAnimation: typedSettings.animation_intensity !== 'off',
-          animationLevel: typedSettings.animation_intensity,
-        });
-      } else {
-        onDismiss?.();
-      }
-    } catch (error) {
-      console.error('Error checking daily signal:', error);
-      onDismiss?.();
-    }
-  };
+    checkAndShow();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user, authLoading, rolesReady, checked, isAdmin, isClient, isPartner, isSpecjalista, onDismiss, userRole]);
 
   const handleAcceptSignal = async () => {
     if (!user || !signal) return;
