@@ -370,12 +370,11 @@ const TrainingModule = () => {
         await supabase.from('certificates').delete().eq('id', existingCert.id);
       }
 
-      // 4. Fetch certificate templates
-      console.log('Step 4: Fetching certificate templates...');
+      // 4. Fetch ALL certificate templates (not just active - module-specific templates take priority)
+      console.log('Step 4: Fetching ALL certificate templates...');
       const { data: templates, error: templateError } = await supabase
         .from('certificate_templates')
         .select('*')
-        .eq('is_active', true)
         .order('updated_at', { ascending: false });
 
       if (templateError) {
@@ -383,48 +382,83 @@ const TrainingModule = () => {
         throw new Error(`Template error: ${templateError.message}`);
       }
 
-      console.log('Templates found:', templates?.length || 0);
-
-      if (!templates || templates.length === 0) {
-        console.error('❌ NO ACTIVE TEMPLATE FOUND!');
-        throw new Error('Nie znaleziono aktywnego szablonu certyfikatu');
-      }
-
-      // 5. Find best matching template
-      console.log('Step 5: Finding best matching template...');
-      console.log('Looking for role:', userRole, 'and module:', moduleId);
+      console.log('Total templates found:', templates?.length || 0);
       
-      let template = templates.find(t => {
-        const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
-        const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
-        return hasRole && hasModule;
+      // Log all templates with their module assignments
+      templates?.forEach(t => {
+        console.log(`  - Template: "${t.name}" (ID: ${t.id})`);
+        console.log(`    is_active: ${t.is_active}, module_ids: ${JSON.stringify(t.module_ids)}, roles: ${JSON.stringify(t.roles)}`);
       });
 
-      if (!template) {
-        template = templates.find(t => {
-          const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.length > 0 && t.module_ids.includes(moduleId);
-          const noRoleRestriction = !t.roles || t.roles.length === 0;
-          return hasModule && noRoleRestriction;
-        });
+      if (!templates || templates.length === 0) {
+        console.error('❌ NO TEMPLATES FOUND AT ALL!');
+        throw new Error('Nie znaleziono żadnego szablonu certyfikatu');
       }
 
+      // 5. Find best matching template using STRICT priority system
+      console.log('Step 5: Finding best matching template...');
+      console.log('🔍 Looking for module:', moduleId);
+      console.log('🔍 Looking for role:', userRole);
+      
+      let template = null;
+      let priorityUsed = '';
+
+      // PRIORITY 1: Template assigned to THIS MODULE and user's role
+      template = templates.find(t => {
+        const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.includes(moduleId);
+        const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
+        return hasModule && hasRole;
+      });
+      if (template) priorityUsed = 'PRIORITY 1: Module + Role match';
+
+      // PRIORITY 2: Template assigned to THIS MODULE (any role or no role restriction)
       if (!template) {
         template = templates.find(t => {
+          const hasModule = t.module_ids && Array.isArray(t.module_ids) && t.module_ids.includes(moduleId);
+          return hasModule;
+        });
+        if (template) priorityUsed = 'PRIORITY 2: Module match (ignoring role)';
+      }
+
+      // PRIORITY 3: Active template with user's role (no module restriction)
+      if (!template) {
+        template = templates.find(t => {
+          const isActive = t.is_active === true;
           const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
           const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return hasRole && noModuleRestriction;
+          return isActive && hasRole && noModuleRestriction;
         });
+        if (template) priorityUsed = 'PRIORITY 3: Active + Role match (no module restriction)';
+      }
+
+      // PRIORITY 4: Default active template (no restrictions)
+      if (!template) {
+        template = templates.find(t => {
+          const isActive = t.is_active === true;
+          const noRoleRestriction = !t.roles || t.roles.length === 0;
+          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
+          return isActive && noRoleRestriction && noModuleRestriction;
+        });
+        if (template) priorityUsed = 'PRIORITY 4: Default active template';
+      }
+
+      // FALLBACK: Any active template
+      if (!template) {
+        template = templates.find(t => t.is_active === true);
+        if (template) priorityUsed = 'FALLBACK: First active template';
       }
 
       if (!template) {
-        template = templates.find(t => {
-          const noRoleRestriction = !t.roles || t.roles.length === 0;
-          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return noRoleRestriction && noModuleRestriction;
-        }) || templates[0];
+        console.error('❌ NO SUITABLE TEMPLATE FOUND!');
+        console.error('Available templates:', templates.map(t => ({ name: t.name, module_ids: t.module_ids, is_active: t.is_active })));
+        throw new Error('Nie znaleziono odpowiedniego szablonu certyfikatu dla tego modułu');
       }
 
-      console.log('✅ USING TEMPLATE:', template.name, 'ID:', template.id);
+      console.log('✅ SELECTED TEMPLATE:', template.name);
+      console.log('✅ Template ID:', template.id);
+      console.log('✅ Selection reason:', priorityUsed);
+      console.log('✅ Template module_ids:', JSON.stringify(template.module_ids));
+      console.log('✅ Template roles:', JSON.stringify(template.roles));
 
       // 6. Dynamic import of jsPDF
       console.log('Step 6: Loading jsPDF library...');
