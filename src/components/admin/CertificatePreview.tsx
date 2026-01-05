@@ -33,9 +33,9 @@ interface CertificatePreviewProps {
 
 // Przykładowe dane użytkownika do podglądu
 const SAMPLE_DATA = {
-  userName: 'Aleksander Rostworowski-Mycielski',
+  userName: 'Aleksander Wojciechowski',
   firstName: 'Aleksander',
-  lastName: 'Rostworowski-Mycielski',
+  lastName: 'Wojciechowski',
   eqId: 'EQ-123456',
   email: 'aleksander.rm@example.com',
   city: 'Warszawa',

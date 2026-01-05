@@ -188,7 +188,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
               charSpacing: (element.letterSpacing || 0) * 10,
               opacity: (element.opacity ?? 100) / 100,
               textAlign: element.align || 'left',
+              width: element.width || 400,
             });
+            (text as any).noWrap = element.noWrap || false;
             canvas.add(text);
           } else if (element.type === 'image' && element.imageUrl) {
             try {
