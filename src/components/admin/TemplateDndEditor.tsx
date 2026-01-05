@@ -145,6 +145,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [charSpacing, setCharSpacing] = useState(0);
   const [opacity, setOpacity] = useState(100);
   const [noWrap, setNoWrap] = useState(false);
+  const [textWidth, setTextWidth] = useState(400);
   const [previewElements, setPreviewElements] = useState<TemplateElement[]>([]);
   
   const [uploading, setUploading] = useState(false);
@@ -459,6 +460,10 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const updateSelectedText = () => {
     if (!selectedObject || selectedObject.type !== 'i-text') return;
 
+    // Calculate new width based on textWidth and current scale
+    const currentScaleX = selectedObject.scaleX || 1;
+    const newWidth = textWidth / currentScaleX;
+
     selectedObject.set({
       fill: textColor,
       fontSize: fontSize,
@@ -469,6 +474,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       charSpacing: charSpacing * 10,
       opacity: opacity / 100,
       textAlign: textAlign,
+      width: newWidth,
     });
     
     // Store noWrap as custom property
@@ -489,6 +495,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       setOpacity(Math.round((selectedObject.opacity ?? 1) * 100));
       setTextAlign(selectedObject.textAlign || 'left');
       setNoWrap((selectedObject as any).noWrap || false);
+      setTextWidth(Math.round((selectedObject.width || 200) * (selectedObject.scaleX || 1)));
     }
   }, [selectedObject]);
 
@@ -1231,6 +1238,34 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                   </div>
                 </div>
                 
+                <div className="space-y-2 col-span-2 pt-2 border-t">
+                  <Label htmlFor="editTextWidth">
+                    Szerokość pola tekstowego ({textWidth}px)
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <Slider
+                      id="editTextWidth"
+                      value={[textWidth]}
+                      onValueChange={(v) => setTextWidth(v[0])}
+                      min={100}
+                      max={1200}
+                      step={10}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="number"
+                      value={textWidth}
+                      onChange={(e) => setTextWidth(Math.max(100, Math.min(1200, Number(e.target.value))))}
+                      className="w-20"
+                      min={100}
+                      max={1200}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Zwiększ dla długich imion (np. Aleksander Rostworowski-Mycielski)
+                  </p>
+                </div>
+
                 <div className="flex items-center space-x-2 pt-2">
                   <input
                     type="checkbox"
@@ -1426,21 +1461,23 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
         </div>
       </Card>
 
-      {/* Canvas and Preview side by side on desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Canvas */}
-        <div className="border rounded-lg overflow-auto bg-gray-50 p-2 sm:p-4">
+      {/* Canvas and Preview side by side */}
+      <div className="flex gap-4">
+        {/* Canvas - expands when preview collapsed */}
+        <div className="flex-1 border rounded-lg overflow-auto bg-gray-50 p-2 sm:p-4 min-w-0">
           <div className="inline-block">
             <canvas ref={canvasRef} className="shadow-lg max-w-full h-auto" />
           </div>
         </div>
 
-        {/* Live Preview */}
-        <CertificatePreview
-          elements={previewElements}
-          canvasWidth={CANVAS_WIDTH}
-          canvasHeight={CANVAS_HEIGHT}
-        />
+        {/* Live Preview - collapsible side panel */}
+        <div className="flex-shrink-0">
+          <CertificatePreview
+            elements={previewElements}
+            canvasWidth={CANVAS_WIDTH}
+            canvasHeight={CANVAS_HEIGHT}
+          />
+        </div>
       </div>
 
       {/* Actions */}

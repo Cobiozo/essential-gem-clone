@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Eye, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface TemplateElement {
   id: string;
@@ -33,11 +33,11 @@ interface CertificatePreviewProps {
 
 // Przykładowe dane użytkownika do podglądu
 const SAMPLE_DATA = {
-  userName: 'Jan Kowalski',
-  firstName: 'Jan',
-  lastName: 'Kowalski',
+  userName: 'Aleksander Rostworowski-Mycielski',
+  firstName: 'Aleksander',
+  lastName: 'Rostworowski-Mycielski',
   eqId: 'EQ-123456',
-  email: 'jan.kowalski@example.com',
+  email: 'aleksander.rm@example.com',
   city: 'Warszawa',
   country: 'Polska',
   moduleTitle: 'Podstawy programowania Python',
@@ -155,7 +155,7 @@ const CertificatePreview: React.FC<CertificatePreviewProps> = ({
     for (const element of sortedElements) {
       const x = element.x || 0;
       const y = element.y || 0;
-      const width = element.width || 400; // Większa domyślna szerokość
+      const width = element.width || 400;
       const height = element.height || 50;
 
       if (element.type === 'image' && element.imageUrl) {
@@ -285,66 +285,83 @@ const CertificatePreview: React.FC<CertificatePreviewProps> = ({
     }
   }, [elements, isCollapsed, canvasWidth, canvasHeight]);
 
-  // Calculate scale to fit preview in container (max 400px width)
+  // Calculate scale to fit preview in container
   const scale = Math.min(400 / canvasWidth, 1);
   const scaledWidth = canvasWidth * scale;
   const scaledHeight = canvasHeight * scale;
 
+  // Zwinięty panel - wąski pasek z ikoną
+  if (isCollapsed) {
+    return (
+      <Card 
+        className="h-full min-h-[400px] w-12 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => setIsCollapsed(false)}
+      >
+        <ChevronLeft className="h-5 w-5 text-primary mb-2" />
+        <span 
+          className="text-xs font-medium text-muted-foreground"
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        >
+          Podgląd
+        </span>
+        <Eye className="h-4 w-4 text-primary mt-2" />
+      </Card>
+    );
+  }
+
+  // Rozwinięty panel - pełny podgląd
   return (
-    <Card className="p-4">
-      <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between cursor-pointer hover:bg-muted/50 -mx-2 px-2 py-1 rounded transition-colors">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Podgląd certyfikatu na żywo</span>
-              {isRendering && (
-                <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={(e) => { e.stopPropagation(); renderPreview(); }} 
-                disabled={isRendering}
-                className="h-7 w-7 p-0"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              {isCollapsed ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-          </div>
-        </CollapsibleTrigger>
-        
-        <CollapsibleContent className="space-y-3 pt-3">
-          <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
-            <strong>Przykładowe dane:</strong> {SAMPLE_DATA.userName} | {SAMPLE_DATA.moduleTitle}
-          </div>
+    <Card className="p-4 h-full relative">
+      {/* Przycisk zwijania */}
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="absolute right-2 top-2 h-8 w-8 p-0"
+        onClick={() => setIsCollapsed(true)}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
 
-          <div className="border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center p-2">
-            <canvas
-              ref={previewRef}
-              width={canvasWidth}
-              height={canvasHeight}
-              style={{
-                width: scaledWidth,
-                height: scaledHeight,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              }}
-              className="bg-white"
-            />
-          </div>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 pr-10">
+          <Eye className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Podgląd certyfikatu na żywo</span>
+          {isRendering && (
+            <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={renderPreview} 
+            disabled={isRendering}
+            className="h-7 w-7 p-0 ml-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
 
-          <p className="text-xs text-muted-foreground text-center">
-            Zmienne zostaną zastąpione prawdziwymi danymi użytkownika podczas generowania certyfikatu
-          </p>
-        </CollapsibleContent>
-      </Collapsible>
+        <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+          <strong>Przykładowe dane:</strong> {SAMPLE_DATA.userName} | {SAMPLE_DATA.moduleTitle}
+        </div>
+
+        <div className="border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center p-2">
+          <canvas
+            ref={previewRef}
+            width={canvasWidth}
+            height={canvasHeight}
+            style={{
+              width: scaledWidth,
+              height: scaledHeight,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            }}
+            className="bg-white"
+          />
+        </div>
+
+        <p className="text-xs text-muted-foreground text-center">
+          Zmienne zostaną zastąpione prawdziwymi danymi użytkownika podczas generowania certyfikatu
+        </p>
+      </div>
     </Card>
   );
 };
