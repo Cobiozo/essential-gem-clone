@@ -17,16 +17,28 @@ export const useAdminPresence = (currentTab: string) => {
   const [admins, setAdmins] = useState<AdminPresence[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     if (!isAdmin || !user) return;
+    
+    mountedRef.current = true;
 
-    const channel = supabase.channel('admin-presence', {
+    // Cleanup previous channel first to prevent leaks
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Use dynamic channel name to prevent collisions on remount
+    const channel = supabase.channel(`admin-presence-${user.id}-${Date.now()}`, {
       config: { presence: { key: user.id } }
     });
     channelRef.current = channel;
 
     channel.on('presence', { event: 'sync' }, () => {
+      if (!mountedRef.current) return;
+      
       const state = channel.presenceState();
       const adminList = Object.entries(state).map(([key, presences]) => {
         const p = (presences as any[])[0];
@@ -46,7 +58,7 @@ export const useAdminPresence = (currentTab: string) => {
     });
 
     channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
+      if (status === 'SUBSCRIBED' && mountedRef.current) {
         setIsConnected(true);
         await channel.track({
           firstName: profile?.first_name || 'Admin',
@@ -59,14 +71,17 @@ export const useAdminPresence = (currentTab: string) => {
     });
 
     return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
+      mountedRef.current = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
       setIsConnected(false);
     };
   }, [user?.id, isAdmin]);
 
   const updateActivity = useCallback(async (tab: string) => {
-    if (!channelRef.current || !profile) return;
+    if (!channelRef.current || !profile || !mountedRef.current) return;
     
     try {
       await channelRef.current.track({

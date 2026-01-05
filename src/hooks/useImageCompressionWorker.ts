@@ -44,8 +44,11 @@ export const useImageCompressionWorker = (
     }
 
     return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
+      // CRITICAL: Always terminate and null the worker to prevent leaks
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
     };
   }, [isSupported]);
 

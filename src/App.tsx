@@ -13,6 +13,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { supabase } from "@/integrations/supabase/client";
 
 // Lazy load chat widgets - only mount when first opened
 const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
@@ -52,6 +53,23 @@ const AppContent = () => {
 
   // Check if user is fully approved
   const isFullyApproved = user ? (profile?.guardian_approved === true && profile?.admin_approved === true) : true;
+
+  // Global cleanup for all Supabase channels on window unload and unmount
+  useEffect(() => {
+    const cleanupAllChannels = () => {
+      const channels = supabase.getChannels();
+      channels.forEach(channel => {
+        supabase.removeChannel(channel);
+      });
+    };
+
+    window.addEventListener('beforeunload', cleanupAllChannels);
+    
+    return () => {
+      window.removeEventListener('beforeunload', cleanupAllChannels);
+      cleanupAllChannels(); // Also cleanup on unmount
+    };
+  }, []);
 
   // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
   useEffect(() => {

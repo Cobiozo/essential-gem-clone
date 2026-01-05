@@ -308,17 +308,23 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       // Cleanup previous broadcast channel if exists
       if (broadcastChannelRef.current) {
         supabase.removeChannel(broadcastChannelRef.current);
+        broadcastChannelRef.current = null;
       }
 
-      // Broadcast so homepage refreshes
-      const channel = supabase.channel('cms-live');
+      // Broadcast so homepage refreshes - use dynamic name to prevent collisions
+      const channel = supabase.channel(`cms-live-${Date.now()}`);
       broadcastChannelRef.current = channel;
       
       channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.send({ type: 'broadcast', event: 'layout-updated', payload: { at: Date.now() } });
-          supabase.removeChannel(channel);
-          broadcastChannelRef.current = null;
+          // Cleanup after broadcast
+          setTimeout(() => {
+            if (broadcastChannelRef.current === channel) {
+              supabase.removeChannel(channel);
+              broadcastChannelRef.current = null;
+            }
+          }, 100);
         }
       });
 
