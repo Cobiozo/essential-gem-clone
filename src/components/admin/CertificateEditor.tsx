@@ -1049,9 +1049,6 @@ const CertificateEditor = () => {
             <CardContent className="space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  {template.is_active && (
-                    <Badge variant="default">Domyślny</Badge>
-                  )}
                   {(() => {
                     const conflicts = getTemplateConflicts(template);
                     if (conflicts.length > 0) {
@@ -1125,7 +1122,7 @@ const CertificateEditor = () => {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Puste = wszystkie role
+                    Opcjonalne - jeśli puste, szablon obsługuje wszystkie role
                   </p>
                 </div>
                 
@@ -1150,8 +1147,8 @@ const CertificateEditor = () => {
                       <p className="text-xs text-muted-foreground">Brak dostępnych modułów</p>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Puste = wszystkie moduły
+                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                    ⚠️ WYMAGANE - szablon musi być przypisany do co najmniej jednego modułu
                   </p>
                 </div>
               </div>
@@ -1171,15 +1168,6 @@ const CertificateEditor = () => {
                 <Eye className="h-4 w-4 mr-2" />
                 Podgląd
               </Button>
-              {!template.is_active && (
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => setDefaultTemplate(template.id)}
-                >
-                  Ustaw jako domyślny
-                </Button>
-              )}
             </CardContent>
           </Card>
         ))}
