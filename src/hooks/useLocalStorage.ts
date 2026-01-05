@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 
 interface UploadOptions {
@@ -29,13 +28,8 @@ const detectMediaType = (fileName: string): string => {
   if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) return 'video';
   if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
   if (['pdf'].includes(ext)) return 'pdf';
+  if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) return 'document';
   return 'file';
-};
-
-const getBucketForFileType = (fileType: string): string => {
-  if (fileType.startsWith('video/')) return 'cms-videos';
-  if (fileType.startsWith('audio/') || fileType.includes('pdf')) return 'cms-files';
-  return 'cms-images';
 };
 
 export const useLocalStorage = (): UseLocalStorageReturn => {
@@ -60,33 +54,31 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       setUploadProgress(10);
       
       const folder = options?.folder || 'uploads';
-      const bucket = getBucketForFileType(file.type);
       
-      // Generowanie unikalnej nazwy pliku
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `${folder}/${timestamp}-${sanitizedName}`;
+      // Użyj lokalnego API Express zamiast Supabase Storage
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
       
       setUploadProgress(30);
       
-      // Upload do Supabase Storage
-      const { data, error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file, {
-          contentType: file.type,
-          upsert: true
-        });
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
       
-      if (uploadError) {
-        throw new Error(uploadError.message);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
       }
+      
+      const result = await response.json();
       
       setUploadProgress(80);
       
-      // Pobierz publiczny URL
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
       
       setUploadProgress(100);
       setIsUploading(false);
@@ -95,10 +87,10 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       
       return {
         success: true,
-        url: urlData.publicUrl,
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type
+        url: result.url,
+        fileName: result.fileName || file.name,
+        fileSize: result.fileSize || file.size,
+        fileType: result.fileType || file.type
       };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
@@ -110,35 +102,27 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
   const listFiles = useCallback(async (folder?: string): Promise<Array<{ name: string; url: string; type: string }>> => {
     try {
-      const bucket = 'cms-images';
       const folderPath = folder || '';
       
-      const { data, error: listError } = await supabase.storage
-        .from(bucket)
-        .list(folderPath, { 
-          limit: 100,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
-
-      if (listError || !data) {
-        console.error('Error listing files:', listError);
+      const response = await fetch(`/list-files?folder=${encodeURIComponent(folderPath)}`);
+      
+      if (!response.ok) {
+        console.error('Error listing files: HTTP', response.status);
+        return [];
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success || !Array.isArray(data.files)) {
+        console.error('Error listing files: Invalid response', data);
         return [];
       }
 
-      return data
-        .filter(file => file.name && !file.name.startsWith('.'))
-        .map(file => {
-          const fullPath = folderPath ? `${folderPath}/${file.name}` : file.name;
-          const { data: urlData } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(fullPath);
-          
-          return {
-            name: file.name,
-            url: urlData.publicUrl,
-            type: detectMediaType(file.name)
-          };
-        });
+      return data.files.map((file: any) => ({
+        name: file.name,
+        url: file.url,
+        type: detectMediaType(file.name)
+      }));
     } catch (error) {
       console.error('Error listing files:', error);
       return [];
