@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UploadOptions {
   folder?: string;
@@ -32,6 +33,46 @@ const detectMediaType = (fileName: string): string => {
   return 'file';
 };
 
+// Fallback upload do Supabase Storage
+const uploadToSupabase = async (
+  file: File, 
+  folder: string,
+  onProgress?: (percent: number) => void
+): Promise<UploadResult> => {
+  const timestamp = Date.now();
+  const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const filePath = `${folder}/${timestamp}-${sanitizedFileName}`;
+  
+  onProgress?.(50);
+  
+  const { data, error } = await supabase.storage
+    .from('media')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+    
+  if (error) {
+    throw new Error(`Supabase upload error: ${error.message}`);
+  }
+  
+  onProgress?.(80);
+  
+  const { data: urlData } = supabase.storage
+    .from('media')
+    .getPublicUrl(data.path);
+    
+  onProgress?.(100);
+    
+  return {
+    success: true,
+    url: urlData.publicUrl,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type
+  };
+};
+
 export const useLocalStorage = (): UseLocalStorageReturn => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -50,12 +91,12 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       throw new Error(errorMsg);
     }
 
+    const folder = options?.folder || 'uploads';
+
     try {
       setUploadProgress(10);
       
-      const folder = options?.folder || 'uploads';
-      
-      // Użyj lokalnego API Express zamiast Supabase Storage
+      // Próbuj lokalny upload (VPS)
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder', folder);
@@ -66,6 +107,20 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         method: 'POST',
         body: formData
       });
+      
+      // Sprawdź czy odpowiedź jest JSON (lokalny serwer) czy HTML (brak serwera)
+      const contentType = response.headers.get('content-type') || '';
+      
+      if (!contentType.includes('application/json')) {
+        // Fallback do Supabase Storage gdy lokalny serwer niedostępny
+        console.warn('Local upload not available, using Supabase Storage fallback');
+        const result = await uploadToSupabase(file, folder, (progress) => {
+          setUploadProgress(progress);
+          options?.onProgress?.(progress);
+        });
+        setIsUploading(false);
+        return result;
+      }
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
@@ -93,10 +148,23 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         fileType: result.fileType || file.type
       };
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
-      setError(errorMsg);
-      setIsUploading(false);
-      throw new Error(errorMsg);
+      // Fallback do Supabase przy jakimkolwiek błędzie lokalnego uploadu
+      console.warn('Local upload failed, trying Supabase Storage fallback:', err);
+      
+      try {
+        const result = await uploadToSupabase(file, folder, (progress) => {
+          setUploadProgress(progress);
+          options?.onProgress?.(progress);
+        });
+        setIsUploading(false);
+        setError(null);
+        return result;
+      } catch (supabaseErr) {
+        const errorMsg = supabaseErr instanceof Error ? supabaseErr.message : 'Błąd uploadu pliku';
+        setError(errorMsg);
+        setIsUploading(false);
+        throw new Error(errorMsg);
+      }
     }
   }, []);
 
