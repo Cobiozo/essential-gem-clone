@@ -9,6 +9,23 @@ interface SecureMediaProps {
   disableInteraction?: boolean; // For training videos - prevents pause and seek
 }
 
+// YouTube URL detection and ID extraction
+const isYouTubeUrl = (url: string): boolean => {
+  return url.includes('youtube.com') || url.includes('youtu.be');
+};
+
+const extractYouTubeId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+};
+
 export const SecureMedia: React.FC<SecureMediaProps> = ({
   mediaUrl,
   mediaType,
@@ -18,10 +35,27 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 }) => {
   const [signedUrl, setSignedUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [isYouTube, setIsYouTube] = useState(false);
+  const [youtubeId, setYoutubeId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     let mounted = true;
+
+    // Check if it's a YouTube URL first
+    if (isYouTubeUrl(mediaUrl)) {
+      const id = extractYouTubeId(mediaUrl);
+      if (mounted) {
+        setIsYouTube(true);
+        setYoutubeId(id);
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Reset YouTube state for non-YouTube URLs
+    setIsYouTube(false);
+    setYoutubeId(null);
 
     const getSignedUrl = async () => {
       try {
@@ -103,7 +137,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     );
   }
 
-  if (!signedUrl) {
+  if (!signedUrl && !isYouTube) {
     return (
       <div className="bg-muted rounded-lg w-full h-48 flex items-center justify-center">
         <span className="text-muted-foreground">Nie można załadować mediów</span>
@@ -125,6 +159,22 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   };
 
   if (mediaType === 'video') {
+    // Handle YouTube videos
+    if (isYouTube && youtubeId) {
+      return (
+        <div className={`relative w-full aspect-video rounded-lg overflow-hidden ${className || ''}`}>
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
+            title={altText || 'YouTube video'}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+
+    // Handle regular video files
     const handleVideoInteraction = (e: React.SyntheticEvent<HTMLVideoElement>) => {
       if (!disableInteraction) return;
       

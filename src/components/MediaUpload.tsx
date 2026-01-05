@@ -194,7 +194,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     
     if (url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
       mediaType = 'image';
-    } else if (url.match(/\.(mp4|mov|avi|webm|mkv)$/)) {
+    } else if (url.match(/\.(mp4|mov|avi|webm|mkv)$/) || url.includes('youtube.com') || url.includes('youtu.be')) {
       mediaType = 'video';
     } else if (url.match(/\.(mp3|wav|ogg|m4a)$/)) {
       mediaType = 'audio';
