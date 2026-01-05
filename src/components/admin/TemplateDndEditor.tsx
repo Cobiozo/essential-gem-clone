@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2, Lock, Unlock } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Type, Square, Circle as CircleIcon, Save, Trash2, Image as ImageIcon, ArrowUp, ArrowDown, MoveUp, MoveDown, Sparkles, Loader2, Wand2, Lock, Unlock, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface TemplateElement {
   id: string;
@@ -25,6 +27,13 @@ interface TemplateElement {
   fontWeight?: string;
   color?: string;
   align?: 'left' | 'center' | 'right';
+  // Nowe właściwości tekstu
+  fontFamily?: string;
+  fontStyle?: 'normal' | 'italic';
+  textDecoration?: 'none' | 'underline';
+  lineHeight?: number;
+  letterSpacing?: number;
+  opacity?: number;
 }
 
 interface CertificateTemplate {
@@ -106,6 +115,18 @@ const CERTIFICATE_LANGUAGES = [
   { code: 'de', name: 'Deutsch', labels: { title: 'Abschlusszertifikat', userName: 'Vollständiger Name', moduleTitle: 'Schulungstitel', completionDate: 'Abschlussdatum' } },
 ];
 
+// Dostępne czcionki
+const FONT_FAMILIES = [
+  { value: 'Arial', label: 'Arial' },
+  { value: 'Georgia', label: 'Georgia' },
+  { value: 'Times New Roman', label: 'Times New Roman' },
+  { value: 'Verdana', label: 'Verdana' },
+  { value: 'Courier New', label: 'Courier New' },
+  { value: 'Trebuchet MS', label: 'Trebuchet MS' },
+  { value: 'Palatino', label: 'Palatino' },
+  { value: 'Garamond', label: 'Garamond' },
+];
+
 const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +135,14 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [textColor, setTextColor] = useState('#000000');
   const [fontSize, setFontSize] = useState(20);
   const [fontWeight, setFontWeight] = useState<'normal' | 'bold'>('normal');
+  // Nowe stany dla rozszerzonych opcji tekstu
+  const [fontFamily, setFontFamily] = useState('Arial');
+  const [fontStyle, setFontStyle] = useState<'normal' | 'italic'>('normal');
+  const [textDecoration, setTextDecoration] = useState<'none' | 'underline'>('none');
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
+  const [charSpacing, setCharSpacing] = useState(0);
+  const [opacity, setOpacity] = useState(100);
+  
   const [uploading, setUploading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -148,7 +177,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
               fontSize: element.fontSize || 16,
               fontWeight: element.fontWeight || 'normal',
               fill: element.color || '#000000',
-              fontFamily: 'Arial',
+              fontFamily: element.fontFamily || 'Arial',
+              fontStyle: element.fontStyle || 'normal',
+              underline: element.textDecoration === 'underline',
+              charSpacing: (element.letterSpacing || 0) * 10,
+              opacity: (element.opacity ?? 100) / 100,
+              textAlign: element.align || 'left',
             });
             canvas.add(text);
           } else if (element.type === 'image' && element.imageUrl) {
@@ -257,7 +291,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       fontSize: fontSize,
       fontWeight: fontWeight,
       fill: textColor,
-      fontFamily: 'Arial',
+      fontFamily: fontFamily,
+      fontStyle: fontStyle,
+      underline: textDecoration === 'underline',
+      charSpacing: charSpacing * 10,
+      opacity: opacity / 100,
+      textAlign: textAlign,
     });
 
     fabricCanvas.add(text);
@@ -332,6 +371,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       fill: textColor,
       fontSize: fontSize,
       fontWeight: fontWeight,
+      fontFamily: fontFamily,
+      fontStyle: fontStyle,
+      underline: textDecoration === 'underline',
+      charSpacing: charSpacing * 10,
+      opacity: opacity / 100,
+      textAlign: textAlign,
     });
 
     fabricCanvas?.renderAll();
@@ -342,6 +387,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       setTextColor(selectedObject.fill?.toString() || '#000000');
       setFontSize(selectedObject.fontSize || 20);
       setFontWeight(selectedObject.fontWeight === 'bold' ? 'bold' : 'normal');
+      setFontFamily(selectedObject.fontFamily || 'Arial');
+      setFontStyle(selectedObject.fontStyle === 'italic' ? 'italic' : 'normal');
+      setTextDecoration(selectedObject.underline ? 'underline' : 'none');
+      setCharSpacing(Math.round((selectedObject.charSpacing || 0) / 10));
+      setOpacity(Math.round((selectedObject.opacity ?? 1) * 100));
+      setTextAlign(selectedObject.textAlign || 'left');
     }
   }, [selectedObject]);
 
@@ -714,7 +765,12 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           fontSize: textObj.fontSize || 16,
           fontWeight: String(textObj.fontWeight || 'normal'),
           color: textObj.fill?.toString() || '#000000',
-          align: 'left' as const,
+          align: (textObj.textAlign as 'left' | 'center' | 'right') || 'left',
+          fontFamily: textObj.fontFamily || 'Arial',
+          fontStyle: (textObj.fontStyle as 'normal' | 'italic') || 'normal',
+          textDecoration: textObj.underline ? 'underline' : 'none',
+          letterSpacing: Math.round((textObj.charSpacing || 0) / 10),
+          opacity: Math.round((textObj.opacity ?? 1) * 100),
         };
       } else if (obj.type === 'image') {
         const imgObj = obj as FabricImage;
@@ -812,19 +868,24 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
             </div>
 
             {/* Text formatting options */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t">
               <div className="space-y-2">
-                <Label htmlFor="textColor">Kolor tekstu</Label>
-                <Input
-                  id="textColor"
-                  type="color"
-                  value={textColor}
-                  onChange={(e) => setTextColor(e.target.value)}
-                  className="h-10"
-                />
+                <Label htmlFor="fontFamily">Czcionka</Label>
+                <Select value={fontFamily} onValueChange={setFontFamily}>
+                  <SelectTrigger id="fontFamily">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONT_FAMILIES.map((font) => (
+                      <SelectItem key={font.value} value={font.value}>
+                        {font.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fontSize">Rozmiar czcionki</Label>
+                <Label htmlFor="fontSize">Rozmiar</Label>
                 <Input
                   id="fontSize"
                   type="number"
@@ -835,16 +896,105 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fontWeight">Pogrubienie</Label>
-                <Select value={fontWeight} onValueChange={(val: 'normal' | 'bold') => setFontWeight(val)}>
-                  <SelectTrigger id="fontWeight">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normalne</SelectItem>
-                    <SelectItem value="bold">Pogrubione</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="textColor">Kolor</Label>
+                <Input
+                  id="textColor"
+                  type="color"
+                  value={textColor}
+                  onChange={(e) => setTextColor(e.target.value)}
+                  className="h-10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Styl</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={fontWeight === 'bold' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFontWeight(fontWeight === 'bold' ? 'normal' : 'bold')}
+                    className="flex-1"
+                  >
+                    <Bold className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={fontStyle === 'italic' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFontStyle(fontStyle === 'italic' ? 'normal' : 'italic')}
+                    className="flex-1"
+                  >
+                    <Italic className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={textDecoration === 'underline' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTextDecoration(textDecoration === 'underline' ? 'none' : 'underline')}
+                    className="flex-1"
+                  >
+                    <Underline className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
+              <div className="space-y-2">
+                <Label>Wyrównanie</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={textAlign === 'left' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTextAlign('left')}
+                    className="flex-1"
+                  >
+                    <AlignLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={textAlign === 'center' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTextAlign('center')}
+                    className="flex-1"
+                  >
+                    <AlignCenter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={textAlign === 'right' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTextAlign('right')}
+                    className="flex-1"
+                  >
+                    <AlignRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="charSpacing">Odstęp liter ({charSpacing})</Label>
+                <Slider
+                  id="charSpacing"
+                  value={[charSpacing]}
+                  onValueChange={(v) => setCharSpacing(v[0])}
+                  min={-5}
+                  max={30}
+                  step={1}
+                  className="mt-2"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opacity">Przezroczystość ({opacity}%)</Label>
+                <Slider
+                  id="opacity"
+                  value={[opacity]}
+                  onValueChange={(v) => setOpacity(v[0])}
+                  min={10}
+                  max={100}
+                  step={5}
+                  className="mt-2"
+                />
               </div>
             </div>
           </TabsContent>
@@ -852,19 +1002,24 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           <TabsContent value="edit" className="space-y-4">
             {selectedObject && selectedObject.type === 'i-text' && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="editColor">Kolor tekstu</Label>
-                    <Input
-                      id="editColor"
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="h-10"
-                    />
+                    <Label htmlFor="editFontFamily">Czcionka</Label>
+                    <Select value={fontFamily} onValueChange={setFontFamily}>
+                      <SelectTrigger id="editFontFamily">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FONT_FAMILIES.map((font) => (
+                          <SelectItem key={font.value} value={font.value}>
+                            {font.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editFontSize">Rozmiar czcionki</Label>
+                    <Label htmlFor="editFontSize">Rozmiar</Label>
                     <Input
                       id="editFontSize"
                       type="number"
@@ -875,18 +1030,108 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editFontWeight">Pogrubienie</Label>
-                    <Select value={fontWeight} onValueChange={(val: 'normal' | 'bold') => setFontWeight(val)}>
-                      <SelectTrigger id="editFontWeight">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">Normalne</SelectItem>
-                        <SelectItem value="bold">Pogrubione</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="editColor">Kolor</Label>
+                    <Input
+                      id="editColor"
+                      type="color"
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Styl</Label>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant={fontWeight === 'bold' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setFontWeight(fontWeight === 'bold' ? 'normal' : 'bold')}
+                        className="flex-1"
+                      >
+                        <Bold className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={fontStyle === 'italic' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setFontStyle(fontStyle === 'italic' ? 'normal' : 'italic')}
+                        className="flex-1"
+                      >
+                        <Italic className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={textDecoration === 'underline' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTextDecoration(textDecoration === 'underline' ? 'none' : 'underline')}
+                        className="flex-1"
+                      >
+                        <Underline className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <Label>Wyrównanie</Label>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant={textAlign === 'left' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTextAlign('left')}
+                        className="flex-1"
+                      >
+                        <AlignLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={textAlign === 'center' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTextAlign('center')}
+                        className="flex-1"
+                      >
+                        <AlignCenter className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={textAlign === 'right' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setTextAlign('right')}
+                        className="flex-1"
+                      >
+                        <AlignRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editCharSpacing">Odstęp liter ({charSpacing})</Label>
+                    <Slider
+                      id="editCharSpacing"
+                      value={[charSpacing]}
+                      onValueChange={(v) => setCharSpacing(v[0])}
+                      min={-5}
+                      max={30}
+                      step={1}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editOpacity">Przezroczystość ({opacity}%)</Label>
+                    <Slider
+                      id="editOpacity"
+                      value={[opacity]}
+                      onValueChange={(v) => setOpacity(v[0])}
+                      min={10}
+                      max={100}
+                      step={5}
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+
                 <Button onClick={updateSelectedText} size="sm" className="w-full sm:w-auto">
                   Zastosuj zmiany
                 </Button>
@@ -1049,11 +1294,24 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
             {CANVAS_WIDTH}×{CANVAS_HEIGHT}px
           </Badge>
         </div>
-        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
-          <li><code>{'{userName}'}</code> - Imię i nazwisko użytkownika</li>
-          <li><code>{'{moduleTitle}'}</code> - Tytuł modułu szkolenia</li>
-          <li><code>{'{completionDate}'}</code> - Data ukończenia</li>
-        </ul>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+            <li><code>{'{userName}'}</code> - Pełne imię i nazwisko</li>
+            <li><code>{'{firstName}'}</code> - Imię</li>
+            <li><code>{'{lastName}'}</code> - Nazwisko</li>
+            <li><code>{'{eqId}'}</code> - Numer EQID</li>
+            <li><code>{'{email}'}</code> - Email użytkownika</li>
+            <li><code>{'{city}'}</code> - Miasto</li>
+          </ul>
+          <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+            <li><code>{'{country}'}</code> - Kraj</li>
+            <li><code>{'{moduleTitle}'}</code> - Tytuł szkolenia</li>
+            <li><code>{'{completionDate}'}</code> - Data ukończenia</li>
+            <li><code>{'{certificateNumber}'}</code> - Numer certyfikatu</li>
+            <li><code>{'{currentYear}'}</code> - Bieżący rok</li>
+            <li><code>{'{issueDate}'}</code> - Data wydania</li>
+          </ul>
+        </div>
       </Card>
 
       {/* Canvas */}
