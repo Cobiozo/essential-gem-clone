@@ -6,6 +6,17 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +41,7 @@ const Training = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string}}>({});
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -122,6 +134,42 @@ const Training = () => {
       });
     } finally {
       setGenerating(null);
+    }
+  };
+
+  // Regenerate certificate with confirmation
+  const handleRegenerateCertificate = async (moduleId: string, moduleTitle: string) => {
+    if (!user) return;
+
+    setRegenerating(moduleId);
+    
+    try {
+      toast({
+        title: "Regenerowanie certyfikatu...",
+        description: "Trwa przygotowywanie nowego certyfikatu.",
+      });
+
+      const result = await generateCertificate(user.id, moduleId, moduleTitle, true);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Błąd regenerowania certyfikatu');
+      }
+
+      await fetchCertificates();
+
+      toast({
+        title: "Sukces!",
+        description: "Nowy certyfikat został wygenerowany.",
+      });
+    } catch (error) {
+      console.error('Error regenerating certificate:', error);
+      toast({
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : "Nie udało się zregenerować certyfikatu",
+        variant: "destructive"
+      });
+    } finally {
+      setRegenerating(null);
     }
   };
 
@@ -395,19 +443,57 @@ const Training = () => {
                             </div>
                             
                             {hasCertificate ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => downloadCertificate(module.id, module.title)}
-                                disabled={downloading === module.id}
-                              >
-                                {downloading === module.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Download className="h-4 w-4" />
-                                )}
-                                <span className="ml-2">Pobierz</span>
-                              </Button>
+                              <div className="flex flex-col gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => downloadCertificate(module.id, module.title)}
+                                  disabled={downloading === module.id}
+                                >
+                                  {downloading === module.id ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Download className="h-4 w-4" />
+                                  )}
+                                  <span className="ml-2">Pobierz certyfikat</span>
+                                </Button>
+                                
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="text-xs h-7"
+                                      disabled={regenerating === module.id}
+                                    >
+                                      {regenerating === module.id ? (
+                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <RefreshCw className="h-3 w-3" />
+                                      )}
+                                      <span className="ml-1">Regeneruj certyfikat</span>
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Regeneruj certyfikat</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Czy na pewno chcesz wygenerować nowy certyfikat? 
+                                        Poprzedni certyfikat zostanie zastąpiony.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleRegenerateCertificate(module.id, module.title)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Tak, regeneruj
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             ) : (
                               <Button
                                 size="sm"
