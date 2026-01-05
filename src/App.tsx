@@ -6,6 +6,7 @@ import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
 import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
 import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -150,15 +151,17 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <LanguageProvider>
-      <ThemeProvider defaultTheme="system" storageKey="pure-life-theme">
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </ThemeProvider>
-    </LanguageProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <LanguageProvider>
+        <ThemeProvider defaultTheme="system" storageKey="pure-life-theme">
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
