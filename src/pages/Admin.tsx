@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useAdminPresence } from '@/hooks/useAdminPresence';
+import { AdminPresenceWidget } from '@/components/admin/AdminPresenceWidget';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -251,6 +253,14 @@ const Admin = () => {
     visible_to_anonymous: false,
   });
   const [activeTab, setActiveTab] = useState("content");
+  
+  // Admin presence tracking
+  const { admins, isConnected, updateActivity } = useAdminPresence(activeTab);
+  
+  // Update presence when tab changes
+  useEffect(() => {
+    updateActivity(activeTab);
+  }, [activeTab, updateActivity]);
   const [editingItemTextMode, setEditingItemTextMode] = useState(false);
   const [editingItemTitleMode, setEditingItemTitleMode] = useState(false);
   const [newItemTextMode, setNewItemTextMode] = useState(false);
@@ -2720,6 +2730,9 @@ const Admin = () => {
       </header>
 
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
+        {/* Admin Presence Widget */}
+        <AdminPresenceWidget admins={admins} isConnected={isConnected} />
+        
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1.5 mb-6 bg-muted/50">
