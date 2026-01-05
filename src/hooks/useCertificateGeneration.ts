@@ -111,7 +111,7 @@ export const useCertificateGeneration = () => {
 
       console.log('Total templates found:', templates.length);
 
-      // 5. Find best matching template using priority system
+      // 5. Find template assigned to THIS MODULE (strict - no fallback)
       const hasModuleMatch = (templateModuleIds: string[] | null | undefined): boolean => {
         if (!templateModuleIds || !Array.isArray(templateModuleIds) || templateModuleIds.length === 0) return false;
         return templateModuleIds.some((id: string) => String(id) === String(moduleId));
@@ -134,36 +134,9 @@ export const useCertificateGeneration = () => {
         if (template) priorityUsed = 'PRIORITY 2: Module match (ignoring role)';
       }
 
-      // PRIORITY 3: Active template with user's role (no module restriction)
+      // NO FALLBACK - template MUST be assigned to the module
       if (!template) {
-        template = templates.find(t => {
-          const isActive = t.is_active === true;
-          const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
-          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return isActive && hasRole && noModuleRestriction;
-        });
-        if (template) priorityUsed = 'PRIORITY 3: Active + Role match (no module restriction)';
-      }
-
-      // PRIORITY 4: Default active template (no restrictions)
-      if (!template) {
-        template = templates.find(t => {
-          const isActive = t.is_active === true;
-          const noRoleRestriction = !t.roles || t.roles.length === 0;
-          const noModuleRestriction = !t.module_ids || t.module_ids.length === 0;
-          return isActive && noRoleRestriction && noModuleRestriction;
-        });
-        if (template) priorityUsed = 'PRIORITY 4: Default active template';
-      }
-
-      // FALLBACK: Any active template
-      if (!template) {
-        template = templates.find(t => t.is_active === true);
-        if (template) priorityUsed = 'FALLBACK: First active template';
-      }
-
-      if (!template) {
-        throw new Error('Nie znaleziono odpowiedniego szablonu certyfikatu');
+        throw new Error(`Brak szablonu certyfikatu przypisanego do modułu "${moduleTitle}". Skontaktuj się z administratorem.`);
       }
 
       console.log('✅ SELECTED TEMPLATE:', template.name);
