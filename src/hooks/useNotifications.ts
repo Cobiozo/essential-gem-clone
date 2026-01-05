@@ -148,6 +148,12 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       return;
     }
 
+    // Clear any existing interval before creating new one to prevent leaks
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
     // Start polling when realtime is disabled
     pollingIntervalRef.current = setInterval(() => {
       fetchUnreadCount();
