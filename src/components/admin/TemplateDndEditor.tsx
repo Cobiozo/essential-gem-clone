@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas as FabricCanvas, IText, Rect, Circle, FabricImage } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import CertificatePreview from './CertificatePreview';
 
 interface TemplateElement {
   id: string;
@@ -142,6 +143,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
   const [charSpacing, setCharSpacing] = useState(0);
   const [opacity, setOpacity] = useState(100);
+  const [previewElements, setPreviewElements] = useState<TemplateElement[]>([]);
   
   const [uploading, setUploading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -281,6 +283,93 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       canvas.dispose();
     };
   }, [template]);
+
+  // Funkcja do zbierania elementów z canvasu dla podglądu
+  const collectElementsForPreview = () => {
+    if (!fabricCanvas) return;
+
+    const objects = fabricCanvas.getObjects();
+    const elements: TemplateElement[] = objects.map((obj, index) => {
+      if (obj.type === 'i-text' || obj.type === 'text') {
+        const textObj = obj as IText;
+        return {
+          id: `element-${index}`,
+          type: 'text' as const,
+          content: textObj.text || '',
+          x: textObj.left || 0,
+          y: textObj.top || 0,
+          width: (textObj.width || 200) * (textObj.scaleX || 1),
+          height: (textObj.height || 50) * (textObj.scaleY || 1),
+          fontSize: textObj.fontSize || 16,
+          fontWeight: String(textObj.fontWeight || 'normal'),
+          color: textObj.fill?.toString() || '#000000',
+          align: (textObj.textAlign as 'left' | 'center' | 'right') || 'left',
+          fontFamily: textObj.fontFamily || 'Arial',
+          fontStyle: (textObj.fontStyle as 'normal' | 'italic') || 'normal',
+          textDecoration: textObj.underline ? 'underline' : 'none',
+          letterSpacing: Math.round((textObj.charSpacing || 0) / 10),
+          opacity: Math.round((textObj.opacity ?? 1) * 100),
+        };
+      } else if (obj.type === 'image') {
+        const imgObj = obj as FabricImage;
+        const imgSrc = (imgObj as any).getSrc();
+        return {
+          id: `element-${index}`,
+          type: 'image' as const,
+          imageUrl: imgSrc,
+          x: obj.left || 0,
+          y: obj.top || 0,
+          width: (obj.width || 0) * (obj.scaleX || 1),
+          height: (obj.height || 0) * (obj.scaleY || 1),
+        };
+      } else if (obj.type === 'rect' || obj.type === 'circle') {
+        const circleObj = obj as Circle;
+        return {
+          id: `element-${index}`,
+          type: 'shape' as const,
+          x: obj.left || 0,
+          y: obj.top || 0,
+          width: obj.type === 'circle' ? (circleObj.radius || 50) * 2 * (obj.scaleX || 1) : (obj.width || 0) * (obj.scaleX || 1),
+          height: obj.type === 'circle' ? (circleObj.radius || 50) * 2 * (obj.scaleY || 1) : (obj.height || 0) * (obj.scaleY || 1),
+          color: '#e0e0e0',
+        };
+      }
+      return {
+        id: `element-${index}`,
+        type: 'text' as const,
+        x: obj.left || 0,
+        y: obj.top || 0,
+      };
+    });
+
+    setPreviewElements(elements);
+  };
+
+  // Aktualizuj podgląd przy zmianie canvasu
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const updatePreview = () => {
+      collectElementsForPreview();
+    };
+
+    // Słuchaj wszystkich zdarzeń modyfikujących canvas
+    fabricCanvas.on('object:modified', updatePreview);
+    fabricCanvas.on('object:added', updatePreview);
+    fabricCanvas.on('object:removed', updatePreview);
+    fabricCanvas.on('text:changed', updatePreview);
+
+    // Initial collection
+    const timeoutId = setTimeout(updatePreview, 500);
+
+    return () => {
+      fabricCanvas.off('object:modified', updatePreview);
+      fabricCanvas.off('object:added', updatePreview);
+      fabricCanvas.off('object:removed', updatePreview);
+      fabricCanvas.off('text:changed', updatePreview);
+      clearTimeout(timeoutId);
+    };
+  }, [fabricCanvas]);
 
   const addText = () => {
     if (!fabricCanvas) return;
@@ -1314,11 +1403,21 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
         </div>
       </Card>
 
-      {/* Canvas */}
-      <div className="border rounded-lg overflow-auto bg-gray-50 p-2 sm:p-4">
-        <div className="inline-block">
-          <canvas ref={canvasRef} className="shadow-lg max-w-full h-auto" />
+      {/* Canvas and Preview side by side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Canvas */}
+        <div className="border rounded-lg overflow-auto bg-gray-50 p-2 sm:p-4">
+          <div className="inline-block">
+            <canvas ref={canvasRef} className="shadow-lg max-w-full h-auto" />
+          </div>
         </div>
+
+        {/* Live Preview */}
+        <CertificatePreview
+          elements={previewElements}
+          canvasWidth={CANVAS_WIDTH}
+          canvasHeight={CANVAS_HEIGHT}
+        />
       </div>
 
       {/* Actions */}
