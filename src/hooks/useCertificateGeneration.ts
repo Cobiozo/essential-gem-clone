@@ -59,11 +59,11 @@ export const useCertificateGeneration = () => {
         }
       }
 
-      // 2. Get user profile
+      // 2. Get user profile with extended fields
       console.log('Step 1: Fetching user profile...');
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email')
+        .select('first_name, last_name, email, eq_id, city, country')
         .eq('user_id', userId)
         .single();
 
@@ -71,9 +71,16 @@ export const useCertificateGeneration = () => {
         throw new Error(`Profile error: ${profileError.message}`);
       }
 
-      const userName = profile?.first_name && profile?.last_name
-        ? `${profile.first_name} ${profile.last_name}`
+      const firstName = profile?.first_name || '';
+      const lastName = profile?.last_name || '';
+      const userName = firstName && lastName
+        ? `${firstName} ${lastName}`
         : profile?.email || 'Unknown User';
+      const userEmail = profile?.email || '';
+      const eqId = profile?.eq_id || 'N/A';
+      const userCity = profile?.city || '';
+      const userCountry = profile?.country || '';
+      
       console.log('✅ User name:', userName);
 
       // 3. Get user role
@@ -202,26 +209,64 @@ export const useCertificateGeneration = () => {
         day: 'numeric'
       });
 
+      const issueDate = new Date().toLocaleDateString('pl-PL', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+
+      const currentYear = String(new Date().getFullYear());
+      // Certificate number will be generated after saving
+      const certificateNumber = `CERT-${Date.now().toString(36).toUpperCase()}`;
+
       const replacePlaceholders = (text: string): string => {
         return text
           // Format z pojedynczymi nawiasami (używany w edytorze szablonów)
-          .replace(/\{userName\}/g, userName)
-          .replace(/\{user_name\}/g, userName)
-          .replace(/\{moduleTitle\}/g, moduleTitle)
-          .replace(/\{module_title\}/g, moduleTitle)
-          .replace(/\{completionDate\}/g, completionDate)
-          .replace(/\{completedDate\}/g, completionDate)
-          .replace(/\{completed_date\}/g, completionDate)
-          .replace(/\{date\}/g, completionDate)
+          // Dane użytkownika
+          .replace(/\{userName\}/gi, userName)
+          .replace(/\{user_name\}/gi, userName)
+          .replace(/\{firstName\}/gi, firstName)
+          .replace(/\{first_name\}/gi, firstName)
+          .replace(/\{lastName\}/gi, lastName)
+          .replace(/\{last_name\}/gi, lastName)
+          .replace(/\{eqId\}/gi, eqId)
+          .replace(/\{eq_id\}/gi, eqId)
+          .replace(/\{email\}/gi, userEmail)
+          .replace(/\{city\}/gi, userCity)
+          .replace(/\{country\}/gi, userCountry)
+          // Dane szkolenia
+          .replace(/\{moduleTitle\}/gi, moduleTitle)
+          .replace(/\{module_title\}/gi, moduleTitle)
+          // Daty
+          .replace(/\{completionDate\}/gi, completionDate)
+          .replace(/\{completedDate\}/gi, completionDate)
+          .replace(/\{completed_date\}/gi, completionDate)
+          .replace(/\{date\}/gi, completionDate)
+          .replace(/\{issueDate\}/gi, issueDate)
+          .replace(/\{issue_date\}/gi, issueDate)
+          // Dane certyfikatu
+          .replace(/\{certificateNumber\}/gi, certificateNumber)
+          .replace(/\{certificate_number\}/gi, certificateNumber)
+          .replace(/\{currentYear\}/gi, currentYear)
+          .replace(/\{current_year\}/gi, currentYear)
           // Format z podwójnymi nawiasami (zachowany dla kompatybilności)
-          .replace(/\{\{userName\}\}/g, userName)
-          .replace(/\{\{user_name\}\}/g, userName)
-          .replace(/\{\{moduleTitle\}\}/g, moduleTitle)
-          .replace(/\{\{module_title\}\}/g, moduleTitle)
-          .replace(/\{\{completionDate\}\}/g, completionDate)
-          .replace(/\{\{completedDate\}\}/g, completionDate)
-          .replace(/\{\{completed_date\}\}/g, completionDate)
-          .replace(/\{\{date\}\}/g, completionDate);
+          .replace(/\{\{userName\}\}/gi, userName)
+          .replace(/\{\{user_name\}\}/gi, userName)
+          .replace(/\{\{firstName\}\}/gi, firstName)
+          .replace(/\{\{lastName\}\}/gi, lastName)
+          .replace(/\{\{eqId\}\}/gi, eqId)
+          .replace(/\{\{email\}\}/gi, userEmail)
+          .replace(/\{\{city\}\}/gi, userCity)
+          .replace(/\{\{country\}\}/gi, userCountry)
+          .replace(/\{\{moduleTitle\}\}/gi, moduleTitle)
+          .replace(/\{\{module_title\}\}/gi, moduleTitle)
+          .replace(/\{\{completionDate\}\}/gi, completionDate)
+          .replace(/\{\{completedDate\}\}/gi, completionDate)
+          .replace(/\{\{completed_date\}\}/gi, completionDate)
+          .replace(/\{\{date\}\}/gi, completionDate)
+          .replace(/\{\{issueDate\}\}/gi, issueDate)
+          .replace(/\{\{certificateNumber\}\}/gi, certificateNumber)
+          .replace(/\{\{currentYear\}\}/gi, currentYear);
       };
 
       console.log('Rendering', elements.length, 'template elements...');
@@ -250,11 +295,19 @@ export const useCertificateGeneration = () => {
         // Obsługa tekstu - używamy content (nie text), color (nie fill)
         else if (element.type === 'text' && element.content) {
           const text = replacePlaceholders(element.content);
-          const fontSize = element.fontSize || 16;
-          doc.setFontSize(fontSize * 0.75);
+          const fontSizeVal = element.fontSize || 16;
+          doc.setFontSize(fontSizeVal * 0.75);
           
-          if (element.fontWeight === 'bold' || element.fontWeight >= 700) {
+          // Obsługa stylów czcionki
+          const isBold = element.fontWeight === 'bold' || Number(element.fontWeight) >= 700;
+          const isItalic = element.fontStyle === 'italic';
+          
+          if (isBold && isItalic) {
+            doc.setFont('helvetica', 'bolditalic');
+          } else if (isBold) {
             doc.setFont('helvetica', 'bold');
+          } else if (isItalic) {
+            doc.setFont('helvetica', 'italic');
           } else {
             doc.setFont('helvetica', 'normal');
           }
@@ -276,12 +329,12 @@ export const useCertificateGeneration = () => {
             textX = x + width;
           }
 
-          doc.text(text, textX, y + fontSize * PX_TO_MM, { 
+          doc.text(text, textX, y + fontSizeVal * PX_TO_MM, { 
             align: textAlign as 'left' | 'center' | 'right',
             maxWidth: width
           });
           console.log('✅ Text added:', text.substring(0, 30) + (text.length > 30 ? '...' : ''));
-        } 
+        }
         // Obsługa prostokątów - używamy color (nie fill)
         else if (element.type === 'rect') {
           const colorValue = element.color || element.fill;
