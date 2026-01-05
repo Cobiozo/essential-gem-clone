@@ -3374,6 +3374,16 @@ export type Database = {
             Args: { bypass_guardian?: boolean; target_user_id: string }
             Returns: boolean
           }
+      admin_change_user_guardian: {
+        Args: {
+          p_new_guardian_eq_id: string
+          p_new_guardian_first_name: string
+          p_new_guardian_last_name: string
+          p_new_guardian_user_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       admin_confirm_user_email: {
         Args: { target_user_id: string }
         Returns: boolean
@@ -3381,6 +3391,15 @@ export type Database = {
       admin_remove_row: { Args: { row_id: string }; Returns: boolean }
       admin_toggle_user_status: {
         Args: { new_status: boolean; target_user_id: string }
+        Returns: boolean
+      }
+      admin_update_user_data: {
+        Args: {
+          p_eq_id: string
+          p_first_name: string
+          p_last_name: string
+          p_user_id: string
+        }
         Returns: boolean
       }
       admin_update_user_role: {

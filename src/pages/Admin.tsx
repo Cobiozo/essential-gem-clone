@@ -46,6 +46,7 @@ import TranslationsManagement from '@/components/admin/TranslationsManagement';
 import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
+import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -174,6 +175,7 @@ const Admin = () => {
   const [sectionSearchQuery, setSectionSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editingUserProfile, setEditingUserProfile] = useState<UserProfile | null>(null);
   const [newItem, setNewItem] = useState({
     type: 'button',
     title: '',
@@ -4157,6 +4159,16 @@ const Admin = () => {
                                  <Button
                                    variant="outline"
                                    size="sm"
+                                   onClick={() => setEditingUserProfile(userProfile)}
+                                   className="text-sm min-h-[44px] sm:min-h-auto border-purple-200 text-purple-700 hover:bg-purple-50"
+                                 >
+                                   <Pencil className="w-4 h-4 mr-1" />
+                                   Edytuj dane
+                                 </Button>
+
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
                                    onClick={() => resetUserPassword(userProfile.email)}
                                    disabled={passwordLoading}
                                    className="text-sm min-h-[44px] sm:min-h-auto border-blue-200 text-blue-700 hover:bg-blue-50"
@@ -5050,6 +5062,17 @@ const Admin = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* User Edit Dialog */}
+      <UserEditDialog
+        user={editingUserProfile}
+        open={!!editingUserProfile}
+        onOpenChange={(open) => !open && setEditingUserProfile(null)}
+        onSuccess={() => {
+          setEditingUserProfile(null);
+          fetchUsers();
+        }}
+      />
     </div>
     )}
     </>
