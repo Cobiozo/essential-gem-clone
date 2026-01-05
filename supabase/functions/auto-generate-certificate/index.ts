@@ -134,7 +134,7 @@ serve(async (req) => {
 
     console.log(`📝 Generating certificate for: ${userName} - ${moduleTitle}`);
 
-    // 7. Find the best matching template (priority: role+module > module > role > default)
+    // 7. Find template assigned to THIS MODULE (strict - no fallback)
     const { data: allTemplates, error: templatesError } = await supabaseAdmin
       .from('certificate_templates')
       .select('*')
@@ -152,28 +152,16 @@ serve(async (req) => {
       t.roles?.includes(role) && t.module_ids?.includes(moduleId)
     );
 
-    // Priority 2: Template matching only module (any role or no roles specified)
+    // Priority 2: Template matching only module (any role)
     if (!selectedTemplate) {
       selectedTemplate = allTemplates.find(t => 
-        t.module_ids?.includes(moduleId) && (!t.roles || t.roles.length === 0)
+        t.module_ids?.includes(moduleId)
       );
     }
 
-    // Priority 3: Template matching only role (any module or no modules specified)
+    // NO FALLBACK - template MUST be assigned to the module
     if (!selectedTemplate) {
-      selectedTemplate = allTemplates.find(t => 
-        t.roles?.includes(role) && (!t.module_ids || t.module_ids.length === 0)
-      );
-    }
-
-    // Priority 4: Default (active) template
-    if (!selectedTemplate) {
-      selectedTemplate = allTemplates.find(t => t.is_active);
-    }
-
-    // Priority 5: First available template
-    if (!selectedTemplate) {
-      selectedTemplate = allTemplates[0];
+      throw new Error(`Brak szablonu certyfikatu przypisanego do modułu. Skontaktuj się z administratorem.`);
     }
 
     console.log(`🎨 Using template: ${selectedTemplate.name} (ID: ${selectedTemplate.id})`);
