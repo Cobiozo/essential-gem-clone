@@ -204,14 +204,27 @@ export const useCertificateGeneration = () => {
 
       const replacePlaceholders = (text: string): string => {
         return text
+          // Format z pojedynczymi nawiasami (używany w edytorze szablonów)
+          .replace(/\{userName\}/g, userName)
+          .replace(/\{user_name\}/g, userName)
+          .replace(/\{moduleTitle\}/g, moduleTitle)
+          .replace(/\{module_title\}/g, moduleTitle)
+          .replace(/\{completionDate\}/g, completionDate)
+          .replace(/\{completedDate\}/g, completionDate)
+          .replace(/\{completed_date\}/g, completionDate)
+          .replace(/\{date\}/g, completionDate)
+          // Format z podwójnymi nawiasami (zachowany dla kompatybilności)
           .replace(/\{\{userName\}\}/g, userName)
           .replace(/\{\{user_name\}\}/g, userName)
           .replace(/\{\{moduleTitle\}\}/g, moduleTitle)
           .replace(/\{\{module_title\}\}/g, moduleTitle)
+          .replace(/\{\{completionDate\}\}/g, completionDate)
           .replace(/\{\{completedDate\}\}/g, completionDate)
           .replace(/\{\{completed_date\}\}/g, completionDate)
           .replace(/\{\{date\}\}/g, completionDate);
       };
+
+      console.log('Rendering', elements.length, 'template elements...');
 
       for (const element of elements) {
         const x = (element.x || 0) * PX_TO_MM;
@@ -219,17 +232,24 @@ export const useCertificateGeneration = () => {
         const width = (element.width || 100) * PX_TO_MM;
         const height = (element.height || 50) * PX_TO_MM;
 
-        if (element.type === 'image' && element.src) {
+        console.log(`Processing element: type=${element.type}, x=${x.toFixed(1)}, y=${y.toFixed(1)}, hasImageUrl=${!!element.imageUrl}, hasContent=${!!element.content}`);
+
+        // Obsługa obrazów - używamy imageUrl (nie src)
+        if (element.type === 'image' && element.imageUrl) {
           try {
-            const imageData = await loadImageAsBase64(element.src);
+            console.log('Loading image from:', element.imageUrl);
+            const imageData = await loadImageAsBase64(element.imageUrl);
             if (imageData) {
               doc.addImage(imageData, 'PNG', x, y, width, height);
+              console.log('✅ Image added to PDF');
             }
           } catch (e) {
             console.warn('Could not load image:', e);
           }
-        } else if (element.type === 'text' && element.text) {
-          const text = replacePlaceholders(element.text);
+        } 
+        // Obsługa tekstu - używamy content (nie text), color (nie fill)
+        else if (element.type === 'text' && element.content) {
+          const text = replacePlaceholders(element.content);
           const fontSize = element.fontSize || 16;
           doc.setFontSize(fontSize * 0.75);
           
@@ -239,14 +259,13 @@ export const useCertificateGeneration = () => {
             doc.setFont('helvetica', 'normal');
           }
 
-          if (element.fill) {
-            const color = element.fill;
-            if (color.startsWith('#')) {
-              const r = parseInt(color.slice(1, 3), 16);
-              const g = parseInt(color.slice(3, 5), 16);
-              const b = parseInt(color.slice(5, 7), 16);
-              doc.setTextColor(r, g, b);
-            }
+          // Używamy color (nie fill)
+          const colorValue = element.color || element.fill;
+          if (colorValue && colorValue.startsWith('#')) {
+            const r = parseInt(colorValue.slice(1, 3), 16);
+            const g = parseInt(colorValue.slice(3, 5), 16);
+            const b = parseInt(colorValue.slice(5, 7), 16);
+            doc.setTextColor(r, g, b);
           }
 
           const textAlign = element.align || 'left';
@@ -261,17 +280,32 @@ export const useCertificateGeneration = () => {
             align: textAlign as 'left' | 'center' | 'right',
             maxWidth: width
           });
-        } else if (element.type === 'rect') {
-          if (element.fill) {
-            const color = element.fill;
-            if (color.startsWith('#')) {
-              const r = parseInt(color.slice(1, 3), 16);
-              const g = parseInt(color.slice(3, 5), 16);
-              const b = parseInt(color.slice(5, 7), 16);
-              doc.setFillColor(r, g, b);
-            }
+          console.log('✅ Text added:', text.substring(0, 30) + (text.length > 30 ? '...' : ''));
+        } 
+        // Obsługa prostokątów - używamy color (nie fill)
+        else if (element.type === 'rect') {
+          const colorValue = element.color || element.fill;
+          if (colorValue && colorValue.startsWith('#')) {
+            const r = parseInt(colorValue.slice(1, 3), 16);
+            const g = parseInt(colorValue.slice(3, 5), 16);
+            const b = parseInt(colorValue.slice(5, 7), 16);
+            doc.setFillColor(r, g, b);
             doc.rect(x, y, width, height, 'F');
+            console.log('✅ Rectangle added');
           }
+        }
+        // Obsługa linii
+        else if (element.type === 'line') {
+          const colorValue = element.color || element.stroke || '#000000';
+          if (colorValue.startsWith('#')) {
+            const r = parseInt(colorValue.slice(1, 3), 16);
+            const g = parseInt(colorValue.slice(3, 5), 16);
+            const b = parseInt(colorValue.slice(5, 7), 16);
+            doc.setDrawColor(r, g, b);
+          }
+          doc.setLineWidth(element.strokeWidth || 1);
+          doc.line(x, y, x + width, y);
+          console.log('✅ Line added');
         }
       }
 
