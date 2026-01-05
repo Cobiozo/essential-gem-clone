@@ -35,6 +35,7 @@ interface TemplateElement {
   lineHeight?: number;
   letterSpacing?: number;
   opacity?: number;
+  noWrap?: boolean;
 }
 
 interface CertificateTemplate {
@@ -143,6 +144,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
   const [charSpacing, setCharSpacing] = useState(0);
   const [opacity, setOpacity] = useState(100);
+  const [noWrap, setNoWrap] = useState(false);
   const [previewElements, setPreviewElements] = useState<TemplateElement[]>([]);
   
   const [uploading, setUploading] = useState(false);
@@ -309,6 +311,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           textDecoration: textObj.underline ? 'underline' : 'none',
           letterSpacing: Math.round((textObj.charSpacing || 0) / 10),
           opacity: Math.round((textObj.opacity ?? 1) * 100),
+          noWrap: (textObj as any).noWrap || false,
         };
       } else if (obj.type === 'image') {
         const imgObj = obj as FabricImage;
@@ -467,6 +470,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       opacity: opacity / 100,
       textAlign: textAlign,
     });
+    
+    // Store noWrap as custom property
+    (selectedObject as any).noWrap = noWrap;
 
     fabricCanvas?.renderAll();
   };
@@ -482,6 +488,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       setCharSpacing(Math.round((selectedObject.charSpacing || 0) / 10));
       setOpacity(Math.round((selectedObject.opacity ?? 1) * 100));
       setTextAlign(selectedObject.textAlign || 'left');
+      setNoWrap((selectedObject as any).noWrap || false);
     }
   }, [selectedObject]);
 
@@ -860,6 +867,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           textDecoration: textObj.underline ? 'underline' : 'none',
           letterSpacing: Math.round((textObj.charSpacing || 0) / 10),
           opacity: Math.round((textObj.opacity ?? 1) * 100),
+          noWrap: (textObj as any).noWrap || false,
+          width: (textObj.width || 200) * (textObj.scaleX || 1),
+          height: (textObj.height || 50) * (textObj.scaleY || 1),
         };
       } else if (obj.type === 'image') {
         const imgObj = obj as FabricImage;
@@ -1219,6 +1229,19 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
                       className="mt-2"
                     />
                   </div>
+                </div>
+                
+                <div className="flex items-center space-x-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="noWrap"
+                    checked={noWrap}
+                    onChange={(e) => setNoWrap(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="noWrap" className="text-sm font-normal cursor-pointer">
+                    Tekst w jednej linii (bez zawijania) - dla imion i nazwisk
+                  </Label>
                 </div>
 
                 <Button onClick={updateSelectedText} size="sm" className="w-full sm:w-auto">

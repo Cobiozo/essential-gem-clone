@@ -329,10 +329,17 @@ export const useCertificateGeneration = () => {
             textX = x + width;
           }
 
-          doc.text(text, textX, y + fontSizeVal * PX_TO_MM, { 
-            align: textAlign as 'left' | 'center' | 'right',
-            maxWidth: width
-          });
+          // Obsługa noWrap - tekst w jednej linii bez zawijania
+          if (element.noWrap) {
+            doc.text(text, textX, y + fontSizeVal * PX_TO_MM, { 
+              align: textAlign as 'left' | 'center' | 'right'
+            });
+          } else {
+            doc.text(text, textX, y + fontSizeVal * PX_TO_MM, { 
+              align: textAlign as 'left' | 'center' | 'right',
+              maxWidth: width > 0 ? width : undefined
+            });
+          }
           console.log('✅ Text added:', text.substring(0, 30) + (text.length > 30 ? '...' : ''));
         }
         // Obsługa prostokątów - używamy color (nie fill)
