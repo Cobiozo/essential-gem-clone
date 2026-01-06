@@ -104,6 +104,40 @@ const MyAccount = () => {
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
   const [dailySignalVisible, setDailySignalVisible] = useState(false);
   
+  // Active tab state - controlled by URL parameter
+  const [activeTab, setActiveTab] = useState('profile');
+  
+  // Pending approvals count for badge
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  
+  // Handle URL tab parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
+  
+  // Fetch pending approvals count for badge
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      if (!profile?.eq_id) return;
+      
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('upline_eq_id', profile.eq_id)
+        .eq('guardian_approved', false);
+      
+      setPendingApprovalsCount(count || 0);
+    };
+    
+    if (isPartner || isSpecjalista) {
+      fetchPendingCount();
+    }
+  }, [profile?.eq_id, isPartner, isSpecjalista]);
+  
   // Fetch visibility settings from existing database tables
   useEffect(() => {
     const fetchVisibilitySettings = async () => {
@@ -459,7 +493,7 @@ const MyAccount = () => {
             </Alert>
           )}
 
-          <Tabs defaultValue="profile" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${visibleTabCount}, minmax(0, 1fr))` }}>
               {visibleTabs.profile && (
                 <TabsTrigger value="profile">
@@ -468,9 +502,14 @@ const MyAccount = () => {
                 </TabsTrigger>
               )}
               {visibleTabs.teamContacts && (
-                <TabsTrigger value="team-contacts" disabled={mustCompleteProfile}>
+                <TabsTrigger value="team-contacts" disabled={mustCompleteProfile} className="relative">
                   <Users className="w-4 h-4 mr-2" />
                   Pure – Kontakty
+                  {pendingApprovalsCount > 0 && (
+                    <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1 flex items-center justify-center text-xs">
+                      {pendingApprovalsCount > 9 ? '9+' : pendingApprovalsCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               )}
               {visibleTabs.privateChats && (

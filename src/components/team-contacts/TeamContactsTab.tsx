@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +54,7 @@ export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
+  const location = useLocation();
   
   // Clients only see the specialist search tab, not private/team contacts
   const clientOnlyView = isClient && !isPartner && !isSpecjalista && !isAdmin;
@@ -70,6 +72,19 @@ export const TeamContactsTab: React.FC = () => {
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
   const [confirmReject, setConfirmReject] = useState<PendingApproval | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Handle URL subTab parameter for deep linking from notifications
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const subTab = urlParams.get('subTab');
+    if (subTab === 'team') {
+      setActiveTab('team');
+    } else if (subTab === 'private') {
+      setActiveTab('private');
+    } else if (subTab === 'search') {
+      setActiveTab('search');
+    }
+  }, [location.search]);
 
   // Fetch pending approvals for guardian
   const fetchPendingApprovals = async () => {
