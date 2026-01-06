@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export const UserNotificationCenter = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
@@ -173,7 +175,14 @@ export const UserNotificationCenter = () => {
                             ? 'bg-background' 
                             : 'bg-primary/5 border-primary/20'
                         }`}
-                        onClick={() => !notification.is_read && markAsRead(notification.id)}
+                        onClick={async () => {
+                          if (!notification.is_read) {
+                            await markAsRead(notification.id);
+                          }
+                          if (notification.link) {
+                            navigate(notification.link);
+                          }
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <div 
