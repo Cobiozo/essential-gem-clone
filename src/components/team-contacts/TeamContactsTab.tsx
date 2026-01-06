@@ -108,10 +108,8 @@ export const TeamContactsTab: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'team') {
-      fetchPendingApprovals();
-    }
-  }, [activeTab, profile?.eq_id]);
+    fetchPendingApprovals();
+  }, [profile?.eq_id]);
 
   // Update filters when tab changes
   useEffect(() => {
