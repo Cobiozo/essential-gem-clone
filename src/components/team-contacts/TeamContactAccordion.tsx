@@ -57,7 +57,12 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const getStatusBadge = (contact: TeamContact) => {
+  const getStatusBadge = (contact: TeamContact, isTeamMember: boolean) => {
+    // Dla team_member nie pokazuj statusu - tylko rolę
+    if (isTeamMember) {
+      return null;
+    }
+    
     const statusLabels: Record<string, { label: string; className: string }> = {
       active: { label: 'Klient', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
       observation: { label: 'Obserwacja', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
@@ -130,7 +135,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                         {contact.first_name} {contact.last_name}
                       </h3>
                       {getRoleBadge(contact.role)}
-                      {getStatusBadge(contact)}
+                      {getStatusBadge(contact, contactType === 'team_member')}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
@@ -240,23 +245,25 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </div>
                     </div>
 
-                    {/* Produkty */}
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Package className="w-4 h-4" /> Produkty
-                      </h4>
-                      <div className="space-y-1 text-sm">
-                        {contact.products && (
-                          <p><span className="text-muted-foreground">Produkty:</span> {contact.products}</p>
-                        )}
-                        {contact.purchased_product && (
-                          <p><span className="text-muted-foreground">Zakupiony:</span> {contact.purchased_product}</p>
-                        )}
-                        {contact.purchase_date && (
-                          <p><span className="text-muted-foreground">Data zakupu:</span> {formatDate(contact.purchase_date)}</p>
-                        )}
+                    {/* Produkty - tylko dla prywatnych kontaktów */}
+                    {contactType !== 'team_member' && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Package className="w-4 h-4" /> Produkty
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          {contact.products && (
+                            <p><span className="text-muted-foreground">Produkty:</span> {contact.products}</p>
+                          )}
+                          {contact.purchased_product && (
+                            <p><span className="text-muted-foreground">Zakupiony:</span> {contact.purchased_product}</p>
+                          )}
+                          {contact.purchase_date && (
+                            <p><span className="text-muted-foreground">Data zakupu:</span> {formatDate(contact.purchase_date)}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Przypomnienia */}
                     <div className="space-y-2">
