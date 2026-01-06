@@ -121,6 +121,11 @@ const Auth = () => {
   const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
 
   useEffect(() => {
+    // NIE przekierowuj gdy dialog potwierdzenia email jest otwarty
+    if (showEmailConfirmDialog) {
+      return;
+    }
+    
     if (user) {
       // Redirect to my-account if profile needs completion, otherwise to home
       navigate('/');
@@ -133,7 +138,7 @@ const Auth = () => {
         description: 'Twoje konto zostało pomyślnie aktywowane. Możesz się teraz zalogować.',
       });
     }
-  }, [user, navigate]);
+  }, [user, navigate, showEmailConfirmDialog]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -511,7 +516,7 @@ const Auth = () => {
           <AlertDialogAction 
             onClick={() => {
               setShowEmailConfirmDialog(false);
-              setRegistrationSuccess(true);
+              navigate('/');
             }}
             className="w-full"
           >
