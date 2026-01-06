@@ -8,14 +8,12 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, Check, CheckCheck, HandHelping, MessageSquare, Info, BookOpen } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 
 export const NotificationBell: React.FC = () => {
-  const { t } = useLanguage();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
@@ -65,12 +63,12 @@ export const NotificationBell: React.FC = () => {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h4 className="font-semibold text-sm">
-            {t('notifications.title') || 'Powiadomienia'}
+            Powiadomienia
           </h4>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={markAllAsRead}>
               <CheckCheck className="w-4 h-4 mr-1" />
-              {t('notifications.markAllRead') || 'Oznacz jako przeczytane'}
+              Oznacz wszystkie
             </Button>
           )}
         </div>
@@ -78,12 +76,12 @@ export const NotificationBell: React.FC = () => {
         <ScrollArea className="h-[300px]">
           {loading ? (
             <div className="p-4 text-center text-muted-foreground text-sm">
-              {t('common.loading') || 'Ładowanie...'}
+              Ładowanie...
             </div>
           ) : notifications.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">{t('notifications.empty') || 'Brak powiadomień'}</p>
+              <p className="text-sm">Brak powiadomień</p>
             </div>
           ) : (
             <div className="divide-y">

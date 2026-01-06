@@ -48,6 +48,12 @@ interface PendingApproval {
   eq_id: string | null;
   guardian_approved: boolean;
   created_at: string;
+  phone_number: string | null;
+  role: string;
+  specialization: string | null;
+  profile_description: string | null;
+  city: string | null;
+  country: string | null;
 }
 
 export const TeamContactsTab: React.FC = () => {
@@ -94,7 +100,7 @@ export const TeamContactsTab: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, email, eq_id, guardian_approved, created_at')
+        .select('user_id, first_name, last_name, email, eq_id, guardian_approved, created_at, phone_number, role, specialization, profile_description, city, country')
         .eq('upline_eq_id', profile.eq_id)
         .eq('guardian_approved', false);
       
@@ -380,39 +386,69 @@ export const TeamContactsTab: React.FC = () => {
                     <Clock className="w-4 h-4" />
                     Oczekujące zatwierdzenia ({pendingApprovals.length})
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {pendingApprovals.map((pending) => (
                       <div 
                         key={pending.user_id} 
-                        className="flex items-center justify-between bg-white dark:bg-background rounded-md p-3 border"
+                        className="bg-white dark:bg-background rounded-md p-4 border"
                       >
-                        <div>
-                          <p className="font-medium">
-                            {pending.first_name} {pending.last_name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {pending.email} {pending.eq_id && `• ${pending.eq_id}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setConfirmReject(pending)}
-                            disabled={approvalLoading}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Odrzuć
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            onClick={() => setConfirmApproval(pending)}
-                            disabled={approvalLoading}
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Zatwierdź
-                          </Button>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-lg">
+                                {pending.first_name} {pending.last_name}
+                              </p>
+                              <Badge variant={pending.role === 'partner' ? 'outline' : pending.role === 'specjalista' ? 'default' : 'secondary'}>
+                                {pending.role === 'partner' ? 'Partner' : pending.role === 'specjalista' ? 'Specjalista' : 'Klient'}
+                              </Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                              <p><span className="text-muted-foreground">Email:</span> {pending.email}</p>
+                              {pending.phone_number && (
+                                <p><span className="text-muted-foreground">Telefon:</span> {pending.phone_number}</p>
+                              )}
+                              {pending.eq_id && (
+                                <p><span className="text-muted-foreground">EQ ID:</span> <span className="font-mono">{pending.eq_id}</span></p>
+                              )}
+                              {pending.city && (
+                                <p><span className="text-muted-foreground">Lokalizacja:</span> {pending.city}{pending.country ? `, ${pending.country}` : ''}</p>
+                              )}
+                              {pending.specialization && (
+                                <p><span className="text-muted-foreground">Specjalizacja:</span> {pending.specialization}</p>
+                              )}
+                              <p><span className="text-muted-foreground">Data rejestracji:</span> {new Date(pending.created_at).toLocaleDateString('pl-PL')}</p>
+                            </div>
+                            
+                            {pending.profile_description && (
+                              <div className="mt-2">
+                                <p className="text-sm text-muted-foreground">Opis profilu:</p>
+                                <p className="text-sm bg-muted/50 p-2 rounded-md mt-1">{pending.profile_description}</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-col sm:flex-row items-center gap-2">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setConfirmReject(pending)}
+                              disabled={approvalLoading}
+                              className="text-destructive hover:text-destructive w-full sm:w-auto"
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Odrzuć
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              onClick={() => setConfirmApproval(pending)}
+                              disabled={approvalLoading}
+                              className="w-full sm:w-auto"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Zatwierdź
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
