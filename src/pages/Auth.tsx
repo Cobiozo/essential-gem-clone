@@ -7,7 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowLeft, Check, X, Mail } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Password requirement indicator component
 const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
@@ -91,6 +100,7 @@ const Auth = () => {
     hasNumber: false,
     hasSpecial: false
   });
+  const [showEmailConfirmDialog, setShowEmailConfirmDialog] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -369,12 +379,7 @@ const Auth = () => {
 
         // Show success state
         setRegisteredEmail(email);
-        setRegistrationSuccess(true);
-        
-        toast({
-          title: "Rejestracja pomyślna",
-          description: "Sprawdź swoją skrzynkę email i aktywuj konto.",
-        });
+        setShowEmailConfirmDialog(true);
         
         // Clear form after successful registration
         setPassword('');
@@ -744,6 +749,44 @@ const Auth = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Email Confirmation Dialog */}
+      <AlertDialog open={showEmailConfirmDialog} onOpenChange={setShowEmailConfirmDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-green-600" />
+              Rejestracja pomyślna!
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-left space-y-3">
+                <p>
+                  Na adres <strong className="text-foreground">{registeredEmail}</strong> została wysłana 
+                  wiadomość z linkiem aktywacyjnym.
+                </p>
+                <p>
+                  <strong className="text-foreground">Przejdź teraz do swojej skrzynki pocztowej</strong> i kliknij 
+                  w link, aby potwierdzić rejestrację i aktywować konto.
+                </p>
+                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                  ⚠️ Jeśli nie widzisz wiadomości w skrzynce głównej, sprawdź folder SPAM lub Niechciane.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowEmailConfirmDialog(false);
+                setRegistrationSuccess(true);
+              }}
+              className="w-full"
+            >
+              Zrozumiałem
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
