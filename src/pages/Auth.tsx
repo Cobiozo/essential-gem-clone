@@ -482,9 +482,50 @@ const Auth = () => {
     }
   };
 
+  // Email Confirmation Dialog - must be rendered before early returns
+  const emailConfirmDialog = (
+    <AlertDialog open={showEmailConfirmDialog} onOpenChange={setShowEmailConfirmDialog}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-green-600" />
+            Rejestracja pomyślna!
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="text-left space-y-3">
+              <p>
+                Na adres <strong className="text-foreground">{registeredEmail}</strong> została wysłana 
+                wiadomość z linkiem aktywacyjnym.
+              </p>
+              <p>
+                <strong className="text-foreground">Przejdź teraz do swojej skrzynki pocztowej</strong> i kliknij 
+                w link, aby potwierdzić rejestrację i aktywować konto.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400 font-medium">
+                ⚠️ Jeśli nie widzisz wiadomości w skrzynce głównej, sprawdź folder SPAM lub Niechciane.
+              </p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction 
+            onClick={() => {
+              setShowEmailConfirmDialog(false);
+              setRegistrationSuccess(true);
+            }}
+            className="w-full"
+          >
+            Zrozumiałem
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (registrationSuccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        {emailConfirmDialog}
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Sprawdź swoją skrzynkę e-mail</CardTitle>
@@ -750,43 +791,7 @@ const Auth = () => {
         </Tabs>
       </div>
 
-      {/* Email Confirmation Dialog */}
-      <AlertDialog open={showEmailConfirmDialog} onOpenChange={setShowEmailConfirmDialog}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-green-600" />
-              Rejestracja pomyślna!
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="text-left space-y-3">
-                <p>
-                  Na adres <strong className="text-foreground">{registeredEmail}</strong> została wysłana 
-                  wiadomość z linkiem aktywacyjnym.
-                </p>
-                <p>
-                  <strong className="text-foreground">Przejdź teraz do swojej skrzynki pocztowej</strong> i kliknij 
-                  w link, aby potwierdzić rejestrację i aktywować konto.
-                </p>
-                <p className="text-amber-600 dark:text-amber-400 font-medium">
-                  ⚠️ Jeśli nie widzisz wiadomości w skrzynce głównej, sprawdź folder SPAM lub Niechciane.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction 
-              onClick={() => {
-                setShowEmailConfirmDialog(false);
-                setRegistrationSuccess(true);
-              }}
-              className="w-full"
-            >
-              Zrozumiałem
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {emailConfirmDialog}
     </div>
   );
 };
