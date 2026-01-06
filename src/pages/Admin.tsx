@@ -48,6 +48,8 @@ import { NotificationSystemManagement } from '@/components/admin/NotificationSys
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
+import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
+import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -353,6 +355,10 @@ const Admin = () => {
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   const [userFilterTab, setUserFilterTab] = useState<'all' | 'active' | 'pending'>('pending');
   
+  // Bulk user selection state
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [emailTemplates, setEmailTemplates] = useState<{ id: string; name: string }[]>([]);
+  
   // Enable security preventions but allow text selection for CMS editing
   useSecurityPreventions(false);
 
@@ -624,6 +630,126 @@ const Admin = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Fetch email templates for bulk actions
+  const fetchEmailTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_templates')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setEmailTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching email templates:', error);
+    }
+  };
+
+  // Bulk user actions
+  const handleUserSelectionChange = (userId: string, selected: boolean) => {
+    setSelectedUserIds(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(userId);
+      } else {
+        newSet.delete(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const clearUserSelection = () => {
+    setSelectedUserIds(new Set());
+  };
+
+  const handleBulkApprove = async () => {
+    const selectedIds = Array.from(selectedUserIds);
+    let successCount = 0;
+    
+    for (const userId of selectedIds) {
+      try {
+        const { data, error } = await supabase.rpc('admin_approve_user', {
+          target_user_id: userId,
+          bypass_guardian: true
+        });
+        
+        if (!error && data) {
+          successCount++;
+        }
+      } catch (error) {
+        console.error(`Error approving user ${userId}:`, error);
+      }
+    }
+    
+    if (successCount > 0) {
+      toast({
+        title: "Sukces",
+        description: `Zatwierdzono ${successCount} z ${selectedIds.length} użytkowników.`,
+      });
+      await fetchUsers();
+      clearUserSelection();
+    }
+  };
+
+  const handleBulkChangeRole = async (role: 'user' | 'client' | 'admin' | 'partner' | 'specjalista') => {
+    const selectedIds = Array.from(selectedUserIds);
+    let successCount = 0;
+    
+    for (const userId of selectedIds) {
+      try {
+        const { data, error } = await supabase.rpc('admin_update_user_role', {
+          target_user_id: userId,
+          target_role: role
+        });
+        
+        if (!error && data) {
+          successCount++;
+        }
+      } catch (error) {
+        console.error(`Error changing role for user ${userId}:`, error);
+      }
+    }
+    
+    if (successCount > 0) {
+      toast({
+        title: "Sukces",
+        description: `Zmieniono rolę ${successCount} z ${selectedIds.length} użytkowników.`,
+      });
+      await fetchUsers();
+      clearUserSelection();
+    }
+  };
+
+  const handleBulkSendEmail = async (templateId: string) => {
+    const selectedIds = Array.from(selectedUserIds);
+    let successCount = 0;
+    
+    for (const userId of selectedIds) {
+      try {
+        const { error } = await supabase.functions.invoke('send-single-email', {
+          body: {
+            template_id: templateId,
+            recipient_user_id: userId
+          }
+        });
+        
+        if (!error) {
+          successCount++;
+        }
+      } catch (error) {
+        console.error(`Error sending email to user ${userId}:`, error);
+      }
+    }
+    
+    toast({
+      title: successCount > 0 ? "Sukces" : "Błąd",
+      description: `Wysłano email do ${successCount} z ${selectedIds.length} użytkowników.`,
+      variant: successCount > 0 ? "default" : "destructive",
+    });
+    clearUserSelection();
   };
 
   const resetUserPassword = (userEmail: string) => {
@@ -1774,6 +1900,7 @@ const Admin = () => {
      }
     if (activeTab === 'users' && isAdmin) {
       fetchUsers();
+      fetchEmailTemplates();
     }
     if (activeTab === 'pages' && isAdmin) {
       fetchPages();
@@ -4065,46 +4192,64 @@ const Admin = () => {
                        </div>
                      </div>
 
-                     {/* Results count */}
-                     <p className="text-xs text-muted-foreground">
-                       {userSearchQuery || userFilterTab !== 'all'
-                         ? `Wyświetlanie ${filteredAndSortedUsers.length} z ${users.length} użytkowników`
-                         : `Łącznie: ${users.length} użytkowników`
-                       }
-                     </p>
-                     
-                     {/* User List */}
-                     {filteredAndSortedUsers.length === 0 ? (
-                       <div className="py-8 text-center text-muted-foreground border rounded-lg">
-                         {userSearchQuery 
-                           ? t('admin.noUsersFound') 
-                           : userFilterTab === 'pending'
-                             ? 'Brak użytkowników oczekujących na zatwierdzenie'
-                             : userFilterTab === 'active'
-                               ? 'Brak aktywnych użytkowników'
-                               : t('admin.noUsers')
-                         }
-                       </div>
-                     ) : (
-                       <div className="space-y-2">
-                         {filteredAndSortedUsers.map((userProfile) => (
-                           <CompactUserCard
-                             key={userProfile.id}
-                             userProfile={userProfile}
-                             currentUserId={user?.id}
-                             onConfirmEmail={confirmUserEmail}
-                             onEditUser={setEditingUserProfile}
-                             onResetPassword={resetUserPassword}
-                             onToggleStatus={toggleUserStatus}
-                             onDeleteUser={deleteUser}
-                             onAdminApprove={adminApproveUser}
-                             onUpdateRole={updateUserRole}
-                             isDeleting={deleteLoading}
-                             isResettingPassword={passwordLoading}
-                           />
-                         ))}
-                       </div>
-                     )}
+                      {/* Results count and legend */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          {userSearchQuery || userFilterTab !== 'all'
+                            ? `Wyświetlanie ${filteredAndSortedUsers.length} z ${users.length} użytkowników`
+                            : `Łącznie: ${users.length} użytkowników`
+                          }
+                        </p>
+                        <UserStatusLegend />
+                      </div>
+
+                      {/* Bulk Actions */}
+                      {selectedUserIds.size > 0 && (
+                        <BulkUserActions
+                          selectedCount={selectedUserIds.size}
+                          onClearSelection={clearUserSelection}
+                          onBulkApprove={handleBulkApprove}
+                          onBulkChangeRole={handleBulkChangeRole}
+                          onBulkSendEmail={handleBulkSendEmail}
+                          emailTemplates={emailTemplates}
+                        />
+                      )}
+                      
+                      {/* User List */}
+                      {filteredAndSortedUsers.length === 0 ? (
+                        <div className="py-8 text-center text-muted-foreground border rounded-lg">
+                          {userSearchQuery 
+                            ? t('admin.noUsersFound') 
+                            : userFilterTab === 'pending'
+                              ? 'Brak użytkowników oczekujących na zatwierdzenie'
+                              : userFilterTab === 'active'
+                                ? 'Brak aktywnych użytkowników'
+                                : t('admin.noUsers')
+                          }
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredAndSortedUsers.map((userProfile) => (
+                            <CompactUserCard
+                              key={userProfile.id}
+                              userProfile={userProfile}
+                              currentUserId={user?.id}
+                              onConfirmEmail={confirmUserEmail}
+                              onEditUser={setEditingUserProfile}
+                              onResetPassword={resetUserPassword}
+                              onToggleStatus={toggleUserStatus}
+                              onDeleteUser={deleteUser}
+                              onAdminApprove={adminApproveUser}
+                              onUpdateRole={updateUserRole}
+                              isDeleting={deleteLoading}
+                              isResettingPassword={passwordLoading}
+                              isSelected={selectedUserIds.has(userProfile.user_id)}
+                              onSelectionChange={handleUserSelectionChange}
+                              showCheckbox={true}
+                            />
+                          ))}
+                        </div>
+                      )}
                    </div>
                 )}
               </CardContent>

@@ -59,6 +59,9 @@ interface CompactUserCardProps {
   onUpdateRole: (userId: string, role: 'user' | 'client' | 'admin' | 'partner' | 'specjalista') => void;
   isDeleting?: boolean;
   isResettingPassword?: boolean;
+  isSelected?: boolean;
+  onSelectionChange?: (userId: string, selected: boolean) => void;
+  showCheckbox?: boolean;
 }
 
 const getRoleDisplayName = (role: string): string => {
@@ -116,6 +119,8 @@ const StatusDot: React.FC<{ status: UserStatus }> = ({ status }) => {
   );
 };
 
+import { Checkbox } from '@/components/ui/checkbox';
+
 export const CompactUserCard: React.FC<CompactUserCardProps> = ({
   userProfile,
   currentUserId,
@@ -128,6 +133,9 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
   onUpdateRole,
   isDeleting,
   isResettingPassword,
+  isSelected = false,
+  onSelectionChange,
+  showCheckbox = false,
 }) => {
   const status = getUserStatus(userProfile);
   const isCurrentUser = userProfile.user_id === currentUserId;
@@ -136,7 +144,16 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
   const needsGuardianFirst = userProfile.guardian_approved === false;
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-card border rounded-lg hover:shadow-sm transition-shadow">
+    <div className={`flex items-center gap-3 p-3 bg-card border rounded-lg hover:shadow-sm transition-shadow ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
+      {/* Selection checkbox */}
+      {showCheckbox && (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(checked) => onSelectionChange?.(userProfile.user_id, !!checked)}
+          className="flex-shrink-0"
+        />
+      )}
+
       {/* Status dot */}
       <StatusDot status={status} />
 
