@@ -257,13 +257,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate activation token using Supabase Auth
     let activationLink = '';
-    const redirectUrl = `${req.headers.get("origin") || "https://xzlhssqqbajqhnsmbucf.lovableproject.com"}/auth?activated=true`;
+    const baseOrigin = req.headers.get("origin") || "https://xzlhssqqbajqhnsmbucf.lovableproject.com";
+    
+    // The redirect URL will go through our activate-email function first to set email_activated=true
+    // Then Supabase will redirect to /auth?activated=true
+    const finalRedirectUrl = `${baseOrigin}/auth?activated=true`;
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: "signup",
       email: requestData.email,
       options: {
-        redirectTo: redirectUrl,
+        redirectTo: finalRedirectUrl,
       },
     });
 
@@ -274,7 +278,7 @@ const handler = async (req: Request): Promise<Response> => {
         type: "magiclink",
         email: requestData.email,
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: finalRedirectUrl,
         },
       });
 
@@ -286,6 +290,11 @@ const handler = async (req: Request): Promise<Response> => {
     } else {
       activationLink = linkData.properties?.action_link || "";
     }
+    
+    // Wrap the Supabase activation link in our custom activate-email function
+    // This ensures email_activated is set to true when user clicks the link
+    const activateEmailUrl = `${supabaseUrl}/functions/v1/activate-email?user_id=${requestData.userId}&supabase_link=${encodeURIComponent(activationLink)}`;
+    activationLink = activateEmailUrl;
 
     // Replace template variables
     let htmlBody = template.body_html

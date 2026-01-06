@@ -75,6 +75,8 @@ interface UserProfile {
   admin_approved_at?: string | null;
   upline_eq_id?: string | null;
   guardian_name?: string | null;
+  email_activated?: boolean;
+  email_activated_at?: string | null;
 }
 
 interface Page {
@@ -4064,7 +4066,7 @@ const Admin = () => {
                                   <Badge variant={userProfile.is_active ? 'default' : 'destructive'} className="text-xs">
                                     {userProfile.is_active ? 'Aktywny' : 'Nieaktywny'}
                                   </Badge>
-                                  {userProfile.email_confirmed_at ? (
+                                  {userProfile.email_activated ? (
                                     <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
                                       <CheckCircle className="w-3 h-3 mr-1" />
                                       Email potwierdzony
@@ -4101,9 +4103,9 @@ const Admin = () => {
                                     EQ ID: {userProfile.eq_id}
                                   </p>
                                 )}
-                                {userProfile.email_confirmed_at && (
+                                {userProfile.email_activated && userProfile.email_activated_at && (
                                   <p className="text-xs text-muted-foreground">
-                                    Email potwierdzony: {new Date(userProfile.email_confirmed_at).toLocaleDateString('pl-PL')}
+                                    Email potwierdzony: {new Date(userProfile.email_activated_at).toLocaleDateString('pl-PL')}
                                   </p>
                                 )}
                                 {userProfile.guardian_name && (

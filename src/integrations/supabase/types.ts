@@ -2271,6 +2271,8 @@ export type Database = {
           country: string | null
           created_at: string
           email: string
+          email_activated: boolean | null
+          email_activated_at: string | null
           eq_id: string | null
           first_name: string | null
           guardian_approved: boolean | null
@@ -2301,6 +2303,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           email: string
+          email_activated?: boolean | null
+          email_activated_at?: string | null
           eq_id?: string | null
           first_name?: string | null
           guardian_approved?: boolean | null
@@ -2331,6 +2335,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string
+          email_activated?: boolean | null
+          email_activated_at?: string | null
           eq_id?: string | null
           first_name?: string | null
           guardian_approved?: boolean | null
@@ -3431,6 +3437,8 @@ export type Database = {
           confirmation_sent_at: string
           created_at: string
           email: string
+          email_activated: boolean
+          email_activated_at: string
           email_confirmed_at: string
           eq_id: string
           first_name: string
