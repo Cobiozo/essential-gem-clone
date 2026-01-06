@@ -365,7 +365,23 @@ const Auth = () => {
           variant: "destructive",
         });
       } else {
-        // Send activation email via edge function
+        // NATYCHMIAST pokaż dialog - PRZED jakimkolwiek await!
+        // To blokuje useEffect przed przekierowaniem
+        setRegisteredEmail(email);
+        setShowEmailConfirmDialog(true);
+        
+        // Clear form after successful registration
+        setPassword('');
+        setConfirmPassword('');
+        setFirstName('');
+        setLastName('');
+        setPhoneNumber('');
+        setEqId('');
+        setRole('');
+        setSelectedGuardian(null);
+        setError('');
+
+        // Send activation email via edge function (w tle)
         try {
           const { data: userData } = await supabase.auth.getUser();
           await supabase.functions.invoke('send-activation-email', {
@@ -381,21 +397,6 @@ const Auth = () => {
           console.error('Error sending activation email:', emailError);
           // Don't block registration if email fails
         }
-
-        // Show success state
-        setRegisteredEmail(email);
-        setShowEmailConfirmDialog(true);
-        
-        // Clear form after successful registration
-        setPassword('');
-        setConfirmPassword('');
-        setFirstName('');
-        setLastName('');
-        setPhoneNumber('');
-        setEqId('');
-        setRole('');
-        setSelectedGuardian(null);
-        setError('');
       }
     } catch (error) {
       console.error('Signup error:', error);
