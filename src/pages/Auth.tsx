@@ -7,7 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Check, X } from 'lucide-react';
+
+// Password requirement indicator component
+const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
+  <div className={`flex items-center gap-1.5 ${met ? 'text-green-600' : 'text-muted-foreground'}`}>
+    {met ? (
+      <Check className="h-3 w-3" />
+    ) : (
+      <X className="h-3 w-3 text-destructive" />
+    )}
+    <span>{text}</span>
+  </div>
+);
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,7 +48,7 @@ const getPolishErrorMessage = (error: any): string => {
     return 'Użytkownik z tym adresem email już istnieje';
   }
   if (errorMessage.includes('weak password') || errorMessage.includes('password')) {
-    return 'Hasło jest za słabe. Użyj minimum 6 znaków';
+    return 'Hasło nie spełnia wymagań bezpieczeństwa (min. 8 znaków, wielka i mała litera, cyfra, znak specjalny)';
   }
   if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
     return 'Nieprawidłowy format adresu email';
@@ -72,10 +84,31 @@ const Auth = () => {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [resendingEmail, setResendingEmail] = useState(false);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecial: false
+  });
   const { signIn, signUp, user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Validate password and update requirements state
+  const validatePassword = (pwd: string) => {
+    setPasswordRequirements({
+      minLength: pwd.length >= 8,
+      hasUppercase: /[A-Z]/.test(pwd),
+      hasLowercase: /[a-z]/.test(pwd),
+      hasNumber: /[0-9]/.test(pwd),
+      hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)
+    });
+  };
+
+  // Check if all password requirements are met
+  const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
 
   useEffect(() => {
     if (user) {
@@ -153,6 +186,18 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Check password requirements
+    if (!isPasswordValid) {
+      setError('Hasło nie spełnia wszystkich wymagań bezpieczeństwa');
+      toast({
+        title: "Błąd rejestracji",
+        description: "Hasło nie spełnia wymagań bezpieczeństwa",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
 
     // Check if passwords match
     if (password !== confirmPassword) {
@@ -653,11 +698,23 @@ const Auth = () => {
                       id="signup-password"
                       type="password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        validatePassword(e.target.value);
+                      }}
                       required
                       disabled={loading}
-                      minLength={6}
+                      minLength={8}
                     />
+                    {/* Password requirements checklist */}
+                    <div className="text-xs space-y-0.5 mt-2 p-2 bg-muted/50 rounded-md">
+                      <p className="font-medium text-muted-foreground mb-1">Wymagania hasła:</p>
+                      <PasswordRequirement met={passwordRequirements.minLength} text="Minimum 8 znaków" />
+                      <PasswordRequirement met={passwordRequirements.hasUppercase} text="Minimum 1 wielka litera (A-Z)" />
+                      <PasswordRequirement met={passwordRequirements.hasLowercase} text="Minimum 1 mała litera (a-z)" />
+                      <PasswordRequirement met={passwordRequirements.hasNumber} text="Minimum 1 cyfra (0-9)" />
+                      <PasswordRequirement met={passwordRequirements.hasSpecial} text="Minimum 1 znak specjalny (!@#$%...)" />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
@@ -668,7 +725,7 @@ const Auth = () => {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       disabled={loading}
-                      minLength={6}
+                      minLength={8}
                     />
                   </div>
                   {error && (
