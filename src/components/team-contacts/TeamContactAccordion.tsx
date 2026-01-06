@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Edit, Trash2, History, Phone, Mail, MapPin, Calendar, Package, Bell, User, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash2, History, Phone, Mail, MapPin, Calendar, Package, Bell, User, Users, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ interface TeamContactAccordionProps {
   isAdmin: boolean;
   readOnly?: boolean;
   contactType?: 'private' | 'team_member';
+  onUpdateNotes?: (contactId: string, notes: string) => Promise<void>;
 }
 
 export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
@@ -38,10 +40,25 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   isAdmin,
   readOnly = false,
   contactType,
+  onUpdateNotes,
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesValue, setNotesValue] = useState<string>('');
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  const handleSaveNotes = async (contactId: string) => {
+    if (!onUpdateNotes) return;
+    setSavingNotes(true);
+    try {
+      await onUpdateNotes(contactId, notesValue);
+      setEditingNotesId(null);
+    } finally {
+      setSavingNotes(false);
+    }
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -283,15 +300,44 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </div>
                     </div>
 
-                    {/* Notatki */}
-                    {contact.notes && (
-                      <div className="space-y-2 md:col-span-2">
-                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                          <Calendar className="w-4 h-4" /> Notatki
-                        </h4>
-                        <p className="text-sm bg-muted/50 p-3 rounded-md">{contact.notes}</p>
-                      </div>
-                    )}
+                    {/* Notatki - edytowalne dla team_member */}
+                    <div className="space-y-2 md:col-span-2">
+                      <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <Calendar className="w-4 h-4" /> Notatki
+                      </h4>
+                      {contactType === 'team_member' && !readOnly ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editingNotesId === contact.id ? notesValue : (contact.notes || '')}
+                            onChange={(e) => setNotesValue(e.target.value)}
+                            onFocus={() => {
+                              if (editingNotesId !== contact.id) {
+                                setEditingNotesId(contact.id);
+                                setNotesValue(contact.notes || '');
+                              }
+                            }}
+                            placeholder="Dodaj notatki o członku zespołu..."
+                            className="min-h-[80px]"
+                          />
+                          {editingNotesId === contact.id && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleSaveNotes(contact.id)}
+                              disabled={savingNotes}
+                            >
+                              <Save className="w-4 h-4 mr-1" />
+                              {savingNotes ? 'Zapisywanie...' : 'Zapisz notatki'}
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        contact.notes ? (
+                          <p className="text-sm bg-muted/50 p-3 rounded-md">{contact.notes}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Brak notatek</p>
+                        )
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               )}
