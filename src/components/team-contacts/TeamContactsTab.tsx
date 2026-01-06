@@ -150,6 +150,10 @@ export const TeamContactsTab: React.FC = () => {
     await deleteContact(id);
   };
 
+  const handleUpdateNotes = async (contactId: string, notes: string) => {
+    await updateContact(contactId, { notes });
+  };
+
   const openEditForm = (contact: TeamContact) => {
     setEditingContact(contact);
   };
@@ -475,6 +479,7 @@ export const TeamContactsTab: React.FC = () => {
                   isAdmin={isAdmin}
                   contactType="team_member"
                   readOnly={!isAdmin}
+                  onUpdateNotes={handleUpdateNotes}
                 />
               ) : viewMode === 'table' ? (
                 <TeamContactsTable
