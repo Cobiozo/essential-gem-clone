@@ -126,19 +126,24 @@ const Auth = () => {
       return;
     }
     
-    if (user) {
-      // Redirect to my-account if profile needs completion, otherwise to home
-      navigate('/');
-    }
-    // Check if user just activated their account
+    // Check if user just activated their account via email link
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('activated') === 'true') {
+    const isActivated = urlParams.get('activated') === 'true';
+    
+    if (isActivated) {
       toast({
         title: 'Konto aktywowane',
         description: 'Twoje konto zostało pomyślnie aktywowane. Możesz się teraz zalogować.',
       });
+      // Clear the URL parameter
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [user, navigate, showEmailConfirmDialog]);
+    
+    if (user) {
+      // Redirect to my-account if profile needs completion, otherwise to home
+      navigate('/');
+    }
+  }, [user, navigate, showEmailConfirmDialog, toast]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
