@@ -80,6 +80,16 @@ interface UserProfile {
   guardian_name?: string | null;
   email_activated?: boolean;
   email_activated_at?: string | null;
+  // Extended profile data
+  phone_number?: string | null;
+  street_address?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  country?: string | null;
+  specialization?: string | null;
+  profile_description?: string | null;
+  upline_first_name?: string | null;
+  upline_last_name?: string | null;
 }
 
 interface Page {
@@ -429,7 +439,37 @@ const Admin = () => {
 
       if (error) throw error;
       console.log('fetchUsers RPC result:', { count: data?.length, sample: data?.[0] });
-      setUsers((data as UserProfile[]) || []);
+      
+      // Map RPC response to UserProfile interface
+      const mappedUsers: UserProfile[] = (data || []).map((row: any) => ({
+        id: row.id,
+        user_id: row.id, // RPC returns id which is the user_id
+        email: row.email,
+        role: row.role,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        eq_id: row.eq_id,
+        is_active: row.is_active,
+        created_at: row.created_at,
+        updated_at: row.created_at, // Use created_at as fallback
+        email_confirmed_at: row.email_confirmed_at,
+        guardian_approved: row.guardian_approved,
+        admin_approved: row.is_approved, // RPC returns is_approved
+        email_activated: !!row.email_confirmed_at,
+        // Extended profile data
+        phone_number: row.phone_number,
+        street_address: row.street_address,
+        postal_code: row.postal_code,
+        city: row.city,
+        country: row.country,
+        specialization: row.specialization,
+        profile_description: row.profile_description,
+        upline_first_name: row.upline_first_name,
+        upline_last_name: row.upline_last_name,
+        upline_eq_id: row.upline_eq_id,
+      }));
+      
+      setUsers(mappedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
