@@ -36,6 +36,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { GuardianSearchInput, Guardian } from '@/components/auth/GuardianSearchInput';
+import { PhoneCountryCodePicker } from '@/components/auth/PhoneCountryCodePicker';
 
 const getPolishErrorMessage = (error: any): string => {
   const errorMessage = error?.message?.toLowerCase() || '';
@@ -83,7 +84,8 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+48');
+  const [localPhoneNumber, setLocalPhoneNumber] = useState('');
   const [eqId, setEqId] = useState('');
   const [role, setRole] = useState('');
   const [selectedGuardian, setSelectedGuardian] = useState<Guardian | null>(null);
@@ -256,8 +258,8 @@ const Auth = () => {
     }
 
     // Check if phone number is provided and valid
-    const phoneRegex = /^[\d\s\-+()]{9,20}$/;
-    if (!phoneNumber.trim()) {
+    const phoneRegex = /^[\d\s\-()]{6,15}$/;
+    if (!localPhoneNumber.trim()) {
       setError('Numer telefonu jest wymagany');
       toast({
         title: "Błąd rejestracji",
@@ -267,16 +269,19 @@ const Auth = () => {
       setLoading(false);
       return;
     }
-    if (!phoneRegex.test(phoneNumber.trim())) {
+    if (!phoneRegex.test(localPhoneNumber.trim())) {
       setError('Nieprawidłowy format numeru telefonu');
       toast({
         title: "Błąd rejestracji",
-        description: "Nieprawidłowy format numeru telefonu (9-20 cyfr)",
+        description: "Nieprawidłowy format numeru telefonu (6-15 cyfr)",
         variant: "destructive",
       });
       setLoading(false);
       return;
     }
+
+    // Combine country code and local phone number
+    const fullPhoneNumber = `${countryCode} ${localPhoneNumber.trim()}`;
 
     // Check if guardian is selected
     if (!selectedGuardian) {
@@ -352,7 +357,7 @@ const Auth = () => {
             role: roleMapping[role] || 'client',
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-            phone_number: phoneNumber.trim(),
+            phone_number: fullPhoneNumber,
             guardian_name: `${selectedGuardian.first_name || ''} ${selectedGuardian.last_name || ''}`.trim(),
             upline_eq_id: selectedGuardian.eq_id,
             upline_first_name: selectedGuardian.first_name,
@@ -380,7 +385,7 @@ const Auth = () => {
         setConfirmPassword('');
         setFirstName('');
         setLastName('');
-        setPhoneNumber('');
+        setLocalPhoneNumber('');
         setEqId('');
         setRole('');
         setSelectedGuardian(null);
@@ -698,13 +703,11 @@ const Auth = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="phone-number">Numer telefonu *</Label>
-                    <Input
-                      id="phone-number"
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+48 123 456 789"
-                      required
+                    <PhoneCountryCodePicker
+                      selectedCode={countryCode}
+                      onCodeChange={setCountryCode}
+                      phoneNumber={localPhoneNumber}
+                      onPhoneChange={setLocalPhoneNumber}
                       disabled={loading}
                     />
                   </div>
