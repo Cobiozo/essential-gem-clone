@@ -47,6 +47,7 @@ import { TeamContactsManagement } from '@/components/admin/TeamContactsManagemen
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
+import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -347,9 +348,10 @@ const Admin = () => {
   const [creatingUser, setCreatingUser] = useState(false);
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
   
-  // User sorting state
+  // User sorting and filtering state
   const [userSortBy, setUserSortBy] = useState<'email' | 'role' | 'created_at' | 'is_active'>('created_at');
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [userFilterTab, setUserFilterTab] = useState<'all' | 'active' | 'pending'>('pending');
   
   // Enable security preventions but allow text selection for CMS editing
   useSecurityPreventions(false);
@@ -1543,8 +1545,20 @@ const Admin = () => {
 
   // Sort and filter users function
   const filteredAndSortedUsers = useMemo(() => {
-    // First filter
-    const filtered = users.filter((user) => {
+    // First filter by tab
+    let filtered = users.filter((user) => {
+      if (userFilterTab === 'active') {
+        // Fully approved: email_activated && guardian_approved && admin_approved && is_active
+        return user.email_activated && user.guardian_approved && user.admin_approved && user.is_active;
+      } else if (userFilterTab === 'pending') {
+        // Pending: missing email_activated, guardian_approved, admin_approved, or not active
+        return !user.email_activated || !user.guardian_approved || !user.admin_approved || !user.is_active;
+      }
+      return true; // 'all'
+    });
+    
+    // Then filter by search
+    filtered = filtered.filter((user) => {
       if (!userSearchQuery) return true;
       const searchLower = userSearchQuery.toLowerCase();
       return (
@@ -1577,7 +1591,14 @@ const Admin = () => {
         return aValue < bValue ? 1 : -1;
       }
     });
-  }, [users, userSearchQuery, userSortBy, userSortOrder]);
+  }, [users, userSearchQuery, userSortBy, userSortOrder, userFilterTab]);
+  
+  // Count users by status for tab badges
+  const userCounts = useMemo(() => {
+    const pending = users.filter(u => !u.email_activated || !u.guardian_approved || !u.admin_approved || !u.is_active).length;
+    const active = users.filter(u => u.email_activated && u.guardian_approved && u.admin_approved && u.is_active).length;
+    return { pending, active, all: users.length };
+  }, [users]);
 
   // Export functions
   const getRoleDisplayName = (role: string) => {
@@ -3902,7 +3923,7 @@ const Admin = () => {
 
           <TabsContent value="users">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center space-x-2">
@@ -3923,381 +3944,167 @@ const Admin = () => {
                   </div>
                  ) : (
                    <div className="space-y-4">
-                     {/* Search Bar */}
-                     <div className="relative">
-                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                       <Input
-                         type="text"
-                         placeholder={t('admin.searchUsers')}
-                         value={userSearchQuery}
-                         onChange={(e) => setUserSearchQuery(e.target.value)}
-                         className="pl-10 pr-20"
-                       />
-                       {userSearchQuery && (
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           onClick={() => setUserSearchQuery('')}
-                           className="absolute right-2 top-1/2 -translate-y-1/2 h-7 text-xs"
+                     {/* Filter Tabs */}
+                     <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+                       <div className="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+                         <button
+                           onClick={() => setUserFilterTab('pending')}
+                           className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                             userFilterTab === 'pending' 
+                               ? 'bg-background text-foreground shadow' 
+                               : 'hover:bg-background/50'
+                           }`}
                          >
-                           <X className="w-3 h-3 mr-1" />
-                           {t('admin.clearSearch')}
+                           Oczekujący
+                           {userCounts.pending > 0 && (
+                             <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-xs">
+                               {userCounts.pending}
+                             </Badge>
+                           )}
+                         </button>
+                         <button
+                           onClick={() => setUserFilterTab('active')}
+                           className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                             userFilterTab === 'active' 
+                               ? 'bg-background text-foreground shadow' 
+                               : 'hover:bg-background/50'
+                           }`}
+                         >
+                           Aktywni
+                           <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                             {userCounts.active}
+                           </Badge>
+                         </button>
+                         <button
+                           onClick={() => setUserFilterTab('all')}
+                           className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                             userFilterTab === 'all' 
+                               ? 'bg-background text-foreground shadow' 
+                               : 'hover:bg-background/50'
+                           }`}
+                         >
+                           Wszyscy
+                           <Badge variant="outline" className="ml-2 h-5 px-1.5 text-xs">
+                             {userCounts.all}
+                           </Badge>
+                         </button>
+                       </div>
+                       
+                       <div className="flex flex-wrap gap-2">
+                         <Button variant="outline" size="sm" onClick={fetchUsers}>
+                           Odśwież
                          </Button>
-                       )}
+                         <Button
+                           onClick={() => setShowCreateUserDialog(true)}
+                           size="sm"
+                           className="gap-1.5"
+                         >
+                           <UserPlus className="w-4 h-4" />
+                           Dodaj
+                         </Button>
+                         
+                         <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                             <Button variant="outline" size="sm">
+                               <Download className="w-4 h-4" />
+                             </Button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent align="end" className="bg-background">
+                             <DropdownMenuItem onClick={exportToPDF}>PDF</DropdownMenuItem>
+                             <DropdownMenuItem onClick={exportToXLSX}>Excel</DropdownMenuItem>
+                             <DropdownMenuItem onClick={exportToXML}>XML</DropdownMenuItem>
+                             <DropdownMenuItem onClick={exportToZIP}>ZIP</DropdownMenuItem>
+                           </DropdownMenuContent>
+                         </DropdownMenu>
+                       </div>
                      </div>
-                     
-                     {/* Action Bar */}
-                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                       <div className="flex items-center gap-4">
-                         <p className="text-sm text-muted-foreground">
-                           {userSearchQuery 
-                             ? `${t('admin.showing')} ${filteredAndSortedUsers.length} ${t('admin.of')} ${users.length}`
-                             : `${t('admin.totalUsers')}: ${users.length}`
-                           }
-                         </p>
-                        <Button variant="outline" size="sm" onClick={fetchUsers}>
-                          Odśwież listę
-                        </Button>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          onClick={() => setShowCreateUserDialog(true)}
-                          size="sm"
-                          className="gap-2"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                          Dodaj klienta
-                        </Button>
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Download className="w-4 h-4 mr-2" />
-                              Eksportuj
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-background">
-                            <DropdownMenuItem onClick={exportToPDF}>
-                              <Download className="w-4 h-4 mr-2" />
-                              PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportToXLSX}>
-                              <Download className="w-4 h-4 mr-2" />
-                              Excel (XLS)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportToXML}>
-                              <Download className="w-4 h-4 mr-2" />
-                              XML
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportToZIP}>
-                              <Download className="w-4 h-4 mr-2" />
-                              ZIP
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
 
-                    {/* Sorting Controls */}
-                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-start sm:items-center p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <SortAsc className="w-4 h-4" />
-                        <span className="text-sm font-medium">Sortuj według:</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        <Select value={userSortBy} onValueChange={(value: any) => setUserSortBy(value)}>
-                          <SelectTrigger className="w-full sm:w-40 min-h-[44px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="email">Email</SelectItem>
-                            <SelectItem value="role">Rola</SelectItem>
-                            <SelectItem value="is_active">Status</SelectItem>
-                            <SelectItem value="created_at">Data utworzenia</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={userSortOrder} onValueChange={(value: any) => setUserSortOrder(value)}>
-                          <SelectTrigger className="w-full sm:w-32 min-h-[44px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="asc">Rosnąco</SelectItem>
-                            <SelectItem value="desc">Malejąco</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                     {/* Search and Sort Bar */}
+                     <div className="flex flex-col sm:flex-row gap-2">
+                       <div className="relative flex-1">
+                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                         <Input
+                           type="text"
+                           placeholder={t('admin.searchUsers')}
+                           value={userSearchQuery}
+                           onChange={(e) => setUserSearchQuery(e.target.value)}
+                           className="pl-10 pr-10 h-9"
+                         />
+                         {userSearchQuery && (
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => setUserSearchQuery('')}
+                             className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                           >
+                             <X className="w-3 h-3" />
+                           </Button>
+                         )}
+                       </div>
+                       <div className="flex gap-2">
+                         <Select value={userSortBy} onValueChange={(value: any) => setUserSortBy(value)}>
+                           <SelectTrigger className="w-32 h-9">
+                             <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="created_at">Data</SelectItem>
+                             <SelectItem value="email">Email</SelectItem>
+                             <SelectItem value="role">Rola</SelectItem>
+                             <SelectItem value="is_active">Status</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         <Select value={userSortOrder} onValueChange={(value: any) => setUserSortOrder(value)}>
+                           <SelectTrigger className="w-28 h-9">
+                             <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="desc">Najnowsze</SelectItem>
+                             <SelectItem value="asc">Najstarsze</SelectItem>
+                           </SelectContent>
+                         </Select>
+                       </div>
                      </div>
+
+                     {/* Results count */}
+                     <p className="text-xs text-muted-foreground">
+                       {userSearchQuery || userFilterTab !== 'all'
+                         ? `Wyświetlanie ${filteredAndSortedUsers.length} z ${users.length} użytkowników`
+                         : `Łącznie: ${users.length} użytkowników`
+                       }
+                     </p>
                      
+                     {/* User List */}
                      {filteredAndSortedUsers.length === 0 ? (
-                       <Card>
-                         <CardContent className="py-8">
-                           <p className="text-center text-muted-foreground">
-                             {userSearchQuery 
-                               ? t('admin.noUsersFound') 
+                       <div className="py-8 text-center text-muted-foreground border rounded-lg">
+                         {userSearchQuery 
+                           ? t('admin.noUsersFound') 
+                           : userFilterTab === 'pending'
+                             ? 'Brak użytkowników oczekujących na zatwierdzenie'
+                             : userFilterTab === 'active'
+                               ? 'Brak aktywnych użytkowników'
                                : t('admin.noUsers')
-                             }
-                           </p>
-                         </CardContent>
-                       </Card>
+                         }
+                       </div>
                      ) : (
-                       <div className="space-y-3">
+                       <div className="space-y-2">
                          {filteredAndSortedUsers.map((userProfile) => (
-                        <Card key={userProfile.id} className="p-4">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex flex-col">
-                                    <span className="font-medium text-sm">{userProfile.email}</span>
-                                    {userProfile.first_name && userProfile.last_name && (
-                                      <span className="text-xs text-muted-foreground">
-                                        {userProfile.first_name} {userProfile.last_name}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <Badge variant={
-                                    userProfile.role === 'admin' ? 'default' : 
-                                    userProfile.role === 'partner' ? 'outline' : 
-                                    userProfile.role === 'specjalista' ? 'outline' : 
-                                    'secondary'
-                                  } className="text-xs">
-                                    {getRoleDisplayName(userProfile.role)}
-                                  </Badge>
-                                  <Badge variant={userProfile.is_active ? 'default' : 'destructive'} className="text-xs">
-                                    {userProfile.is_active ? 'Aktywny' : 'Nieaktywny'}
-                                  </Badge>
-                                  {userProfile.email_activated ? (
-                                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
-                                      <CheckCircle className="w-3 h-3 mr-1" />
-                                      Email potwierdzony
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
-                                      <Clock className="w-3 h-3 mr-1" />
-                                      Oczekuje potwierdzenia
-                                    </Badge>
-                                  )}
-                                  {/* Approval status badge */}
-                                  {userProfile.guardian_approved === false ? (
-                                    <Badge variant="outline" className="text-xs border-red-200 bg-red-50 text-red-700">
-                                      <Clock className="w-3 h-3 mr-1" />
-                                      Oczekuje na opiekuna
-                                    </Badge>
-                                  ) : userProfile.admin_approved === false ? (
-                                    <Badge variant="outline" className="text-xs border-amber-200 bg-amber-50 text-amber-700">
-                                      <Clock className="w-3 h-3 mr-1" />
-                                      Oczekuje na admina
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
-                                      <CheckCircle className="w-3 h-3 mr-1" />
-                                      Zatwierdzony
-                                    </Badge>
-                                  )}
-                                </div>
-                               <p className="text-xs text-muted-foreground">
-                                  Utworzono: {new Date(userProfile.created_at).toLocaleDateString('pl-PL')}
-                                </p>
-                                {userProfile.eq_id && (
-                                  <p className="text-xs text-muted-foreground">
-                                    EQ ID: {userProfile.eq_id}
-                                  </p>
-                                )}
-                                {userProfile.email_activated && userProfile.email_activated_at && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Email potwierdzony: {new Date(userProfile.email_activated_at).toLocaleDateString('pl-PL')}
-                                  </p>
-                                )}
-                                {userProfile.guardian_name && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Opiekun: {userProfile.guardian_name} {userProfile.upline_eq_id && `(${userProfile.upline_eq_id})`}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  ID: {userProfile.user_id.slice(0, 8)}...
-                                </p>
-                             </div>
-                            
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2 w-full sm:w-auto">
-                                {/* Admin Approve Button - show if not admin approved */}
-                                {userProfile.admin_approved === false && (
-                                  <>
-                                    {userProfile.guardian_approved === true ? (
-                                      <Button
-                                        variant="default"
-                                        size="sm"
-                                        onClick={() => adminApproveUser(userProfile.user_id)}
-                                        className="text-sm min-h-[44px] sm:min-h-auto bg-green-600 hover:bg-green-700"
-                                      >
-                                        <CheckCircle className="w-4 h-4 mr-1" />
-                                        Zatwierdź konto
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        variant="default"
-                                        size="sm"
-                                        onClick={() => adminApproveUser(userProfile.user_id, true)}
-                                        className="text-sm min-h-[44px] sm:min-h-auto bg-amber-600 hover:bg-amber-700"
-                                        title="Zatwierdź z pominięciem opiekuna"
-                                      >
-                                        <CheckCircle className="w-4 h-4 mr-1" />
-                                        Zatwierdź (pomiń opiekuna)
-                                      </Button>
-                                    )}
-                                  </>
-                                )}
-                                {!userProfile.email_confirmed_at && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => confirmUserEmail(userProfile.user_id)}
-                                    className="text-sm min-h-[44px] sm:min-h-auto border-green-200 text-green-700 hover:bg-green-50"
-                                  >
-                                    <Mail className="w-4 h-4 mr-1" />
-                                    Potwierdź email
-                                  </Button>
-                                )}
-                                
-                                 <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => setEditingUserProfile(userProfile)}
-                                   className="text-sm min-h-[44px] sm:min-h-auto border-purple-200 text-purple-700 hover:bg-purple-50"
-                                 >
-                                   <Pencil className="w-4 h-4 mr-1" />
-                                   Edytuj dane
-                                 </Button>
-
-                                 <Button
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => resetUserPassword(userProfile.email)}
-                                   disabled={passwordLoading}
-                                   className="text-sm min-h-[44px] sm:min-h-auto border-blue-200 text-blue-700 hover:bg-blue-50"
-                                 >
-                                   <Key className="w-4 h-4 mr-1" />
-                                   {passwordLoading ? 'Generowanie...' : 'Resetuj hasło'}
-                                 </Button>
-                                 
-                                  {userProfile.user_id !== user?.id && (
-                                    <>
-                                      <Button
-                                        variant={userProfile.is_active ? "destructive" : "default"}
-                                        size="sm"
-                                        onClick={() => toggleUserStatus(userProfile.user_id, userProfile.is_active)}
-                                        className="text-sm min-h-[44px] sm:min-h-auto"
-                                      >
-                                        {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
-                                      </Button>
-                                      
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => deleteUser(userProfile.user_id, userProfile.email)}
-                                        disabled={deleteLoading}
-                                        className="text-sm min-h-[44px] sm:min-h-auto"
-                                      >
-                                        <Trash2 className="w-4 h-4 mr-1" />
-                                        {t('admin.deleteUser')}
-                                      </Button>
-                                    </>
-                                  )}
-                                
-                                {userProfile.role === 'user' || userProfile.role === 'client' ? (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'admin')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Awansuj na Admin
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'partner')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Ustaw jako Partner
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'specjalista')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Ustaw jako Specjalista
-                                    </Button>
-                                  </>
-                                ) : userProfile.role === 'partner' ? (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'client')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Zmień na Klienta
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'specjalista')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Ustaw jako Specjalista
-                                    </Button>
-                                  </>
-                                ) : userProfile.role === 'specjalista' ? (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'client')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Zmień na Klienta
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'partner')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Ustaw jako Partner
-                                    </Button>
-                                  </>
-                                ) : userProfile.role === 'admin' ? (
-                                  userProfile.user_id === user?.id ? (
-                                    <Badge variant="default" className="text-xs">
-                                      Twoje konto
-                                    </Badge>
-                                  ) : (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => updateUserRole(userProfile.user_id, 'client')}
-                                      className="text-sm min-h-[44px] sm:min-h-auto"
-                                    >
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Zmień na Klienta
-                                    </Button>
-                                  )
-                                 ) : null}
-                               </div>
-                           </div>
-                         </Card>
-                       ))}
-                     </div>
-                   )}
+                           <CompactUserCard
+                             key={userProfile.id}
+                             userProfile={userProfile}
+                             currentUserId={user?.id}
+                             onConfirmEmail={confirmUserEmail}
+                             onEditUser={setEditingUserProfile}
+                             onResetPassword={resetUserPassword}
+                             onToggleStatus={toggleUserStatus}
+                             onDeleteUser={deleteUser}
+                             onAdminApprove={adminApproveUser}
+                             onUpdateRole={updateUserRole}
+                             isDeleting={deleteLoading}
+                             isResettingPassword={passwordLoading}
+                           />
+                         ))}
+                       </div>
+                     )}
                    </div>
                 )}
               </CardContent>
