@@ -55,6 +55,10 @@ export interface TeamContact {
   
   // Deleted user tracking
   linked_user_deleted_at: string | null;
+  
+  // Approval status from linked profile (for team members)
+  linked_guardian_approved?: boolean | null;
+  linked_admin_approved?: boolean | null;
 }
 
 export interface TeamContactHistory {
