@@ -44,7 +44,13 @@ export const useAdminPresence = (currentTab: string) => {
       console.log('📡 Presence state:', state);
       
       const adminList = Object.entries(state).map(([key, presences]) => {
-        const p = (presences as any[])[0];
+        // Sort by lastActivity descending to get the newest session first
+        const sortedPresences = (presences as any[]).sort((a, b) => {
+          const timeA = new Date(a.lastActivity || 0).getTime();
+          const timeB = new Date(b.lastActivity || 0).getTime();
+          return timeB - timeA;
+        });
+        const p = sortedPresences[0];
         const lastActivityTime = new Date(p?.lastActivity || Date.now()).getTime();
         return {
           userId: key,
