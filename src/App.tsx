@@ -134,8 +134,8 @@ const AppContent = () => {
       </BrowserRouter>
       <CookieConsentBanner />
       
-      {/* Only show banners and widgets for fully approved users */}
-      {isFullyApproved && (
+      {/* Only show banners and widgets for logged in users - components check approval internally */}
+      {user && (
         <>
           {/* BANNER PRIORITY ORDER:
               1. Daily Signal ALWAYS first after login
