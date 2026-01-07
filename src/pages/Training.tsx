@@ -181,11 +181,56 @@ const Training = () => {
     setDownloading(moduleId);
     
     try {
-      const { data, error } = await supabase.functions.invoke('get-certificate-url', {
+      // Check if session is active before calling edge function
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        toast({
+          title: "Sesja wygasła",
+          description: "Zaloguj się ponownie, aby pobrać certyfikat.",
+          variant: "destructive"
+        });
+        setDownloading(null);
+        return;
+      }
+
+      let data, error;
+      
+      // First attempt
+      const result = await supabase.functions.invoke('get-certificate-url', {
         body: { certificateId: cert.id }
       });
+      
+      data = result.data;
+      error = result.error;
 
-      if (error) throw error;
+      // If auth error, try to refresh session and retry
+      if (error || data?.sessionExpired) {
+        console.log('Auth error, attempting session refresh...');
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          toast({
+            title: "Sesja wygasła",
+            description: "Zaloguj się ponownie, aby pobrać certyfikat.",
+            variant: "destructive"
+          });
+          setDownloading(null);
+          return;
+        }
+        
+        // Retry after refresh
+        const retryResult = await supabase.functions.invoke('get-certificate-url', {
+          body: { certificateId: cert.id }
+        });
+        
+        data = retryResult.data;
+        error = retryResult.error;
+        
+        if (error || data?.sessionExpired) {
+          throw new Error('Nie udało się odświeżyć sesji');
+        }
+      }
 
       if (data?.url) {
         const response = await fetch(data.url);
@@ -202,12 +247,25 @@ const Training = () => {
         
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Sukces",
+          description: "Certyfikat został pobrany.",
+        });
+      } else if (data?.pending) {
+        toast({
+          title: "Certyfikat w trakcie generowania",
+          description: "Poczekaj chwilę i spróbuj ponownie.",
+          variant: "default"
+        });
+      } else if (data?.error) {
+        throw new Error(data.error);
       }
     } catch (error) {
       console.error('Error downloading certificate:', error);
       toast({
         title: t('common.error'),
-        description: "Nie udało się pobrać certyfikatu",
+        description: error instanceof Error ? error.message : "Nie udało się pobrać certyfikatu. Spróbuj odświeżyć stronę.",
         variant: "destructive"
       });
     } finally {

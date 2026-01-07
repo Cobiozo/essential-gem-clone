@@ -8,29 +8,49 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Check for authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('Missing or invalid authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Brak autoryzacji. Zaloguj się ponownie.', sessionExpired: true }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Client for user authentication
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: { Authorization: authHeader },
         },
       }
+    );
+
+    // Admin client for storage operations (private bucket)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Get the authenticated user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
+      console.error('Auth error:', userError);
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Sesja wygasła. Zaloguj się ponownie.', sessionExpired: true }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Authenticated user:', user.id);
 
     const { certificateId } = await req.json();
 
@@ -41,14 +61,17 @@ serve(async (req) => {
       );
     }
 
-    // Get certificate details and verify ownership
-    const { data: certificate, error: certError } = await supabaseClient
+    console.log('Fetching certificate:', certificateId);
+
+    // Get certificate details and verify ownership using admin client
+    const { data: certificate, error: certError } = await supabaseAdmin
       .from('certificates')
       .select('file_url, user_id')
       .eq('id', certificateId)
       .single();
 
     if (certError || !certificate) {
+      console.error('Certificate fetch error:', certError);
       return new Response(
         JSON.stringify({ error: 'Certificate not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -56,7 +79,7 @@ serve(async (req) => {
     }
 
     // Verify user owns this certificate or is admin
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
@@ -65,6 +88,7 @@ serve(async (req) => {
     const isAdmin = profile?.role === 'admin';
     
     if (certificate.user_id !== user.id && !isAdmin) {
+      console.error('Unauthorized access attempt by:', user.id);
       return new Response(
         JSON.stringify({ error: 'Unauthorized access to certificate' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -98,11 +122,11 @@ serve(async (req) => {
     
     console.log('Extracted file path:', filePath);
 
-    // Create a signed URL with download option (valid for 1 hour)
-    const { data: signedUrlData, error: urlError } = await supabaseClient.storage
+    // Create a signed URL with download option using admin client (valid for 1 hour)
+    const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
       .from('certificates')
       .createSignedUrl(filePath, 3600, {
-        download: true // Force download instead of opening in browser
+        download: true
       });
 
     if (urlError) {
@@ -112,6 +136,8 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('Signed URL created successfully');
 
     return new Response(
       JSON.stringify({ url: signedUrlData.signedUrl }),
