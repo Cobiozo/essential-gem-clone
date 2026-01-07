@@ -251,7 +251,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRolesReady(false);
     // Oznacz prawdziwe logowanie PRZED wywołaniem - zanim Supabase odpali onAuthStateChange
     sessionStorage.setItem('fresh_login', Date.now().toString());
-    sessionStorage.setItem('show_banner_after_login', 'true'); // Flaga dla banerów
+    // OSOBNE flagi dla każdego systemu banerów - niezależne działanie
+    sessionStorage.setItem('show_daily_signal', 'true');
+    sessionStorage.setItem('show_info_banners', 'true');
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -259,7 +261,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) {
       // Jeśli błąd - usuń flagi
       sessionStorage.removeItem('fresh_login');
-      sessionStorage.removeItem('show_banner_after_login');
+      sessionStorage.removeItem('show_daily_signal');
+      sessionStorage.removeItem('show_info_banners');
     }
     return { error };
   };
@@ -268,7 +271,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const redirectUrl = `${window.location.origin}/`;
     // Oznacz prawdziwe logowanie PRZED wywołaniem
     sessionStorage.setItem('fresh_login', Date.now().toString());
-    sessionStorage.setItem('show_banner_after_login', 'true'); // Flaga dla banerów
+    // OSOBNE flagi dla każdego systemu banerów
+    sessionStorage.setItem('show_daily_signal', 'true');
+    sessionStorage.setItem('show_info_banners', 'true');
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -280,7 +285,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) {
       // Jeśli błąd - usuń flagi
       sessionStorage.removeItem('fresh_login');
-      sessionStorage.removeItem('show_banner_after_login');
+      sessionStorage.removeItem('show_daily_signal');
+      sessionStorage.removeItem('show_info_banners');
     }
     return { error };
   };
@@ -302,7 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Logout error:', error);
       }
       // Clear banner sessionStorage for clean next login
-      sessionStorage.removeItem('show_banner_after_login');
+      sessionStorage.removeItem('show_daily_signal');
+      sessionStorage.removeItem('show_info_banners');
       Object.keys(sessionStorage).forEach(key => {
         if (key.startsWith('info_banner_shown_')) {
           sessionStorage.removeItem(key);

@@ -95,8 +95,9 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const loadAllBanners = async () => {
     try {
       // CRITICAL: Check if this is a real login (not refresh/tab switch)
-      const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
-      console.log('[ImportantInfoBanner] show_banner_after_login:', shouldShowBanner);
+      // Używa WŁASNEJ flagi - niezależnie od DailySignalBanner
+      const shouldShowBanner = sessionStorage.getItem('show_info_banners');
+      console.log('[ImportantInfoBanner] show_info_banners:', shouldShowBanner);
       if (!shouldShowBanner) {
         // Not a fresh login - don't show banners
         console.log('[ImportantInfoBanner] No login flag - completing');
@@ -127,7 +128,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
-        sessionStorage.removeItem('show_banner_after_login');
+        sessionStorage.removeItem('show_info_banners');
         onComplete();
         return;
       }
@@ -155,7 +156,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       });
 
       if (visibleBanners.length === 0) {
-        sessionStorage.removeItem('show_banner_after_login');
+        sessionStorage.removeItem('show_info_banners');
         onComplete();
         return;
       }
@@ -188,7 +189,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       }
 
       if (bannersToShow.length === 0) {
-        sessionStorage.removeItem('show_banner_after_login');
+        sessionStorage.removeItem('show_info_banners');
         onComplete();
         return;
       }
@@ -206,7 +207,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
     const list = bannersList || allBanners;
     if (index >= list.length) {
       // All banners shown - now remove the flag
-      sessionStorage.removeItem('show_banner_after_login');
+      sessionStorage.removeItem('show_info_banners');
       onComplete();
       return;
     }

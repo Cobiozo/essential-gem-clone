@@ -67,15 +67,17 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
 
       try {
         // CRITICAL: Check if this is a real login (not refresh/tab switch)
-        const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
-        console.log('[DailySignalBanner] show_banner_after_login:', shouldShowBanner);
+        // Używa WŁASNEJ flagi - niezależnie od ImportantInfoBanner
+        const shouldShowBanner = sessionStorage.getItem('show_daily_signal');
+        console.log('[DailySignalBanner] show_daily_signal:', shouldShowBanner);
         if (!shouldShowBanner) {
           // Not a fresh login - don't show banner
           console.log('[DailySignalBanner] No login flag - skipping');
           onDismiss?.();
           return;
         }
-        // DON'T remove flag here - ImportantInfoBanner also needs it
+        // Usuń SWOJĄ flagę - ImportantInfoBanner ma własną
+        sessionStorage.removeItem('show_daily_signal');
 
         // Check if user is fully approved (guardian + admin)
         const { data: profileData } = await supabase
