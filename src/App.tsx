@@ -89,12 +89,7 @@ const AppContent = () => {
     };
   }, []);
 
-  // Immediately ready for Info Banners after Daily Signal is dismissed (no delay)
-  useEffect(() => {
-    if (dailySignalDismissed && !readyForInfoBanners) {
-      setReadyForInfoBanners(true);
-    }
-  }, [dailySignalDismissed, readyForInfoBanners]);
+  // Note: readyForInfoBanners is now set synchronously in handleDailySignalDismiss
 
   // Reset other banner states when isFreshLogin becomes true
   useEffect(() => {
@@ -106,9 +101,11 @@ const AppContent = () => {
     }
   }, [isFreshLogin]);
 
-  // Handle Daily Signal dismissal - then show Info banners
+  // Handle Daily Signal dismissal - then show Info banners (synchronously!)
   const handleDailySignalDismiss = useCallback(() => {
+    console.log('[App] Daily Signal dismissed - enabling InfoBanners');
     setDailySignalDismissed(true);
+    setReadyForInfoBanners(true); // Synchronous - prevents race condition
   }, []);
 
   // Handle Info Banner dismissal - move to next or complete
