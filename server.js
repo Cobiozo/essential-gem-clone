@@ -28,6 +28,7 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
+const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelife.info.pl';
 
 // Upload configuration
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -125,12 +126,15 @@ app.post('/upload', upload.single('file'), (req, res) => {
     const relativePath = folder 
       ? `/uploads/${folder}/${req.file.filename}`
       : `/uploads/${req.file.filename}`;
+    
+    // Return full URL with domain for accessibility from any environment
+    const fullUrl = `${PRODUCTION_DOMAIN}${relativePath}`;
 
-    console.log(`📁 File uploaded: ${req.file.originalname} -> ${relativePath} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`📁 File uploaded: ${req.file.originalname} -> ${fullUrl} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
 
     res.json({
       success: true,
-      url: relativePath,
+      url: fullUrl,
       fileName: req.file.filename,
       originalName: req.file.originalname,
       size: req.file.size,
