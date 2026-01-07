@@ -103,7 +103,7 @@ const Auth = () => {
     hasSpecial: false
   });
   const [showEmailConfirmDialog, setShowEmailConfirmDialog] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, loginComplete } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -141,11 +141,16 @@ const Auth = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    if (user) {
-      // Redirect to my-account if profile needs completion, otherwise to home
+    // SAFE NAVIGATION: Only redirect when loginComplete is true (auth event fully processed)
+    // OR when user exists but not from fresh login (e.g., page refresh while logged in)
+    if (loginComplete && user) {
+      console.log('[Auth] loginComplete=true, navigating to /');
+      navigate('/');
+    } else if (user && !loginComplete) {
+      // User exists from previous session (page refresh) - redirect immediately
       navigate('/');
     }
-  }, [user, navigate, showEmailConfirmDialog, toast]);
+  }, [user, navigate, showEmailConfirmDialog, toast, loginComplete]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,7 +203,8 @@ const Auth = () => {
         title: "Zalogowano pomyślnie",
         description: "Witaj w systemie Pure Life!",
       });
-      navigate('/');
+      // DON'T navigate here - let useEffect handle it when loginComplete becomes true
+      // This ensures auth state change event is fully processed before navigation
     }
     
     setLoading(false);

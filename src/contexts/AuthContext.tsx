@@ -54,6 +54,7 @@ interface AuthContextType {
   isSpecjalista: boolean;
   loginTrigger: number;
   isFreshLogin: boolean;
+  loginComplete: boolean; // NEW: Flag for safe navigation after login
   setIsFreshLogin: React.Dispatch<React.SetStateAction<boolean>>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
@@ -80,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [rolesReady, setRolesReady] = useState(false);
   const [loginTrigger, setLoginTrigger] = useState(0);
   const [isFreshLogin, setIsFreshLogin] = useState(false);
+  const [loginComplete, setLoginComplete] = useState(false); // NEW: Safe navigation flag
   const [initialized, setInitialized] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
@@ -165,7 +167,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             sessionStorage.removeItem('fresh_login');
             setLoginTrigger(prev => prev + 1);
             setIsFreshLogin(true);
-            console.log('[Auth] isFreshLogin set to TRUE');
+            setLoginComplete(true); // NEW: Signal safe to navigate
+            console.log('[Auth] isFreshLogin and loginComplete set to TRUE');
           }
         }
         
@@ -355,6 +358,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isSpecjalista,
     loginTrigger,
     isFreshLogin,
+    loginComplete,
     setIsFreshLogin,
     signIn,
     signUp,
