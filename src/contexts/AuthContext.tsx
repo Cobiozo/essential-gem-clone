@@ -53,6 +53,8 @@ interface AuthContextType {
   isClient: boolean;
   isSpecjalista: boolean;
   loginTrigger: number;
+  isFreshLogin: boolean;
+  setIsFreshLogin: React.Dispatch<React.SetStateAction<boolean>>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -77,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [rolesReady, setRolesReady] = useState(false);
   const [loginTrigger, setLoginTrigger] = useState(0);
+  const [isFreshLogin, setIsFreshLogin] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
@@ -160,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (freshLogin) {
             sessionStorage.removeItem('fresh_login');
             setLoginTrigger(prev => prev + 1);
+            setIsFreshLogin(true); // Ustawione w tym samym cyklu co loginTrigger
           }
         }
         
@@ -348,6 +352,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isClient,
     isSpecjalista,
     loginTrigger,
+    isFreshLogin,
+    setIsFreshLogin,
     signIn,
     signUp,
     signOut,

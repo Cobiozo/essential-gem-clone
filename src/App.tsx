@@ -45,10 +45,9 @@ const queryClient = new QueryClient({
 
 const AppContent = () => {
   useDynamicMetaTags();
-  const { loginTrigger, profile, user, rolesReady } = useAuth();
+  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin } = useAuth();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
-  const [isFreshLogin, setIsFreshLogin] = useState(false);
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
@@ -83,17 +82,15 @@ const AppContent = () => {
     }
   }, [dailySignalDismissed, readyForInfoBanners]);
 
-  // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
-  // This is the ONLY trigger for showing banners - no sessionStorage checks needed
+  // Reset other banner states when isFreshLogin becomes true
   useEffect(() => {
-    if (loginTrigger > 0) {
-      setIsFreshLogin(true);
+    if (isFreshLogin) {
       setDailySignalDismissed(false);
       setCurrentInfoBannerIndex(0);
       setInfoBannersComplete(false);
       setReadyForInfoBanners(false);
     }
-  }, [loginTrigger]);
+  }, [isFreshLogin]);
 
   // Handle Daily Signal dismissal - then show Info banners
   const handleDailySignalDismiss = useCallback(() => {
