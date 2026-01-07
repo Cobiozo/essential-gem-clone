@@ -61,29 +61,18 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const [banner, setBanner] = useState<ImportantInfoBannerData | null>(null);
   const [allBanners, setAllBanners] = useState<ImportantInfoBannerData[]>([]);
   const [showBanner, setShowBanner] = useState(false);
-  const [checked, setChecked] = useState(false);
   const bannerShownAtRef = useRef<number>(0);
+  const loadedRef = useRef(false);
 
-  // Reset states when loginTrigger changes (new login)
+  // Load banners on mount - only once per component instance
   useEffect(() => {
-    if (loginTrigger > 0) {
-      setChecked(false);
-      setShowBanner(false);
-      setBanner(null);
-      setAllBanners([]);
-    }
-  }, [loginTrigger]);
-
-  useEffect(() => {
-    // Wait for auth AND roles to be fully ready
-    if (authLoading || !rolesReady || !user || checked) {
-      return;
-    }
+    if (loadedRef.current) return;
+    if (authLoading || !rolesReady || !user) return;
     
-    // Mark as checked to prevent re-running
-    setChecked(true);
+    loadedRef.current = true;
+    console.log('[ImportantInfoBanner] Loading banners on mount...');
     loadAllBanners();
-  }, [user, authLoading, rolesReady, checked]);
+  }, [user, authLoading, rolesReady]);
 
   // When bannerIndex changes, show the next banner
   useEffect(() => {
