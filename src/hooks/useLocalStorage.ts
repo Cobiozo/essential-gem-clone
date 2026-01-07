@@ -46,7 +46,7 @@ const uploadToSupabase = async (
   onProgress?.(50);
   
   const { data, error } = await supabase.storage
-    .from('media')
+    .from('cms-images')
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false
@@ -59,7 +59,7 @@ const uploadToSupabase = async (
   onProgress?.(80);
   
   const { data: urlData } = supabase.storage
-    .from('media')
+    .from('cms-images')
     .getPublicUrl(data.path);
     
   onProgress?.(100);

@@ -51,6 +51,7 @@ const AppContent = () => {
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
+  const [readyForInfoBanners, setReadyForInfoBanners] = useState(false);
 
   // Check if user is fully approved - wait for profile to load before rendering banners
   const isFullyApproved = user 
@@ -74,12 +75,23 @@ const AppContent = () => {
     };
   }, []);
 
+  // Wait a moment after Daily Signal is dismissed before showing Info Banners
+  useEffect(() => {
+    if (dailySignalDismissed && !readyForInfoBanners) {
+      const timer = setTimeout(() => {
+        setReadyForInfoBanners(true);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [dailySignalDismissed, readyForInfoBanners]);
+
   // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
   useEffect(() => {
     if (loginTrigger > 0) {
       setDailySignalDismissed(false);
       setCurrentInfoBannerIndex(0);
       setInfoBannersComplete(false);
+      setReadyForInfoBanners(false);
     }
   }, [loginTrigger]);
 
@@ -132,7 +144,7 @@ const AppContent = () => {
           */}
           {!dailySignalDismissed ? (
             <DailySignalBanner onDismiss={handleDailySignalDismiss} />
-          ) : !infoBannersComplete ? (
+          ) : readyForInfoBanners && !infoBannersComplete ? (
             <ImportantInfoBanner 
               onDismiss={handleInfoBannerDismiss}
               bannerIndex={currentInfoBannerIndex}
