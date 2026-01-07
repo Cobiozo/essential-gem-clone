@@ -33,6 +33,21 @@ const detectMediaType = (fileName: string): string => {
   return 'file';
 };
 
+// Wybierz odpowiedni bucket na podstawie rozszerzenia pliku
+const getBucketForFile = (fileName: string): string => {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv', 'wmv'].includes(ext)) {
+    return 'cms-videos';
+  }
+  if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)) {
+    return 'cms-files';
+  }
+  if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) {
+    return 'cms-files';
+  }
+  return 'cms-images';
+};
+
 // Fallback upload do Supabase Storage
 const uploadToSupabase = async (
   file: File, 
@@ -45,8 +60,10 @@ const uploadToSupabase = async (
   
   onProgress?.(50);
   
+  const bucketName = getBucketForFile(file.name);
+  
   const { data, error } = await supabase.storage
-    .from('cms-images')
+    .from(bucketName)
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false
@@ -59,7 +76,7 @@ const uploadToSupabase = async (
   onProgress?.(80);
   
   const { data: urlData } = supabase.storage
-    .from('cms-images')
+    .from(bucketName)
     .getPublicUrl(data.path);
     
   onProgress?.(100);
