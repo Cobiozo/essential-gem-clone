@@ -52,8 +52,10 @@ const AppContent = () => {
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
 
-  // Check if user is fully approved
-  const isFullyApproved = user ? (profile?.guardian_approved === true && profile?.admin_approved === true) : true;
+  // Check if user is fully approved - wait for profile to load before rendering banners
+  const isFullyApproved = user 
+    ? (profile !== null && profile.guardian_approved === true && profile.admin_approved === true) 
+    : true;
 
   // Global cleanup for all Supabase channels on window unload and unmount
   useEffect(() => {
