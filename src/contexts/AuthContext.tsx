@@ -160,10 +160,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Tylko prawdziwe logowanie (przez formularz) - nie refresh/tab switch
         if (event === 'SIGNED_IN') {
           const freshLogin = sessionStorage.getItem('fresh_login');
+          console.log('[Auth] SIGNED_IN event detected', { freshLogin, userId: newSession?.user?.id });
           if (freshLogin) {
             sessionStorage.removeItem('fresh_login');
             setLoginTrigger(prev => prev + 1);
-            setIsFreshLogin(true); // Ustawione w tym samym cyklu co loginTrigger
+            setIsFreshLogin(true);
+            console.log('[Auth] isFreshLogin set to TRUE');
           }
         }
         

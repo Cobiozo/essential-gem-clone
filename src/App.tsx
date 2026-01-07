@@ -52,6 +52,20 @@ const AppContent = () => {
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
   const [readyForInfoBanners, setReadyForInfoBanners] = useState(false);
+  const [shouldShowBanners, setShouldShowBanners] = useState(false);
+
+  // Log auth state changes for debugging
+  useEffect(() => {
+    console.log('[App] Auth state:', { user: !!user, isFreshLogin, loginTrigger, rolesReady, shouldShowBanners });
+  }, [user, isFreshLogin, loginTrigger, rolesReady, shouldShowBanners]);
+
+  // Set shouldShowBanners when both user and isFreshLogin are true
+  useEffect(() => {
+    if (user && isFreshLogin) {
+      console.log('[App] Setting shouldShowBanners to TRUE');
+      setShouldShowBanners(true);
+    }
+  }, [user, isFreshLogin]);
 
   // Check if user is fully approved - wait for profile to load before rendering banners
   const isFullyApproved = user 
@@ -133,7 +147,7 @@ const AppContent = () => {
       <CookieConsentBanner />
       
       {/* Only show banners for logged in users after FRESH login (not refresh) */}
-      {user && isFreshLogin && (
+      {shouldShowBanners && (
         <>
           {/* BANNER PRIORITY ORDER:
               1. Daily Signal ALWAYS first after login
