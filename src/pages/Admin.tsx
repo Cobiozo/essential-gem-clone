@@ -272,7 +272,7 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState("content");
   
   // Admin presence tracking
-  const { admins, isConnected, updateActivity } = useAdminPresence(activeTab);
+  const { admins, currentUserPresence, isConnected, updateActivity } = useAdminPresence(activeTab);
   
   // Update presence when tab changes
   useEffect(() => {
@@ -2923,7 +2923,7 @@ const Admin = () => {
 
       <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Admin Presence Widget */}
-        <AdminPresenceWidget admins={admins} isConnected={isConnected} />
+        <AdminPresenceWidget admins={admins} currentUserPresence={currentUserPresence} isConnected={isConnected} />
         
         {/* CMS Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, ChevronDown, ChevronUp, MapPin, Clock } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, MapPin, Clock, User } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -10,6 +10,7 @@ import type { AdminPresence } from '@/hooks/useAdminPresence';
 
 interface AdminPresenceWidgetProps {
   admins: AdminPresence[];
+  currentUserPresence?: AdminPresence | null;
   isConnected: boolean;
 }
 
@@ -33,9 +34,12 @@ const TAB_LABELS: Record<string, string> = {
 
 export const AdminPresenceWidget: React.FC<AdminPresenceWidgetProps> = ({
   admins,
+  currentUserPresence,
   isConnected
 }) => {
   const [isOpen, setIsOpen] = useState(true);
+
+  const totalCount = admins.length + (currentUserPresence ? 1 : 0);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -47,10 +51,12 @@ export const AdminPresenceWidget: React.FC<AdminPresenceWidgetProps> = ({
                 <Users className="h-4 w-4 text-primary" />
                 Aktywni administratorzy
                 <Badge variant="secondary" className="ml-2">
-                  {admins.length}
+                  {totalCount}
                 </Badge>
-                {isConnected && (
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                {isConnected ? (
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Połączono" />
+                ) : (
+                  <span className="w-2 h-2 bg-yellow-500 rounded-full" title="Łączenie..." />
                 )}
               </CardTitle>
               {isOpen ? (
@@ -63,13 +69,29 @@ export const AdminPresenceWidget: React.FC<AdminPresenceWidgetProps> = ({
         </CollapsibleTrigger>
         
         <CollapsibleContent>
-          <CardContent className="pt-0 pb-3">
+          <CardContent className="pt-0 pb-3 space-y-3">
+            {/* Current user's activity */}
+            {currentUserPresence && (
+              <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <User className="h-3 w-3 text-primary" />
+                  <span className="text-xs font-medium text-primary">Twoja aktywność</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span>{TAB_LABELS[currentUserPresence.activeTab] || currentUserPresence.activeTab}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Other admins */}
             {admins.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-2">
                 Brak innych aktywnych administratorów
               </p>
             ) : (
               <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Inni administratorzy:</p>
                 {admins.map((admin) => (
                   <div
                     key={admin.userId}
