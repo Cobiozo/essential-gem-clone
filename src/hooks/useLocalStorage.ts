@@ -17,6 +17,7 @@ interface UploadResult {
 
 interface UseLocalStorageReturn {
   uploadFile: (file: File, options?: UploadOptions) => Promise<UploadResult>;
+  deleteFile: (url: string) => Promise<{ success: boolean; error?: string }>;
   uploadProgress: number;
   isUploading: boolean;
   error: string | null;
@@ -214,8 +215,60 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     }
   }, []);
 
+  const deleteFile = useCallback(async (url: string): Promise<{ success: boolean; error?: string }> => {
+    if (!url) return { success: false, error: 'No URL provided' };
+    
+    try {
+      // VPS files (purelife.info.pl)
+      if (url.includes('purelife.info.pl/uploads/')) {
+        const urlPath = new URL(url).pathname; // /uploads/training-media/filename.mp4
+        const parts = urlPath.replace('/uploads/', '').split('/');
+        const filename = parts.pop()!;
+        const folder = parts.join('/');
+        
+        const deleteUrl = folder 
+          ? `/upload/${encodeURIComponent(filename)}?folder=${encodeURIComponent(folder)}`
+          : `/upload/${encodeURIComponent(filename)}`;
+        
+        const response = await fetch(deleteUrl, { method: 'DELETE' });
+        const contentType = response.headers.get('content-type') || '';
+        
+        if (!contentType.includes('application/json')) {
+          throw new Error('Server not available');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('🗑️ File deleted from VPS:', filename);
+          return { success: true };
+        } else {
+          throw new Error(result.error || 'Delete failed');
+        }
+      } 
+      // Supabase Storage
+      else if (url.includes('supabase.co')) {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/storage/v1/object/public/');
+        if (pathParts.length > 1) {
+          const [bucket, ...filePath] = pathParts[1].split('/');
+          const { error } = await supabase.storage.from(bucket).remove([filePath.join('/')]);
+          if (error) throw error;
+          console.log('🗑️ File deleted from Supabase:', filePath.join('/'));
+          return { success: true };
+        }
+      }
+      
+      return { success: false, error: 'Unknown URL format' };
+    } catch (err) {
+      console.error('Delete error:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Delete failed' };
+    }
+  }, []);
+
   return {
     uploadFile,
+    deleteFile,
     uploadProgress,
     isUploading,
     error,

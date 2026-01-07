@@ -36,7 +36,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [libraryFiles, setLibraryFiles] = useState<Array<{name: string, url: string, type: string}>>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const { toast } = useToast();
-  const { uploadFile, uploadProgress, isUploading, listFiles } = useLocalStorage();
+  const { uploadFile, deleteFile, uploadProgress, isUploading, listFiles } = useLocalStorage();
 
   const uploadMedia = async (file: File) => {
     if (!file) return;
@@ -172,7 +172,20 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     });
   };
 
-  const removeMedia = () => {
+  const removeMedia = async () => {
+    // Delete file from server if it exists
+    if (currentMediaUrl) {
+      const result = await deleteFile(currentMediaUrl);
+      if (result.success) {
+        toast({
+          title: "Sukces",
+          description: "Plik został usunięty z serwera",
+        });
+      } else {
+        console.warn('Could not delete file from server:', result.error);
+      }
+    }
+    
     onMediaUploaded('', 'image', '');
     setAltText('');
     setUrlInput('');
