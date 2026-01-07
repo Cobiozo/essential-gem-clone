@@ -393,11 +393,11 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                   </div>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <Badge variant="outline" className={compact ? "text-[9px] px-1 py-0" : "mb-1"}>
                   {currentMediaType}
                 </Badge>
-                <p className={`truncate text-muted-foreground ${compact ? "text-[9px]" : "text-xs"}`}>
+                <p className={`truncate text-muted-foreground max-w-[150px] ${compact ? "text-[9px]" : "text-xs"}`}>
                   {currentMediaUrl.split('/').pop()}
                 </p>
               </div>
@@ -405,7 +405,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                 variant="ghost"
                 size="icon"
                 onClick={removeMedia}
-                className={compact ? "h-5 w-5" : "h-8 w-8"}
+                className={`flex-shrink-0 ${compact ? "h-5 w-5" : "h-8 w-8"}`}
               >
                 <X className={compact ? "w-3 h-3" : "w-4 h-4"} />
               </Button>
