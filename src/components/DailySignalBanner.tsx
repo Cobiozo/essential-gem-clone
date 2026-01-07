@@ -68,12 +68,28 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
       try {
         // CRITICAL: Check if this is a real login (not refresh/tab switch)
         const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
+        console.log('[DailySignalBanner] show_banner_after_login:', shouldShowBanner);
         if (!shouldShowBanner) {
           // Not a fresh login - don't show banner
+          console.log('[DailySignalBanner] No login flag - skipping');
           onDismiss?.();
           return;
         }
         // DON'T remove flag here - ImportantInfoBanner also needs it
+
+        // Check if user is fully approved (guardian + admin)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('guardian_approved, admin_approved')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        console.log('[DailySignalBanner] Profile approval:', profileData);
+        if (!profileData || !profileData.guardian_approved || !profileData.admin_approved) {
+          console.log('[DailySignalBanner] User not approved - skipping');
+          onDismiss?.();
+          return;
+        }
 
         // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
         const { data: settingsData, error: settingsError } = await supabase

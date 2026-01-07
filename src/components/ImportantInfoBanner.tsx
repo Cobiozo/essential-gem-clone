@@ -88,12 +88,28 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
     try {
       // CRITICAL: Check if this is a real login (not refresh/tab switch)
       const shouldShowBanner = sessionStorage.getItem('show_banner_after_login');
+      console.log('[ImportantInfoBanner] show_banner_after_login:', shouldShowBanner);
       if (!shouldShowBanner) {
         // Not a fresh login - don't show banners
+        console.log('[ImportantInfoBanner] No login flag - completing');
         onComplete();
         return;
       }
       // DON'T remove flag here - remove it only after all banners are shown
+
+      // Check if user is fully approved (guardian + admin)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('guardian_approved, admin_approved')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      
+      console.log('[ImportantInfoBanner] Profile approval:', profileData);
+      if (!profileData || !profileData.guardian_approved || !profileData.admin_approved) {
+        console.log('[ImportantInfoBanner] User not approved - completing');
+        onComplete();
+        return;
+      }
 
       // Get all active banners sorted by priority (highest first)
       const { data: banners, error } = await supabase
