@@ -57,27 +57,70 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setIsYouTube(false);
     setYoutubeId(null);
 
+    // VPS URL (purelife.info.pl) - use directly
+    if (mediaUrl.includes('purelife.info.pl')) {
+      if (mounted) {
+        setSignedUrl(mediaUrl);
+        setLoading(false);
+      }
+      return;
+    }
+
+    // External URLs (http/https not from Supabase) - use directly
+    if ((mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) && 
+        !mediaUrl.includes('supabase.co')) {
+      if (mounted) {
+        setSignedUrl(mediaUrl);
+        setLoading(false);
+      }
+      return;
+    }
+
     const getSignedUrl = async () => {
       try {
-        // Extract bucket and path from the media URL
+        // For full Supabase URLs
+        if (mediaUrl.includes('supabase.co')) {
+          const urlObj = new URL(mediaUrl);
+          const pathParts = urlObj.pathname.split('/storage/v1/object/public/');
+          if (pathParts.length > 1) {
+            const [bucket, ...filePath] = pathParts[1].split('/');
+            
+            const { data, error } = await supabase.storage
+              .from(bucket)
+              .createSignedUrl(filePath.join('/'), 3600);
+
+            if (!mounted) return;
+            if (error) {
+              console.warn('Error creating signed URL, using original:', error);
+              setSignedUrl(mediaUrl);
+              return;
+            }
+            setSignedUrl(data.signedUrl);
+            return;
+          }
+        }
+
+        // Fallback: old logic for relative paths
         const urlParts = mediaUrl.split('/');
         const bucketName = urlParts[urlParts.length - 2];
         const fileName = urlParts[urlParts.length - 1];
         
         const { data, error } = await supabase.storage
           .from(bucketName)
-          .createSignedUrl(fileName, 3600); // 1 hour expiry
+          .createSignedUrl(fileName, 3600);
 
         if (!mounted) return;
 
         if (error) {
-          console.error('Error creating signed URL:', error);
+          console.warn('Error creating signed URL, using original:', error);
+          setSignedUrl(mediaUrl);
           return;
         }
 
         setSignedUrl(data.signedUrl);
       } catch (error) {
         console.error('Error processing media URL:', error);
+        if (mounted) setSignedUrl(mediaUrl);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -87,6 +130,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     if (mediaUrl) {
       getSignedUrl();
+    } else {
+      setLoading(false);
     }
 
     return () => {
