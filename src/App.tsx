@@ -48,6 +48,7 @@ const AppContent = () => {
   const { loginTrigger, profile, user, rolesReady } = useAuth();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
+  const [isFreshLogin, setIsFreshLogin] = useState(false);
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
   const [currentInfoBannerIndex, setCurrentInfoBannerIndex] = useState(0);
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
@@ -78,28 +79,15 @@ const AppContent = () => {
   // Immediately ready for Info Banners after Daily Signal is dismissed (no delay)
   useEffect(() => {
     if (dailySignalDismissed && !readyForInfoBanners) {
-      console.log('[App] DailySignal dismissed, enabling InfoBanners immediately');
       setReadyForInfoBanners(true);
     }
   }, [dailySignalDismissed, readyForInfoBanners]);
 
-  // Debug log for banner state
-  useEffect(() => {
-    console.log('[App] Banner state:', {
-      user: !!user,
-      rolesReady,
-      dailySignalDismissed,
-      readyForInfoBanners,
-      infoBannersComplete,
-      loginTrigger,
-      showInfoBanners: sessionStorage.getItem('show_info_banners'),
-      showDailySignal: sessionStorage.getItem('show_daily_signal')
-    });
-  }, [user, rolesReady, dailySignalDismissed, readyForInfoBanners, infoBannersComplete, loginTrigger]);
-
   // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
+  // This is the ONLY trigger for showing banners - no sessionStorage checks needed
   useEffect(() => {
     if (loginTrigger > 0) {
+      setIsFreshLogin(true);
       setDailySignalDismissed(false);
       setCurrentInfoBannerIndex(0);
       setInfoBannersComplete(false);
@@ -120,6 +108,7 @@ const AppContent = () => {
   // Mark all info banners as complete (called when no more to show)
   const handleInfoBannersComplete = useCallback(() => {
     setInfoBannersComplete(true);
+    setIsFreshLogin(false); // Banner sequence complete
   }, []);
   
   return (
@@ -146,8 +135,8 @@ const AppContent = () => {
       </BrowserRouter>
       <CookieConsentBanner />
       
-      {/* Only show banners and widgets for logged in users - components check approval internally */}
-      {user && (
+      {/* Only show banners for logged in users after FRESH login (not refresh) */}
+      {user && isFreshLogin && (
         <>
           {/* BANNER PRIORITY ORDER:
               1. Daily Signal ALWAYS first after login

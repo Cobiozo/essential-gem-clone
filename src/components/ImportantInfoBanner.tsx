@@ -64,29 +64,12 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const bannerShownAtRef = useRef<number>(0);
   const [loaded, setLoaded] = useState(false);
 
-  // Load banners on mount - component remounts with new key on each login
+  // Load banners on mount - component only renders when isFreshLogin=true in App.tsx
   useEffect(() => {
-    console.log('[ImportantInfoBanner] useEffect triggered:', {
-      loaded,
-      authLoading,
-      rolesReady,
-      user: !!user,
-      loginTrigger,
-      showInfoBanners: sessionStorage.getItem('show_info_banners')
-    });
-
-    if (loaded) {
-      console.log('[ImportantInfoBanner] Already loaded, skipping');
-      return;
-    }
-    
-    if (authLoading || !rolesReady || !user) {
-      console.log('[ImportantInfoBanner] Waiting for auth/roles');
-      return;
-    }
+    if (loaded) return;
+    if (authLoading || !rolesReady || !user) return;
     
     setLoaded(true);
-    console.log('[ImportantInfoBanner] Starting loadAllBanners');
     loadAllBanners();
   }, [user, authLoading, rolesReady, loaded]);
 
@@ -102,17 +85,8 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
 
   const loadAllBanners = async () => {
     try {
-      // CRITICAL: Check if this is a real login (not refresh/tab switch)
-      // Używa WŁASNEJ flagi - niezależnie od DailySignalBanner
-      const shouldShowBanner = sessionStorage.getItem('show_info_banners');
-      console.log('[ImportantInfoBanner] show_info_banners:', shouldShowBanner);
-      if (!shouldShowBanner) {
-        // Not a fresh login - don't show banners
-        console.log('[ImportantInfoBanner] No login flag - completing');
-        onComplete();
-        return;
-      }
-      // DON'T remove flag here - remove it only after all banners are shown
+      // Component only renders when isFreshLogin=true in App.tsx
+      // No sessionStorage check needed - App.tsx controls rendering
 
       // Check if user is fully approved (guardian + admin)
       const { data: profileData } = await supabase
@@ -121,9 +95,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         .eq('user_id', user!.id)
         .maybeSingle();
       
-      console.log('[ImportantInfoBanner] Profile approval:', profileData);
       if (!profileData || !profileData.guardian_approved || !profileData.admin_approved) {
-        console.log('[ImportantInfoBanner] User not approved - completing');
         onComplete();
         return;
       }
@@ -136,7 +108,6 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
-        sessionStorage.removeItem('show_info_banners');
         onComplete();
         return;
       }
@@ -164,7 +135,6 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       });
 
       if (visibleBanners.length === 0) {
-        sessionStorage.removeItem('show_info_banners');
         onComplete();
         return;
       }
@@ -197,7 +167,6 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       }
 
       if (bannersToShow.length === 0) {
-        sessionStorage.removeItem('show_info_banners');
         onComplete();
         return;
       }
@@ -214,8 +183,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const showBannerAtIndex = (index: number, bannersList?: ImportantInfoBannerData[]) => {
     const list = bannersList || allBanners;
     if (index >= list.length) {
-      // All banners shown - now remove the flag
-      sessionStorage.removeItem('show_info_banners');
+      // All banners shown
       onComplete();
       return;
     }
