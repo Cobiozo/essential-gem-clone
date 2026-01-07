@@ -305,6 +305,22 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Calendar className="w-4 h-4" /> Notatki
                       </h4>
+                      
+                      {/* Status konta - tylko dla team_member */}
+                      {contactType === 'team_member' && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm text-muted-foreground">Status konta:</span>
+                          <Badge 
+                            variant={contact.is_active !== false ? 'default' : 'secondary'}
+                            className={contact.is_active !== false 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}
+                          >
+                            {contact.is_active !== false ? 'Aktywny' : 'Nieaktywny'}
+                          </Badge>
+                        </div>
+                      )}
+                      
                       {contactType === 'team_member' && !readOnly ? (
                         <div className="space-y-2">
                           <Textarea
