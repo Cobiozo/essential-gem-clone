@@ -62,25 +62,33 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const [allBanners, setAllBanners] = useState<ImportantInfoBannerData[]>([]);
   const [showBanner, setShowBanner] = useState(false);
   const bannerShownAtRef = useRef<number>(0);
-  const loadedRef = useRef(false);
-  const lastLoginTriggerRef = useRef<number>(0);
+  const [loaded, setLoaded] = useState(false);
 
-  // Load banners on mount and reset on new login
+  // Load banners on mount - component remounts with new key on each login
   useEffect(() => {
-    // Reset loadedRef when loginTrigger changes (new login)
-    if (loginTrigger !== lastLoginTriggerRef.current) {
-      loadedRef.current = false;
-      lastLoginTriggerRef.current = loginTrigger;
-      console.log('[ImportantInfoBanner] Reset due to new login, loginTrigger:', loginTrigger);
+    console.log('[ImportantInfoBanner] useEffect triggered:', {
+      loaded,
+      authLoading,
+      rolesReady,
+      user: !!user,
+      loginTrigger,
+      showInfoBanners: sessionStorage.getItem('show_info_banners')
+    });
+
+    if (loaded) {
+      console.log('[ImportantInfoBanner] Already loaded, skipping');
+      return;
     }
     
-    if (loadedRef.current) return;
-    if (authLoading || !rolesReady || !user) return;
+    if (authLoading || !rolesReady || !user) {
+      console.log('[ImportantInfoBanner] Waiting for auth/roles');
+      return;
+    }
     
-    loadedRef.current = true;
-    console.log('[ImportantInfoBanner] Loading banners, isAdmin:', isAdmin, 'userRole:', userRole, 'rolesReady:', rolesReady);
+    setLoaded(true);
+    console.log('[ImportantInfoBanner] Starting loadAllBanners');
     loadAllBanners();
-  }, [user, authLoading, rolesReady, loginTrigger]);
+  }, [user, authLoading, rolesReady, loaded]);
 
   // When bannerIndex changes, show the next banner
   useEffect(() => {
