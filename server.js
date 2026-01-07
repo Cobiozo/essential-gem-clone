@@ -191,7 +191,9 @@ app.get('/list-files', (req, res) => {
 
         return {
           name: file,
-          url: folder ? `/uploads/${folder}/${file}` : `/uploads/${file}`,
+          url: folder 
+            ? `${PRODUCTION_DOMAIN}/uploads/${folder}/${file}` 
+            : `${PRODUCTION_DOMAIN}/uploads/${file}`,
           size: stats.size,
           type: mimeTypes[ext] || 'application/octet-stream',
           createdAt: stats.birthtime.toISOString()
