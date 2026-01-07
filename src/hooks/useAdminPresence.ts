@@ -24,22 +24,24 @@ export const useAdminPresence = (currentTab: string) => {
     
     mountedRef.current = true;
 
-    // Cleanup previous channel first to prevent leaks
+    // Cleanup previous channel
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    // Use dynamic channel name to prevent collisions on remount
-    const channel = supabase.channel(`admin-presence-${user.id}-${Date.now()}`, {
+    // FIXED: Use SHARED channel name for all admins
+    const channel = supabase.channel('admin-presence-shared', {
       config: { presence: { key: user.id } }
     });
     channelRef.current = channel;
 
-    channel.on('presence', { event: 'sync' }, () => {
+    const updateAdminList = () => {
       if (!mountedRef.current) return;
       
       const state = channel.presenceState();
+      console.log('📡 Presence state:', state);
+      
       const adminList = Object.entries(state).map(([key, presences]) => {
         const p = (presences as any[])[0];
         const lastActivityTime = new Date(p?.lastActivity || Date.now()).getTime();
@@ -55,9 +57,24 @@ export const useAdminPresence = (currentTab: string) => {
       }).filter(a => a.userId !== user.id);
       
       setAdmins(adminList);
-    });
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        console.log('📡 Presence sync');
+        updateAdminList();
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('🟢 Admin joined:', key);
+        updateAdminList();
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('🔴 Admin left:', key);
+        updateAdminList();
+      });
 
     channel.subscribe(async (status) => {
+      console.log('📡 Admin presence status:', status);
       if (status === 'SUBSCRIBED' && mountedRef.current) {
         setIsConnected(true);
         await channel.track({
@@ -78,7 +95,7 @@ export const useAdminPresence = (currentTab: string) => {
       }
       setIsConnected(false);
     };
-  }, [user?.id, isAdmin]);
+  }, [user?.id, isAdmin, profile?.first_name]);
 
   const updateActivity = useCallback(async (tab: string) => {
     if (!channelRef.current || !profile || !mountedRef.current) return;
