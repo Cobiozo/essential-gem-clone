@@ -26,7 +26,14 @@ export const useTeamContacts = () => {
     try {
       let query = supabase
         .from('team_contacts')
-        .select('*')
+        .select(`
+          *,
+          linked_profile:profiles!team_contacts_linked_user_id_fkey (
+            guardian_approved,
+            admin_approved,
+            is_active
+          )
+        `)
         .eq('is_active', true)
         .is('linked_user_deleted_at', null) // Hide contacts where linked user was deleted
         .order('created_at', { ascending: false })
@@ -66,7 +73,15 @@ export const useTeamContacts = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setContacts((data || []) as TeamContact[]);
+      
+      // Map linked profile data to contact fields
+      const mappedData = (data || []).map((contact: any) => ({
+        ...contact,
+        linked_guardian_approved: contact.linked_profile?.guardian_approved ?? null,
+        linked_admin_approved: contact.linked_profile?.admin_approved ?? null,
+        linked_profile: undefined,
+      }));
+      setContacts(mappedData as TeamContact[]);
     } catch (error: any) {
       console.error('Error fetching team contacts:', error);
       toast({

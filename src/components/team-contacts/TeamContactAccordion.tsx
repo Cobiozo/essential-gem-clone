@@ -104,6 +104,42 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     return new Date(date).toLocaleDateString('pl-PL');
   };
 
+  const getApprovalStatusBadge = (contact: TeamContact) => {
+    // Pełne zatwierdzenie - aktywny
+    if (contact.linked_guardian_approved === true && contact.linked_admin_approved === true) {
+      return (
+        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+          Aktywny
+        </Badge>
+      );
+    }
+    
+    // Opiekun zatwierdził, czeka na admina
+    if (contact.linked_guardian_approved === true && contact.linked_admin_approved !== true) {
+      return (
+        <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+          Oczekuje na zatwierdzenie przez administratora
+        </Badge>
+      );
+    }
+    
+    // Czeka na opiekuna
+    if (contact.linked_guardian_approved !== true) {
+      return (
+        <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+          Oczekuje na zatwierdzenie przez opiekuna
+        </Badge>
+      );
+    }
+    
+    // Fallback
+    return (
+      <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+        Nieaktywny
+      </Badge>
+    );
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -310,14 +346,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       {contactType === 'team_member' && (
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm text-muted-foreground">Status konta:</span>
-                          <Badge 
-                            variant={contact.is_active !== false ? 'default' : 'secondary'}
-                            className={contact.is_active !== false 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}
-                          >
-                            {contact.is_active !== false ? 'Aktywny' : 'Nieaktywny'}
-                          </Badge>
+                          {getApprovalStatusBadge(contact)}
                         </div>
                       )}
                       
