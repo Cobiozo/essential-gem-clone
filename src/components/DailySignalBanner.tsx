@@ -59,8 +59,15 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
     const checkAndShow = async () => {
       // Wait for auth AND roles to be fully ready
       if (authLoading || !rolesReady || !user || checked) {
+        console.log('[DailySignalBanner] Waiting for auth/roles:', { authLoading, rolesReady, user: !!user, checked });
         return;
       }
+      
+      // CRITICAL: Log role flags BEFORE any check
+      console.log('[DailySignalBanner] Role check at start:', { 
+        isAdmin, isClient, isPartner, isSpecjalista,
+        userRole: userRole?.role,
+      });
       
       // Mark as checked to prevent re-running
       setChecked(true);
@@ -92,7 +99,10 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
 
         if (!mounted) return;
 
+        console.log('[DailySignalBanner] Settings:', { is_enabled: settingsData?.is_enabled, visible_to_partners: settingsData?.visible_to_partners });
+
         if (settingsError || !settingsData?.is_enabled) {
+          console.log('[DailySignalBanner] Daily signal disabled globally');
           onDismiss?.();
           return;
         }
@@ -101,13 +111,24 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         setSettings(typedSettings);
 
         // 2. Check role visibility - Admin sees everything
+        // Log the actual values being checked
+        console.log('[DailySignalBanner] Visibility check:', {
+          isAdmin, isClient, isPartner, isSpecjalista,
+          visible_to_clients: typedSettings.visible_to_clients,
+          visible_to_partners: typedSettings.visible_to_partners,
+          visible_to_specjalista: typedSettings.visible_to_specjalista
+        });
+        
         const isVisible = 
           isAdmin ||
           (isClient && typedSettings.visible_to_clients) ||
           (isPartner && typedSettings.visible_to_partners) ||
           (isSpecjalista && typedSettings.visible_to_specjalista);
 
+        console.log('[DailySignalBanner] isVisible result:', isVisible);
+
         if (!isVisible) {
+          console.log('[DailySignalBanner] Not visible for this role - dismissing');
           onDismiss?.();
           return;
         }
