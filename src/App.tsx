@@ -146,6 +146,7 @@ const AppContent = () => {
             <DailySignalBanner onDismiss={handleDailySignalDismiss} />
           ) : readyForInfoBanners && !infoBannersComplete ? (
             <ImportantInfoBanner 
+              key={`info-banner-${loginTrigger}`}
               onDismiss={handleInfoBannerDismiss}
               bannerIndex={currentInfoBannerIndex}
               onComplete={handleInfoBannersComplete}
