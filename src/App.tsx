@@ -75,15 +75,27 @@ const AppContent = () => {
     };
   }, []);
 
-  // Wait a moment after Daily Signal is dismissed before showing Info Banners
+  // Immediately ready for Info Banners after Daily Signal is dismissed (no delay)
   useEffect(() => {
     if (dailySignalDismissed && !readyForInfoBanners) {
-      const timer = setTimeout(() => {
-        setReadyForInfoBanners(true);
-      }, 150);
-      return () => clearTimeout(timer);
+      console.log('[App] DailySignal dismissed, enabling InfoBanners immediately');
+      setReadyForInfoBanners(true);
     }
   }, [dailySignalDismissed, readyForInfoBanners]);
+
+  // Debug log for banner state
+  useEffect(() => {
+    console.log('[App] Banner state:', {
+      user: !!user,
+      rolesReady,
+      dailySignalDismissed,
+      readyForInfoBanners,
+      infoBannersComplete,
+      loginTrigger,
+      showInfoBanners: sessionStorage.getItem('show_info_banners'),
+      showDailySignal: sessionStorage.getItem('show_daily_signal')
+    });
+  }, [user, rolesReady, dailySignalDismissed, readyForInfoBanners, infoBannersComplete, loginTrigger]);
 
   // Reset banner states on each new login (loginTrigger increments on SIGNED_IN)
   useEffect(() => {
