@@ -801,7 +801,22 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const videoCell = (item.cells as any[])?.[0];
       const videoStyles = applyItemStyles(item);
       const videoUrl = videoCell?.content || item.media_url;
-      const youtubeId = videoCell?.youtubeId;
+      
+      // Get youtubeId from cells, or fallback: detect from media_url
+      let youtubeId = videoCell?.youtubeId;
+      const mediaUrl = item.media_url;
+      
+      // Fallback: if no youtubeId but media_url is a YouTube URL, extract ID
+      if (!youtubeId && mediaUrl) {
+        const isYT = mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be');
+        if (isYT) {
+          const ytMatch = mediaUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+          if (ytMatch && ytMatch[1]) {
+            youtubeId = ytMatch[1];
+          }
+        }
+      }
+      
       const youtubeThumbnail = videoCell?.thumbnail;
       const videoAutoplay = videoCell?.autoplay ?? false;
       const videoLoop = videoCell?.loop ?? false;
@@ -809,7 +824,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const videoControls = videoCell?.controls ?? true;
       
       const hasYouTubeVideo = !!youtubeId;
-      const hasLocalVideo = !!videoUrl && !hasYouTubeVideo;
+      const hasLocalVideo = !!videoUrl && !hasYouTubeVideo && !videoUrl.includes('youtube.com') && !videoUrl.includes('youtu.be');
       const hasAnyVideo = hasYouTubeVideo || hasLocalVideo;
       
       if (isEditMode && !hasAnyVideo) {

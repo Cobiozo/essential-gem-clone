@@ -80,6 +80,12 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
     if (!url.trim()) {
       // Clear YouTube data if URL is empty
       updateVideoCell({ youtubeId: null, youtubeUrl: null, thumbnail: null });
+      // Also clear media_url
+      setEditedItem(prev => ({
+        ...prev,
+        media_url: null,
+        media_type: null
+      }));
       return;
     }
     
@@ -91,6 +97,12 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
         youtubeUrl: url,
         thumbnail: thumbnail
       });
+      // Backup: also save to media_url for backward compatibility
+      setEditedItem(prev => ({
+        ...prev,
+        media_url: url,  // Save original YouTube URL as backup
+        media_type: 'video'
+      }));
     } else {
       setUrlError('Nieprawidłowy URL YouTube. Obsługiwane formaty: youtube.com/watch?v=..., youtu.be/..., youtube.com/shorts/...');
     }
@@ -136,23 +148,26 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
   const thumbnailUrl = videoCell?.thumbnail;
   
   const updateVideoCell = (updates: any) => {
-    const updatedCells = [{
-      type: 'video',
-      autoplay: videoCell.autoplay || false,
-      controls: videoCell.controls !== false,
-      loop: videoCell.loop || false,
-      muted: videoCell.muted || false,
-      aspectRatio: videoCell.aspectRatio || '16:9',
-      position: 0,
-      is_active: true,
-      content: '',
-      ...videoCell,
-      ...updates
-    }] as any;
-    
-    setEditedItem({
-      ...editedItem,
-      cells: updatedCells
+    setEditedItem(prev => {
+      const prevVideoCell = (prev.cells as any[])?.[0] || {};
+      const updatedCells = [{
+        type: 'video',
+        autoplay: prevVideoCell.autoplay || false,
+        controls: prevVideoCell.controls !== false,
+        loop: prevVideoCell.loop || false,
+        muted: prevVideoCell.muted || false,
+        aspectRatio: prevVideoCell.aspectRatio || '16:9',
+        position: 0,
+        is_active: true,
+        content: '',
+        ...prevVideoCell,
+        ...updates
+      }] as any;
+      
+      return {
+        ...prev,
+        cells: updatedCells
+      };
     });
   };
 
