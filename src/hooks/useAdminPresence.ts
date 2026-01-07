@@ -15,6 +15,7 @@ export interface AdminPresence {
 export const useAdminPresence = (currentTab: string) => {
   const { user, profile, isAdmin } = useAuth();
   const [admins, setAdmins] = useState<AdminPresence[]>([]);
+  const [currentUserPresence, setCurrentUserPresence] = useState<AdminPresence | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const mountedRef = useRef(true);
@@ -54,9 +55,14 @@ export const useAdminPresence = (currentTab: string) => {
           lastActivity: p?.lastActivity || new Date().toISOString(),
           isActive: Date.now() - lastActivityTime < 30000
         };
-      }).filter(a => a.userId !== user.id);
+      });
       
-      setAdmins(adminList);
+      // Separate current user from other admins
+      const myPresence = adminList.find(a => a.userId === user.id);
+      const otherAdmins = adminList.filter(a => a.userId !== user.id);
+      
+      setCurrentUserPresence(myPresence || null);
+      setAdmins(otherAdmins);
     };
 
     channel
@@ -75,6 +81,18 @@ export const useAdminPresence = (currentTab: string) => {
 
     channel.subscribe(async (status) => {
       console.log('📡 Admin presence status:', status);
+      
+      if (status === 'CHANNEL_ERROR') {
+        console.error('❌ Channel error, retrying in 2s...');
+        setIsConnected(false);
+        setTimeout(() => {
+          if (mountedRef.current && channelRef.current) {
+            channel.subscribe();
+          }
+        }, 2000);
+        return;
+      }
+      
       if (status === 'SUBSCRIBED' && mountedRef.current) {
         setIsConnected(true);
         await channel.track({
@@ -113,5 +131,5 @@ export const useAdminPresence = (currentTab: string) => {
     }
   }, [profile]);
 
-  return { admins, isConnected, updateActivity };
+  return { admins, currentUserPresence, isConnected, updateActivity };
 };
