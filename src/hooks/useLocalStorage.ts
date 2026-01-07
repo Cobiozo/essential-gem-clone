@@ -115,8 +115,8 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       
       // Próbuj lokalny upload (VPS)
       const formData = new FormData();
+      formData.append('folder', folder);  // Folder MUST be first for Multer to read it
       formData.append('file', file);
-      formData.append('folder', folder);
       
       setUploadProgress(30);
       
