@@ -63,16 +63,24 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const [showBanner, setShowBanner] = useState(false);
   const bannerShownAtRef = useRef<number>(0);
   const loadedRef = useRef(false);
+  const lastLoginTriggerRef = useRef<number>(0);
 
-  // Load banners on mount - only once per component instance
+  // Load banners on mount and reset on new login
   useEffect(() => {
+    // Reset loadedRef when loginTrigger changes (new login)
+    if (loginTrigger !== lastLoginTriggerRef.current) {
+      loadedRef.current = false;
+      lastLoginTriggerRef.current = loginTrigger;
+      console.log('[ImportantInfoBanner] Reset due to new login, loginTrigger:', loginTrigger);
+    }
+    
     if (loadedRef.current) return;
     if (authLoading || !rolesReady || !user) return;
     
     loadedRef.current = true;
-    console.log('[ImportantInfoBanner] Loading banners on mount...');
+    console.log('[ImportantInfoBanner] Loading banners, isAdmin:', isAdmin, 'userRole:', userRole, 'rolesReady:', rolesReady);
     loadAllBanners();
-  }, [user, authLoading, rolesReady]);
+  }, [user, authLoading, rolesReady, loginTrigger]);
 
   // When bannerIndex changes, show the next banner
   useEffect(() => {

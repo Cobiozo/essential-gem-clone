@@ -45,7 +45,7 @@ const queryClient = new QueryClient({
 
 const AppContent = () => {
   useDynamicMetaTags();
-  const { loginTrigger, profile, user } = useAuth();
+  const { loginTrigger, profile, user, rolesReady } = useAuth();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
@@ -144,7 +144,7 @@ const AppContent = () => {
           */}
           {!dailySignalDismissed ? (
             <DailySignalBanner onDismiss={handleDailySignalDismiss} />
-          ) : readyForInfoBanners && !infoBannersComplete ? (
+          ) : readyForInfoBanners && !infoBannersComplete && rolesReady ? (
             <ImportantInfoBanner 
               key={`info-banner-${loginTrigger}`}
               onDismiss={handleInfoBannerDismiss}
