@@ -109,6 +109,8 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
   };
 
   const handleMediaUpload = (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string) => {
+    console.log('🎬 Video uploaded - URL:', url, 'Type:', type);
+    
     // Clear YouTube data when uploading local video
     const videoCell = (editedItem.cells as any[])?.[0] || {};
     const updatedCells = [{
@@ -117,17 +119,22 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ item, onSave, onCancel
       youtubeId: null,
       youtubeUrl: null,
       thumbnail: null,
+      videoUrl: url, // Store URL in cell as well for backup
       position: 0,
       is_active: true,
     }] as any;
     
-    setEditedItem({
+    const updatedItem = {
       ...editedItem,
       media_url: url,
       media_type: type,
       media_alt_text: altText || '',
       cells: updatedCells
-    });
+    };
+    
+    console.log('🎬 Updated item media_url:', updatedItem.media_url);
+    
+    setEditedItem(updatedItem);
     setYoutubeUrl('');
   };
 
