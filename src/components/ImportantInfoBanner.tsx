@@ -104,8 +104,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         onComplete();
         return;
       }
-      // Remove flag NOW - this is the last banner in the sequence
-      sessionStorage.removeItem('show_banner_after_login');
+      // DON'T remove flag here - remove it only after all banners are shown
 
       // Get all active banners sorted by priority (highest first)
       const { data: banners, error } = await supabase
@@ -115,6 +114,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
+        sessionStorage.removeItem('show_banner_after_login');
         onComplete();
         return;
       }
@@ -142,6 +142,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       });
 
       if (visibleBanners.length === 0) {
+        sessionStorage.removeItem('show_banner_after_login');
         onComplete();
         return;
       }
@@ -174,6 +175,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       }
 
       if (bannersToShow.length === 0) {
+        sessionStorage.removeItem('show_banner_after_login');
         onComplete();
         return;
       }
@@ -190,6 +192,8 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
   const showBannerAtIndex = (index: number, bannersList?: ImportantInfoBannerData[]) => {
     const list = bannersList || allBanners;
     if (index >= list.length) {
+      // All banners shown - now remove the flag
+      sessionStorage.removeItem('show_banner_after_login');
       onComplete();
       return;
     }
