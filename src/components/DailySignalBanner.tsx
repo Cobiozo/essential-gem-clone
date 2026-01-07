@@ -41,36 +41,36 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
   const [showBanner, setShowBanner] = useState(false);
   const [signal, setSignal] = useState<DailySignal | null>(null);
   const [settings, setSettings] = useState<SignalSettings | null>(null);
-  const [checked, setChecked] = useState(false);
   const bannerShownAtRef = useRef<number>(0);
-
-  // Reset checked state when loginTrigger changes (new login)
-  useEffect(() => {
-    if (loginTrigger > 0) {
-      setChecked(false);
-      setShowBanner(false);
-      setSignal(null);
-    }
-  }, [loginTrigger]);
+  const checkedForTriggerRef = useRef<number>(0);
 
   useEffect(() => {
     let mounted = true;
 
     const checkAndShow = async () => {
       // Wait for auth AND roles to be fully ready
-      if (authLoading || !rolesReady || !user || checked) {
-        console.log('[DailySignalBanner] Waiting for auth/roles:', { authLoading, rolesReady, user: !!user, checked });
+      if (authLoading || !rolesReady || !user) {
+        console.log('[DailySignalBanner] Waiting for auth/roles:', { authLoading, rolesReady, user: !!user, loginTrigger });
         return;
       }
+      
+      // Check if already processed for this loginTrigger (prevents race condition)
+      if (checkedForTriggerRef.current === loginTrigger && loginTrigger > 0) {
+        console.log('[DailySignalBanner] Already checked for this loginTrigger:', loginTrigger);
+        return;
+      }
+      checkedForTriggerRef.current = loginTrigger;
+      
+      // Reset state for new login
+      setShowBanner(false);
+      setSignal(null);
       
       // CRITICAL: Log role flags BEFORE any check
       console.log('[DailySignalBanner] Role check at start:', { 
         isAdmin, isClient, isPartner, isSpecjalista,
         userRole: userRole?.role,
+        loginTrigger,
       });
-      
-      // Mark as checked to prevent re-running
-      setChecked(true);
 
       try {
         // Component only renders when isFreshLogin=true in App.tsx
@@ -233,7 +233,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
     return () => {
       mounted = false;
     };
-  }, [user, authLoading, rolesReady, checked, isAdmin, isClient, isPartner, isSpecjalista, onDismiss, userRole]);
+  }, [user, authLoading, rolesReady, loginTrigger, isAdmin, isClient, isPartner, isSpecjalista, onDismiss, userRole]);
 
   const handleAcceptSignal = async () => {
     if (!user || !signal) return;
