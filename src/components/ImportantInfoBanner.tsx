@@ -69,9 +69,14 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
     if (loaded) return;
     if (authLoading || !rolesReady || !user) return;
     
+    console.log('[ImportantInfoBanner] Role check at load:', { 
+      isAdmin, isClient, isPartner, isSpecjalista,
+      userRole: userRole?.role,
+    });
+    
     setLoaded(true);
     loadAllBanners();
-  }, [user, authLoading, rolesReady, loaded]);
+  }, [user, authLoading, rolesReady, loaded, isAdmin, isClient, isPartner, isSpecjalista]);
 
   // When bannerIndex changes, show the next banner
   useEffect(() => {
