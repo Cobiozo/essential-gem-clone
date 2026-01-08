@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAdminPresence } from '@/hooks/useAdminPresence';
-import { AdminPresenceWidget } from '@/components/admin/AdminPresenceWidget';
+import { FloatingAdminPresence } from '@/components/admin/FloatingAdminPresence';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -2875,6 +2875,10 @@ const Admin = () => {
           onTabChange={setActiveTab}
           onSignOut={handleSignOut}
           siteLogo={siteLogo}
+        />
+        
+        {/* Floating Admin Presence Widget */}
+        <FloatingAdminPresence
           admins={admins}
           currentUserPresence={currentUserPresence}
           isConnected={isConnected}
