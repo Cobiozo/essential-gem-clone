@@ -176,19 +176,19 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user and get claims
+    // Verify user
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
-    if (claimsError || !claimsData?.claims) {
-      console.error("[Auth] Claims error:", claimsError);
+    if (authError || !user) {
+      console.error("[Auth] User error:", authError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = user.id;
     console.log("[Auth] User ID:", userId);
 
     // Create service role client for admin checks
