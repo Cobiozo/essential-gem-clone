@@ -43,6 +43,7 @@ import {
   Wrench,
   UserCircle,
   ChevronDown,
+  Clock,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -66,6 +67,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     notifications: 'Powiadomienia',
     system: 'System',
     maintenance: 'Tryb konserwacji',
+    cronJobs: 'Zadania Cron',
     cookies: 'Cookies',
     email: 'E-mail',
     compass: 'Kompas AI',
@@ -96,6 +98,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     notifications: 'Notifications',
     system: 'System',
     maintenance: 'Maintenance mode',
+    cronJobs: 'Cron Jobs',
     cookies: 'Cookies',
     email: 'E-mail',
     compass: 'AI Compass',
@@ -199,6 +202,7 @@ const navCategories: NavCategory[] = [
     icon: Wrench,
     items: [
       { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
+      { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
     ],
   },
 ];

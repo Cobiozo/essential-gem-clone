@@ -64,6 +64,44 @@ serve(async (req) => {
   try {
     console.log("[CRON] Starting process-pending-notifications job...");
     
+    // 0. Check cron_settings for interval and enabled status
+    const { data: cronSettings } = await supabase
+      .from("cron_settings")
+      .select("*")
+      .eq("job_name", "process-pending-notifications")
+      .maybeSingle();
+
+    if (cronSettings) {
+      // Check if cron is disabled
+      if (!cronSettings.is_enabled) {
+        console.log("[CRON] Job is disabled, skipping");
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "Job is disabled" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if interval has passed since last run
+      if (cronSettings.last_run_at) {
+        const lastRun = new Date(cronSettings.last_run_at).getTime();
+        const intervalMs = cronSettings.interval_minutes * 60 * 1000;
+        const now = Date.now();
+        
+        if (now - lastRun < intervalMs) {
+          const nextRunInMinutes = Math.ceil((intervalMs - (now - lastRun)) / 60000);
+          console.log(`[CRON] Interval not reached, skipping. Next run in ${nextRunInMinutes} minutes`);
+          return new Response(
+            JSON.stringify({ 
+              skipped: true, 
+              reason: "Interval not reached",
+              next_run_in_minutes: nextRunInMinutes
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+    
     // 1. Check for running job (prevent overlapping executions)
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const { data: runningJob } = await supabase
@@ -105,6 +143,16 @@ serve(async (req) => {
     
     jobLogId = jobLog.id;
     console.log("[CRON] Created job log:", jobLogId);
+
+    // Update cron_settings with current run info
+    const intervalMinutes = cronSettings?.interval_minutes || 180;
+    await supabase
+      .from("cron_settings")
+      .update({ 
+        last_run_at: new Date().toISOString(),
+        next_run_at: new Date(Date.now() + intervalMinutes * 60 * 1000).toISOString()
+      })
+      .eq("job_name", "process-pending-notifications");
 
     // 3. Process users without welcome email
     console.log("[CRON] Finding users without welcome email...");
