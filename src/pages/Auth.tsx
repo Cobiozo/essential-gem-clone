@@ -104,6 +104,7 @@ const Auth = () => {
   });
   const [showEmailConfirmDialog, setShowEmailConfirmDialog] = useState(false);
   const [reflinkCode, setReflinkCode] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('signin');
   const [reflinkRole, setReflinkRole] = useState<string | null>(null);
   const { signIn, signUp, user, loginComplete } = useAuth();
   const { t } = useLanguage();
@@ -138,6 +139,9 @@ const Auth = () => {
         .single()
         .then(async ({ data }) => {
           if (data) {
+            // Automatycznie przełącz na zakładkę rejestracji przy reflinku
+            setActiveTab('signup');
+            
             // Set role
             if (data.target_role) {
               setReflinkRole(data.target_role);
@@ -678,7 +682,7 @@ const Auth = () => {
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">Panel administracyjny</p>
         </div>
 
-        <Tabs defaultValue="signin" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
             <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
