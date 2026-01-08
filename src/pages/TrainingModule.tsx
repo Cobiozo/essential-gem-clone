@@ -64,6 +64,7 @@ const TrainingModule = () => {
   // Video position = time spent (single source of truth for video lessons)
   const [videoPosition, setVideoPosition] = useState(0);
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
+  const [positionLoaded, setPositionLoaded] = useState(false);
   
   // Text lesson timer (only for lessons without video)
   const [textLessonTime, setTextLessonTime] = useState(0);
@@ -137,6 +138,9 @@ const TrainingModule = () => {
             setVideoPosition(savedPos);
             setTextLessonTime(progressMap[lessonsData[firstIncompleteIndex].id]?.time_spent_seconds || 0);
           }
+          
+          // Mark position as loaded so SecureMedia receives correct initialTime
+          setPositionLoaded(true);
         }
       } catch (error) {
         console.error('Error fetching module data:', error);
@@ -164,14 +168,14 @@ const TrainingModule = () => {
   // Update saved position and time when lesson changes
   useEffect(() => {
     const currentLesson = lessons[currentLessonIndex];
-    if (currentLesson) {
+    if (currentLesson && positionLoaded) {
       const lessonProgress = progress[currentLesson.id];
       const savedPos = lessonProgress?.video_position_seconds || 0;
       setSavedVideoPosition(savedPos);
       setVideoPosition(savedPos);
       setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
     }
-  }, [currentLessonIndex, lessons, progress]);
+  }, [currentLessonIndex, lessons, progress, positionLoaded]);
 
   // Timer only for text lessons (no video)
   useEffect(() => {
@@ -632,7 +636,7 @@ const TrainingModule = () => {
                       disableInteraction={!isLessonCompleted}
                       onPlayStateChange={handlePlayStateChange}
                       onTimeUpdate={handleVideoTimeUpdate}
-                      initialTime={savedVideoPosition}
+                      initialTime={positionLoaded ? savedVideoPosition : 0}
                       className="w-full max-h-96 object-contain"
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
