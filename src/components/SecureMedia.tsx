@@ -10,6 +10,7 @@ interface SecureMediaProps {
   disableInteraction?: boolean;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onTimeUpdate?: (currentTime: number) => void;
+  onDurationChange?: (duration: number) => void;
   initialTime?: number;
 }
 
@@ -38,6 +39,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   disableInteraction = false,
   onPlayStateChange,
   onTimeUpdate,
+  onDurationChange,
   initialTime = 0
 }) => {
   const [signedUrl, setSignedUrl] = useState<string>('');
@@ -52,6 +54,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastValidTimeRef = useRef<number>(initialTime);
   const isSeekingRef = useRef<boolean>(false);
+  const initialPositionSetRef = useRef<boolean>(false);
 
   // URL processing effect
   useEffect(() => {
@@ -148,6 +151,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaUrl]);
 
+  // Reset initial position flag when video source changes
+  useEffect(() => {
+    initialPositionSetRef.current = false;
+  }, [signedUrl]);
+
   // Sync lastValidTimeRef when initialTime changes (for resume functionality)
   useEffect(() => {
     if (initialTime > 0 && disableInteraction) {
@@ -156,9 +164,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     }
   }, [initialTime, disableInteraction]);
 
-  // Set video position when initialTime changes and video is ready
+  // Set video position when initialTime changes and video is ready (only once)
   useEffect(() => {
     if (mediaType !== 'video' || !videoRef.current || !signedUrl) return;
+    if (initialPositionSetRef.current) return; // Only set once
     
     const video = videoRef.current;
     
@@ -167,6 +176,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.currentTime = initialTime;
       lastValidTimeRef.current = initialTime;
       setCurrentTime(initialTime);
+      initialPositionSetRef.current = true;
     }
   }, [initialTime, mediaType, signedUrl, disableInteraction]);
 
@@ -178,11 +188,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
-      // Set position if initialTime is already available
-      if (initialTime > 0 && disableInteraction) {
+      onDurationChange?.(video.duration);
+      
+      // Set position if initialTime is already available and not set yet
+      if (initialTime > 0 && disableInteraction && !initialPositionSetRef.current) {
         video.currentTime = initialTime;
         lastValidTimeRef.current = initialTime;
         setCurrentTime(initialTime);
+        initialPositionSetRef.current = true;
       }
     };
     
@@ -191,7 +204,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, signedUrl, initialTime, disableInteraction]);
+  }, [mediaType, signedUrl, initialTime, disableInteraction, onDurationChange]);
 
   // Seek blocking and time tracking for restricted mode
   useEffect(() => {
