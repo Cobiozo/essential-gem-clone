@@ -39,7 +39,7 @@ export const FloatingAdminPresence = ({
   currentUserPresence,
   isConnected,
 }: FloatingAdminPresenceProps) => {
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [position, setPosition] = useState<Position>(getInitialPosition);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
