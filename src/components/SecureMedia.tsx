@@ -148,7 +148,29 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaUrl]);
 
-  // Set initial time when video loads
+  // Sync lastValidTimeRef when initialTime changes (for resume functionality)
+  useEffect(() => {
+    if (initialTime > 0 && disableInteraction) {
+      lastValidTimeRef.current = initialTime;
+      setCurrentTime(initialTime);
+    }
+  }, [initialTime, disableInteraction]);
+
+  // Set video position when initialTime changes and video is ready
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoRef.current || !signedUrl) return;
+    
+    const video = videoRef.current;
+    
+    // Set position when video is ready and initialTime is available
+    if (initialTime > 0 && disableInteraction && video.readyState >= 1) {
+      video.currentTime = initialTime;
+      lastValidTimeRef.current = initialTime;
+      setCurrentTime(initialTime);
+    }
+  }, [initialTime, mediaType, signedUrl, disableInteraction]);
+
+  // Set initial time when video metadata loads
   useEffect(() => {
     if (mediaType !== 'video' || !videoRef.current || !signedUrl) return;
     
@@ -156,6 +178,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
+      // Set position if initialTime is already available
       if (initialTime > 0 && disableInteraction) {
         video.currentTime = initialTime;
         lastValidTimeRef.current = initialTime;
