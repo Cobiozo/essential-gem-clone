@@ -96,7 +96,7 @@ export const FloatingAdminPresence = ({
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       
-      const deltaX = dragStartRef.current.x - clientX;
+      const deltaX = clientX - dragStartRef.current.x;
       const deltaY = dragStartRef.current.y - clientY;
       
       const newX = dragStartRef.current.posX + deltaX;
@@ -139,29 +139,29 @@ export const FloatingAdminPresence = ({
       <div 
         ref={dragRef}
         className="fixed z-50"
-        style={{ right: position.x, bottom: position.y }}
+        style={{ left: position.x, bottom: position.y }}
       >
         <div className="flex items-center gap-1">
-          <div
-            onMouseDown={handleDragStart}
-            onTouchStart={handleDragStart}
-            className={cn(
-              "p-1 cursor-grab active:cursor-grabbing rounded-l-md bg-primary text-primary-foreground",
-              isDragging && "cursor-grabbing"
-            )}
-          >
-            <GripVertical className="h-4 w-4" />
-          </div>
           <Button
             variant="default"
             size="sm"
             onClick={() => setIsMinimized(false)}
-            className="gap-2 shadow-lg rounded-l-none"
+            className="gap-2 shadow-lg rounded-r-none"
           >
             <Users className="h-4 w-4" />
             <span className="font-medium">{totalCount}</span>
             <Maximize2 className="h-3 w-3 ml-1" />
           </Button>
+          <div
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+            className={cn(
+              "p-1 cursor-grab active:cursor-grabbing rounded-r-md bg-primary text-primary-foreground",
+              isDragging && "cursor-grabbing"
+            )}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
         </div>
       </div>
     );
@@ -174,7 +174,7 @@ export const FloatingAdminPresence = ({
         "fixed z-50 w-72 animate-in slide-in-from-bottom-2 duration-200",
         isDragging && "select-none"
       )}
-      style={{ right: position.x, bottom: position.y }}
+      style={{ left: position.x, bottom: position.y }}
     >
       <div className="relative">
         {/* Drag handle */}
@@ -182,7 +182,7 @@ export const FloatingAdminPresence = ({
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
           className={cn(
-            "absolute -left-6 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing rounded-l-md bg-muted border border-r-0 shadow-sm",
+            "absolute -right-6 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing rounded-r-md bg-muted border border-l-0 shadow-sm",
             isDragging && "cursor-grabbing bg-muted/80"
           )}
         >
