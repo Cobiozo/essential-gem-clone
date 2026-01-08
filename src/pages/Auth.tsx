@@ -110,24 +110,32 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Detect reflink code from URL on mount
+  // Detect reflink code from URL on mount and track clicks
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get('ref');
     if (ref) {
       setReflinkCode(ref);
-      // Fetch reflink info to get target role
+      // Fetch reflink info to get target role and increment click count
       supabase
         .from('user_reflinks')
-        .select('target_role')
+        .select('id, target_role, click_count')
         .eq('reflink_code', ref)
         .eq('is_active', true)
         .gt('expires_at', new Date().toISOString())
         .single()
-        .then(({ data }) => {
-          if (data?.target_role) {
-            setReflinkRole(data.target_role);
-            setRole(data.target_role);
+        .then(async ({ data }) => {
+          if (data) {
+            // Set role
+            if (data.target_role) {
+              setReflinkRole(data.target_role);
+              setRole(data.target_role);
+            }
+            // Increment click count
+            await supabase
+              .from('user_reflinks')
+              .update({ click_count: (data.click_count || 0) + 1 } as any)
+              .eq('id', data.id);
           }
         });
     }
@@ -410,11 +418,7 @@ const Auth = () => {
         // Track reflink registration if applicable
         if (reflinkCode) {
           try {
-            // Use direct SQL call since types may not be updated yet
-            await supabase.from('user_reflinks')
-              .update({ registration_count: supabase.rpc as any })
-              .eq('reflink_code', reflinkCode);
-            // Increment registration count
+            // Fetch current count and increment
             const { data: reflink } = await supabase
               .from('user_reflinks')
               .select('registration_count')
@@ -423,7 +427,7 @@ const Auth = () => {
             if (reflink) {
               await supabase
                 .from('user_reflinks')
-                .update({ registration_count: (reflink.registration_count || 0) + 1 })
+                .update({ registration_count: (reflink.registration_count || 0) + 1 } as any)
                 .eq('reflink_code', reflinkCode);
             }
           } catch (reflinkError) {
