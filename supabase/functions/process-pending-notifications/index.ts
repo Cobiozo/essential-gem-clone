@@ -45,11 +45,19 @@ interface TrainingAssignment {
 // Helper function for delay between emails
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Maximum execution time (55s to stay under Edge Function 60s limit)
+const MAX_EXECUTION_TIME_MS = 55000;
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const startTime = Date.now();
+  
+  // Check if we're approaching timeout
+  const isTimeoutApproaching = () => Date.now() - startTime > MAX_EXECUTION_TIME_MS;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -60,6 +68,7 @@ serve(async (req) => {
     welcomeEmails: { processed: 0, success: 0, failed: 0 },
     trainingNotifications: { processed: 0, success: 0, failed: 0 },
     retries: { processed: 0, success: 0, failed: 0 },
+    stoppedEarly: false,
   };
   
   let jobLogId: string | null = null;
@@ -168,6 +177,13 @@ serve(async (req) => {
       console.log(`[CRON] Found ${usersWithoutWelcome.length} users without welcome email`);
       
       for (const user of usersWithoutWelcome as UserWithoutWelcome[]) {
+        // Check timeout before processing
+        if (isTimeoutApproaching()) {
+          console.log("[CRON] Approaching timeout limit, stopping welcome emails");
+          results.stoppedEarly = true;
+          break;
+        }
+        
         // Add 1 second delay between emails (except first one)
         if (results.welcomeEmails.processed > 0) {
           console.log("[CRON] Waiting 1 second before next welcome email...");
@@ -214,6 +230,13 @@ serve(async (req) => {
       console.log(`[CRON] Found ${trainingsWithoutNotification.length} training assignments without notification`);
       
       for (const assignment of trainingsWithoutNotification as TrainingAssignment[]) {
+        // Check timeout before processing
+        if (isTimeoutApproaching()) {
+          console.log("[CRON] Approaching timeout limit, stopping training notifications");
+          results.stoppedEarly = true;
+          break;
+        }
+        
         // Add 1 second delay between emails (except first one)
         if (results.trainingNotifications.processed > 0) {
           console.log("[CRON] Waiting 1 second before next training notification...");
@@ -255,64 +278,69 @@ serve(async (req) => {
       console.log("[CRON] No training assignments without notification found");
     }
 
-    // 5. Retry failed emails (max 3 attempts)
-    console.log("[CRON] Finding failed emails to retry...");
-    const { data: failedEmails, error: retryError } = await supabase
-      .rpc("get_retryable_failed_emails");
+    // 5. Retry failed emails (max 3 attempts) - skip if stopped early
+    if (!results.stoppedEarly) {
+      console.log("[CRON] Finding failed emails to retry...");
+      const { data: failedEmails, error: retryError } = await supabase
+        .rpc("get_retryable_failed_emails");
 
-    if (retryError) {
-      console.error("[CRON] Error fetching failed emails:", retryError);
-    } else if (failedEmails && failedEmails.length > 0) {
-      console.log(`[CRON] Found ${failedEmails.length} failed emails to retry`);
-      
-      for (const email of failedEmails as RetryableEmail[]) {
-        // Add 1 second delay between emails (except first one)
-        if (results.retries.processed > 0) {
-          console.log("[CRON] Waiting 1 second before next retry...");
-          await delay(1000);
-        }
+      if (retryError) {
+        console.error("[CRON] Error fetching failed emails:", retryError);
+      } else if (failedEmails && failedEmails.length > 0) {
+        console.log(`[CRON] Found ${failedEmails.length} failed emails to retry`);
         
-        results.retries.processed++;
-        try {
-          const newRetryCount = (email.retry_count || 0) + 1;
-          
-          // Call send-single-email function for retry
-          const { error: sendError } = await supabase.functions.invoke("send-single-email", {
-            body: {
-              recipientEmail: email.recipient_email,
-              recipientUserId: email.recipient_user_id,
-              subject: email.subject,
-              templateId: email.template_id,
-              emailType: email.email_type,
-              isRetry: true,
-              originalEmailLogId: email.id,
-              retryCount: newRetryCount,
-              metadata: { ...email.metadata, retry_count: newRetryCount }
-            }
-          });
-          
-          if (sendError) {
-            console.error(`[CRON] Retry failed for email ${email.id}:`, sendError);
-            results.retries.failed++;
-            
-            // Update retry count in original email log
-            await supabase
-              .from("email_logs")
-              .update({ 
-                metadata: { ...email.metadata, retry_count: newRetryCount, last_retry_at: new Date().toISOString() }
-              })
-              .eq("id", email.id);
-          } else {
-            console.log(`[CRON] Retry successful for email ${email.id}`);
-            results.retries.success++;
+        for (const email of failedEmails as RetryableEmail[]) {
+          // Check timeout before processing
+          if (isTimeoutApproaching()) {
+            console.log("[CRON] Approaching timeout limit, stopping retries");
+            results.stoppedEarly = true;
+            break;
           }
-        } catch (err) {
-          console.error(`[CRON] Exception retrying email ${email.id}:`, err);
-          results.retries.failed++;
+          
+          // Add 1 second delay between emails (except first one)
+          if (results.retries.processed > 0) {
+            console.log("[CRON] Waiting 1 second before next retry...");
+            await delay(1000);
+          }
+          
+          results.retries.processed++;
+          try {
+            const newRetryCount = (email.retry_count || 0) + 1;
+            
+            // Call retry-failed-email function (no auth required)
+            const { error: sendError } = await supabase.functions.invoke("retry-failed-email", {
+              body: {
+                email_log_id: email.id,
+                recipient_email: email.recipient_email,
+                subject: email.subject,
+                template_id: email.template_id,
+                retry_count: newRetryCount
+              }
+            });
+            
+            if (sendError) {
+              console.error(`[CRON] Retry failed for email ${email.id}:`, sendError);
+              results.retries.failed++;
+              
+              // Update retry count in original email log
+              await supabase
+                .from("email_logs")
+                .update({ 
+                  metadata: { ...email.metadata, retry_count: newRetryCount, last_retry_at: new Date().toISOString() }
+                })
+                .eq("id", email.id);
+            } else {
+              console.log(`[CRON] Retry successful for email ${email.id}`);
+              results.retries.success++;
+            }
+          } catch (err) {
+            console.error(`[CRON] Exception retrying email ${email.id}:`, err);
+            results.retries.failed++;
+          }
         }
+      } else {
+        console.log("[CRON] No failed emails to retry");
       }
-    } else {
-      console.log("[CRON] No failed emails to retry");
     }
 
     // 6. Update job log with results

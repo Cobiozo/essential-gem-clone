@@ -216,12 +216,13 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("SMTP settings not configured or inactive");
     }
 
+    // Map SMTP settings from database columns
     const smtpSettings: SmtpSettings = {
-      host: smtpData.host,
-      port: smtpData.port,
-      username: smtpData.username,
-      password: smtpData.password,
-      encryption_type: smtpData.encryption_type,
+      host: smtpData.smtp_host,
+      port: smtpData.smtp_port,
+      username: smtpData.smtp_username,
+      password: smtpData.smtp_password,
+      encryption_type: smtpData.smtp_encryption,
       sender_email: smtpData.sender_email,
       sender_name: smtpData.sender_name,
     };
