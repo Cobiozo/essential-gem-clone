@@ -65,6 +65,7 @@ const TrainingModule = () => {
   const [videoPosition, setVideoPosition] = useState(0);
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
   const [positionLoaded, setPositionLoaded] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(0);
   
   // Text lesson timer (only for lessons without video)
   const [textLessonTime, setTextLessonTime] = useState(0);
@@ -74,6 +75,7 @@ const TrainingModule = () => {
   const { toast } = useToast();
   const timerRef = useRef<NodeJS.Timeout>();
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const videoPositionRef = useRef<number>(0);
 
   // Load module, lessons and progress
   useEffect(() => {
@@ -132,11 +134,29 @@ const TrainingModule = () => {
           
           if (firstIncompleteIndex !== -1) {
             setCurrentLessonIndex(firstIncompleteIndex);
-            // Load saved position for this lesson
-            const savedPos = progressMap[lessonsData[firstIncompleteIndex].id]?.video_position_seconds || 0;
+            const lessonId = lessonsData[firstIncompleteIndex].id;
+            
+            // Check localStorage backup (might be newer than DB data)
+            let savedPos = progressMap[lessonId]?.video_position_seconds || 0;
+            const backupKey = `lesson_progress_${lessonId}`;
+            const backupStr = localStorage.getItem(backupKey);
+            if (backupStr) {
+              try {
+                const backup = JSON.parse(backupStr);
+                // Use backup if it's newer (within last hour) and has higher position
+                if (backup.video_position_seconds > savedPos && Date.now() - backup.timestamp < 3600000) {
+                  savedPos = backup.video_position_seconds;
+                }
+                localStorage.removeItem(backupKey);
+              } catch (e) {
+                localStorage.removeItem(backupKey);
+              }
+            }
+            
             setSavedVideoPosition(savedPos);
             setVideoPosition(savedPos);
-            setTextLessonTime(progressMap[lessonsData[firstIncompleteIndex].id]?.time_spent_seconds || 0);
+            videoPositionRef.current = savedPos;
+            setTextLessonTime(progressMap[lessonId]?.time_spent_seconds || 0);
           }
           
           // Mark position as loaded so SecureMedia receives correct initialTime
@@ -170,9 +190,26 @@ const TrainingModule = () => {
     const currentLesson = lessons[currentLessonIndex];
     if (currentLesson && positionLoaded) {
       const lessonProgress = progress[currentLesson.id];
-      const savedPos = lessonProgress?.video_position_seconds || 0;
+      let savedPos = lessonProgress?.video_position_seconds || 0;
+      
+      // Check localStorage backup
+      const backupKey = `lesson_progress_${currentLesson.id}`;
+      const backupStr = localStorage.getItem(backupKey);
+      if (backupStr) {
+        try {
+          const backup = JSON.parse(backupStr);
+          if (backup.video_position_seconds > savedPos && Date.now() - backup.timestamp < 3600000) {
+            savedPos = backup.video_position_seconds;
+          }
+          localStorage.removeItem(backupKey);
+        } catch (e) {
+          localStorage.removeItem(backupKey);
+        }
+      }
+      
       setSavedVideoPosition(savedPos);
       setVideoPosition(savedPos);
+      videoPositionRef.current = savedPos;
       setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
     }
   }, [currentLessonIndex, lessons, progress, positionLoaded]);
@@ -214,21 +251,31 @@ const TrainingModule = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Save progress before unload
+  // Save progress before unload with localStorage backup
   useEffect(() => {
     const handleBeforeUnload = () => {
       const currentLesson = lessons[currentLessonIndex];
       if (!user || !currentLesson) return;
 
       const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-      const effectiveTime = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+      // Use ref for accurate position on unload
+      const currentVideoPos = videoPositionRef.current;
+      const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
+
+      // Save to localStorage as backup
+      const backupData = {
+        video_position_seconds: hasVideo ? currentVideoPos : 0,
+        time_spent_seconds: effectiveTime,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(`lesson_progress_${currentLesson.id}`, JSON.stringify(backupData));
 
       // Use sendBeacon for reliable saving on page close
       const data = JSON.stringify({
         user_id: user.id,
         lesson_id: currentLesson.id,
         time_spent_seconds: effectiveTime,
-        video_position_seconds: hasVideo ? videoPosition : 0,
+        video_position_seconds: hasVideo ? currentVideoPos : 0,
         is_completed: effectiveTime >= (currentLesson.min_time_seconds || 0)
       });
 
@@ -240,7 +287,7 @@ const TrainingModule = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user, lessons, currentLessonIndex, textLessonTime, videoPosition]);
+  }, [user, lessons, currentLessonIndex, textLessonTime]);
 
   const saveProgressWithPosition = useCallback(async () => {
     if (!user || lessons.length === 0) return;
@@ -249,8 +296,9 @@ const TrainingModule = () => {
     if (!currentLesson) return;
 
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    // For video lessons: time = video position; for text lessons: time = text timer
-    const effectiveTime = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+    // Use ref for accurate position (state might be stale in callbacks)
+    const currentVideoPos = videoPositionRef.current;
+    const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
     const isCompleted = effectiveTime >= (currentLesson.min_time_seconds || 0);
 
     try {
@@ -260,7 +308,7 @@ const TrainingModule = () => {
           user_id: user.id,
           lesson_id: currentLesson.id,
           time_spent_seconds: effectiveTime,
-          video_position_seconds: hasVideo ? videoPosition : 0,
+          video_position_seconds: hasVideo ? currentVideoPos : 0,
           is_completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null
         });
@@ -273,7 +321,7 @@ const TrainingModule = () => {
           ...prev[currentLesson.id],
           lesson_id: currentLesson.id,
           time_spent_seconds: effectiveTime,
-          video_position_seconds: hasVideo ? videoPosition : 0,
+          video_position_seconds: hasVideo ? currentVideoPos : 0,
           is_completed: isCompleted,
           started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
           completed_at: isCompleted ? new Date().toISOString() : null
@@ -289,11 +337,12 @@ const TrainingModule = () => {
     } catch (error) {
       console.error('Error saving progress:', error);
     }
-  }, [user, lessons, currentLessonIndex, textLessonTime, videoPosition, progress, toast]);
+  }, [user, lessons, currentLessonIndex, textLessonTime, progress, toast]);
 
   // Debounced auto-save when video position updates
   const handleVideoTimeUpdate = useCallback((newTime: number) => {
     setVideoPosition(newTime);
+    videoPositionRef.current = newTime; // Always keep ref in sync
     
     // Debounce save - save every 10 seconds
     if (saveTimeoutRef.current) {
@@ -304,6 +353,11 @@ const TrainingModule = () => {
       saveProgressWithPosition();
     }, 10000);
   }, [saveProgressWithPosition]);
+
+  // Handle video duration change from SecureMedia
+  const handleDurationChange = useCallback((duration: number) => {
+    setVideoDuration(duration);
+  }, []);
 
   const handlePlayStateChange = useCallback((playing: boolean) => {
     // Save immediately when pausing
@@ -613,12 +667,12 @@ const TrainingModule = () => {
                   </Badge>
                 </div>
                 
-                {currentLesson.min_time_seconds > 0 && (
+                {(currentLesson.min_time_seconds > 0 || hasVideo) && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Postęp</span>
                       <span>
-                        {formatTime(effectiveTimeSpent)} / {formatTime(currentLesson.min_time_seconds)}
+                        {formatTime(effectiveTimeSpent)} / {formatTime(hasVideo && videoDuration > 0 ? Math.floor(videoDuration) : currentLesson.min_time_seconds)}
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
@@ -636,6 +690,7 @@ const TrainingModule = () => {
                       disableInteraction={!isLessonCompleted}
                       onPlayStateChange={handlePlayStateChange}
                       onTimeUpdate={handleVideoTimeUpdate}
+                      onDurationChange={handleDurationChange}
                       initialTime={positionLoaded ? savedVideoPosition : 0}
                       className="w-full max-h-96 object-contain"
                     />
