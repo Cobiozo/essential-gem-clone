@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface Guardian {
@@ -26,81 +27,55 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
   disabled = false,
   error,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState<Guardian[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [noResults, setNoResults] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [eqidInput, setEqidInput] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Search for guardians using the database function that joins user_roles
-  useEffect(() => {
-    const searchGuardians = async () => {
-      if (searchQuery.length < 2) {
-        setResults([]);
-        setNoResults(false);
+  const handleVerify = async () => {
+    if (!eqidInput.trim()) return;
+    
+    setIsVerifying(true);
+    setVerificationError(null);
+    
+    try {
+      const { data, error: searchError } = await supabase
+        .rpc('search_guardians', { search_query: eqidInput.trim() });
+      
+      if (searchError || !data || data.length === 0) {
+        setVerificationError('Nie znaleziono opiekuna z podanym numerem EQID. Skontaktuj się z opiekunem lub administratorem.');
         return;
       }
-
-      setIsLoading(true);
-      setNoResults(false);
-
-      try {
-        // Use the database function that properly joins with user_roles table
-        // This ensures we get users who actually have partner/specjalista/admin roles
-        const { data, error: searchError } = await supabase
-          .rpc('search_guardians', { search_query: searchQuery });
-
-        if (searchError) {
-          console.error('Error searching guardians:', searchError);
-          setResults([]);
-        } else {
-          setResults(data || []);
-          setNoResults((data || []).length === 0);
-        }
-      } catch (err) {
-        console.error('Search error:', err);
-        setResults([]);
-      } finally {
-        setIsLoading(false);
+      
+      // Szukaj dokładnego dopasowania EQID
+      const exactMatch = data.find((g: Guardian) => g.eq_id === eqidInput.trim());
+      
+      if (!exactMatch) {
+        setVerificationError('Nie znaleziono opiekuna z podanym numerem EQID. Skontaktuj się z opiekunem lub administratorem.');
+        return;
       }
-    };
-
-    const debounce = setTimeout(searchGuardians, 300);
-    return () => clearTimeout(debounce);
-  }, [searchQuery]);
-
-  const handleSelect = (guardian: Guardian) => {
-    onChange(guardian);
-    setSearchQuery('');
-    setIsOpen(false);
-    setResults([]);
+      
+      // Sukces - ustaw opiekuna
+      onChange(exactMatch);
+      setEqidInput('');
+      setVerificationError(null);
+    } catch (err) {
+      console.error('Verification error:', err);
+      setVerificationError('Wystąpił błąd podczas weryfikacji. Spróbuj ponownie.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleClear = () => {
     onChange(null);
-    setSearchQuery('');
-    inputRef.current?.focus();
+    setEqidInput('');
+    setVerificationError(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setIsOpen(true);
-    if (value) {
-      onChange(null);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleVerify();
     }
   };
 
@@ -110,11 +85,11 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
   };
 
   return (
-    <div className="space-y-2" ref={containerRef}>
-      <Label htmlFor="guardian-search" className="flex flex-col gap-1">
+    <div className="space-y-2">
+      <Label htmlFor="guardian-eqid" className="flex flex-col gap-1">
         <span>Opiekun (osoba wprowadzająca Partner/Specjalista Zespołu Pure Life) *</span>
         <span className="font-normal text-xs text-muted-foreground">
-          Jeżeli osobą wprowadzającą jest inny klient Zespołu Pure Life, skontaktuj się z najbliższym upline struktury i wpisz dane opiekuna.
+          Wpisz numer EQID opiekuna i kliknij "Weryfikuj". Jeżeli nie znasz numeru EQID, skontaktuj się z opiekunem lub administratorem.
         </span>
       </Label>
       
@@ -142,57 +117,39 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
           )}
         </div>
       ) : (
-        // Search input
-        <div className="relative">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        // EQID input with verify button
+        <div className="space-y-2">
+          <div className="flex gap-2">
             <Input
-              ref={inputRef}
-              id="guardian-search"
+              id="guardian-eqid"
               type="text"
-              value={searchQuery}
-              onChange={handleInputChange}
-              onFocus={() => searchQuery.length >= 2 && setIsOpen(true)}
-              placeholder="Wpisz imię, nazwisko lub EQID opiekuna..."
+              value={eqidInput}
+              onChange={(e) => {
+                setEqidInput(e.target.value);
+                setVerificationError(null);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="Wpisz numer EQID opiekuna..."
               disabled={disabled}
               className={cn(
-                "pl-10",
-                error && "border-destructive focus-visible:ring-destructive"
+                verificationError && "border-destructive focus-visible:ring-destructive"
               )}
             />
-            {isLoading && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-            )}
+            <Button 
+              type="button"
+              onClick={handleVerify}
+              disabled={disabled || isVerifying || !eqidInput.trim()}
+              variant="secondary"
+            >
+              {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Weryfikuj'}
+            </Button>
           </div>
 
-          {/* Dropdown results */}
-          {isOpen && searchQuery.length >= 2 && (
-            <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-              {results.length > 0 ? (
-                results.map((guardian) => (
-                  <button
-                    key={guardian.user_id}
-                    type="button"
-                    onClick={() => handleSelect(guardian)}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-accent text-left transition-colors"
-                  >
-                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-foreground truncate">
-                        {formatGuardianName(guardian)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        EQID: {guardian.eq_id}
-                      </div>
-                    </div>
-                  </button>
-                ))
-              ) : noResults ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <p className="font-medium">Nie znaleziono opiekuna</p>
-                  <p className="text-xs mt-1">Sprawdź dane lub skontaktuj się z opiekunem</p>
-                </div>
-              ) : null}
+          {/* Error message */}
+          {verificationError && (
+            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+              <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+              <p className="text-sm text-destructive">{verificationError}</p>
             </div>
           )}
         </div>
@@ -201,10 +158,6 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       {error && (
         <p className="text-sm text-destructive">{error}</p>
       )}
-      
-      <p className="text-xs text-muted-foreground">
-        Wyszukaj i wybierz Partnera lub Specjalistę, który Cię wprowadza do Pure Life/Eqology
-      </p>
     </div>
   );
 };
