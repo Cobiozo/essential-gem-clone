@@ -49,6 +49,7 @@ import { TeamContactsManagement } from '@/components/admin/TeamContactsManagemen
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
+import CronJobsManagement from '@/components/admin/CronJobsManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
@@ -4344,6 +4345,10 @@ const Admin = () => {
 
           <TabsContent value="maintenance">
             <MaintenanceModeManagement />
+          </TabsContent>
+
+          <TabsContent value="cron-jobs">
+            <CronJobsManagement />
           </TabsContent>
         </Tabs>
       </div>

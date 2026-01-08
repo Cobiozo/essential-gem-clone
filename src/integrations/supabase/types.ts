@@ -1265,6 +1265,39 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          interval_minutes: number
+          is_enabled: boolean | null
+          job_name: string
+          last_run_at: string | null
+          next_run_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          interval_minutes?: number
+          is_enabled?: boolean | null
+          job_name: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          interval_minutes?: number
+          is_enabled?: boolean | null
+          job_name?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       daily_signal_settings: {
         Row: {
           ai_tone: string | null
