@@ -6,11 +6,14 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ReflinkStatusBadge } from './ReflinkStatusBadge';
+import { ReflinkQRCode } from './ReflinkQRCode';
+import { ReflinkStatsPanel } from './ReflinkStatsPanel';
 import { UserReflink, ReflinkGenerationSettings, getRoleLabel, getReflinkStatus } from './types';
 
 export const UserReflinksPanel: React.FC = () => {
@@ -123,52 +126,35 @@ export const UserReflinksPanel: React.FC = () => {
     }
   };
 
-  const handleRegenerateReflink = async () => {
-    if (!regeneratingLink || !profile) return;
+  // Extend existing link (keeps same QR code)
+  const handleExtendReflink = async () => {
+    if (!regeneratingLink) return;
     
     setCreating(true);
     try {
-      // Deactivate old link
+      const newExpiresAt = new Date();
+      newExpiresAt.setDate(newExpiresAt.getDate() + globalValidityDays);
+      
       await supabase
         .from('user_reflinks')
-        .update({ is_active: false })
+        .update({ 
+          expires_at: newExpiresAt.toISOString(),
+          is_active: true 
+        })
         .eq('id', regeneratingLink.id);
-      
-      // Generate new code
-      const { data: newCode, error: codeError } = await supabase.rpc('generate_user_reflink_code', {
-        p_eq_id: profile.eq_id || 'anon'
-      });
-      
-      if (codeError) throw codeError;
-      
-      // Calculate new expiry
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + globalValidityDays);
-      
-      // Create new link
-      const { error: insertError } = await supabase
-        .from('user_reflinks')
-        .insert([{
-          creator_user_id: user!.id,
-          target_role: regeneratingLink.target_role as 'admin' | 'partner' | 'specjalista' | 'client' | 'user',
-          reflink_code: newCode,
-          expires_at: expiresAt.toISOString(),
-        }]);
-      
-      if (insertError) throw insertError;
       
       toast({
         title: 'Sukces',
-        description: 'Nowy link został wygenerowany',
+        description: 'Link został przedłużony - kod QR pozostaje bez zmian',
       });
       
       setRegeneratingLink(null);
       fetchData();
     } catch (error: any) {
-      console.error('Error regenerating reflink:', error);
+      console.error('Error extending reflink:', error);
       toast({
         title: 'Błąd',
-        description: error.message || 'Nie udało się wygenerować nowego linku',
+        description: error.message || 'Nie udało się przedłużyć linku',
         variant: 'destructive',
       });
     } finally {
@@ -231,95 +217,118 @@ export const UserReflinksPanel: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {!canCreateMore && (
-          <Alert className="mb-4">
-            <Info className="w-4 h-4" />
-            <AlertDescription>
-              Osiągnięto limit {settings.max_links_per_user} aktywnych linków.
-            </AlertDescription>
-          </Alert>
-        )}
+        <Tabs defaultValue="links" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="links" className="flex items-center gap-2">
+              <Link2 className="w-4 h-4" />
+              Linki
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Statystyki
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="links">
+            {!canCreateMore && (
+              <Alert className="mb-4">
+                <Info className="w-4 h-4" />
+                <AlertDescription>
+                  Osiągnięto limit {settings.max_links_per_user} aktywnych linków.
+                </AlertDescription>
+              </Alert>
+            )}
 
-        {loading ? (
-          <div className="text-center py-8 text-muted-foreground">Ładowanie...</div>
-        ) : reflinks.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Nie masz jeszcze żadnych linków polecających.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {reflinks.map((reflink) => {
-              const status = getReflinkStatus(reflink.expires_at);
-              const isExpired = status === 'expired';
-              
-              return (
-                <div
-                  key={reflink.id}
-                  className={`p-4 rounded-lg border ${
-                    reflink.is_active && !isExpired
-                      ? 'border-border bg-card'
-                      : 'border-muted bg-muted/30 opacity-60'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <Badge variant="outline">
-                          {getRoleLabel(reflink.target_role)}
-                        </Badge>
-                        <ReflinkStatusBadge expiresAt={reflink.expires_at} />
-                      </div>
-                      <p className="font-mono text-sm truncate text-muted-foreground">
-                        {reflink.reflink_code}
-                      </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <MousePointer className="w-3 h-3" />
-                          {reflink.click_count} kliknięć
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <UserPlus className="w-3 h-3" />
-                          {reflink.registration_count} rejestracji
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isExpired ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setRegeneratingLink(reflink)}
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Wygeneruj nowy
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleCopy(reflink)}
-                            disabled={!reflink.is_active}
-                          >
-                            {copiedId === reflink.id ? (
-                              <Check className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Switch
-                            checked={reflink.is_active}
-                            onCheckedChange={() => handleToggleActive(reflink)}
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">Ładowanie...</div>
+            ) : reflinks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nie masz jeszcze żadnych linków polecających.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reflinks.map((reflink) => {
+                  const status = getReflinkStatus(reflink.expires_at);
+                  const isExpired = status === 'expired';
+                  
+                  return (
+                    <div
+                      key={reflink.id}
+                      className={`p-4 rounded-lg border ${
+                        reflink.is_active && !isExpired
+                          ? 'border-border bg-card'
+                          : 'border-muted bg-muted/30 opacity-60'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <Badge variant="outline">
+                              {getRoleLabel(reflink.target_role)}
+                            </Badge>
+                            <ReflinkStatusBadge expiresAt={reflink.expires_at} />
+                          </div>
+                          <p className="font-mono text-sm truncate text-muted-foreground">
+                            {reflink.reflink_code}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MousePointer className="w-3 h-3" />
+                              {reflink.click_count} kliknięć
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <UserPlus className="w-3 h-3" />
+                              {reflink.registration_count} rejestracji
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <ReflinkQRCode 
+                            reflinkCode={reflink.reflink_code} 
+                            targetRole={reflink.target_role} 
                           />
-                        </>
-                      )}
+                          {isExpired ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setRegeneratingLink(reflink)}
+                            >
+                              <Calendar className="w-4 h-4 mr-2" />
+                              Przedłuż
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleCopy(reflink)}
+                                disabled={!reflink.is_active}
+                              >
+                                {copiedId === reflink.id ? (
+                                  <Check className="w-4 h-4 text-green-500" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Switch
+                                checked={reflink.is_active}
+                                onCheckedChange={() => handleToggleActive(reflink)}
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="stats">
+            <ReflinkStatsPanel />
+          </TabsContent>
+        </Tabs>
       </CardContent>
 
       {/* Create Dialog */}
@@ -361,21 +370,21 @@ export const UserReflinksPanel: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Regenerate Dialog */}
+      {/* Extend Dialog */}
       <Dialog open={!!regeneratingLink} onOpenChange={() => setRegeneratingLink(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Wygeneruj nowy link</DialogTitle>
+            <DialogTitle>Przedłuż ważność linku</DialogTitle>
             <DialogDescription>
-              Stary link zostanie dezaktywowany. Nowy link będzie ważny przez {globalValidityDays} dni.
+              Link zostanie przedłużony o {globalValidityDays} dni. Kod QR pozostanie bez zmian.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegeneratingLink(null)}>
               Anuluj
             </Button>
-            <Button onClick={handleRegenerateReflink} disabled={creating}>
-              {creating ? 'Generowanie...' : 'Wygeneruj'}
+            <Button onClick={handleExtendReflink} disabled={creating}>
+              {creating ? 'Przedłużanie...' : 'Przedłuż link'}
             </Button>
           </DialogFooter>
         </DialogContent>

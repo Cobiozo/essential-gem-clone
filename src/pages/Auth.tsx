@@ -159,6 +159,15 @@ const Auth = () => {
               .from('user_reflinks')
               .update({ click_count: (data.click_count || 0) + 1 } as any)
               .eq('id', data.id);
+            
+            // Log click event to reflink_events
+            await supabase
+              .from('reflink_events')
+              .insert({
+                reflink_id: data.id,
+                event_type: 'click',
+                target_role: data.target_role
+              } as any);
           }
         });
     }

@@ -2376,6 +2376,38 @@ export type Database = {
           },
         ]
       }
+      reflink_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          reflink_id: string
+          target_role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          reflink_id: string
+          target_role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          reflink_id?: string
+          target_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reflink_events_reflink_id_fkey"
+            columns: ["reflink_id"]
+            isOneToOne: false
+            referencedRelation: "user_reflinks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reflink_generation_settings: {
         Row: {
           allowed_target_roles: Database["public"]["Enums"]["app_role"][]
