@@ -78,7 +78,7 @@ export default defineConfig(({ mode }) => ({
           'lib-pdf': ['jspdf', 'html2canvas', 'html2pdf.js'],
           'lib-fabric': ['fabric'],
           'lib-charts': ['recharts'],
-          'lib-editor': ['quill'],
+          // lib-editor removed - quill not used
           'lib-zip': ['jszip'],
           'lib-carousel': ['embla-carousel-react'],
           
