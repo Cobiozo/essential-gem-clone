@@ -172,7 +172,9 @@ export const CronJobsManagement: React.FC = () => {
   const triggerManually = async () => {
     setTriggering(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-pending-notifications');
+      const { data, error } = await supabase.functions.invoke('process-pending-notifications', {
+        body: { force: true }
+      });
       
       if (error) throw error;
 
