@@ -2286,6 +2286,8 @@ export type Database = {
           postal_code: string | null
           profile_completed: boolean | null
           profile_description: string | null
+          reflink_code_used: string | null
+          registered_via_reflink: string | null
           role: string
           search_keywords: string[] | null
           specialization: string | null
@@ -2318,6 +2320,8 @@ export type Database = {
           postal_code?: string | null
           profile_completed?: boolean | null
           profile_description?: string | null
+          reflink_code_used?: string | null
+          registered_via_reflink?: string | null
           role?: string
           search_keywords?: string[] | null
           specialization?: string | null
@@ -2350,6 +2354,8 @@ export type Database = {
           postal_code?: string | null
           profile_completed?: boolean | null
           profile_description?: string | null
+          reflink_code_used?: string | null
+          registered_via_reflink?: string | null
           role?: string
           search_keywords?: string[] | null
           specialization?: string | null
@@ -2359,6 +2365,68 @@ export type Database = {
           upline_first_name?: string | null
           upline_last_name?: string | null
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_registered_via_reflink_fkey"
+            columns: ["registered_via_reflink"]
+            isOneToOne: false
+            referencedRelation: "user_reflinks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reflink_generation_settings: {
+        Row: {
+          allowed_target_roles: Database["public"]["Enums"]["app_role"][]
+          can_generate: boolean
+          created_at: string
+          id: string
+          max_links_per_user: number
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          allowed_target_roles?: Database["public"]["Enums"]["app_role"][]
+          can_generate?: boolean
+          created_at?: string
+          id?: string
+          max_links_per_user?: number
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          allowed_target_roles?: Database["public"]["Enums"]["app_role"][]
+          can_generate?: boolean
+          created_at?: string
+          id?: string
+          max_links_per_user?: number
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reflink_global_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3310,6 +3378,53 @@ export type Database = {
           },
         ]
       }
+      user_reflinks: {
+        Row: {
+          click_count: number
+          created_at: string
+          creator_user_id: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          reflink_code: string
+          registration_count: number
+          target_role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          click_count?: number
+          created_at?: string
+          creator_user_id: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          reflink_code: string
+          registration_count?: number
+          target_role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          click_count?: number
+          created_at?: string
+          creator_user_id?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          reflink_code?: string
+          registration_count?: number
+          target_role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reflinks_creator_user_id_fkey"
+            columns: ["creator_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -3426,8 +3541,10 @@ export type Database = {
       }
       email_exists: { Args: { email_param: string }; Returns: boolean }
       eq_id_exists: { Args: { eq_id_param: string }; Returns: boolean }
+      generate_user_reflink_code: { Args: { p_eq_id: string }; Returns: string }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
+      get_reflink_validity_days: { Args: never; Returns: number }
       get_role_level: { Args: { role_name: string }; Returns: number }
       get_user_profiles_with_confirmation: {
         Args: never
