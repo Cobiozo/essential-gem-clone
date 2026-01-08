@@ -161,7 +161,12 @@ const AppContent = () => {
               onComplete={handleInfoBannersComplete}
             />
           ) : null}
-          
+        </>
+      )}
+
+      {/* Chat widgets - always visible for logged in users */}
+      {user && (
+        <>
           <Suspense fallback={null}>
             <MedicalChatWidget />
           </Suspense>
