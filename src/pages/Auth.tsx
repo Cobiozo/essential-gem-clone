@@ -103,10 +103,35 @@ const Auth = () => {
     hasSpecial: false
   });
   const [showEmailConfirmDialog, setShowEmailConfirmDialog] = useState(false);
+  const [reflinkCode, setReflinkCode] = useState<string | null>(null);
+  const [reflinkRole, setReflinkRole] = useState<string | null>(null);
   const { signIn, signUp, user, loginComplete } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Detect reflink code from URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref) {
+      setReflinkCode(ref);
+      // Fetch reflink info to get target role
+      supabase
+        .from('user_reflinks')
+        .select('target_role')
+        .eq('reflink_code', ref)
+        .eq('is_active', true)
+        .gt('expires_at', new Date().toISOString())
+        .single()
+        .then(({ data }) => {
+          if (data?.target_role) {
+            setReflinkRole(data.target_role);
+            setRole(data.target_role);
+          }
+        });
+    }
+  }, []);
 
   // Validate password and update requirements state
   const validatePassword = (pwd: string) => {
@@ -367,7 +392,8 @@ const Auth = () => {
             guardian_name: `${selectedGuardian.first_name || ''} ${selectedGuardian.last_name || ''}`.trim(),
             upline_eq_id: selectedGuardian.eq_id,
             upline_first_name: selectedGuardian.first_name,
-            upline_last_name: selectedGuardian.last_name
+            upline_last_name: selectedGuardian.last_name,
+            reflink_code: reflinkCode || undefined
           }
         }
       });
@@ -381,6 +407,30 @@ const Auth = () => {
           variant: "destructive",
         });
       } else {
+        // Track reflink registration if applicable
+        if (reflinkCode) {
+          try {
+            // Use direct SQL call since types may not be updated yet
+            await supabase.from('user_reflinks')
+              .update({ registration_count: supabase.rpc as any })
+              .eq('reflink_code', reflinkCode);
+            // Increment registration count
+            const { data: reflink } = await supabase
+              .from('user_reflinks')
+              .select('registration_count')
+              .eq('reflink_code', reflinkCode)
+              .single();
+            if (reflink) {
+              await supabase
+                .from('user_reflinks')
+                .update({ registration_count: (reflink.registration_count || 0) + 1 })
+                .eq('reflink_code', reflinkCode);
+            }
+          } catch (reflinkError) {
+            console.error('Error tracking reflink registration:', reflinkError);
+          }
+        }
+        
         // NATYCHMIAST pokaż dialog - PRZED jakimkolwiek await!
         // To blokuje useEffect przed przekierowaniem
         setRegisteredEmail(email);
@@ -733,7 +783,7 @@ const Auth = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="role-select">{t('auth.role')} *</Label>
-                    <Select value={role} onValueChange={setRole} required disabled={loading}>
+                    <Select value={role} onValueChange={setRole} required disabled={loading || !!reflinkRole}>
                       <SelectTrigger className="w-full bg-background border border-input hover:bg-accent hover:text-accent-foreground z-50">
                         <SelectValue placeholder={t('auth.selectRole')} />
                       </SelectTrigger>
@@ -749,6 +799,11 @@ const Auth = () => {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                    {reflinkRole && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Rola została ustawiona przez link polecający
+                      </p>
+                    )}
                   </div>
 
                   <GuardianSearchInput
