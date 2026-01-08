@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Play, Clock, CheckCircle, XCircle, SkipForward, RefreshCw } from 'lucide-react';
+import { Loader2, Play, Clock, CheckCircle, XCircle, SkipForward, RefreshCw, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
@@ -32,6 +32,20 @@ interface CronJobLog {
   processed_count: number | null;
   error_message: string | null;
   details: unknown;
+}
+
+interface CategoryDetails {
+  processed?: number;
+  success?: number;
+  failed?: number;
+}
+
+interface DetailedResults {
+  welcomeEmails?: CategoryDetails;
+  trainingNotifications?: CategoryDetails;
+  retries?: CategoryDetails;
+  stoppedEarly?: boolean;
+  reason?: string;
 }
 
 const INTERVAL_OPTIONS = [
@@ -202,24 +216,73 @@ export const CronJobsManagement: React.FC = () => {
     }
   };
 
-  const getDetailsText = (log: CronJobLog): string => {
-    if (!log.details || typeof log.details !== 'object') return '-';
-    const details = log.details as Record<string, { success?: number; failed?: number; processed?: number; reason?: string }>;
+  const formatDetailCategory = (category: CategoryDetails | undefined) => {
+    if (!category || (category.processed === 0 && !category.success && !category.failed)) {
+      return <span className="text-muted-foreground">-</span>;
+    }
     
-    const parts: string[] = [];
-    if (details.welcomeEmails?.success) parts.push(`welcome: ${details.welcomeEmails.success}`);
-    if (details.trainingNotifications?.success) parts.push(`training: ${details.trainingNotifications.success}`);
-    if (details.retries?.success) parts.push(`retry: ${details.retries.success}`);
+    const successCount = category.success || 0;
+    const failedCount = category.failed || 0;
+    
+    return (
+      <div className="flex flex-col text-xs">
+        {successCount > 0 && (
+          <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
+        )}
+        {failedCount > 0 && (
+          <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>
+        )}
+        {successCount === 0 && failedCount === 0 && category.processed !== undefined && (
+          <span className="text-muted-foreground">{category.processed}</span>
+        )}
+      </div>
+    );
+  };
+
+  const getDuration = (startedAt: string | null, completedAt: string | null): string => {
+    if (!startedAt || !completedAt) return '-';
+    
+    const start = new Date(startedAt).getTime();
+    const end = new Date(completedAt).getTime();
+    const durationMs = end - start;
+    
+    if (durationMs < 1000) return `${durationMs}ms`;
+    if (durationMs < 60000) return `${(durationMs / 1000).toFixed(1)}s`;
+    return `${Math.floor(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`;
+  };
+
+  const getDetailsNotes = (log: CronJobLog): React.ReactNode => {
+    const details = log.details as DetailedResults | null;
+    const notes: React.ReactNode[] = [];
+    
+    if (details?.stoppedEarly) {
+      notes.push(
+        <Badge key="timeout" variant="outline" className="text-orange-600 border-orange-300 text-xs">
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Timeout
+        </Badge>
+      );
+    }
     
     if (log.error_message) {
-      return log.error_message.substring(0, 50) + (log.error_message.length > 50 ? '...' : '');
+      notes.push(
+        <span key="error" className="text-red-500 text-xs" title={log.error_message}>
+          {log.error_message.length > 40 
+            ? log.error_message.substring(0, 40) + '...' 
+            : log.error_message}
+        </span>
+      );
     }
     
-    if (details.reason) {
-      return String(details.reason);
+    if (details?.reason && !log.error_message) {
+      notes.push(
+        <span key="reason" className="text-muted-foreground text-xs">
+          {String(details.reason)}
+        </span>
+      );
     }
     
-    return parts.length > 0 ? parts.join(', ') : '-';
+    return notes.length > 0 ? <div className="flex flex-col gap-1">{notes}</div> : '-';
   };
 
   if (loading) {
@@ -351,29 +414,44 @@ export const CronJobsManagement: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Data</TableHead>
+                        <TableHead className="whitespace-nowrap">Rozpoczęto</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-center">Przetworzone</TableHead>
-                        <TableHead>Szczegóły</TableHead>
+                        <TableHead className="text-center whitespace-nowrap">Czas</TableHead>
+                        <TableHead className="text-center whitespace-nowrap">Welcome</TableHead>
+                        <TableHead className="text-center whitespace-nowrap">Training</TableHead>
+                        <TableHead className="text-center whitespace-nowrap">Retry</TableHead>
+                        <TableHead>Uwagi</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {logs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell className="whitespace-nowrap">
-                            {formatDate(log.started_at || log.completed_at)}
-                          </TableCell>
-                          <TableCell>
-                            {getStatusBadge(log.status)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {log.processed_count ?? 0}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                            {getDetailsText(log)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {logs.map((log) => {
+                        const details = log.details as DetailedResults | null;
+                        return (
+                          <TableRow key={log.id}>
+                            <TableCell className="whitespace-nowrap text-xs">
+                              {formatDate(log.started_at || log.completed_at)}
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(log.status)}
+                            </TableCell>
+                            <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
+                              {getDuration(log.started_at, log.completed_at)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {formatDetailCategory(details?.welcomeEmails)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {formatDetailCategory(details?.trainingNotifications)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {formatDetailCategory(details?.retries)}
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              {getDetailsNotes(log)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
