@@ -3277,6 +3277,7 @@ export type Database = {
           time_spent_seconds: number
           updated_at: string
           user_id: string
+          video_position_seconds: number | null
         }
         Insert: {
           completed_at?: string | null
@@ -3288,6 +3289,7 @@ export type Database = {
           time_spent_seconds?: number
           updated_at?: string
           user_id: string
+          video_position_seconds?: number | null
         }
         Update: {
           completed_at?: string | null
@@ -3299,6 +3301,7 @@ export type Database = {
           time_spent_seconds?: number
           updated_at?: string
           user_id?: string
+          video_position_seconds?: number | null
         }
         Relationships: [
           {
