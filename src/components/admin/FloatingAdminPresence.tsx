@@ -74,6 +74,7 @@ export const FloatingAdminPresence = ({
   // Handle drag start (mouse & touch)
   const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
@@ -93,6 +94,7 @@ export const FloatingAdminPresence = ({
     const handleMove = (e: MouseEvent | TouchEvent) => {
       if (!dragStartRef.current) return;
       
+      e.preventDefault();
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       
@@ -156,7 +158,7 @@ export const FloatingAdminPresence = ({
             onMouseDown={handleDragStart}
             onTouchStart={handleDragStart}
             className={cn(
-              "p-1 cursor-grab active:cursor-grabbing rounded-r-md bg-primary text-primary-foreground",
+              "p-1 cursor-grab active:cursor-grabbing rounded-r-md bg-primary text-primary-foreground touch-none",
               isDragging && "cursor-grabbing"
             )}
           >
@@ -182,7 +184,7 @@ export const FloatingAdminPresence = ({
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
           className={cn(
-            "absolute -right-6 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing rounded-r-md bg-muted border border-l-0 shadow-sm",
+            "absolute -right-6 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing rounded-r-md bg-muted border border-l-0 shadow-sm touch-none",
             isDragging && "cursor-grabbing bg-muted/80"
           )}
         >
