@@ -1809,6 +1809,7 @@ export type Database = {
       }
       maintenance_mode: {
         Row: {
+          bypass_key: string | null
           created_at: string | null
           id: string
           is_enabled: boolean | null
@@ -1818,6 +1819,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          bypass_key?: string | null
           created_at?: string | null
           id?: string
           is_enabled?: boolean | null
@@ -1827,6 +1829,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          bypass_key?: string | null
           created_at?: string | null
           id?: string
           is_enabled?: boolean | null
