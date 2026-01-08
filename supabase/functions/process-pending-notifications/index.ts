@@ -42,6 +42,9 @@ interface TrainingAssignment {
   assigned_at: string;
 }
 
+// Helper function for delay between emails
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -165,6 +168,12 @@ serve(async (req) => {
       console.log(`[CRON] Found ${usersWithoutWelcome.length} users without welcome email`);
       
       for (const user of usersWithoutWelcome as UserWithoutWelcome[]) {
+        // Add 1 second delay between emails (except first one)
+        if (results.welcomeEmails.processed > 0) {
+          console.log("[CRON] Waiting 1 second before next welcome email...");
+          await delay(1000);
+        }
+        
         results.welcomeEmails.processed++;
         try {
           // Call send-welcome-email function
@@ -205,6 +214,12 @@ serve(async (req) => {
       console.log(`[CRON] Found ${trainingsWithoutNotification.length} training assignments without notification`);
       
       for (const assignment of trainingsWithoutNotification as TrainingAssignment[]) {
+        // Add 1 second delay between emails (except first one)
+        if (results.trainingNotifications.processed > 0) {
+          console.log("[CRON] Waiting 1 second before next training notification...");
+          await delay(1000);
+        }
+        
         results.trainingNotifications.processed++;
         try {
           // Call send-training-notification function
@@ -227,7 +242,7 @@ serve(async (req) => {
             
             // Mark as notified
             await supabase
-              .from("training_user_progress")
+              .from("training_assignments")
               .update({ notification_sent: true })
               .eq("id", assignment.assignment_id);
           }
@@ -251,6 +266,12 @@ serve(async (req) => {
       console.log(`[CRON] Found ${failedEmails.length} failed emails to retry`);
       
       for (const email of failedEmails as RetryableEmail[]) {
+        // Add 1 second delay between emails (except first one)
+        if (results.retries.processed > 0) {
+          console.log("[CRON] Waiting 1 second before next retry...");
+          await delay(1000);
+        }
+        
         results.retries.processed++;
         try {
           const newRetryCount = (email.retry_count || 0) + 1;
