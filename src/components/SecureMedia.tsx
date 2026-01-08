@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { VideoControls } from '@/components/training/VideoControls';
 
 interface SecureMediaProps {
   mediaUrl: string;
   mediaType: 'image' | 'video' | 'document' | 'audio' | 'other';
   altText?: string;
   className?: string;
-  disableInteraction?: boolean; // For training videos - prevents pause and seek
+  disableInteraction?: boolean;
+  onPlayStateChange?: (isPlaying: boolean) => void;
+  onTimeUpdate?: (currentTime: number) => void;
+  initialTime?: number;
 }
 
 // YouTube URL detection and ID extraction
@@ -31,18 +35,28 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   mediaType,
   altText,
   className,
-  disableInteraction = false
+  disableInteraction = false,
+  onPlayStateChange,
+  onTimeUpdate,
+  initialTime = 0
 }) => {
   const [signedUrl, setSignedUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isYouTube, setIsYouTube] = useState(false);
   const [youtubeId, setYoutubeId] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isTabHidden, setIsTabHidden] = useState(false);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lastValidTimeRef = useRef<number>(initialTime);
+  const isSeekingRef = useRef<boolean>(false);
 
+  // URL processing effect
   useEffect(() => {
     let mounted = true;
 
-    // Check if it's a YouTube URL first
     if (isYouTubeUrl(mediaUrl)) {
       const id = extractYouTubeId(mediaUrl);
       if (mounted) {
@@ -53,11 +67,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       return;
     }
 
-    // Reset YouTube state for non-YouTube URLs
     setIsYouTube(false);
     setYoutubeId(null);
 
-    // VPS URL (purelife.info.pl) - use directly
     if (mediaUrl.includes('purelife.info.pl')) {
       if (mounted) {
         setSignedUrl(mediaUrl);
@@ -66,7 +78,6 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       return;
     }
 
-    // External URLs (http/https not from Supabase) - use directly
     if ((mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) && 
         !mediaUrl.includes('supabase.co')) {
       if (mounted) {
@@ -78,7 +89,6 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     const getSignedUrl = async () => {
       try {
-        // For full Supabase URLs
         if (mediaUrl.includes('supabase.co')) {
           const urlObj = new URL(mediaUrl);
           const pathParts = urlObj.pathname.split('/storage/v1/object/public/');
@@ -100,7 +110,6 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           }
         }
 
-        // Fallback: old logic for relative paths
         const urlParts = mediaUrl.split('/');
         const bucketName = urlParts[urlParts.length - 2];
         const fileName = urlParts[urlParts.length - 1];
@@ -139,28 +148,166 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaUrl]);
 
-  // Block seeking for training videos
+  // Set initial time when video loads
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoRef.current || !signedUrl) return;
+    
+    const video = videoRef.current;
+    
+    const handleLoadedMetadata = () => {
+      setDuration(video.duration);
+      if (initialTime > 0 && disableInteraction) {
+        video.currentTime = initialTime;
+        lastValidTimeRef.current = initialTime;
+        setCurrentTime(initialTime);
+      }
+    };
+    
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [mediaType, signedUrl, initialTime, disableInteraction]);
+
+  // Seek blocking and time tracking for restricted mode
   useEffect(() => {
     if (mediaType !== 'video' || !disableInteraction || !videoRef.current) return;
 
     const video = videoRef.current;
-    let lastValidTime = 0;
 
-    const preventSeek = () => {
-      // Force video to continue from where it was, preventing backwards seek
-      if (Math.abs(video.currentTime - lastValidTime) > 0.5 && video.currentTime < lastValidTime) {
-        video.currentTime = lastValidTime;
-      } else {
-        lastValidTime = video.currentTime;
+    // Block ALL seeking (forward and backward)
+    const handleSeeking = () => {
+      if (isSeekingRef.current) return;
+      
+      const timeDiff = Math.abs(video.currentTime - lastValidTimeRef.current);
+      
+      // If time jumped more than 1.5 seconds, it's a seek attempt - block it
+      if (timeDiff > 1.5) {
+        isSeekingRef.current = true;
+        video.currentTime = lastValidTimeRef.current;
+        setTimeout(() => {
+          isSeekingRef.current = false;
+        }, 100);
       }
     };
 
-    video.addEventListener('timeupdate', preventSeek);
+    // Update valid time only during normal playback
+    const handleTimeUpdate = () => {
+      if (isSeekingRef.current) return;
+      
+      const timeDiff = video.currentTime - lastValidTimeRef.current;
+      
+      // Only update if time moved forward naturally (within 1.5 seconds)
+      if (timeDiff > 0 && timeDiff <= 1.5) {
+        lastValidTimeRef.current = video.currentTime;
+      }
+      
+      setCurrentTime(video.currentTime);
+      onTimeUpdate?.(video.currentTime);
+    };
+
+    const handlePlay = () => {
+      setIsPlaying(true);
+      onPlayStateChange?.(true);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
+
+    // Block playback rate changes
+    const handleRateChange = () => {
+      if (video.playbackRate !== 1) {
+        video.playbackRate = 1;
+      }
+    };
+
+    video.addEventListener('seeking', handleSeeking);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('ratechange', handleRateChange);
     
     return () => {
-      video.removeEventListener('timeupdate', preventSeek);
+      video.removeEventListener('seeking', handleSeeking);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('ratechange', handleRateChange);
     };
-  }, [mediaType, disableInteraction, signedUrl]);
+  }, [mediaType, disableInteraction, signedUrl, onPlayStateChange, onTimeUpdate]);
+
+  // Time tracking for unrestricted mode
+  useEffect(() => {
+    if (mediaType !== 'video' || disableInteraction || !videoRef.current) return;
+
+    const video = videoRef.current;
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      onTimeUpdate?.(video.currentTime);
+    };
+
+    const handlePlay = () => {
+      setIsPlaying(true);
+      onPlayStateChange?.(true);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
+
+    const handleLoadedMetadata = () => {
+      setDuration(video.duration);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [mediaType, disableInteraction, signedUrl, onPlayStateChange, onTimeUpdate]);
+
+  // Visibility API - pause video when tab is hidden
+  useEffect(() => {
+    if (mediaType !== 'video' || !disableInteraction) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsTabHidden(true);
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+      } else {
+        setIsTabHidden(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [mediaType, disableInteraction]);
+
+  const handlePlayPause = useCallback(() => {
+    if (!videoRef.current) return;
+    
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+    } else {
+      videoRef.current.pause();
+    }
+  }, []);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -207,59 +354,64 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Handle YouTube videos
     if (isYouTube && youtubeId) {
       return (
-        <div className={`relative w-full aspect-video rounded-lg overflow-hidden ${className || ''}`}>
-          <iframe
-            src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
-            title={altText || 'YouTube video'}
-            className="absolute inset-0 w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
+        <div className="space-y-3">
+          <div className={`relative w-full aspect-video rounded-lg overflow-hidden ${className || ''}`}>
+            <iframe
+              src={`https://www.youtube.com/embed/${youtubeId}?rel=0&modestbranding=1`}
+              title={altText || 'YouTube video'}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+          {disableInteraction && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              <strong>Uwaga:</strong> Dla filmów YouTube pełna kontrola odtwarzania nie jest możliwa. 
+              Timer będzie liczył czas niezależnie od stanu wideo.
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Handle regular video files with restricted mode
+    if (disableInteraction) {
+      return (
+        <div className="space-y-3">
+          <video
+            ref={videoRef}
+            {...securityProps}
+            src={signedUrl}
+            controls={false}
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disablePictureInPicture
+            className={`w-full h-auto rounded-lg ${className || ''}`}
+            preload="metadata"
+            playsInline
+          >
+            Twoja przeglądarka nie obsługuje odtwarzania wideo.
+          </video>
+          <VideoControls
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={handlePlayPause}
+            isTabHidden={isTabHidden}
           />
         </div>
       );
     }
 
-    // Handle regular video files
-    const handleVideoInteraction = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-      if (!disableInteraction) return;
-      
-      const video = e.currentTarget;
-      
-      // Prevent pause
-      if (e.type === 'pause' && !video.ended) {
-        video.play();
-      }
-      
-      // Prevent seeking
-      if (e.type === 'seeking' || e.type === 'seeked') {
-        // This will be handled by blocking the seek in the effect
-      }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (!disableInteraction) return;
-      
-      // Block space (pause) and arrow keys (seek)
-      if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-      }
-    };
-
+    // Handle regular video files with full controls (lesson completed)
     return (
       <video
         ref={videoRef}
         {...securityProps}
         src={signedUrl}
-        controls={!disableInteraction}
-        controlsList="nodownload nofullscreen noremoteplayback"
-        disablePictureInPicture
+        controls
+        controlsList="nodownload"
         className={`w-full h-auto rounded-lg ${className || ''}`}
         preload="metadata"
-        onPause={handleVideoInteraction}
-        onSeeking={handleVideoInteraction}
-        onSeeked={handleVideoInteraction}
-        onKeyDown={handleKeyDown}
-        autoPlay={disableInteraction}
       >
         Twoja przeglądarka nie obsługuje odtwarzania wideo.
       </video>
