@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2 } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -26,6 +26,7 @@ import { SpecialistCorrespondence } from '@/components/specialist-correspondence
 import { PrivateChatWidget } from '@/components/private-chat';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
+import { UserReflinksPanel } from '@/components/user-reflinks';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -103,6 +104,7 @@ const MyAccount = () => {
   // Visibility settings from database
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
   const [dailySignalVisible, setDailySignalVisible] = useState(false);
+  const [canGenerateReflinks, setCanGenerateReflinks] = useState(false);
   
   // Active tab state - controlled by URL parameter
   const [activeTab, setActiveTab] = useState('profile');
@@ -114,7 +116,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -172,6 +174,17 @@ const MyAccount = () => {
           (role === 'specjalista' && signalSettings.visible_to_specjalista);
         setDailySignalVisible(visible);
       }
+      
+      // Fetch reflink generation settings
+      if (userRole?.role) {
+        const { data: reflinkSettings } = await supabase
+          .from('reflink_generation_settings')
+          .select('can_generate')
+          .eq('role', userRole.role as 'admin' | 'partner' | 'specjalista' | 'client' | 'user')
+          .single();
+        
+        setCanGenerateReflinks(reflinkSettings?.can_generate || false);
+      }
     };
     
     if (userRole) {
@@ -186,18 +199,18 @@ const MyAccount = () => {
   const showProfileForm = profileIncomplete || isEditingProfile || (!isComplete && profileNotCompleted);
   const mustCompleteProfile = forceComplete || (!isComplete && profileNotCompleted);
   
-  // Visible tabs based on existing visibility settings (no new feature_visibility table)
-  // For clients: show teamContacts (Pure-Kontakty) if canSearchSpecialists, otherwise show correspondence
+  // Visible tabs based on existing visibility settings
   const visibleTabs = useMemo(() => ({
-    profile: true, // Always visible
-    teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists), // Partners/specialists always, clients if specialist search enabled
-    privateChats: isSpecjalista, // Only for specialists - to receive messages from admins
-    correspondence: false, // Disabled - replaced by private chats
-    notifications: true, // Always visible
-    preferences: dailySignalVisible, // Based on daily_signal_settings
-    aiCompass: aiCompassVisible, // Based on ai_compass_settings
-    security: true, // Always visible
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible]);
+    profile: true,
+    teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists),
+    privateChats: isSpecjalista,
+    correspondence: false,
+    notifications: true,
+    preferences: dailySignalVisible,
+    aiCompass: aiCompassVisible,
+    reflinks: canGenerateReflinks,
+    security: true,
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -546,6 +559,12 @@ const MyAccount = () => {
                 <TabsTrigger value="security" disabled={mustCompleteProfile}>
                   <Key className="w-4 h-4 mr-2" />
                   {t('myAccount.security')}
+                </TabsTrigger>
+              )}
+              {visibleTabs.reflinks && (
+                <TabsTrigger value="reflinks" disabled={mustCompleteProfile}>
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Moje linki
                 </TabsTrigger>
               )}
             </TabsList>
@@ -976,6 +995,12 @@ const MyAccount = () => {
             </CardContent>
           </Card>
             </TabsContent>
+
+            {visibleTabs.reflinks && (
+              <TabsContent value="reflinks" className="mt-6">
+                <UserReflinksPanel />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>
