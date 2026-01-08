@@ -2875,6 +2875,9 @@ const Admin = () => {
           onTabChange={setActiveTab}
           onSignOut={handleSignOut}
           siteLogo={siteLogo}
+          admins={admins}
+          currentUserPresence={currentUserPresence}
+          isConnected={isConnected}
         />
         
         <SidebarInset className="flex-1">
@@ -2884,9 +2887,6 @@ const Admin = () => {
               <SidebarTrigger />
               <Separator orientation="vertical" className="h-6" />
               <h1 className="text-lg font-semibold">{t('admin.title')}</h1>
-              <div className="ml-auto">
-                <AdminPresenceWidget admins={admins} currentUserPresence={currentUserPresence} isConnected={isConnected} />
-              </div>
             </div>
           </header>
 

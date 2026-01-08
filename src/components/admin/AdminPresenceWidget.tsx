@@ -43,7 +43,7 @@ export const AdminPresenceWidget: React.FC<AdminPresenceWidgetProps> = ({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className="mb-4 border-primary/20">
+      <Card className="border-primary/20">
         <CollapsibleTrigger asChild>
           <CardHeader className="py-3 cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">

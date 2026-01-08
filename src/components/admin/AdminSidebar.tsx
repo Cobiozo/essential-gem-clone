@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { AdminPresenceWidget } from '@/components/admin/AdminPresenceWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import {
@@ -44,12 +45,16 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import type { AdminPresence } from '@/hooks/useAdminPresence';
 
 interface AdminSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   onSignOut: () => void;
   siteLogo?: string;
+  admins: AdminPresence[];
+  currentUserPresence?: AdminPresence | null;
+  isConnected: boolean;
 }
 
 interface NavItem {
@@ -143,6 +148,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onTabChange,
   onSignOut,
   siteLogo,
+  admins,
+  currentUserPresence,
+  isConnected,
 }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -207,6 +215,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Presence Widget */}
+        {!isCollapsed && (
+          <SidebarGroup>
+            <SidebarGroupContent className="px-2">
+              <AdminPresenceWidget 
+                admins={admins} 
+                currentUserPresence={currentUserPresence} 
+                isConnected={isConnected} 
+              />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <Separator />
 
