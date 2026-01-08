@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ReflinksForm } from './ReflinksForm';
+import { UserReflinksSettings } from './UserReflinksSettings';
 
 interface VisibilitySettings {
   client: boolean;
@@ -360,6 +362,19 @@ export const ReflinksManagement: React.FC = () => {
 
 
   return (
+    <Tabs defaultValue="global" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="global">
+          <Link2 className="w-4 h-4 mr-2" />
+          Reflinki globalne
+        </TabsTrigger>
+        <TabsTrigger value="user">
+          <Users className="w-4 h-4 mr-2" />
+          Linki użytkowników
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="global">
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -558,5 +573,13 @@ export const ReflinksManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
     </Card>
+      </TabsContent>
+
+      <TabsContent value="user">
+        <UserReflinksSettings />
+      </TabsContent>
+    </Tabs>
   );
 };
+
+export default ReflinksManagement;
