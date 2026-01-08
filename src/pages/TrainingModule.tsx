@@ -59,14 +59,14 @@ const TrainingModule = () => {
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [progress, setProgress] = useState<Record<string, LessonProgress>>({});
-  const [timeSpent, setTimeSpent] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [canProceed, setCanProceed] = useState(false);
   
-  // Video state for synchronized timer
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  // Video position = time spent (single source of truth for video lessons)
   const [videoPosition, setVideoPosition] = useState(0);
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
+  
+  // Text lesson timer (only for lessons without video)
+  const [textLessonTime, setTextLessonTime] = useState(0);
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -131,10 +131,11 @@ const TrainingModule = () => {
           
           if (firstIncompleteIndex !== -1) {
             setCurrentLessonIndex(firstIncompleteIndex);
-            // Load saved video position for this lesson
+            // Load saved position for this lesson
             const savedPos = progressMap[lessonsData[firstIncompleteIndex].id]?.video_position_seconds || 0;
             setSavedVideoPosition(savedPos);
-            setTimeSpent(progressMap[lessonsData[firstIncompleteIndex].id]?.time_spent_seconds || 0);
+            setVideoPosition(savedPos);
+            setTextLessonTime(progressMap[lessonsData[firstIncompleteIndex].id]?.time_spent_seconds || 0);
           }
         }
       } catch (error) {
@@ -165,42 +166,21 @@ const TrainingModule = () => {
     const currentLesson = lessons[currentLessonIndex];
     if (currentLesson) {
       const lessonProgress = progress[currentLesson.id];
-      setSavedVideoPosition(lessonProgress?.video_position_seconds || 0);
-      setTimeSpent(lessonProgress?.time_spent_seconds || 0);
-      setVideoPosition(lessonProgress?.video_position_seconds || 0);
+      const savedPos = lessonProgress?.video_position_seconds || 0;
+      setSavedVideoPosition(savedPos);
+      setVideoPosition(savedPos);
+      setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
     }
   }, [currentLessonIndex, lessons, progress]);
 
-  // Timer synchronized with video playback
+  // Timer only for text lessons (no video)
   useEffect(() => {
     const currentLesson = lessons[currentLessonIndex];
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     const isLessonCompleted = progress[currentLesson?.id]?.is_completed;
     
-    // For completed lessons or lessons without video, use standard timer
-    if (!hasVideo || isLessonCompleted) {
-      // Only start timer for non-video lessons or completed lessons
-      if (!hasVideo && !isLessonCompleted) {
-        timerRef.current = setInterval(() => {
-          setTimeSpent(prev => {
-            const newTime = prev + 1;
-            const lessonProgress = progress[currentLesson?.id];
-            const totalTime = newTime;
-            setCanProceed(totalTime >= (currentLesson?.min_time_seconds || 0));
-            return newTime;
-          });
-        }, 1000);
-      }
-      
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      };
-    }
-
-    // For video lessons (not completed), timer runs only when video is playing
-    if (!isVideoPlaying) {
+    // Only run timer for non-video lessons that are not completed
+    if (hasVideo || isLessonCompleted) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
@@ -208,39 +188,27 @@ const TrainingModule = () => {
     }
 
     timerRef.current = setInterval(() => {
-      setTimeSpent(prev => {
-        const newTime = prev + 1;
-        setCanProceed(newTime >= (currentLesson?.min_time_seconds || 0));
-        return newTime;
-      });
+      setTextLessonTime(prev => prev + 1);
     }, 1000);
-
+    
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
     };
-  }, [isVideoPlaying, currentLessonIndex, lessons, progress]);
+  }, [currentLessonIndex, lessons, progress]);
 
-  // Visibility API - pause timer when tab is hidden
+  // Visibility API - save progress when tab is hidden
   useEffect(() => {
-    const currentLesson = lessons[currentLessonIndex];
-    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    const isLessonCompleted = progress[currentLesson?.id]?.is_completed;
-
-    if (!hasVideo || isLessonCompleted) return;
-
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setIsVideoPlaying(false);
-        // Save progress when tab becomes hidden
         saveProgressWithPosition();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [currentLessonIndex, lessons, progress]);
+  }, []);
 
   // Save progress before unload
   useEffect(() => {
@@ -248,24 +216,27 @@ const TrainingModule = () => {
       const currentLesson = lessons[currentLessonIndex];
       if (!user || !currentLesson) return;
 
+      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const effectiveTime = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+
       // Use sendBeacon for reliable saving on page close
       const data = JSON.stringify({
         user_id: user.id,
         lesson_id: currentLesson.id,
-        time_spent_seconds: timeSpent,
-        video_position_seconds: videoPosition,
-        is_completed: timeSpent >= (currentLesson.min_time_seconds || 0)
+        time_spent_seconds: effectiveTime,
+        video_position_seconds: hasVideo ? videoPosition : 0,
+        is_completed: effectiveTime >= (currentLesson.min_time_seconds || 0)
       });
 
       navigator.sendBeacon(
-        `${import.meta.env.VITE_SUPABASE_URL || ''}/rest/v1/training_progress?on_conflict=user_id,lesson_id`,
+        `https://xzlhssqqbajqhnsmbucf.supabase.co/rest/v1/training_progress?on_conflict=user_id,lesson_id`,
         new Blob([data], { type: 'application/json' })
       );
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user, lessons, currentLessonIndex, timeSpent, videoPosition]);
+  }, [user, lessons, currentLessonIndex, textLessonTime, videoPosition]);
 
   const saveProgressWithPosition = useCallback(async () => {
     if (!user || lessons.length === 0) return;
@@ -273,7 +244,10 @@ const TrainingModule = () => {
     const currentLesson = lessons[currentLessonIndex];
     if (!currentLesson) return;
 
-    const isCompleted = timeSpent >= (currentLesson.min_time_seconds || 0);
+    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+    // For video lessons: time = video position; for text lessons: time = text timer
+    const effectiveTime = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+    const isCompleted = effectiveTime >= (currentLesson.min_time_seconds || 0);
 
     try {
       const { error } = await supabase
@@ -281,8 +255,8 @@ const TrainingModule = () => {
         .upsert({
           user_id: user.id,
           lesson_id: currentLesson.id,
-          time_spent_seconds: timeSpent,
-          video_position_seconds: videoPosition,
+          time_spent_seconds: effectiveTime,
+          video_position_seconds: hasVideo ? videoPosition : 0,
           is_completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null
         });
@@ -294,8 +268,8 @@ const TrainingModule = () => {
         [currentLesson.id]: {
           ...prev[currentLesson.id],
           lesson_id: currentLesson.id,
-          time_spent_seconds: timeSpent,
-          video_position_seconds: videoPosition,
+          time_spent_seconds: effectiveTime,
+          video_position_seconds: hasVideo ? videoPosition : 0,
           is_completed: isCompleted,
           started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
           completed_at: isCompleted ? new Date().toISOString() : null
@@ -311,7 +285,7 @@ const TrainingModule = () => {
     } catch (error) {
       console.error('Error saving progress:', error);
     }
-  }, [user, lessons, currentLessonIndex, timeSpent, videoPosition, progress, toast]);
+  }, [user, lessons, currentLessonIndex, textLessonTime, videoPosition, progress, toast]);
 
   // Debounced auto-save when video position updates
   const handleVideoTimeUpdate = useCallback((newTime: number) => {
@@ -328,8 +302,6 @@ const TrainingModule = () => {
   }, [saveProgressWithPosition]);
 
   const handlePlayStateChange = useCallback((playing: boolean) => {
-    setIsVideoPlaying(playing);
-    
     // Save immediately when pausing
     if (!playing) {
       if (saveTimeoutRef.current) {
@@ -341,13 +313,16 @@ const TrainingModule = () => {
 
   const goToNextLesson = async () => {
     const currentLesson = lessons[currentLessonIndex];
-    const currentLessonWillBeCompleted = timeSpent >= (currentLesson?.min_time_seconds || 0);
+    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+    const effectiveTime = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+    const currentLessonWillBeCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
     
     await saveProgressWithPosition();
     
     if (currentLessonIndex < lessons.length - 1) {
       setCurrentLessonIndex(currentLessonIndex + 1);
-      setIsVideoPlaying(false);
+      setVideoPosition(0);
+      setTextLessonTime(0);
     } else {
       const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
         return progress[lesson.id]?.is_completed === true;
@@ -397,7 +372,8 @@ const TrainingModule = () => {
     
     if (currentLessonIndex > 0) {
       setCurrentLessonIndex(currentLessonIndex - 1);
-      setIsVideoPlaying(false);
+      setVideoPosition(0);
+      setTextLessonTime(0);
     }
   };
 
@@ -416,7 +392,8 @@ const TrainingModule = () => {
 
     await saveProgressWithPosition();
     setCurrentLessonIndex(index);
-    setIsVideoPlaying(false);
+    setVideoPosition(0);
+    setTextLessonTime(0);
   };
 
   const getMediaIcon = (mediaType: string) => {
@@ -537,8 +514,14 @@ const TrainingModule = () => {
   const currentLesson = lessons[currentLessonIndex];
   const currentProgress = progress[currentLesson?.id];
   const isLessonCompleted = currentProgress?.is_completed || false;
+  
+  // Determine effective time based on lesson type
+  const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+  const effectiveTimeSpent = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+  const canProceed = effectiveTimeSpent >= (currentLesson?.min_time_seconds || 0);
+  
   const progressPercentage = currentLesson?.min_time_seconds 
-    ? Math.min(100, (timeSpent / currentLesson.min_time_seconds) * 100)
+    ? Math.min(100, (effectiveTimeSpent / currentLesson.min_time_seconds) * 100)
     : 100;
 
   return (
@@ -631,7 +614,7 @@ const TrainingModule = () => {
                     <div className="flex justify-between text-sm">
                       <span>Postęp</span>
                       <span>
-                        {formatTime(timeSpent)} / {formatTime(currentLesson.min_time_seconds)}
+                        {formatTime(effectiveTimeSpent)} / {formatTime(currentLesson.min_time_seconds)}
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
@@ -707,7 +690,7 @@ const TrainingModule = () => {
                       aby przejść do następnej.
                     </p>
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      Pozostało: {formatTime(Math.max(0, currentLesson.min_time_seconds - timeSpent))}
+                      Pozostało: {formatTime(Math.max(0, currentLesson.min_time_seconds - effectiveTimeSpent))}
                     </p>
                   </div>
                 )}
