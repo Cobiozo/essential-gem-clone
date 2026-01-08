@@ -410,51 +410,98 @@ export const CronJobsManagement: React.FC = () => {
                   Brak historii uruchomień
                 </p>
               ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="whitespace-nowrap">Rozpoczęto</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-center whitespace-nowrap">Czas</TableHead>
-                        <TableHead className="text-center whitespace-nowrap">Welcome</TableHead>
-                        <TableHead className="text-center whitespace-nowrap">Training</TableHead>
-                        <TableHead className="text-center whitespace-nowrap">Retry</TableHead>
-                        <TableHead>Uwagi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {logs.map((log) => {
-                        const details = log.details as DetailedResults | null;
-                        return (
-                          <TableRow key={log.id}>
-                            <TableCell className="whitespace-nowrap text-xs">
+                <>
+                  {/* Mobile view - cards */}
+                  <div className="md:hidden space-y-3">
+                    {logs.map((log) => {
+                      const details = log.details as DetailedResults | null;
+                      return (
+                        <div key={log.id} className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
                               {formatDate(log.started_at || log.completed_at)}
-                            </TableCell>
-                            <TableCell>
-                              {getStatusBadge(log.status)}
-                            </TableCell>
-                            <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
-                              {getDuration(log.started_at, log.completed_at)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {formatDetailCategory(details?.welcomeEmails)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {formatDetailCategory(details?.trainingNotifications)}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {formatDetailCategory(details?.retries)}
-                            </TableCell>
-                            <TableCell className="max-w-[200px]">
+                            </span>
+                            {getStatusBadge(log.status)}
+                          </div>
+                          
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">Czas</div>
+                              <div className="text-xs font-medium">
+                                {getDuration(log.started_at, log.completed_at)}
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">Welcome</div>
+                              <div>{formatDetailCategory(details?.welcomeEmails)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">Training</div>
+                              <div>{formatDetailCategory(details?.trainingNotifications)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">Retry</div>
+                              <div>{formatDetailCategory(details?.retries)}</div>
+                            </div>
+                          </div>
+                          
+                          {(details?.stoppedEarly || log.error_message || details?.reason) && (
+                            <div className="pt-1 border-t">
                               {getDetailsNotes(log)}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop view - table */}
+                  <div className="hidden md:block rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap">Rozpoczęto</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">Czas</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">Welcome</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">Training</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">Retry</TableHead>
+                          <TableHead>Uwagi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {logs.map((log) => {
+                          const details = log.details as DetailedResults | null;
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell className="whitespace-nowrap text-xs">
+                                {formatDate(log.started_at || log.completed_at)}
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(log.status)}
+                              </TableCell>
+                              <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
+                                {getDuration(log.started_at, log.completed_at)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.welcomeEmails)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.trainingNotifications)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.retries)}
+                              </TableCell>
+                              <TableCell className="max-w-[200px]">
+                                {getDetailsNotes(log)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
