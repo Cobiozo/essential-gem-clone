@@ -1229,6 +1229,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_job_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          details: Json | null
+          error_message: string | null
+          id: string
+          job_name: string
+          processed_count: number | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          job_name: string
+          processed_count?: number | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          job_name?: string
+          processed_count?: number | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       daily_signal_settings: {
         Row: {
           ai_tone: string | null
@@ -3618,7 +3654,32 @@ export type Database = {
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_reflink_validity_days: { Args: never; Returns: number }
+      get_retryable_failed_emails: {
+        Args: never
+        Returns: {
+          email_type: string
+          id: string
+          metadata: Json
+          recipient_email: string
+          recipient_user_id: string
+          retry_count: number
+          subject: string
+          template_id: string
+        }[]
+      }
       get_role_level: { Args: { role_name: string }; Returns: number }
+      get_training_assignments_without_notification: {
+        Args: never
+        Returns: {
+          assigned_at: string
+          assignment_id: string
+          module_id: string
+          module_title: string
+          user_email: string
+          user_first_name: string
+          user_id: string
+        }[]
+      }
       get_user_profiles_with_confirmation: {
         Args: never
         Returns: {
@@ -3646,6 +3707,16 @@ export type Database = {
         }[]
       }
       get_user_role_name: { Args: { user_uuid: string }; Returns: string }
+      get_users_without_welcome_email: {
+        Args: never
+        Returns: {
+          email: string
+          first_name: string
+          last_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       guardian_approve_user: {
         Args: { target_user_id: string }
         Returns: boolean
