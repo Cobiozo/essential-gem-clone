@@ -78,7 +78,7 @@ export default defineConfig(({ mode }) => ({
           'lib-pdf': ['jspdf', 'html2canvas', 'html2pdf.js'],
           'lib-fabric': ['fabric'],
           'lib-charts': ['recharts'],
-          'lib-editor': ['quill', 'react-quill'],
+          'lib-editor': ['quill'],
           'lib-zip': ['jszip'],
           'lib-carousel': ['embla-carousel-react'],
           
@@ -105,6 +105,7 @@ export default defineConfig(({ mode }) => ({
       '@tanstack/react-query',
       '@supabase/supabase-js',
       'lucide-react',
+      'qrcode.react',
     ],
     exclude: [
       'xlsx',
