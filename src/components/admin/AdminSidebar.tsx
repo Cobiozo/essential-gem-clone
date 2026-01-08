@@ -45,6 +45,71 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+
+// Hardcoded translations for sidebar - avoids missing translation keys
+const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
+  pl: {
+    content: 'Treść',
+    layout: 'Układ stron',
+    appearance: 'Wygląd',
+    usersCategory: 'Użytkownicy',
+    training: 'Szkolenia',
+    trainings: 'Szkolenia',
+    certificates: 'Certyfikaty',
+    resources: 'Zasoby wiedzy',
+    features: 'Funkcje',
+    dailySignal: 'Sygnał dnia',
+    importantInfo: 'Ważne informacje',
+    communication: 'Komunikacja',
+    translations: 'Tłumaczenia',
+    teamContacts: 'Kontakty zespołu',
+    notifications: 'Powiadomienia',
+    system: 'System',
+    maintenance: 'Tryb konserwacji',
+    cookies: 'Cookies',
+    email: 'E-mail',
+    compass: 'Kompas AI',
+    home: 'Strona główna',
+    main: 'Główne',
+    pages: 'Strony',
+    colors: 'Kolory',
+    settings: 'Ustawienia',
+    users: 'Użytkownicy',
+    account: 'Konto',
+    logout: 'Wyloguj',
+  },
+  en: {
+    content: 'Content',
+    layout: 'Page layout',
+    appearance: 'Appearance',
+    usersCategory: 'Users',
+    training: 'Training',
+    trainings: 'Trainings',
+    certificates: 'Certificates',
+    resources: 'Knowledge resources',
+    features: 'Features',
+    dailySignal: 'Daily signal',
+    importantInfo: 'Important info',
+    communication: 'Communication',
+    translations: 'Translations',
+    teamContacts: 'Team contacts',
+    notifications: 'Notifications',
+    system: 'System',
+    maintenance: 'Maintenance mode',
+    cookies: 'Cookies',
+    email: 'E-mail',
+    compass: 'AI Compass',
+    home: 'Home',
+    main: 'Main',
+    pages: 'Pages',
+    colors: 'Colors',
+    settings: 'Settings',
+    users: 'Users',
+    account: 'Account',
+    logout: 'Logout',
+  },
+};
+
 interface AdminSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -54,13 +119,13 @@ interface AdminSidebarProps {
 
 interface NavItem {
   value: string;
-  label: string;
+  labelKey: string; // key in SIDEBAR_LABELS
   icon: React.ElementType;
 }
 
 interface NavCategory {
   id: string;
-  label: string;
+  labelKey: string; // key in SIDEBAR_LABELS
   icon: React.ElementType;
   items: NavItem[];
   defaultOpen?: boolean;
@@ -69,71 +134,71 @@ interface NavCategory {
 const navCategories: NavCategory[] = [
   {
     id: 'content',
-    label: 'admin.sidebar.content',
+    labelKey: 'content',
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
-      { value: 'content', label: 'admin.main', icon: Settings2 },
-      { value: 'layout', label: 'admin.sidebar.layout', icon: Type },
-      { value: 'pages', label: 'admin.pages', icon: FileText },
+      { value: 'content', labelKey: 'main', icon: Settings2 },
+      { value: 'layout', labelKey: 'layout', icon: Type },
+      { value: 'pages', labelKey: 'pages', icon: FileText },
     ],
   },
   {
     id: 'appearance',
-    label: 'admin.sidebar.appearance',
+    labelKey: 'appearance',
     icon: Palette,
     items: [
-      { value: 'colors', label: 'admin.colors', icon: Palette },
-      { value: 'settings', label: 'admin.settings', icon: Settings2 },
+      { value: 'colors', labelKey: 'colors', icon: Palette },
+      { value: 'settings', labelKey: 'settings', icon: Settings2 },
     ],
   },
   {
     id: 'users',
-    label: 'admin.sidebar.usersCategory',
+    labelKey: 'usersCategory',
     icon: Users,
     items: [
-      { value: 'users', label: 'admin.users', icon: Users },
-      { value: 'account', label: 'admin.account', icon: UserCircle },
+      { value: 'users', labelKey: 'users', icon: Users },
+      { value: 'account', labelKey: 'account', icon: UserCircle },
     ],
   },
   {
     id: 'training',
-    label: 'admin.sidebar.training',
+    labelKey: 'training',
     icon: BookOpen,
     items: [
-      { value: 'training', label: 'admin.sidebar.trainings', icon: BookOpen },
-      { value: 'certificates', label: 'admin.sidebar.certificates', icon: Award },
-      { value: 'knowledge', label: 'admin.sidebar.resources', icon: FolderOpen },
+      { value: 'training', labelKey: 'trainings', icon: BookOpen },
+      { value: 'certificates', labelKey: 'certificates', icon: Award },
+      { value: 'knowledge', labelKey: 'resources', icon: FolderOpen },
     ],
   },
   {
     id: 'features',
-    label: 'admin.sidebar.features',
+    labelKey: 'features',
     icon: Sparkles,
     items: [
-      { value: 'cookies', label: 'Cookies', icon: Cookie },
-      { value: 'ai-compass', label: 'AI-Compass', icon: Compass },
-      { value: 'daily-signal', label: 'admin.sidebar.dailySignal', icon: Sparkles },
-      { value: 'important-info', label: 'admin.sidebar.importantInfo', icon: AlertTriangle },
+      { value: 'cookies', labelKey: 'cookies', icon: Cookie },
+      { value: 'ai-compass', labelKey: 'compass', icon: Compass },
+      { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
+      { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
     ],
   },
   {
     id: 'communication',
-    label: 'admin.sidebar.communication',
+    labelKey: 'communication',
     icon: Mail,
     items: [
-      { value: 'translations', label: 'admin.sidebar.translations', icon: Languages },
-      { value: 'team-contacts', label: 'admin.sidebar.teamContacts', icon: Users },
-      { value: 'notifications', label: 'admin.sidebar.notifications', icon: Bell },
-      { value: 'emails', label: 'E-mail', icon: Mail },
+      { value: 'translations', labelKey: 'translations', icon: Languages },
+      { value: 'team-contacts', labelKey: 'teamContacts', icon: Users },
+      { value: 'notifications', labelKey: 'notifications', icon: Bell },
+      { value: 'emails', labelKey: 'email', icon: Mail },
     ],
   },
   {
     id: 'system',
-    label: 'admin.sidebar.system',
+    labelKey: 'system',
     icon: Wrench,
     items: [
-      { value: 'maintenance', label: 'admin.sidebar.maintenance', icon: Settings2 },
+      { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
     ],
   },
 ];
@@ -144,25 +209,25 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onSignOut,
   siteLogo,
 }) => {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
   const navigate = useNavigate();
-  const { state } = useSidebar();
+  const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
   // Track which categories are open
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navCategories.forEach((cat) => {
-      // Open category if it contains active tab or has defaultOpen
       const containsActive = cat.items.some((item) => item.value === activeTab);
       initial[cat.id] = containsActive || cat.defaultOpen || false;
     });
     return initial;
   });
 
-  const getTranslatedLabel = (key: string): string => {
-    const translated = t(key);
-    return translated !== key ? translated : key.split('.').pop() || key;
+  // Get translated label from hardcoded translations
+  const getLabel = (key: string): string => {
+    const langLabels = SIDEBAR_LABELS[language] || SIDEBAR_LABELS['pl'];
+    return langLabels[key] || key;
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -170,6 +235,22 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       ...prev,
       [categoryId]: !prev[categoryId],
     }));
+  };
+
+  // Handle tab change - close sidebar on mobile
+  const handleTabChange = (value: string) => {
+    onTabChange(value);
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  // Handle navigation - close sidebar on mobile
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   return (
@@ -183,7 +264,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-sm truncate">{t('admin.title')}</span>
+              <span className="font-semibold text-sm truncate">Panel Administracyjny</span>
               <span className="text-xs text-muted-foreground">Administrator</span>
             </div>
           )}
@@ -197,11 +278,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => navigate('/')}
-                  tooltip={t('nav.home')}
+                  onClick={() => handleNavigate('/')}
+                  tooltip={getLabel('home')}
                 >
                   <Home className="w-4 h-4" />
-                  <span>{t('nav.home')}</span>
+                  <span>{getLabel('home')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -222,7 +303,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 <SidebarGroupLabel className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1.5 w-full justify-between">
                   <div className="flex items-center gap-2">
                     <category.icon className="w-4 h-4" />
-                    {!isCollapsed && <span>{getTranslatedLabel(category.label)}</span>}
+                    {!isCollapsed && <span>{getLabel(category.labelKey)}</span>}
                   </div>
                   {!isCollapsed && (
                     <ChevronDown
@@ -240,15 +321,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     {category.items.map((item) => (
                       <SidebarMenuItem key={item.value}>
                         <SidebarMenuButton
-                          onClick={() => onTabChange(item.value)}
+                          onClick={() => handleTabChange(item.value)}
                           isActive={activeTab === item.value}
-                          tooltip={getTranslatedLabel(item.label)}
+                          tooltip={getLabel(item.labelKey)}
                           className={cn(
                             activeTab === item.value && 'bg-primary/10 text-primary font-medium'
                           )}
                         >
                           <item.icon className="w-4 h-4" />
-                          <span>{getTranslatedLabel(item.label)}</span>
+                          <span>{getLabel(item.labelKey)}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -281,7 +362,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             )}
           >
             <LogOut className="w-4 h-4" />
-            {!isCollapsed && <span className="ml-2">{t('nav.logout')}</span>}
+            {!isCollapsed && <span className="ml-2">{getLabel('logout')}</span>}
           </Button>
         </div>
         {isCollapsed && (
