@@ -116,10 +116,22 @@ const Auth = () => {
     const ref = urlParams.get('ref');
     if (ref) {
       setReflinkCode(ref);
-      // Fetch reflink info to get target role and increment click count
+      // Fetch reflink info to get target role, creator profile, and increment click count
       supabase
         .from('user_reflinks')
-        .select('id, target_role, click_count')
+        .select(`
+          id, 
+          target_role, 
+          click_count,
+          creator_user_id,
+          profiles!user_reflinks_creator_user_id_fkey(
+            user_id,
+            first_name,
+            last_name,
+            eq_id,
+            email
+          )
+        `)
         .eq('reflink_code', ref)
         .eq('is_active', true)
         .gt('expires_at', new Date().toISOString())
@@ -130,6 +142,17 @@ const Auth = () => {
             if (data.target_role) {
               setReflinkRole(data.target_role);
               setRole(data.target_role);
+            }
+            // Set guardian from reflink creator
+            const creatorProfile = data.profiles as any;
+            if (creatorProfile) {
+              setSelectedGuardian({
+                user_id: creatorProfile.user_id,
+                first_name: creatorProfile.first_name,
+                last_name: creatorProfile.last_name,
+                eq_id: creatorProfile.eq_id,
+                email: creatorProfile.email
+              });
             }
             // Increment click count
             await supabase
@@ -813,9 +836,14 @@ const Auth = () => {
                   <GuardianSearchInput
                     value={selectedGuardian}
                     onChange={setSelectedGuardian}
-                    disabled={loading}
+                    disabled={loading || !!reflinkRole}
                     error={guardianError}
                   />
+                  {reflinkRole && selectedGuardian && (
+                    <p className="text-xs text-muted-foreground -mt-1">
+                      Opiekun został ustawiony przez link polecający
+                    </p>
+                  )}
                   
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">{t('auth.password')}</Label>
