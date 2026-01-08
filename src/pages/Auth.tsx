@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import MaintenanceBanner from '@/components/MaintenanceBanner';
 
 // Password requirement indicator component
 const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
@@ -106,10 +107,50 @@ const Auth = () => {
   const [reflinkCode, setReflinkCode] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('signin');
   const [reflinkRole, setReflinkRole] = useState<string | null>(null);
+  const [maintenanceMode, setMaintenanceMode] = useState<{
+    title: string;
+    message: string;
+    planned_end_time: string | null;
+  } | null>(null);
   const { signIn, signUp, user, loginComplete } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Check maintenance mode status
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      const { data, error } = await supabase
+        .from('maintenance_mode')
+        .select('is_enabled, title, message, planned_end_time')
+        .single();
+      
+      if (!error && data?.is_enabled) {
+        setMaintenanceMode({
+          title: data.title,
+          message: data.message,
+          planned_end_time: data.planned_end_time
+        });
+      } else {
+        setMaintenanceMode(null);
+      }
+    };
+    
+    checkMaintenance();
+    
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('maintenance_mode_auth')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'maintenance_mode' },
+        () => checkMaintenance()
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   
   // Detect reflink code from URL on mount and track clicks
   useEffect(() => {
@@ -660,6 +701,11 @@ const Auth = () => {
         </Card>
       </div>
     );
+  }
+
+  // Show maintenance banner if enabled
+  if (maintenanceMode) {
+    return <MaintenanceBanner maintenance={maintenanceMode} />;
   }
 
   return (

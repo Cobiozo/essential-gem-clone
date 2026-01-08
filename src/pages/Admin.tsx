@@ -46,6 +46,7 @@ import TranslationsManagement from '@/components/admin/TranslationsManagement';
 import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
+import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
@@ -3000,6 +3001,10 @@ const Admin = () => {
               <Mail className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">E-mail</span>
             </TabsTrigger>
+            <TabsTrigger value="maintenance" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Serwis</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="content">
@@ -4444,6 +4449,10 @@ const Admin = () => {
 
           <TabsContent value="emails">
             <EmailTemplatesManagement />
+          </TabsContent>
+
+          <TabsContent value="maintenance">
+            <MaintenanceModeManagement />
           </TabsContent>
         </Tabs>
       </div>
