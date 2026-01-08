@@ -117,20 +117,32 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check maintenance mode status
+  // Check maintenance mode status with bypass support
   useEffect(() => {
     const checkMaintenance = async () => {
+      // Check for bypass key in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const bypassKeyFromUrl = urlParams.get('admin');
+      
       const { data, error } = await supabase
         .from('maintenance_mode')
-        .select('is_enabled, title, message, planned_end_time')
+        .select('is_enabled, title, message, planned_end_time, bypass_key')
         .single();
       
+      // Show maintenance banner ONLY if enabled AND bypass key doesn't match
       if (!error && data?.is_enabled) {
-        setMaintenanceMode({
-          title: data.title,
-          message: data.message,
-          planned_end_time: data.planned_end_time
-        });
+        const hasValidBypass = bypassKeyFromUrl && data.bypass_key === bypassKeyFromUrl;
+        
+        if (!hasValidBypass) {
+          setMaintenanceMode({
+            title: data.title,
+            message: data.message,
+            planned_end_time: data.planned_end_time
+          });
+        } else {
+          // Valid bypass key - allow access
+          setMaintenanceMode(null);
+        }
       } else {
         setMaintenanceMode(null);
       }

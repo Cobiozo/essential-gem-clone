@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.activate-email]
 verify_jwt = false
+
+[functions.send-maintenance-bypass-email]
+verify_jwt = false

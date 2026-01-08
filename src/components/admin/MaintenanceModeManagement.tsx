@@ -6,11 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, Save, Wrench, Eye } from 'lucide-react';
+import { AlertTriangle, Save, Wrench, Eye, Key, Copy, RefreshCw, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MaintenanceSettings {
   id: string;
@@ -18,6 +27,7 @@ interface MaintenanceSettings {
   title: string;
   message: string;
   planned_end_time: string | null;
+  bypass_key: string | null;
 }
 
 const MaintenanceModeManagement: React.FC = () => {
@@ -25,12 +35,15 @@ const MaintenanceModeManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showEnableWarning, setShowEnableWarning] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Form state
   const [isEnabled, setIsEnabled] = useState(false);
   const [title, setTitle] = useState('Przerwa techniczna');
   const [message, setMessage] = useState('Trwają prace serwisowe. Prosimy o cierpliwość.');
   const [plannedEndTime, setPlannedEndTime] = useState('');
+  const [bypassKey, setBypassKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -46,12 +59,13 @@ const MaintenanceModeManagement: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        setSettings(data);
-        setIsEnabled(data.is_enabled);
+        setSettings(data as MaintenanceSettings);
+        setIsEnabled(data.is_enabled || false);
         setTitle(data.title || 'Przerwa techniczna');
         setMessage(data.message || 'Trwają prace serwisowe. Prosimy o cierpliwość.');
         setPlannedEndTime(data.planned_end_time ? 
           format(new Date(data.planned_end_time), "yyyy-MM-dd'T'HH:mm") : '');
+        setBypassKey(data.bypass_key || null);
       }
     } catch (error) {
       console.error('Error fetching maintenance settings:', error);
@@ -91,7 +105,75 @@ const MaintenanceModeManagement: React.FC = () => {
     }
   };
 
+  const sendBypassEmail = async () => {
+    setSendingEmail(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke('send-maintenance-bypass-email', {
+        body: { origin: window.location.origin },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Email z linkiem bypass wysłany na: ${data.email}`);
+    } catch (error) {
+      console.error('Error sending bypass email:', error);
+      toast.error('Błąd podczas wysyłania emaila');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const regenerateBypassKey = async () => {
+    if (!settings?.id) return;
+
+    try {
+      // Generate new random 32-char hex key
+      const array = new Uint8Array(16);
+      crypto.getRandomValues(array);
+      const newKey = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const { error } = await supabase
+        .from('maintenance_mode')
+        .update({ bypass_key: newKey })
+        .eq('id', settings.id);
+
+      if (error) throw error;
+
+      setBypassKey(newKey);
+      toast.success('Wygenerowano nowy klucz bypass');
+    } catch (error) {
+      console.error('Error regenerating bypass key:', error);
+      toast.error('Błąd podczas generowania klucza');
+    }
+  };
+
+  const copyBypassLink = () => {
+    const link = `${window.location.origin}/auth?admin=${bypassKey}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Link skopiowany do schowka');
+  };
+
   const handleQuickToggle = async (enabled: boolean) => {
+    if (enabled) {
+      // Show warning dialog before enabling
+      setShowEnableWarning(true);
+      return;
+    }
+    // Disable without warning
+    await performToggle(false);
+  };
+
+  const confirmEnableMaintenance = async () => {
+    setShowEnableWarning(false);
+    await performToggle(true);
+    
+    // Automatically send bypass email after enabling
+    await sendBypassEmail();
+  };
+
+  const performToggle = async (enabled: boolean) => {
     if (!settings?.id) return;
 
     setIsEnabled(enabled);
@@ -134,6 +216,8 @@ const MaintenanceModeManagement: React.FC = () => {
     );
   }
 
+  const bypassLink = `${window.location.origin}/auth?admin=${bypassKey}`;
+
   return (
     <div className="space-y-6">
       {/* Status Card */}
@@ -167,6 +251,44 @@ const MaintenanceModeManagement: React.FC = () => {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Bypass Link Card - shown when enabled */}
+      {isEnabled && bypassKey && (
+        <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-blue-500" />
+              <CardTitle className="text-lg">Link dostępu administratora</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Użyj tego linku, aby zalogować się podczas prac serwisowych:
+            </p>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+              <code className="text-xs break-all flex-1 font-mono">
+                {bypassLink}
+              </code>
+              <Button size="sm" variant="outline" onClick={copyBypassLink}>
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" variant="outline" onClick={sendBypassEmail} disabled={sendingEmail}>
+                <Mail className="h-3 w-3 mr-1" />
+                {sendingEmail ? 'Wysyłanie...' : 'Wyślij na email'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={regenerateBypassKey}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Nowy klucz
+              </Button>
+            </div>
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              ✉️ Email z linkiem został automatycznie wysłany przy aktywacji trybu serwisowego
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Settings Card */}
       <Card>
@@ -244,6 +366,40 @@ const MaintenanceModeManagement: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Enable Warning Dialog */}
+      <AlertDialog open={showEnableWarning} onOpenChange={setShowEnableWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Włączenie trybu serwisowego
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Włączenie trybu serwisowego <strong>zablokuje dostęp</strong> do logowania 
+                  i rejestracji dla wszystkich użytkowników.
+                </p>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    📧 Po zatwierdzeniu automatycznie otrzymasz email z linkiem umożliwiającym logowanie
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Czy na pewno chcesz kontynuować?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEnableMaintenance}>
+              Tak, włącz tryb serwisowy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Preview Modal */}
       {showPreview && (
