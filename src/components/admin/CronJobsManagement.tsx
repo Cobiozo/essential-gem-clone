@@ -118,11 +118,8 @@ export const CronJobsManagement: React.FC = () => {
 
       if (error) throw error;
 
-      setSettings(prev => prev ? { 
-        ...prev, 
-        interval_minutes: intervalMinutes,
-        next_run_at: nextRunAt
-      } : null);
+      // Odśwież dane z bazy po zapisie
+      await fetchData();
       
       toast.success(`Interwał zmieniony na ${formatInterval(intervalMinutes)}`);
     } catch (error) {
