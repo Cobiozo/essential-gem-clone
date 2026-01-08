@@ -56,6 +56,17 @@ serve(async (req) => {
 
   const startTime = Date.now();
   
+  // Check for force parameter (bypasses interval check for manual runs)
+  let forceRun = false;
+  if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      forceRun = body.force === true;
+    } catch {
+      // No body or invalid JSON, continue with forceRun = false
+    }
+  }
+  
   // Check if we're approaching timeout
   const isTimeoutApproaching = () => Date.now() - startTime > MAX_EXECUTION_TIME_MS;
 
@@ -93,8 +104,8 @@ serve(async (req) => {
         );
       }
 
-      // Check if interval has passed since last run
-      if (cronSettings.last_run_at) {
+      // Check if interval has passed since last run (skip for force run)
+      if (cronSettings.last_run_at && !forceRun) {
         const lastRun = new Date(cronSettings.last_run_at).getTime();
         const intervalMs = cronSettings.interval_minutes * 60 * 1000;
         const now = Date.now();
@@ -111,6 +122,8 @@ serve(async (req) => {
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+      } else if (forceRun) {
+        console.log("[CRON] Force run requested, skipping interval check");
       }
     }
     
