@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAdminPresence } from '@/hooks/useAdminPresence';
 import { AdminPresenceWidget } from '@/components/admin/AdminPresenceWidget';
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,7 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -2866,146 +2868,31 @@ const Admin = () => {
       
       {/* Main Admin Panel */}
       {!editingPageInLayoutEditor && (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* Mobile layout - stacked */}
-          <div className="flex flex-col gap-4 sm:hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <img src={siteLogo || newPureLifeLogo} alt="Pure Life" className="w-6 h-6" />
-                <h1 className="text-lg font-bold text-foreground">{t('admin.title')}</h1>
-              </div>
-              <div className="flex items-center gap-2">
-                <LanguageSelector />
-                <ThemeSelector />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Badge variant="secondary" className="text-xs self-start">Administrator</Badge>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate('/')} className="flex-1">
-                  <Home className="w-4 h-4 mr-2" />
-                  {t('nav.home')}
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleSignOut} className="flex-1">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  {t('nav.logout')}
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Desktop layout - horizontal */}
-          <div className="hidden sm:flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <img src={siteLogo || newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
-              <h1 className="text-2xl font-bold text-foreground">{t('admin.title')}</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="text-xs">Administrator</Badge>
-              <div className="flex gap-2">
-                <LanguageSelector />
-                <ThemeSelector />
-                <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-                  <Home className="w-4 h-4 mr-2" />
-                  {t('nav.home')}
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleSignOut}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  {t('nav.logout')}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
-        {/* Admin Presence Widget */}
-        <AdminPresenceWidget admins={admins} currentUserPresence={currentUserPresence} isConnected={isConnected} />
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex w-full bg-background">
+        <AdminSidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onSignOut={handleSignOut}
+          siteLogo={siteLogo}
+        />
         
-        {/* CMS Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="flex flex-wrap justify-start gap-1 h-auto p-1.5 mb-6 bg-muted/50">
-            <TabsTrigger value="content" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t('admin.main')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="layout" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Type className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Layout</span>
-            </TabsTrigger>
-            <TabsTrigger value="colors" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Palette className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t('admin.colors')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t('admin.settings')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="pages" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t('admin.pages')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="account" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t('admin.account')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t('admin.users')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="training" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Szkolenia</span>
-            </TabsTrigger>
-            <TabsTrigger value="certificates" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Award className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Certyfikaty</span>
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <FolderOpen className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Zasoby</span>
-            </TabsTrigger>
-            <TabsTrigger value="cookies" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Cookie className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Cookies</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai-compass" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Compass className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">AI-Compass</span>
-            </TabsTrigger>
-            <TabsTrigger value="daily-signal" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Sygnał Dnia</span>
-            </TabsTrigger>
-            <TabsTrigger value="important-info" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Ważna Informacja</span>
-            </TabsTrigger>
-            <TabsTrigger value="translations" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Languages className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Tłumaczenia</span>
-            </TabsTrigger>
-            <TabsTrigger value="team-contacts" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Pure – Kontakty</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Bell className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Powiadomienia</span>
-            </TabsTrigger>
-            <TabsTrigger value="emails" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Mail className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">E-mail</span>
-            </TabsTrigger>
-            <TabsTrigger value="maintenance" className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-              <Settings2 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">Serwis</span>
-            </TabsTrigger>
-          </TabsList>
+        <SidebarInset className="flex-1">
+          {/* Header */}
+          <header className="border-b bg-card sticky top-0 z-10">
+            <div className="flex items-center gap-4 px-4 py-3">
+              <SidebarTrigger />
+              <Separator orientation="vertical" className="h-6" />
+              <h1 className="text-lg font-semibold">{t('admin.title')}</h1>
+              <div className="ml-auto">
+                <AdminPresenceWidget admins={admins} currentUserPresence={currentUserPresence} isConnected={isConnected} />
+              </div>
+            </div>
+          </header>
+
+          <div className="p-4 sm:p-6 lg:p-8">
+            {/* CMS Tabs - TabsList removed, navigation via sidebar */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
           <TabsContent value="content">
             {/* Section Visibility Management - Simplified */}
@@ -5076,7 +4963,9 @@ const Admin = () => {
           fetchUsers();
         }}
       />
-    </div>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
     )}
     </>
   );
