@@ -1807,6 +1807,36 @@ export type Database = {
         }
         Relationships: []
       }
+      maintenance_mode: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          message: string | null
+          planned_end_time: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          message?: string | null
+          planned_end_time?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          message?: string | null
+          planned_end_time?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       medical_chat_history: {
         Row: {
           created_at: string
