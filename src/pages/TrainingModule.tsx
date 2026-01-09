@@ -68,6 +68,7 @@ const TrainingModule = () => {
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
   const [positionLoaded, setPositionLoaded] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
+  const videoDurationRef = useRef<number>(0);
   
   // Text lesson timer (only for lessons without video)
   const [textLessonTime, setTextLessonTime] = useState(0);
@@ -272,10 +273,15 @@ const TrainingModule = () => {
       const currentLesson = lessons[currentLessonIndex];
       if (!user || !currentLesson) return;
 
-      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-      const currentVideoPos = videoPositionRef.current;
-      const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
-      const isCompleted = effectiveTime >= (currentLesson.min_time_seconds || 0);
+    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+    const currentVideoPos = videoPositionRef.current;
+    const currentVideoDuration = videoDurationRef.current;
+    const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
+    // For video lessons, use video duration; for text lessons, use min_time_seconds
+    const requiredTime = hasVideo && currentVideoDuration > 0 
+      ? Math.floor(currentVideoDuration) 
+      : (currentLesson.min_time_seconds || 0);
+    const isCompleted = effectiveTime >= requiredTime;
 
       // 1. Always save to localStorage as backup
       const backupData = {
@@ -334,8 +340,13 @@ const TrainingModule = () => {
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     // Use ref for accurate position (state might be stale in callbacks)
     const currentVideoPos = videoPositionRef.current;
+    const currentVideoDuration = videoDurationRef.current;
     const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
-    const isCompleted = effectiveTime >= (currentLesson.min_time_seconds || 0);
+    // For video lessons, use video duration; for text lessons, use min_time_seconds
+    const requiredTime = hasVideo && currentVideoDuration > 0 
+      ? Math.floor(currentVideoDuration) 
+      : (currentLesson.min_time_seconds || 0);
+    const isCompleted = effectiveTime >= requiredTime;
 
     try {
       const { error } = await supabase
@@ -405,6 +416,7 @@ const TrainingModule = () => {
   // Handle video duration change from SecureMedia
   const handleDurationChange = useCallback((duration: number) => {
     setVideoDuration(duration);
+    videoDurationRef.current = duration;
   }, []);
 
   const handlePlayStateChange = useCallback((playing: boolean) => {
@@ -446,8 +458,12 @@ const TrainingModule = () => {
     return () => {
       if (lessonId && user) {
         const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+        const currentVideoDuration = videoDurationRef.current;
         const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
-        const isCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
+        const requiredTime = hasVideo && currentVideoDuration > 0 
+          ? Math.floor(currentVideoDuration) 
+          : (currentLesson?.min_time_seconds || 0);
+        const isCompleted = effectiveTime >= requiredTime;
         
         const backupData = {
           lesson_id: lessonId,
@@ -468,8 +484,12 @@ const TrainingModule = () => {
     try {
       const currentLesson = lessons[currentLessonIndex];
       const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const currentVideoDuration = videoDurationRef.current;
       const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
-      const currentLessonWillBeCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
+      const requiredTime = hasVideo && currentVideoDuration > 0 
+        ? Math.floor(currentVideoDuration) 
+        : (currentLesson?.min_time_seconds || 0);
+      const currentLessonWillBeCompleted = effectiveTime >= requiredTime;
       
       await saveProgressWithPosition();
       
@@ -695,10 +715,14 @@ const TrainingModule = () => {
   // Determine effective time based on lesson type
   const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
   const effectiveTimeSpent = hasVideo ? Math.floor(videoPosition) : textLessonTime;
-  const canProceed = effectiveTimeSpent >= (currentLesson?.min_time_seconds || 0);
+  // For video lessons, use video duration; for text lessons, use min_time_seconds
+  const requiredTime = hasVideo && videoDuration > 0 
+    ? Math.floor(videoDuration) 
+    : (currentLesson?.min_time_seconds || 0);
+  const canProceed = effectiveTimeSpent >= requiredTime;
   
-  const progressPercentage = currentLesson?.min_time_seconds 
-    ? Math.min(100, (effectiveTimeSpent / currentLesson.min_time_seconds) * 100)
+  const progressPercentage = requiredTime > 0
+    ? Math.min(100, (effectiveTimeSpent / requiredTime) * 100)
     : 100;
 
   return (
