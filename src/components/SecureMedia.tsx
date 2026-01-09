@@ -50,11 +50,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isTabHidden, setIsTabHidden] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastValidTimeRef = useRef<number>(initialTime);
   const isSeekingRef = useRef<boolean>(false);
+  const isBufferingRef = useRef<boolean>(false);
   const initialPositionSetRef = useRef<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
@@ -213,6 +215,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setDuration(0);
     setIsPlaying(false);
     isSeekingRef.current = false;
+    isBufferingRef.current = false;
+    setIsBuffering(false);
   }, [mediaUrl]);
 
   // NOTE: Removed the useEffect that synced lastValidTimeRef with initialTime
@@ -274,14 +278,38 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const video = videoElement;
     console.log('[SecureMedia] Attaching event listeners to video element');
 
+    // Buffering handlers - prevent false seek detection during network delays
+    const handleWaiting = () => {
+      console.log('[SecureMedia] Video waiting for data (buffering)');
+      isBufferingRef.current = true;
+      setIsBuffering(true);
+    };
+
+    const handleStalled = () => {
+      console.log('[SecureMedia] Video stalled');
+      isBufferingRef.current = true;
+      setIsBuffering(true);
+    };
+
+    const handleCanPlay = () => {
+      console.log('[SecureMedia] Video can play');
+      if (isBufferingRef.current) {
+        // CRITICAL: Sync lastValidTimeRef after buffering to prevent false seek detection
+        lastValidTimeRef.current = video.currentTime;
+        console.log('[SecureMedia] Synced lastValidTimeRef after buffering:', video.currentTime);
+      }
+      isBufferingRef.current = false;
+      setIsBuffering(false);
+    };
+
     // Block ALL seeking (forward and backward)
     const handleSeeking = () => {
-      if (isSeekingRef.current) return;
+      // Don't block during buffering - it's not a user seek
+      if (isSeekingRef.current || isBufferingRef.current) return;
       
       const timeDiff = Math.abs(video.currentTime - lastValidTimeRef.current);
       
       // If time jumped more than 2.5 seconds, it's a seek attempt - block it
-      // Increased from 1.5s to reduce false positives from buffering/network delays
       if (timeDiff > 2.5) {
         console.log('[SecureMedia] Seek blocked:', {
           currentTime: video.currentTime,
@@ -302,8 +330,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       const timeDiff = video.currentTime - lastValidTimeRef.current;
       
-      // Only update if time moved forward naturally (within 1.5 seconds)
-      if (timeDiff > 0 && timeDiff <= 1.5) {
+      // Accept larger jumps during/after buffering, or normal forward progress
+      if (timeDiff > 0 && (timeDiff <= 3 || isBufferingRef.current)) {
         lastValidTimeRef.current = video.currentTime;
       }
       
@@ -335,6 +363,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
     };
 
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('stalled', handleStalled);
+    video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('seeking', handleSeeking);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
@@ -343,6 +374,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     return () => {
       console.log('[SecureMedia] Removing event listeners from video element');
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('stalled', handleStalled);
+      video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('seeking', handleSeeking);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
@@ -504,19 +538,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           ref={containerRef}
           className={`space-y-3 ${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
         >
-        <video
-            ref={videoRefCallback}
-            {...securityProps}
-            src={signedUrl}
-            controls={false}
-            controlsList="nodownload noremoteplayback"
-            disablePictureInPicture
-            className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
-            preload="metadata"
-            playsInline
-          >
-            Twoja przeglądarka nie obsługuje odtwarzania wideo.
-          </video>
+          <div className="relative">
+            <video
+              ref={videoRefCallback}
+              {...securityProps}
+              src={signedUrl}
+              controls={false}
+              controlsList="nodownload noremoteplayback"
+              disablePictureInPicture
+              className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
+              preload="metadata"
+              playsInline
+            >
+              Twoja przeglądarka nie obsługuje odtwarzania wideo.
+            </video>
+            {isBuffering && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+              </div>
+            )}
+          </div>
           <VideoControls
             isPlaying={isPlaying}
             currentTime={currentTime}
