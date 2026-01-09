@@ -3172,6 +3172,7 @@ export type Database = {
           position: number
           title: string
           updated_at: string
+          video_duration_seconds: number | null
         }
         Insert: {
           action_buttons?: Json | null
@@ -3188,6 +3189,7 @@ export type Database = {
           position?: number
           title: string
           updated_at?: string
+          video_duration_seconds?: number | null
         }
         Update: {
           action_buttons?: Json | null
@@ -3204,6 +3206,7 @@ export type Database = {
           position?: number
           title?: string
           updated_at?: string
+          video_duration_seconds?: number | null
         }
         Relationships: [
           {

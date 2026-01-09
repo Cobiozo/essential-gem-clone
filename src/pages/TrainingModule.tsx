@@ -39,6 +39,7 @@ interface TrainingLesson {
   media_type: string;
   media_alt_text: string;
   min_time_seconds: number;
+  video_duration_seconds?: number;
   is_required: boolean;
   position: number;
   action_buttons?: LessonActionButton[];
@@ -715,10 +716,10 @@ const TrainingModule = () => {
   // Determine effective time based on lesson type
   const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
   const effectiveTimeSpent = hasVideo ? Math.floor(videoPosition) : textLessonTime;
-  // For video lessons, use video duration; for text lessons, use min_time_seconds
-  const requiredTime = hasVideo && videoDuration > 0 
-    ? Math.floor(videoDuration) 
-    : (currentLesson?.min_time_seconds || 0);
+  // Use video_duration_seconds from DB if available, otherwise fallback to live videoDuration or min_time_seconds
+  const requiredTime = currentLesson?.video_duration_seconds 
+    || (hasVideo && videoDuration > 0 ? Math.floor(videoDuration) : 0)
+    || (currentLesson?.min_time_seconds || 0);
   const canProceed = effectiveTimeSpent >= requiredTime;
   
   const progressPercentage = requiredTime > 0
@@ -787,10 +788,10 @@ const TrainingModule = () => {
                           {lesson.title}
                         </span>
                       </div>
-                      {lesson.min_time_seconds > 0 && (
+                      {(lesson.video_duration_seconds || lesson.min_time_seconds) > 0 && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          <span>{formatTime(lesson.min_time_seconds)}</span>
+                          <span>{formatTime(lesson.video_duration_seconds || lesson.min_time_seconds)}</span>
                         </div>
                       )}
                     </button>
@@ -815,7 +816,7 @@ const TrainingModule = () => {
                     <div className="flex justify-between text-sm">
                       <span>Postęp</span>
                       <span>
-                        {formatTime(effectiveTimeSpent)} / {formatTime(hasVideo && videoDuration > 0 ? Math.floor(videoDuration) : currentLesson.min_time_seconds)}
+                        {formatTime(effectiveTimeSpent)} / {formatTime(requiredTime)}
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
@@ -877,22 +878,22 @@ const TrainingModule = () => {
 
                   <Button
                     onClick={goToNextLesson}
-                    disabled={isNavigating || (!canProceed && currentLesson.min_time_seconds > 0 && !isLessonCompleted)}
+                    disabled={isNavigating || (!canProceed && requiredTime > 0 && !isLessonCompleted)}
                   >
                     {currentLessonIndex === lessons.length - 1 ? "Zakończ" : "Następna"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
 
-                {!canProceed && currentLesson.min_time_seconds > 0 && !isLessonCompleted && (
+                {!canProceed && requiredTime > 0 && !isLessonCompleted && (
                   <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-center">
                     <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 mx-auto mb-2" />
                     <p className="text-sm text-amber-800 dark:text-amber-200">
-                      Musisz spędzić co najmniej {formatTime(currentLesson.min_time_seconds)} na tej lekcji, 
+                      Musisz spędzić co najmniej {formatTime(requiredTime)} na tej lekcji, 
                       aby przejść do następnej.
                     </p>
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      Pozostało: {formatTime(Math.max(0, currentLesson.min_time_seconds - effectiveTimeSpent))}
+                      Pozostało: {formatTime(Math.max(0, requiredTime - effectiveTimeSpent))}
                     </p>
                   </div>
                 )}
