@@ -676,7 +676,14 @@ const TrainingModule = () => {
     
     if (index > 0) {
       const previousLesson = lessons[index - 1];
-      if (previousLesson && !progress[previousLesson.id]?.is_completed) {
+      const targetLessonProgress = progress[lessons[index]?.id];
+      const hasProgressInTargetLesson = targetLessonProgress && (
+        targetLessonProgress.time_spent_seconds > 0 || 
+        (targetLessonProgress.video_position_seconds && targetLessonProgress.video_position_seconds > 0)
+      );
+      
+      // Block only if previous lesson is NOT completed AND user has NO progress in target lesson
+      if (previousLesson && !progress[previousLesson.id]?.is_completed && !hasProgressInTargetLesson) {
         toast({
           title: "Dostęp zablokowany",
           description: "Musisz ukończyć poprzednią lekcję, aby przejść dalej.",
@@ -881,7 +888,13 @@ const TrainingModule = () => {
                   const lessonProgress = progress[lesson.id];
                   const isCompleted = lessonProgress?.is_completed;
                   const isCurrent = index === currentLessonIndex;
-                  const isLocked = index > 0 && !progress[lessons[index - 1].id]?.is_completed;
+                  const hasProgressInLesson = lessonProgress && (
+                    lessonProgress.time_spent_seconds > 0 || 
+                    (lessonProgress.video_position_seconds && lessonProgress.video_position_seconds > 0)
+                  );
+                  const isLocked = index > 0 && 
+                    !progress[lessons[index - 1].id]?.is_completed && 
+                    !hasProgressInLesson;
 
                   return (
                     <button
