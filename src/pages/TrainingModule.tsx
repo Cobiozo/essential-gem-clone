@@ -636,7 +636,6 @@ const TrainingModule = () => {
   const goToPreviousLesson = async () => {
     if (isNavigating) return;
     setIsNavigating(true);
-    isTransitioningRef.current = true; // Block saves during transition
     
     // Cancel pending save timeout
     if (saveTimeoutRef.current) {
@@ -645,7 +644,11 @@ const TrainingModule = () => {
     }
     
     try {
+      // FIRST save progress of current lesson BEFORE setting transition flag
       await saveProgressWithPosition();
+      
+      // THEN block subsequent saves during transition
+      isTransitioningRef.current = true;
       
       if (currentLessonIndex > 0) {
         setCurrentLessonIndex(currentLessonIndex - 1);
@@ -678,7 +681,6 @@ const TrainingModule = () => {
     }
 
     setIsNavigating(true);
-    isTransitioningRef.current = true; // Block saves during transition
     
     // Cancel pending save timeout
     if (saveTimeoutRef.current) {
@@ -687,7 +689,12 @@ const TrainingModule = () => {
     }
     
     try {
+      // FIRST save progress of current lesson BEFORE setting transition flag
       await saveProgressWithPosition();
+      
+      // THEN block subsequent saves during transition
+      isTransitioningRef.current = true;
+      
       setCurrentLessonIndex(index);
       setVideoPosition(0);
       setTextLessonTime(0);
