@@ -341,6 +341,15 @@ const TrainingModule = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [user, lessons, currentLessonIndex, textLessonTime]);
 
+  // Ref to hold latest saveProgressWithPosition function (for stable callbacks)
+  const saveProgressRef = useRef<() => Promise<void>>();
+  const progressRef = useRef<Record<string, LessonProgress>>({});
+  
+  // Keep progressRef in sync
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
   const saveProgressWithPosition = useCallback(async () => {
     if (!user || lessons.length === 0) return;
 
@@ -357,6 +366,9 @@ const TrainingModule = () => {
       ? Math.floor(currentVideoDuration) 
       : (currentLesson.min_time_seconds || 0);
     const isCompleted = effectiveTime >= requiredTime;
+    
+    // Check if was already completed using ref (avoid stale state)
+    const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
 
     try {
       const { error } = await supabase
@@ -390,7 +402,8 @@ const TrainingModule = () => {
         setSavedVideoPosition(currentVideoPos);
       }
 
-      if (isCompleted && !progress[currentLesson.id]?.is_completed) {
+      // Show toast only if just completed (not already completed)
+      if (isCompleted && !wasAlreadyCompleted) {
         toast({
           title: "Lekcja ukończona!",
           description: `Pomyślnie ukończyłeś lekcję "${currentLesson.title}"`,
@@ -399,9 +412,14 @@ const TrainingModule = () => {
     } catch (error) {
       console.error('Error saving progress:', error);
     }
-  }, [user, lessons, currentLessonIndex, textLessonTime, progress, toast]);
+  }, [user, lessons, currentLessonIndex, textLessonTime, toast]);
+  
+  // Update saveProgressRef whenever saveProgressWithPosition changes
+  useEffect(() => {
+    saveProgressRef.current = saveProgressWithPosition;
+  }, [saveProgressWithPosition]);
 
-  // Debounced auto-save when video position updates
+  // Stable callback for video time updates (uses refs to avoid dependency cycles)
   const handleVideoTimeUpdate = useCallback((newTime: number) => {
     setVideoPosition(newTime);
     videoPositionRef.current = newTime; // Always keep ref in sync
@@ -409,7 +427,7 @@ const TrainingModule = () => {
     // Save immediately after first 3 seconds (initial save)
     if (newTime > 3 && !hasInitialSaveRef.current) {
       hasInitialSaveRef.current = true;
-      saveProgressWithPosition();
+      saveProgressRef.current?.();
       return;
     }
     
@@ -419,9 +437,9 @@ const TrainingModule = () => {
     }
     
     saveTimeoutRef.current = setTimeout(() => {
-      saveProgressWithPosition();
+      saveProgressRef.current?.();
     }, 5000);
-  }, [saveProgressWithPosition]);
+  }, []); // Empty deps - uses refs for stability
 
   // Handle video duration change from SecureMedia
   const handleDurationChange = useCallback((duration: number) => {
@@ -429,15 +447,16 @@ const TrainingModule = () => {
     videoDurationRef.current = duration;
   }, []);
 
+  // Stable callback for play state changes (uses refs to avoid dependency cycles)
   const handlePlayStateChange = useCallback((playing: boolean) => {
     // Save immediately when pausing
     if (!playing) {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
-      saveProgressWithPosition();
+      saveProgressRef.current?.();
     }
-  }, [saveProgressWithPosition]);
+  }, []); // Empty deps - uses refs for stability
 
   // Visibility API - save progress when tab is hidden
   useEffect(() => {

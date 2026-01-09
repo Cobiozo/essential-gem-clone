@@ -57,6 +57,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const isSeekingRef = useRef<boolean>(false);
   const initialPositionSetRef = useRef<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Refs for callbacks to avoid dependency cycles in useEffect
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  const onPlayStateChangeRef = useRef(onPlayStateChange);
+  const onDurationChangeRef = useRef(onDurationChange);
+  
+  // Keep refs in sync with latest callbacks
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
+  
+  useEffect(() => {
+    onPlayStateChangeRef.current = onPlayStateChange;
+  }, [onPlayStateChange]);
+  
+  useEffect(() => {
+    onDurationChangeRef.current = onDurationChange;
+  }, [onDurationChange]);
 
   // Fullscreen handler
   const handleFullscreen = useCallback(() => {
@@ -213,7 +231,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
-      onDurationChange?.(video.duration);
+      onDurationChangeRef.current?.(video.duration);
       
       // Set position if initialTime is already available and not set yet
       if (initialTime > 0 && disableInteraction && !initialPositionSetRef.current) {
@@ -229,7 +247,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, signedUrl, initialTime, disableInteraction, onDurationChange]);
+  }, [mediaType, signedUrl, initialTime, disableInteraction]);
 
   // Seek blocking and time tracking for restricted mode
   useEffect(() => {
@@ -265,23 +283,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
       
       setCurrentTime(video.currentTime);
-      onTimeUpdate?.(video.currentTime);
+      onTimeUpdateRef.current?.(video.currentTime);
     };
 
     const handlePlay = () => {
       setIsPlaying(true);
-      onPlayStateChange?.(true);
+      onPlayStateChangeRef.current?.(true);
     };
 
     const handlePause = () => {
       setIsPlaying(false);
-      onPlayStateChange?.(false);
+      onPlayStateChangeRef.current?.(false);
       
       // CRITICAL: Save current position on pause for accurate progress tracking
       if (video) {
         const currentPos = video.currentTime;
         lastValidTimeRef.current = currentPos;
-        onTimeUpdate?.(currentPos);
+        onTimeUpdateRef.current?.(currentPos);
       }
     };
 
@@ -305,7 +323,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ratechange', handleRateChange);
     };
-  }, [mediaType, disableInteraction, signedUrl, onPlayStateChange, onTimeUpdate]);
+  }, [mediaType, disableInteraction, signedUrl]); // Removed callback deps - using refs
 
   // Time tracking for unrestricted mode
   useEffect(() => {
@@ -315,21 +333,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
-      onTimeUpdate?.(video.currentTime);
+      onTimeUpdateRef.current?.(video.currentTime);
     };
 
     const handlePlay = () => {
       setIsPlaying(true);
-      onPlayStateChange?.(true);
+      onPlayStateChangeRef.current?.(true);
     };
 
     const handlePause = () => {
       setIsPlaying(false);
-      onPlayStateChange?.(false);
+      onPlayStateChangeRef.current?.(false);
       
       // Ensure accurate position is saved on pause (consistent with restricted mode)
       if (video) {
-        onTimeUpdate?.(video.currentTime);
+        onTimeUpdateRef.current?.(video.currentTime);
       }
     };
 
@@ -348,7 +366,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, disableInteraction, signedUrl, onPlayStateChange, onTimeUpdate]);
+  }, [mediaType, disableInteraction, signedUrl]); // Removed callback deps - using refs
 
   // Visibility API - pause video when tab is hidden
   useEffect(() => {
