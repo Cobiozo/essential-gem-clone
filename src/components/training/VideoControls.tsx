@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, AlertTriangle } from 'lucide-react';
+import { Play, Pause, AlertTriangle, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -9,6 +9,8 @@ interface VideoControlsProps {
   duration: number;
   onPlayPause: () => void;
   isTabHidden?: boolean;
+  onFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -16,7 +18,9 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   currentTime,
   duration,
   onPlayPause,
-  isTabHidden = false
+  isTabHidden = false,
+  onFullscreen,
+  isFullscreen = false
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -59,8 +63,26 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
           <Progress value={progressPercentage} className="h-2" />
         </div>
 
-        <div className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatTime(currentTime)} / {formatTime(duration)}
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-muted-foreground whitespace-nowrap">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </div>
+          
+          {onFullscreen && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onFullscreen}
+              className="h-8 w-8 p-0"
+              title={isFullscreen ? "Zamknij pełny ekran" : "Pełny ekran"}
+            >
+              {isFullscreen ? (
+                <Minimize className="h-4 w-4" />
+              ) : (
+                <Maximize className="h-4 w-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 

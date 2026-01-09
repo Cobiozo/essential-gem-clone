@@ -52,9 +52,34 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [isTabHidden, setIsTabHidden] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const lastValidTimeRef = useRef<number>(initialTime);
   const isSeekingRef = useRef<boolean>(false);
   const initialPositionSetRef = useRef<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fullscreen handler
+  const handleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen();
+    }
+  }, []);
+
+  // Listener for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // URL processing effect
   useEffect(() => {
@@ -425,15 +450,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Handle regular video files with restricted mode
     if (disableInteraction) {
       return (
-        <div className="space-y-3">
+        <div 
+          ref={containerRef}
+          className={`space-y-3 ${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
+        >
           <video
             ref={videoRef}
             {...securityProps}
             src={signedUrl}
             controls={false}
-            controlsList="nodownload nofullscreen noremoteplayback"
+            controlsList="nodownload noremoteplayback"
             disablePictureInPicture
-            className={`w-full h-auto rounded-lg ${className || ''}`}
+            className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
             preload="metadata"
             playsInline
           >
@@ -445,6 +473,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             duration={duration}
             onPlayPause={handlePlayPause}
             isTabHidden={isTabHidden}
+            onFullscreen={handleFullscreen}
+            isFullscreen={isFullscreen}
           />
         </div>
       );
