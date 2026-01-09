@@ -301,6 +301,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handlePause = () => {
       setIsPlaying(false);
       onPlayStateChange?.(false);
+      
+      // Ensure accurate position is saved on pause (consistent with restricted mode)
+      if (video) {
+        onTimeUpdate?.(video.currentTime);
+      }
     };
 
     const handleLoadedMetadata = () => {
