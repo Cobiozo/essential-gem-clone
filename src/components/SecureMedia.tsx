@@ -251,6 +251,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handlePause = () => {
       setIsPlaying(false);
       onPlayStateChange?.(false);
+      
+      // CRITICAL: Save current position on pause for accurate progress tracking
+      if (video) {
+        const currentPos = video.currentTime;
+        lastValidTimeRef.current = currentPos;
+        onTimeUpdate?.(currentPos);
+      }
     };
 
     // Block playback rate changes

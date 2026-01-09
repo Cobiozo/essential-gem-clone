@@ -51,6 +51,7 @@ interface LessonProgress {
   started_at: string;
   completed_at: string | null;
   video_position_seconds?: number;
+  updated_at?: string;
 }
 
 const TrainingModule = () => {
@@ -76,6 +77,7 @@ const TrainingModule = () => {
   const timerRef = useRef<NodeJS.Timeout>();
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const videoPositionRef = useRef<number>(0);
+  const hasInitialSaveRef = useRef<boolean>(false);
 
   // Load module, lessons and progress
   useEffect(() => {
@@ -138,16 +140,34 @@ const TrainingModule = () => {
             
             // Check localStorage backup (might be newer than DB data)
             let savedPos = progressMap[lessonId]?.video_position_seconds || 0;
+            const dbUpdatedAt = progressMap[lessonId]?.updated_at 
+              ? new Date(progressMap[lessonId].updated_at as unknown as string).getTime() 
+              : 0;
             const backupKey = `lesson_progress_${lessonId}`;
             const backupStr = localStorage.getItem(backupKey);
+            
             if (backupStr) {
               try {
                 const backup = JSON.parse(backupStr);
-                // Use backup if it's newer (within last hour) and has higher position
-                if (backup.video_position_seconds > savedPos && Date.now() - backup.timestamp < 3600000) {
-                  savedPos = backup.video_position_seconds;
+                // Use backup if it's newer than DB and not older than 24h
+                if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
+                  savedPos = backup.video_position_seconds || 0;
+                  
+                  // Sync backup to database
+                  if (user) {
+                    supabase.from('training_progress').upsert({
+                      user_id: user.id,
+                      lesson_id: lessonId,
+                      time_spent_seconds: backup.time_spent_seconds || 0,
+                      video_position_seconds: backup.video_position_seconds || 0,
+                      is_completed: backup.is_completed || false
+                    }).then(() => {
+                      localStorage.removeItem(backupKey);
+                    });
+                  }
+                } else {
+                  localStorage.removeItem(backupKey);
                 }
-                localStorage.removeItem(backupKey);
               } catch (e) {
                 localStorage.removeItem(backupKey);
               }
@@ -198,10 +218,15 @@ const TrainingModule = () => {
       if (backupStr) {
         try {
           const backup = JSON.parse(backupStr);
-          if (backup.video_position_seconds > savedPos && Date.now() - backup.timestamp < 3600000) {
-            savedPos = backup.video_position_seconds;
+          const dbUpdatedAt = progress[currentLesson.id]?.updated_at 
+            ? new Date(progress[currentLesson.id].updated_at as unknown as string).getTime() 
+            : 0;
+          // Use backup if newer than DB and within 24h
+          if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
+            savedPos = backup.video_position_seconds || 0;
+          } else {
+            localStorage.removeItem(backupKey);
           }
-          localStorage.removeItem(backupKey);
         } catch (e) {
           localStorage.removeItem(backupKey);
         }
@@ -239,50 +264,59 @@ const TrainingModule = () => {
     };
   }, [currentLessonIndex, lessons, progress]);
 
-  // Visibility API - save progress when tab is hidden
+  // Save progress before unload with localStorage backup and proper auth
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        saveProgressWithPosition();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
-  // Save progress before unload with localStorage backup
-  useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = async () => {
       const currentLesson = lessons[currentLessonIndex];
       if (!user || !currentLesson) return;
 
       const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-      // Use ref for accurate position on unload
       const currentVideoPos = videoPositionRef.current;
       const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
+      const isCompleted = effectiveTime >= (currentLesson.min_time_seconds || 0);
 
-      // Save to localStorage as backup
+      // 1. Always save to localStorage as backup
       const backupData = {
+        lesson_id: currentLesson.id,
         video_position_seconds: hasVideo ? currentVideoPos : 0,
         time_spent_seconds: effectiveTime,
+        is_completed: isCompleted,
         timestamp: Date.now()
       };
       localStorage.setItem(`lesson_progress_${currentLesson.id}`, JSON.stringify(backupData));
 
-      // Use sendBeacon for reliable saving on page close
-      const data = JSON.stringify({
-        user_id: user.id,
-        lesson_id: currentLesson.id,
-        time_spent_seconds: effectiveTime,
-        video_position_seconds: hasVideo ? currentVideoPos : 0,
-        is_completed: effectiveTime >= (currentLesson.min_time_seconds || 0)
-      });
+      // 2. Try to save via fetch with keepalive (proper auth headers)
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        
+        if (token) {
+          const payload = {
+            user_id: user.id,
+            lesson_id: currentLesson.id,
+            time_spent_seconds: effectiveTime,
+            video_position_seconds: hasVideo ? currentVideoPos : 0,
+            is_completed: isCompleted
+          };
 
-      navigator.sendBeacon(
-        `https://xzlhssqqbajqhnsmbucf.supabase.co/rest/v1/training_progress?on_conflict=user_id,lesson_id`,
-        new Blob([data], { type: 'application/json' })
-      );
+          fetch(
+            `https://xzlhssqqbajqhnsmbucf.supabase.co/rest/v1/training_progress?on_conflict=user_id,lesson_id`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify(payload),
+              keepalive: true
+            }
+          );
+        }
+      } catch (e) {
+        console.warn('[TrainingModule] beforeunload save failed, backup in localStorage');
+      }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -344,14 +378,21 @@ const TrainingModule = () => {
     setVideoPosition(newTime);
     videoPositionRef.current = newTime; // Always keep ref in sync
     
-    // Debounce save - save every 10 seconds
+    // Save immediately after first 3 seconds (initial save)
+    if (newTime > 3 && !hasInitialSaveRef.current) {
+      hasInitialSaveRef.current = true;
+      saveProgressWithPosition();
+      return;
+    }
+    
+    // Debounce save - save every 5 seconds
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     
     saveTimeoutRef.current = setTimeout(() => {
       saveProgressWithPosition();
-    }, 10000);
+    }, 5000);
   }, [saveProgressWithPosition]);
 
   // Handle video duration change from SecureMedia
@@ -368,6 +409,27 @@ const TrainingModule = () => {
       saveProgressWithPosition();
     }
   }, [saveProgressWithPosition]);
+
+  // Visibility API - save progress when tab is hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        saveProgressWithPosition();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [saveProgressWithPosition]);
+
+  // Cleanup on unmount - clear timeouts
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const goToNextLesson = async () => {
     const currentLesson = lessons[currentLessonIndex];
