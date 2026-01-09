@@ -352,6 +352,16 @@ const TrainingModule = () => {
       return;
     }
 
+    // Check if was already completed using ref (avoid stale state)
+    const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
+    
+    // KLUCZOWA ZMIANA: Nie zapisuj postępu dla ukończonych lekcji (tryb przeglądania)
+    // Użytkownik może swobodnie przewijać bez wpływu na status ukończenia
+    if (wasAlreadyCompleted) {
+      console.log('[TrainingModule] Skipping save for completed lesson (review mode)');
+      return;
+    }
+
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     // Use ref for accurate position (state might be stale in callbacks)
     const currentVideoPos = videoPositionRef.current;
@@ -362,9 +372,6 @@ const TrainingModule = () => {
       ? Math.floor(currentVideoDuration) 
       : (currentLesson.min_time_seconds || 0);
     const isCompleted = effectiveTime >= requiredTime;
-    
-    // Check if was already completed using ref (avoid stale state)
-    const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
 
     try {
       const { error } = await supabase
@@ -395,13 +402,8 @@ const TrainingModule = () => {
         }
       }));
 
-      // NOTE: Removed setSavedVideoPosition(currentVideoPos) here.
-      // savedVideoPosition should ONLY be set when switching lessons, not during playback.
-      // Updating it during playback caused initialTime to change, which triggered
-      // SecureMedia to reset its state unexpectedly.
-
-      // Show toast only if just completed (not already completed)
-      if (isCompleted && !wasAlreadyCompleted) {
+      // Show toast when lesson is completed
+      if (isCompleted) {
         toast({
           title: "Lekcja ukończona!",
           description: `Pomyślnie ukończyłeś lekcję "${currentLesson.title}"`,
@@ -468,11 +470,12 @@ const TrainingModule = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [saveProgressWithPosition]);
 
-  // Cleanup on unmount - clear timeouts and save to localStorage
+  // Cleanup on unmount - clear timeouts
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = undefined;
       }
     };
   }, []);
