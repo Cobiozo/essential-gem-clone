@@ -81,6 +81,10 @@ const TrainingModule = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const videoPositionRef = useRef<number>(0);
   const hasInitialSaveRef = useRef<boolean>(false);
+  
+  // Refs to prevent race conditions during lesson transitions
+  const currentLessonIdRef = useRef<string | null>(null);
+  const isTransitioningRef = useRef<boolean>(false);
 
   // Load module, lessons and progress
   useEffect(() => {
@@ -217,40 +221,47 @@ const TrainingModule = () => {
     };
   }, [moduleId, user, toast]);
 
-  // Update saved position and time when lesson changes
+  // Update currentLessonIdRef when lesson changes
   useEffect(() => {
     const currentLesson = lessons[currentLessonIndex];
-    if (currentLesson && positionLoaded) {
-      const lessonProgress = progress[currentLesson.id];
-      let savedPos = lessonProgress?.video_position_seconds || 0;
-      
-      // Check localStorage backup
-      const backupKey = `lesson_progress_${currentLesson.id}`;
-      const backupStr = localStorage.getItem(backupKey);
-      if (backupStr) {
-        try {
-          const backup = JSON.parse(backupStr);
-          const dbUpdatedAt = progress[currentLesson.id]?.updated_at 
-            ? new Date(progress[currentLesson.id].updated_at as unknown as string).getTime() 
-            : 0;
-          // Use backup if newer than DB and within 24h
-          if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
-            savedPos = backup.video_position_seconds || 0;
-          } else {
-            localStorage.removeItem(backupKey);
-          }
-        } catch (e) {
+    currentLessonIdRef.current = currentLesson?.id || null;
+  }, [lessons, currentLessonIndex]);
+
+  // Update saved position and time when lesson changes (NOT when progress changes!)
+  useEffect(() => {
+    const currentLesson = lessons[currentLessonIndex];
+    if (!currentLesson || !positionLoaded) return;
+    
+    // Use progressRef to get latest progress without adding to dependencies
+    const lessonProgress = progressRef.current[currentLesson.id];
+    let savedPos = lessonProgress?.video_position_seconds || 0;
+    
+    // Check localStorage backup
+    const backupKey = `lesson_progress_${currentLesson.id}`;
+    const backupStr = localStorage.getItem(backupKey);
+    if (backupStr) {
+      try {
+        const backup = JSON.parse(backupStr);
+        const dbUpdatedAt = lessonProgress?.updated_at 
+          ? new Date(lessonProgress.updated_at as unknown as string).getTime() 
+          : 0;
+        // Use backup if newer than DB and within 24h
+        if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
+          savedPos = backup.video_position_seconds || 0;
+        } else {
           localStorage.removeItem(backupKey);
         }
+      } catch (e) {
+        localStorage.removeItem(backupKey);
       }
-      
-      setSavedVideoPosition(savedPos);
-      setVideoPosition(savedPos);
-      videoPositionRef.current = savedPos;
-      setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
-      hasInitialSaveRef.current = false; // Reset for new lesson
     }
-  }, [currentLessonIndex, lessons, progress, positionLoaded]);
+    
+    setSavedVideoPosition(savedPos);
+    setVideoPosition(savedPos);
+    videoPositionRef.current = savedPos;
+    setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
+    hasInitialSaveRef.current = false; // Reset for new lesson
+  }, [currentLessonIndex, lessons, positionLoaded]); // Removed progress from dependencies!
 
   // Timer only for text lessons (no video)
   useEffect(() => {
@@ -355,6 +366,18 @@ const TrainingModule = () => {
 
     const currentLesson = lessons[currentLessonIndex];
     if (!currentLesson) return;
+    
+    // Prevent saving during lesson transition (race condition prevention)
+    if (isTransitioningRef.current) {
+      console.log('[TrainingModule] Skipping save during transition');
+      return;
+    }
+    
+    // Check if lesson changed (race condition prevention)
+    if (currentLessonIdRef.current !== currentLesson.id) {
+      console.log('[TrainingModule] Lesson changed, skipping save for old lesson');
+      return;
+    }
 
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     // Use ref for accurate position (state might be stale in callbacks)
@@ -509,6 +532,13 @@ const TrainingModule = () => {
   const goToNextLesson = async () => {
     if (isNavigating) return;
     setIsNavigating(true);
+    isTransitioningRef.current = true; // Block saves during transition
+    
+    // Cancel pending save timeout to prevent race condition
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = undefined;
+    }
     
     try {
       const currentLesson = lessons[currentLessonIndex];
@@ -596,12 +626,23 @@ const TrainingModule = () => {
       }
     } finally {
       setIsNavigating(false);
+      // Delay resetting transition flag to allow state to stabilize
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 100);
     }
   };
 
   const goToPreviousLesson = async () => {
     if (isNavigating) return;
     setIsNavigating(true);
+    isTransitioningRef.current = true; // Block saves during transition
+    
+    // Cancel pending save timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = undefined;
+    }
     
     try {
       await saveProgressWithPosition();
@@ -615,6 +656,9 @@ const TrainingModule = () => {
       }
     } finally {
       setIsNavigating(false);
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 100);
     }
   };
 
@@ -634,6 +678,14 @@ const TrainingModule = () => {
     }
 
     setIsNavigating(true);
+    isTransitioningRef.current = true; // Block saves during transition
+    
+    // Cancel pending save timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = undefined;
+    }
+    
     try {
       await saveProgressWithPosition();
       setCurrentLessonIndex(index);
@@ -643,6 +695,9 @@ const TrainingModule = () => {
       videoPositionRef.current = 0;
     } finally {
       setIsNavigating(false);
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 100);
     }
   };
 
