@@ -516,6 +516,11 @@ const TrainingModule = () => {
         const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
         const currentVideoDuration = videoDurationRef.current;
         const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
+        
+        // Don't save if position is 0 - prevents overwriting with zero during transitions
+        if (hasVideo && videoPositionRef.current <= 0) return;
+        if (!hasVideo && effectiveTime <= 0) return;
+        
         const requiredTime = hasVideo && currentVideoDuration > 0 
           ? Math.floor(currentVideoDuration) 
           : (currentLesson?.min_time_seconds || 0);
@@ -581,11 +586,18 @@ const TrainingModule = () => {
       }
       
       if (currentLessonIndex < lessons.length - 1) {
-        setCurrentLessonIndex(currentLessonIndex + 1);
-        setVideoPosition(0);
-        setTextLessonTime(0);
+        const nextIndex = currentLessonIndex + 1;
+        const nextLessonId = lessons[nextIndex].id;
+        const nextProgress = progress[nextLessonId];
+        const nextVideoPosition = nextProgress?.video_position_seconds || 0;
+        const nextTimeSpent = nextProgress?.time_spent_seconds || 0;
+        
+        setCurrentLessonIndex(nextIndex);
+        setVideoPosition(nextVideoPosition);
+        setSavedVideoPosition(nextVideoPosition);
+        setTextLessonTime(nextTimeSpent);
         hasInitialSaveRef.current = false;
-        videoPositionRef.current = 0;
+        videoPositionRef.current = nextVideoPosition;
       } else {
         // Last lesson - check if all completed
         const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
@@ -657,11 +669,18 @@ const TrainingModule = () => {
       isTransitioningRef.current = true;
       
       if (currentLessonIndex > 0) {
-        setCurrentLessonIndex(currentLessonIndex - 1);
-        setVideoPosition(0);
-        setTextLessonTime(0);
+        const prevIndex = currentLessonIndex - 1;
+        const prevLessonId = lessons[prevIndex].id;
+        const prevProgress = progress[prevLessonId];
+        const prevVideoPosition = prevProgress?.video_position_seconds || 0;
+        const prevTimeSpent = prevProgress?.time_spent_seconds || 0;
+        
+        setCurrentLessonIndex(prevIndex);
+        setVideoPosition(prevVideoPosition);
+        setSavedVideoPosition(prevVideoPosition);
+        setTextLessonTime(prevTimeSpent);
         hasInitialSaveRef.current = false;
-        videoPositionRef.current = 0;
+        videoPositionRef.current = prevVideoPosition;
       }
     } finally {
       setIsNavigating(false);
@@ -708,11 +727,17 @@ const TrainingModule = () => {
       // THEN block subsequent saves during transition
       isTransitioningRef.current = true;
       
+      const targetLessonId = lessons[index].id;
+      const targetProgress = progress[targetLessonId];
+      const targetVideoPosition = targetProgress?.video_position_seconds || 0;
+      const targetTimeSpent = targetProgress?.time_spent_seconds || 0;
+      
       setCurrentLessonIndex(index);
-      setVideoPosition(0);
-      setTextLessonTime(0);
+      setVideoPosition(targetVideoPosition);
+      setSavedVideoPosition(targetVideoPosition);
+      setTextLessonTime(targetTimeSpent);
       hasInitialSaveRef.current = false;
-      videoPositionRef.current = 0;
+      videoPositionRef.current = targetVideoPosition;
     } finally {
       setIsNavigating(false);
       setTimeout(() => {
