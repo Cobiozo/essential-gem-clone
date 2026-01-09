@@ -178,6 +178,8 @@ const TrainingModule = () => {
                     time_spent_seconds: backup.time_spent_seconds || 0,
                     video_position_seconds: backup.video_position_seconds || 0,
                     is_completed: backup.is_completed || false
+                  }, {
+                    onConflict: 'user_id,lesson_id'
                   }).then(() => {
                     localStorage.removeItem(backupKey);
                   });
