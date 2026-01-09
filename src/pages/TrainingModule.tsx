@@ -60,6 +60,7 @@ const TrainingModule = () => {
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [progress, setProgress] = useState<Record<string, LessonProgress>>({});
+  const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
   
   // Video position = time spent (single source of truth for video lessons)
@@ -363,6 +364,11 @@ const TrainingModule = () => {
         }
       }));
 
+      // Update savedVideoPosition after successful save
+      if (hasVideo) {
+        setSavedVideoPosition(currentVideoPos);
+      }
+
       if (isCompleted && !progress[currentLesson.id]?.is_completed) {
         toast({
           title: "Lekcja ukończona!",
@@ -423,7 +429,7 @@ const TrainingModule = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [saveProgressWithPosition]);
 
-  // Cleanup on unmount - clear timeouts
+  // Cleanup on unmount - clear timeouts and save to localStorage
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -432,77 +438,116 @@ const TrainingModule = () => {
     };
   }, []);
 
-  const goToNextLesson = async () => {
+  // Save to localStorage on unmount (separate effect to capture latest values)
+  useEffect(() => {
     const currentLesson = lessons[currentLessonIndex];
-    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
-    const currentLessonWillBeCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
+    const lessonId = currentLesson?.id;
     
-    await saveProgressWithPosition();
+    return () => {
+      if (lessonId && user) {
+        const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+        const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
+        const isCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
+        
+        const backupData = {
+          lesson_id: lessonId,
+          video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+          time_spent_seconds: effectiveTime,
+          is_completed: isCompleted,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(`lesson_progress_${lessonId}`, JSON.stringify(backupData));
+      }
+    };
+  }, [lessons, currentLessonIndex, user, textLessonTime]);
+
+  const goToNextLesson = async () => {
+    if (isNavigating) return;
+    setIsNavigating(true);
     
-    if (currentLessonIndex < lessons.length - 1) {
-      setCurrentLessonIndex(currentLessonIndex + 1);
-      setVideoPosition(0);
-      setTextLessonTime(0);
-      hasInitialSaveRef.current = false;
-      videoPositionRef.current = 0;
-    } else {
-      const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
-        return progress[lesson.id]?.is_completed === true;
-      });
+    try {
+      const currentLesson = lessons[currentLessonIndex];
+      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
+      const currentLessonWillBeCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
       
-      const allCompleted = allPreviousCompleted && currentLessonWillBeCompleted;
+      await saveProgressWithPosition();
+      
+      if (currentLessonIndex < lessons.length - 1) {
+        setCurrentLessonIndex(currentLessonIndex + 1);
+        setVideoPosition(0);
+        setTextLessonTime(0);
+        hasInitialSaveRef.current = false;
+        videoPositionRef.current = 0;
+      } else {
+        const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
+          return progress[lesson.id]?.is_completed === true;
+        });
+        
+        const allCompleted = allPreviousCompleted && currentLessonWillBeCompleted;
 
-      if (allCompleted && user && moduleId) {
-        try {
-          const { error: assignmentError } = await supabase
-            .from('training_assignments')
-            .update({
-              is_completed: true,
-              completed_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id)
-            .eq('module_id', moduleId);
+        if (allCompleted && user && moduleId) {
+          try {
+            const { error: assignmentError } = await supabase
+              .from('training_assignments')
+              .update({
+                is_completed: true,
+                completed_at: new Date().toISOString()
+              })
+              .eq('user_id', user.id)
+              .eq('module_id', moduleId);
 
-          if (assignmentError) {
-            console.warn('Training assignment update failed:', assignmentError);
+            if (assignmentError) {
+              console.warn('Training assignment update failed:', assignmentError);
+            }
+
+            toast({
+              title: "Moduł ukończony!",
+              description: "Gratulacje! Ukończyłeś szkolenie. Możesz teraz wygenerować certyfikat na stronie Akademii.",
+            });
+          } catch (error) {
+            console.error('Error updating training assignment:', error);
+            toast({
+              title: "Moduł ukończony!",
+              description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
+            });
           }
-
-          toast({
-            title: "Moduł ukończony!",
-            description: "Gratulacje! Ukończyłeś szkolenie. Możesz teraz wygenerować certyfikat na stronie Akademii.",
-          });
-        } catch (error) {
-          console.error('Error updating training assignment:', error);
+        } else {
           toast({
             title: "Moduł ukończony!",
             description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
           });
         }
-      } else {
-        toast({
-          title: "Moduł ukończony!",
-          description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
-        });
+        
+        navigate('/training');
       }
-      
-      navigate('/training');
+    } finally {
+      setIsNavigating(false);
     }
   };
 
   const goToPreviousLesson = async () => {
-    await saveProgressWithPosition();
+    if (isNavigating) return;
+    setIsNavigating(true);
     
-    if (currentLessonIndex > 0) {
-      setCurrentLessonIndex(currentLessonIndex - 1);
-      setVideoPosition(0);
-      setTextLessonTime(0);
-      hasInitialSaveRef.current = false;
-      videoPositionRef.current = 0;
+    try {
+      await saveProgressWithPosition();
+      
+      if (currentLessonIndex > 0) {
+        setCurrentLessonIndex(currentLessonIndex - 1);
+        setVideoPosition(0);
+        setTextLessonTime(0);
+        hasInitialSaveRef.current = false;
+        videoPositionRef.current = 0;
+      }
+    } finally {
+      setIsNavigating(false);
     }
   };
 
   const jumpToLesson = async (index: number) => {
+    if (isNavigating) return;
+    
     if (index > 0) {
       const previousLesson = lessons[index - 1];
       if (previousLesson && !progress[previousLesson.id]?.is_completed) {
@@ -515,12 +560,17 @@ const TrainingModule = () => {
       }
     }
 
-    await saveProgressWithPosition();
-    setCurrentLessonIndex(index);
-    setVideoPosition(0);
-    setTextLessonTime(0);
-    hasInitialSaveRef.current = false;
-    videoPositionRef.current = 0;
+    setIsNavigating(true);
+    try {
+      await saveProgressWithPosition();
+      setCurrentLessonIndex(index);
+      setVideoPosition(0);
+      setTextLessonTime(0);
+      hasInitialSaveRef.current = false;
+      videoPositionRef.current = 0;
+    } finally {
+      setIsNavigating(false);
+    }
   };
 
   const getMediaIcon = (mediaType: string) => {
@@ -791,7 +841,7 @@ const TrainingModule = () => {
                   <Button
                     variant="outline"
                     onClick={goToPreviousLesson}
-                    disabled={currentLessonIndex === 0}
+                    disabled={currentLessonIndex === 0 || isNavigating}
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Poprzednia
@@ -803,7 +853,7 @@ const TrainingModule = () => {
 
                   <Button
                     onClick={goToNextLesson}
-                    disabled={!canProceed && currentLesson.min_time_seconds > 0 && !isLessonCompleted}
+                    disabled={isNavigating || (!canProceed && currentLesson.min_time_seconds > 0 && !isLessonCompleted)}
                   >
                     {currentLessonIndex === lessons.length - 1 ? "Zakończ" : "Następna"}
                     <ArrowRight className="h-4 w-4 ml-2" />
