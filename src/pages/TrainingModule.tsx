@@ -986,6 +986,7 @@ const TrainingModule = () => {
                 {currentLesson.media_url && (
                   <div className="border rounded-lg overflow-hidden">
                     <SecureMedia 
+                      key={currentLesson.id}
                       mediaUrl={currentLesson.media_url}
                       mediaType={currentLesson.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
                       altText={currentLesson.media_alt_text}
