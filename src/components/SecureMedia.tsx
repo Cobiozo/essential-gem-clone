@@ -203,18 +203,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaUrl]);
 
-  // Reset initial position flag when video source changes
+  // FULL RESET when mediaUrl changes - prevents state leakage between lessons
   useEffect(() => {
     initialPositionSetRef.current = false;
-  }, [signedUrl]);
+    lastValidTimeRef.current = initialTime;
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    isSeekingRef.current = false;
+  }, [mediaUrl]);
 
   // Sync lastValidTimeRef when initialTime changes (for resume functionality)
   useEffect(() => {
-    if (initialTime > 0 && disableInteraction) {
-      lastValidTimeRef.current = initialTime;
-      setCurrentTime(initialTime);
-    }
-  }, [initialTime, disableInteraction]);
+    lastValidTimeRef.current = initialTime;
+    setCurrentTime(initialTime);
+  }, [initialTime]);
 
   // Set video position when initialTime changes and video is ready (only once)
   useEffect(() => {
