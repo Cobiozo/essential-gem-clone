@@ -133,54 +133,63 @@ const TrainingModule = () => {
 
           setProgress(progressMap);
 
-          const firstIncompleteIndex = lessonsData.findIndex(lesson => 
-            !progressMap[lesson.id]?.is_completed
-          );
+          // Find the last lesson with progress (most advanced lesson user worked on)
+          let targetIndex = 0;
+          for (let i = lessonsData.length - 1; i >= 0; i--) {
+            const lessonProgress = progressMap[lessonsData[i].id];
+            if (lessonProgress && lessonProgress.time_spent_seconds > 0) {
+              // If this lesson is completed, move to next (if exists)
+              if (lessonProgress.is_completed && i < lessonsData.length - 1) {
+                targetIndex = i + 1;
+              } else {
+                targetIndex = i;
+              }
+              break;
+            }
+          }
           
-          if (firstIncompleteIndex !== -1) {
-            setCurrentLessonIndex(firstIncompleteIndex);
-            const lessonId = lessonsData[firstIncompleteIndex].id;
-            
-            // Check localStorage backup (might be newer than DB data)
-            let savedPos = progressMap[lessonId]?.video_position_seconds || 0;
-            const dbUpdatedAt = progressMap[lessonId]?.updated_at 
-              ? new Date(progressMap[lessonId].updated_at as unknown as string).getTime() 
-              : 0;
-            const backupKey = `lesson_progress_${lessonId}`;
-            const backupStr = localStorage.getItem(backupKey);
-            
-            if (backupStr) {
-              try {
-                const backup = JSON.parse(backupStr);
-                // Use backup if it's newer than DB and not older than 24h
-                if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
-                  savedPos = backup.video_position_seconds || 0;
-                  
-                  // Sync backup to database
-                  if (user) {
-                    supabase.from('training_progress').upsert({
-                      user_id: user.id,
-                      lesson_id: lessonId,
-                      time_spent_seconds: backup.time_spent_seconds || 0,
-                      video_position_seconds: backup.video_position_seconds || 0,
-                      is_completed: backup.is_completed || false
-                    }).then(() => {
-                      localStorage.removeItem(backupKey);
-                    });
-                  }
-                } else {
-                  localStorage.removeItem(backupKey);
+          setCurrentLessonIndex(targetIndex);
+          const lessonId = lessonsData[targetIndex].id;
+          
+          // Check localStorage backup (might be newer than DB data)
+          let savedPos = progressMap[lessonId]?.video_position_seconds || 0;
+          const dbUpdatedAt = progressMap[lessonId]?.updated_at 
+            ? new Date(progressMap[lessonId].updated_at as unknown as string).getTime() 
+            : 0;
+          const backupKey = `lesson_progress_${lessonId}`;
+          const backupStr = localStorage.getItem(backupKey);
+          
+          if (backupStr) {
+            try {
+              const backup = JSON.parse(backupStr);
+              // Use backup if it's newer than DB and not older than 24h
+              if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
+                savedPos = backup.video_position_seconds || 0;
+                
+                // Sync backup to database
+                if (user) {
+                  supabase.from('training_progress').upsert({
+                    user_id: user.id,
+                    lesson_id: lessonId,
+                    time_spent_seconds: backup.time_spent_seconds || 0,
+                    video_position_seconds: backup.video_position_seconds || 0,
+                    is_completed: backup.is_completed || false
+                  }).then(() => {
+                    localStorage.removeItem(backupKey);
+                  });
                 }
-              } catch (e) {
+              } else {
                 localStorage.removeItem(backupKey);
               }
+            } catch (e) {
+              localStorage.removeItem(backupKey);
             }
-            
-            setSavedVideoPosition(savedPos);
-            setVideoPosition(savedPos);
-            videoPositionRef.current = savedPos;
-            setTextLessonTime(progressMap[lessonId]?.time_spent_seconds || 0);
           }
+          
+          setSavedVideoPosition(savedPos);
+          setVideoPosition(savedPos);
+          videoPositionRef.current = savedPos;
+          setTextLessonTime(progressMap[lessonId]?.time_spent_seconds || 0);
           
           // Mark position as loaded so SecureMedia receives correct initialTime
           setPositionLoaded(true);
@@ -485,14 +494,36 @@ const TrainingModule = () => {
     try {
       const currentLesson = lessons[currentLessonIndex];
       const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-      const currentVideoDuration = videoDurationRef.current;
-      const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
-      const requiredTime = hasVideo && currentVideoDuration > 0 
-        ? Math.floor(currentVideoDuration) 
-        : (currentLesson?.min_time_seconds || 0);
-      const currentLessonWillBeCompleted = effectiveTime >= requiredTime;
       
-      await saveProgressWithPosition();
+      // ALWAYS mark current lesson as completed when navigating to next
+      if (user && currentLesson) {
+        const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
+        
+        await supabase
+          .from('training_progress')
+          .upsert({
+            user_id: user.id,
+            lesson_id: currentLesson.id,
+            time_spent_seconds: effectiveTime,
+            video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+            is_completed: true,  // Always mark as completed when moving to next
+            completed_at: new Date().toISOString()
+          });
+        
+        // Update local state
+        setProgress(prev => ({
+          ...prev,
+          [currentLesson.id]: {
+            ...prev[currentLesson.id],
+            lesson_id: currentLesson.id,
+            time_spent_seconds: effectiveTime,
+            video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+            is_completed: true,
+            started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
+            completed_at: new Date().toISOString()
+          }
+        }));
+      }
       
       if (currentLessonIndex < lessons.length - 1) {
         setCurrentLessonIndex(currentLessonIndex + 1);
@@ -501,11 +532,13 @@ const TrainingModule = () => {
         hasInitialSaveRef.current = false;
         videoPositionRef.current = 0;
       } else {
+        // Last lesson - check if all completed
         const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
           return progress[lesson.id]?.is_completed === true;
         });
         
-        const allCompleted = allPreviousCompleted && currentLessonWillBeCompleted;
+        // Current lesson is now completed (we just marked it above)
+        const allCompleted = allPreviousCompleted;
 
         if (allCompleted && user && moduleId) {
           try {
