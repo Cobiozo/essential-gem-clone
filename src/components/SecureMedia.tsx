@@ -355,19 +355,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   useEffect(() => {
     if (mediaType !== 'video' || disableInteraction || !videoElement) return;
 
+    let mounted = true; // Prevent state updates after unmount
     const video = videoElement;
 
     const handleTimeUpdate = () => {
+      if (!mounted) return;
       setCurrentTime(video.currentTime);
       onTimeUpdateRef.current?.(video.currentTime);
     };
 
     const handlePlay = () => {
+      if (!mounted) return;
       setIsPlaying(true);
       onPlayStateChangeRef.current?.(true);
     };
 
     const handlePause = () => {
+      if (!mounted) return;
       setIsPlaying(false);
       onPlayStateChangeRef.current?.(false);
       
@@ -378,6 +382,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
 
     const handleLoadedMetadata = () => {
+      if (!mounted) return;
       setDuration(video.duration);
     };
 
@@ -387,12 +392,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     
     return () => {
+      mounted = false;
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, disableInteraction, signedUrl, videoElement]); // Added videoElement
+  }, [mediaType, disableInteraction, signedUrl, videoElement]);
 
   // Visibility API - pause video when tab is hidden
   useEffect(() => {
