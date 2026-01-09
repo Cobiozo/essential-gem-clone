@@ -348,14 +348,15 @@ const Training = () => {
             completedLessons = progressData?.length || 0;
           }
 
-          // Get total estimated time for module
+          // Get total estimated time for module (prioritize video_duration_seconds)
           const { data: lessonsData } = await supabase
             .from('training_lessons')
-            .select('min_time_seconds')
+            .select('min_time_seconds, video_duration_seconds')
             .eq('module_id', module.id)
             .eq('is_active', true);
 
-          totalTime = lessonsData?.reduce((acc, lesson) => acc + (lesson.min_time_seconds || 0), 0) || 0;
+          totalTime = lessonsData?.reduce((acc, lesson) => 
+            acc + (lesson.video_duration_seconds || lesson.min_time_seconds || 0), 0) || 0;
 
           return {
             ...module,

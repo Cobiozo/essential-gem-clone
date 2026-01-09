@@ -13,7 +13,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 
 interface MediaUploadProps {
-  onMediaUploaded: (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string) => void;
+  onMediaUploaded: (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other', altText?: string, durationSeconds?: number) => void;
   currentMediaUrl?: string;
   currentMediaType?: 'image' | 'video' | 'document' | 'audio' | 'other';
   currentAltText?: string;
@@ -115,8 +115,6 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         }
       });
 
-      onMediaUploaded(result.url, mediaType, altText);
-
       const typeNames = {
         image: 'Zdjęcie',
         video: 'Film',
@@ -125,10 +123,36 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         other: 'Plik'
       };
 
-      toast({
-        title: "Sukces",
-        description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
-      });
+      // For video files, detect duration before calling onMediaUploaded
+      if (mediaType === 'video') {
+        const videoElement = document.createElement('video');
+        videoElement.preload = 'metadata';
+        videoElement.src = result.url;
+        
+        videoElement.onloadedmetadata = () => {
+          const durationSeconds = Math.floor(videoElement.duration);
+          onMediaUploaded(result.url, mediaType, altText, durationSeconds);
+          toast({
+            title: "Sukces",
+            description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)}, czas: ${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')})`,
+          });
+        };
+        
+        videoElement.onerror = () => {
+          // Fallback if we can't get duration
+          onMediaUploaded(result.url, mediaType, altText, 0);
+          toast({
+            title: "Sukces",
+            description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
+          });
+        };
+      } else {
+        onMediaUploaded(result.url, mediaType, altText, 0);
+        toast({
+          title: "Sukces",
+          description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
+        });
+      }
     } catch (error: any) {
       console.error('Error uploading media:', error);
       toast({
@@ -165,11 +189,36 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
   const selectFromLibrary = (file: {name: string, url: string, type: string}) => {
     const mediaType = file.type as 'image' | 'video' | 'document' | 'audio' | 'other';
-    onMediaUploaded(file.url, mediaType, altText);
-    toast({
-      title: "Sukces",
-      description: "Plik został wybrany z biblioteki",
-    });
+    
+    // For video files from library, detect duration
+    if (mediaType === 'video') {
+      const videoElement = document.createElement('video');
+      videoElement.preload = 'metadata';
+      videoElement.src = file.url;
+      
+      videoElement.onloadedmetadata = () => {
+        const durationSeconds = Math.floor(videoElement.duration);
+        onMediaUploaded(file.url, mediaType, altText, durationSeconds);
+        toast({
+          title: "Sukces",
+          description: `Plik został wybrany z biblioteki (czas: ${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')})`,
+        });
+      };
+      
+      videoElement.onerror = () => {
+        onMediaUploaded(file.url, mediaType, altText, 0);
+        toast({
+          title: "Sukces",
+          description: "Plik został wybrany z biblioteki",
+        });
+      };
+    } else {
+      onMediaUploaded(file.url, mediaType, altText, 0);
+      toast({
+        title: "Sukces",
+        description: "Plik został wybrany z biblioteki",
+      });
+    }
   };
 
   const removeMedia = async () => {
@@ -215,13 +264,39 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       mediaType = 'document';
     }
 
-    onMediaUploaded(urlInput, mediaType, altText);
-    setUrlInput('');
-    
-    toast({
-      title: "Sukces",
-      description: "URL został dodany",
-    });
+    // For video URLs, try to detect duration
+    if (mediaType === 'video' && !url.includes('youtube.com') && !url.includes('youtu.be')) {
+      const videoElement = document.createElement('video');
+      videoElement.preload = 'metadata';
+      videoElement.src = urlInput;
+      
+      videoElement.onloadedmetadata = () => {
+        const durationSeconds = Math.floor(videoElement.duration);
+        onMediaUploaded(urlInput, mediaType, altText, durationSeconds);
+        setUrlInput('');
+        toast({
+          title: "Sukces",
+          description: `URL został dodany (czas: ${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')})`,
+        });
+      };
+      
+      videoElement.onerror = () => {
+        onMediaUploaded(urlInput, mediaType, altText, 0);
+        setUrlInput('');
+        toast({
+          title: "Sukces",
+          description: "URL został dodany",
+        });
+      };
+    } else {
+      onMediaUploaded(urlInput, mediaType, altText, 0);
+      setUrlInput('');
+      
+      toast({
+        title: "Sukces",
+        description: "URL został dodany",
+      });
+    }
   };
 
   const getAcceptString = () => {
