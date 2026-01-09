@@ -236,6 +236,7 @@ const TrainingModule = () => {
       setVideoPosition(savedPos);
       videoPositionRef.current = savedPos;
       setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
+      hasInitialSaveRef.current = false; // Reset for new lesson
     }
   }, [currentLessonIndex, lessons, progress, positionLoaded]);
 
@@ -434,7 +435,7 @@ const TrainingModule = () => {
   const goToNextLesson = async () => {
     const currentLesson = lessons[currentLessonIndex];
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    const effectiveTime = hasVideo ? Math.floor(videoPosition) : textLessonTime;
+    const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
     const currentLessonWillBeCompleted = effectiveTime >= (currentLesson?.min_time_seconds || 0);
     
     await saveProgressWithPosition();
@@ -443,6 +444,8 @@ const TrainingModule = () => {
       setCurrentLessonIndex(currentLessonIndex + 1);
       setVideoPosition(0);
       setTextLessonTime(0);
+      hasInitialSaveRef.current = false;
+      videoPositionRef.current = 0;
     } else {
       const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
         return progress[lesson.id]?.is_completed === true;
@@ -494,6 +497,8 @@ const TrainingModule = () => {
       setCurrentLessonIndex(currentLessonIndex - 1);
       setVideoPosition(0);
       setTextLessonTime(0);
+      hasInitialSaveRef.current = false;
+      videoPositionRef.current = 0;
     }
   };
 
@@ -514,6 +519,8 @@ const TrainingModule = () => {
     setCurrentLessonIndex(index);
     setVideoPosition(0);
     setTextLessonTime(0);
+    hasInitialSaveRef.current = false;
+    videoPositionRef.current = 0;
   };
 
   const getMediaIcon = (mediaType: string) => {
