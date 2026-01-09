@@ -77,6 +77,7 @@ interface TrainingLesson {
   media_alt_text: string;
   position: number;
   min_time_seconds: number;
+  video_duration_seconds?: number;
   is_required: boolean;
   is_active: boolean;
   action_buttons?: LessonActionButton[];
@@ -1180,6 +1181,7 @@ const LessonForm = ({
     media_type: lesson?.media_type || "",
     media_alt_text: lesson?.media_alt_text || "",
     min_time_seconds: lesson?.min_time_seconds || 60,
+    video_duration_seconds: lesson?.video_duration_seconds || 0,
     is_required: lesson?.is_required ?? true,
     is_active: lesson?.is_active ?? true,
     action_buttons: lesson?.action_buttons || [],
@@ -1194,13 +1196,21 @@ const LessonForm = ({
     setFormData(prev => ({ ...prev, action_buttons: buttons }));
   };
 
-  const handleMediaUploaded = (url: string, type: string, altText?: string) => {
+  const handleMediaUploaded = (url: string, type: string, altText?: string, durationSeconds?: number) => {
     setFormData(prev => ({
       ...prev,
       media_url: url,
       media_type: type,
-      media_alt_text: altText || ""
+      media_alt_text: altText || "",
+      video_duration_seconds: durationSeconds || prev.video_duration_seconds
     }));
+  };
+
+  // Format seconds to MM:SS
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
   };
 
   return (
@@ -1234,6 +1244,12 @@ const LessonForm = ({
           allowedTypes={['video', 'document', 'audio']}
           maxSizeMB={null}
         />
+        {formData.video_duration_seconds > 0 && (
+          <div className="mt-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg text-sm flex items-center gap-2">
+            <Clock className="h-4 w-4 text-green-600" />
+            <span>Wykryty czas wideo: <strong>{formatDuration(formData.video_duration_seconds)}</strong></span>
+          </div>
+        )}
       </div>
 
       <div>
