@@ -403,6 +403,8 @@ const TrainingModule = () => {
           video_position_seconds: hasVideo ? currentVideoPos : 0,
           is_completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null
+        }, { 
+          onConflict: 'user_id,lesson_id'
         });
 
       if (error) throw error;
@@ -557,6 +559,8 @@ const TrainingModule = () => {
             video_position_seconds: hasVideo ? videoPositionRef.current : 0,
             is_completed: true,  // Always mark as completed when moving to next
             completed_at: new Date().toISOString()
+          }, { 
+            onConflict: 'user_id,lesson_id'
           });
         
         // Update local state
