@@ -58,6 +58,15 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const initialPositionSetRef = useRef<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
+  // State to track when video element is mounted (for callback ref pattern)
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  
+  // Callback ref to ensure event listeners are attached when element mounts
+  const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideoElement(node);
+  }, []);
+  
   // Refs for callbacks to avoid dependency cycles in useEffect
   const onTimeUpdateRef = useRef(onTimeUpdate);
   const onPlayStateChangeRef = useRef(onPlayStateChange);
@@ -209,10 +218,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
   // Set video position when initialTime changes and video is ready (only once)
   useEffect(() => {
-    if (mediaType !== 'video' || !videoRef.current || !signedUrl) return;
+    if (mediaType !== 'video' || !videoElement || !signedUrl) return;
     if (initialPositionSetRef.current) return; // Only set once
     
-    const video = videoRef.current;
+    const video = videoElement;
     
     // Set position when video is ready and initialTime is available
     if (initialTime > 0 && disableInteraction && video.readyState >= 1) {
@@ -221,13 +230,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setCurrentTime(initialTime);
       initialPositionSetRef.current = true;
     }
-  }, [initialTime, mediaType, signedUrl, disableInteraction]);
+  }, [initialTime, mediaType, signedUrl, disableInteraction, videoElement]);
 
   // Set initial time when video metadata loads
   useEffect(() => {
-    if (mediaType !== 'video' || !videoRef.current || !signedUrl) return;
+    if (mediaType !== 'video' || !videoElement || !signedUrl) return;
     
-    const video = videoRef.current;
+    const video = videoElement;
     
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
@@ -247,13 +256,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, signedUrl, initialTime, disableInteraction]);
+  }, [mediaType, signedUrl, initialTime, disableInteraction, videoElement]);
 
   // Seek blocking and time tracking for restricted mode
   useEffect(() => {
-    if (mediaType !== 'video' || !disableInteraction || !videoRef.current) return;
+    if (mediaType !== 'video' || !disableInteraction || !videoElement) return;
 
-    const video = videoRef.current;
+    const video = videoElement;
+    console.log('[SecureMedia] Attaching event listeners to video element');
 
     // Block ALL seeking (forward and backward)
     const handleSeeking = () => {
@@ -317,19 +327,20 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('ratechange', handleRateChange);
     
     return () => {
+      console.log('[SecureMedia] Removing event listeners from video element');
       video.removeEventListener('seeking', handleSeeking);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ratechange', handleRateChange);
     };
-  }, [mediaType, disableInteraction, signedUrl]); // Removed callback deps - using refs
+  }, [mediaType, disableInteraction, signedUrl, videoElement]); // Added videoElement
 
   // Time tracking for unrestricted mode
   useEffect(() => {
-    if (mediaType !== 'video' || disableInteraction || !videoRef.current) return;
+    if (mediaType !== 'video' || disableInteraction || !videoElement) return;
 
-    const video = videoRef.current;
+    const video = videoElement;
 
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
@@ -366,7 +377,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, disableInteraction, signedUrl]); // Removed callback deps - using refs
+  }, [mediaType, disableInteraction, signedUrl, videoElement]); // Added videoElement
 
   // Visibility API - pause video when tab is hidden
   useEffect(() => {
@@ -472,8 +483,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           ref={containerRef}
           className={`space-y-3 ${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
         >
-          <video
-            ref={videoRef}
+        <video
+            ref={videoRefCallback}
             {...securityProps}
             src={signedUrl}
             controls={false}
@@ -501,7 +512,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Handle regular video files with full controls (lesson completed)
     return (
       <video
-        ref={videoRef}
+        ref={videoRefCallback}
         {...securityProps}
         src={signedUrl}
         controls
