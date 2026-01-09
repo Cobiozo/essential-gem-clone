@@ -204,62 +204,68 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   }, [mediaUrl]);
 
   // FULL RESET when mediaUrl changes - prevents state leakage between lessons
+  // Uses 0 for lastValidTimeRef because initialTime may not be ready yet
   useEffect(() => {
+    console.log('[SecureMedia] mediaUrl changed, resetting all state');
     initialPositionSetRef.current = false;
-    lastValidTimeRef.current = initialTime;
+    lastValidTimeRef.current = 0;
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
     isSeekingRef.current = false;
   }, [mediaUrl]);
 
-  // Sync lastValidTimeRef when initialTime changes (for resume functionality)
-  useEffect(() => {
-    lastValidTimeRef.current = initialTime;
-    setCurrentTime(initialTime);
-  }, [initialTime]);
+  // NOTE: Removed the useEffect that synced lastValidTimeRef with initialTime
+  // This was causing issues because initialTime could change during playback
+  // (when savedVideoPosition was updated), causing unexpected resets.
+  // initialTime should only be used ONCE at component mount.
 
-  // Set video position when initialTime changes and video is ready (only once)
-  useEffect(() => {
-    if (mediaType !== 'video' || !videoElement || !signedUrl) return;
-    if (initialPositionSetRef.current) return; // Only set once
-    
-    const video = videoElement;
-    
-    // Set position when video is ready and initialTime is available
-    if (initialTime > 0 && disableInteraction && video.readyState >= 1) {
-      video.currentTime = initialTime;
-      lastValidTimeRef.current = initialTime;
-      setCurrentTime(initialTime);
-      initialPositionSetRef.current = true;
-    }
-  }, [initialTime, mediaType, signedUrl, disableInteraction, videoElement]);
-
-  // Set initial time when video metadata loads
+  // Set initial time when video metadata loads - SINGLE consolidated effect
   useEffect(() => {
     if (mediaType !== 'video' || !videoElement || !signedUrl) return;
     
     const video = videoElement;
+    
+    const setInitialPosition = () => {
+      if (initialPositionSetRef.current) return; // Only set ONCE
+      
+      console.log('[SecureMedia] Setting initial position:', {
+        initialTime,
+        readyState: video.readyState,
+        duration: video.duration
+      });
+      
+      if (video.readyState >= 1) {
+        if (initialTime > 0) {
+          video.currentTime = initialTime;
+          lastValidTimeRef.current = initialTime;
+          setCurrentTime(initialTime);
+        } else {
+          lastValidTimeRef.current = 0;
+        }
+        initialPositionSetRef.current = true;
+      }
+    };
     
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
       onDurationChangeRef.current?.(video.duration);
-      
-      // Set position if initialTime is already available and not set yet
-      if (initialTime > 0 && disableInteraction && !initialPositionSetRef.current) {
-        video.currentTime = initialTime;
-        lastValidTimeRef.current = initialTime;
-        setCurrentTime(initialTime);
-        initialPositionSetRef.current = true;
-      }
+      setInitialPosition();
     };
+    
+    // Try to set immediately if video already loaded
+    if (video.readyState >= 1) {
+      setDuration(video.duration);
+      onDurationChangeRef.current?.(video.duration);
+      setInitialPosition();
+    }
     
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaType, signedUrl, initialTime, disableInteraction, videoElement]);
+  }, [mediaType, signedUrl, initialTime, videoElement]);
 
   // Seek blocking and time tracking for restricted mode
   useEffect(() => {
@@ -274,8 +280,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       const timeDiff = Math.abs(video.currentTime - lastValidTimeRef.current);
       
-      // If time jumped more than 1.5 seconds, it's a seek attempt - block it
-      if (timeDiff > 1.5) {
+      // If time jumped more than 2.5 seconds, it's a seek attempt - block it
+      // Increased from 1.5s to reduce false positives from buffering/network delays
+      if (timeDiff > 2.5) {
+        console.log('[SecureMedia] Seek blocked:', {
+          currentTime: video.currentTime,
+          lastValidTime: lastValidTimeRef.current,
+          timeDiff
+        });
         isSeekingRef.current = true;
         video.currentTime = lastValidTimeRef.current;
         setTimeout(() => {

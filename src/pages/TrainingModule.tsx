@@ -229,41 +229,12 @@ const TrainingModule = () => {
     currentLessonIdRef.current = currentLesson?.id || null;
   }, [lessons, currentLessonIndex]);
 
-  // Update saved position and time when lesson changes (NOT when progress changes!)
-  useEffect(() => {
-    const currentLesson = lessons[currentLessonIndex];
-    if (!currentLesson || !positionLoaded) return;
-    
-    // Use progressRef to get latest progress without adding to dependencies
-    const lessonProgress = progressRef.current[currentLesson.id];
-    let savedPos = lessonProgress?.video_position_seconds || 0;
-    
-    // Check localStorage backup
-    const backupKey = `lesson_progress_${currentLesson.id}`;
-    const backupStr = localStorage.getItem(backupKey);
-    if (backupStr) {
-      try {
-        const backup = JSON.parse(backupStr);
-        const dbUpdatedAt = lessonProgress?.updated_at 
-          ? new Date(lessonProgress.updated_at as unknown as string).getTime() 
-          : 0;
-        // Use backup if newer than DB and within 24h
-        if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
-          savedPos = backup.video_position_seconds || 0;
-        } else {
-          localStorage.removeItem(backupKey);
-        }
-      } catch (e) {
-        localStorage.removeItem(backupKey);
-      }
-    }
-    
-    setSavedVideoPosition(savedPos);
-    setVideoPosition(savedPos);
-    videoPositionRef.current = savedPos;
-    setTextLessonTime(lessonProgress?.time_spent_seconds || 0);
-    hasInitialSaveRef.current = false; // Reset for new lesson
-  }, [currentLessonIndex, lessons, positionLoaded]); // Removed progress from dependencies!
+  // NOTE: Removed the useEffect that updated savedVideoPosition when lesson changes.
+  // This was causing issues because it ran whenever currentLessonIndex changed,
+  // but the lesson navigation functions (goToNextLesson, goToPreviousLesson, jumpToLesson)
+  // already handle setting the correct video position directly.
+  // Having this useEffect caused race conditions where the old lesson's state
+  // could overwrite the new lesson's state.
 
   // Timer only for text lessons (no video)
   useEffect(() => {
@@ -424,10 +395,10 @@ const TrainingModule = () => {
         }
       }));
 
-      // Update savedVideoPosition after successful save
-      if (hasVideo) {
-        setSavedVideoPosition(currentVideoPos);
-      }
+      // NOTE: Removed setSavedVideoPosition(currentVideoPos) here.
+      // savedVideoPosition should ONLY be set when switching lessons, not during playback.
+      // Updating it during playback caused initialTime to change, which triggered
+      // SecureMedia to reset its state unexpectedly.
 
       // Show toast only if just completed (not already completed)
       if (isCompleted && !wasAlreadyCompleted) {
@@ -994,7 +965,7 @@ const TrainingModule = () => {
                       onPlayStateChange={handlePlayStateChange}
                       onTimeUpdate={handleVideoTimeUpdate}
                       onDurationChange={handleDurationChange}
-                      initialTime={positionLoaded ? savedVideoPosition : 0}
+                      initialTime={positionLoaded ? (progress[currentLesson?.id]?.video_position_seconds || 0) : 0}
                       className="w-full max-h-96 object-contain"
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
