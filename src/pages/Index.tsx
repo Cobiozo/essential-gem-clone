@@ -541,6 +541,12 @@ const Index = () => {
     );
   }
 
+  // For logged-in users, render the new Dashboard layout
+  if (user) {
+    return <DashboardLayout><DashboardContent /></DashboardLayout>;
+  }
+
+  // For anonymous users, render the public homepage
   return (
     <div className="min-h-screen bg-background">
       {/* Header Navigation */}
