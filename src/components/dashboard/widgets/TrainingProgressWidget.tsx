@@ -29,50 +29,60 @@ export const TrainingProgressWidget: React.FC = () => {
       if (!user) return;
 
       try {
-        const { data: assignments, error } = await supabase
-          .from('training_assignments')
+        // Use explicit any typing to avoid TS2589 deep instantiation error
+        const assignmentsTable: any = supabase.from('training_assignments');
+        const assignmentsResult = await assignmentsTable
           .select('module_id, is_completed')
           .eq('user_id', user.id)
           .order('assigned_at', { ascending: false })
           .limit(4);
 
-        if (error) throw error;
+        if (assignmentsResult.error) throw assignmentsResult.error;
 
         const modulesWithProgress: TrainingModule[] = [];
         
-        for (const assignment of assignments || []) {
-          const { data: moduleData } = await supabase
-            .from('training_modules')
+        for (const assignment of assignmentsResult.data || []) {
+          const moduleId = assignment.module_id;
+          
+          const modulesTable: any = supabase.from('training_modules');
+          const moduleResult = await modulesTable
             .select('id, title, is_active')
-            .eq('id', assignment.module_id)
+            .eq('id', moduleId)
             .eq('is_active', true)
             .single();
 
-          if (!moduleData) continue;
+          if (!moduleResult.data) continue;
+          const moduleData = moduleResult.data;
 
-          const { count: totalLessons } = await supabase
-            .from('training_lessons')
-            .select('*', { count: 'exact', head: true })
-            .eq('module_id', moduleData.id)
+          // Get total lessons count
+          const lessonsTable: any = supabase.from('training_lessons');
+          const lessonsResult = await lessonsTable
+            .select('id')
+            .eq('module_id', moduleId)
             .eq('is_active', true);
+          
+          const totalLessons = lessonsResult.data?.length || 0;
 
-          const { count: completedLessons } = await supabase
-            .from('training_progress')
-            .select('*', { count: 'exact', head: true })
+          // Get completed lessons count
+          const progressTable: any = supabase.from('training_progress');
+          const progressResult = await progressTable
+            .select('id')
             .eq('user_id', user.id)
-            .eq('module_id', moduleData.id)
+            .eq('module_id', moduleId)
             .eq('completed', true);
+          
+          const completedLessons = progressResult.data?.length || 0;
 
-          const progress = totalLessons && totalLessons > 0 
-            ? Math.round(((completedLessons || 0) / totalLessons) * 100)
+          const progress = totalLessons > 0 
+            ? Math.round((completedLessons / totalLessons) * 100)
             : 0;
 
           modulesWithProgress.push({
             id: moduleData.id,
             title: moduleData.title,
             progress,
-            total_lessons: totalLessons || 0,
-            completed_lessons: completedLessons || 0,
+            total_lessons: totalLessons,
+            completed_lessons: completedLessons,
             is_completed: assignment.is_completed || false,
           });
         }

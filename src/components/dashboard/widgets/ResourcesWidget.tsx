@@ -26,24 +26,29 @@ export const ResourcesWidget: React.FC = () => {
       try {
         const currentRole = userRole?.role || 'client';
         
-        let query = supabase
-          .from('knowledge_resources')
-          .select('id, title, created_at')
+        // Build query step by step with explicit any to avoid TS2589
+        const table: any = supabase.from('knowledge_resources');
+        const query = table
+          .select('id, title, created_at, visible_to_clients, visible_to_partners, visible_to_specjalista')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(4);
-
-        if (currentRole === 'client') {
-          query = query.eq('visible_to_clients', true);
-        } else if (currentRole === 'partner') {
-          query = query.eq('visible_to_partners', true);
-        } else if (currentRole === 'specjalista') {
-          query = query.eq('visible_to_specjalista', true);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        setResources((data || []) as Resource[]);
+          .limit(20);
+          
+        const result = await query;
+        if (result.error) throw result.error;
+        
+        // Filter based on role
+        const filtered = (result.data || []).filter((r: any) => {
+          if (currentRole === 'partner') return r.visible_to_partners;
+          if (currentRole === 'specjalista') return r.visible_to_specjalista;
+          return r.visible_to_clients;
+        }).slice(0, 4);
+        
+        setResources(filtered.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          created_at: r.created_at
+        })));
       } catch (error) {
         console.error('Error fetching resources:', error);
       } finally {
