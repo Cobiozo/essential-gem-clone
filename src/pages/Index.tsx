@@ -28,6 +28,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { DashboardContent } from '@/components/dashboard/DashboardContent';
 
 const Index = () => {
   const { user, userRole } = useAuth();
