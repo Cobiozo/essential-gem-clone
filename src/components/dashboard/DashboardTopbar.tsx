@@ -26,7 +26,12 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { t } = useLanguage();
-  const { toggleViewMode } = useDashboardPreference();
+  const { setViewMode } = useDashboardPreference();
+
+  const handleSwitchToClassic = () => {
+    setViewMode('classic');
+    navigate('/');
+  };
 
   const firstName = profile?.first_name || '';
   const lastName = profile?.last_name || '';
@@ -57,7 +62,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={toggleViewMode}
+          onClick={handleSwitchToClassic}
           className="h-9 w-9"
           title={t('dashboard.switchToClassic')}
         >
