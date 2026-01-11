@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Users, ArrowRight, UserPlus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +14,8 @@ interface TeamMember {
   first_name: string;
   last_name: string;
   email: string;
+  role: string;
+  eq_id: string | null;
 }
 
 export const TeamContactsWidget: React.FC = () => {
@@ -42,7 +45,7 @@ export const TeamContactsWidget: React.FC = () => {
         // Get latest 3 contacts
         const { data } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, email')
+          .select('id, first_name, last_name, email, role, eq_id')
           .eq('upline_eq_id', profile.eq_id)
           .order('created_at', { ascending: false })
           .limit(3);
@@ -61,6 +64,16 @@ export const TeamContactsWidget: React.FC = () => {
   if (!isPartner && !isSpecjalista) {
     return null;
   }
+
+  const getRoleBadge = (role: string) => {
+    const roleConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+      client: { label: 'Klient', variant: 'secondary' },
+      partner: { label: 'Partner', variant: 'outline' },
+      specjalista: { label: 'Specjalista', variant: 'default' },
+    };
+    const config = roleConfig[role] || { label: role, variant: 'secondary' as const };
+    return <Badge variant={config.variant} className="text-[10px] px-1.5 py-0">{config.label}</Badge>;
+  };
 
   return (
     <Card className="shadow-sm">
@@ -104,12 +117,20 @@ export const TeamContactsWidget: React.FC = () => {
               
               return (
                 <div key={contact.id} className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50">
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm text-foreground truncate">{fullName}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{fullName}</span>
+                      {getRoleBadge(contact.role)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
+                    </p>
+                  </div>
                 </div>
               );
             })}
