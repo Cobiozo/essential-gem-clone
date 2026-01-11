@@ -17,6 +17,7 @@ import {
   GraduationCap,
   FolderOpen,
   Users,
+  Users2,
   Newspaper,
   CalendarDays,
   MessageSquare,
@@ -138,6 +139,12 @@ export const DashboardSidebar: React.FC = () => {
       labelKey: 'dashboard.menu.infolinks', 
       path: '/my-account', 
       tab: 'reflinks',
+    },
+    { 
+      id: 'community', 
+      icon: Users2, 
+      labelKey: 'dashboard.menu.community', 
+      path: '/page/spolecznosc',
     },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
     { 
