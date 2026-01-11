@@ -98,7 +98,7 @@ export const TeamContactsWidget: React.FC = () => {
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
-            {t('dashboard.teamContacts')}
+            {t('dashboard.team')}
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=team-contacts')} className="text-xs">
             {t('dashboard.manage')}
