@@ -22,6 +22,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
+import { useLayoutPreference } from "@/hooks/useLayoutPreference";
+import { DashboardLayout } from "@/components/dashboard";
 
 interface TrainingModule {
   id: string;
@@ -48,6 +50,7 @@ const Training = () => {
   const { toast } = useToast();
   const { t } = useLanguage();
   const { generateCertificate } = useCertificateGeneration();
+  const { isModernLayout } = useLayoutPreference();
 
   useEffect(() => {
     const loadData = async () => {
@@ -403,6 +406,189 @@ const Training = () => {
     );
   }
 
+  // Training content - shared between both layouts
+  const trainingContent = (
+    <>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight mb-2">{t('training.title')}</h1>
+        <p className="text-muted-foreground">
+          {t('training.description')}
+        </p>
+      </div>
+
+      {modules.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('training.noTrainings')}</h3>
+              <p className="text-muted-foreground">
+                {t('training.noTrainingsDescription')}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {modules.map((module) => {
+            const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
+            const status = getModuleStatus(module.completed_lessons, module.lessons_count);
+            const hasCertificate = !!certificates[module.id];
+            
+            return (
+              <Card key={module.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                    <Badge variant={status.variant === "success" ? "default" : status.variant === "warning" ? "secondary" : status.variant}>{status.text}</Badge>
+                  </div>
+                  <CardTitle className="text-xl">{module.title}</CardTitle>
+                  {module.description && (
+                    <p className="text-muted-foreground text-sm">{module.description}</p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Progress */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium">{t('training.progress')}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {module.completed_lessons}/{module.lessons_count} {t('training.lessons')}
+                        </span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <BookOpen className="h-4 w-4" />
+                        <span>{module.lessons_count} {t('training.lessons')}</span>
+                      </div>
+                      {module.total_time_minutes > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          <span>{module.total_time_minutes} {t('training.minutes')}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Certificate Section - Only show when 100% completed */}
+                    {progress === 100 && (
+                      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Award className="h-5 w-5 text-primary" />
+                            <span className="text-sm font-medium">{t('training.certificate')}</span>
+                          </div>
+                          {hasCertificate ? (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => downloadCertificate(module.id, module.title)}
+                                disabled={downloading === module.id}
+                              >
+                                {downloading === module.id ? (
+                                  <>
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                    {t('training.downloading')}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    {t('training.downloadCertificate')}
+                                  </>
+                                )}
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={regenerating === module.id}
+                                  >
+                                    <RefreshCw className={`h-4 w-4 ${regenerating === module.id ? 'animate-spin' : ''}`} />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>{t('training.regenerateCertificate')}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {t('training.regenerateCertificateDescription')}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleRegenerateCertificate(module.id, module.title)}>
+                                      {t('training.regenerate')}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGenerateCertificate(module.id, module.title)}
+                              disabled={generating === module.id}
+                            >
+                              {generating === module.id ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  {t('training.generatingCertificate')}
+                                </>
+                              ) : (
+                                <>
+                                  <Award className="h-4 w-4 mr-2" />
+                                  {t('training.generateCertificate')}
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Button */}
+                    <Button 
+                      onClick={() => navigate(`/training/${module.id}`)}
+                      className="w-full"
+                      variant={progress === 100 ? "outline" : "default"}
+                    >
+                      {progress === 100 ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          {t('training.reviewAgain')}
+                        </>
+                      ) : progress > 0 ? (
+                        t('training.continueTraining')
+                      ) : (
+                        t('training.startTraining')
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
+  // Modern Dashboard Layout
+  if (isModernLayout) {
+    return (
+      <DashboardLayout>
+        {trainingContent}
+      </DashboardLayout>
+    );
+  }
+
+  // Classic Layout
   return (
     <div className="min-h-screen bg-background">
       {/* Header with Navigation */}
@@ -423,178 +609,7 @@ const Training = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('training.title')}</h1>
-          <p className="text-muted-foreground">
-            {t('training.description')}
-          </p>
-        </div>
-
-        {modules.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('training.noTrainings')}</h3>
-                <p className="text-muted-foreground">
-                  {t('training.noTrainingsDescription')}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {modules.map((module) => {
-              const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
-              const status = getModuleStatus(module.completed_lessons, module.lessons_count);
-              const hasCertificate = !!certificates[module.id];
-              
-              return (
-                <Card key={module.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-center gap-3 mb-2">
-                      <BookOpen className="h-6 w-6 text-primary" />
-                      <Badge variant={status.variant === "success" ? "default" : status.variant === "warning" ? "secondary" : status.variant}>{status.text}</Badge>
-                    </div>
-                    <CardTitle className="text-xl">{module.title}</CardTitle>
-                    {module.description && (
-                      <p className="text-muted-foreground text-sm">{module.description}</p>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Progress */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium">{t('training.progress')}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {module.completed_lessons}/{module.lessons_count} {t('training.lessons')}
-                          </span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                      </div>
-
-                      {/* Stats */}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <BookOpen className="h-4 w-4" />
-                          <span>{module.lessons_count} {t('training.lessons')}</span>
-                        </div>
-                        {module.total_time_minutes > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            <span>{module.total_time_minutes} {t('training.minutes')}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Certificate Section - Only show when 100% completed */}
-                      {progress === 100 && (
-                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Award className="h-5 w-5 text-primary" />
-                              <span className="text-sm font-medium">
-                                {hasCertificate 
-                                  ? "Certyfikat gotowy do pobrania" 
-                                  : "Certyfikat dostępny do wygenerowania"}
-                              </span>
-                            </div>
-                            
-                            {hasCertificate ? (
-                              <div className="flex flex-col gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => downloadCertificate(module.id, module.title)}
-                                  disabled={downloading === module.id}
-                                >
-                                  {downloading === module.id ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Download className="h-4 w-4" />
-                                  )}
-                                  <span className="ml-2">Pobierz certyfikat</span>
-                                </Button>
-                                
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      className="text-xs h-7"
-                                      disabled={regenerating === module.id}
-                                    >
-                                      {regenerating === module.id ? (
-                                        <RefreshCw className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <RefreshCw className="h-3 w-3" />
-                                      )}
-                                      <span className="ml-1">Regeneruj certyfikat</span>
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Regeneruj certyfikat</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Czy na pewno chcesz wygenerować nowy certyfikat? 
-                                        Poprzedni certyfikat zostanie zastąpiony.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleRegenerateCertificate(module.id, module.title)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        Tak, regeneruj
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => handleGenerateCertificate(module.id, module.title)}
-                                disabled={generating === module.id}
-                              >
-                                {generating === module.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Award className="h-4 w-4" />
-                                )}
-                                <span className="ml-2">Wygeneruj</span>
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Button */}
-                      <Button 
-                        onClick={() => navigate(`/training/${module.id}`)}
-                        className="w-full"
-                        variant={progress === 100 ? "outline" : "default"}
-                      >
-                        {progress === 100 ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            {t('training.reviewAgain')}
-                          </>
-                        ) : progress > 0 ? (
-                          t('training.continueTraining')
-                        ) : (
-                          t('training.startTraining')
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        {trainingContent}
       </div>
     </div>
   );

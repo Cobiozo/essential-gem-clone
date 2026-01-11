@@ -542,6 +542,55 @@ const Index = () => {
     );
   }
 
+  // Modern Dashboard Layout for logged-in users
+  if (user && isModernLayout) {
+    return (
+      <DashboardLayout>
+        {/* Welcome Message and Widgets */}
+        <DashboardWelcome />
+        <DashboardWidgets />
+
+        {/* CMS Content */}
+        <div className="mt-6 space-y-4">
+          {translatedSections.length > 0 ? (
+            <>
+              {/* Render rows with nested sections */}
+              {translatedSections
+                .filter(s => s.section_type === 'row' && !s.parent_id)
+                .filter(s => isSectionVisible(s, user, userRole?.role || null))
+                .map(row => (
+                  <HomeRowContainer 
+                    key={row.id}
+                    row={row}
+                    children={(translatedNestedSections[row.id] || []).filter(child => isSectionVisible(child, user, userRole?.role || null))}
+                    items={translatedItems}
+                    user={user}
+                    userRole={userRole?.role || null}
+                  />
+                ))}
+
+              {/* Render flat sections */}
+              {translatedSections
+                .filter(s => s.section_type === 'section' && !s.parent_id)
+                .filter(s => isSectionVisible(s, user, userRole?.role || null))
+                .map(section => renderCMSSection(section))}
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Ładowanie zawartości...</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer inside central space */}
+        <div className="mt-8">
+          <Footer />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Classic Layout (unchanged for non-logged users or classic preference)
   return (
     <div className="min-h-screen bg-background">
       {/* Header Navigation */}
