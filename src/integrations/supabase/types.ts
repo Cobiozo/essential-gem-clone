@@ -2369,6 +2369,7 @@ export type Database = {
         Row: {
           admin_approved: boolean | null
           admin_approved_at: string | null
+          avatar_url: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -2388,6 +2389,7 @@ export type Database = {
           postal_code: string | null
           profile_completed: boolean | null
           profile_description: string | null
+          rank: string | null
           reflink_code_used: string | null
           registered_via_reflink: string | null
           role: string
@@ -2403,6 +2405,7 @@ export type Database = {
         Insert: {
           admin_approved?: boolean | null
           admin_approved_at?: string | null
+          avatar_url?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -2422,6 +2425,7 @@ export type Database = {
           postal_code?: string | null
           profile_completed?: boolean | null
           profile_description?: string | null
+          rank?: string | null
           reflink_code_used?: string | null
           registered_via_reflink?: string | null
           role?: string
@@ -2437,6 +2441,7 @@ export type Database = {
         Update: {
           admin_approved?: boolean | null
           admin_approved_at?: string | null
+          avatar_url?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -2456,6 +2461,7 @@ export type Database = {
           postal_code?: string | null
           profile_completed?: boolean | null
           profile_description?: string | null
+          rank?: string | null
           reflink_code_used?: string | null
           registered_via_reflink?: string | null
           role?: string
