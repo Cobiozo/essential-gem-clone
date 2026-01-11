@@ -7,12 +7,14 @@ import { useCMSTranslations } from '@/hooks/useCMSTranslations';
 import { useCMSSectionTranslations } from '@/hooks/useCMSSectionTranslations';
 import { usePublishedPages } from '@/hooks/usePublishedPages';
 import { useSystemTexts } from '@/hooks/useSystemTexts';
+import { useLayoutPreference } from '@/hooks/useLayoutPreference';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';
 import Footer from '@/components/homepage/Footer';
 import { CMSContent } from '@/components/CMSContent';
+import { DashboardLayout, DashboardWelcome, DashboardWidgets } from '@/components/dashboard';
 import { convertSupabaseSections } from '@/lib/typeUtils';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { LearnMoreItem } from '@/components/homepage/LearnMoreItem';
@@ -33,6 +35,7 @@ const Index = () => {
   const { user, userRole } = useAuth();
   const { t, language } = useLanguage();
   const { theme } = useTheme();
+  const { isModernLayout } = useLayoutPreference();
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   
   // React Query hooks for cached static data (5 min staleTime)
