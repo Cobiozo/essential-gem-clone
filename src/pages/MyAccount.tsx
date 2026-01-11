@@ -27,6 +27,7 @@ import { PrivateChatWidget } from '@/components/private-chat';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
+import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -94,6 +95,7 @@ const MyAccount = () => {
   const { toast } = useToast();
   const { isComplete } = useProfileCompletion();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
+  const { isModern } = useDashboardPreference();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -417,7 +419,7 @@ const MyAccount = () => {
               <BookOpen className="w-4 h-4 mr-2" />
               {t('nav.training')}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+              <Button variant="outline" size="sm" onClick={() => navigate(isModern ? '/dashboard' : '/')}>
                 <Home className="w-4 h-4 mr-2" />
                 {t('nav.home')}
               </Button>

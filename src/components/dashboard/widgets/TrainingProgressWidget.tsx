@@ -51,25 +51,39 @@ export const TrainingProgressWidget: React.FC = () => {
           return;
         }
 
-        // Fetch progress for these modules
-        const { data: progressData } = await supabase
-          .from('training_progress')
-          .select('*')
-          .eq('user_id', user.id);
+        // Calculate progress for each module based on completed lessons
+        const modulesWithProgress: ModuleProgress[] = await Promise.all(
+          modulesData.map(async (mod: any) => {
+            // Get total active lessons in this module
+            const { count: totalLessons } = await supabase
+              .from('training_lessons')
+              .select('*', { count: 'exact', head: true })
+              .eq('module_id', mod.id)
+              .eq('is_active', true);
 
-        const progressMap = new Map(progressData?.map((p: any) => [p.module_id, p]));
+            // Get completed lessons by user in this module
+            const { data: completedData } = await supabase
+              .from('training_progress')
+              .select('lesson_id, is_completed, training_lessons!inner(module_id)')
+              .eq('user_id', user.id)
+              .eq('is_completed', true);
 
-        const modulesWithProgress: ModuleProgress[] = modulesData.map((mod: any) => {
-          const progress = progressMap.get(mod.id) as any;
-          const progressPercent = progress?.is_completed ? 100 : (progress?.watched_seconds ? 50 : 0);
+            // Filter completed lessons that belong to this module
+            const completedInModule = completedData?.filter(
+              (p: any) => p.training_lessons?.module_id === mod.id
+            ).length || 0;
 
-          return {
-            id: mod.id,
-            title: mod.title,
-            progress: progressPercent,
-            isCompleted: progress?.is_completed || false,
-          };
-        });
+            const total = totalLessons || 0;
+            const progressPercent = total > 0 ? Math.round((completedInModule / total) * 100) : 0;
+
+            return {
+              id: mod.id,
+              title: mod.title,
+              progress: progressPercent,
+              isCompleted: progressPercent === 100,
+            };
+          })
+        );
 
         setModules(modulesWithProgress);
       } catch (error) {
