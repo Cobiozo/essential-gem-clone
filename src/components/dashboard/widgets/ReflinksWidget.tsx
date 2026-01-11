@@ -38,17 +38,18 @@ export const ReflinksWidget: React.FC = () => {
           return;
         }
 
-        // Fetch user's reflinks - use generic query
-        const { data: reflinks } = await supabase
-          .from('user_reflinks')
-          .select('*')
-          .eq('user_id', user.id);
+        // Fetch user's reflinks using raw query to avoid type issues
+        const { data: reflinks, error } = await supabase
+          .from('user_reflinks' as any)
+          .select('id, is_active, click_count')
+          .eq('user_id', user.id) as { data: Array<{ id: string; is_active: boolean; click_count: number }> | null; error: any };
 
-        const activeCount = reflinks?.filter((r: any) => r.is_active)?.length || 0;
-        const clicks = reflinks?.reduce((sum: number, r: any) => sum + (r.click_count || 0), 0) || 0;
-
-        setActiveLinks(activeCount);
-        setTotalClicks(clicks);
+        if (!error && reflinks) {
+          const activeCount = reflinks.filter(r => r.is_active).length;
+          const clicks = reflinks.reduce((sum, r) => sum + (r.click_count || 0), 0);
+          setActiveLinks(activeCount);
+          setTotalClicks(clicks);
+        }
       } catch (error) {
         console.error('Error fetching reflink stats:', error);
       } finally {
