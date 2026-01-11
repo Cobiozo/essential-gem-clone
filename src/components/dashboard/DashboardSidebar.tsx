@@ -8,10 +8,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -28,12 +32,22 @@ import {
   ChevronDown,
   Shield,
   Info,
+  Contact,
+  Search,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { UserProfileCard } from './UserProfileCard';
 import { supabase } from '@/integrations/supabase/client';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+
+interface SubMenuItem {
+  id: string;
+  labelKey: string;
+  path: string;
+  tab?: string;
+  icon?: React.ElementType;
+}
 
 interface MenuItem {
   id: string;
@@ -43,6 +57,8 @@ interface MenuItem {
   tab?: string;
   action?: () => void;
   visibleFor?: string[];
+  hasSubmenu?: boolean;
+  submenuItems?: SubMenuItem[];
 }
 
 export const DashboardSidebar: React.FC = () => {
@@ -57,6 +73,7 @@ export const DashboardSidebar: React.FC = () => {
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
   const [canGenerateReflinks, setCanGenerateReflinks] = useState(false);
   const [hasInfoLinks, setHasInfoLinks] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchVisibility = async () => {
@@ -105,11 +122,15 @@ export const DashboardSidebar: React.FC = () => {
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
     { id: 'resources', icon: FolderOpen, labelKey: 'dashboard.menu.resources', path: '/knowledge' },
     { 
-      id: 'team', 
+      id: 'pureContacts', 
       icon: Users, 
-      labelKey: 'dashboard.menu.team', 
-      path: '/my-account', 
-      tab: 'team-contacts',
+      labelKey: 'dashboard.menu.pureContacts',
+      hasSubmenu: true,
+      submenuItems: [
+        { id: 'private-contacts', labelKey: 'dashboard.menu.privateContacts', path: '/my-account', tab: 'private-contacts', icon: Contact },
+        { id: 'team-contacts', labelKey: 'dashboard.menu.teamContacts', path: '/my-account', tab: 'team-contacts', icon: Users },
+        { id: 'search-specialist', labelKey: 'dashboard.menu.searchSpecialist', path: '/my-account', tab: 'search-specialist', icon: Search },
+      ],
       visibleFor: ['partner', 'specjalista', 'admin']
     },
     { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/page/aktualnosci' },
@@ -193,6 +214,12 @@ export const DashboardSidebar: React.FC = () => {
     setOpenMobile(false);
   };
 
+  const handleSubmenuClick = (subItem: SubMenuItem) => {
+    const url = subItem.tab ? `${subItem.path}?tab=${subItem.tab}` : subItem.path;
+    navigate(url);
+    setOpenMobile(false);
+  };
+
   const isActive = (item: MenuItem) => {
     // Handle external page paths (like /page/terminarz)
     if (item.path?.startsWith('/page/')) {
@@ -206,6 +233,16 @@ export const DashboardSidebar: React.FC = () => {
       return location.pathname === item.path && searchParams.get('tab') === item.tab;
     }
     return location.pathname === item.path;
+  };
+
+  const isSubmenuActive = (subItem: SubMenuItem) => {
+    const searchParams = new URLSearchParams(location.search);
+    return location.pathname === subItem.path && searchParams.get('tab') === subItem.tab;
+  };
+
+  const isSubmenuParentActive = (item: MenuItem) => {
+    if (!item.submenuItems) return false;
+    return item.submenuItems.some(sub => isSubmenuActive(sub));
   };
 
   const handleSignOut = async () => {
@@ -239,15 +276,52 @@ export const DashboardSidebar: React.FC = () => {
         <SidebarMenu>
           {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.id}>
-              <SidebarMenuButton
-                onClick={() => handleMenuClick(item)}
-                isActive={isActive(item)}
-                tooltip={t(item.labelKey)}
-                className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{t(item.labelKey)}</span>
-              </SidebarMenuButton>
+              {item.hasSubmenu && item.submenuItems ? (
+                <Collapsible
+                  open={openSubmenu === item.id || isSubmenuParentActive(item)}
+                  onOpenChange={(open) => setOpenSubmenu(open ? item.id : null)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      tooltip={t(item.labelKey)}
+                      isActive={isSubmenuParentActive(item)}
+                      className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span className="flex-1">{t(item.labelKey)}</span>
+                      <ChevronDown 
+                        className={`h-4 w-4 transition-transform ${openSubmenu === item.id || isSubmenuParentActive(item) ? 'rotate-180' : ''}`} 
+                      />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {item.submenuItems.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.id}>
+                          <SidebarMenuSubButton
+                            onClick={() => handleSubmenuClick(subItem)}
+                            isActive={isSubmenuActive(subItem)}
+                            className="cursor-pointer"
+                          >
+                            {subItem.icon && <subItem.icon className="h-4 w-4 mr-2" />}
+                            {t(subItem.labelKey)}
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <SidebarMenuButton
+                  onClick={() => handleMenuClick(item)}
+                  isActive={isActive(item)}
+                  tooltip={t(item.labelKey)}
+                  className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{t(item.labelKey)}</span>
+                </SidebarMenuButton>
+              )}
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
