@@ -28,8 +28,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { DashboardContent } from '@/components/dashboard/DashboardContent';
 
 const Index = () => {
   const { user, userRole } = useAuth();
@@ -541,12 +539,6 @@ const Index = () => {
     );
   }
 
-  // For logged-in users, render the new Dashboard layout
-  if (user) {
-    return <DashboardLayout><DashboardContent /></DashboardLayout>;
-  }
-
-  // For anonymous users, render the public homepage
   return (
     <div className="min-h-screen bg-background">
       {/* Header Navigation */}

@@ -224,15 +224,6 @@ All colors MUST be HSL.
     transform: scale(var(--hover-scale, 1));
     opacity: var(--hover-opacity, 1);
   }
-
-  /* Dashboard Widget Styles */
-  .dashboard-widget {
-    @apply bg-card rounded-2xl border border-border shadow-sm transition-shadow duration-200;
-  }
-  
-  .dashboard-widget:hover {
-    @apply shadow-md;
-  }
 }
 
 /* Fix dark mode text visibility for CMS content with hardcoded black colors */
