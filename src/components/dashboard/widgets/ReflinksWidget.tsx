@@ -54,7 +54,7 @@ export const ReflinksWidget: React.FC = () => {
         const { data, error } = await supabase
           .from('user_reflinks' as any)
           .select('id, reflink_code, target_role, is_active, click_count')
-          .eq('user_id', user.id)
+          .eq('creator_user_id', user.id)
           .eq('is_active', true) as { data: UserReflink[] | null; error: any };
 
         if (!error && data) {
