@@ -8,6 +8,7 @@ import { ResourcesWidget } from '@/components/dashboard/widgets/ResourcesWidget'
 import { NotificationsWidget } from '@/components/dashboard/widgets/NotificationsWidget';
 import { TeamContactsWidget } from '@/components/dashboard/widgets/TeamContactsWidget';
 import { ReflinksWidget } from '@/components/dashboard/widgets/ReflinksWidget';
+import { InfoLinksWidget } from '@/components/dashboard/widgets/InfoLinksWidget';
 import { PlaceholderWidget } from '@/components/dashboard/widgets/PlaceholderWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -35,8 +36,11 @@ const Dashboard: React.FC = () => {
         {/* Team Contacts (conditional) */}
         <TeamContactsWidget />
 
-        {/* Reflinks (conditional) */}
+        {/* PureLinki (conditional) */}
         <ReflinksWidget />
+
+        {/* InfoLinki (conditional) */}
+        <InfoLinksWidget />
 
         {/* Placeholders */}
         <PlaceholderWidget icon={CalendarDays} titleKey="dashboard.menu.calendar" />

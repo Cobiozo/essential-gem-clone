@@ -25,6 +25,8 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Shield,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -45,7 +47,7 @@ interface MenuItem {
 export const DashboardSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, isPartner, isSpecjalista, isClient, userRole } = useAuth();
+  const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
   const { t } = useLanguage();
   const { state, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
@@ -53,6 +55,7 @@ export const DashboardSidebar: React.FC = () => {
   // Visibility settings
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
   const [canGenerateReflinks, setCanGenerateReflinks] = useState(false);
+  const [hasInfoLinks, setHasInfoLinks] = useState(false);
 
   useEffect(() => {
     const fetchVisibility = async () => {
@@ -80,6 +83,14 @@ export const DashboardSidebar: React.FC = () => {
           .eq('role', userRole.role as 'admin' | 'partner' | 'specjalista' | 'client' | 'user')
           .single();
         setCanGenerateReflinks(reflinkSettings?.can_generate || false);
+
+        // Check if there are info links for this role
+        const { count } = await supabase
+          .from('reflinks')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true)
+          .contains('visible_to_roles', [userRole.role]);
+        setHasInfoLinks((count || 0) > 0);
       }
     };
 
@@ -117,11 +128,25 @@ export const DashboardSidebar: React.FC = () => {
     { 
       id: 'reflinks', 
       icon: Link2, 
-      labelKey: 'dashboard.menu.reflinks', 
+      labelKey: 'dashboard.pureLinki', 
+      path: '/my-account', 
+      tab: 'reflinks',
+    },
+    { 
+      id: 'infolinks', 
+      icon: Info, 
+      labelKey: 'dashboard.menu.infolinks', 
       path: '/my-account', 
       tab: 'reflinks',
     },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
+    { 
+      id: 'admin', 
+      icon: Shield, 
+      labelKey: 'dashboard.menu.admin', 
+      path: '/admin',
+      visibleFor: ['admin']
+    },
   ];
 
   // Filter menu items based on visibility
@@ -140,6 +165,11 @@ export const DashboardSidebar: React.FC = () => {
 
     // Check reflinks visibility
     if (item.id === 'reflinks' && !canGenerateReflinks) {
+      return false;
+    }
+
+    // Check infolinks visibility
+    if (item.id === 'infolinks' && !hasInfoLinks) {
       return false;
     }
 
@@ -180,7 +210,7 @@ export const DashboardSidebar: React.FC = () => {
           <img 
             src={newPureLifeLogo} 
             alt="Pure Life" 
-            className="h-8 w-8 flex-shrink-0"
+            className="h-10 w-10 min-w-[40px] min-h-[40px] flex-shrink-0 object-contain"
           />
           {!isCollapsed && (
             <span className="font-bold text-lg text-sidebar-foreground">

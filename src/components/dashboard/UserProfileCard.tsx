@@ -102,9 +102,9 @@ export const UserProfileCard: React.FC = () => {
   if (isCollapsed) {
     return (
       <div className="flex justify-center py-2">
-        <Avatar className="h-9 w-9 border-2 border-primary/20">
+        <Avatar className="h-10 w-10 border-2 border-primary/20">
           <AvatarImage src={avatarUrl} alt={fullName} />
-          <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+          <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -117,9 +117,9 @@ export const UserProfileCard: React.FC = () => {
       <div className="flex items-center gap-3">
         {/* Avatar with upload button */}
         <div className="relative group">
-          <Avatar className="h-12 w-12 border-2 border-primary/20 transition-transform group-hover:scale-105">
+          <Avatar className="h-16 w-16 border-2 border-primary/20 transition-transform group-hover:scale-105">
             <AvatarImage src={avatarUrl} alt={fullName} />
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+            <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>

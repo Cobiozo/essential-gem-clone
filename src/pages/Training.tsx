@@ -403,6 +403,10 @@ const Training = () => {
     );
   }
 
+  // Get dashboard preference for proper navigation
+  const dashboardPreference = localStorage.getItem('dashboard_view_preference') || 'modern';
+  const homeUrl = dashboardPreference === 'modern' ? '/dashboard' : '/';
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header with Navigation */}
@@ -411,7 +415,7 @@ const Training = () => {
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={() => navigate(homeUrl)}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
