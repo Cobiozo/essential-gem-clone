@@ -10,6 +10,7 @@ import { TeamContactsWidget } from '@/components/dashboard/widgets/TeamContactsW
 import { ReflinksWidget } from '@/components/dashboard/widgets/ReflinksWidget';
 import { InfoLinksWidget } from '@/components/dashboard/widgets/InfoLinksWidget';
 import { PlaceholderWidget } from '@/components/dashboard/widgets/PlaceholderWidget';
+import { DashboardFooterSection } from '@/components/dashboard/widgets/DashboardFooterSection';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const Dashboard: React.FC = () => {
@@ -46,6 +47,9 @@ const Dashboard: React.FC = () => {
         <PlaceholderWidget icon={CalendarDays} titleKey="dashboard.menu.calendar" />
         <PlaceholderWidget icon={Newspaper} titleKey="dashboard.menu.news" />
       </div>
+
+      {/* Footer Section with quote, team features and contact */}
+      <DashboardFooterSection />
     </DashboardLayout>
   );
 };

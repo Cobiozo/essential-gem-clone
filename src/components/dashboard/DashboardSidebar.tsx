@@ -111,8 +111,8 @@ export const DashboardSidebar: React.FC = () => {
       tab: 'team-contacts',
       visibleFor: ['partner', 'specjalista', 'admin']
     },
-    { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/dashboard', tab: 'news' },
-    { id: 'calendar', icon: CalendarDays, labelKey: 'dashboard.menu.calendar', path: '/dashboard', tab: 'calendar' },
+    { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/page/aktualnosci' },
+    { id: 'calendar', icon: CalendarDays, labelKey: 'dashboard.menu.calendar', path: '/page/terminarz' },
     { 
       id: 'chat', 
       icon: MessageSquare, 
@@ -187,6 +187,10 @@ export const DashboardSidebar: React.FC = () => {
   };
 
   const isActive = (item: MenuItem) => {
+    // Handle external page paths (like /page/terminarz)
+    if (item.path?.startsWith('/page/')) {
+      return location.pathname === item.path;
+    }
     if (item.path === '/dashboard' && !item.tab) {
       return location.pathname === '/dashboard';
     }
