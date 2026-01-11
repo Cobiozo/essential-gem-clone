@@ -5,6 +5,7 @@ import { Settings, LogOut, BookOpen, FolderOpen } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ReflinksDropdown } from '@/components/ReflinksDropdown';
+import { LayoutSwitcher } from '@/components/LayoutSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -39,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
           <div className="flex items-center space-x-0.5 sm:space-x-1">
             <LanguageSelector />
             <ThemeSelector />
+            {user && <LayoutSwitcher />}
             
             {user ? (
               <>
