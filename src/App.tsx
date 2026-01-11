@@ -8,13 +8,14 @@ import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from "@/integrations/supabase/client";
+import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 
 // Lazy load chat widgets - only mount when first opened
 const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
@@ -32,6 +33,7 @@ const Page = lazy(() => import("./pages/Page"));
 const Training = lazy(() => import("./pages/Training"));
 const TrainingModule = lazy(() => import("./pages/TrainingModule"));
 const KnowledgeCenter = lazy(() => import("./pages/KnowledgeCenter"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +136,7 @@ const AppContent = () => {
               <Route path="/training" element={<Training />} />
               <Route path="/training/:moduleId" element={<TrainingModule />} />
               <Route path="/knowledge" element={<KnowledgeCenter />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/page/:slug" element={<Page />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
