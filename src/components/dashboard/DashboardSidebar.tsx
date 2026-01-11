@@ -34,18 +34,25 @@ import {
   Info,
   Contact,
   Search,
+  Facebook,
+  MessageCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { UserProfileCard } from './UserProfileCard';
 import { supabase } from '@/integrations/supabase/client';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import { useToast } from '@/hooks/use-toast';
 
 interface SubMenuItem {
   id: string;
   labelKey: string;
   path: string;
   icon?: React.ElementType;
+  isExternal?: boolean;
+  clipboardContent?: string | null;
+  isDynamic?: boolean;
 }
 
 interface MenuItem {
@@ -60,11 +67,26 @@ interface MenuItem {
   submenuItems?: SubMenuItem[];
 }
 
+// Helper to detect platform from title/url
+const detectPlatform = (title: string, url: string): string => {
+  const text = `${title} ${url}`.toLowerCase();
+  if (text.includes('whatsapp') || text.includes('wa.me') || text.includes('chat.whatsapp')) return 'whatsapp';
+  if (text.includes('facebook') || text.includes('fb.com')) return 'facebook';
+  return 'default';
+};
+
+const platformIcons: Record<string, React.ElementType> = {
+  whatsapp: MessageCircle,
+  facebook: Facebook,
+  default: ExternalLink,
+};
+
 export const DashboardSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
@@ -73,6 +95,19 @@ export const DashboardSidebar: React.FC = () => {
   const [canGenerateReflinks, setCanGenerateReflinks] = useState(false);
   const [hasInfoLinks, setHasInfoLinks] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  
+  // Dynamic submenu data
+  const [infoLinks, setInfoLinks] = useState<Array<{
+    id: string;
+    title: string;
+    link_url: string | null;
+    clipboard_content: string | null;
+  }>>([]);
+  const [communityLinks, setCommunityLinks] = useState<Array<{
+    id: string;
+    title: string;
+    url: string;
+  }>>([]);
 
   useEffect(() => {
     const fetchVisibility = async () => {
@@ -101,13 +136,39 @@ export const DashboardSidebar: React.FC = () => {
           .single();
         setCanGenerateReflinks(reflinkSettings?.can_generate || false);
 
-        // Check if there are info links for this role
-        const { count } = await supabase
+        // Fetch info links for submenu
+        const { data: infoLinksData } = await supabase
           .from('reflinks')
-          .select('id', { count: 'exact', head: true })
+          .select('id, title, link_url, clipboard_content')
           .eq('is_active', true)
-          .contains('visible_to_roles', [userRole.role]);
-        setHasInfoLinks((count || 0) > 0);
+          .contains('visible_to_roles', [userRole.role])
+          .order('position', { ascending: true });
+
+        setInfoLinks(infoLinksData || []);
+        setHasInfoLinks((infoLinksData?.length || 0) > 0);
+
+        // Fetch community links (social media buttons from cms_items)
+        const { data: communityData } = await supabase
+          .from('cms_items')
+          .select('id, title, url, visible_to_everyone, visible_to_clients, visible_to_partners, visible_to_specjalista')
+          .eq('type', 'button')
+          .eq('is_active', true)
+          .not('url', 'is', null)
+          .or('url.ilike.%facebook%,url.ilike.%whatsapp%,url.ilike.%chat.whatsapp%,url.ilike.%wa.me%')
+          .order('position', { ascending: true });
+
+        // Filter by visibility based on user role
+        const role = userRole?.role?.toLowerCase();
+        const filteredCommunity = (communityData || []).filter(item => {
+          if (item.visible_to_everyone) return true;
+          if (role === 'admin') return true;
+          if (role === 'client' && item.visible_to_clients) return true;
+          if (role === 'partner' && item.visible_to_partners) return true;
+          if (role === 'specjalista' && item.visible_to_specjalista) return true;
+          return false;
+        }).filter(item => item.url); // Ensure url exists
+
+        setCommunityLinks(filteredCommunity as Array<{id: string; title: string; url: string}>);
       }
     };
 
@@ -115,6 +176,30 @@ export const DashboardSidebar: React.FC = () => {
       fetchVisibility();
     }
   }, [userRole]);
+
+  // Build dynamic submenu items for InfoLinki
+  const infoLinksSubmenuItems: SubMenuItem[] = infoLinks.map(link => ({
+    id: link.id,
+    labelKey: link.title,
+    path: link.link_url || '#',
+    isExternal: !!link.link_url,
+    clipboardContent: link.clipboard_content,
+    isDynamic: true,
+    icon: ExternalLink,
+  }));
+
+  // Build dynamic submenu items for Społeczność with platform icons
+  const communitySubmenuItems: SubMenuItem[] = communityLinks.map(link => {
+    const platform = detectPlatform(link.title, link.url);
+    return {
+      id: link.id,
+      labelKey: link.title,
+      path: link.url,
+      isExternal: true,
+      isDynamic: true,
+      icon: platformIcons[platform] || ExternalLink,
+    };
+  });
 
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
@@ -156,15 +241,16 @@ export const DashboardSidebar: React.FC = () => {
     { 
       id: 'infolinks', 
       icon: Info, 
-      labelKey: 'dashboard.menu.infolinks', 
-      path: '/my-account', 
-      tab: 'reflinks',
+      labelKey: 'dashboard.menu.infolinks',
+      hasSubmenu: infoLinksSubmenuItems.length > 0,
+      submenuItems: infoLinksSubmenuItems,
     },
     { 
       id: 'community', 
       icon: Users2, 
-      labelKey: 'dashboard.menu.community', 
-      path: '/page/spolecznosc',
+      labelKey: 'dashboard.menu.community',
+      hasSubmenu: communitySubmenuItems.length > 0,
+      submenuItems: communitySubmenuItems,
     },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
     { 
@@ -195,8 +281,13 @@ export const DashboardSidebar: React.FC = () => {
       return false;
     }
 
-    // Check infolinks visibility
-    if (item.id === 'infolinks' && !hasInfoLinks) {
+    // Check infolinks visibility - hide if no submenu items
+    if (item.id === 'infolinks' && infoLinksSubmenuItems.length === 0) {
+      return false;
+    }
+
+    // Check community visibility - hide if no submenu items
+    if (item.id === 'community' && communitySubmenuItems.length === 0) {
       return false;
     }
 
@@ -213,7 +304,30 @@ export const DashboardSidebar: React.FC = () => {
     setOpenMobile(false);
   };
 
-  const handleSubmenuClick = (subItem: SubMenuItem) => {
+  const handleSubmenuClick = async (subItem: SubMenuItem) => {
+    // If has clipboard_content - copy to clipboard
+    if (subItem.clipboardContent) {
+      try {
+        await navigator.clipboard.writeText(subItem.clipboardContent);
+        toast({
+          title: t('common.copied') || 'Skopiowano!',
+          description: subItem.labelKey,
+        });
+      } catch (error) {
+        console.error('Failed to copy:', error);
+      }
+      setOpenMobile(false);
+      return;
+    }
+    
+    // If external link - open in new tab
+    if (subItem.isExternal && subItem.path && subItem.path !== '#') {
+      window.open(subItem.path, '_blank', 'noopener,noreferrer');
+      setOpenMobile(false);
+      return;
+    }
+    
+    // Default - internal navigation
     navigate(subItem.path);
     setOpenMobile(false);
   };
@@ -234,6 +348,11 @@ export const DashboardSidebar: React.FC = () => {
   };
 
   const isSubmenuActive = (subItem: SubMenuItem) => {
+    // Dynamic items (external links) are never "active" in navigation sense
+    if (subItem.isDynamic) {
+      return false;
+    }
+    
     const searchParams = new URLSearchParams(location.search);
     const currentTab = searchParams.get('tab');
     const currentSubTab = searchParams.get('subTab');
@@ -286,7 +405,7 @@ export const DashboardSidebar: React.FC = () => {
         <SidebarMenu>
           {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.id}>
-              {item.hasSubmenu && item.submenuItems ? (
+              {item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0 ? (
                 <Collapsible
                   open={openSubmenu === item.id || isSubmenuParentActive(item)}
                   onOpenChange={(open) => setOpenSubmenu(open ? item.id : null)}
@@ -314,7 +433,7 @@ export const DashboardSidebar: React.FC = () => {
                             className="cursor-pointer"
                           >
                             {subItem.icon && <subItem.icon className="h-4 w-4 mr-2" />}
-                            {t(subItem.labelKey)}
+                            {subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
