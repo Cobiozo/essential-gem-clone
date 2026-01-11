@@ -19,8 +19,6 @@ import {
   RESOURCE_TYPE_LABELS, RESOURCE_CATEGORIES 
 } from '@/types/knowledge';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
-import { useLayoutPreference } from '@/hooks/useLayoutPreference';
-import { DashboardLayout } from '@/components/dashboard';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5 text-red-500" />,
@@ -41,7 +39,6 @@ export default function KnowledgeCenter() {
   const [filterTag, setFilterTag] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'grouped'>('list');
   const [siteLogo, setSiteLogo] = useState<string>(newPureLifeLogo);
-  const { isModernLayout } = useLayoutPreference();
 
   useEffect(() => {
     fetchResources();
@@ -295,16 +292,18 @@ export default function KnowledgeCenter() {
     </Card>
   );
 
-  // Content shared between layouts
-  const knowledgeContent = (
-    <>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Centrum Zasobów</h1>
-        <p className="text-muted-foreground">
-          Dokumenty, materiały i narzędzia do Twojej dyspozycji
-        </p>
-      </div>
+  return (
+    <div className="min-h-screen bg-background">
+      <Header siteLogo={siteLogo} />
+      
+      <main className="container mx-auto px-4 py-8 pt-24">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Centrum Zasobów</h1>
+          <p className="text-muted-foreground">
+            Dokumenty, materiały i narzędzia do Twojej dyspozycji
+          </p>
+        </div>
 
         {/* Search & Filters */}
         <Card className="mb-6">
@@ -480,25 +479,6 @@ export default function KnowledgeCenter() {
             )}
           </div>
         )}
-      </>
-    );
-
-  // Modern Dashboard Layout
-  if (isModernLayout) {
-    return (
-      <DashboardLayout>
-        {knowledgeContent}
-      </DashboardLayout>
-    );
-  }
-
-  // Classic Layout
-  return (
-    <div className="min-h-screen bg-background">
-      <Header siteLogo={siteLogo} />
-      
-      <main className="container mx-auto px-4 py-8 pt-24">
-        {knowledgeContent}
       </main>
     </div>
   );
