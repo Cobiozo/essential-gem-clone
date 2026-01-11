@@ -45,7 +45,6 @@ interface SubMenuItem {
   id: string;
   labelKey: string;
   path: string;
-  tab?: string;
   icon?: React.ElementType;
 }
 
@@ -127,9 +126,9 @@ export const DashboardSidebar: React.FC = () => {
       labelKey: 'dashboard.menu.pureContacts',
       hasSubmenu: true,
       submenuItems: [
-        { id: 'private-contacts', labelKey: 'dashboard.menu.privateContacts', path: '/my-account', tab: 'private-contacts', icon: Contact },
-        { id: 'team-contacts', labelKey: 'dashboard.menu.teamContacts', path: '/my-account', tab: 'team-contacts', icon: Users },
-        { id: 'search-specialist', labelKey: 'dashboard.menu.searchSpecialist', path: '/my-account', tab: 'search-specialist', icon: Search },
+        { id: 'private-contacts', labelKey: 'dashboard.menu.privateContacts', path: '/my-account?tab=team-contacts&subTab=private', icon: Contact },
+        { id: 'team-contacts', labelKey: 'dashboard.menu.teamContacts', path: '/my-account?tab=team-contacts&subTab=team', icon: Users },
+        { id: 'search-specialist', labelKey: 'dashboard.menu.searchSpecialist', path: '/my-account?tab=team-contacts&subTab=search', icon: Search },
       ],
       visibleFor: ['partner', 'specjalista', 'admin']
     },
@@ -215,8 +214,7 @@ export const DashboardSidebar: React.FC = () => {
   };
 
   const handleSubmenuClick = (subItem: SubMenuItem) => {
-    const url = subItem.tab ? `${subItem.path}?tab=${subItem.tab}` : subItem.path;
-    navigate(url);
+    navigate(subItem.path);
     setOpenMobile(false);
   };
 
@@ -237,7 +235,19 @@ export const DashboardSidebar: React.FC = () => {
 
   const isSubmenuActive = (subItem: SubMenuItem) => {
     const searchParams = new URLSearchParams(location.search);
-    return location.pathname === subItem.path && searchParams.get('tab') === subItem.tab;
+    const currentTab = searchParams.get('tab');
+    const currentSubTab = searchParams.get('subTab');
+    
+    if (subItem.id === 'private-contacts') {
+      return location.pathname === '/my-account' && currentTab === 'team-contacts' && currentSubTab === 'private';
+    }
+    if (subItem.id === 'team-contacts') {
+      return location.pathname === '/my-account' && currentTab === 'team-contacts' && currentSubTab === 'team';
+    }
+    if (subItem.id === 'search-specialist') {
+      return location.pathname === '/my-account' && currentTab === 'team-contacts' && currentSubTab === 'search';
+    }
+    return false;
   };
 
   const isSubmenuParentActive = (item: MenuItem) => {
