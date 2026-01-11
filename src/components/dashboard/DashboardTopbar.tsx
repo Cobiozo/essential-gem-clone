@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Home } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings } from 'lucide-react';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
@@ -69,16 +69,6 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
           <LayoutGrid className="h-4 w-4" />
         </Button>
 
-        {/* Home button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/')}
-          className="h-9 w-9"
-          title={t('nav.home')}
-        >
-          <Home className="h-4 w-4" />
-        </Button>
 
         {/* Notifications */}
         <NotificationBell />
