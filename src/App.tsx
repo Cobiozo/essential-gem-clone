@@ -48,6 +48,7 @@ const queryClient = new QueryClient({
 const AppContent = () => {
   useDynamicMetaTags();
   const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin } = useAuth();
+  const { isModern } = useDashboardPreference();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
@@ -129,8 +130,8 @@ const AppContent = () => {
         <ProfileCompletionGuard>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={user && isModern ? <Navigate to="/dashboard" replace /> : <Index />} />
+              <Route path="/auth" element={user ? <Navigate to={isModern ? '/dashboard' : '/'} replace /> : <Auth />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/my-account" element={<MyAccount />} />
               <Route path="/training" element={<Training />} />
