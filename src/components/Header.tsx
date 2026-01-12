@@ -237,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                   {(isClient || isPartner || isSpecjalista) && (
                     <DropdownMenuItem onClick={() => navigate('/knowledge')} className="cursor-pointer">
                       <FolderOpen className="w-4 h-4 mr-2" />
-                      Biblioteka
+                      {t('nav.knowledgeCenter')}
                     </DropdownMenuItem>
                   )}
                   
