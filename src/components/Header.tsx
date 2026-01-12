@@ -233,11 +233,11 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                     {t('training.title')}
                   </DropdownMenuItem>
                   
-                  {/* Centrum Zasobów */}
+                  {/* Biblioteka */}
                   {(isClient || isPartner || isSpecjalista) && (
                     <DropdownMenuItem onClick={() => navigate('/knowledge')} className="cursor-pointer">
                       <FolderOpen className="w-4 h-4 mr-2" />
-                      {t('nav.knowledgeCenter')}
+                      Biblioteka
                     </DropdownMenuItem>
                   )}
                   
