@@ -50,6 +50,7 @@ import { NotificationSystemManagement } from '@/components/admin/NotificationSys
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
+import { EventsManagement } from '@/components/admin/EventsManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
@@ -4329,6 +4330,10 @@ const Admin = () => {
 
           <TabsContent value="important-info">
             <ImportantInfoManagement />
+          </TabsContent>
+
+          <TabsContent value="events">
+            <EventsManagement />
           </TabsContent>
 
           <TabsContent value="translations">

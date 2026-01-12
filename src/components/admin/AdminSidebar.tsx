@@ -44,6 +44,7 @@ import {
   UserCircle,
   ChevronDown,
   Clock,
+  CalendarDays,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -61,6 +62,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     features: 'Funkcje',
     dailySignal: 'Sygnał dnia',
     importantInfo: 'Ważne informacje',
+    events: 'Wydarzenia',
     communication: 'Komunikacja',
     translations: 'Tłumaczenia',
     teamContacts: 'Kontakty zespołu',
@@ -92,6 +94,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     features: 'Features',
     dailySignal: 'Daily signal',
     importantInfo: 'Important info',
+    events: 'Events',
     communication: 'Communication',
     translations: 'Translations',
     teamContacts: 'Team contacts',
@@ -183,6 +186,7 @@ const navCategories: NavCategory[] = [
       { value: 'ai-compass', labelKey: 'compass', icon: Compass },
       { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
+      { value: 'events', labelKey: 'events', icon: CalendarDays },
     ],
   },
   {

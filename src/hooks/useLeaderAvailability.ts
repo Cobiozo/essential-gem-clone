@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { 
   LeaderPermission, 
-  LeaderMeetingTopic, 
+  MeetingTopic, 
   LeaderAvailability,
   LeaderWithProfile,
   AvailableSlot
@@ -14,7 +14,7 @@ import { addDays, format, parse, isBefore, isAfter, startOfDay, setHours, setMin
 export const useLeaderAvailability = () => {
   const [isLeader, setIsLeader] = useState(false);
   const [leaderPermission, setLeaderPermission] = useState<LeaderPermission | null>(null);
-  const [topics, setTopics] = useState<LeaderMeetingTopic[]>([]);
+  const [topics, setTopics] = useState<MeetingTopic[]>([]);
   const [availability, setAvailability] = useState<LeaderAvailability[]>([]);
   const [activeLeaders, setActiveLeaders] = useState<LeaderWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +149,7 @@ export const useLeaderAvailability = () => {
     }
   };
 
-  const updateTopic = async (id: string, updates: Partial<LeaderMeetingTopic>): Promise<boolean> => {
+  const updateTopic = async (id: string, updates: Partial<MeetingTopic>): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('leader_meeting_topics')
@@ -259,7 +259,7 @@ export const useLeaderAvailability = () => {
     }
   };
 
-  const getLeaderTopics = async (leaderUserId: string): Promise<LeaderMeetingTopic[]> => {
+  const getLeaderTopics = async (leaderUserId: string): Promise<MeetingTopic[]> => {
     try {
       const { data, error } = await supabase
         .from('leader_meeting_topics')
