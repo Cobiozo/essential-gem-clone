@@ -51,6 +51,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [duration, setDuration] = useState(0);
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -217,6 +219,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     isSeekingRef.current = false;
     isBufferingRef.current = false;
     setIsBuffering(false);
+    setRetryCount(0); // Reset retry count on new video
   }, [mediaUrl]);
 
   // NOTE: Removed the useEffect that synced lastValidTimeRef with initialTime
@@ -302,6 +305,22 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setIsBuffering(false);
     };
 
+    // Handle video errors with auto-retry
+    const handleError = (e: Event) => {
+      console.error('[SecureMedia] Video error:', e);
+      if (retryCount < MAX_RETRIES) {
+        console.log(`[SecureMedia] Retrying... attempt ${retryCount + 1}/${MAX_RETRIES}`);
+        setTimeout(() => {
+          if (video) {
+            const currentPos = lastValidTimeRef.current;
+            video.load();
+            video.currentTime = currentPos;
+            setRetryCount(prev => prev + 1);
+          }
+        }, 2000);
+      }
+    };
+
     // Block ALL seeking (forward and backward)
     const handleSeeking = () => {
       // Don't block during buffering - it's not a user seek
@@ -366,24 +385,28 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('stalled', handleStalled);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('canplaythrough', handleCanPlay);
     video.addEventListener('seeking', handleSeeking);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('ratechange', handleRateChange);
+    video.addEventListener('error', handleError);
     
     return () => {
       console.log('[SecureMedia] Removing event listeners from video element');
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('stalled', handleStalled);
       video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('canplaythrough', handleCanPlay);
       video.removeEventListener('seeking', handleSeeking);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ratechange', handleRateChange);
+      video.removeEventListener('error', handleError);
     };
-  }, [mediaType, disableInteraction, signedUrl, videoElement]); // Added videoElement
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]); // Added retryCount
 
   // Time tracking for unrestricted mode
   useEffect(() => {
@@ -547,14 +570,15 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
-              preload="metadata"
+              preload="auto"
               playsInline
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {isBuffering && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+                <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
             )}
           </div>
