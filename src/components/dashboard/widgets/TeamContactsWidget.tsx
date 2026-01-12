@@ -75,13 +75,13 @@ export const TeamContactsWidget: React.FC = () => {
   }
 
   const getRoleBadge = (role: string) => {
-    const roleConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-      client: { label: 'Klient', variant: 'secondary' },
-      partner: { label: 'Partner', variant: 'outline' },
-      specjalista: { label: 'Specjalista', variant: 'default' },
+    const roleConfig: Record<string, { labelKey: string; variant: 'default' | 'secondary' | 'outline' }> = {
+      client: { labelKey: 'role.client', variant: 'secondary' },
+      partner: { labelKey: 'role.partner', variant: 'outline' },
+      specjalista: { labelKey: 'role.specialist', variant: 'default' },
     };
-    const config = roleConfig[role] || { label: role, variant: 'secondary' as const };
-    return <Badge variant={config.variant} className="text-[10px] px-1.5 py-0">{config.label}</Badge>;
+    const config = roleConfig[role] || { labelKey: role, variant: 'secondary' as const };
+    return <Badge variant={config.variant} className="text-[10px] px-1.5 py-0">{t(config.labelKey)}</Badge>;
   };
 
   const getInitials = (contact: TeamMember) => {
@@ -203,13 +203,13 @@ export const TeamContactsWidget: React.FC = () => {
               variant="outline" 
               onClick={() => setSelectedContact(null)}
             >
-              Zamknij
+              {t('common.close')}
             </Button>
             <Button onClick={() => {
               setSelectedContact(null);
               navigate('/my-account?tab=team-contacts');
             }}>
-              Zobacz wszystkie kontakty
+              {t('dashboard.viewAllContacts')}
             </Button>
           </DialogFooter>
         </DialogContent>
