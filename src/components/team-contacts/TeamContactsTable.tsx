@@ -14,6 +14,7 @@ import { Edit, Trash2, History, HelpCircle } from 'lucide-react';
 import type { TeamContact, TeamContactHistory } from './types';
 import { UplineHelpButton } from './UplineHelpButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   contactType,
   readOnly = false,
 }) => {
+  const { t } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const isTeamMember = contactType === 'team_member';
@@ -53,11 +55,11 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'client':
-        return <Badge variant="secondary">Klient</Badge>;
+        return <Badge variant="secondary">{t('role.client')}</Badge>;
       case 'partner':
-        return <Badge variant="outline">Partner</Badge>;
+        return <Badge variant="outline">{t('role.partner')}</Badge>;
       case 'specjalista':
-        return <Badge>Specjalista</Badge>;
+        return <Badge>{t('role.specialist')}</Badge>;
       default:
         return <Badge variant="secondary">{role}</Badge>;
     }
@@ -71,30 +73,30 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
     
     // First check relationship_status
     if (contact.relationship_status) {
-      const statusLabels: Record<string, { label: string; className: string }> = {
-        active: { label: 'Aktywny', className: 'bg-green-100 text-green-800' },
-        suspended: { label: 'Wstrzymany', className: 'bg-yellow-100 text-yellow-800' },
-        closed_success: { label: 'Sukces', className: 'bg-blue-100 text-blue-800' },
-        closed_not_now: { label: 'Nie teraz', className: 'bg-gray-100 text-gray-800' },
+      const statusLabels: Record<string, { labelKey: string; className: string }> = {
+        active: { labelKey: 'teamContacts.active', className: 'bg-green-100 text-green-800' },
+        suspended: { labelKey: 'teamContacts.suspended', className: 'bg-yellow-100 text-yellow-800' },
+        closed_success: { labelKey: 'teamContacts.success', className: 'bg-blue-100 text-blue-800' },
+        closed_not_now: { labelKey: 'teamContacts.notNow', className: 'bg-gray-100 text-gray-800' },
       };
       const status = statusLabels[contact.relationship_status];
       if (status) {
-        return <Badge className={status.className}>{status.label}</Badge>;
+        return <Badge className={status.className}>{t(status.labelKey)}</Badge>;
       }
     }
     
     // Fallback to role-specific status
     if (contact.role === 'client') {
       return contact.client_status === 'active' ? (
-        <Badge className="bg-green-100 text-green-800">Aktywny</Badge>
+        <Badge className="bg-green-100 text-green-800">{t('teamContacts.active')}</Badge>
       ) : contact.client_status === 'inactive' ? (
-        <Badge variant="destructive">Nieaktywny</Badge>
+        <Badge variant="destructive">{t('teamContacts.inactive')}</Badge>
       ) : null;
     } else {
       return contact.partner_status === 'active' ? (
-        <Badge className="bg-green-100 text-green-800">Aktywny</Badge>
+        <Badge className="bg-green-100 text-green-800">{t('teamContacts.active')}</Badge>
       ) : contact.partner_status === 'suspended' ? (
-        <Badge variant="destructive">Wstrzymany</Badge>
+        <Badge variant="destructive">{t('teamContacts.suspended')}</Badge>
       ) : null;
     }
   };
@@ -113,7 +115,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <HelpCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Brak kontaktów. Dodaj pierwszy kontakt.</p>
+        <p>{t('teamContacts.noContacts')}</p>
       </div>
     );
   }
@@ -124,13 +126,13 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Imię</TableHead>
-              <TableHead>Nazwisko</TableHead>
+              <TableHead>{t('teamContacts.firstName')}</TableHead>
+              <TableHead>{t('teamContacts.lastName')}</TableHead>
               <TableHead>EQID</TableHead>
-              <TableHead>Rola</TableHead>
-              {!isTeamMember && <TableHead>Status</TableHead>}
-              <TableHead>Data dodania</TableHead>
-              <TableHead className="text-right">Akcje</TableHead>
+              <TableHead>{t('teamContacts.role')}</TableHead>
+              {!isTeamMember && <TableHead>{t('teamContacts.status')}</TableHead>}
+              <TableHead>{t('teamContacts.dateAdded')}</TableHead>
+              <TableHead className="text-right">{t('teamContacts.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -151,7 +153,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                       variant="ghost"
                       size="icon"
                       onClick={() => setHistoryContact(contact)}
-                      title="Historia"
+                      title={t('common.history')}
                     >
                       <History className="w-4 h-4" />
                     </Button>
@@ -161,7 +163,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                           variant="ghost"
                           size="icon"
                           onClick={() => onEdit(contact)}
-                          title="Edytuj"
+                          title={t('common.edit')}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -169,7 +171,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                           variant="ghost"
                           size="icon"
                           onClick={() => setDeleteConfirm(contact.id)}
-                          title="Usuń"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
@@ -187,13 +189,13 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usuń kontakt</AlertDialogTitle>
+            <AlertDialogTitle>{t('teamContacts.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Czy na pewno chcesz usunąć ten kontakt? Ta akcja jest nieodwracalna.
+              {t('teamContacts.deleteConfirmation')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -203,7 +205,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 }
               }}
             >
-              Usuń
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
