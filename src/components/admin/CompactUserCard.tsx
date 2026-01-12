@@ -218,6 +218,16 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
               <Badge className={`text-xs h-5 ${getRoleBadgeClasses(userProfile.role)}`}>
                 {getRoleDisplayName(userProfile.role)}
               </Badge>
+              {/* Email status badge */}
+              {userProfile.email_activated ? (
+                <Badge variant="outline" className="text-xs h-5 border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                  ✓ Email
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs h-5 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
+                  ✗ Email
+                </Badge>
+              )}
               {!userProfile.is_active && (
                 <Badge variant="destructive" className="text-xs h-5">
                   Nieaktywny
@@ -455,6 +465,12 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                     <div className="text-xs">
                       <span className="text-muted-foreground">Opis:</span>{' '}
                       <span className="line-clamp-2">{userProfile.profile_description}</span>
+                    </div>
+                  )}
+                  {userProfile.email_activated_at && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Email potwierdzony:</span>{' '}
+                      <span>{new Date(userProfile.email_activated_at).toLocaleString('pl-PL')}</span>
                     </div>
                   )}
                 </div>
