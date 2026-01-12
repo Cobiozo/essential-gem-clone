@@ -299,7 +299,7 @@ export default function KnowledgeCenter() {
       <main className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Centrum Zasobów</h1>
+          <h1 className="text-3xl font-bold mb-2">Biblioteka</h1>
           <p className="text-muted-foreground">
             Dokumenty, materiały i narzędzia do Twojej dyspozycji
           </p>

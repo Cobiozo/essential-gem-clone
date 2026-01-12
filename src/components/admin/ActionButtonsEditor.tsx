@@ -155,7 +155,7 @@ export const ActionButtonsEditor: React.FC<ActionButtonsEditorProps> = ({ button
                         <SelectItem value="resource">
                           <div className="flex items-center gap-2">
                             <FileText className="h-3 w-3" />
-                            Zasób z Centrum
+                            Zasób z Biblioteki
                           </div>
                         </SelectItem>
                         <SelectItem value="file">

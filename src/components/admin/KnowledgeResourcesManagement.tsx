@@ -223,7 +223,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Centrum Zasobów</h2>
+        <h2 className="text-2xl font-bold">Biblioteka</h2>
         <Button onClick={() => openEditDialog()}>
           <Plus className="h-4 w-4 mr-2" />
           Dodaj zasób
