@@ -275,15 +275,26 @@ export const getTranslation = (
 ): string | null => {
   if (!translationsCache) return null;
   
-  const [namespace, ...keyParts] = fullKey.split('.');
-  const key = keyParts.join('.');
+  const langCache = translationsCache[languageCode];
+  if (langCache) {
+    // Search for key across all namespaces (prioritize 'common')
+    const namespaces = ['common', ...Object.keys(langCache).filter(n => n !== 'common')];
+    for (const namespace of namespaces) {
+      const value = langCache[namespace]?.[fullKey];
+      if (value) return value;
+    }
+  }
   
-  const value = translationsCache[languageCode]?.[namespace]?.[key];
-  if (value) return value;
-  
+  // Fallback to default language
   if (languageCode !== defaultLanguageCode) {
-    const fallback = translationsCache[defaultLanguageCode]?.[namespace]?.[key];
-    if (fallback) return fallback;
+    const defaultCache = translationsCache[defaultLanguageCode];
+    if (defaultCache) {
+      const namespaces = ['common', ...Object.keys(defaultCache).filter(n => n !== 'common')];
+      for (const namespace of namespaces) {
+        const value = defaultCache[namespace]?.[fullKey];
+        if (value) return value;
+      }
+    }
   }
   
   return null;
