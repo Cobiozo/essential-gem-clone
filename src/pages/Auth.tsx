@@ -39,16 +39,17 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { GuardianSearchInput, Guardian } from '@/components/auth/GuardianSearchInput';
 import { PhoneCountryCodePicker } from '@/components/auth/PhoneCountryCodePicker';
 
-const getPolishErrorMessage = (error: any): string => {
+// Localized error message handler
+const getLocalizedErrorMessage = (error: any, t: (key: string) => string): string => {
   const errorMessage = error?.message?.toLowerCase() || '';
   
   console.log('Auth error details:', error); // Debug log
   
   if (errorMessage.includes('invalid login credentials') || errorMessage.includes('invalid_credentials')) {
-    return 'Nieprawidłowy email lub hasło';
+    return t('auth.errors.invalidCredentials');
   }
   if (errorMessage.includes('email not confirmed')) {
-    return 'Email nie został potwierdzony. Sprawdź swoją skrzynkę pocztową';
+    return t('auth.errors.emailNotConfirmed');
   }
   if (errorMessage.includes('user already registered') || 
       errorMessage.includes('already_registered') ||
@@ -56,26 +57,26 @@ const getPolishErrorMessage = (error: any): string => {
       errorMessage.includes('email_address_already_in_use') ||
       errorMessage.includes('email address not available') ||
       errorMessage.includes('user with this email already exists')) {
-    return 'Użytkownik z tym adresem email już istnieje';
+    return t('auth.errors.userExists');
   }
   if (errorMessage.includes('weak password') || errorMessage.includes('password')) {
-    return 'Hasło nie spełnia wymagań bezpieczeństwa (min. 8 znaków, wielka i mała litera, cyfra, znak specjalny)';
+    return t('auth.errors.weakPassword');
   }
   if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
-    return 'Nieprawidłowy format adresu email';
+    return t('auth.errors.invalidEmail');
   }
   if (errorMessage.includes('too many requests') || errorMessage.includes('rate limit')) {
-    return 'Zbyt wiele prób logowania. Spróbuj ponownie za chwilę';
+    return t('auth.errors.tooManyRequests');
   }
   if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-    return 'Problem z połączeniem internetowym. Sprawdź połączenie i spróbuj ponownie';
+    return t('auth.errors.networkError');
   }
   if (errorMessage.includes('eq_id') || errorMessage.includes('eqid') || errorMessage.includes('profiles_eq_id_unique')) {
-    return 'Użytkownik z tym numerem EQ ID już istnieje w systemie';
+    return t('auth.errors.eqIdExists');
   }
   
   // Default fallback
-  return error?.message || 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie';
+  return error?.message || t('auth.errors.unexpected');
 };
 
 const Auth = () => {
@@ -256,8 +257,8 @@ const Auth = () => {
     
     if (isActivated) {
       toast({
-        title: 'Konto aktywowane',
-        description: 'Twoje konto zostało pomyślnie aktywowane. Możesz się teraz zalogować.',
+        title: t('auth.toast.accountActivated'),
+        description: t('auth.toast.welcomeToPureLife'),
       });
       // Clear the URL parameter
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -272,7 +273,7 @@ const Auth = () => {
       // User exists from previous session (page refresh) - redirect immediately
       navigate('/');
     }
-  }, [user, navigate, showEmailConfirmDialog, toast, loginComplete]);
+  }, [user, navigate, showEmailConfirmDialog, toast, loginComplete, t]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,10 +294,11 @@ const Auth = () => {
           .single();
         
         if (lookupError || !profile) {
-          setError('Nie znaleziono użytkownika z podanym EQ ID');
+          const errorMsg = t('auth.errors.eqIdNotFound');
+          setError(errorMsg);
           toast({
-            title: "Błąd logowania",
-            description: "Nie znaleziono użytkownika z podanym EQ ID",
+            title: t('auth.toast.loginError'),
+            description: errorMsg,
             variant: "destructive",
           });
           setLoading(false);
@@ -304,7 +306,7 @@ const Auth = () => {
         }
         loginEmail = profile.email;
       } catch (err) {
-        setError('Błąd podczas wyszukiwania użytkownika');
+        setError(t('auth.errors.userLookupError'));
         setLoading(false);
         return;
       }
@@ -313,17 +315,17 @@ const Auth = () => {
     const { error } = await signIn(loginEmail, password);
     
     if (error) {
-      const polishErrorMessage = getPolishErrorMessage(error);
-      setError(polishErrorMessage);
+      const localizedErrorMessage = getLocalizedErrorMessage(error, t);
+      setError(localizedErrorMessage);
       toast({
-        title: "Błąd logowania",
-        description: polishErrorMessage,
+        title: t('auth.toast.loginError'),
+        description: localizedErrorMessage,
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Zalogowano pomyślnie",
-        description: "Witaj w systemie Pure Life!",
+        title: t('auth.toast.loginSuccess'),
+        description: t('auth.toast.welcomeToPureLife'),
       });
       // DON'T navigate here - let useEffect handle it when loginComplete becomes true
       // This ensures auth state change event is fully processed before navigation
@@ -339,10 +341,11 @@ const Auth = () => {
 
     // Check password requirements
     if (!isPasswordValid) {
-      setError('Hasło nie spełnia wszystkich wymagań bezpieczeństwa');
+      const errorMsg = t('auth.errors.weakPassword');
+      setError(errorMsg);
       toast({
-        title: "Błąd rejestracji",
-        description: "Hasło nie spełnia wymagań bezpieczeństwa",
+        title: t('auth.toast.registrationError'),
+        description: errorMsg,
         variant: "destructive",
       });
       setLoading(false);
@@ -351,10 +354,11 @@ const Auth = () => {
 
     // Check if passwords match
     if (password !== confirmPassword) {
-      setError('Hasła nie są identyczne');
+      const errorMsg = t('auth.errors.passwordsMismatch');
+      setError(errorMsg);
       toast({
-        title: "Błąd rejestracji",
-        description: "Hasła nie są identyczne",
+        title: t('auth.toast.registrationError'),
+        description: errorMsg,
         variant: "destructive",
       });
       setLoading(false);
@@ -363,10 +367,11 @@ const Auth = () => {
 
     // Check if EQ ID is provided
     if (!eqId.trim()) {
-      setError('EQ ID jest wymagane');
+      const errorMsg = t('auth.errors.eqIdRequired');
+      setError(errorMsg);
       toast({
-        title: "Błąd rejestracji",
-        description: "EQ ID jest wymagane",
+        title: t('auth.toast.registrationError'),
+        description: errorMsg,
         variant: "destructive",
       });
       setLoading(false);
@@ -375,10 +380,11 @@ const Auth = () => {
 
     // Check if role is selected
     if (!role) {
-      setError('Wybór roli jest wymagany');
+      const errorMsg = t('auth.errors.roleRequired');
+      setError(errorMsg);
       toast({
-        title: "Błąd rejestracji", 
-        description: "Wybór roli jest wymagany",
+        title: t('auth.toast.registrationError'), 
+        description: errorMsg,
         variant: "destructive",
       });
       setLoading(false);
@@ -388,20 +394,22 @@ const Auth = () => {
     // Check if phone number is provided and valid
     const phoneRegex = /^[\d\s\-()]{6,15}$/;
     if (!localPhoneNumber.trim()) {
-      setError('Numer telefonu jest wymagany');
+      const errorMsg = t('auth.errors.phoneRequired');
+      setError(errorMsg);
       toast({
-        title: "Błąd rejestracji",
-        description: "Numer telefonu jest wymagany",
+        title: t('auth.toast.registrationError'),
+        description: errorMsg,
         variant: "destructive",
       });
       setLoading(false);
       return;
     }
     if (!phoneRegex.test(localPhoneNumber.trim())) {
-      setError('Nieprawidłowy format numeru telefonu');
+      const errorMsg = t('auth.errors.phoneInvalid');
+      setError(errorMsg);
       toast({
-        title: "Błąd rejestracji",
-        description: "Nieprawidłowy format numeru telefonu (6-15 cyfr)",
+        title: t('auth.toast.registrationError'),
+        description: errorMsg,
         variant: "destructive",
       });
       setLoading(false);
@@ -413,10 +421,10 @@ const Auth = () => {
 
     // Check if guardian is selected
     if (!selectedGuardian) {
-      setGuardianError('Musisz wybrać opiekuna z listy');
+      setGuardianError(t('auth.errors.guardianRequired'));
       toast({
-        title: "Błąd rejestracji",
-        description: "Musisz wybrać opiekuna z listy",
+        title: t('auth.toast.registrationError'),
+        description: t('auth.errors.guardianRequired'),
         variant: "destructive",
       });
       setLoading(false);
@@ -435,10 +443,10 @@ const Auth = () => {
       }
 
       if (emailExists) {
-        const errorMessage = 'Użytkownik z tym adresem email już istnieje. Zaloguj się lub sprawdź skrzynkę pocztową.';
+        const errorMessage = t('auth.errors.emailExistsLogin');
         setError(errorMessage);
         toast({
-          title: "Błąd rejestracji",
+          title: t('auth.toast.registrationError'),
           description: errorMessage,
           variant: "destructive",
         });
@@ -456,10 +464,10 @@ const Auth = () => {
       }
 
       if (eqIdExists) {
-        const errorMessage = 'Użytkownik z tym numerem EQ ID już istnieje w systemie. Sprawdź poprawność numeru.';
+        const errorMessage = t('auth.errors.eqIdExists');
         setError(errorMessage);
         toast({
-          title: "Błąd rejestracji",
+          title: t('auth.toast.registrationError'),
           description: errorMessage,
           variant: "destructive",
         });
@@ -496,11 +504,11 @@ const Auth = () => {
       });
       
       if (error) {
-        const polishErrorMessage = getPolishErrorMessage(error);
-        setError(polishErrorMessage);
+        const localizedErrorMessage = getLocalizedErrorMessage(error, t);
+        setError(localizedErrorMessage);
         toast({
-          title: "Błąd rejestracji",
-          description: polishErrorMessage,
+          title: t('auth.toast.registrationError'),
+          description: localizedErrorMessage,
           variant: "destructive",
         });
       } else {
@@ -559,10 +567,10 @@ const Auth = () => {
       }
     } catch (error) {
       console.error('Signup error:', error);
-      setError('Wystąpił nieoczekiwany błąd. Spróbuj ponownie');
+      setError(t('auth.errors.unexpected'));
       toast({
-        title: "Błąd rejestracji",
-        description: "Wystąpił nieoczekiwany błąd. Spróbuj ponownie",
+        title: t('auth.toast.registrationError'),
+        description: t('auth.errors.unexpected'),
         variant: "destructive",
       });
     }
@@ -574,8 +582,8 @@ const Auth = () => {
     // Check if identifier is provided
     if (!loginIdentifier.trim()) {
       toast({
-        title: "Błąd",
-        description: "Wprowadź adres email lub EQ ID aby zresetować hasło",
+        title: t('toast.error'),
+        description: t('auth.errors.enterEmailOrEqId'),
         variant: "destructive",
       });
       return;
@@ -597,8 +605,8 @@ const Auth = () => {
         
         if (lookupError || !profile) {
           toast({
-            title: "Błąd",
-            description: "Nie znaleziono użytkownika z podanym EQ ID",
+            title: t('toast.error'),
+            description: t('auth.errors.eqIdNotFound'),
             variant: "destructive",
           });
           setLoading(false);
@@ -616,15 +624,15 @@ const Auth = () => {
       if (data && !data.success) throw new Error(data.error || 'Failed to send reset email');
 
       toast({
-        title: "Sukces",
-        description: `Link do resetowania hasła został wysłany na adres ${resetEmail}`,
+        title: t('toast.success'),
+        description: t('auth.toast.resetEmailSent'),
       });
     } catch (error: any) {
       console.error('Password reset error:', error);
-      const polishErrorMessage = getPolishErrorMessage(error);
+      const localizedErrorMessage = getLocalizedErrorMessage(error, t);
       toast({
-        title: "Błąd",
-        description: polishErrorMessage,
+        title: t('toast.error'),
+        description: localizedErrorMessage,
         variant: "destructive",
       });
     } finally {
@@ -639,9 +647,9 @@ const Auth = () => {
       await supabase.functions.invoke('send-activation-email', {
         body: { userId: '', email: registeredEmail, resend: true },
       });
-      toast({ title: 'Sukces', description: 'E-mail aktywacyjny został wysłany ponownie.' });
+      toast({ title: t('toast.success'), description: t('auth.toast.activationResent') });
     } catch (error) {
-      toast({ title: 'Błąd', description: 'Nie udało się wysłać e-maila.', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('auth.toast.activationResendError'), variant: 'destructive' });
     } finally {
       setResendingEmail(false);
     }
@@ -654,20 +662,18 @@ const Auth = () => {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-green-600" />
-            Rejestracja pomyślna!
+            {t('auth.registrationSuccess')}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="text-left space-y-3">
               <p>
-                Na adres <strong className="text-foreground">{registeredEmail}</strong> została wysłana 
-                wiadomość z linkiem aktywacyjnym.
+                {t('auth.activationLinkSent').replace('{email}', registeredEmail)}
               </p>
               <p>
-                <strong className="text-foreground">Przejdź teraz do swojej skrzynki pocztowej</strong> i kliknij 
-                w link, aby potwierdzić rejestrację i aktywować konto.
+                <strong className="text-foreground">{t('auth.checkEmailTitle')}</strong>
               </p>
               <p className="text-amber-600 dark:text-amber-400 font-medium">
-                ⚠️ Jeśli nie widzisz wiadomości w skrzynce głównej, sprawdź folder SPAM lub Niechciane.
+                ⚠️ {t('auth.checkSpam')}
               </p>
             </div>
           </AlertDialogDescription>
@@ -680,7 +686,7 @@ const Auth = () => {
             }}
             className="w-full"
           >
-            Zrozumiałem
+            {t('auth.understood')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -693,21 +699,21 @@ const Auth = () => {
         {emailConfirmDialog}
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle>Sprawdź swoją skrzynkę e-mail</CardTitle>
-            <CardDescription>Wysłaliśmy link aktywacyjny na: <strong>{registeredEmail}</strong></CardDescription>
+            <CardTitle>{t('auth.checkEmailTitle')}</CardTitle>
+            <CardDescription>{t('auth.activationLinkSent').replace('{email}', registeredEmail)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert><AlertDescription>Kliknij link w wiadomości, aby aktywować konto.</AlertDescription></Alert>
+            <Alert><AlertDescription>{t('auth.clickLinkToActivate')}</AlertDescription></Alert>
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Nie otrzymałeś wiadomości?</p>
+              <p className="text-sm text-muted-foreground mb-2">{t('auth.noEmailReceived')}</p>
               <Button variant="outline" onClick={handleResendActivationEmail} disabled={resendingEmail}>
-                {resendingEmail ? 'Wysyłanie...' : 'Wyślij ponownie'}
+                {resendingEmail ? t('auth.sending') : t('auth.resendEmail')}
               </Button>
             </div>
           </CardContent>
           <CardFooter>
             <Button variant="ghost" className="w-full" onClick={() => { setRegistrationSuccess(false); setEmail(''); }}>
-              Powrót do logowania
+              {t('auth.backToLogin')}
             </Button>
           </CardFooter>
         </Card>
@@ -737,7 +743,7 @@ const Auth = () => {
         <div className="text-center mb-6 sm:mb-8">
           <img src={newPureLifeLogo} alt="Pure Life" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">PURE LIFE</h1>
-          <p className="text-muted-foreground mt-2 text-sm sm:text-base">Panel administracyjny</p>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">{t('auth.adminPanel')}</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -751,19 +757,19 @@ const Auth = () => {
               <CardHeader>
                 <CardTitle>{t('auth.signIn')}</CardTitle>
                 <CardDescription>
-                  Wprowadź swoje dane aby uzyskać dostęp do panelu
+                  {t('auth.enterCredentials')}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleSignIn}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="loginIdentifier">Email lub EQ ID</Label>
+                    <Label htmlFor="loginIdentifier">{t('auth.emailOrEqId')}</Label>
                     <Input
                       id="loginIdentifier"
                       type="text"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="Wprowadź email lub EQ ID"
+                      placeholder={t('auth.enterEmailOrEqId')}
                       required
                       disabled={loading}
                     />
@@ -788,7 +794,7 @@ const Auth = () => {
                       disabled={loading}
                       className="p-0 h-auto text-xs text-primary hover:underline"
                     >
-                      Zapomniałem hasła
+                      {t('auth.forgotPassword')}
                     </Button>
                   </div>
                   {error && (
@@ -799,7 +805,7 @@ const Auth = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? `${t('common.loading')}...` : t('auth.signIn')}
+                    {loading ? t('auth.loggingIn') : t('auth.signIn')}
                   </Button>
                 </CardFooter>
               </form>
@@ -811,7 +817,7 @@ const Auth = () => {
               <CardHeader>
                 <CardTitle>{t('auth.signUp')}</CardTitle>
                 <CardDescription>
-                  Utwórz nowe konto administratora
+                  {t('auth.createAccountDesc')}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleSignUp}>
@@ -830,25 +836,25 @@ const Auth = () => {
                   
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
-                      <Label htmlFor="first-name">Imię *</Label>
+                      <Label htmlFor="first-name">{t('auth.firstName')} *</Label>
                       <Input
                         id="first-name"
                         type="text"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="Wprowadź imię"
+                        placeholder={t('auth.enterFirstName')}
                         required
                         disabled={loading}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="last-name">Nazwisko *</Label>
+                      <Label htmlFor="last-name">{t('auth.lastName')} *</Label>
                       <Input
                         id="last-name"
                         type="text"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Wprowadź nazwisko"
+                        placeholder={t('auth.enterLastName')}
                         required
                         disabled={loading}
                       />
@@ -856,7 +862,7 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone-number">Numer telefonu *</Label>
+                    <Label htmlFor="phone-number">{t('auth.phoneNumber')} *</Label>
                     <PhoneCountryCodePicker
                       selectedCode={countryCode}
                       onCodeChange={setCountryCode}
@@ -873,7 +879,7 @@ const Auth = () => {
                       type="text"
                       value={eqId}
                       onChange={(e) => setEqId(e.target.value)}
-                      placeholder="Wprowadź EQ ID"
+                      placeholder={t('auth.enterEqId')}
                       required
                       disabled={loading}
                     />
@@ -899,7 +905,7 @@ const Auth = () => {
                     </Select>
                     {reflinkRole && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Rola została ustawiona przez link polecający
+                        {t('auth.roleSetByReflink')}
                       </p>
                     )}
                   </div>
@@ -912,7 +918,7 @@ const Auth = () => {
                   />
                   {reflinkRole && selectedGuardian && (
                     <p className="text-xs text-muted-foreground -mt-1">
-                      Opiekun został ustawiony przez link polecający
+                      {t('auth.guardianSetByReflink')}
                     </p>
                   )}
                   
@@ -932,14 +938,15 @@ const Auth = () => {
                     />
                     {/* Password requirements checklist */}
                     <div className="text-xs space-y-0.5 mt-2 p-2 bg-muted/50 rounded-md">
-                      <p className="font-medium text-muted-foreground mb-1">Wymagania hasła:</p>
-                      <PasswordRequirement met={passwordRequirements.minLength} text="Minimum 8 znaków" />
-                      <PasswordRequirement met={passwordRequirements.hasUppercase} text="Minimum 1 wielka litera (A-Z)" />
-                      <PasswordRequirement met={passwordRequirements.hasLowercase} text="Minimum 1 mała litera (a-z)" />
-                      <PasswordRequirement met={passwordRequirements.hasNumber} text="Minimum 1 cyfra (0-9)" />
-                      <PasswordRequirement met={passwordRequirements.hasSpecial} text="Minimum 1 znak specjalny (!@#$%...)" />
+                      <p className="font-medium text-muted-foreground mb-1">{t('auth.requirements.title')}</p>
+                      <PasswordRequirement met={passwordRequirements.minLength} text={t('auth.requirements.minLength')} />
+                      <PasswordRequirement met={passwordRequirements.hasUppercase} text={t('auth.requirements.uppercase')} />
+                      <PasswordRequirement met={passwordRequirements.hasLowercase} text={t('auth.requirements.lowercase')} />
+                      <PasswordRequirement met={passwordRequirements.hasNumber} text={t('auth.requirements.number')} />
+                      <PasswordRequirement met={passwordRequirements.hasSpecial} text={t('auth.requirements.special')} />
                     </div>
                   </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
                     <Input
@@ -949,9 +956,12 @@ const Auth = () => {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       disabled={loading}
-                      minLength={8}
                     />
+                    {confirmPassword && password !== confirmPassword && (
+                      <p className="text-xs text-destructive">{t('auth.errors.passwordsMismatch')}</p>
+                    )}
                   </div>
+
                   {error && (
                     <Alert variant="destructive">
                       <AlertDescription>{error}</AlertDescription>
@@ -959,8 +969,8 @@ const Auth = () => {
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? `${t('common.loading')}...` : t('auth.signUp')}
+                  <Button type="submit" className="w-full" disabled={loading || !isPasswordValid || password !== confirmPassword}>
+                    {loading ? t('auth.registering') : t('auth.signUp')}
                   </Button>
                 </CardFooter>
               </form>
@@ -968,7 +978,8 @@ const Auth = () => {
           </TabsContent>
         </Tabs>
       </div>
-
+      
+      {/* Render email dialog */}
       {emailConfirmDialog}
     </div>
   );
