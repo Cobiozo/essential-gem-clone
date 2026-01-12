@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2 } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -28,6 +28,8 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
+import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
+import { LeaderAvailabilityManager } from '@/components/events';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -96,6 +98,7 @@ const MyAccount = () => {
   const { isComplete } = useProfileCompletion();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
+  const { isLeader, loading: leaderLoading } = useLeaderAvailability();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -118,7 +121,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -211,8 +214,9 @@ const MyAccount = () => {
     preferences: dailySignalVisible,
     aiCompass: aiCompassVisible,
     reflinks: canGenerateReflinks,
+    leader: isLeader,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isLeader]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -567,6 +571,12 @@ const MyAccount = () => {
                 <TabsTrigger value="reflinks" disabled={mustCompleteProfile}>
                   <Link2 className="w-4 h-4 mr-2" />
                   PureLinki
+                </TabsTrigger>
+              )}
+              {visibleTabs.leader && (
+                <TabsTrigger value="leader" disabled={mustCompleteProfile}>
+                  <CalendarDays className="w-4 h-4 mr-2" />
+                  Moje spotkania
                 </TabsTrigger>
               )}
             </TabsList>
@@ -1001,6 +1011,12 @@ const MyAccount = () => {
             {visibleTabs.reflinks && (
               <TabsContent value="reflinks" className="mt-6">
                 <UserReflinksPanel />
+              </TabsContent>
+            )}
+
+            {visibleTabs.leader && (
+              <TabsContent value="leader" className="mt-6">
+                <LeaderAvailabilityManager />
               </TabsContent>
             )}
           </Tabs>

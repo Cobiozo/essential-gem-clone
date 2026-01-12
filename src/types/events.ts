@@ -30,14 +30,16 @@ export interface LeaderAvailability extends DbLeaderAvailability {}
 export interface EventsSettings extends DbEventsSettings {}
 
 export interface LeaderWithProfile {
-  id: string;
   user_id: string;
-  can_host_private_meetings: boolean | null;
+  first_name: string;
+  last_name: string;
+  email: string;
   zoom_link: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-  activated_at: string | null;
-  activated_by: string | null;
+  can_host_private_meetings: boolean;
+}
+
+// Full leader permission with profile data for admin
+export interface AdminLeaderWithProfile extends LeaderPermission {
   profile?: {
     first_name: string | null;
     last_name: string | null;

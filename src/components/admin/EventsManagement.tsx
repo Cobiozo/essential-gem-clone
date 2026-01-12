@@ -27,7 +27,7 @@ import {
   Settings,
   RefreshCw
 } from 'lucide-react';
-import type { DbEvent, MeetingTopic, LeaderPermission, EventsSettings, LeaderWithProfile, TopicWithLeader } from '@/types/events';
+import type { DbEvent, MeetingTopic, LeaderPermission, EventsSettings, AdminLeaderWithProfile, TopicWithLeader } from '@/types/events';
 
 export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
@@ -39,7 +39,7 @@ export const EventsManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('events');
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [topics, setTopics] = useState<TopicWithLeader[]>([]);
-  const [leaders, setLeaders] = useState<LeaderWithProfile[]>([]);
+  const [leaders, setLeaders] = useState<AdminLeaderWithProfile[]>([]);
   const [settings, setSettings] = useState<EventsSettings | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -150,7 +150,7 @@ export const EventsManagement: React.FC = () => {
     }
     
     // Fetch profiles separately
-    const leadersWithProfiles: LeaderWithProfile[] = [];
+    const leadersWithProfiles: AdminLeaderWithProfile[] = [];
     for (const leader of data || []) {
       const { data: profile } = await supabase
         .from('profiles')
