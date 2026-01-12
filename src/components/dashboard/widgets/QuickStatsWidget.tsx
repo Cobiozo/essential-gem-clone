@@ -43,8 +43,16 @@ interface Stats {
 
 export const QuickStatsWidget: React.FC = () => {
   const { user, userRole, profile } = useAuth();
-  const { t, language } = useLanguage();
+  const { t, language, refreshTranslations } = useLanguage();
   const navigate = useNavigate();
+  
+  // Refresh translations if they seem to be missing (keys shown instead of values)
+  useEffect(() => {
+    const testKey = t('dashboard.quickStats');
+    if (testKey === 'dashboard.quickStats') {
+      refreshTranslations();
+    }
+  }, []);
   const [stats, setStats] = useState<Stats>({
     lastSignIn: null,
     daysSinceRegistration: 0,
