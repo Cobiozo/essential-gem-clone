@@ -35,7 +35,6 @@ import {
   Contact,
   Search,
   Facebook,
-  MessageCircle,
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +43,7 @@ import { UserProfileCard } from './UserProfileCard';
 import { supabase } from '@/integrations/supabase/client';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useToast } from '@/hooks/use-toast';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
 interface SubMenuItem {
   id: string;
@@ -76,7 +76,7 @@ const detectPlatform = (title: string, url: string): string => {
 };
 
 const platformIcons: Record<string, React.ElementType> = {
-  whatsapp: MessageCircle,
+  whatsapp: WhatsAppIcon,
   facebook: Facebook,
   default: ExternalLink,
 };
@@ -447,7 +447,17 @@ export const DashboardSidebar: React.FC = () => {
                             className="cursor-pointer h-auto min-h-8 py-1.5"
                             title={subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
                           >
-                            {subItem.icon && <subItem.icon className="h-4 w-4 shrink-0" />}
+                            {subItem.icon && (
+                              <subItem.icon 
+                                className={`h-4 w-4 shrink-0 ${
+                                  subItem.path?.includes('whatsapp') || subItem.path?.includes('wa.me') || subItem.path?.includes('chat.whatsapp')
+                                    ? 'text-green-500' 
+                                    : subItem.path?.includes('facebook') || subItem.path?.includes('fb.com')
+                                      ? 'text-blue-600' 
+                                      : ''
+                                }`} 
+                              />
+                            )}
                             <span className="whitespace-normal break-words leading-tight text-left">
                               {subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
                             </span>
