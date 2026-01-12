@@ -566,7 +566,7 @@ const MyAccount = () => {
               {visibleTabs.reflinks && (
                 <TabsTrigger value="reflinks" disabled={mustCompleteProfile}>
                   <Link2 className="w-4 h-4 mr-2" />
-                  Moje linki
+                  PureLinki
                 </TabsTrigger>
               )}
             </TabsList>

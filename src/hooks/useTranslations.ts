@@ -845,7 +845,7 @@ function getHardcodedTranslations(): Record<string, Record<string, string>> {
       'nav.home': 'Strona główna',
       'nav.admin': 'Panel CMS',
       'nav.myAccount': 'Moje konto',
-      'nav.knowledgeCenter': 'Centrum Zasobów',
+      'nav.knowledgeCenter': 'Biblioteka',
       'nav.login': 'Zaloguj się',
       'nav.logout': 'Wyloguj się',
       'auth.signIn': 'Zaloguj się',
