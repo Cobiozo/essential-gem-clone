@@ -11,12 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Bell, Settings, Route, Clock, Activity, Plus, Trash2, Save, Mail, Edit2, Palette } from 'lucide-react';
+import { Bell, Settings, Route, Clock, Activity, Plus, Trash2, Save, Mail, Edit2, Palette, History, Search, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import * as icons from 'lucide-react';
 import type { NotificationEventType, NotificationRoleRoute, NotificationLimit } from '@/types/notifications';
 import { MODULE_NAMES, ROLE_NAMES } from '@/types/notifications';
 import { IconPicker } from '@/components/cms/IconPicker';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 const ROLES = ['admin', 'partner', 'specjalista', 'client'];
 
@@ -67,6 +70,32 @@ const defaultEventForm: EventFormData = {
   email_template_id: null,
 };
 
+interface EmailLogEntry {
+  id: string;
+  recipient_email: string;
+  recipient_user_id: string | null;
+  subject: string;
+  status: string;
+  error_message: string | null;
+  sent_at: string | null;
+  created_at: string;
+  metadata: Record<string, any> | null;
+  template_name?: string;
+  user_name?: string;
+}
+
+interface NotificationLogEntry {
+  id: string;
+  user_id: string;
+  notification_type: string;
+  source_module: string | null;
+  title: string;
+  message: string | null;
+  is_read: boolean;
+  created_at: string;
+  user_name?: string;
+}
+
 export const NotificationSystemManagement = () => {
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
   const [roleRoutes, setRoleRoutes] = useState<NotificationRoleRoute[]>([]);
@@ -80,6 +109,18 @@ export const NotificationSystemManagement = () => {
   const [editingEventType, setEditingEventType] = useState<NotificationEventType | null>(null);
   const [eventForm, setEventForm] = useState<EventFormData>(defaultEventForm);
   const [saving, setSaving] = useState(false);
+
+  // History tab state
+  const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
+  const [notificationLogs, setNotificationLogs] = useState<NotificationLogEntry[]>([]);
+  const [historyTab, setHistoryTab] = useState<'emails' | 'notifications'>('emails');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFilters, setHistoryFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    status: 'all',
+    search: ''
+  });
 
   useEffect(() => {
     fetchData();
@@ -104,6 +145,109 @@ export const NotificationSystemManagement = () => {
       toast.error('Błąd podczas ładowania danych');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      // Build query for email logs
+      let emailQuery = supabase
+        .from('email_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (historyFilters.dateFrom) {
+        emailQuery = emailQuery.gte('created_at', historyFilters.dateFrom);
+      }
+      if (historyFilters.dateTo) {
+        emailQuery = emailQuery.lte('created_at', historyFilters.dateTo + 'T23:59:59');
+      }
+      if (historyFilters.status !== 'all') {
+        emailQuery = emailQuery.eq('status', historyFilters.status);
+      }
+      if (historyFilters.search) {
+        emailQuery = emailQuery.or(`recipient_email.ilike.%${historyFilters.search}%,subject.ilike.%${historyFilters.search}%`);
+      }
+
+      const { data: emailData, error: emailError } = await emailQuery;
+      
+      if (emailError) throw emailError;
+
+      // Fetch user names and template names for emails
+      const userIds = [...new Set((emailData || []).filter(e => e.recipient_user_id).map(e => e.recipient_user_id))];
+      const templateIds = [...new Set((emailData || []).filter(e => e.template_id).map(e => e.template_id))];
+
+      const [profilesRes, templatesRes] = await Promise.all([
+        userIds.length > 0 
+          ? supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', userIds)
+          : { data: [] },
+        templateIds.length > 0
+          ? supabase.from('email_templates').select('id, name').in('id', templateIds)
+          : { data: [] }
+      ]);
+
+      const profilesMap = new Map((profilesRes.data || []).map(p => [p.user_id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
+      const templatesMap = new Map((templatesRes.data || []).map(t => [t.id, t.name]));
+
+      const enrichedEmails: EmailLogEntry[] = (emailData || []).map(e => ({
+        id: e.id,
+        recipient_email: e.recipient_email,
+        recipient_user_id: e.recipient_user_id,
+        subject: e.subject,
+        status: e.status,
+        error_message: e.error_message,
+        sent_at: e.sent_at,
+        created_at: e.created_at,
+        metadata: typeof e.metadata === 'object' && e.metadata !== null ? e.metadata as Record<string, any> : null,
+        user_name: e.recipient_user_id ? profilesMap.get(e.recipient_user_id) || 'Nieznany' : 'Brak',
+        template_name: e.template_id ? templatesMap.get(e.template_id) || 'Brak' : 'Brak'
+      }));
+
+      setEmailLogs(enrichedEmails);
+
+      // Build query for notification logs
+      let notificationQuery = supabase
+        .from('user_notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (historyFilters.dateFrom) {
+        notificationQuery = notificationQuery.gte('created_at', historyFilters.dateFrom);
+      }
+      if (historyFilters.dateTo) {
+        notificationQuery = notificationQuery.lte('created_at', historyFilters.dateTo + 'T23:59:59');
+      }
+      if (historyFilters.search) {
+        notificationQuery = notificationQuery.or(`title.ilike.%${historyFilters.search}%,message.ilike.%${historyFilters.search}%`);
+      }
+
+      const { data: notificationData, error: notificationError } = await notificationQuery;
+      
+      if (notificationError) throw notificationError;
+
+      // Fetch user names for notifications
+      const notifUserIds = [...new Set((notificationData || []).map(n => n.user_id))];
+      const { data: notifProfiles } = notifUserIds.length > 0
+        ? await supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', notifUserIds)
+        : { data: [] };
+
+      const notifProfilesMap = new Map((notifProfiles || []).map(p => [p.user_id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
+
+      const enrichedNotifications: NotificationLogEntry[] = (notificationData || []).map(n => ({
+        ...n,
+        user_name: notifProfilesMap.get(n.user_id) || 'Nieznany'
+      }));
+
+      setNotificationLogs(enrichedNotifications);
+      
+    } catch (error) {
+      console.error('Error fetching history:', error);
+      toast.error('Błąd podczas ładowania historii');
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -395,10 +539,11 @@ export const NotificationSystemManagement = () => {
       </div>
 
       <Tabs defaultValue="events" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="events" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
-            Typy zdarzeń
+            <span className="hidden sm:inline">Typy zdarzeń</span>
+            <span className="sm:hidden">Zdarzenia</span>
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
@@ -406,11 +551,16 @@ export const NotificationSystemManagement = () => {
           </TabsTrigger>
           <TabsTrigger value="routing" className="flex items-center gap-2">
             <Route className="h-4 w-4" />
-            Routing ról
+            <span className="hidden sm:inline">Routing ról</span>
+            <span className="sm:hidden">Routing</span>
           </TabsTrigger>
           <TabsTrigger value="limits" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Limity
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2" onClick={() => fetchHistory()}>
+            <History className="h-4 w-4" />
+            Historia
           </TabsTrigger>
         </TabsList>
 
@@ -700,6 +850,216 @@ export const NotificationSystemManagement = () => {
               );
             })}
           </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  Historia wysyłek i powiadomień
+                </CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchHistory}
+                  disabled={historyLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${historyLoading ? 'animate-spin' : ''}`} />
+                  Odśwież
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex flex-wrap gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Od:</Label>
+                  <Input
+                    type="date"
+                    value={historyFilters.dateFrom}
+                    onChange={(e) => setHistoryFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                    className="w-40"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Do:</Label>
+                  <Input
+                    type="date"
+                    value={historyFilters.dateTo}
+                    onChange={(e) => setHistoryFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                    className="w-40"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Status:</Label>
+                  <Select 
+                    value={historyFilters.status} 
+                    onValueChange={(value) => setHistoryFilters(prev => ({ ...prev, status: value }))}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie</SelectItem>
+                      <SelectItem value="sent">Wysłane</SelectItem>
+                      <SelectItem value="error">Błędne</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 flex-1 min-w-48">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Szukaj (email, temat, tytuł)..."
+                    value={historyFilters.search}
+                    onChange={(e) => setHistoryFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="flex-1"
+                  />
+                </div>
+                <Button onClick={fetchHistory} disabled={historyLoading}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Filtruj
+                </Button>
+              </div>
+
+              {/* Sub-tabs */}
+              <Tabs value={historyTab} onValueChange={(v) => setHistoryTab(v as 'emails' | 'notifications')}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="emails" className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Wysłane emaile ({emailLogs.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="notifications" className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Powiadomienia ({notificationLogs.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="emails">
+                  {historyLoading ? (
+                    <div className="flex items-center justify-center p-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : emailLogs.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground">
+                      <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Brak emaili do wyświetlenia. Kliknij "Filtruj" lub "Odśwież".</p>
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-auto max-h-[500px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="sticky top-0 bg-background">Data</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Odbiorca</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Email</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Temat</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Szablon</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {emailLogs.map(log => (
+                            <TableRow key={log.id}>
+                              <TableCell className="whitespace-nowrap text-sm">
+                                {format(new Date(log.sent_at || log.created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                              </TableCell>
+                              <TableCell className="text-sm">{log.user_name}</TableCell>
+                              <TableCell className="text-sm font-mono text-xs">{log.recipient_email}</TableCell>
+                              <TableCell className="text-sm max-w-48 truncate" title={log.subject}>
+                                {log.subject}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                <Badge variant="outline" className="text-xs">
+                                  {log.template_name}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {log.status === 'sent' ? (
+                                  <Badge className="bg-green-500/20 text-green-700 border-green-500/30">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Wysłany
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive" className="flex items-center gap-1" title={log.error_message || 'Błąd'}>
+                                    <XCircle className="h-3 w-3" />
+                                    Błąd
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="notifications">
+                  {historyLoading ? (
+                    <div className="flex items-center justify-center p-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : notificationLogs.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground">
+                      <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Brak powiadomień do wyświetlenia. Kliknij "Filtruj" lub "Odśwież".</p>
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-auto max-h-[500px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="sticky top-0 bg-background">Data</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Użytkownik</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Typ</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Tytuł</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Treść</TableHead>
+                            <TableHead className="sticky top-0 bg-background">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {notificationLogs.map(log => (
+                            <TableRow key={log.id}>
+                              <TableCell className="whitespace-nowrap text-sm">
+                                {format(new Date(log.created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                              </TableCell>
+                              <TableCell className="text-sm">{log.user_name}</TableCell>
+                              <TableCell className="text-sm">
+                                <Badge variant="outline" className="text-xs">
+                                  {log.notification_type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm max-w-40 truncate" title={log.title}>
+                                {log.title}
+                              </TableCell>
+                              <TableCell className="text-sm max-w-48 truncate" title={log.message || ''}>
+                                {log.message || '-'}
+                              </TableCell>
+                              <TableCell>
+                                {log.is_read ? (
+                                  <Badge variant="secondary" className="flex items-center gap-1">
+                                    <Eye className="h-3 w-3" />
+                                    Przeczytane
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 flex items-center gap-1">
+                                    <EyeOff className="h-3 w-3" />
+                                    Nieprzeczytane
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

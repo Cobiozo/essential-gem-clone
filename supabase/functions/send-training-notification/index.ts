@@ -234,8 +234,10 @@ serve(async (req) => {
       throw new Error("Email template 'training_assigned' not found");
     }
 
-    // Training URL
-    const trainingUrl = `${supabaseUrl.replace('/rest/v1', '')}/training/${moduleId}`;
+    // Training URL - use origin from request or fallback to production URL
+    const requestOrigin = req.headers.get("origin");
+    const baseUrl = requestOrigin || "https://niezbednik.purelifepartner.pl";
+    const trainingUrl = `${baseUrl}/training/${moduleId}`;
 
     // Build variables
     const variables: Record<string, string> = {
