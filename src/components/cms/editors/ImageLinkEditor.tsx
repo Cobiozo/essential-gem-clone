@@ -187,7 +187,7 @@ export const ImageLinkEditor: React.FC<ImageLinkEditorProps> = ({ item, onSave, 
 
         <TabsContent value="resource" className="mt-4">
           <div>
-            <Label>Wybierz zasób z Centrum Zasobów</Label>
+            <Label>Wybierz zasób z Biblioteki</Label>
             <Select
               value={formData.resource_id}
               onValueChange={(v) => setFormData(prev => ({ ...prev, resource_id: v }))}

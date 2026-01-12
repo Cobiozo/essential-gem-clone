@@ -65,7 +65,7 @@ export const ModuleResourcesSelector: React.FC<ModuleResourcesSelectorProps> = (
 
   return (
     <div className="space-y-4">
-      <Label className="text-base font-semibold">Powiązane zasoby z Centrum Zasobów</Label>
+      <Label className="text-base font-semibold">Powiązane zasoby z Biblioteki</Label>
       
       {/* Selected resources */}
       {selectedResources.length > 0 && (
