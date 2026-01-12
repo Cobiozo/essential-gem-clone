@@ -1562,6 +1562,157 @@ export type Database = {
         }
         Relationships: []
       }
+      event_registrations: {
+        Row: {
+          cancelled_at: string | null
+          event_id: string
+          id: string
+          registered_at: string | null
+          reminder_sent: boolean | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          event_id: string
+          id?: string
+          registered_at?: string | null
+          reminder_sent?: boolean | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          event_id?: string
+          id?: string
+          registered_at?: string | null
+          reminder_sent?: boolean | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          buttons: Json | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          end_time: string
+          event_type: string
+          host_user_id: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          location: string | null
+          max_participants: number | null
+          meeting_topic_id: string | null
+          requires_registration: boolean | null
+          start_time: string
+          timezone: string | null
+          title: string
+          updated_at: string | null
+          visible_to_clients: boolean | null
+          visible_to_everyone: boolean | null
+          visible_to_partners: boolean | null
+          visible_to_specjalista: boolean | null
+          zoom_link: string | null
+        }
+        Insert: {
+          buttons?: Json | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          end_time: string
+          event_type?: string
+          host_user_id?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          location?: string | null
+          max_participants?: number | null
+          meeting_topic_id?: string | null
+          requires_registration?: boolean | null
+          start_time: string
+          timezone?: string | null
+          title: string
+          updated_at?: string | null
+          visible_to_clients?: boolean | null
+          visible_to_everyone?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+          zoom_link?: string | null
+        }
+        Update: {
+          buttons?: Json | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          end_time?: string
+          event_type?: string
+          host_user_id?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          location?: string | null
+          max_participants?: number | null
+          meeting_topic_id?: string | null
+          requires_registration?: boolean | null
+          start_time?: string
+          timezone?: string | null
+          title?: string
+          updated_at?: string | null
+          visible_to_clients?: boolean | null
+          visible_to_everyone?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+          zoom_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_meeting_topic_id_fkey"
+            columns: ["meeting_topic_id"]
+            isOneToOne: false
+            referencedRelation: "leader_meeting_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          reminder_hours_before: number | null
+          send_email_reminders: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          reminder_hours_before?: number | null
+          send_email_reminders?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          reminder_hours_before?: number | null
+          send_email_reminders?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       feature_visibility: {
         Row: {
           created_at: string
@@ -1873,6 +2024,111 @@ export type Database = {
           visible_to_partners?: boolean
           visible_to_specjalista?: boolean
           work_stage?: string | null
+        }
+        Relationships: []
+      }
+      leader_availability: {
+        Row: {
+          created_at: string | null
+          day_of_week: number | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          leader_user_id: string
+          max_bookings_per_slot: number | null
+          slot_duration_minutes: number | null
+          specific_date: string | null
+          start_time: string
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week?: number | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          leader_user_id: string
+          max_bookings_per_slot?: number | null
+          slot_duration_minutes?: number | null
+          specific_date?: string | null
+          start_time: string
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          leader_user_id?: string
+          max_bookings_per_slot?: number | null
+          slot_duration_minutes?: number | null
+          specific_date?: string | null
+          start_time?: string
+        }
+        Relationships: []
+      }
+      leader_meeting_topics: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean | null
+          leader_user_id: string
+          sort_order: number | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          leader_user_id: string
+          sort_order?: number | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          leader_user_id?: string
+          sort_order?: number | null
+          title?: string
+        }
+        Relationships: []
+      }
+      leader_permissions: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          can_host_private_meetings: boolean | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+          zoom_link: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          can_host_private_meetings?: boolean | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+          zoom_link?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          can_host_private_meetings?: boolean | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+          zoom_link?: string | null
         }
         Relationships: []
       }
@@ -3782,7 +4038,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_leader: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      is_current_user_leader: { Args: never; Returns: boolean }
       is_role_update: {
         Args: { new_role: string; user_id_param: string }
         Returns: boolean
