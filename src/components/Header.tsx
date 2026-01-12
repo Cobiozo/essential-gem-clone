@@ -134,10 +134,10 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
       if (reflink.link_type === 'clipboard') {
         const content = reflink.clipboard_content || '';
         if (!content) {
-          toast({ title: 'Błąd', description: 'Brak treści do skopiowania', variant: 'destructive' });
+          toast({ title: t('toast.error'), description: t('header.noContentToCopy'), variant: 'destructive' });
           return;
         }
-        description = 'Treść została skopiowana do schowka';
+        description = t('header.contentCopied');
         
         try {
           const htmlBlob = new Blob([content], { type: 'text/html' });
@@ -152,15 +152,15 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
         }
       } else {
         const textToCopy = getFullLink(reflink);
-        description = 'Link został skopiowany do schowka';
+        description = t('header.linkCopied');
         await navigator.clipboard.writeText(textToCopy);
       }
       
       setCopiedId(reflink.id);
-      toast({ title: 'Skopiowano!', description });
+      toast({ title: t('toast.copied'), description });
       setTimeout(() => setCopiedId(null), 2000);
     } catch (error) {
-      toast({ title: 'Błąd kopiowania', description: 'Nie udało się skopiować do schowka', variant: 'destructive' });
+      toast({ title: t('toast.copyError'), description: t('header.copyFailed'), variant: 'destructive' });
     }
   };
 
@@ -173,10 +173,14 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
     navigate('/dashboard');
   };
 
-  const roleLabels: Record<string, string> = {
-    klient: 'Klient',
-    partner: 'Partner',
-    specjalista: 'Specjalista',
+  const getRoleLabel = (role: string): string => {
+    const roleKeys: Record<string, string> = {
+      klient: 'role.client',
+      client: 'role.client',
+      partner: 'role.partner',
+      specjalista: 'role.specjalista',
+    };
+    return t(roleKeys[role] || role);
   };
 
   const groupedReflinks = reflinks.reduce((acc, reflink) => {
@@ -246,13 +250,13 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger className="cursor-pointer">
                         <Link2 className="w-4 h-4 mr-2" />
-                        InfoLinki
+                        {t('nav.infoLinks')}
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="bg-background border border-border">
                         {Object.entries(groupedReflinks).map(([role, roleReflinks]) => (
                           <React.Fragment key={role}>
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                              {roleLabels[role] || role}
+                              {getRoleLabel(role)}
                             </div>
                             {roleReflinks.map(reflink => (
                               <DropdownMenuItem 
