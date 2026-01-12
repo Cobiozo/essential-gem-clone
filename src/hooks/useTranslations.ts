@@ -275,25 +275,47 @@ export const getTranslation = (
 ): string | null => {
   if (!translationsCache) return null;
   
-  const langCache = translationsCache[languageCode];
-  if (langCache) {
-    // Search for key across all namespaces (prioritize 'common')
+  const searchInLang = (langCache: { [ns: string]: { [key: string]: string } }): string | null => {
+    // Strategy 1: Parse fullKey as "namespace.key" (e.g., 'auth.signIn' -> namespace='auth', key='signIn')
+    const [maybeNamespace, ...keyParts] = fullKey.split('.');
+    if (keyParts.length > 0) {
+      const key = keyParts.join('.');
+      const value = langCache[maybeNamespace]?.[key];
+      if (value) return value;
+    }
+    
+    // Strategy 2: Search fullKey directly across all namespaces (for keys stored as full strings)
     const namespaces = ['common', ...Object.keys(langCache).filter(n => n !== 'common')];
     for (const namespace of namespaces) {
       const value = langCache[namespace]?.[fullKey];
       if (value) return value;
     }
+    
+    // Strategy 3: Search just the last part of the key as fallback
+    if (keyParts.length > 0) {
+      const lastKeyPart = keyParts[keyParts.length - 1];
+      for (const namespace of namespaces) {
+        const value = langCache[namespace]?.[lastKeyPart];
+        if (value) return value;
+      }
+    }
+    
+    return null;
+  };
+  
+  // Search in requested language
+  const langCache = translationsCache[languageCode];
+  if (langCache) {
+    const value = searchInLang(langCache);
+    if (value) return value;
   }
   
   // Fallback to default language
   if (languageCode !== defaultLanguageCode) {
     const defaultCache = translationsCache[defaultLanguageCode];
     if (defaultCache) {
-      const namespaces = ['common', ...Object.keys(defaultCache).filter(n => n !== 'common')];
-      for (const namespace of namespaces) {
-        const value = defaultCache[namespace]?.[fullKey];
-        if (value) return value;
-      }
+      const value = searchInLang(defaultCache);
+      if (value) return value;
     }
   }
   
