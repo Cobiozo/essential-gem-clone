@@ -168,7 +168,12 @@ export const DashboardSidebar: React.FC = () => {
           return false;
         }).filter(item => item.url); // Ensure url exists
 
-        setCommunityLinks(filteredCommunity as Array<{id: string; title: string; url: string}>);
+        // Deduplicate by URL - keep first occurrence
+        const uniqueCommunity = filteredCommunity.filter((item, index, self) =>
+          index === self.findIndex(t => t.url === item.url)
+        );
+
+        setCommunityLinks(uniqueCommunity as Array<{id: string; title: string; url: string}>);
       }
     };
 
@@ -177,10 +182,19 @@ export const DashboardSidebar: React.FC = () => {
     }
   }, [userRole]);
 
+  // Format label to title case for consistent styling
+  const formatLabel = (text: string): string => {
+    return text
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Build dynamic submenu items for InfoLinki
   const infoLinksSubmenuItems: SubMenuItem[] = infoLinks.map(link => ({
     id: link.id,
-    labelKey: link.title,
+    labelKey: formatLabel(link.title),
     path: link.link_url || '#',
     isExternal: !!link.link_url,
     clipboardContent: link.clipboard_content,
@@ -193,7 +207,7 @@ export const DashboardSidebar: React.FC = () => {
     const platform = detectPlatform(link.title, link.url);
     return {
       id: link.id,
-      labelKey: link.title,
+      labelKey: formatLabel(link.title),
       path: link.url,
       isExternal: true,
       isDynamic: true,
@@ -430,10 +444,13 @@ export const DashboardSidebar: React.FC = () => {
                           <SidebarMenuSubButton
                             onClick={() => handleSubmenuClick(subItem)}
                             isActive={isSubmenuActive(subItem)}
-                            className="cursor-pointer"
+                            className="cursor-pointer h-auto min-h-8 py-1.5"
+                            title={subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
                           >
-                            {subItem.icon && <subItem.icon className="h-4 w-4 mr-2" />}
-                            {subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
+                            {subItem.icon && <subItem.icon className="h-4 w-4 shrink-0" />}
+                            <span className="whitespace-normal break-words leading-tight text-left">
+                              {subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
+                            </span>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
