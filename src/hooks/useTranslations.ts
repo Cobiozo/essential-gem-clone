@@ -51,24 +51,51 @@ let cacheLoading = false;
 let cacheListeners: (() => void)[] = [];
 let loadedLanguages: Set<string> = new Set(); // Track which languages are loaded
 
+// Cache version - increment this when translation structure changes to force refresh
+const CACHE_VERSION = 3;
+
 // localStorage cache with 5-minute TTL (optimization)
 const LS_CACHE_KEY = 'i18n_translations_cache';
+const LS_CACHE_VERSION_KEY = 'i18n_cache_version';
 const LS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 interface LSCacheEntry {
   data: I18nTranslation[];
   timestamp: number;
+  version: number;
 }
+
+// Check and clear cache if version mismatch
+const checkCacheVersion = (): void => {
+  try {
+    const storedVersion = localStorage.getItem(LS_CACHE_VERSION_KEY);
+    if (!storedVersion || parseInt(storedVersion) !== CACHE_VERSION) {
+      console.log(`Cache version mismatch (stored: ${storedVersion}, current: ${CACHE_VERSION}). Clearing cache...`);
+      // Clear all translation caches
+      const keys = Object.keys(localStorage).filter(k => k.startsWith(LS_CACHE_KEY));
+      keys.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(LS_CACHE_VERSION_KEY, String(CACHE_VERSION));
+    }
+  } catch (e) {
+    console.warn('Failed to check cache version:', e);
+  }
+};
+
+// Run version check on module load
+checkCacheVersion();
 
 const getLocalStorageCache = (langCode: string): I18nTranslation[] | null => {
   try {
     const cached = localStorage.getItem(`${LS_CACHE_KEY}_${langCode}`);
     if (cached) {
-      const { data, timestamp }: LSCacheEntry = JSON.parse(cached);
-      if (Date.now() - timestamp < LS_CACHE_TTL) {
+      const { data, timestamp, version }: LSCacheEntry = JSON.parse(cached);
+      // Check both version AND TTL
+      if (version === CACHE_VERSION && Date.now() - timestamp < LS_CACHE_TTL) {
         console.log(`Using localStorage cache for translations: ${langCode}`);
         return data;
       }
+      // Clear outdated cache
+      localStorage.removeItem(`${LS_CACHE_KEY}_${langCode}`);
     }
   } catch (e) {
     console.warn('Failed to read localStorage translation cache:', e);
@@ -80,7 +107,8 @@ const setLocalStorageCache = (langCode: string, data: I18nTranslation[]): void =
   try {
     localStorage.setItem(`${LS_CACHE_KEY}_${langCode}`, JSON.stringify({
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      version: CACHE_VERSION
     }));
   } catch (e) {
     console.warn('Failed to save localStorage translation cache:', e);
