@@ -1,0 +1,221 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar, ChevronLeft, ChevronRight, Video, Users, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useEvents } from '@/hooks/useEvents';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
+import { pl, enUS } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import type { EventWithRegistration } from '@/types/events';
+
+export const CalendarWidget: React.FC = () => {
+  const { t, language } = useLanguage();
+  const { events, loading, registerForEvent } = useEvents();
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<EventWithRegistration[]>([]);
+
+  const locale = language === 'pl' ? pl : enUS;
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Get events for the current month
+  const getEventsForDay = (day: Date) => {
+    return events.filter(event => 
+      isSameDay(new Date(event.start_time), day)
+    );
+  };
+
+  // Get event type color
+  const getEventColor = (type: string) => {
+    switch (type) {
+      case 'webinar':
+        return 'bg-blue-500';
+      case 'meeting_public':
+        return 'bg-green-500';
+      case 'meeting_private':
+        return 'bg-purple-500';
+      default:
+        return 'bg-primary';
+    }
+  };
+
+  // Handle day click
+  const handleDayClick = (day: Date) => {
+    setSelectedDate(day);
+    setSelectedDayEvents(getEventsForDay(day));
+  };
+
+  // Get weekday headers
+  const weekDays = language === 'pl' 
+    ? ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb', 'Nd']
+    : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+  // Adjust days array to start from Monday
+  const getAdjustedDayOfWeek = (date: Date) => {
+    const day = date.getDay();
+    return day === 0 ? 6 : day - 1; // Convert Sunday (0) to 6, Monday (1) to 0, etc.
+  };
+
+  const firstDayOffset = getAdjustedDayOfWeek(monthStart);
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-primary" />
+          {t('events.title') || 'Webinary i spotkania'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Month navigation */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-medium text-sm">
+            {format(currentMonth, 'LLLL yyyy', { locale })}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {/* Weekday headers */}
+          {weekDays.map(day => (
+            <div key={day} className="text-center text-xs text-muted-foreground font-medium py-1">
+              {day}
+            </div>
+          ))}
+
+          {/* Empty cells for offset */}
+          {Array.from({ length: firstDayOffset }).map((_, i) => (
+            <div key={`empty-${i}`} className="h-8" />
+          ))}
+
+          {/* Calendar days */}
+          {days.map(day => {
+            const dayEvents = getEventsForDay(day);
+            const hasEvents = dayEvents.length > 0;
+            const isSelected = selectedDate && isSameDay(day, selectedDate);
+            const today = isToday(day);
+
+            return (
+              <button
+                key={day.toISOString()}
+                onClick={() => handleDayClick(day)}
+                className={cn(
+                  "h-8 w-full rounded-md text-sm relative flex flex-col items-center justify-center transition-colors",
+                  !isSameMonth(day, currentMonth) && "text-muted-foreground opacity-50",
+                  today && "bg-accent text-accent-foreground font-semibold",
+                  isSelected && "ring-2 ring-primary",
+                  hasEvents && "cursor-pointer hover:bg-muted",
+                  !hasEvents && "hover:bg-muted/50"
+                )}
+              >
+                <span>{format(day, 'd')}</span>
+                {hasEvents && (
+                  <div className="absolute bottom-0.5 flex gap-0.5">
+                    {dayEvents.slice(0, 3).map((event, i) => (
+                      <div
+                        key={i}
+                        className={cn("w-1.5 h-1.5 rounded-full", getEventColor(event.event_type))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-3 pt-2 border-t">
+          <div className="flex items-center gap-1.5 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <span className="text-muted-foreground">{t('events.legendWebinar') || 'Webinar'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span className="text-muted-foreground">{t('events.legendMeeting') || 'Spotkanie'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+            <span className="text-muted-foreground">{t('events.legendPrivate') || 'Prywatne'}</span>
+          </div>
+        </div>
+
+        {/* Selected day events */}
+        {selectedDate && (
+          <div className="space-y-2 pt-2 border-t">
+            <h4 className="text-sm font-medium">
+              {format(selectedDate, 'd MMMM', { locale })}
+            </h4>
+            {selectedDayEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {t('events.noUpcoming') || 'Brak wydarzeń'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {selectedDayEvents.map(event => (
+                  <div
+                    key={event.id}
+                    className="p-2 rounded-md bg-muted/50 space-y-1"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {event.event_type === 'webinar' && <Video className="h-3.5 w-3.5 text-blue-500" />}
+                        {event.event_type === 'meeting_public' && <Users className="h-3.5 w-3.5 text-green-500" />}
+                        {event.event_type === 'meeting_private' && <User className="h-3.5 w-3.5 text-purple-500" />}
+                        <span className="text-sm font-medium line-clamp-1">{event.title}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(event.start_time), 'HH:mm')}
+                      </span>
+                      {event.is_registered ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {t('events.registered') || 'Zapisano'}
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs"
+                          onClick={() => registerForEvent(event.id)}
+                        >
+                          {t('events.registerButton') || 'Zapisz się'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-center text-sm text-muted-foreground py-4">
+            Ładowanie...
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
