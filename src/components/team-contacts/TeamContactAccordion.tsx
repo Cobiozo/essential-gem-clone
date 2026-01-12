@@ -18,6 +18,7 @@ import {
 import type { TeamContact, TeamContactHistory } from './types';
 import { UplineHelpButton } from './UplineHelpButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TeamContactAccordionProps {
   contacts: TeamContact[];
@@ -42,6 +43,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   contactType,
   onUpdateNotes,
 }) => {
+  const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
@@ -65,13 +67,13 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   };
 
   const getRoleBadge = (role: string) => {
-    const roleConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-      client: { label: 'Klient', variant: 'secondary' },
-      partner: { label: 'Partner', variant: 'outline' },
-      specjalista: { label: 'Specjalista', variant: 'default' },
+    const roleConfig: Record<string, { labelKey: string; variant: 'default' | 'secondary' | 'outline' }> = {
+      client: { labelKey: 'teamContacts.roles.client', variant: 'secondary' },
+      partner: { labelKey: 'teamContacts.roles.partner', variant: 'outline' },
+      specjalista: { labelKey: 'teamContacts.roles.specjalista', variant: 'default' },
     };
-    const config = roleConfig[role] || { label: role, variant: 'secondary' as const };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    const config = roleConfig[role] || { labelKey: role, variant: 'secondary' as const };
+    return <Badge variant={config.variant}>{t(config.labelKey)}</Badge>;
   };
 
   const getStatusBadge = (contact: TeamContact, isTeamMember: boolean) => {
@@ -80,20 +82,20 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
       return null;
     }
     
-    const statusLabels: Record<string, { label: string; className: string }> = {
-      active: { label: 'Klient', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-      observation: { label: 'Obserwacja', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
-      potential_partner: { label: 'Pot. partner', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-      potential_specialist: { label: 'Pot. specjalista', className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
-      suspended: { label: 'Wstrzymany', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      closed_success: { label: 'Sukces', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
-      closed_not_now: { label: 'Nie teraz', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+    const statusLabels: Record<string, { labelKey: string; className: string }> = {
+      active: { labelKey: 'teamContacts.status.active', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+      observation: { labelKey: 'teamContacts.status.observation', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+      potential_partner: { labelKey: 'teamContacts.status.potentialPartner', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+      potential_specialist: { labelKey: 'teamContacts.status.potentialSpecialist', className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
+      suspended: { labelKey: 'teamContacts.status.suspended', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
+      closed_success: { labelKey: 'teamContacts.status.closedSuccess', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
+      closed_not_now: { labelKey: 'teamContacts.status.closedNotNow', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
     };
     
     if (contact.relationship_status) {
       const status = statusLabels[contact.relationship_status];
       if (status) {
-        return <Badge className={status.className}>{status.label}</Badge>;
+        return <Badge className={status.className}>{t(status.labelKey)}</Badge>;
       }
     }
     return null;
@@ -109,7 +111,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     if (contact.linked_guardian_approved === true && contact.linked_admin_approved === true) {
       return (
         <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-          Aktywny
+          {t('teamContacts.approvalStatus.active')}
         </Badge>
       );
     }
@@ -118,7 +120,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     if (contact.linked_guardian_approved === true && contact.linked_admin_approved !== true) {
       return (
         <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-          Oczekuje na zatwierdzenie przez administratora
+          {t('teamContacts.approvalStatus.awaitingAdmin')}
         </Badge>
       );
     }
@@ -127,7 +129,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     if (contact.linked_guardian_approved !== true) {
       return (
         <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-          Oczekuje na zatwierdzenie przez opiekuna
+          {t('teamContacts.approvalStatus.awaitingGuardian')}
         </Badge>
       );
     }
@@ -135,7 +137,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     // Fallback
     return (
       <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-        Nieaktywny
+        {t('teamContacts.approvalStatus.inactive')}
       </Badge>
     );
   };
@@ -154,7 +156,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Brak kontaktów. Dodaj pierwszy kontakt.</p>
+        <p>{t('teamContacts.noContacts')}</p>
       </div>
     );
   }
@@ -207,7 +209,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           e.stopPropagation();
                           setHistoryContact(contact);
                         }}
-                        title="Historia"
+                        title={t('common.history')}
                       >
                         <History className="w-4 h-4" />
                       </Button>
@@ -218,7 +220,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           e.stopPropagation();
                           onEdit(contact);
                         }}
-                        title="Edytuj"
+                        title={t('common.edit')}
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -229,7 +231,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           e.stopPropagation();
                           setDeleteConfirm(contact.id);
                         }}
-                        title="Usuń"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -252,14 +254,14 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                     {/* Kontakt */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Phone className="w-4 h-4" /> Kontakt
+                        <Phone className="w-4 h-4" /> {t('teamContacts.contactInfo')}
                       </h4>
                       <div className="space-y-1 text-sm">
                         {contact.phone_number && (
-                          <p><span className="text-muted-foreground">Tel:</span> {contact.phone_number}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.phone')}:</span> {contact.phone_number}</p>
                         )}
                         {contact.email && (
-                          <p><span className="text-muted-foreground">Email:</span> {contact.email}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.email')}:</span> {contact.email}</p>
                         )}
                         {contact.address && (
                           <p className="flex items-start gap-1">
@@ -268,7 +270,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           </p>
                         )}
                         {contact.profession && (
-                          <p><span className="text-muted-foreground">Zawód:</span> {contact.profession}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.profession')}:</span> {contact.profession}</p>
                         )}
                       </div>
                     </div>
@@ -276,13 +278,13 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                     {/* Struktura */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Users className="w-4 h-4" /> Struktura
+                        <Users className="w-4 h-4" /> {t('teamContacts.structure')}
                       </h4>
                       <div className="space-y-1 text-sm">
-                        <p><span className="text-muted-foreground">Data dołączenia:</span> {formatDate(contact.added_at)}</p>
+                        <p><span className="text-muted-foreground">{t('teamContacts.addedOn')}:</span> {formatDate(contact.added_at)}</p>
                         {contact.contact_upline_first_name && (
                           <p>
-                            <span className="text-muted-foreground">Upline:</span>{' '}
+                            <span className="text-muted-foreground">{t('teamContacts.upline')}:</span>{' '}
                             {contact.contact_upline_first_name} {contact.contact_upline_last_name}
                             {contact.contact_upline_eq_id && (
                               <span className="font-mono text-xs ml-1">({contact.contact_upline_eq_id})</span>
@@ -290,10 +292,10 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           </p>
                         )}
                         {contact.start_date && (
-                          <p><span className="text-muted-foreground">Start współpracy:</span> {formatDate(contact.start_date)}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.startDate')}:</span> {formatDate(contact.start_date)}</p>
                         )}
                         {contact.collaboration_level && (
-                          <p><span className="text-muted-foreground">Poziom:</span> {contact.collaboration_level}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.level')}:</span> {contact.collaboration_level}</p>
                         )}
                       </div>
                     </div>
@@ -302,17 +304,17 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                     {contactType !== 'team_member' && (
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                          <Package className="w-4 h-4" /> Produkty
+                          <Package className="w-4 h-4" /> {t('teamContacts.products')}
                         </h4>
                         <div className="space-y-1 text-sm">
                           {contact.products && (
-                            <p><span className="text-muted-foreground">Produkty:</span> {contact.products}</p>
+                            <p><span className="text-muted-foreground">{t('teamContacts.products')}:</span> {contact.products}</p>
                           )}
                           {contact.purchased_product && (
-                            <p><span className="text-muted-foreground">Zakupiony:</span> {contact.purchased_product}</p>
+                            <p><span className="text-muted-foreground">{t('teamContacts.purchased')}:</span> {contact.purchased_product}</p>
                           )}
                           {contact.purchase_date && (
-                            <p><span className="text-muted-foreground">Data zakupu:</span> {formatDate(contact.purchase_date)}</p>
+                            <p><span className="text-muted-foreground">{t('teamContacts.purchaseDate')}:</span> {formatDate(contact.purchase_date)}</p>
                           )}
                         </div>
                       </div>
@@ -321,14 +323,14 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                     {/* Przypomnienia */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Bell className="w-4 h-4" /> Przypomnienia
+                        <Bell className="w-4 h-4" /> {t('teamContacts.reminders')}
                       </h4>
                       <div className="space-y-1 text-sm">
                         {contact.next_contact_date && (
-                          <p><span className="text-muted-foreground">Następny kontakt:</span> {formatDate(contact.next_contact_date)}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.nextContact')}:</span> {formatDate(contact.next_contact_date)}</p>
                         )}
                         {contact.reminder_date && (
-                          <p><span className="text-muted-foreground">Przypomnienie:</span> {formatDate(contact.reminder_date)}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.reminder')}:</span> {formatDate(contact.reminder_date)}</p>
                         )}
                         {contact.reminder_note && (
                           <p className="text-muted-foreground italic">{contact.reminder_note}</p>
@@ -339,13 +341,13 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                     {/* Notatki - edytowalne dla team_member */}
                     <div className="space-y-2 md:col-span-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        <Calendar className="w-4 h-4" /> Notatki
+                        <Calendar className="w-4 h-4" /> {t('teamContacts.notes')}
                       </h4>
                       
                       {/* Status konta - tylko dla team_member */}
                       {contactType === 'team_member' && (
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm text-muted-foreground">Status konta:</span>
+                          <span className="text-sm text-muted-foreground">{t('teamContacts.accountStatus')}:</span>
                           {getApprovalStatusBadge(contact)}
                         </div>
                       )}
@@ -361,7 +363,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                                 setNotesValue(contact.notes || '');
                               }
                             }}
-                            placeholder="Dodaj notatki o członku zespołu..."
+                            placeholder={t('teamContacts.addNotesPlaceholder')}
                             className="min-h-[80px]"
                           />
                           {editingNotesId === contact.id && (
@@ -371,7 +373,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                               disabled={savingNotes}
                             >
                               <Save className="w-4 h-4 mr-1" />
-                              {savingNotes ? 'Zapisywanie...' : 'Zapisz notatki'}
+                              {savingNotes ? t('common.saving') : t('teamContacts.saveNotes')}
                             </Button>
                           )}
                         </div>
@@ -379,7 +381,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                         contact.notes ? (
                           <p className="text-sm bg-muted/50 p-3 rounded-md">{contact.notes}</p>
                         ) : (
-                          <p className="text-sm text-muted-foreground italic">Brak notatek</p>
+                          <p className="text-sm text-muted-foreground italic">{t('teamContacts.noNotes')}</p>
                         )
                       )}
                     </div>
@@ -395,13 +397,13 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usuń kontakt</AlertDialogTitle>
+            <AlertDialogTitle>{t('teamContacts.deleteConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Czy na pewno chcesz usunąć ten kontakt? Ta akcja jest nieodwracalna.
+              {t('teamContacts.deleteConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -411,7 +413,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                 }
               }}
             >
-              Usuń
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
