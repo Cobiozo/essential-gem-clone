@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
@@ -39,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PendingApproval {
   user_id: string;
@@ -54,6 +55,7 @@ interface PendingApproval {
   profile_description: string | null;
   city: string | null;
   country: string | null;
+  email_activated?: boolean;
 }
 
 export const TeamContactsTab: React.FC = () => {
@@ -100,7 +102,7 @@ export const TeamContactsTab: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, email, eq_id, guardian_approved, created_at, phone_number, role, specialization, profile_description, city, country')
+        .select('user_id, first_name, last_name, email, eq_id, guardian_approved, created_at, phone_number, role, specialization, profile_description, city, country, email_activated')
         .eq('upline_eq_id', profile.eq_id)
         .eq('guardian_approved', false);
       
@@ -405,6 +407,16 @@ export const TeamContactsTab: React.FC = () => {
                               <Badge variant={pending.role === 'partner' ? 'outline' : pending.role === 'specjalista' ? 'default' : 'secondary'}>
                                 {pending.role === 'partner' ? 'Partner' : pending.role === 'specjalista' ? 'Specjalista' : 'Klient'}
                               </Badge>
+                              {/* Email status badge */}
+                              {pending.email_activated ? (
+                                <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                                  ✓ Email
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
+                                  ✗ Email niepotwierdzony
+                                </Badge>
+                              )}
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
@@ -443,15 +455,37 @@ export const TeamContactsTab: React.FC = () => {
                               <XCircle className="w-4 h-4 mr-2" />
                               Odrzuć
                             </Button>
-                            <Button 
-                              size="sm" 
-                              onClick={() => setConfirmApproval(pending)}
-                              disabled={approvalLoading}
-                              className="w-full sm:w-auto"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Zatwierdź
-                            </Button>
+                            {/* Approve button - disabled if email not confirmed */}
+                            {pending.email_activated ? (
+                              <Button 
+                                size="sm" 
+                                onClick={() => setConfirmApproval(pending)}
+                                disabled={approvalLoading}
+                                className="w-full sm:w-auto"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Zatwierdź
+                              </Button>
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      size="sm" 
+                                      variant="secondary"
+                                      disabled
+                                      className="opacity-60 cursor-not-allowed w-full sm:w-auto"
+                                    >
+                                      <Mail className="w-4 h-4 mr-2" />
+                                      Czeka na email
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Użytkownik musi najpierw potwierdzić swój adres email</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -3728,18 +3728,23 @@ export type Database = {
       get_user_profiles_with_confirmation: {
         Args: never
         Returns: {
+          admin_approved_at: string
           city: string
           country: string
           created_at: string
           email: string
+          email_activated: boolean
+          email_activated_at: string
           email_confirmed_at: string
           eq_id: string
           first_name: string
           guardian_approved: boolean
+          guardian_approved_at: string
           id: string
           is_active: boolean
           is_approved: boolean
           last_name: string
+          last_sign_in_at: string
           phone_number: string
           postal_code: string
           profile_description: string
