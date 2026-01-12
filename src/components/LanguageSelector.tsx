@@ -35,12 +35,21 @@ export const LanguageSelector: React.FC = () => {
     fetchLanguages();
   }, []);
 
+  const selectedLanguage = languages.find(l => l.code === language);
+
   return (
     <div className="flex items-center gap-2">
       <Globe className="h-4 w-4 text-muted-foreground" />
       <Select value={language} onValueChange={(value) => setLanguage(value)}>
         <SelectTrigger className="w-[140px] h-8 text-sm">
-          <SelectValue />
+          <SelectValue>
+            {selectedLanguage && (
+              <span className="flex items-center gap-2">
+                <span>{selectedLanguage.flag_emoji}</span>
+                <span>{selectedLanguage.native_name || selectedLanguage.name}</span>
+              </span>
+            )}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {languages.map((lang) => (

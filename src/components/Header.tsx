@@ -246,7 +246,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger className="cursor-pointer">
                         <Link2 className="w-4 h-4 mr-2" />
-                        Reflinki
+                        InfoLinki
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="bg-background border border-border">
                         {Object.entries(groupedReflinks).map(([role, roleReflinks]) => (
