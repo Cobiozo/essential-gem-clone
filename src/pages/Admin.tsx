@@ -461,6 +461,9 @@ const Admin = () => {
         admin_approved: row.is_approved, // RPC returns is_approved
         email_activated: row.email_activated ?? !!row.email_confirmed_at,
         email_activated_at: row.email_activated_at,
+        last_sign_in_at: row.last_sign_in_at,
+        guardian_approved_at: row.guardian_approved_at,
+        admin_approved_at: row.admin_approved_at,
         // Extended profile data
         phone_number: row.phone_number,
         street_address: row.street_address,

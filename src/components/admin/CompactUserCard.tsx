@@ -27,7 +27,8 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
-  User
+  User,
+  Clock
 } from 'lucide-react';
 
 interface UserProfile {
@@ -50,6 +51,7 @@ interface UserProfile {
   guardian_name?: string | null;
   email_activated?: boolean;
   email_activated_at?: string | null;
+  last_sign_in_at?: string | null;
   // Extended profile data
   phone_number?: string | null;
   street_address?: string | null;
@@ -254,6 +256,19 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                 <>
                   <span className="text-muted-foreground/50">•</span>
                   <span>{userProfile.phone_number}</span>
+                </>
+              )}
+              {/* Last sign in */}
+              {userProfile.last_sign_in_at && (
+                <>
+                  <span className="text-muted-foreground/50">•</span>
+                  <span>Ostatnio: {new Date(userProfile.last_sign_in_at).toLocaleString('pl-PL', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}</span>
                 </>
               )}
             </div>
@@ -467,14 +482,44 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                       <span className="line-clamp-2">{userProfile.profile_description}</span>
                     </div>
                   )}
-                  {userProfile.email_activated_at && (
-                    <div className="text-xs">
-                      <span className="text-muted-foreground">Email potwierdzony:</span>{' '}
-                      <span>{new Date(userProfile.email_activated_at).toLocaleString('pl-PL')}</span>
-                    </div>
-                  )}
                 </div>
               )}
+
+              {/* Account activity section */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  Aktywność konta
+                </div>
+                {userProfile.last_sign_in_at && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Ostatnie logowanie:</span>{' '}
+                    <span>{new Date(userProfile.last_sign_in_at).toLocaleString('pl-PL')}</span>
+                  </div>
+                )}
+                {userProfile.email_activated_at && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Email potwierdzony:</span>{' '}
+                    <span>{new Date(userProfile.email_activated_at).toLocaleString('pl-PL')}</span>
+                  </div>
+                )}
+                {userProfile.guardian_approved_at && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Zatwierdzony przez opiekuna:</span>{' '}
+                    <span>{new Date(userProfile.guardian_approved_at).toLocaleString('pl-PL')}</span>
+                  </div>
+                )}
+                {userProfile.admin_approved_at && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Zatwierdzony przez admina:</span>{' '}
+                    <span>{new Date(userProfile.admin_approved_at).toLocaleString('pl-PL')}</span>
+                  </div>
+                )}
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Data rejestracji:</span>{' '}
+                  <span>{new Date(userProfile.created_at).toLocaleString('pl-PL')}</span>
+                </div>
+              </div>
 
               {/* Address data */}
               {hasAddressData && (
