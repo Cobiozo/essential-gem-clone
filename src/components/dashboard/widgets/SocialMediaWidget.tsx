@@ -66,20 +66,13 @@ export const SocialMediaWidget: React.FC = () => {
       }
 
       try {
-        const role = userRole?.role || 'client';
-        
-        // Build visibility filter based on role
-        let visibilityFilter = 'visible_to_client.eq.true';
-        if (role === 'partner') visibilityFilter = 'visible_to_partner.eq.true';
-        if (role === 'specjalista') visibilityFilter = 'visible_to_specjalista.eq.true';
-        if (role === 'admin') visibilityFilter = 'visible_to_admin.eq.true';
+        const role = userRole?.role || 'klient';
 
         const { data, error } = await supabase
           .from('reflinks')
           .select('id, title, description, link_url, clipboard_content, link_type')
           .eq('is_active', true)
-          .or(visibilityFilter)
-          .or(`title.ilike.%whatsapp%,title.ilike.%facebook%,title.ilike.%instagram%,title.ilike.%social%,title.ilike.%grupa%,title.ilike.%community%,link_url.ilike.%wa.me%,link_url.ilike.%facebook.com%`)
+          .contains('visible_to_roles', [role])
           .order('position', { ascending: true });
 
         if (error) throw error;
