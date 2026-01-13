@@ -4017,6 +4017,7 @@ export type Database = {
       generate_user_reflink_code: { Args: { p_eq_id: string }; Returns: string }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
+      get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
       get_reflink_validity_days: { Args: never; Returns: number }
       get_retryable_failed_emails: {
         Args: never
@@ -4124,6 +4125,7 @@ export type Database = {
         Args: { template_id: string }
         Returns: undefined
       }
+      user_registered_event_ids: { Args: never; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "partner" | "client" | "specjalista" | "user"
