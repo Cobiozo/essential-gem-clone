@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,18 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, Save, Loader2, Users, UserRound, Video, Eye } from 'lucide-react';
+import { Save, Loader2, Users, UserRound, Video, Eye, Clock } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
-
-const DAYS_OF_WEEK = [
-  { value: 1, labelKey: 'Poniedziałek' },
-  { value: 2, labelKey: 'Wtorek' },
-  { value: 3, labelKey: 'Środa' },
-  { value: 4, labelKey: 'Czwartek' },
-  { value: 5, labelKey: 'Piątek' },
-  { value: 6, labelKey: 'Sobota' },
-  { value: 0, labelKey: 'Niedziela' },
-];
+import { WeeklyAvailabilityScheduler, TimeSlot } from './WeeklyAvailabilityScheduler';
+import { format, addMonths, addMinutes, parse } from 'date-fns';
 
 const SLOT_DURATIONS = [
   { value: 30, label: '30 minut' },
@@ -29,13 +21,6 @@ const SLOT_DURATIONS = [
   { value: 60, label: '60 minut' },
   { value: 90, label: '90 minut' },
 ];
-
-interface DayAvailability {
-  dayOfWeek: number;
-  isAvailable: boolean;
-  startTime: string;
-  endTime: string;
-}
 
 interface IndividualMeetingFormProps {
   meetingType: 'tripartite' | 'consultation';
@@ -60,15 +45,8 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
   const [visibleToPartners, setVisibleToPartners] = useState(true);
   const [visibleToSpecjalista, setVisibleToSpecjalista] = useState(true);
   
-  // Availability
-  const [availability, setAvailability] = useState<DayAvailability[]>(
-    DAYS_OF_WEEK.map((day) => ({
-      dayOfWeek: day.value,
-      isAvailable: false,
-      startTime: '09:00',
-      endTime: '17:00',
-    }))
-  );
+  // New availability slots (specific dates instead of day-of-week)
+  const [availabilitySlots, setAvailabilitySlots] = useState<TimeSlot[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -81,24 +59,26 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
     setLoading(true);
 
     try {
-      // Load availability
+      // Load availability for specific dates (next month)
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const maxDate = format(addMonths(new Date(), 1), 'yyyy-MM-dd');
+      
       const { data: availData } = await supabase
         .from('leader_availability')
         .select('*')
-        .eq('leader_user_id', user.id);
+        .eq('leader_user_id', user.id)
+        .not('specific_date', 'is', null)
+        .gte('specific_date', today)
+        .lte('specific_date', maxDate);
 
       if (availData && availData.length > 0) {
-        setAvailability(
-          DAYS_OF_WEEK.map((day) => {
-            const existing = availData.find((d) => d.day_of_week === day.value);
-            return {
-              dayOfWeek: day.value,
-              isAvailable: existing?.is_active ?? false,
-              startTime: existing?.start_time ?? '09:00',
-              endTime: existing?.end_time ?? '17:00',
-            };
-          })
-        );
+        const slots: TimeSlot[] = availData
+          .filter(s => s.is_active && s.specific_date)
+          .map(s => ({
+            date: s.specific_date!,
+            time: s.start_time?.substring(0, 5) || '09:00',
+          }));
+        setAvailabilitySlots(slots);
       }
 
       // Load leader permissions for zoom link
@@ -118,31 +98,41 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
     }
   };
 
+  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+    const parsed = parse(startTime, 'HH:mm', new Date());
+    const endTime = addMinutes(parsed, durationMinutes);
+    return format(endTime, 'HH:mm');
+  };
+
   const handleSave = async () => {
     if (!user) return;
 
     setSaving(true);
     try {
-      // Save availability
+      // Delete old specific_date entries only (preserve day_of_week entries if any)
       await supabase
         .from('leader_availability')
         .delete()
-        .eq('leader_user_id', user.id);
+        .eq('leader_user_id', user.id)
+        .not('specific_date', 'is', null);
 
-      const insertData = availability.map((day) => ({
-        leader_user_id: user.id,
-        day_of_week: day.dayOfWeek,
-        start_time: day.startTime,
-        end_time: day.endTime,
-        is_active: day.isAvailable,
-        slot_duration_minutes: slotDuration,
-      }));
+      // Insert new slots for specific dates
+      if (availabilitySlots.length > 0) {
+        const insertData = availabilitySlots.map((slot) => ({
+          leader_user_id: user.id,
+          specific_date: slot.date,
+          start_time: slot.time,
+          end_time: calculateEndTime(slot.time, slotDuration),
+          is_active: true,
+          slot_duration_minutes: slotDuration,
+        }));
 
-      const { error: availError } = await supabase
-        .from('leader_availability')
-        .insert(insertData);
+        const { error: availError } = await supabase
+          .from('leader_availability')
+          .insert(insertData);
 
-      if (availError) throw availError;
+        if (availError) throw availError;
+      }
 
       // Update zoom link in leader_permissions
       if (zoomLink) {
@@ -170,13 +160,9 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
     }
   };
 
-  const updateDay = (dayOfWeek: number, updates: Partial<DayAvailability>) => {
-    setAvailability((prev) =>
-      prev.map((day) =>
-        day.dayOfWeek === dayOfWeek ? { ...day, ...updates } : day
-      )
-    );
-  };
+  const handleSlotsChange = useCallback((slots: TimeSlot[]) => {
+    setAvailabilitySlots(slots);
+  }, []);
 
   if (loading) {
     return (
@@ -210,24 +196,6 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
             }
           </CardDescription>
         </CardHeader>
-      </Card>
-
-      {/* Host Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Prowadzący</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <UserRound className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">{hostName || 'Brak danych'}</p>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
-            </div>
-          </div>
-        </CardContent>
       </Card>
 
       {/* Basic Settings */}
@@ -288,7 +256,7 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         </CardContent>
       </Card>
 
-      {/* Availability Schedule */}
+      {/* Availability Schedule - New Calendly-style */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -296,58 +264,19 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
             Harmonogram dostępności
           </CardTitle>
           <CardDescription>
-            Wybierz dni i godziny, w których inni partnerzy mogą się zapisać na spotkanie z Tobą
+            Kliknij na godziny, w których chcesz być dostępny dla innych partnerów (maks. 1 miesiąc do przodu)
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {DAYS_OF_WEEK.map((day) => {
-            const dayData = availability.find((a) => a.dayOfWeek === day.value)!;
-            return (
-              <div
-                key={day.value}
-                className="flex items-center gap-4 p-3 rounded-lg border"
-              >
-                <div className="w-36">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={dayData.isAvailable}
-                      onCheckedChange={(checked) =>
-                        updateDay(day.value, { isAvailable: checked })
-                      }
-                    />
-                    <Label className="font-medium">{day.labelKey}</Label>
-                  </div>
-                </div>
-                
-                {dayData.isAvailable && (
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-muted-foreground">Od</Label>
-                      <Input
-                        type="time"
-                        value={dayData.startTime}
-                        onChange={(e) =>
-                          updateDay(day.value, { startTime: e.target.value })
-                        }
-                        className="w-28"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-muted-foreground">Do</Label>
-                      <Input
-                        type="time"
-                        value={dayData.endTime}
-                        onChange={(e) =>
-                          updateDay(day.value, { endTime: e.target.value })
-                        }
-                        className="w-28"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <CardContent>
+          <WeeklyAvailabilityScheduler
+            meetingType={meetingType}
+            slotDuration={slotDuration}
+            hostName={hostName}
+            description={description}
+            zoomLink={zoomLink}
+            initialSlots={availabilitySlots}
+            onSlotsChange={handleSlotsChange}
+          />
         </CardContent>
       </Card>
 
