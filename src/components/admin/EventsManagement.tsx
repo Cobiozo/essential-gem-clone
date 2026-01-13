@@ -25,9 +25,14 @@ import {
   Clock, 
   Video,
   Settings,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  UsersRound,
+  UserRound
 } from 'lucide-react';
 import type { DbEvent, MeetingTopic, LeaderPermission, EventsSettings, AdminLeaderWithProfile, TopicWithLeader } from '@/types/events';
+import { WebinarForm } from './WebinarForm';
+import { WebinarList } from './WebinarList';
 
 export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
@@ -36,7 +41,7 @@ export const EventsManagement: React.FC = () => {
   const dateLocale = language === 'pl' ? pl : enUS;
 
   // State
-  const [activeTab, setActiveTab] = useState('events');
+  const [activeTab, setActiveTab] = useState('webinars');
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [topics, setTopics] = useState<TopicWithLeader[]>([]);
   const [leaders, setLeaders] = useState<AdminLeaderWithProfile[]>([]);
@@ -44,13 +49,15 @@ export const EventsManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   // Dialog states
+  const [showWebinarForm, setShowWebinarForm] = useState(false);
+  const [editingWebinar, setEditingWebinar] = useState<DbEvent | null>(null);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
   const [leaderDialogOpen, setLeaderDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<DbEvent | null>(null);
   const [editingTopic, setEditingTopic] = useState<MeetingTopic | null>(null);
   
-  // Form states
+  // Form states for team/private meetings
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -77,6 +84,11 @@ export const EventsManagement: React.FC = () => {
 
   const [leaderSearch, setLeaderSearch] = useState('');
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+
+  // Filtered events by type
+  const webinars = events.filter(e => e.event_type === 'webinar');
+  const teamMeetings = events.filter(e => e.event_type === 'meeting_public');
+  const privateMeetings = events.filter(e => e.event_type === 'meeting_private');
 
   // Load data
   useEffect(() => {
@@ -195,7 +207,34 @@ export const EventsManagement: React.FC = () => {
     setAvailableUsers(data || []);
   };
 
-  // Event handlers
+  // Webinar handlers
+  const handleWebinarSave = () => {
+    setShowWebinarForm(false);
+    setEditingWebinar(null);
+    loadEvents();
+  };
+
+  const handleWebinarCancel = () => {
+    setShowWebinarForm(false);
+    setEditingWebinar(null);
+  };
+
+  const handleEditWebinar = (webinar: DbEvent) => {
+    setEditingWebinar(webinar);
+    setShowWebinarForm(true);
+  };
+
+  const handleDeleteWebinar = async (id: string) => {
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) {
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: t('toast.success'), description: 'Webinar został usunięty' });
+    loadEvents();
+  };
+
+  // Event handlers (for team/private meetings)
   const handleSaveEvent = async () => {
     if (!user) return;
 
@@ -213,7 +252,6 @@ export const EventsManagement: React.FC = () => {
       visible_to_specjalista: eventForm.visible_to_specjalista,
       visible_to_clients: eventForm.visible_to_clients,
       visible_to_everyone: eventForm.visible_to_everyone,
-      created_by: user.id,
     };
 
     let error;
@@ -225,7 +263,7 @@ export const EventsManagement: React.FC = () => {
     } else {
       ({ error } = await supabase
         .from('events')
-        .insert(eventData));
+        .insert({ ...eventData, created_by: user.id }));
     }
 
     if (error) {
@@ -434,92 +472,76 @@ export const EventsManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{t('events.management')}</h2>
-          <p className="text-muted-foreground">{t('events.managementDescription')}</p>
+          <h2 className="text-2xl font-bold">Zarządzanie Webinarami</h2>
+          <p className="text-muted-foreground">Panel administratora</p>
         </div>
+        {activeTab === 'webinars' && !showWebinarForm && (
+          <Button onClick={() => setShowWebinarForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Dodaj Webinar
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="events">
-            <Calendar className="h-4 w-4 mr-2" />
-            {t('events.events')}
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="webinars" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            <span className="hidden sm:inline">Webinary</span>
           </TabsTrigger>
-          <TabsTrigger value="topics">
-            <Video className="h-4 w-4 mr-2" />
-            {t('events.meetingTopics')}
+          <TabsTrigger value="sms-logs" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Logi SMS</span>
           </TabsTrigger>
-          <TabsTrigger value="leaders">
-            <Users className="h-4 w-4 mr-2" />
-            {t('events.leaders')}
+          <TabsTrigger value="topics" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            <span className="hidden sm:inline">Tematy spotkań</span>
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 mr-2" />
-            {t('events.settings')}
+          <TabsTrigger value="leaders" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Liderzy</span>
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Ustawienia</span>
           </TabsTrigger>
         </TabsList>
 
-        {/* Events Tab */}
-        <TabsContent value="events" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { resetEventForm(); setEventDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('events.addEvent')}
-            </Button>
-          </div>
+        {/* Webinars Tab */}
+        <TabsContent value="webinars" className="space-y-4 mt-6">
+          {showWebinarForm ? (
+            <WebinarForm
+              editingWebinar={editingWebinar}
+              onSave={handleWebinarSave}
+              onCancel={handleWebinarCancel}
+            />
+          ) : (
+            <WebinarList
+              webinars={webinars}
+              onEdit={handleEditWebinar}
+              onDelete={handleDeleteWebinar}
+              onRefresh={loadEvents}
+            />
+          )}
+        </TabsContent>
 
+        {/* SMS Logs Tab */}
+        <TabsContent value="sms-logs" className="space-y-4 mt-6">
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('events.title')}</TableHead>
-                  <TableHead>{t('events.type')}</TableHead>
-                  <TableHead>{t('events.dateTime')}</TableHead>
-                  <TableHead>{t('events.visibility')}</TableHead>
-                  <TableHead className="text-right">{t('common.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {events.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell className="font-medium">{event.title}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{event.event_type}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(event.start_time), 'PPp', { locale: dateLocale })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {event.visible_to_partners && <Badge variant="secondary">P</Badge>}
-                        {event.visible_to_specjalista && <Badge variant="secondary">S</Badge>}
-                        {event.visible_to_clients && <Badge variant="secondary">C</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openEditEvent(event)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteEvent(event.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {events.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      {t('events.noEvents')}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <CardHeader>
+              <CardTitle>Logi przypomnień SMS</CardTitle>
+              <CardDescription>Historia wysłanych przypomnień SMS dla webinarów</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                Brak logów SMS. Przypomnienia zostaną zapisane po włączeniu funkcji SMS.
+              </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* Topics Tab */}
-        <TabsContent value="topics" className="space-y-4">
+        <TabsContent value="topics" className="space-y-4 mt-6">
           <div className="flex justify-end">
             <Button onClick={() => { resetTopicForm(); setTopicDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
@@ -574,7 +596,7 @@ export const EventsManagement: React.FC = () => {
         </TabsContent>
 
         {/* Leaders Tab */}
-        <TabsContent value="leaders" className="space-y-4">
+        <TabsContent value="leaders" className="space-y-4 mt-6">
           <div className="flex justify-end">
             <Button onClick={() => setLeaderDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -625,7 +647,7 @@ export const EventsManagement: React.FC = () => {
         </TabsContent>
 
         {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-4">
+        <TabsContent value="settings" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
               <CardTitle>{t('events.calendarSettings')}</CardTitle>
@@ -666,133 +688,6 @@ export const EventsManagement: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Event Dialog */}
-      <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingEvent ? t('events.editEvent') : t('events.addEvent')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('events.title')}</Label>
-              <Input
-                value={eventForm.title}
-                onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('events.description')}</Label>
-              <Textarea
-                value={eventForm.description}
-                onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('events.type')}</Label>
-                <Select
-                  value={eventForm.event_type}
-                  onValueChange={(value) => setEventForm({ ...eventForm, event_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="meeting_public">{t('events.typeMeetingPublic')}</SelectItem>
-                    <SelectItem value="meeting_private">{t('events.typeMeetingPrivate')}</SelectItem>
-                    <SelectItem value="webinar">{t('events.typeWebinar')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t('events.maxParticipants')}</Label>
-                <Input
-                  type="number"
-                  value={eventForm.max_participants}
-                  onChange={(e) => setEventForm({ ...eventForm, max_participants: e.target.value })}
-                  placeholder={t('events.unlimited')}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('events.startTime')}</Label>
-                <Input
-                  type="datetime-local"
-                  value={eventForm.start_time ? eventForm.start_time.slice(0, 16) : ''}
-                  onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value + ':00Z' })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('events.endTime')}</Label>
-                <Input
-                  type="datetime-local"
-                  value={eventForm.end_time ? eventForm.end_time.slice(0, 16) : ''}
-                  onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value + ':00Z' })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>{t('events.location')}</Label>
-              <Input
-                value={eventForm.location}
-                onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                placeholder={t('events.locationPlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('events.zoomLink')}</Label>
-              <Input
-                value={eventForm.zoom_link}
-                onChange={(e) => setEventForm({ ...eventForm, zoom_link: e.target.value })}
-                placeholder="https://zoom.us/j/..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('events.visibility')}</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={eventForm.visible_to_partners}
-                    onCheckedChange={(checked) => setEventForm({ ...eventForm, visible_to_partners: checked })}
-                  />
-                  <Label>{t('role.partner')}</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={eventForm.visible_to_specjalista}
-                    onCheckedChange={(checked) => setEventForm({ ...eventForm, visible_to_specjalista: checked })}
-                  />
-                  <Label>{t('role.specialist')}</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={eventForm.visible_to_clients}
-                    onCheckedChange={(checked) => setEventForm({ ...eventForm, visible_to_clients: checked })}
-                  />
-                  <Label>{t('role.client')}</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={eventForm.visible_to_everyone}
-                    onCheckedChange={(checked) => setEventForm({ ...eventForm, visible_to_everyone: checked })}
-                  />
-                  <Label>{t('events.everyone')}</Label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEventDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleSaveEvent} disabled={!eventForm.title || !eventForm.start_time || !eventForm.end_time}>
-              {t('common.save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Topic Dialog */}
       <Dialog open={topicDialogOpen} onOpenChange={setTopicDialogOpen}>

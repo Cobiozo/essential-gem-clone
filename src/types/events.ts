@@ -7,6 +7,7 @@ export type DbLeaderPermission = Database['public']['Tables']['leader_permission
 export type DbLeaderMeetingTopic = Database['public']['Tables']['leader_meeting_topics']['Row'];
 export type DbLeaderAvailability = Database['public']['Tables']['leader_availability']['Row'];
 export type DbEventsSettings = Database['public']['Tables']['events_settings']['Row'];
+export type DbEventRemindersLog = Database['public']['Tables']['event_reminders_log']['Row'];
 
 // Frontend event type with parsed buttons
 export interface Event extends Omit<DbEvent, 'buttons'> {
@@ -28,6 +29,8 @@ export interface MeetingTopic extends DbLeaderMeetingTopic {}
 export interface LeaderAvailability extends DbLeaderAvailability {}
 
 export interface EventsSettings extends DbEventsSettings {}
+
+export interface EventRemindersLog extends DbEventRemindersLog {}
 
 export interface LeaderWithProfile {
   user_id: string;
@@ -65,6 +68,34 @@ export interface EventWithRegistration extends Event {
   registration_count?: number;
 }
 
+// Webinar form data with new fields
+export type WebinarFormData = {
+  title: string;
+  description: string;
+  event_type: 'webinar';
+  start_time: string;
+  end_time: string;
+  zoom_link: string;
+  location: string;
+  visible_to_everyone: boolean;
+  visible_to_partners: boolean;
+  visible_to_specjalista: boolean;
+  visible_to_clients: boolean;
+  image_url: string;
+  buttons: EventButton[];
+  max_participants: number | null;
+  requires_registration: boolean;
+  // New webinar-specific fields
+  webinar_type: string | null;
+  host_name: string | null;
+  duration_minutes: number;
+  sms_reminder_enabled: boolean;
+  email_reminder_enabled: boolean;
+  is_published: boolean;
+  guest_link: string | null;
+};
+
+// Generic event form data (for team meetings, private meetings)
 export type EventFormData = {
   title: string;
   description: string;
@@ -81,4 +112,29 @@ export type EventFormData = {
   buttons: EventButton[];
   max_participants: number | null;
   requires_registration: boolean;
+  // Optional webinar fields
+  webinar_type?: string | null;
+  host_name?: string | null;
+  duration_minutes?: number;
+  sms_reminder_enabled?: boolean;
+  email_reminder_enabled?: boolean;
+  is_published?: boolean;
+  guest_link?: string | null;
 };
+
+// Webinar type options
+export const WEBINAR_TYPES = [
+  { value: 'biznesowy', label: 'Biznesowy' },
+  { value: 'produktowy', label: 'Produktowy' },
+  { value: 'motywacyjny', label: 'Motywacyjny' },
+  { value: 'szkoleniowy', label: 'Szkoleniowy' },
+] as const;
+
+// Duration options in minutes
+export const DURATION_OPTIONS = [
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '60 min' },
+  { value: 90, label: '90 min' },
+  { value: 120, label: '120 min' },
+] as const;
