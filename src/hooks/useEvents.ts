@@ -340,13 +340,35 @@ export const useEvents = () => {
 
       if (eventsError) throw eventsError;
 
-      // Step 3: Map and sort events
+      // Step 3: Get host profiles for individual meetings
+      const hostUserIds = [...new Set(
+        (events || [])
+          .filter(e => ['tripartite_meeting', 'partner_consultation'].includes(e.event_type))
+          .map(e => e.host_user_id)
+          .filter(Boolean)
+      )] as string[];
+
+      let hostProfiles: Map<string, { first_name: string | null; last_name: string | null }> = new Map();
+      
+      if (hostUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', hostUserIds);
+        
+        hostProfiles = new Map(
+          (profiles || []).map(p => [p.user_id, { first_name: p.first_name, last_name: p.last_name }])
+        );
+      }
+
+      // Step 4: Map and sort events with host info
       return (events || [])
         .map(event => ({
           ...event,
           buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
           event_type: event.event_type as EventType,
           is_registered: true,
+          host_profile: event.host_user_id ? hostProfiles.get(event.host_user_id) || null : null,
         }))
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     } catch (error) {

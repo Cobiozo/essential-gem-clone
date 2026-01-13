@@ -356,10 +356,11 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
     setBooking(true);
     try {
-      const startDateTime = `${selectedSlot.date}T${selectedSlot.time}:00`;
-      const startDate = parse(`${selectedSlot.date} ${selectedSlot.time}`, 'yyyy-MM-dd HH:mm', new Date());
-      const endDate = addMinutes(startDate, selectedSlot.slot_duration_minutes);
-      const endDateTime = format(endDate, "yyyy-MM-dd'T'HH:mm:ss");
+      // Parse local time and convert to ISO string (properly handles timezone offset)
+      const localStartDate = parse(`${selectedSlot.date} ${selectedSlot.time}`, 'yyyy-MM-dd HH:mm', new Date());
+      const startDateTime = localStartDate.toISOString();
+      const endDate = addMinutes(localStartDate, selectedSlot.slot_duration_minutes);
+      const endDateTime = endDate.toISOString();
 
       // Create the event
       const { data: event, error: eventError } = await supabase

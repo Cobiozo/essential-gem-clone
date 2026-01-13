@@ -66,6 +66,10 @@ export interface AvailableSlot {
 export interface EventWithRegistration extends Event {
   is_registered?: boolean;
   registration_count?: number;
+  host_profile?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 }
 
 // Partner with availability for booking interface

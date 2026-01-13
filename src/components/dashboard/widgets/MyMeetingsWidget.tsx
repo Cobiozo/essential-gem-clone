@@ -250,12 +250,36 @@ export const MyMeetingsWidget: React.FC = () => {
                         </Badge>
                       </div>
 
+                      {/* Host info for individual meetings */}
+                      {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && 
+                       event.host_profile && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Prowadzący: {event.host_profile.first_name} {event.host_profile.last_name}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
                           {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                         </span>
                         
-                        {getActionButton(event)}
+                        <div className="flex items-center gap-2">
+                          {event.zoom_link && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              asChild
+                            >
+                              <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+                                <Video className="h-3 w-3 mr-1" />
+                                Zoom
+                              </a>
+                            </Button>
+                          )}
+                          {getActionButton(event)}
+                        </div>
                       </div>
                     </div>
                   ))}
