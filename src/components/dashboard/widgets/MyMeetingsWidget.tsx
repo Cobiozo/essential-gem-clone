@@ -27,15 +27,15 @@ export const MyMeetingsWidget: React.FC = () => {
     setLoading(false);
   }, [getUserEvents]);
 
-  // Initial fetch + real-time subscription for user's registrations
+  // Initial fetch + real-time subscription for user's registrations and events
   useEffect(() => {
     fetchUserEventsData();
 
     if (!user) return;
 
     // Subscribe to changes for current user's registrations
-    const channel = supabase
-      .channel('my-meetings-changes')
+    const registrationsChannel = supabase
+      .channel('my-meetings-registrations-changes')
       .on(
         'postgres_changes',
         {
@@ -51,8 +51,26 @@ export const MyMeetingsWidget: React.FC = () => {
       )
       .subscribe();
 
+    // Subscribe to events table for real-time updates (new individual meetings)
+    const eventsChannel = supabase
+      .channel('my-meetings-events-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events'
+        },
+        () => {
+          // Refetch when any event changes
+          fetchUserEventsData();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(registrationsChannel);
+      supabase.removeChannel(eventsChannel);
     };
   }, [fetchUserEventsData, user]);
 
@@ -65,6 +83,10 @@ export const MyMeetingsWidget: React.FC = () => {
         return <Users className="h-4 w-4 text-green-500" />;
       case 'meeting_private':
         return <User className="h-4 w-4 text-purple-500" />;
+      case 'tripartite_meeting':
+        return <Users className="h-4 w-4 text-violet-500" />;
+      case 'partner_consultation':
+        return <User className="h-4 w-4 text-fuchsia-500" />;
       default:
         return <Calendar className="h-4 w-4 text-primary" />;
     }
@@ -80,6 +102,10 @@ export const MyMeetingsWidget: React.FC = () => {
         return 'Spotkania publiczne';
       case 'meeting_private':
         return 'Spotkanie indywidualne';
+      case 'tripartite_meeting':
+        return 'Spotkanie trójstronne';
+      case 'partner_consultation':
+        return 'Konsultacje dla partnerów';
       default:
         return 'Wydarzenia';
     }
