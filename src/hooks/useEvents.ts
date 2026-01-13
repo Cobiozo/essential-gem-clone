@@ -7,8 +7,19 @@ import type {
   EventRegistration, 
   EventWithRegistration, 
   EventFormData,
-  EventButton 
+  EventButton,
+  EventType
 } from '@/types/events';
+
+// All valid event types
+const ALL_EVENT_TYPES: EventType[] = [
+  'webinar', 
+  'meeting_public', 
+  'meeting_private', 
+  'team_training',
+  'tripartite_meeting',
+  'partner_consultation'
+];
 
 export const useEvents = () => {
   const [events, setEvents] = useState<EventWithRegistration[]>([]);
@@ -32,7 +43,7 @@ export const useEvents = () => {
       const parsedEvents = (data || []).map(event => ({
         ...event,
         buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
-        event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private' | 'team_training',
+        event_type: event.event_type as EventType,
       }));
 
       // If user is logged in, check their registrations
@@ -79,7 +90,7 @@ export const useEvents = () => {
       const parsedEvents = (data || []).map(event => ({
         ...event,
         buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
-        event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private' | 'team_training',
+        event_type: event.event_type as EventType,
       }));
 
       setEvents(parsedEvents);
@@ -334,7 +345,7 @@ export const useEvents = () => {
         .map(event => ({
           ...event,
           buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
-          event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private' | 'team_training',
+          event_type: event.event_type as EventType,
           is_registered: true,
         }))
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());

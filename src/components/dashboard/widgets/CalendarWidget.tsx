@@ -50,6 +50,10 @@ export const CalendarWidget: React.FC = () => {
         return 'bg-green-500';
       case 'meeting_private':
         return 'bg-purple-500';
+      case 'tripartite_meeting':
+        return 'bg-violet-500';
+      case 'partner_consultation':
+        return 'bg-fuchsia-500';
       default:
         return 'bg-primary';
     }
@@ -229,6 +233,14 @@ export const CalendarWidget: React.FC = () => {
             <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
             <span className="text-muted-foreground">Spotkanie indywidualne</span>
           </div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+            <span className="text-muted-foreground">Trójstronne</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full bg-fuchsia-500" />
+            <span className="text-muted-foreground">Konsultacje</span>
+          </div>
         </div>
 
         {/* Selected day events */}
@@ -253,6 +265,8 @@ export const CalendarWidget: React.FC = () => {
                         {event.event_type === 'webinar' && <Video className="h-3.5 w-3.5 text-blue-500" />}
                         {(event.event_type === 'meeting_public' || event.event_type === 'team_training') && <Users className="h-3.5 w-3.5 text-green-500" />}
                         {event.event_type === 'meeting_private' && <User className="h-3.5 w-3.5 text-purple-500" />}
+                        {event.event_type === 'tripartite_meeting' && <Users className="h-3.5 w-3.5 text-violet-500" />}
+                        {event.event_type === 'partner_consultation' && <User className="h-3.5 w-3.5 text-fuchsia-500" />}
                         <span className="text-sm font-medium line-clamp-1">{event.title}</span>
                       </div>
                     </div>

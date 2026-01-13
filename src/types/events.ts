@@ -68,6 +68,27 @@ export interface EventWithRegistration extends Event {
   registration_count?: number;
 }
 
+// Partner with availability for booking interface
+export interface PartnerWithAvailability {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  zoom_link: string | null;
+  tripartite_meeting_enabled: boolean;
+  partner_consultation_enabled: boolean;
+  has_availability: boolean;
+}
+
+// All possible event types
+export type EventType = 
+  | 'webinar' 
+  | 'meeting_public' 
+  | 'meeting_private' 
+  | 'team_training'
+  | 'tripartite_meeting'
+  | 'partner_consultation';
+
 // Webinar form data with new fields
 export type WebinarFormData = {
   title: string;
