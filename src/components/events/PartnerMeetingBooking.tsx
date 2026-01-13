@@ -254,40 +254,45 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .lt('start_time', `${dateStr}T23:59:59`)
         .eq('is_active', true);
 
-      // Get global events (webinars, team meetings) on this date
-      const { data: globalEvents } = await supabase
+      // Get global BLOCKING events (webinars, team meetings) on this date
+      // These block ALL individual meetings, regardless of registration
+      const { data: blockingEvents } = await supabase
         .from('events')
-        .select('id, start_time, title, event_type')
+        .select('id, start_time, end_time, title, event_type')
         .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
-        .gte('start_time', `${dateStr}T00:00:00`)
-        .lt('start_time', `${dateStr}T23:59:59`)
+        .gte('end_time', `${dateStr}T00:00:00`)
+        .lte('start_time', `${dateStr}T23:59:59`)
         .eq('is_active', true);
 
-      // Check if the selected partner is registered for any global events
-      let registeredGlobalEventTimes: string[] = [];
-      if (globalEvents && globalEvents.length > 0) {
-        const { data: registrations } = await supabase
-          .from('event_registrations')
-          .select('event_id')
-          .eq('user_id', selectedPartner.user_id)
-          .in('event_id', globalEvents.map(e => e.id));
+      // Calculate blocked times from webinars and team trainings
+      // These have highest priority and block ALL slots during their time
+      const blockedByGlobalEvents: string[] = [];
+      blockingEvents?.forEach(event => {
+        const eventStart = new Date(event.start_time);
+        const eventEnd = new Date(event.end_time);
+        
+        // Block all slots that overlap with this event
+        availability?.forEach(slot => {
+          const slotTime = slot.start_time?.substring(0, 5) || '';
+          const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+          const slotEnd = addMinutes(slotStart, slot.slot_duration_minutes || 60);
+          
+          // Check if slot overlaps with event
+          if (slotStart < eventEnd && slotEnd > eventStart) {
+            blockedByGlobalEvents.push(slotTime);
+          }
+        });
+      });
 
-        if (registrations && registrations.length > 0) {
-          const registeredEventIds = new Set(registrations.map(r => r.event_id));
-          registeredGlobalEventTimes = globalEvents
-            .filter(e => registeredEventIds.has(e.id))
-            .map(e => format(new Date(e.start_time), 'HH:mm'));
-        }
-      }
-
-      // Combine all blocked times
+      // Individual meeting times (already booked by this partner)
       const individualMeetingTimes = individualMeetings?.map(e => 
         format(new Date(e.start_time), 'HH:mm')
       ) || [];
       
+      // Combine all blocked times
       const allBlockedTimes = new Set([
         ...individualMeetingTimes,
-        ...registeredGlobalEventTimes
+        ...blockedByGlobalEvents
       ]);
 
       console.log('[PartnerMeetingBooking] Blocked times for', dateStr, ':', Array.from(allBlockedTimes));
@@ -361,6 +366,49 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const startDateTime = localStartDate.toISOString();
       const endDate = addMinutes(localStartDate, selectedSlot.slot_duration_minutes);
       const endDateTime = endDate.toISOString();
+
+      // Check if slot is still available before creating (prevent double booking)
+      const { data: existingEvent } = await supabase
+        .from('events')
+        .select('id')
+        .eq('host_user_id', selectedPartner.user_id)
+        .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+        .gte('start_time', startDateTime)
+        .lt('end_time', endDateTime)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingEvent) {
+        toast({
+          title: 'Slot już zajęty',
+          description: 'Ten termin został właśnie zarezerwowany przez kogoś innego. Wybierz inny.',
+          variant: 'destructive',
+        });
+        setBooking(false);
+        loadAvailableSlots();
+        return;
+      }
+
+      // Check for conflicts with webinars and team trainings
+      const { data: blockingEvent } = await supabase
+        .from('events')
+        .select('id, title, event_type')
+        .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
+        .lte('start_time', endDateTime)
+        .gte('end_time', startDateTime)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (blockingEvent) {
+        toast({
+          title: 'Konflikt czasowy',
+          description: `W tym czasie odbywa się: ${blockingEvent.title}`,
+          variant: 'destructive',
+        });
+        setBooking(false);
+        loadAvailableSlots();
+        return;
+      }
 
       // Create the event
       const { data: event, error: eventError } = await supabase

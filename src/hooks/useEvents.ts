@@ -361,7 +361,48 @@ export const useEvents = () => {
         );
       }
 
-      // Step 4: Map and sort events with host info
+      // Step 4: Get participant profiles for individual meetings where current user is host
+      const individualMeetingIds = (events || [])
+        .filter(e => 
+          ['tripartite_meeting', 'partner_consultation'].includes(e.event_type) &&
+          e.host_user_id === user.id
+        )
+        .map(e => e.id);
+
+      let participantProfiles: Map<string, { first_name: string | null; last_name: string | null; email: string }> = new Map();
+
+      if (individualMeetingIds.length > 0) {
+        // Get registrations for these events (excluding current user = host)
+        const { data: participantRegs } = await supabase
+          .from('event_registrations')
+          .select('event_id, user_id')
+          .in('event_id', individualMeetingIds)
+          .neq('user_id', user.id)
+          .eq('status', 'registered');
+
+        if (participantRegs && participantRegs.length > 0) {
+          const participantUserIds = [...new Set(participantRegs.map(r => r.user_id))];
+          
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name, email')
+            .in('user_id', participantUserIds);
+
+          // Map event_id -> participant profile
+          participantRegs.forEach(reg => {
+            const profile = profiles?.find(p => p.user_id === reg.user_id);
+            if (profile) {
+              participantProfiles.set(reg.event_id, {
+                first_name: profile.first_name,
+                last_name: profile.last_name,
+                email: profile.email
+              });
+            }
+          });
+        }
+      }
+
+      // Step 5: Map and sort events with host and participant info
       return (events || [])
         .map(event => ({
           ...event,
@@ -369,6 +410,7 @@ export const useEvents = () => {
           event_type: event.event_type as EventType,
           is_registered: true,
           host_profile: event.host_user_id ? hostProfiles.get(event.host_user_id) || null : null,
+          participant_profile: participantProfiles.get(event.id) || null,
         }))
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     } catch (error) {
