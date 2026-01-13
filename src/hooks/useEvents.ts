@@ -274,21 +274,31 @@ export const useEvents = () => {
 
   const getEventRegistrations = async (eventId: string) => {
     try {
-      const { data, error } = await supabase
+      // First get registrations
+      const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select(`
-          *,
-          profiles:user_id (
-            first_name,
-            last_name,
-            email
-          )
-        `)
+        .select('*')
         .eq('event_id', eventId)
         .eq('status', 'registered');
 
-      if (error) throw error;
-      return data || [];
+      if (regError) throw regError;
+      if (!registrations || registrations.length === 0) return [];
+
+      // Then get profiles for those users
+      const userIds = registrations.map(r => r.user_id);
+      const { data: profiles, error: profError } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', userIds);
+
+      if (profError) throw profError;
+
+      // Merge data
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      return registrations.map(r => ({
+        ...r,
+        profiles: profileMap.get(r.user_id) || null,
+      }));
     } catch (error) {
       console.error('Error fetching registrations:', error);
       return [];
