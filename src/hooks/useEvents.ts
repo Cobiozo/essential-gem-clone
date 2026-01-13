@@ -305,7 +305,7 @@ export const useEvents = () => {
     }
   };
 
-  const getUserEvents = async () => {
+  const getUserEvents = useCallback(async () => {
     if (!user) return [];
 
     try {
@@ -342,7 +342,7 @@ export const useEvents = () => {
       console.error('Error fetching user events:', error);
       return [];
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchEvents();
