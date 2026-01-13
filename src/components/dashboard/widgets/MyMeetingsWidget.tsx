@@ -32,6 +32,7 @@ export const MyMeetingsWidget: React.FC = () => {
       case 'webinar':
         return <Video className="h-4 w-4 text-blue-500" />;
       case 'meeting_public':
+      case 'team_training':
         return <Users className="h-4 w-4 text-green-500" />;
       case 'meeting_private':
         return <User className="h-4 w-4 text-purple-500" />;
@@ -44,10 +45,12 @@ export const MyMeetingsWidget: React.FC = () => {
     switch (type) {
       case 'webinar':
         return 'Webinary';
+      case 'team_training':
+        return 'Spotkanie zespołu';
       case 'meeting_public':
         return 'Spotkania publiczne';
       case 'meeting_private':
-        return 'Spotkania prywatne';
+        return 'Spotkanie indywidualne';
       default:
         return 'Wydarzenia';
     }

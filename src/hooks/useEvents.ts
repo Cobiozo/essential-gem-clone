@@ -32,7 +32,7 @@ export const useEvents = () => {
       const parsedEvents = (data || []).map(event => ({
         ...event,
         buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
-        event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private',
+        event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private' | 'team_training',
       }));
 
       // If user is logged in, check their registrations
@@ -79,7 +79,7 @@ export const useEvents = () => {
       const parsedEvents = (data || []).map(event => ({
         ...event,
         buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
-        event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private',
+        event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private' | 'team_training',
       }));
 
       setEvents(parsedEvents);
@@ -334,7 +334,7 @@ export const useEvents = () => {
         .map(event => ({
           ...event,
           buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
-          event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private',
+          event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private' | 'team_training',
           is_registered: true,
         }))
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
