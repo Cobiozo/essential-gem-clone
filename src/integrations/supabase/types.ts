@@ -3941,6 +3941,7 @@ export type Database = {
         Args: { sender_role: string; target_role: string }
         Returns: boolean
       }
+      check_is_admin_for_events: { Args: never; Returns: boolean }
       debug_user_access: {
         Args: never
         Returns: {
