@@ -66,13 +66,21 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         ? 'tripartite_meeting_enabled' 
         : 'partner_consultation_enabled';
 
+      console.log('[PartnerMeetingBooking] Loading partners for meetingType:', meetingType);
+
       // Get leader permissions with the required permission enabled
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
         .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled')
         .eq(permissionField, true);
 
-      if (permError) throw permError;
+      if (permError) {
+        console.error('[PartnerMeetingBooking] Error loading permissions:', permError);
+        throw permError;
+      }
+      
+      console.log('[PartnerMeetingBooking] Found permissions:', permissions?.length || 0);
+      
       if (!permissions || permissions.length === 0) {
         setPartners([]);
         setLoading(false);
@@ -80,6 +88,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       }
 
       const userIds = permissions.map(p => p.user_id);
+      console.log('[PartnerMeetingBooking] User IDs with permissions:', userIds);
 
       // Get profiles for these users
       const { data: profiles, error: profError } = await supabase
@@ -87,18 +96,30 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .select('user_id, first_name, last_name, email')
         .in('user_id', userIds);
 
-      if (profError) throw profError;
+      if (profError) {
+        console.error('[PartnerMeetingBooking] Error loading profiles:', profError);
+        throw profError;
+      }
+      
+      console.log('[PartnerMeetingBooking] Found profiles:', profiles?.length || 0);
 
       // Check which leaders have availability
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: availabilityData } = await supabase
+      const { data: availabilityData, error: availError } = await supabase
         .from('leader_availability')
         .select('leader_user_id, specific_date')
         .in('leader_user_id', userIds)
         .gte('specific_date', today)
         .eq('is_active', true);
 
+      if (availError) {
+        console.error('[PartnerMeetingBooking] Error loading availability:', availError);
+      }
+      
+      console.log('[PartnerMeetingBooking] Availability data:', availabilityData?.length || 0);
+
       const leadersWithAvailability = new Set(availabilityData?.map(a => a.leader_user_id) || []);
+      console.log('[PartnerMeetingBooking] Leaders with availability:', Array.from(leadersWithAvailability));
 
       // Merge data
       const partnersData: PartnerWithAvailability[] = permissions
@@ -118,6 +139,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         })
         .filter(p => p.has_availability); // Only show partners with availability
 
+      console.log('[PartnerMeetingBooking] Final partners list:', partnersData.length, partnersData.map(p => p.email));
       setPartners(partnersData);
     } catch (error) {
       console.error('Error loading partners:', error);
@@ -222,23 +244,57 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .eq('specific_date', dateStr)
         .eq('is_active', true);
 
-      // Get already booked events for this date
-      const { data: bookedEvents } = await supabase
+      // Get already booked individual meetings for this partner on this date
+      const { data: individualMeetings } = await supabase
         .from('events')
-        .select('start_time')
+        .select('start_time, title')
         .eq('host_user_id', selectedPartner.user_id)
         .in('event_type', ['tripartite_meeting', 'partner_consultation'])
         .gte('start_time', `${dateStr}T00:00:00`)
         .lt('start_time', `${dateStr}T23:59:59`)
         .eq('is_active', true);
 
-      const bookedTimes = bookedEvents?.map(e => 
+      // Get global events (webinars, team meetings) on this date
+      const { data: globalEvents } = await supabase
+        .from('events')
+        .select('id, start_time, title, event_type')
+        .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
+        .gte('start_time', `${dateStr}T00:00:00`)
+        .lt('start_time', `${dateStr}T23:59:59`)
+        .eq('is_active', true);
+
+      // Check if the selected partner is registered for any global events
+      let registeredGlobalEventTimes: string[] = [];
+      if (globalEvents && globalEvents.length > 0) {
+        const { data: registrations } = await supabase
+          .from('event_registrations')
+          .select('event_id')
+          .eq('user_id', selectedPartner.user_id)
+          .in('event_id', globalEvents.map(e => e.id));
+
+        if (registrations && registrations.length > 0) {
+          const registeredEventIds = new Set(registrations.map(r => r.event_id));
+          registeredGlobalEventTimes = globalEvents
+            .filter(e => registeredEventIds.has(e.id))
+            .map(e => format(new Date(e.start_time), 'HH:mm'));
+        }
+      }
+
+      // Combine all blocked times
+      const individualMeetingTimes = individualMeetings?.map(e => 
         format(new Date(e.start_time), 'HH:mm')
       ) || [];
+      
+      const allBlockedTimes = new Set([
+        ...individualMeetingTimes,
+        ...registeredGlobalEventTimes
+      ]);
+
+      console.log('[PartnerMeetingBooking] Blocked times for', dateStr, ':', Array.from(allBlockedTimes));
 
       // Filter out booked slots
       const slots: AvailableSlot[] = (availability || [])
-        .filter(slot => !bookedTimes.includes(slot.start_time?.substring(0, 5) || ''))
+        .filter(slot => !allBlockedTimes.has(slot.start_time?.substring(0, 5) || ''))
         .map(slot => ({
           date: dateStr,
           time: slot.start_time?.substring(0, 5) || '09:00',

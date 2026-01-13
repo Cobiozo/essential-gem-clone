@@ -16,6 +16,7 @@ import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 // Lazy load chat widgets - only mount when first opened
 const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
@@ -50,6 +51,9 @@ const AppContent = () => {
   useDynamicMetaTags();
   const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin } = useAuth();
   const { isModern } = useDashboardPreference();
+  
+  // Auto-logout after 30 minutes of inactivity (only for logged-in users)
+  useInactivityTimeout({ enabled: !!user });
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);

@@ -8,6 +8,19 @@ interface CertificateResult {
   error?: string;
 }
 
+// Polish character normalization for PDF (when Unicode font is not available)
+const normalizePolishChars = (text: string): string => {
+  // Map Polish diacritical characters to their closest ASCII equivalents
+  const polishMap: Record<string, string> = {
+    'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+    'ó': 'o', 'ś': 's', 'ż': 'z', 'ź': 'z',
+    'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
+    'Ó': 'O', 'Ś': 'S', 'Ż': 'Z', 'Ź': 'Z',
+  };
+  
+  return text.split('').map(char => polishMap[char] || char).join('');
+};
+
 export const useCertificateGeneration = () => {
   const { toast } = useToast();
 
@@ -152,6 +165,11 @@ export const useCertificateGeneration = () => {
         format: 'a4'
       });
 
+      // Note: jsPDF built-in fonts (helvetica, times, courier) don't support Polish characters
+      // We use the normalizePolishChars function to ensure text displays correctly
+      // For proper Polish character support, a custom TTF font would need to be embedded
+      console.log('Step 4b: Using ASCII-normalized text for PDF compatibility');
+
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const PX_TO_MM = 0.352729;
@@ -193,7 +211,7 @@ export const useCertificateGeneration = () => {
       const certificateNumber = `CERT-${Date.now().toString(36).toUpperCase()}`;
 
       const replacePlaceholders = (text: string): string => {
-        return text
+        let result = text
           // Format z pojedynczymi nawiasami (używany w edytorze szablonów)
           // Dane użytkownika
           .replace(/\{userName\}/gi, userName)
@@ -240,6 +258,9 @@ export const useCertificateGeneration = () => {
           .replace(/\{\{issueDate\}\}/gi, issueDate)
           .replace(/\{\{certificateNumber\}\}/gi, certificateNumber)
           .replace(/\{\{currentYear\}\}/gi, currentYear);
+        
+        // Normalize Polish characters for PDF compatibility
+        return normalizePolishChars(result);
       };
 
       console.log('Rendering', elements.length, 'template elements...');

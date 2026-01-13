@@ -8,6 +8,9 @@ import { Users, UserRound, Clock, Video, ChevronLeft, ChevronRight, Globe } from
 import { format, addDays, startOfWeek, eachDayOfInterval, isSameDay, isToday, isBefore, startOfDay, addMonths } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface TimeSlot {
   date: string; // YYYY-MM-DD
@@ -35,6 +38,9 @@ export const WeeklyAvailabilityScheduler: React.FC<WeeklyAvailabilitySchedulerPr
   initialSlots,
   onSlotsChange,
 }) => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [show24Hours, setShow24Hours] = useState(true);
@@ -88,10 +94,62 @@ export const WeeklyAvailabilityScheduler: React.FC<WeeklyAvailabilitySchedulerPr
     setSelectedDate(new Date());
   }, []);
 
-  // Toggle a slot
-  const toggleSlot = useCallback((date: Date, time: string) => {
+  // Check for conflicts with global events before toggling
+  const checkConflict = useCallback(async (date: Date, time: string): Promise<{hasConflict: boolean, eventTitle?: string}> => {
+    if (!user) return { hasConflict: false };
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
+    
+    // Check global events (webinars, team meetings)
+    const { data: globalEvents } = await supabase
+      .from('events')
+      .select('id, title, start_time, event_type')
+      .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
+      .gte('start_time', `${dateStr}T${time}:00`)
+      .lt('start_time', `${dateStr}T${time}:59`)
+      .eq('is_active', true);
+
+    if (globalEvents && globalEvents.length > 0) {
+      // Check if user is registered for any of these events
+      const { data: registrations } = await supabase
+        .from('event_registrations')
+        .select('event_id')
+        .eq('user_id', user.id)
+        .in('event_id', globalEvents.map(e => e.id));
+
+      if (registrations && registrations.length > 0) {
+        const conflictingEvent = globalEvents.find(e => 
+          registrations.some(r => r.event_id === e.id)
+        );
+        if (conflictingEvent) {
+          return { 
+            hasConflict: true, 
+            eventTitle: `${conflictingEvent.title} (${format(new Date(conflictingEvent.start_time), 'dd.MM.yyyy HH:mm')})` 
+          };
+        }
+      }
+    }
+
+    return { hasConflict: false };
+  }, [user]);
+
+  // Toggle a slot with conflict checking
+  const toggleSlot = useCallback(async (date: Date, time: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const key = `${dateStr}_${time}`;
+    
+    // Only check conflicts when ADDING a slot
+    if (!enabledSlots.has(key)) {
+      const conflict = await checkConflict(date, time);
+      if (conflict.hasConflict) {
+        toast({
+          title: 'Kolizja z wydarzeniem',
+          description: `Godzina ${time} koliduje z: ${conflict.eventTitle}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     
     setEnabledSlots(prev => {
       const next = new Set(prev);
@@ -110,7 +168,7 @@ export const WeeklyAvailabilityScheduler: React.FC<WeeklyAvailabilitySchedulerPr
       
       return next;
     });
-  }, [onSlotsChange]);
+  }, [onSlotsChange, enabledSlots, checkConflict, toast]);
 
   // Check if a slot is enabled
   const isSlotEnabled = useCallback((date: Date, time: string) => {
