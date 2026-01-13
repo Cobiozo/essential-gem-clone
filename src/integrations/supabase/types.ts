@@ -2168,6 +2168,9 @@ export type Database = {
           can_host_private_meetings: boolean | null
           created_at: string | null
           id: string
+          individual_meetings_enabled: boolean | null
+          partner_consultation_enabled: boolean | null
+          tripartite_meeting_enabled: boolean | null
           updated_at: string | null
           user_id: string
           zoom_link: string | null
@@ -2178,6 +2181,9 @@ export type Database = {
           can_host_private_meetings?: boolean | null
           created_at?: string | null
           id?: string
+          individual_meetings_enabled?: boolean | null
+          partner_consultation_enabled?: boolean | null
+          tripartite_meeting_enabled?: boolean | null
           updated_at?: string | null
           user_id: string
           zoom_link?: string | null
@@ -2188,6 +2194,9 @@ export type Database = {
           can_host_private_meetings?: boolean | null
           created_at?: string | null
           id?: string
+          individual_meetings_enabled?: boolean | null
+          partner_consultation_enabled?: boolean | null
+          tripartite_meeting_enabled?: boolean | null
           updated_at?: string | null
           user_id?: string
           zoom_link?: string | null

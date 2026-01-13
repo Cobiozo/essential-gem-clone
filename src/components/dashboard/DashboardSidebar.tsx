@@ -98,6 +98,12 @@ export const DashboardSidebar: React.FC = () => {
   const [hasInfoLinks, setHasInfoLinks] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   
+  // Individual meetings permissions for partners
+  const [individualMeetingsEnabled, setIndividualMeetingsEnabled] = useState({
+    tripartite: false,
+    consultation: false,
+  });
+  
   // Dynamic submenu data
   const [infoLinks, setInfoLinks] = useState<Array<{
     id: string;
@@ -176,6 +182,20 @@ export const DashboardSidebar: React.FC = () => {
         );
 
         setCommunityLinks(uniqueCommunity as Array<{id: string; title: string; url: string}>);
+
+        // Fetch individual meetings permissions for partners
+        if (role === 'partner') {
+          const { data: leaderPerm } = await supabase
+            .from('leader_permissions')
+            .select('tripartite_meeting_enabled, partner_consultation_enabled')
+            .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+            .maybeSingle();
+
+          setIndividualMeetingsEnabled({
+            tripartite: leaderPerm?.tripartite_meeting_enabled || false,
+            consultation: leaderPerm?.partner_consultation_enabled || false,
+          });
+        }
       }
     };
 
@@ -245,6 +265,27 @@ export const DashboardSidebar: React.FC = () => {
         { id: 'individual-meetings', labelKey: 'dashboard.menu.individualMeetings', path: '/events/individual-meetings', icon: UserRound },
       ],
     },
+    // Individual meetings for partners with permissions
+    ...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
+      id: 'individual-meetings-setup',
+      icon: UserRound,
+      labelKey: 'Spotkanie indywidualne',
+      hasSubmenu: true,
+      submenuItems: [
+        ...(individualMeetingsEnabled.tripartite ? [{
+          id: 'tripartite-meeting',
+          labelKey: 'Ustaw spotkanie trójstronne',
+          path: '/my-account?tab=individual-meetings&type=tripartite',
+          icon: Users,
+        }] : []),
+        ...(individualMeetingsEnabled.consultation ? [{
+          id: 'partner-consultation',
+          labelKey: 'Ustaw konsultacje dla partnerów',
+          path: '/my-account?tab=individual-meetings&type=consultation',
+          icon: UserRound,
+        }] : []),
+      ] as SubMenuItem[],
+    }] : []) as MenuItem[],
     { 
       id: 'chat', 
       icon: MessageSquare, 
@@ -401,6 +442,12 @@ export const DashboardSidebar: React.FC = () => {
     }
     if (subItem.id === 'individual-meetings') {
       return location.pathname === '/events/individual-meetings';
+    }
+    if (subItem.id === 'tripartite-meeting') {
+      return location.pathname === '/my-account' && currentTab === 'individual-meetings' && searchParams.get('type') === 'tripartite';
+    }
+    if (subItem.id === 'partner-consultation') {
+      return location.pathname === '/my-account' && currentTab === 'individual-meetings' && searchParams.get('type') === 'consultation';
     }
     return false;
   };

@@ -35,6 +35,7 @@ import { WebinarForm } from './WebinarForm';
 import { WebinarList } from './WebinarList';
 import { TeamTrainingForm } from './TeamTrainingForm';
 import { TeamTrainingList } from './TeamTrainingList';
+import { IndividualMeetingsManagement } from './IndividualMeetingsManagement';
 import { BookOpen } from 'lucide-react';
 
 export const EventsManagement: React.FC = () => {
@@ -263,7 +264,7 @@ export const EventsManagement: React.FC = () => {
       toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
       return;
     }
-    toast({ title: t('toast.success'), description: 'Szkolenie zostało usunięte' });
+    toast({ title: t('toast.success'), description: 'Spotkanie zespołu zostało usunięte' });
     loadEvents();
   };
 
@@ -518,21 +519,25 @@ export const EventsManagement: React.FC = () => {
           {activeTab === 'team-training' && !showTeamTrainingForm && (
             <Button onClick={() => setShowTeamTrainingForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Dodaj Szkolenie
+              Dodaj spotkanie zespołu
             </Button>
           )}
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="webinars" className="flex items-center gap-2">
             <Video className="h-4 w-4" />
             <span className="hidden sm:inline">Webinary</span>
           </TabsTrigger>
           <TabsTrigger value="team-training" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">Szkolenie zespołu</span>
+            <span className="hidden sm:inline">Spotkanie zespołu</span>
+          </TabsTrigger>
+          <TabsTrigger value="individual-meetings" className="flex items-center gap-2">
+            <UserRound className="h-4 w-4" />
+            <span className="hidden sm:inline">Spotkanie indywidualne</span>
           </TabsTrigger>
           <TabsTrigger value="sms-logs" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
@@ -586,6 +591,11 @@ export const EventsManagement: React.FC = () => {
               onRefresh={loadEvents}
             />
           )}
+        </TabsContent>
+
+        {/* Individual Meetings Tab */}
+        <TabsContent value="individual-meetings" className="space-y-4 mt-6">
+          <IndividualMeetingsManagement />
         </TabsContent>
 
         {/* SMS Logs Tab */}
