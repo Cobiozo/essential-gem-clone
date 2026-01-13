@@ -346,6 +346,28 @@ export const useEvents = () => {
 
   useEffect(() => {
     fetchEvents();
+
+    // Subscribe to real-time changes on event_registrations
+    const channel = supabase
+      .channel('event-registrations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'event_registrations'
+        },
+        (payload) => {
+          console.log('Event registration change:', payload);
+          // Refetch events when any registration changes
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchEvents]);
 
   return {
