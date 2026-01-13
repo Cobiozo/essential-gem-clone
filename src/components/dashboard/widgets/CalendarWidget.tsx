@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,16 @@ export const CalendarWidget: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<EventWithRegistration[]>([]);
+
+  // Sync selectedDayEvents when events change (for real-time updates)
+  useEffect(() => {
+    if (selectedDate) {
+      const dayEvents = events.filter(event => 
+        isSameDay(new Date(event.start_time), selectedDate)
+      );
+      setSelectedDayEvents(dayEvents);
+    }
+  }, [events, selectedDate]);
 
   const locale = language === 'pl' ? pl : enUS;
 

@@ -1,31 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Video, Users, User, ExternalLink, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEvents } from '@/hooks/useEvents';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
 
 export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const { getUserEvents, cancelRegistration } = useEvents();
   const [userEvents, setUserEvents] = useState<EventWithRegistration[]>([]);
   const [loading, setLoading] = useState(true);
 
   const locale = language === 'pl' ? pl : enUS;
 
-  useEffect(() => {
-    const fetchUserEvents = async () => {
-      setLoading(true);
-      const events = await getUserEvents();
-      setUserEvents(events);
-      setLoading(false);
-    };
-    fetchUserEvents();
+  const fetchUserEventsData = useCallback(async () => {
+    setLoading(true);
+    const events = await getUserEvents();
+    setUserEvents(events);
+    setLoading(false);
   }, [getUserEvents]);
+
+  // Initial fetch + real-time subscription for user's registrations
+  useEffect(() => {
+    fetchUserEventsData();
+
+    if (!user) return;
+
+    // Subscribe to changes for current user's registrations
+    const channel = supabase
+      .channel('my-meetings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_registrations',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Refetch when user's registrations change
+          fetchUserEventsData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchUserEventsData, user]);
 
   const getEventIcon = (type: string) => {
     switch (type) {
