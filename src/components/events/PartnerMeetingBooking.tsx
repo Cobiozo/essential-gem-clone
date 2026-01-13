@@ -164,12 +164,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     if (!selectedPartner) return;
 
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm');
       
       // Get all availability slots for this partner
       const { data: availability } = await supabase
         .from('leader_availability')
-        .select('specific_date')
+        .select('specific_date, start_time')
         .eq('leader_user_id', selectedPartner.user_id)
         .gte('specific_date', today)
         .eq('is_active', true);
@@ -183,10 +185,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .gte('start_time', `${today}T00:00:00`)
         .eq('is_active', true);
 
-      const bookedDates = new Set(
-        bookedEvents?.map(e => format(new Date(e.start_time), 'yyyy-MM-dd')) || []
-      );
-
       // Filter dates that still have availability
       const uniqueDates = [...new Set(availability?.map(a => a.specific_date).filter(Boolean) as string[])];
       
@@ -194,7 +192,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const availableDatesList: string[] = [];
       
       for (const date of uniqueDates) {
-        const slotsForDate = availability?.filter(a => a.specific_date === date) || [];
         const bookedTimesForDate = bookedEvents
           ?.filter(e => format(new Date(e.start_time), 'yyyy-MM-dd') === date)
           .map(e => format(new Date(e.start_time), 'HH:mm')) || [];
@@ -207,9 +204,17 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           .eq('specific_date', date)
           .eq('is_active', true);
 
-        const hasAvailableSlot = dateSlots?.some(
-          slot => !bookedTimesForDate.includes(slot.start_time?.substring(0, 5) || '')
-        );
+        const hasAvailableSlot = dateSlots?.some(slot => {
+          const slotTime = slot.start_time?.substring(0, 5) || '';
+          const isBooked = bookedTimesForDate.includes(slotTime);
+          
+          // For today, filter out past times
+          if (date === today && slotTime <= currentTime) {
+            return false;
+          }
+          
+          return !isBooked;
+        });
 
         if (hasAvailableSlot) {
           availableDatesList.push(date);
@@ -297,9 +302,23 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       console.log('[PartnerMeetingBooking] Blocked times for', dateStr, ':', Array.from(allBlockedTimes));
 
-      // Filter out booked slots
+      // Get current time for filtering today's past slots
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm');
+
+      // Filter out booked slots and past slots for today
       const slots: AvailableSlot[] = (availability || [])
-        .filter(slot => !allBlockedTimes.has(slot.start_time?.substring(0, 5) || ''))
+        .filter(slot => {
+          const slotTime = slot.start_time?.substring(0, 5) || '';
+          
+          // For today, filter out past times
+          if (dateStr === today && slotTime <= currentTime) {
+            return false;
+          }
+          
+          return !allBlockedTimes.has(slotTime);
+        })
         .map(slot => ({
           date: dateStr,
           time: slot.start_time?.substring(0, 5) || '09:00',
