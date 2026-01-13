@@ -4,6 +4,7 @@ import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
@@ -12,6 +13,7 @@ import type { EventWithRegistration } from '@/types/events';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const { events, loading, registerForEvent } = useEvents();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -260,7 +262,7 @@ export const CalendarWidget: React.FC = () => {
                     key={event.id}
                     className="p-2 rounded-md bg-muted/50 space-y-1"
                   >
-                      <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         {event.event_type === 'webinar' && <Video className="h-3.5 w-3.5 text-blue-500" />}
                         {(event.event_type === 'meeting_public' || event.event_type === 'team_training') && <Users className="h-3.5 w-3.5 text-green-500" />}
@@ -270,9 +272,28 @@ export const CalendarWidget: React.FC = () => {
                         <span className="text-sm font-medium line-clamp-1">{event.title}</span>
                       </div>
                     </div>
+                    
+                    {/* Host/participant info for individual meetings */}
+                    {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && (
+                      <div className="text-xs text-muted-foreground">
+                        {event.host_profile && event.host_user_id !== user?.id && (
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            Prowadzący: {event.host_profile.first_name} {event.host_profile.last_name}
+                          </div>
+                        )}
+                        {event.participant_profile && event.host_user_id === user?.id && (
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            Rezerwujący: {event.participant_profile.first_name} {event.participant_profile.last_name}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(event.start_time), 'HH:mm')}
+                        {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                       </span>
                       {getRegistrationButton(event)}
                     </div>

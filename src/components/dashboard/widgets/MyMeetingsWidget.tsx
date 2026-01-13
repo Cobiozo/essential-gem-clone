@@ -282,19 +282,6 @@ export const MyMeetingsWidget: React.FC = () => {
                         </span>
                         
                         <div className="flex items-center gap-2">
-                          {event.zoom_link && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              asChild
-                            >
-                              <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
-                                <Video className="h-3 w-3 mr-1" />
-                                Zoom
-                              </a>
-                            </Button>
-                          )}
                           {getActionButton(event)}
                         </div>
                       </div>

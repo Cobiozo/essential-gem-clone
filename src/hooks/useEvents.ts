@@ -46,7 +46,7 @@ export const useEvents = () => {
         event_type: event.event_type as EventType,
       }));
 
-      // If user is logged in, check their registrations
+      // If user is logged in, check their registrations and fetch host/participant profiles
       if (user) {
         const { data: registrations } = await supabase
           .from('event_registrations')
@@ -56,9 +56,68 @@ export const useEvents = () => {
 
         const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
         
+        // Get individual meeting event IDs for profile fetching
+        const individualMeetingIds = parsedEvents
+          .filter(e => ['tripartite_meeting', 'partner_consultation'].includes(e.event_type))
+          .map(e => e.id);
+        
+        // Fetch host profiles for individual meetings
+        const hostUserIds = parsedEvents
+          .filter(e => ['tripartite_meeting', 'partner_consultation'].includes(e.event_type) && e.host_user_id)
+          .map(e => e.host_user_id);
+        
+        const { data: hostProfiles } = hostUserIds.length > 0 
+          ? await supabase
+              .from('profiles')
+              .select('id, first_name, last_name')
+              .in('id', hostUserIds)
+          : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+        
+        const hostProfileMap = new Map<string, { first_name: string | null; last_name: string | null }>(
+          (hostProfiles || []).map(p => [p.id, { first_name: p.first_name, last_name: p.last_name }])
+        );
+        
+        // Fetch participant profiles (from event_registrations) for meetings where user is host
+        const userHostedMeetingIds = parsedEvents
+          .filter(e => ['tripartite_meeting', 'partner_consultation'].includes(e.event_type) && e.host_user_id === user.id)
+          .map(e => e.id);
+        
+        let participantProfileMap = new Map<string, { first_name: string | null; last_name: string | null; email: string }>();
+        
+        if (userHostedMeetingIds.length > 0) {
+          const { data: participantRegs } = await supabase
+            .from('event_registrations')
+            .select('event_id, user_id')
+            .in('event_id', userHostedMeetingIds)
+            .eq('status', 'registered');
+          
+          const participantUserIds = participantRegs?.map(r => r.user_id) || [];
+          
+          if (participantUserIds.length > 0) {
+            const { data: participantProfiles } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, email')
+              .in('id', participantUserIds);
+            
+            // Map event_id to participant profile
+            participantRegs?.forEach(reg => {
+              const profile = participantProfiles?.find(p => p.id === reg.user_id);
+              if (profile) {
+                participantProfileMap.set(reg.event_id, {
+                  first_name: profile.first_name,
+                  last_name: profile.last_name,
+                  email: profile.email || '',
+                });
+              }
+            });
+          }
+        }
+        
         const eventsWithRegistration = parsedEvents.map(event => ({
           ...event,
           is_registered: registeredEventIds.has(event.id),
+          host_profile: hostProfileMap.get(event.host_user_id) || null,
+          participant_profile: participantProfileMap.get(event.id) || null,
         }));
 
         setEvents(eventsWithRegistration);
