@@ -17,8 +17,13 @@ export const MyMeetingsWidget: React.FC = () => {
   const { getUserEvents } = useEvents();
   const [userEvents, setUserEvents] = useState<EventWithRegistration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
 
   const locale = language === 'pl' ? pl : enUS;
+
+  const toggleExpand = (type: string) => {
+    setExpandedTypes(prev => ({ ...prev, [type]: !prev[type] }));
+  };
 
   const fetchUserEventsData = useCallback(async () => {
     setLoading(true);
@@ -238,7 +243,7 @@ export const MyMeetingsWidget: React.FC = () => {
                 </h4>
                 
                 <div className="space-y-2">
-                  {events.slice(0, 3).map(event => (
+                  {(expandedTypes[type] ? events : events.slice(0, 3)).map(event => (
                     <div
                       key={event.id}
                       className="p-3 rounded-lg bg-muted/50 space-y-2"
@@ -250,12 +255,24 @@ export const MyMeetingsWidget: React.FC = () => {
                         </Badge>
                       </div>
 
-                      {/* Host info for individual meetings */}
-                      {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && 
-                       event.host_profile && (
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          Prowadzący: {event.host_profile.first_name} {event.host_profile.last_name}
+                      {/* Info for individual meetings */}
+                      {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && (
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {/* Show host info for participant */}
+                          {event.host_profile && event.host_user_id !== user?.id && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              Prowadzący: {event.host_profile.first_name} {event.host_profile.last_name}
+                            </div>
+                          )}
+                          
+                          {/* Show participant info for host */}
+                          {event.participant_profile && event.host_user_id === user?.id && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              Rezerwujący: {event.participant_profile.first_name} {event.participant_profile.last_name}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -285,9 +302,16 @@ export const MyMeetingsWidget: React.FC = () => {
                   ))}
                   
                   {events.length > 3 && (
-                    <p className="text-xs text-muted-foreground pl-2">
-                      +{events.length - 3} więcej
-                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => toggleExpand(type)}
+                    >
+                      {expandedTypes[type] 
+                        ? 'Pokaż mniej' 
+                        : `+${events.length - 3} więcej`}
+                    </Button>
                   )}
                 </div>
               </div>

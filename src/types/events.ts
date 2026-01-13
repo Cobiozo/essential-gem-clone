@@ -70,6 +70,11 @@ export interface EventWithRegistration extends Event {
     first_name: string | null;
     last_name: string | null;
   } | null;
+  participant_profile?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
 }
 
 // Partner with availability for booking interface

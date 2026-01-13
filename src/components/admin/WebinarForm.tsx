@@ -149,6 +149,26 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
 
     setSaving(true);
     try {
+      // Check for conflicts with other high-priority events
+      const { data: conflictingEvents } = await supabase
+        .from('events')
+        .select('id, title, event_type')
+        .neq('id', editingWebinar?.id || '')
+        .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
+        .lte('start_time', form.end_time)
+        .gte('end_time', form.start_time)
+        .eq('is_active', true);
+
+      if (conflictingEvents && conflictingEvents.length > 0) {
+        toast({
+          title: 'Konflikt czasowy',
+          description: `W tym czasie istnieje już: ${conflictingEvents[0].title}`,
+          variant: 'destructive',
+        });
+        setSaving(false);
+        return;
+      }
+
       // Convert buttons to JSON-compatible format
       const buttonsJson = form.buttons.map(b => ({ 
         label: b.label, 
