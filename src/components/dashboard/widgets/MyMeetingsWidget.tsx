@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Video, Users, User, ExternalLink, X } from 'lucide-react';
+import { Calendar, Video, Users, User, ExternalLink, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEvents } from '@/hooks/useEvents';
-import { format } from 'date-fns';
+import { format, subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
 
@@ -40,6 +40,19 @@ export const MyMeetingsWidget: React.FC = () => {
     }
   };
 
+  const getEventTypeName = (type: string) => {
+    switch (type) {
+      case 'webinar':
+        return 'Webinary';
+      case 'meeting_public':
+        return 'Spotkania publiczne';
+      case 'meeting_private':
+        return 'Spotkania prywatne';
+      default:
+        return 'Wydarzenia';
+    }
+  };
+
   const handleCancel = async (eventId: string) => {
     await cancelRegistration(eventId);
     const events = await getUserEvents();
@@ -48,8 +61,84 @@ export const MyMeetingsWidget: React.FC = () => {
 
   // Filter to show only upcoming events
   const upcomingEvents = userEvents.filter(
-    e => new Date(e.start_time) > new Date()
+    e => new Date(e.end_time) > new Date()
   );
+
+  // Group events by type
+  const groupedEvents = upcomingEvents.reduce((acc, event) => {
+    const type = event.event_type;
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(event);
+    return acc;
+  }, {} as Record<string, EventWithRegistration[]>);
+
+  // Dynamic button based on time
+  const getActionButton = (event: EventWithRegistration) => {
+    const now = new Date();
+    const eventStart = new Date(event.start_time);
+    const eventEnd = new Date(event.end_time);
+    const fifteenMinutesBefore = subMinutes(eventStart, 15);
+    const minutesUntilEvent = differenceInMinutes(eventStart, now);
+    
+    // Event already ended
+    if (isAfter(now, eventEnd)) {
+      return null;
+    }
+    
+    // 15 min before or during event - show WEJDŹ button
+    if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
+      if (event.zoom_link) {
+        return (
+          <Button
+            size="sm"
+            className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+            asChild
+          >
+            <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" />
+              WEJDŹ
+            </a>
+          </Button>
+        );
+      }
+      return (
+        <Badge className="bg-emerald-600 text-white">
+          Trwa teraz
+        </Badge>
+      );
+    }
+    
+    // More than 15 min until event - show countdown or zoom link
+    if (minutesUntilEvent <= 60 && minutesUntilEvent > 15) {
+      return (
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          Za {minutesUntilEvent} min
+        </div>
+      );
+    }
+    
+    // Standard zoom link for future events
+    if (event.zoom_link) {
+      return (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-2 text-xs"
+          asChild
+        >
+          <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3 w-3 mr-1" />
+            Zoom
+          </a>
+        </Button>
+      );
+    }
+    
+    return null;
+  };
 
   if (loading) {
     return (
@@ -86,59 +175,56 @@ export const MyMeetingsWidget: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {upcomingEvents.slice(0, 5).map(event => (
-              <div
-                key={event.id}
-                className="p-3 rounded-lg bg-muted/50 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {getEventIcon(event.event_type)}
-                    <span className="text-sm font-medium truncate">{event.title}</span>
-                  </div>
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    {format(new Date(event.start_time), 'd MMM', { locale })}
-                  </Badge>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
-                  </span>
-                  
-                  <div className="flex items-center gap-1">
-                    {event.zoom_link && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-2 text-xs"
-                        asChild
-                      >
-                        <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Zoom
-                        </a>
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-                      onClick={() => handleCancel(event.id)}
+          <div className="space-y-4">
+            {Object.entries(groupedEvents).map(([type, events]) => (
+              <div key={type} className="space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  {getEventIcon(type)}
+                  {getEventTypeName(type)}
+                  <Badge variant="secondary" className="text-xs ml-1">{events.length}</Badge>
+                </h4>
+                
+                <div className="space-y-2">
+                  {events.slice(0, 3).map(event => (
+                    <div
+                      key={event.id}
+                      className="p-3 rounded-lg bg-muted/50 space-y-2"
                     >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-medium truncate">{event.title}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {format(new Date(event.start_time), 'd MMM', { locale })}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
+                        </span>
+                        
+                        <div className="flex items-center gap-1">
+                          {getActionButton(event)}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                            onClick={() => handleCancel(event.id)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {events.length > 3 && (
+                    <p className="text-xs text-muted-foreground pl-2">
+                      +{events.length - 3} więcej
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
-
-            {upcomingEvents.length > 5 && (
-              <p className="text-xs text-center text-muted-foreground">
-                +{upcomingEvents.length - 5} więcej
-              </p>
-            )}
           </div>
         )}
       </CardContent>

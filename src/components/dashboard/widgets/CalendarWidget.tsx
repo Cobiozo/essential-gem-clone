@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ChevronLeft, ChevronRight, Video, Users, User } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEvents } from '@/hooks/useEvents';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { EventWithRegistration } from '@/types/events';
@@ -58,10 +58,71 @@ export const CalendarWidget: React.FC = () => {
   // Adjust days array to start from Monday
   const getAdjustedDayOfWeek = (date: Date) => {
     const day = date.getDay();
-    return day === 0 ? 6 : day - 1; // Convert Sunday (0) to 6, Monday (1) to 0, etc.
+    return day === 0 ? 6 : day - 1;
   };
 
   const firstDayOffset = getAdjustedDayOfWeek(monthStart);
+
+  // Dynamic registration button logic
+  const getRegistrationButton = (event: EventWithRegistration) => {
+    const now = new Date();
+    const eventStart = new Date(event.start_time);
+    const eventEnd = new Date(event.end_time);
+    const fifteenMinutesBefore = subMinutes(eventStart, 15);
+    
+    // Event already ended
+    if (isAfter(now, eventEnd)) {
+      return (
+        <Badge variant="secondary" className="text-xs">
+          Zakończone
+        </Badge>
+      );
+    }
+    
+    // User is registered and it's 15 min before or during event
+    if (event.is_registered && isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
+      if (event.zoom_link) {
+        return (
+          <Button
+            size="sm"
+            className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700"
+            asChild
+          >
+            <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" />
+              WEJDŹ
+            </a>
+          </Button>
+        );
+      }
+      return (
+        <Badge className="text-xs bg-emerald-600">
+          Trwa teraz
+        </Badge>
+      );
+    }
+    
+    // User is registered but it's not time yet
+    if (event.is_registered) {
+      return (
+        <Badge variant="secondary" className="text-xs">
+          Jesteś zapisany
+        </Badge>
+      );
+    }
+    
+    // User not registered
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-6 text-xs"
+        onClick={() => registerForEvent(event.id)}
+      >
+        {t('events.registerButton') || 'Zapisz się'}
+      </Button>
+    );
+  };
 
   return (
     <Card className="shadow-sm">
@@ -188,20 +249,7 @@ export const CalendarWidget: React.FC = () => {
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(event.start_time), 'HH:mm')}
                       </span>
-                      {event.is_registered ? (
-                        <Badge variant="secondary" className="text-xs">
-                          {t('events.registered') || 'Zapisano'}
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs"
-                          onClick={() => registerForEvent(event.id)}
-                        >
-                          {t('events.registerButton') || 'Zapisz się'}
-                        </Button>
-                      )}
+                      {getRegistrationButton(event)}
                     </div>
                   </div>
                 ))}
