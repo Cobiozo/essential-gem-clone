@@ -30,6 +30,7 @@ import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
+import { IndividualMeetingForm } from '@/components/events/IndividualMeetingForm';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 // Preferences Tab Component
@@ -121,7 +122,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'individual-meetings'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -1017,6 +1018,15 @@ const MyAccount = () => {
             {visibleTabs.leader && (
               <TabsContent value="leader" className="mt-6">
                 <LeaderAvailabilityManager />
+              </TabsContent>
+            )}
+
+            {/* Individual Meetings for Partners */}
+            {isPartner && (
+              <TabsContent value="individual-meetings" className="mt-6">
+                <IndividualMeetingForm 
+                  meetingType={new URLSearchParams(location.search).get('type') === 'consultation' ? 'consultation' : 'tripartite'} 
+                />
               </TabsContent>
             )}
           </Tabs>
