@@ -360,7 +360,6 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
       </TabsContent>
     </Tabs>
   );
-  );
 };
 
 export default IndividualMeetingForm;
