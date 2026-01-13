@@ -47,13 +47,17 @@ const queryClient = new QueryClient({
   },
 });
 
+// Component to handle inactivity timeout - MUST be inside BrowserRouter for useNavigate
+const InactivityHandler = () => {
+  const { user } = useAuth();
+  useInactivityTimeout({ enabled: !!user });
+  return null;
+};
+
 const AppContent = () => {
   useDynamicMetaTags();
   const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin } = useAuth();
   const { isModern } = useDashboardPreference();
-  
-  // Auto-logout after 30 minutes of inactivity (only for logged-in users)
-  useInactivityTimeout({ enabled: !!user });
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
   const [dailySignalDismissed, setDailySignalDismissed] = useState(false);
@@ -132,6 +136,7 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <InactivityHandler />
         <ProfileCompletionGuard>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
