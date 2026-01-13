@@ -309,23 +309,32 @@ export const useEvents = () => {
     if (!user) return [];
 
     try {
-      const { data: registrations, error } = await supabase
+      // Step 1: Get user's registrations (simple query, no nested join)
+      const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select(`
-          *,
-          events:event_id (*)
-        `)
+        .select('event_id')
         .eq('user_id', user.id)
         .eq('status', 'registered');
 
-      if (error) throw error;
+      if (regError) throw regError;
+      if (!registrations || registrations.length === 0) return [];
 
-      return (registrations || [])
-        .filter(r => r.events && r.events.is_active)
-        .map(r => ({
-          ...r.events,
-          buttons: (Array.isArray(r.events.buttons) ? r.events.buttons : []) as unknown as EventButton[],
-          event_type: r.events.event_type as 'webinar' | 'meeting_public' | 'meeting_private',
+      // Step 2: Get events by IDs (separate query avoids RLS issues with nested joins)
+      const eventIds = registrations.map(r => r.event_id);
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .in('id', eventIds)
+        .eq('is_active', true);
+
+      if (eventsError) throw eventsError;
+
+      // Step 3: Map and sort events
+      return (events || [])
+        .map(event => ({
+          ...event,
+          buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
+          event_type: event.event_type as 'webinar' | 'meeting_public' | 'meeting_private',
           is_registered: true,
         }))
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
