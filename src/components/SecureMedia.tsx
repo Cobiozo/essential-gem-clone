@@ -89,14 +89,31 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     onDurationChangeRef.current = onDurationChange;
   }, [onDurationChange]);
 
-  // Fullscreen handler
-  const handleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-    
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      containerRef.current.requestFullscreen();
+  // Fullscreen handler - secured against DOM errors
+  const handleFullscreen = useCallback(async () => {
+    try {
+      // Check if container exists and is mounted
+      if (!containerRef.current || !document.body.contains(containerRef.current)) {
+        console.warn('[SecureMedia] Container not available for fullscreen');
+        return;
+      }
+      
+      if (document.fullscreenElement) {
+        await document.exitFullscreen().catch((err) => {
+          console.warn('[SecureMedia] exitFullscreen error:', err);
+        });
+      } else {
+        // Check if fullscreen is supported
+        if (containerRef.current.requestFullscreen) {
+          await containerRef.current.requestFullscreen().catch((err) => {
+            console.warn('[SecureMedia] requestFullscreen error:', err);
+          });
+        } else {
+          console.warn('[SecureMedia] Fullscreen not supported');
+        }
+      }
+    } catch (error) {
+      console.error('[SecureMedia] Fullscreen error:', error);
     }
   }, []);
 

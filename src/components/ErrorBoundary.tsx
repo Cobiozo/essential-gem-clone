@@ -14,6 +14,21 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
+// Known DOM errors that can be safely ignored or recovered from
+const RECOVERABLE_DOM_ERRORS = [
+  'insertBefore',
+  'removeChild',
+  'appendChild',
+  'Failed to execute',
+  'Node was not found',
+  'not a child of this node',
+];
+
+function isRecoverableDOMError(error: Error): boolean {
+  const message = error.message || '';
+  return RECOVERABLE_DOM_ERRORS.some(pattern => message.includes(pattern));
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -21,11 +36,64 @@ export class ErrorBoundary extends Component<Props, State> {
     errorInfo: null
   };
 
+  private errorHandler: ((event: ErrorEvent) => void) | null = null;
+  private unhandledRejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null;
+
   public static getDerivedStateFromError(error: Error): Partial<State> {
+    // For recoverable DOM errors, don't trigger error state immediately
+    if (isRecoverableDOMError(error)) {
+      console.warn('[ErrorBoundary] Recoverable DOM error intercepted:', error.message);
+      return {};
+    }
     return { hasError: true, error };
   }
 
+  public componentDidMount() {
+    // Global error handler for uncaught errors
+    this.errorHandler = (event: ErrorEvent) => {
+      const error = event.error;
+      if (error && isRecoverableDOMError(error)) {
+        console.warn('[ErrorBoundary] Global DOM error caught and suppressed:', error.message);
+        event.preventDefault();
+        return;
+      }
+      console.error('[ErrorBoundary] Global error:', event.message);
+    };
+    
+    // Unhandled promise rejection handler
+    this.unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
+      const error = event.reason;
+      if (error && error.message && isRecoverableDOMError(error)) {
+        console.warn('[ErrorBoundary] Unhandled promise rejection (DOM) suppressed:', error.message);
+        event.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('error', this.errorHandler);
+    window.addEventListener('unhandledrejection', this.unhandledRejectionHandler);
+  }
+
+  public componentWillUnmount() {
+    if (this.errorHandler) {
+      window.removeEventListener('error', this.errorHandler);
+    }
+    if (this.unhandledRejectionHandler) {
+      window.removeEventListener('unhandledrejection', this.unhandledRejectionHandler);
+    }
+  }
+
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Log the error but don't crash for recoverable DOM errors
+    if (isRecoverableDOMError(error)) {
+      console.warn('[ErrorBoundary] Recoverable error in componentDidCatch:', error.message);
+      // Auto-recover after a short delay
+      setTimeout(() => {
+        this.setState({ hasError: false, error: null, errorInfo: null });
+      }, 100);
+      return;
+    }
+    
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
   }
