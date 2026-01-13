@@ -1600,22 +1600,69 @@ export type Database = {
           },
         ]
       }
+      event_reminders_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_id: string
+          id: string
+          reminder_type: string
+          sent_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_id: string
+          id?: string
+          reminder_type: string
+          sent_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_id?: string
+          id?: string
+          reminder_type?: string
+          sent_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_reminders_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           buttons: Json | null
           created_at: string | null
           created_by: string
           description: string | null
+          duration_minutes: number | null
+          email_reminder_enabled: boolean | null
           end_time: string
           event_type: string
+          guest_link: string | null
+          host_name: string | null
           host_user_id: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_published: boolean | null
           location: string | null
           max_participants: number | null
           meeting_topic_id: string | null
           requires_registration: boolean | null
+          sms_reminder_enabled: boolean | null
           start_time: string
           timezone: string | null
           title: string
@@ -1624,6 +1671,7 @@ export type Database = {
           visible_to_everyone: boolean | null
           visible_to_partners: boolean | null
           visible_to_specjalista: boolean | null
+          webinar_type: string | null
           zoom_link: string | null
         }
         Insert: {
@@ -1631,16 +1679,22 @@ export type Database = {
           created_at?: string | null
           created_by: string
           description?: string | null
+          duration_minutes?: number | null
+          email_reminder_enabled?: boolean | null
           end_time: string
           event_type?: string
+          guest_link?: string | null
+          host_name?: string | null
           host_user_id?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
           meeting_topic_id?: string | null
           requires_registration?: boolean | null
+          sms_reminder_enabled?: boolean | null
           start_time: string
           timezone?: string | null
           title: string
@@ -1649,6 +1703,7 @@ export type Database = {
           visible_to_everyone?: boolean | null
           visible_to_partners?: boolean | null
           visible_to_specjalista?: boolean | null
+          webinar_type?: string | null
           zoom_link?: string | null
         }
         Update: {
@@ -1656,16 +1711,22 @@ export type Database = {
           created_at?: string | null
           created_by?: string
           description?: string | null
+          duration_minutes?: number | null
+          email_reminder_enabled?: boolean | null
           end_time?: string
           event_type?: string
+          guest_link?: string | null
+          host_name?: string | null
           host_user_id?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
           meeting_topic_id?: string | null
           requires_registration?: boolean | null
+          sms_reminder_enabled?: boolean | null
           start_time?: string
           timezone?: string | null
           title?: string
@@ -1674,6 +1735,7 @@ export type Database = {
           visible_to_everyone?: boolean | null
           visible_to_partners?: boolean | null
           visible_to_specjalista?: boolean | null
+          webinar_type?: string | null
           zoom_link?: string | null
         }
         Relationships: [
