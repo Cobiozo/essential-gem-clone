@@ -36,6 +36,7 @@ export const CalendarWidget: React.FC = () => {
       case 'webinar':
         return 'bg-blue-500';
       case 'meeting_public':
+      case 'team_training':
         return 'bg-green-500';
       case 'meeting_private':
         return 'bg-purple-500';
@@ -208,15 +209,15 @@ export const CalendarWidget: React.FC = () => {
         <div className="flex flex-wrap gap-3 pt-2 border-t">
           <div className="flex items-center gap-1.5 text-xs">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-muted-foreground">{t('events.legendWebinar') || 'Webinar'}</span>
+            <span className="text-muted-foreground">Webinar</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="text-muted-foreground">{t('events.legendMeeting') || 'Spotkanie'}</span>
+            <span className="text-muted-foreground">Spotkanie zespołu</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span className="text-muted-foreground">{t('events.legendPrivate') || 'Prywatne'}</span>
+            <span className="text-muted-foreground">Spotkanie indywidualne</span>
           </div>
         </div>
 
@@ -237,10 +238,10 @@ export const CalendarWidget: React.FC = () => {
                     key={event.id}
                     className="p-2 rounded-md bg-muted/50 space-y-1"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         {event.event_type === 'webinar' && <Video className="h-3.5 w-3.5 text-blue-500" />}
-                        {event.event_type === 'meeting_public' && <Users className="h-3.5 w-3.5 text-green-500" />}
+                        {(event.event_type === 'meeting_public' || event.event_type === 'team_training') && <Users className="h-3.5 w-3.5 text-green-500" />}
                         {event.event_type === 'meeting_private' && <User className="h-3.5 w-3.5 text-purple-500" />}
                         <span className="text-sm font-medium line-clamp-1">{event.title}</span>
                       </div>
