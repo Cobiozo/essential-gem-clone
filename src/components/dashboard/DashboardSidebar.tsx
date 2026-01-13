@@ -36,6 +36,8 @@ import {
   Search,
   Facebook,
   ExternalLink,
+  Video,
+  UserRound,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -232,7 +234,17 @@ export const DashboardSidebar: React.FC = () => {
       visibleFor: ['partner', 'specjalista', 'admin']
     },
     { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/page/aktualnosci' },
-    { id: 'calendar', icon: CalendarDays, labelKey: 'dashboard.menu.calendar', path: '/page/terminarz' },
+    { 
+      id: 'events', 
+      icon: CalendarDays, 
+      labelKey: 'dashboard.menu.events',
+      hasSubmenu: true,
+      submenuItems: [
+        { id: 'webinars', labelKey: 'dashboard.menu.webinars', path: '/events/webinars', icon: Video },
+        { id: 'team-meetings', labelKey: 'dashboard.menu.teamMeetings', path: '/events/team-meetings', icon: Users2 },
+        { id: 'individual-meetings', labelKey: 'dashboard.menu.individualMeetings', path: '/events/individual-meetings', icon: UserRound },
+      ],
+    },
     { 
       id: 'chat', 
       icon: MessageSquare, 
@@ -379,6 +391,16 @@ export const DashboardSidebar: React.FC = () => {
     }
     if (subItem.id === 'search-specialist') {
       return location.pathname === '/my-account' && currentTab === 'team-contacts' && currentSubTab === 'search';
+    }
+    // Events submenu items
+    if (subItem.id === 'webinars') {
+      return location.pathname === '/events/webinars';
+    }
+    if (subItem.id === 'team-meetings') {
+      return location.pathname === '/events/team-meetings';
+    }
+    if (subItem.id === 'individual-meetings') {
+      return location.pathname === '/events/individual-meetings';
     }
     return false;
   };
