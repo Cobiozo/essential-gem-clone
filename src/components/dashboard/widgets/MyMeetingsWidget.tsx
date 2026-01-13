@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Video, Users, User, ExternalLink, X, Clock } from 'lucide-react';
+import { Calendar, Video, Users, User, ExternalLink, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,7 +14,7 @@ import type { EventWithRegistration } from '@/types/events';
 export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
-  const { getUserEvents, cancelRegistration } = useEvents();
+  const { getUserEvents } = useEvents();
   const [userEvents, setUserEvents] = useState<EventWithRegistration[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,11 +85,6 @@ export const MyMeetingsWidget: React.FC = () => {
     }
   };
 
-  const handleCancel = async (eventId: string) => {
-    await cancelRegistration(eventId);
-    const events = await getUserEvents();
-    setUserEvents(events);
-  };
 
   // Filter to show only upcoming events
   const upcomingEvents = userEvents.filter(
@@ -234,17 +229,7 @@ export const MyMeetingsWidget: React.FC = () => {
                           {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                         </span>
                         
-                        <div className="flex items-center gap-1">
-                          {getActionButton(event)}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-                            onClick={() => handleCancel(event.id)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        {getActionButton(event)}
                       </div>
                     </div>
                   ))}
