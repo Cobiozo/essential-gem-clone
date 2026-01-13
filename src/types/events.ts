@@ -130,6 +130,15 @@ export const WEBINAR_TYPES = [
   { value: 'szkoleniowy', label: 'Szkoleniowy' },
 ] as const;
 
+// Team Training type options
+export const TEAM_TRAINING_TYPES = [
+  { value: 'wewnetrzny', label: 'Wewnętrzny' },
+  { value: 'zewnetrzny', label: 'Zewnętrzny' },
+  { value: 'onboarding', label: 'Onboarding' },
+  { value: 'produktowy', label: 'Produktowy' },
+  { value: 'biznesowy', label: 'Biznesowy' },
+] as const;
+
 // Duration options in minutes
 export const DURATION_OPTIONS = [
   { value: 30, label: '30 min' },
@@ -138,3 +147,28 @@ export const DURATION_OPTIONS = [
   { value: 90, label: '90 min' },
   { value: 120, label: '120 min' },
 ] as const;
+
+// Team Training form data
+export type TeamTrainingFormData = {
+  title: string;
+  description: string;
+  event_type: 'team_training';
+  start_time: string;
+  end_time: string;
+  zoom_link: string;
+  location: string;
+  visible_to_everyone: boolean;
+  visible_to_partners: boolean;
+  visible_to_specjalista: boolean;
+  visible_to_clients: boolean;
+  image_url: string;
+  buttons: EventButton[];
+  max_participants: number | null;
+  requires_registration: boolean;
+  training_type: string | null;
+  host_name: string | null;
+  duration_minutes: number;
+  sms_reminder_enabled: boolean;
+  email_reminder_enabled: boolean;
+  is_published: boolean;
+};

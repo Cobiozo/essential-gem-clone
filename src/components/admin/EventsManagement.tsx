@@ -33,6 +33,9 @@ import {
 import type { DbEvent, MeetingTopic, LeaderPermission, EventsSettings, AdminLeaderWithProfile, TopicWithLeader } from '@/types/events';
 import { WebinarForm } from './WebinarForm';
 import { WebinarList } from './WebinarList';
+import { TeamTrainingForm } from './TeamTrainingForm';
+import { TeamTrainingList } from './TeamTrainingList';
+import { BookOpen } from 'lucide-react';
 
 export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
@@ -51,6 +54,8 @@ export const EventsManagement: React.FC = () => {
   // Dialog states
   const [showWebinarForm, setShowWebinarForm] = useState(false);
   const [editingWebinar, setEditingWebinar] = useState<DbEvent | null>(null);
+  const [showTeamTrainingForm, setShowTeamTrainingForm] = useState(false);
+  const [editingTeamTraining, setEditingTeamTraining] = useState<DbEvent | null>(null);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
   const [leaderDialogOpen, setLeaderDialogOpen] = useState(false);
@@ -87,6 +92,7 @@ export const EventsManagement: React.FC = () => {
 
   // Filtered events by type
   const webinars = events.filter(e => e.event_type === 'webinar');
+  const teamTrainings = events.filter(e => e.event_type === 'team_training');
   const teamMeetings = events.filter(e => e.event_type === 'meeting_public');
   const privateMeetings = events.filter(e => e.event_type === 'meeting_private');
 
@@ -231,6 +237,33 @@ export const EventsManagement: React.FC = () => {
       return;
     }
     toast({ title: t('toast.success'), description: 'Webinar został usunięty' });
+    loadEvents();
+  };
+
+  // Team Training handlers
+  const handleTeamTrainingSave = () => {
+    setShowTeamTrainingForm(false);
+    setEditingTeamTraining(null);
+    loadEvents();
+  };
+
+  const handleTeamTrainingCancel = () => {
+    setShowTeamTrainingForm(false);
+    setEditingTeamTraining(null);
+  };
+
+  const handleEditTeamTraining = (training: DbEvent) => {
+    setEditingTeamTraining(training);
+    setShowTeamTrainingForm(true);
+  };
+
+  const handleDeleteTeamTraining = async (id: string) => {
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) {
+      toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: t('toast.success'), description: 'Szkolenie zostało usunięte' });
     loadEvents();
   };
 
@@ -472,22 +505,34 @@ export const EventsManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Zarządzanie Webinarami</h2>
+          <h2 className="text-2xl font-bold">Zarządzanie Wydarzeniami</h2>
           <p className="text-muted-foreground">Panel administratora</p>
         </div>
-        {activeTab === 'webinars' && !showWebinarForm && (
-          <Button onClick={() => setShowWebinarForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Dodaj Webinar
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {activeTab === 'webinars' && !showWebinarForm && (
+            <Button onClick={() => setShowWebinarForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Dodaj Webinar
+            </Button>
+          )}
+          {activeTab === 'team-training' && !showTeamTrainingForm && (
+            <Button onClick={() => setShowTeamTrainingForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Dodaj Szkolenie
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="webinars" className="flex items-center gap-2">
             <Video className="h-4 w-4" />
             <span className="hidden sm:inline">Webinary</span>
+          </TabsTrigger>
+          <TabsTrigger value="team-training" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Szkolenie zespołu</span>
           </TabsTrigger>
           <TabsTrigger value="sms-logs" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
@@ -495,7 +540,7 @@ export const EventsManagement: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="topics" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Tematy spotkań</span>
+            <span className="hidden sm:inline">Tematy</span>
           </TabsTrigger>
           <TabsTrigger value="leaders" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -520,6 +565,24 @@ export const EventsManagement: React.FC = () => {
               webinars={webinars}
               onEdit={handleEditWebinar}
               onDelete={handleDeleteWebinar}
+              onRefresh={loadEvents}
+            />
+          )}
+        </TabsContent>
+
+        {/* Team Training Tab */}
+        <TabsContent value="team-training" className="space-y-4 mt-6">
+          {showTeamTrainingForm ? (
+            <TeamTrainingForm
+              editingTraining={editingTeamTraining}
+              onSave={handleTeamTrainingSave}
+              onCancel={handleTeamTrainingCancel}
+            />
+          ) : (
+            <TeamTrainingList
+              trainings={teamTrainings}
+              onEdit={handleEditTeamTraining}
+              onDelete={handleDeleteTeamTraining}
               onRefresh={loadEvents}
             />
           )}
