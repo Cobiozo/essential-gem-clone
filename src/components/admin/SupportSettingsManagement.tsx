@@ -1,15 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Mail, Phone, Clock, Info, FileText, MessageSquare, ChevronDown, Loader2 } from 'lucide-react';
+import { Save, Loader2, Pencil, GripVertical, Info } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { IconPicker } from '@/components/cms/IconPicker';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '@/lib/utils';
+import { Json } from '@/integrations/supabase/types';
 
 interface SupportSettings {
   id: string;
@@ -40,19 +64,363 @@ interface SupportSettings {
   success_message: string;
   error_message: string;
   is_active: boolean;
+  // New fields
+  email_label_visible: boolean;
+  phone_label_visible: boolean;
+  working_hours_label_visible: boolean;
+  cards_order: string[];
 }
 
+// Dynamic icon rendering
+const DynamicIcon = ({ name, className }: { name: string; className?: string }) => {
+  const IconComponent = (LucideIcons as any)[name] || LucideIcons.HelpCircle;
+  return <IconComponent className={className} />;
+};
+
+// Sortable Info Card Component
+interface SortableInfoCardProps {
+  id: string;
+  iconName: string;
+  label: string;
+  value: string;
+  labelVisible: boolean;
+  onUpdate: (data: {
+    iconName?: string;
+    label?: string;
+    value?: string;
+    labelVisible?: boolean;
+  }) => void;
+}
+
+const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
+  id,
+  iconName,
+  label,
+  value,
+  labelVisible,
+  onUpdate,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [editIconName, setEditIconName] = useState(iconName);
+  const [editLabel, setEditLabel] = useState(label);
+  const [editValue, setEditValue] = useState(value);
+  const [editLabelVisible, setEditLabelVisible] = useState(labelVisible);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const handleApply = () => {
+    onUpdate({
+      iconName: editIconName,
+      label: editLabel,
+      value: editValue,
+      labelVisible: editLabelVisible,
+    });
+    setIsOpen(false);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setEditIconName(iconName);
+      setEditLabel(label);
+      setEditValue(value);
+      setEditLabelVisible(labelVisible);
+    }
+    setIsOpen(open);
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'relative group bg-card border rounded-lg shadow-sm transition-all flex-1',
+        isDragging && 'opacity-50 shadow-lg z-50',
+        'hover:ring-2 hover:ring-primary/30'
+      )}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded z-10"
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </div>
+
+      {/* Card content */}
+      <Popover open={isOpen} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <div className="cursor-pointer p-4">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <DynamicIcon name={iconName} className="h-6 w-6 text-primary" />
+              </div>
+              {labelVisible && (
+                <h3 className="font-semibold text-sm text-foreground">
+                  {label}
+                </h3>
+              )}
+              <p className="text-sm text-muted-foreground mt-1">
+                {value || '(brak wartości)'}
+              </p>
+            </div>
+            
+            {/* Edit indicator */}
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="p-1 bg-primary/10 rounded-full">
+                <Pencil className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+          </div>
+        </PopoverTrigger>
+
+        <PopoverContent className="w-80" align="center">
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm">Edycja karty</h4>
+            
+            <div className="space-y-2">
+              <Label>Ikona</Label>
+              <IconPicker
+                value={editIconName}
+                onChange={(name) => setEditIconName(name || 'HelpCircle')}
+                trigger={
+                  <Button variant="outline" className="w-full justify-start gap-2">
+                    <DynamicIcon name={editIconName} className="h-4 w-4" />
+                    <span>{editIconName}</span>
+                  </Button>
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Etykieta</Label>
+              <Input
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                placeholder="Np. E-mail"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Wartość</Label>
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                placeholder="Np. support@example.com"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor={`label-visible-${id}`}>Pokaż etykietę</Label>
+              <Switch
+                id={`label-visible-${id}`}
+                checked={editLabelVisible}
+                onCheckedChange={setEditLabelVisible}
+              />
+            </div>
+
+            <Button onClick={handleApply} className="w-full">
+              Zastosuj
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+};
+
+// Editable Text Element Component
+interface EditableTextProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  variant?: 'heading' | 'subheading' | 'text' | 'multiline';
+  placeholder?: string;
+}
+
+const EditableText: React.FC<EditableTextProps> = ({
+  label,
+  value,
+  onChange,
+  variant = 'text',
+  placeholder = 'Wprowadź tekst...',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+
+  const handleApply = () => {
+    onChange(editValue);
+    setIsOpen(false);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setEditValue(value);
+    }
+    setIsOpen(open);
+  };
+
+  const variantStyles = {
+    heading: 'text-2xl font-bold text-foreground',
+    subheading: 'text-muted-foreground',
+    text: 'text-sm',
+    multiline: 'text-sm whitespace-pre-wrap',
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <div
+          className={cn(
+            'group relative cursor-pointer rounded-md p-2 -m-2 transition-all',
+            'hover:bg-muted/50 hover:ring-2 hover:ring-primary/30'
+          )}
+        >
+          <p className={cn(variantStyles[variant], !value && 'text-muted-foreground italic')}>
+            {value || placeholder}
+          </p>
+          
+          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="p-1 bg-primary/10 rounded-full">
+              <Pencil className="h-3 w-3 text-primary" />
+            </div>
+          </div>
+        </div>
+      </PopoverTrigger>
+
+      <PopoverContent className="w-80" align="start">
+        <div className="space-y-4">
+          <Label>{label}</Label>
+          
+          {variant === 'multiline' ? (
+            <Textarea
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              placeholder={placeholder}
+              rows={4}
+            />
+          ) : (
+            <Input
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              placeholder={placeholder}
+            />
+          )}
+
+          <Button onClick={handleApply} className="w-full">
+            Zastosuj
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// Editable Form Field Component
+interface EditableFormFieldProps {
+  fieldLabel: string;
+  fieldPlaceholder: string;
+  onLabelChange: (value: string) => void;
+  onPlaceholderChange: (value: string) => void;
+  type?: 'input' | 'textarea';
+}
+
+const EditableFormField: React.FC<EditableFormFieldProps> = ({
+  fieldLabel,
+  fieldPlaceholder,
+  onLabelChange,
+  onPlaceholderChange,
+  type = 'input',
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [editLabel, setEditLabel] = useState(fieldLabel);
+  const [editPlaceholder, setEditPlaceholder] = useState(fieldPlaceholder);
+
+  const handleApply = () => {
+    onLabelChange(editLabel);
+    onPlaceholderChange(editPlaceholder);
+    setIsOpen(false);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setEditLabel(fieldLabel);
+      setEditPlaceholder(fieldPlaceholder);
+    }
+    setIsOpen(open);
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <div className="space-y-2 group relative cursor-pointer rounded-md p-2 -m-2 transition-all hover:bg-muted/50 hover:ring-2 hover:ring-primary/30">
+          <Label>{fieldLabel}</Label>
+          {type === 'input' ? (
+            <Input placeholder={fieldPlaceholder} disabled className="pointer-events-none" />
+          ) : (
+            <Textarea placeholder={fieldPlaceholder} disabled rows={3} className="pointer-events-none" />
+          )}
+          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="p-1 bg-primary/10 rounded-full">
+              <Pencil className="h-3 w-3 text-primary" />
+            </div>
+          </div>
+        </div>
+      </PopoverTrigger>
+
+      <PopoverContent className="w-80" align="start">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Etykieta pola</Label>
+            <Input
+              value={editLabel}
+              onChange={(e) => setEditLabel(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Placeholder</Label>
+            <Input
+              value={editPlaceholder}
+              onChange={(e) => setEditPlaceholder(e.target.value)}
+            />
+          </div>
+          <Button onClick={handleApply} className="w-full">
+            Zastosuj
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// Main Component
 export const SupportSettingsManagement: React.FC = () => {
   const [settings, setSettings] = useState<SupportSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
-  // Collapsible sections state
-  const [headerOpen, setHeaderOpen] = useState(true);
-  const [cardsOpen, setCardsOpen] = useState(true);
-  const [infoBoxOpen, setInfoBoxOpen] = useState(true);
-  const [formOpen, setFormOpen] = useState(true);
-  const [messagesOpen, setMessagesOpen] = useState(true);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchSettings();
@@ -69,9 +437,19 @@ export const SupportSettingsManagement: React.FC = () => {
       if (error) throw error;
       
       if (data) {
-        setSettings(data);
+        // Parse cards_order from Json to string[]
+        const cardsOrder = Array.isArray(data.cards_order) 
+          ? data.cards_order as string[]
+          : ['email', 'phone', 'working_hours'];
+        
+        setSettings({
+          ...data,
+          email_label_visible: data.email_label_visible ?? true,
+          phone_label_visible: data.phone_label_visible ?? true,
+          working_hours_label_visible: data.working_hours_label_visible ?? true,
+          cards_order: cardsOrder,
+        } as SupportSettings);
       } else {
-        // Create default settings if none exist
         const { data: newData, error: insertError } = await supabase
           .from('support_settings')
           .insert({})
@@ -79,7 +457,18 @@ export const SupportSettingsManagement: React.FC = () => {
           .single();
         
         if (insertError) throw insertError;
-        setSettings(newData);
+        
+        const cardsOrder = Array.isArray(newData.cards_order) 
+          ? newData.cards_order as string[]
+          : ['email', 'phone', 'working_hours'];
+        
+        setSettings({
+          ...newData,
+          email_label_visible: newData.email_label_visible ?? true,
+          phone_label_visible: newData.phone_label_visible ?? true,
+          working_hours_label_visible: newData.working_hours_label_visible ?? true,
+          cards_order: cardsOrder,
+        } as SupportSettings);
       }
     } catch (error) {
       console.error('Error fetching support settings:', error);
@@ -124,6 +513,10 @@ export const SupportSettingsManagement: React.FC = () => {
           success_message: settings.success_message,
           error_message: settings.error_message,
           is_active: settings.is_active,
+          email_label_visible: settings.email_label_visible,
+          phone_label_visible: settings.phone_label_visible,
+          working_hours_label_visible: settings.working_hours_label_visible,
+          cards_order: settings.cards_order as unknown as Json,
           updated_at: new Date().toISOString(),
         })
         .eq('id', settings.id);
@@ -139,9 +532,71 @@ export const SupportSettingsManagement: React.FC = () => {
     }
   };
 
-  const updateField = (field: keyof SupportSettings, value: string | boolean) => {
+  const updateField = <K extends keyof SupportSettings>(field: K, value: SupportSettings[K]) => {
     if (!settings) return;
     setSettings({ ...settings, [field]: value });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = settings?.cards_order.indexOf(active.id as string) ?? -1;
+      const newIndex = settings?.cards_order.indexOf(over.id as string) ?? -1;
+
+      if (oldIndex !== -1 && newIndex !== -1 && settings) {
+        const newOrder = arrayMove(settings.cards_order, oldIndex, newIndex);
+        updateField('cards_order', newOrder);
+      }
+    }
+  };
+
+  const getCardData = (cardId: string) => {
+    if (!settings) return null;
+    
+    switch (cardId) {
+      case 'email':
+        return {
+          iconName: settings.email_icon || 'Mail',
+          label: settings.email_label || 'Email',
+          value: settings.email_address || '',
+          labelVisible: settings.email_label_visible,
+          onUpdate: (data: any) => {
+            if (data.iconName !== undefined) updateField('email_icon', data.iconName);
+            if (data.label !== undefined) updateField('email_label', data.label);
+            if (data.value !== undefined) updateField('email_address', data.value);
+            if (data.labelVisible !== undefined) updateField('email_label_visible', data.labelVisible);
+          },
+        };
+      case 'phone':
+        return {
+          iconName: settings.phone_icon || 'Phone',
+          label: settings.phone_label || 'Telefon',
+          value: settings.phone_number || '',
+          labelVisible: settings.phone_label_visible,
+          onUpdate: (data: any) => {
+            if (data.iconName !== undefined) updateField('phone_icon', data.iconName);
+            if (data.label !== undefined) updateField('phone_label', data.label);
+            if (data.value !== undefined) updateField('phone_number', data.value);
+            if (data.labelVisible !== undefined) updateField('phone_label_visible', data.labelVisible);
+          },
+        };
+      case 'working_hours':
+        return {
+          iconName: settings.working_hours_icon || 'Clock',
+          label: settings.working_hours_label || 'Godziny pracy',
+          value: settings.working_hours || '',
+          labelVisible: settings.working_hours_label_visible,
+          onUpdate: (data: any) => {
+            if (data.iconName !== undefined) updateField('working_hours_icon', data.iconName);
+            if (data.label !== undefined) updateField('working_hours_label', data.label);
+            if (data.value !== undefined) updateField('working_hours', data.value);
+            if (data.labelVisible !== undefined) updateField('working_hours_label_visible', data.labelVisible);
+          },
+        };
+      default:
+        return null;
+    }
   };
 
   if (loading) {
@@ -162,11 +617,12 @@ export const SupportSettingsManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Wsparcie i pomoc</h2>
           <p className="text-muted-foreground">
-            Zarządzaj treściami formularza kontaktowego wsparcia technicznego
+            Kliknij na element aby edytować • Przeciągnij karty aby zmienić kolejność
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
@@ -184,365 +640,197 @@ export const SupportSettingsManagement: React.FC = () => {
         </Button>
       </div>
 
-      {/* Header Section */}
-      <Collapsible open={headerOpen} onOpenChange={setHeaderOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Nagłówek</CardTitle>
-                </div>
-                <ChevronDown className={`h-5 w-5 transition-transform ${headerOpen ? 'rotate-180' : ''}`} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tytuł</Label>
-                <Input
-                  value={settings.header_title}
-                  onChange={(e) => updateField('header_title', e.target.value)}
-                  placeholder="Wsparcie techniczne"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Opis</Label>
-                <Textarea
-                  value={settings.header_description}
-                  onChange={(e) => updateField('header_description', e.target.value)}
-                  placeholder="Masz pytania? Skontaktuj się z naszym zespołem wsparcia."
-                  rows={2}
-                />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+      {/* WYSIWYG Preview */}
+      <Card className="border-2 border-dashed">
+        <CardContent className="p-6">
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Header Section */}
+            <div className="text-center space-y-2">
+              <EditableText
+                label="Tytuł nagłówka"
+                value={settings.header_title}
+                onChange={(v) => updateField('header_title', v)}
+                variant="heading"
+                placeholder="Wsparcie techniczne"
+              />
+              <EditableText
+                label="Opis nagłówka"
+                value={settings.header_description}
+                onChange={(v) => updateField('header_description', v)}
+                variant="subheading"
+                placeholder="Masz pytania? Skontaktuj się z naszym zespołem wsparcia."
+              />
+            </div>
 
-      {/* Info Cards Section */}
-      <Collapsible open={cardsOpen} onOpenChange={setCardsOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Karty informacyjne</CardTitle>
-                </div>
-                <ChevronDown className={`h-5 w-5 transition-transform ${cardsOpen ? 'rotate-180' : ''}`} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-6">
-              {/* Email Card */}
-              <div className="space-y-4">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Mail className="h-4 w-4" /> Karta Email
-                </h4>
+            {/* Info Cards - Sortable */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={settings.cards_order}
+                strategy={horizontalListSortingStrategy}
+              >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Etykieta</Label>
-                    <Input
-                      value={settings.email_label}
-                      onChange={(e) => updateField('email_label', e.target.value)}
-                      placeholder="Email"
-                    />
+                  {settings.cards_order.map((cardId) => {
+                    const cardData = getCardData(cardId);
+                    if (!cardData) return null;
+                    
+                    return (
+                      <SortableInfoCard
+                        key={cardId}
+                        id={cardId}
+                        {...cardData}
+                      />
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
+
+            {/* Info Box */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <div className="group relative cursor-pointer rounded-md transition-all hover:ring-2 hover:ring-primary/30">
+                  <div className="flex items-start gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-r-lg">
+                    <DynamicIcon name={settings.info_box_icon || 'Clock'} className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-sm text-foreground">
+                        {settings.info_box_title || 'Informacja'}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {settings.info_box_content || 'W przypadku dużej ilości zgłoszeń odpowiedź może potrwać do 24h.'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Adres email</Label>
-                    <Input
-                      value={settings.email_address}
-                      onChange={(e) => updateField('email_address', e.target.value)}
-                      placeholder="support@purelife.info.pl"
-                    />
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="p-1 bg-primary/10 rounded-full">
+                      <Pencil className="h-3 w-3 text-primary" />
+                    </div>
                   </div>
+                </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm">Edycja boxu informacyjnego</h4>
                   <div className="space-y-2">
                     <Label>Ikona</Label>
                     <IconPicker
-                      value={settings.email_icon}
-                      onChange={(icon) => updateField('email_icon', icon || 'Mail')}
+                      value={settings.info_box_icon}
+                      onChange={(icon) => updateField('info_box_icon', icon || 'Info')}
+                      trigger={
+                        <Button variant="outline" className="w-full justify-start gap-2">
+                          <DynamicIcon name={settings.info_box_icon || 'Info'} className="h-4 w-4" />
+                          <span>{settings.info_box_icon || 'Info'}</span>
+                        </Button>
+                      }
                     />
                   </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Phone Card */}
-              <div className="space-y-4">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Phone className="h-4 w-4" /> Karta Telefon
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>Etykieta</Label>
+                    <Label>Tytuł</Label>
                     <Input
-                      value={settings.phone_label}
-                      onChange={(e) => updateField('phone_label', e.target.value)}
-                      placeholder="Telefon"
+                      value={settings.info_box_title}
+                      onChange={(e) => updateField('info_box_title', e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Numer telefonu</Label>
-                    <Input
-                      value={settings.phone_number}
-                      onChange={(e) => updateField('phone_number', e.target.value)}
-                      placeholder="+48 123 456 789"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ikona</Label>
-                    <IconPicker
-                      value={settings.phone_icon}
-                      onChange={(icon) => updateField('phone_icon', icon || 'Phone')}
+                    <Label>Treść</Label>
+                    <Textarea
+                      value={settings.info_box_content}
+                      onChange={(e) => updateField('info_box_content', e.target.value)}
+                      rows={3}
                     />
                   </div>
                 </div>
-              </div>
+              </PopoverContent>
+            </Popover>
 
-              <Separator />
-
-              {/* Working Hours Card */}
-              <div className="space-y-4">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> Karta Godziny pracy
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Etykieta</Label>
-                    <Input
-                      value={settings.working_hours_label}
-                      onChange={(e) => updateField('working_hours_label', e.target.value)}
-                      placeholder="Godziny pracy"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Godziny</Label>
-                    <Input
-                      value={settings.working_hours}
-                      onChange={(e) => updateField('working_hours', e.target.value)}
-                      placeholder="Pon-Pt: 09:00-14:00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ikona</Label>
-                    <IconPicker
-                      value={settings.working_hours_icon}
-                      onChange={(icon) => updateField('working_hours_icon', icon || 'Clock')}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Info Box Section */}
-      <Collapsible open={infoBoxOpen} onOpenChange={setInfoBoxOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Info className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Box informacyjny</CardTitle>
-                </div>
-                <ChevronDown className={`h-5 w-5 transition-transform ${infoBoxOpen ? 'rotate-180' : ''}`} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tytuł</Label>
-                  <Input
-                    value={settings.info_box_title}
-                    onChange={(e) => updateField('info_box_title', e.target.value)}
-                    placeholder="Informacja"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ikona</Label>
-                  <IconPicker
-                    value={settings.info_box_icon}
-                    onChange={(icon) => updateField('info_box_icon', icon || 'Clock')}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Treść</Label>
-                <Textarea
-                  value={settings.info_box_content}
-                  onChange={(e) => updateField('info_box_content', e.target.value)}
-                  placeholder="W przypadku dużej ilości zgłoszeń odpowiedź może potrwać do 24h..."
-                  rows={3}
-                />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Form Section */}
-      <Collapsible open={formOpen} onOpenChange={setFormOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Formularz kontaktowy</CardTitle>
-                </div>
-                <ChevronDown className={`h-5 w-5 transition-transform ${formOpen ? 'rotate-180' : ''}`} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tytuł formularza</Label>
-                <Input
+            {/* Contact Form Preview */}
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <EditableText
+                  label="Tytuł formularza"
                   value={settings.form_title}
-                  onChange={(e) => updateField('form_title', e.target.value)}
+                  onChange={(v) => updateField('form_title', v)}
+                  variant="heading"
                   placeholder="Napisz do nas"
                 />
-              </div>
 
-              <Separator />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <EditableFormField
+                    fieldLabel={settings.name_label || 'Imię i nazwisko'}
+                    fieldPlaceholder={settings.name_placeholder || 'Jan Kowalski'}
+                    onLabelChange={(v) => updateField('name_label', v)}
+                    onPlaceholderChange={(v) => updateField('name_placeholder', v)}
+                  />
+                  <EditableFormField
+                    fieldLabel={settings.email_field_label || 'Email'}
+                    fieldPlaceholder={settings.email_placeholder || 'jan@example.com'}
+                    onLabelChange={(v) => updateField('email_field_label', v)}
+                    onPlaceholderChange={(v) => updateField('email_placeholder', v)}
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Etykieta: Imię i nazwisko</Label>
-                  <Input
-                    value={settings.name_label}
-                    onChange={(e) => updateField('name_label', e.target.value)}
-                    placeholder="Imię i nazwisko"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Placeholder: Imię i nazwisko</Label>
-                  <Input
-                    value={settings.name_placeholder}
-                    onChange={(e) => updateField('name_placeholder', e.target.value)}
-                    placeholder="Jan Kowalski"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Etykieta: Email</Label>
-                  <Input
-                    value={settings.email_field_label}
-                    onChange={(e) => updateField('email_field_label', e.target.value)}
-                    placeholder="Email"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Placeholder: Email</Label>
-                  <Input
-                    value={settings.email_placeholder}
-                    onChange={(e) => updateField('email_placeholder', e.target.value)}
-                    placeholder="jan@example.com"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Etykieta: Temat</Label>
-                  <Input
-                    value={settings.subject_label}
-                    onChange={(e) => updateField('subject_label', e.target.value)}
-                    placeholder="Temat"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Placeholder: Temat</Label>
-                  <Input
-                    value={settings.subject_placeholder}
-                    onChange={(e) => updateField('subject_placeholder', e.target.value)}
-                    placeholder="W czym możemy pomóc?"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Etykieta: Wiadomość</Label>
-                  <Input
-                    value={settings.message_label}
-                    onChange={(e) => updateField('message_label', e.target.value)}
-                    placeholder="Wiadomość"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Placeholder: Wiadomość</Label>
-                  <Input
-                    value={settings.message_placeholder}
-                    onChange={(e) => updateField('message_placeholder', e.target.value)}
-                    placeholder="Opisz swoje pytanie lub problem..."
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Tekst przycisku</Label>
-                <Input
-                  value={settings.submit_button_text}
-                  onChange={(e) => updateField('submit_button_text', e.target.value)}
-                  placeholder="Wyślij wiadomość"
+                <EditableFormField
+                  fieldLabel={settings.subject_label || 'Temat'}
+                  fieldPlaceholder={settings.subject_placeholder || 'W czym możemy pomóc?'}
+                  onLabelChange={(v) => updateField('subject_label', v)}
+                  onPlaceholderChange={(v) => updateField('subject_placeholder', v)}
                 />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
 
-      {/* Response Messages Section */}
-      <Collapsible open={messagesOpen} onOpenChange={setMessagesOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">Komunikaty odpowiedzi</CardTitle>
-                </div>
-                <ChevronDown className={`h-5 w-5 transition-transform ${messagesOpen ? 'rotate-180' : ''}`} />
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Komunikat sukcesu</Label>
-                <Textarea
-                  value={settings.success_message}
-                  onChange={(e) => updateField('success_message', e.target.value)}
-                  placeholder="Wiadomość wysłana! Odpowiemy najszybciej jak to możliwe."
-                  rows={2}
+                <EditableFormField
+                  fieldLabel={settings.message_label || 'Wiadomość'}
+                  fieldPlaceholder={settings.message_placeholder || 'Opisz swoje pytanie...'}
+                  onLabelChange={(v) => updateField('message_label', v)}
+                  onPlaceholderChange={(v) => updateField('message_placeholder', v)}
+                  type="textarea"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Komunikat błędu</Label>
-                <Textarea
-                  value={settings.error_message}
-                  onChange={(e) => updateField('error_message', e.target.value)}
-                  placeholder="Nie udało się wysłać wiadomości. Spróbuj ponownie."
-                  rows={2}
-                />
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <div className="group relative cursor-pointer rounded-md transition-all hover:ring-2 hover:ring-primary/30">
+                      <Button className="w-full pointer-events-none">
+                        {settings.submit_button_text || 'Wyślij wiadomość'}
+                      </Button>
+                      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="p-1 bg-primary/10 rounded-full">
+                          <Pencil className="h-3 w-3 text-primary" />
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Tekst przycisku</Label>
+                        <Input
+                          value={settings.submit_button_text}
+                          onChange={(e) => updateField('submit_button_text', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Komunikat sukcesu</Label>
+                        <Input
+                          value={settings.success_message}
+                          onChange={(e) => updateField('success_message', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Komunikat błędu</Label>
+                        <Input
+                          value={settings.error_message}
+                          onChange={(e) => updateField('error_message', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
