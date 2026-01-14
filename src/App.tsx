@@ -17,6 +17,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { SupportFormDialog } from "@/components/support";
 
 // Lazy load chat widgets - only mount when first opened
 const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
@@ -65,6 +66,9 @@ const AppContent = () => {
   const [infoBannersComplete, setInfoBannersComplete] = useState(false);
   const [readyForInfoBanners, setReadyForInfoBanners] = useState(false);
   const [shouldShowBanners, setShouldShowBanners] = useState(false);
+  
+  // Support form dialog state
+  const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
 
   // Log auth state changes for debugging
   useEffect(() => {
@@ -99,6 +103,13 @@ const AppContent = () => {
       window.removeEventListener('beforeunload', cleanupAllChannels);
       cleanupAllChannels(); // Also cleanup on unmount
     };
+  }, []);
+
+  // Support form dialog event listener
+  useEffect(() => {
+    const handleOpenSupportForm = () => setIsSupportDialogOpen(true);
+    window.addEventListener('openSupportForm', handleOpenSupportForm);
+    return () => window.removeEventListener('openSupportForm', handleOpenSupportForm);
   }, []);
 
   // Note: readyForInfoBanners is now set synchronously in handleDailySignalDismiss
@@ -190,6 +201,12 @@ const AppContent = () => {
           </Suspense>
         </>
       )}
+      
+      {/* Support Form Dialog - available for all users */}
+      <SupportFormDialog 
+        open={isSupportDialogOpen} 
+        onOpenChange={setIsSupportDialogOpen} 
+      />
     </TooltipProvider>
   );
 };
