@@ -171,23 +171,23 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
     }
   };
 
-  // Render info card based on type
+  // Render info card based on type - if card_visible is false, don't render the card at all
   const renderInfoCard = (cardType: string) => {
     if (!settings) return null;
 
     switch (cardType) {
       case 'email':
+        // If card visibility is disabled, don't render the card
+        if (!settings.email_label_visible) return null;
         return (
           <Card key="email" className="bg-card border shadow-sm">
             <CardContent className="p-4 flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                 <DynamicIcon name={settings.email_icon || 'Mail'} className="h-6 w-6 text-primary" />
               </div>
-              {settings.email_label_visible && (
-                <h3 className="font-semibold text-sm text-foreground">
-                  {settings.email_label || 'Email'}
-                </h3>
-              )}
+              <h3 className="font-semibold text-sm text-foreground">
+                {settings.email_label || 'Email'}
+              </h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {settings.email_address || 'support@purelife.info.pl'}
               </p>
@@ -195,17 +195,17 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
           </Card>
         );
       case 'phone':
+        // If card visibility is disabled, don't render the card
+        if (!settings.phone_label_visible) return null;
         return (
           <Card key="phone" className="bg-card border shadow-sm">
             <CardContent className="p-4 flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                 <DynamicIcon name={settings.phone_icon || 'Phone'} className="h-6 w-6 text-primary" />
               </div>
-              {settings.phone_label_visible && (
-                <h3 className="font-semibold text-sm text-foreground">
-                  {settings.phone_label || 'Telefon'}
-                </h3>
-              )}
+              <h3 className="font-semibold text-sm text-foreground">
+                {settings.phone_label || 'Telefon'}
+              </h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {settings.phone_number || '+48 123 456 789'}
               </p>
@@ -213,17 +213,17 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
           </Card>
         );
       case 'working_hours':
+        // If card visibility is disabled, don't render the card
+        if (!settings.working_hours_label_visible) return null;
         return (
           <Card key="working_hours" className="bg-card border shadow-sm">
             <CardContent className="p-4 flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                 <DynamicIcon name={settings.working_hours_icon || 'Clock'} className="h-6 w-6 text-primary" />
               </div>
-              {settings.working_hours_label_visible && (
-                <h3 className="font-semibold text-sm text-foreground">
-                  {settings.working_hours_label || 'Godziny pracy'}
-                </h3>
-              )}
+              <h3 className="font-semibold text-sm text-foreground">
+                {settings.working_hours_label || 'Godziny pracy'}
+              </h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {settings.working_hours || 'Pon-Pt: 09:00-14:00'}
               </p>
