@@ -51,6 +51,7 @@ import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagemen
 import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
 import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
+import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
@@ -4353,6 +4354,10 @@ const Admin = () => {
 
           <TabsContent value="support">
             <SupportSettingsManagement />
+          </TabsContent>
+
+          <TabsContent value="dashboard-footer">
+            <DashboardFooterManagement />
           </TabsContent>
         </Tabs>
       </div>
