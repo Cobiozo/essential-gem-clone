@@ -54,12 +54,20 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   
+  // NEW: Smart buffering states
+  const [bufferProgress, setBufferProgress] = useState(0);
+  const [isSmartBuffering, setIsSmartBuffering] = useState(false);
+  const MIN_BUFFER_SECONDS = 10; // Minimum buffer before resuming playback
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastValidTimeRef = useRef<number>(initialTime);
   const isSeekingRef = useRef<boolean>(false);
   const isBufferingRef = useRef<boolean>(false);
   const initialPositionSetRef = useRef<boolean>(false);
+  const wasPlayingBeforeBufferRef = useRef<boolean>(false);
+  const stuckCheckRef = useRef<NodeJS.Timeout>();
+  const lastProgressTimeRef = useRef<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // State to track when video element is mounted (for callback ref pattern)
@@ -303,6 +311,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       console.log('[SecureMedia] Video waiting for data (buffering)');
       isBufferingRef.current = true;
       setIsBuffering(true);
+      
+      // NEW: Remember if video was playing before buffering
+      if (!video.paused) {
+        wasPlayingBeforeBufferRef.current = true;
+        video.pause(); // Pause until buffer is sufficient
+        setIsSmartBuffering(true);
+        console.log('[SecureMedia] Smart buffering activated - waiting for sufficient buffer');
+      }
     };
 
     const handleStalled = () => {
@@ -313,13 +329,70 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     const handleCanPlay = () => {
       console.log('[SecureMedia] Video can play');
-      if (isBufferingRef.current) {
-        // CRITICAL: Sync lastValidTimeRef after buffering to prevent false seek detection
-        lastValidTimeRef.current = video.currentTime;
-        console.log('[SecureMedia] Synced lastValidTimeRef after buffering:', video.currentTime);
+      
+      // NEW: Delay before disabling buffering flag to prevent false seek detection
+      setTimeout(() => {
+        if (isBufferingRef.current) {
+          // CRITICAL: Sync lastValidTimeRef after buffering to prevent false seek detection
+          lastValidTimeRef.current = video.currentTime;
+          console.log('[SecureMedia] Synced lastValidTimeRef after buffering:', video.currentTime);
+          
+          // Check if buffer is sufficient for immediate playback
+          if (video.buffered.length > 0) {
+            const bufferedAhead = video.buffered.end(video.buffered.length - 1) - video.currentTime;
+            const remainingDuration = video.duration - video.currentTime;
+            const targetBuffer = Math.min(MIN_BUFFER_SECONDS, remainingDuration);
+            
+            if (bufferedAhead >= targetBuffer || bufferedAhead >= remainingDuration) {
+              setIsSmartBuffering(false);
+              if (wasPlayingBeforeBufferRef.current) {
+                video.play().catch(console.error);
+                wasPlayingBeforeBufferRef.current = false;
+              }
+            }
+          }
+        }
+        isBufferingRef.current = false;
+        setIsBuffering(false);
+      }, 300); // 300ms delay for stability
+    };
+    
+    // NEW: Progress handler for buffer calculation
+    const handleProgress = () => {
+      if (video.buffered.length > 0) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        const currentPos = video.currentTime;
+        const remainingDuration = video.duration - currentPos;
+        
+        // Calculate seconds of buffer ahead
+        const bufferedAhead = bufferedEnd - currentPos;
+        
+        // Calculate buffer progress percentage (target: MIN_BUFFER_SECONDS or end of video)
+        const targetBuffer = Math.min(MIN_BUFFER_SECONDS, remainingDuration);
+        const progress = targetBuffer > 0 
+          ? Math.min(100, (bufferedAhead / targetBuffer) * 100) 
+          : 100;
+        
+        setBufferProgress(progress);
+        
+        // SMART RESUME: When buffer is sufficient, resume playback
+        if (isSmartBuffering && bufferedAhead >= MIN_BUFFER_SECONDS) {
+          console.log('[SecureMedia] Buffer sufficient (' + bufferedAhead.toFixed(1) + 's), resuming playback');
+          setIsSmartBuffering(false);
+          isBufferingRef.current = false;
+          setIsBuffering(false);
+          
+          if (wasPlayingBeforeBufferRef.current) {
+            video.play().catch(console.error);
+            wasPlayingBeforeBufferRef.current = false;
+          }
+        }
+        
+        // Sync lastValidTimeRef during normal buffering (not user seeking)
+        if (Math.abs(currentPos - lastValidTimeRef.current) < 5) {
+          lastValidTimeRef.current = currentPos;
+        }
       }
-      isBufferingRef.current = false;
-      setIsBuffering(false);
     };
 
     // Handle video errors with auto-retry
@@ -345,8 +418,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       const timeDiff = Math.abs(video.currentTime - lastValidTimeRef.current);
       
-      // If time jumped more than 2.5 seconds, it's a seek attempt - block it
-      if (timeDiff > 2.5) {
+      // If time jumped more than 5 seconds, it's a seek attempt - block it
+      // (increased from 2.5s to give more tolerance for buffering)
+      if (timeDiff > 5) {
         console.log('[SecureMedia] Seek blocked:', {
           currentTime: video.currentTime,
           lastValidTime: lastValidTimeRef.current,
@@ -356,7 +430,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         video.currentTime = lastValidTimeRef.current;
         setTimeout(() => {
           isSeekingRef.current = false;
-        }, 100);
+        }, 500); // Increased from 100ms for stability
       }
     };
 
@@ -409,6 +483,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('pause', handlePause);
     video.addEventListener('ratechange', handleRateChange);
     video.addEventListener('error', handleError);
+    video.addEventListener('progress', handleProgress); // NEW: Buffer progress tracking
     
     return () => {
       console.log('[SecureMedia] Removing event listeners from video element');
@@ -422,8 +497,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ratechange', handleRateChange);
       video.removeEventListener('error', handleError);
+      video.removeEventListener('progress', handleProgress); // NEW: Buffer progress tracking
     };
-  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]); // Added retryCount
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering]); // Added isSmartBuffering
 
   // Time tracking for unrestricted mode
   useEffect(() => {
@@ -506,6 +582,52 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     }
   }, []);
 
+  // NEW: Manual retry function for stuck playback
+  const handleRetry = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    console.log('[SecureMedia] Manual retry triggered');
+    const currentPos = lastValidTimeRef.current;
+    
+    // Reset states
+    setIsBuffering(false);
+    setIsSmartBuffering(false);
+    isBufferingRef.current = false;
+    wasPlayingBeforeBufferRef.current = false;
+    setBufferProgress(0);
+    
+    // Reload video from current position
+    video.load();
+    video.currentTime = currentPos;
+    video.play().catch(console.error);
+  }, []);
+
+  // NEW: Auto-recovery for stuck playback detection
+  useEffect(() => {
+    if (mediaType !== 'video' || !disableInteraction || !videoElement) return;
+    
+    const checkStuck = () => {
+      const video = videoElement;
+      if (!video.paused && !isBufferingRef.current && !isSmartBuffering) {
+        // If video is playing but time hasn't changed for 5 seconds - likely stuck
+        if (video.currentTime === lastProgressTimeRef.current && video.currentTime > 0) {
+          console.warn('[SecureMedia] Playback appears stuck, attempting auto-recovery');
+          handleRetry();
+        }
+        lastProgressTimeRef.current = video.currentTime;
+      }
+    };
+    
+    stuckCheckRef.current = setInterval(checkStuck, 5000);
+    
+    return () => {
+      if (stuckCheckRef.current) {
+        clearInterval(stuckCheckRef.current);
+      }
+    };
+  }, [mediaType, disableInteraction, videoElement, isSmartBuffering, handleRetry]);
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
   };
@@ -587,12 +709,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
-              preload="auto"
+              preload={typeof window !== 'undefined' && window.innerWidth < 768 ? "metadata" : "auto"}
               playsInline
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {isBuffering && (
+            {isBuffering && !isSmartBuffering && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
@@ -607,6 +729,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             isTabHidden={isTabHidden}
             onFullscreen={handleFullscreen}
             isFullscreen={isFullscreen}
+            isBuffering={isSmartBuffering}
+            bufferProgress={bufferProgress}
+            onRetry={handleRetry}
           />
         </div>
       );
