@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,11 @@ interface SupportSettings {
   submit_button_text: string;
   success_message: string;
   error_message: string;
+  // New fields
+  email_label_visible: boolean;
+  phone_label_visible: boolean;
+  working_hours_label_visible: boolean;
+  cards_order: string[];
 }
 
 interface SupportFormDialogProps {
@@ -84,7 +89,18 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
 
         if (error) throw error;
         if (data) {
-          setSettings(data);
+          // Parse cards_order from Json to string[]
+          const cardsOrder = Array.isArray(data.cards_order) 
+            ? data.cards_order as string[]
+            : ['email', 'phone', 'working_hours'];
+          
+          setSettings({
+            ...data,
+            email_label_visible: data.email_label_visible ?? true,
+            phone_label_visible: data.phone_label_visible ?? true,
+            working_hours_label_visible: data.working_hours_label_visible ?? true,
+            cards_order: cardsOrder,
+          } as SupportSettings);
         }
       } catch (error) {
         console.error('Error fetching support settings:', error);
@@ -155,6 +171,76 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
     }
   };
 
+  // Render info card based on type
+  const renderInfoCard = (cardType: string) => {
+    if (!settings) return null;
+
+    switch (cardType) {
+      case 'email':
+        return (
+          <Card key="email" className="bg-card border shadow-sm">
+            <CardContent className="p-4 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <DynamicIcon name={settings.email_icon || 'Mail'} className="h-6 w-6 text-primary" />
+              </div>
+              {settings.email_label_visible && (
+                <h3 className="font-semibold text-sm text-foreground">
+                  {settings.email_label || 'Email'}
+                </h3>
+              )}
+              <p className="text-sm text-muted-foreground mt-1">
+                {settings.email_address || 'support@purelife.info.pl'}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      case 'phone':
+        return (
+          <Card key="phone" className="bg-card border shadow-sm">
+            <CardContent className="p-4 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <DynamicIcon name={settings.phone_icon || 'Phone'} className="h-6 w-6 text-primary" />
+              </div>
+              {settings.phone_label_visible && (
+                <h3 className="font-semibold text-sm text-foreground">
+                  {settings.phone_label || 'Telefon'}
+                </h3>
+              )}
+              <p className="text-sm text-muted-foreground mt-1">
+                {settings.phone_number || '+48 123 456 789'}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      case 'working_hours':
+        return (
+          <Card key="working_hours" className="bg-card border shadow-sm">
+            <CardContent className="p-4 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <DynamicIcon name={settings.working_hours_icon || 'Clock'} className="h-6 w-6 text-primary" />
+              </div>
+              {settings.working_hours_label_visible && (
+                <h3 className="font-semibold text-sm text-foreground">
+                  {settings.working_hours_label || 'Godziny pracy'}
+                </h3>
+              )}
+              <p className="text-sm text-muted-foreground mt-1">
+                {settings.working_hours || 'Pon-Pt: 09:00-14:00'}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Get cards in the correct order
+  const orderedCards = useMemo(() => {
+    const order = settings?.cards_order || ['email', 'phone', 'working_hours'];
+    return order.map(cardType => renderInfoCard(cardType)).filter(Boolean);
+  }, [settings]);
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -180,52 +266,9 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
-          {/* Info Cards Grid */}
+          {/* Info Cards Grid - Rendered in order */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Email Card */}
-            <Card className="bg-card border shadow-sm">
-              <CardContent className="p-4 flex flex-col items-center text-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                  <DynamicIcon name={settings?.email_icon || 'Mail'} className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-sm text-foreground">
-                  {settings?.email_label || 'Email'}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {settings?.email_address || 'support@purelife.info.pl'}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Phone Card */}
-            <Card className="bg-card border shadow-sm">
-              <CardContent className="p-4 flex flex-col items-center text-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                  <DynamicIcon name={settings?.phone_icon || 'Phone'} className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-sm text-foreground">
-                  {settings?.phone_label || 'Telefon'}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {settings?.phone_number || '+48 123 456 789'}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Working Hours Card */}
-            <Card className="bg-card border shadow-sm">
-              <CardContent className="p-4 flex flex-col items-center text-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                  <DynamicIcon name={settings?.working_hours_icon || 'Clock'} className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-sm text-foreground">
-                  {settings?.working_hours_label || 'Godziny pracy'}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {settings?.working_hours || 'Pon-Pt: 09:00-14:00'}
-                </p>
-              </CardContent>
-            </Card>
+            {orderedCards}
           </div>
 
           {/* Info Box */}
