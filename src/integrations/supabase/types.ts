@@ -2101,6 +2101,7 @@ export type Database = {
           slot_duration_minutes: number | null
           specific_date: string | null
           start_time: string
+          timezone: string | null
         }
         Insert: {
           created_at?: string | null
@@ -2113,6 +2114,7 @@ export type Database = {
           slot_duration_minutes?: number | null
           specific_date?: string | null
           start_time: string
+          timezone?: string | null
         }
         Update: {
           created_at?: string | null
@@ -2125,6 +2127,7 @@ export type Database = {
           slot_duration_minutes?: number | null
           specific_date?: string | null
           start_time?: string
+          timezone?: string | null
         }
         Relationships: []
       }

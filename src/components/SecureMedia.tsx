@@ -57,6 +57,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // NEW: Smart buffering states
   const [bufferProgress, setBufferProgress] = useState(0);
   const [isSmartBuffering, setIsSmartBuffering] = useState(false);
+  const [isInitialBuffering, setIsInitialBuffering] = useState(true); // NEW: Block Play until buffer ready
   const MIN_BUFFER_SECONDS = 10; // Minimum buffer before resuming playback
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -245,6 +246,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     isBufferingRef.current = false;
     setIsBuffering(false);
     setRetryCount(0); // Reset retry count on new video
+    // NEW: Reset buffering states
+    setIsInitialBuffering(true);
+    setBufferProgress(0);
+    setIsSmartBuffering(false);
+    wasPlayingBeforeBufferRef.current = false;
   }, [mediaUrl]);
 
   // NOTE: Removed the useEffect that synced lastValidTimeRef with initialTime
@@ -338,10 +344,22 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           console.log('[SecureMedia] Synced lastValidTimeRef after buffering:', video.currentTime);
           
           // Check if buffer is sufficient for immediate playback
-          if (video.buffered.length > 0) {
+          if (video.buffered.length > 0 && video.duration > 0) {
             const bufferedAhead = video.buffered.end(video.buffered.length - 1) - video.currentTime;
             const remainingDuration = video.duration - video.currentTime;
             const targetBuffer = Math.min(MIN_BUFFER_SECONDS, remainingDuration);
+            
+            // Calculate and set buffer progress
+            const progress = targetBuffer > 0 
+              ? Math.min(100, (bufferedAhead / targetBuffer) * 100) 
+              : 100;
+            setBufferProgress(progress);
+            
+            // NEW: Disable initial buffering when buffer is ready
+            if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
+              console.log('[SecureMedia] Initial buffer complete via canPlay, Play button enabled');
+              setIsInitialBuffering(false);
+            }
             
             if (bufferedAhead >= targetBuffer || bufferedAhead >= remainingDuration) {
               setIsSmartBuffering(false);
@@ -359,7 +377,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     // NEW: Progress handler for buffer calculation
     const handleProgress = () => {
-      if (video.buffered.length > 0) {
+      if (video.buffered.length > 0 && video.duration > 0) {
         const bufferedEnd = video.buffered.end(video.buffered.length - 1);
         const currentPos = video.currentTime;
         const remainingDuration = video.duration - currentPos;
@@ -374,6 +392,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           : 100;
         
         setBufferProgress(progress);
+        
+        // NEW: Check initial buffering - unlock Play button when buffer is ready
+        if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
+          console.log('[SecureMedia] Initial buffer ready (' + bufferedAhead.toFixed(1) + 's), Play button enabled');
+          setIsInitialBuffering(false);
+        }
         
         // SMART RESUME: When buffer is sufficient, resume playback
         if (isSmartBuffering && bufferedAhead >= MIN_BUFFER_SECONDS) {
@@ -499,7 +523,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('error', handleError);
       video.removeEventListener('progress', handleProgress); // NEW: Buffer progress tracking
     };
-  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering]); // Added isSmartBuffering
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]); // Added isSmartBuffering, isInitialBuffering
 
   // Time tracking for unrestricted mode
   useEffect(() => {
@@ -729,7 +753,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             isTabHidden={isTabHidden}
             onFullscreen={handleFullscreen}
             isFullscreen={isFullscreen}
-            isBuffering={isSmartBuffering}
+            isBuffering={isInitialBuffering || isSmartBuffering}
             bufferProgress={bufferProgress}
             onRetry={handleRetry}
           />

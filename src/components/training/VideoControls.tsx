@@ -37,6 +37,9 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Determine if this is initial buffering (before first play)
+  const isInitialLoad = bufferProgress !== undefined && bufferProgress < 100 && currentTime === 0;
+  
   return (
     <div className="bg-card border rounded-lg p-3 space-y-3">
       {/* Buffering message with progress */}
@@ -44,7 +47,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         <div className="flex items-center gap-2 text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 rounded-md text-sm">
           <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
           <div className="flex-1">
-            <span>Słaby zasięg sieci - ładowanie wideo...</span>
+            <span>
+              {isInitialLoad 
+                ? "Przygotowuję wideo do odtwarzania..." 
+                : "Słaby zasięg sieci - ładowanie wideo..."}
+            </span>
             {bufferProgress !== undefined && bufferProgress < 100 && (
               <div className="mt-1">
                 <Progress value={bufferProgress} className="h-1" />

@@ -88,6 +88,10 @@ export const LeaderAvailabilityManager: React.FC = () => {
 
     setSaving(true);
     try {
+      // Get user's timezone automatically
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log('[LeaderAvailabilityManager] Saving with timezone:', userTimezone);
+
       // Delete existing and insert new
       await supabase
         .from('leader_availability')
@@ -100,6 +104,7 @@ export const LeaderAvailabilityManager: React.FC = () => {
         start_time: day.startTime,
         end_time: day.endTime,
         is_active: day.isAvailable,
+        timezone: userTimezone, // NEW: Save user's timezone
       }));
 
       const { error } = await supabase
