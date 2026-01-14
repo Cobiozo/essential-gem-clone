@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,9 +16,11 @@ import {
   Clock, 
   Video,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from 'lucide-react';
 import { format, addMinutes, parse, isSameDay, isAfter, startOfDay } from 'date-fns';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { PartnerWithAvailability } from '@/types/events';
@@ -31,6 +33,8 @@ interface AvailableSlot {
   date: string;
   time: string;
   slot_duration_minutes: number;
+  leaderTime?: string; // Original time in leader's timezone
+  leaderTimezone?: string;
 }
 
 type BookingStep = 'select-partner' | 'select-datetime' | 'confirm';
@@ -53,6 +57,10 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [leaderTimezone, setLeaderTimezone] = useState<string>('Europe/Warsaw');
+  
+  // Get user's local timezone
+  const userTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
 
   // Load partners with enabled permissions and availability
   useEffect(() => {
@@ -241,13 +249,18 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // Get availability for this date
+      // Get availability for this date with timezone info
       const { data: availability } = await supabase
         .from('leader_availability')
-        .select('start_time, slot_duration_minutes')
+        .select('start_time, slot_duration_minutes, timezone')
         .eq('leader_user_id', selectedPartner.user_id)
         .eq('specific_date', dateStr)
         .eq('is_active', true);
+
+      // Get leader's timezone from first availability record
+      const partnerTimezone = availability?.[0]?.timezone || 'Europe/Warsaw';
+      setLeaderTimezone(partnerTimezone);
+      console.log('[PartnerMeetingBooking] Leader timezone:', partnerTimezone, 'User timezone:', userTimezone);
 
       // Get already booked individual meetings for this partner on this date
       const { data: individualMeetings } = await supabase
@@ -308,22 +321,40 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const currentTime = format(now, 'HH:mm');
 
       // Filter out booked slots and past slots for today
+      // Convert times from leader's timezone to user's timezone for display
       const slots: AvailableSlot[] = (availability || [])
         .filter(slot => {
           const slotTime = slot.start_time?.substring(0, 5) || '';
           
-          // For today, filter out past times
+          // For today, filter out past times (in leader's timezone)
           if (dateStr === today && slotTime <= currentTime) {
             return false;
           }
           
           return !allBlockedTimes.has(slotTime);
         })
-        .map(slot => ({
-          date: dateStr,
-          time: slot.start_time?.substring(0, 5) || '09:00',
-          slot_duration_minutes: slot.slot_duration_minutes || 60,
-        }))
+        .map(slot => {
+          const leaderSlotTime = slot.start_time?.substring(0, 5) || '09:00';
+          
+          // Convert slot time from leader's timezone to user's timezone
+          let displayTime = leaderSlotTime;
+          try {
+            // Create a date in the leader's timezone
+            const leaderDateTime = parse(`${dateStr} ${leaderSlotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+            // Convert to UTC, then to user's timezone for display
+            displayTime = formatInTimeZone(leaderDateTime, userTimezone, 'HH:mm');
+          } catch (e) {
+            console.warn('[PartnerMeetingBooking] Timezone conversion error:', e);
+          }
+          
+          return {
+            date: dateStr,
+            time: displayTime, // Time in user's timezone for display
+            slot_duration_minutes: slot.slot_duration_minutes || 60,
+            leaderTime: leaderSlotTime, // Original time in leader's timezone
+            leaderTimezone: partnerTimezone,
+          };
+        })
         .sort((a, b) => a.time.localeCompare(b.time));
 
       setAvailableSlots(slots);
@@ -380,8 +411,18 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
     setBooking(true);
     try {
+      // Use leaderTime (original time in leader's timezone) for proper UTC conversion
+      const timeToUse = selectedSlot.leaderTime || selectedSlot.time;
+      const slotTimezone = selectedSlot.leaderTimezone || leaderTimezone;
+      
+      console.log('[PartnerMeetingBooking] Booking meeting:', {
+        displayTime: selectedSlot.time,
+        leaderTime: timeToUse,
+        timezone: slotTimezone
+      });
+      
       // Parse local time and convert to ISO string (properly handles timezone offset)
-      const localStartDate = parse(`${selectedSlot.date} ${selectedSlot.time}`, 'yyyy-MM-dd HH:mm', new Date());
+      const localStartDate = parse(`${selectedSlot.date} ${timeToUse}`, 'yyyy-MM-dd HH:mm', new Date());
       const startDateTime = localStartDate.toISOString();
       const endDate = addMinutes(localStartDate, selectedSlot.slot_duration_minutes);
       const endDateTime = endDate.toISOString();
@@ -652,6 +693,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                     : 'Wybierz datę, aby zobaczyć godziny'
                   }
                 </h4>
+                
+                {/* Timezone info */}
+                {selectedDate && availableSlots.length > 0 && userTimezone !== leaderTimezone && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2 bg-muted/50 px-2 py-1 rounded">
+                    <Globe className="h-3 w-3" />
+                    <span>Godziny wyświetlane w Twojej strefie czasowej ({userTimezone})</span>
+                  </div>
+                )}
                 
                 {!selectedDate ? (
                   <p className="text-sm text-muted-foreground">
