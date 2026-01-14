@@ -4360,6 +4360,10 @@ const Admin = () => {
           <TabsContent value="cron-jobs">
             <CronJobsManagement />
           </TabsContent>
+
+          <TabsContent value="support">
+            <SupportSettingsManagement />
+          </TabsContent>
         </Tabs>
       </div>
 
