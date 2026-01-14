@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { registerRobotoFont, sanitizePolishChars } from "@/assets/fonts/roboto-base64";
 
 interface CertificateResult {
   success: boolean;
@@ -7,19 +8,6 @@ interface CertificateResult {
   certificateUrl?: string;
   error?: string;
 }
-
-// Polish character normalization for PDF (when Unicode font is not available)
-const normalizePolishChars = (text: string): string => {
-  // Map Polish diacritical characters to their closest ASCII equivalents
-  const polishMap: Record<string, string> = {
-    'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
-    'ó': 'o', 'ś': 's', 'ż': 'z', 'ź': 'z',
-    'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N',
-    'Ó': 'O', 'Ś': 'S', 'Ż': 'Z', 'Ź': 'Z',
-  };
-  
-  return text.split('').map(char => polishMap[char] || char).join('');
-};
 
 export const useCertificateGeneration = () => {
   const { toast } = useToast();
@@ -165,10 +153,10 @@ export const useCertificateGeneration = () => {
         format: 'a4'
       });
 
-      // Note: jsPDF built-in fonts (helvetica, times, courier) don't support Polish characters
-      // We use the normalizePolishChars function to ensure text displays correctly
-      // For proper Polish character support, a custom TTF font would need to be embedded
-      console.log('Step 4b: Using ASCII-normalized text for PDF compatibility');
+      // Register Unicode font for Polish character support
+      console.log('Step 4b: Registering Unicode font for Polish characters...');
+      const fontRegistered = await registerRobotoFont(doc);
+      console.log('Font registration result:', fontRegistered ? '✅ Unicode font active' : '⚠️ Fallback to helvetica');
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -259,8 +247,11 @@ export const useCertificateGeneration = () => {
           .replace(/\{\{certificateNumber\}\}/gi, certificateNumber)
           .replace(/\{\{currentYear\}\}/gi, currentYear);
         
-        // Normalize Polish characters for PDF compatibility
-        return normalizePolishChars(result);
+        // Only normalize Polish characters if Unicode font is NOT available
+        if (!fontRegistered) {
+          return sanitizePolishChars(result);
+        }
+        return result;
       };
 
       console.log('Rendering', elements.length, 'template elements...');
@@ -296,14 +287,17 @@ export const useCertificateGeneration = () => {
           const isBold = element.fontWeight === 'bold' || Number(element.fontWeight) >= 700;
           const isItalic = element.fontStyle === 'italic';
           
+          // Use Unicode font if registered, otherwise fallback to helvetica
+          const fontName = fontRegistered ? 'Unicode' : 'helvetica';
+          
           if (isBold && isItalic) {
-            doc.setFont('helvetica', 'bolditalic');
+            doc.setFont(fontName, fontRegistered ? 'bold' : 'bolditalic');
           } else if (isBold) {
-            doc.setFont('helvetica', 'bold');
+            doc.setFont(fontName, 'bold');
           } else if (isItalic) {
-            doc.setFont('helvetica', 'italic');
+            doc.setFont(fontName, fontRegistered ? 'normal' : 'italic');
           } else {
-            doc.setFont('helvetica', 'normal');
+            doc.setFont(fontName, 'normal');
           }
 
           // Używamy color (nie fill)

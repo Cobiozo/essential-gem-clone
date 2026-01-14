@@ -8,7 +8,6 @@ import { NotificationsWidget } from '@/components/dashboard/widgets/Notification
 import { TeamContactsWidget } from '@/components/dashboard/widgets/TeamContactsWidget';
 import { ReflinksWidget } from '@/components/dashboard/widgets/ReflinksWidget';
 import { InfoLinksWidget } from '@/components/dashboard/widgets/InfoLinksWidget';
-import { SocialMediaWidget } from '@/components/dashboard/widgets/SocialMediaWidget';
 import { CalendarWidget } from '@/components/dashboard/widgets/CalendarWidget';
 import { MyMeetingsWidget } from '@/components/dashboard/widgets/MyMeetingsWidget';
 import { DashboardFooterSection } from '@/components/dashboard/widgets/DashboardFooterSection';
@@ -19,39 +18,31 @@ const Dashboard: React.FC = () => {
 
   return (
     <DashboardLayout title={t('dashboard.menu.dashboard')}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* Welcome - Full width */}
+      <div className="space-y-4 lg:space-y-6">
+        {/* Welcome with digital clock - Full width */}
         <WelcomeWidget />
 
-        {/* Quick Stats */}
-        <QuickStatsWidget />
+        {/* Quick Stats - Full width */}
+        <QuickStatsWidget fullWidth />
 
-        {/* Training Progress */}
-        <TrainingProgressWidget />
+        {/* Three-column grid for remaining widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+          {/* Column 1: Calendar */}
+          <CalendarWidget />
 
-        {/* Notifications */}
-        <NotificationsWidget />
+          {/* Column 2: Training Progress */}
+          <TrainingProgressWidget />
 
-        {/* Resources */}
-        <ResourcesWidget />
+          {/* Column 3: Notifications */}
+          <NotificationsWidget />
 
-        {/* Team Contacts (conditional) */}
-        <TeamContactsWidget />
-
-        {/* PureLinki (conditional) */}
-        <ReflinksWidget />
-
-        {/* InfoLinki (conditional) */}
-        <InfoLinksWidget />
-
-        {/* Social Media & Community */}
-        <SocialMediaWidget />
-
-        {/* Calendar Widget */}
-        <CalendarWidget />
-
-        {/* My Meetings Widget */}
-        <MyMeetingsWidget />
+          {/* Remaining widgets flow naturally */}
+          <ResourcesWidget />
+          <TeamContactsWidget />
+          <ReflinksWidget />
+          <InfoLinksWidget />
+          <MyMeetingsWidget />
+        </div>
       </div>
 
       {/* Footer Section with quote, team features and contact */}

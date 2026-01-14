@@ -41,7 +41,11 @@ interface Stats {
   unreadNotifications: number;
 }
 
-export const QuickStatsWidget: React.FC = () => {
+interface QuickStatsWidgetProps {
+  fullWidth?: boolean;
+}
+
+export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = false }) => {
   const { user, userRole, profile } = useAuth();
   const { t, language, refreshTranslations } = useLanguage();
   const navigate = useNavigate();
@@ -215,7 +219,7 @@ export const QuickStatsWidget: React.FC = () => {
   const totalAlerts = stats.pendingApprovals + stats.newMaterials + stats.unreadNotifications;
 
   return (
-    <Card className="shadow-sm">
+    <Card className={`shadow-sm ${fullWidth ? 'col-span-full' : ''}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />

@@ -467,13 +467,16 @@ export const DashboardSidebar: React.FC = () => {
       {/* Logo Header */}
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-3">
-          <img 
-            src={newPureLifeLogo} 
-            alt="Pure Life" 
-            className="h-10 w-10 min-w-[40px] min-h-[40px] flex-shrink-0 object-contain"
-          />
+          <div className="h-10 w-10 min-w-[40px] min-h-[40px] flex-shrink-0 flex items-center justify-center">
+            <img 
+              src={newPureLifeLogo} 
+              alt="Pure Life" 
+              className="max-h-full max-w-full object-contain"
+              style={{ aspectRatio: '1/1' }}
+            />
+          </div>
           {!isCollapsed && (
-            <span className="font-bold text-lg text-sidebar-foreground">
+            <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
               PURE LIFE
             </span>
           )}
@@ -552,8 +555,39 @@ export const DashboardSidebar: React.FC = () => {
         </SidebarMenu>
       </SidebarContent>
 
-      {/* Footer with Sign Out */}
+      {/* Footer with Social Media and Sign Out */}
       <SidebarFooter className="border-t border-sidebar-border p-2">
+        {/* Social Media Buttons - visible when expanded and links exist */}
+        {!isCollapsed && communityLinks.length > 0 && (
+          <div className="px-2 py-3 border-b border-sidebar-border mb-2">
+            <p className="text-xs text-muted-foreground mb-2">{t('dashboard.menu.community')}</p>
+            <div className="flex flex-wrap gap-2">
+              {communityLinks.map((link) => {
+                const platform = detectPlatform(link.title, link.url);
+                const IconComponent = platformIcons[platform] || ExternalLink;
+                return (
+                  <Button
+                    key={link.id}
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-full hover:bg-primary/10"
+                    onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
+                    title={link.title}
+                  >
+                    <IconComponent 
+                      className={`h-5 w-5 ${
+                        platform === 'whatsapp' ? 'text-green-500' : 
+                        platform === 'facebook' ? 'text-blue-600' : 
+                        'text-muted-foreground'
+                      }`} 
+                    />
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
