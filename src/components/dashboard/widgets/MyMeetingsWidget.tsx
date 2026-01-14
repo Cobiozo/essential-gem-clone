@@ -242,62 +242,52 @@ export const MyMeetingsWidget: React.FC = () => {
                   <Badge variant="secondary" className="text-xs ml-1">{events.length}</Badge>
                 </h4>
                 
-                <div className="space-y-2">
-                  {(expandedTypes[type] ? events : events.slice(0, 3)).map(event => (
+                <div className="space-y-1.5">
+                  {(expandedTypes[type] ? events : events.slice(0, 1)).map(event => (
                     <div
                       key={event.id}
-                      className="p-3 rounded-lg bg-muted/50 space-y-2"
+                      className="p-2 rounded-lg bg-muted/50 space-y-1"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium truncate">{event.title}</span>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {format(new Date(event.start_time), 'd MMM', { locale })}
-                        </Badge>
-                      </div>
-
-                      {/* Info for individual meetings */}
-                      {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && (
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          {/* Show host info for participant */}
-                          {event.host_profile && event.host_user_id !== user?.id && (
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              Prowadzący: {event.host_profile.first_name} {event.host_profile.last_name}
-                            </div>
-                          )}
-                          
-                          {/* Show participant info for host */}
-                          {event.participant_profile && event.host_user_id === user?.id && (
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              Rezerwujący: {event.participant_profile.first_name} {event.participant_profile.last_name}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                          {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
-                        </span>
-                        
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium truncate flex-1">{event.title}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(event.start_time), 'd MMM HH:mm', { locale })}
+                          </span>
                           {getActionButton(event)}
                         </div>
                       </div>
+
+                      {/* Info for individual meetings - compact */}
+                      {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && (
+                        <div className="text-xs text-muted-foreground">
+                          {event.host_profile && event.host_user_id !== user?.id && (
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {event.host_profile.first_name} {event.host_profile.last_name}
+                            </span>
+                          )}
+                          {event.participant_profile && event.host_user_id === user?.id && (
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {event.participant_profile.first_name} {event.participant_profile.last_name}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                   
-                  {events.length > 3 && (
+                  {events.length > 1 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full text-xs text-muted-foreground hover:text-foreground"
+                      className="w-full text-xs text-muted-foreground hover:text-foreground h-6"
                       onClick={() => toggleExpand(type)}
                     >
                       {expandedTypes[type] 
-                        ? 'Pokaż mniej' 
-                        : `+${events.length - 3} więcej`}
+                        ? 'Zwiń' 
+                        : `+${events.length - 1} więcej`}
                     </Button>
                   )}
                 </div>

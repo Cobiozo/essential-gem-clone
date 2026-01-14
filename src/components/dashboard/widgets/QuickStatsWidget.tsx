@@ -220,19 +220,19 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
 
   return (
     <Card className={`shadow-sm ${fullWidth ? 'col-span-full' : ''}`}>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           {t('dashboard.quickStats')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         {/* Educational Progress Section - Clickable */}
         <div 
-          className="p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors group"
+          className="p-2 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors group"
           onClick={() => navigate('/training')}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">{t('dashboard.stats.educationalProgress')}</span>
@@ -240,17 +240,17 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">
                 {loading ? '...' : `${stats.completedModules}/${stats.totalModules} ${t('dashboard.stats.modules')}`}
               </span>
               <span className="font-medium">{loading ? '...' : `${stats.progressPercent}%`}</span>
             </div>
-            <Progress value={stats.progressPercent} className="h-2" />
+            <Progress value={stats.progressPercent} className="h-1.5" />
             
             {stats.nextModuleTitle && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 <span className="font-medium">{t('dashboard.stats.nextStep')}:</span> {stats.nextModuleTitle}
               </p>
             )}
@@ -258,17 +258,17 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
         </div>
 
         {/* Stats Grid */}
-        <div className={`grid gap-3 ${isPartnerOrSpecialist ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <div className={`grid gap-2 ${isPartnerOrSpecialist ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {/* Network Development - Only for partner/specialist */}
           {isPartnerOrSpecialist && (
             <div 
-              className="text-center p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+              className="text-center p-2 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
               onClick={() => navigate('/my-account?tab=team')}
             >
-              <div className="inline-flex p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 mb-2">
-                <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <div className="inline-flex p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 mb-1">
+                <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <p className="text-lg font-bold text-foreground">
+              <p className="text-base font-bold text-foreground">
                 {loading ? '...' : `${stats.activeCount}/${stats.invitedCount}`}
               </p>
               <p className="text-xs text-muted-foreground line-clamp-1">{t('dashboard.stats.network')}</p>
@@ -277,11 +277,11 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
 
           {/* User Activity */}
           <div 
-            className="text-center p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+            className="text-center p-2 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
             onClick={() => navigate('/my-account')}
           >
-            <div className="inline-flex p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 mb-2">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <div className="inline-flex p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 mb-1">
+              <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
             </div>
             <p className="text-sm font-bold text-foreground line-clamp-1">
               {loading ? '...' : formatLastSignIn()}
@@ -291,25 +291,25 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
 
           {/* Alerts/Actions Required */}
           <div 
-            className={`text-center p-3 rounded-lg transition-colors cursor-pointer ${
+            className={`text-center p-2 rounded-lg transition-colors cursor-pointer ${
               totalAlerts > 0 
                 ? 'bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30' 
                 : 'bg-muted/50 hover:bg-muted'
             }`}
             onClick={() => navigate('/notifications')}
           >
-            <div className={`inline-flex p-2 rounded-lg mb-2 ${
+            <div className={`inline-flex p-1.5 rounded-lg mb-1 ${
               totalAlerts > 0 
                 ? 'bg-amber-200 dark:bg-amber-800/50' 
                 : 'bg-amber-100 dark:bg-amber-900/30'
             }`}>
               {totalAlerts > 0 ? (
-                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               ) : (
-                <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <Bell className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               )}
             </div>
-            <p className="text-lg font-bold text-foreground">
+            <p className="text-base font-bold text-foreground">
               {loading ? '...' : totalAlerts}
             </p>
             <p className="text-xs text-muted-foreground line-clamp-1">{t('dashboard.stats.actions')}</p>
@@ -318,10 +318,10 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
 
         {/* Alerts Details - if any */}
         {totalAlerts > 0 && !loading && (
-          <div className="space-y-1 pt-2 border-t border-border">
+          <div className="space-y-0.5 pt-1 border-t border-border">
             {stats.pendingApprovals > 0 && (
               <div 
-                className="flex items-center justify-between text-xs p-2 rounded hover:bg-muted cursor-pointer"
+                className="flex items-center justify-between text-xs p-1.5 rounded hover:bg-muted cursor-pointer"
                 onClick={() => navigate('/my-account?tab=team')}
               >
                 <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
             )}
             {stats.newMaterials > 0 && (
               <div 
-                className="flex items-center justify-between text-xs p-2 rounded hover:bg-muted cursor-pointer"
+                className="flex items-center justify-between text-xs p-1.5 rounded hover:bg-muted cursor-pointer"
                 onClick={() => navigate('/knowledge-center')}
               >
                 <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
             )}
             {stats.unreadNotifications > 0 && (
               <div 
-                className="flex items-center justify-between text-xs p-2 rounded hover:bg-muted cursor-pointer"
+                className="flex items-center justify-between text-xs p-1.5 rounded hover:bg-muted cursor-pointer"
                 onClick={() => navigate('/notifications')}
               >
                 <div className="flex items-center gap-2">

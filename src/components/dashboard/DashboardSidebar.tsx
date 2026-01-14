@@ -467,7 +467,9 @@ export const DashboardSidebar: React.FC = () => {
       {/* Logo Header */}
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-3">
-          <div className="h-10 w-10 min-w-[40px] min-h-[40px] flex-shrink-0 flex items-center justify-center">
+          <div className={`flex-shrink-0 flex items-center justify-center ${
+            isCollapsed ? 'h-8 w-8 min-w-[32px] min-h-[32px]' : 'h-10 w-10 min-w-[40px] min-h-[40px]'
+          }`}>
             <img 
               src={newPureLifeLogo} 
               alt="Pure Life" 
@@ -559,9 +561,8 @@ export const DashboardSidebar: React.FC = () => {
       <SidebarFooter className="border-t border-sidebar-border p-2">
         {/* Social Media Buttons - visible when expanded and links exist */}
         {!isCollapsed && communityLinks.length > 0 && (
-          <div className="px-2 py-3 border-b border-sidebar-border mb-2">
-            <p className="text-xs text-muted-foreground mb-2">{t('dashboard.menu.community')}</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="px-2 py-2 border-b border-sidebar-border mb-2">
+            <div className="flex flex-wrap gap-2 justify-center">
               {communityLinks.map((link) => {
                 const platform = detectPlatform(link.title, link.url);
                 const IconComponent = platformIcons[platform] || ExternalLink;
