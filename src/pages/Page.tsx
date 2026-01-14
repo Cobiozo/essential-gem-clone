@@ -18,6 +18,7 @@ import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 import { useAuth } from '@/contexts/AuthContext';
 import { isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
+import { parseCellsAsArray } from '@/lib/cellsParser';
 
 interface Page {
   id: string;
@@ -54,21 +55,7 @@ const PageComponent = () => {
 
   // Funkcje konwersji danych
   const convertCellsFromDatabase = (cells: any): ContentCell[] => {
-    if (!cells) return [];
-    if (typeof cells === 'string') {
-      try {
-        const parsed = JSON.parse(cells);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch (e) {
-        return [];
-      }
-    }
-    if (Array.isArray(cells)) {
-      return cells;
-    }
-    return [];
+    return parseCellsAsArray(cells);
   };
 
   const convertDatabaseItemToCMSItem = (dbItem: any): CMSItem => {

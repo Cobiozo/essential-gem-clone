@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { convertSupabaseSections } from '@/lib/typeUtils';
+import { parseCells } from '@/lib/cellsParser';
 
 interface InactiveElementsManagerProps {
   onElementActivated: () => void;
@@ -61,7 +62,7 @@ export const InactiveElementsManager: React.FC<InactiveElementsManagerProps> = (
       // Convert data to proper types
       const convertedItems: CMSItem[] = (itemsData || []).map(item => ({
         ...item,
-        cells: Array.isArray(item.cells) ? item.cells as any[] : [],
+        cells: parseCells(item.cells),
         number_type: (item.number_type || 'auto') as CMSItem['number_type']
       }));
 

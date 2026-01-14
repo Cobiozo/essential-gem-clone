@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CMSSection, CMSItem } from '@/types/cms';
 import { convertSupabaseSections } from '@/lib/typeUtils';
+import { parseCells } from '@/lib/cellsParser';
 
 interface Column {
   id: string;
@@ -128,23 +129,10 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
       if (itemsError) throw itemsError;
       
       const convertedSections = convertSupabaseSections(sectionsData || []);
-      const convertedItems = (itemsData || []).map((item: any) => {
-        let cells = [];
-        if (item.cells) {
-          if (Array.isArray(item.cells)) {
-            cells = item.cells;
-          } else if (typeof item.cells === 'string') {
-            try {
-              cells = JSON.parse(item.cells);
-            } catch {
-              cells = [];
-            }
-          } else if (typeof item.cells === 'object') {
-            cells = item.cells;
-          }
-        }
-        return { ...item, cells };
-      });
+      const convertedItems = (itemsData || []).map((item: any) => ({
+        ...item,
+        cells: parseCells(item.cells)
+      }));
       
       setSections(convertedSections);
       setItems(convertedItems);
@@ -374,7 +362,7 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
             } else {
               setItems(prev => prev.map(i => 
                 i.id === updatedItem.id 
-                  ? { ...updatedItem, cells: Array.isArray(updatedItem.cells) ? updatedItem.cells : JSON.parse(updatedItem.cells || '[]') }
+                  ? { ...updatedItem, cells: parseCells(updatedItem.cells) }
                   : i
               ));
             }
@@ -385,7 +373,7 @@ export const useLayoutDataManager = ({ pageId, isAdmin }: UseLayoutDataManagerPr
                 if (prev.some(i => i.id === newItem.id)) return prev;
                 return [...prev, { 
                   ...newItem, 
-                  cells: Array.isArray(newItem.cells) ? newItem.cells : JSON.parse(newItem.cells || '[]') 
+                  cells: parseCells(newItem.cells) 
                 }];
               });
             }
