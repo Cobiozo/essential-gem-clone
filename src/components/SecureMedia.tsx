@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoControls } from '@/components/training/VideoControls';
+import { 
+  getAdaptiveBufferConfig, 
+  getBufferedRanges, 
+  getBufferedAhead,
+  getRetryDelay,
+  getVideoErrorType,
+  getNetworkQuality,
+  isSlowNetwork,
+  VIDEO_ERROR_TYPES,
+  type BufferConfig 
+} from '@/lib/videoBufferConfig';
 
 interface SecureMediaProps {
   mediaUrl: string;
@@ -52,13 +63,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const MAX_RETRIES = 3;
   
-  // NEW: Smart buffering states
+  // Use adaptive buffer config based on device and network
+  const bufferConfigRef = useRef<BufferConfig>(getAdaptiveBufferConfig());
+  
+  // Smart buffering states
   const [bufferProgress, setBufferProgress] = useState(0);
   const [isSmartBuffering, setIsSmartBuffering] = useState(false);
-  const [isInitialBuffering, setIsInitialBuffering] = useState(true); // NEW: Block Play until buffer ready
-  const MIN_BUFFER_SECONDS = 10; // Minimum buffer before resuming playback
+  const [isInitialBuffering, setIsInitialBuffering] = useState(true);
+  
+  // NEW: Buffer visualization and network quality
+  const [bufferedRanges, setBufferedRanges] = useState<{ start: number; end: number }[]>([]);
+  const [networkQuality, setNetworkQuality] = useState<'good' | 'slow' | 'offline'>('good');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -251,7 +267,49 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setBufferProgress(0);
     setIsSmartBuffering(false);
     wasPlayingBeforeBufferRef.current = false;
+    setBufferedRanges([]);
+    // Refresh buffer config on new video
+    bufferConfigRef.current = getAdaptiveBufferConfig();
   }, [mediaUrl]);
+
+  // Monitor network quality changes
+  useEffect(() => {
+    const updateNetworkQuality = () => {
+      if (!navigator.onLine) {
+        setNetworkQuality('offline');
+        return;
+      }
+      if (isSlowNetwork()) {
+        setNetworkQuality('slow');
+      } else {
+        setNetworkQuality('good');
+      }
+    };
+
+    updateNetworkQuality();
+
+    // Listen for online/offline events
+    window.addEventListener('online', updateNetworkQuality);
+    window.addEventListener('offline', updateNetworkQuality);
+
+    // Listen for connection changes if API available
+    if ('connection' in navigator) {
+      const connection = (navigator as any).connection;
+      if (connection) {
+        connection.addEventListener('change', updateNetworkQuality);
+        return () => {
+          window.removeEventListener('online', updateNetworkQuality);
+          window.removeEventListener('offline', updateNetworkQuality);
+          connection.removeEventListener('change', updateNetworkQuality);
+        };
+      }
+    }
+
+    return () => {
+      window.removeEventListener('online', updateNetworkQuality);
+      window.removeEventListener('offline', updateNetworkQuality);
+    };
+  }, []);
 
   // NOTE: Removed the useEffect that synced lastValidTimeRef with initialTime
   // This was causing issues because initialTime could change during playback
@@ -347,13 +405,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           if (video.buffered.length > 0 && video.duration > 0) {
             const bufferedAhead = video.buffered.end(video.buffered.length - 1) - video.currentTime;
             const remainingDuration = video.duration - video.currentTime;
-            const targetBuffer = Math.min(MIN_BUFFER_SECONDS, remainingDuration);
+            const minBuffer = bufferConfigRef.current.minBufferSeconds;
+            const targetBuffer = Math.min(minBuffer, remainingDuration);
             
             // Calculate and set buffer progress
             const progress = targetBuffer > 0 
               ? Math.min(100, (bufferedAhead / targetBuffer) * 100) 
               : 100;
             setBufferProgress(progress);
+            
+            // Update buffered ranges for visualization
+            setBufferedRanges(getBufferedRanges(video));
             
             // NEW: Disable initial buffering when buffer is ready
             if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
@@ -372,7 +434,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         }
         isBufferingRef.current = false;
         setIsBuffering(false);
-      }, 300); // 300ms delay for stability
+      }, bufferConfigRef.current.bufferingStateDelayMs); // Use config delay
     };
     
     // NEW: Progress handler for buffer calculation
@@ -381,17 +443,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         const bufferedEnd = video.buffered.end(video.buffered.length - 1);
         const currentPos = video.currentTime;
         const remainingDuration = video.duration - currentPos;
+        const minBuffer = bufferConfigRef.current.minBufferSeconds;
         
         // Calculate seconds of buffer ahead
         const bufferedAhead = bufferedEnd - currentPos;
         
-        // Calculate buffer progress percentage (target: MIN_BUFFER_SECONDS or end of video)
-        const targetBuffer = Math.min(MIN_BUFFER_SECONDS, remainingDuration);
+        // Calculate buffer progress percentage (target: minBuffer or end of video)
+        const targetBuffer = Math.min(minBuffer, remainingDuration);
         const progress = targetBuffer > 0 
           ? Math.min(100, (bufferedAhead / targetBuffer) * 100) 
           : 100;
         
         setBufferProgress(progress);
+        
+        // Update buffered ranges for visualization
+        setBufferedRanges(getBufferedRanges(video));
         
         // NEW: Check initial buffering - unlock Play button when buffer is ready
         if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
@@ -400,7 +466,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         }
         
         // SMART RESUME: When buffer is sufficient, resume playback
-        if (isSmartBuffering && bufferedAhead >= MIN_BUFFER_SECONDS) {
+        if (isSmartBuffering && bufferedAhead >= minBuffer) {
           console.log('[SecureMedia] Buffer sufficient (' + bufferedAhead.toFixed(1) + 's), resuming playback');
           setIsSmartBuffering(false);
           isBufferingRef.current = false;
@@ -413,17 +479,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         }
         
         // Sync lastValidTimeRef during normal buffering (not user seeking)
-        if (Math.abs(currentPos - lastValidTimeRef.current) < 5) {
+        if (Math.abs(currentPos - lastValidTimeRef.current) < bufferConfigRef.current.seekToleranceSeconds) {
           lastValidTimeRef.current = currentPos;
         }
       }
     };
 
-    // Handle video errors with auto-retry
+    // Handle video errors with auto-retry and exponential backoff
     const handleError = (e: Event) => {
-      console.error('[SecureMedia] Video error:', e);
-      if (retryCount < MAX_RETRIES) {
-        console.log(`[SecureMedia] Retrying... attempt ${retryCount + 1}/${MAX_RETRIES}`);
+      const errorType = getVideoErrorType(video);
+      console.error('[SecureMedia] Video error:', errorType, e);
+      
+      const maxRetries = bufferConfigRef.current.maxRetries;
+      
+      if (retryCount < maxRetries) {
+        const delay = getRetryDelay(retryCount, bufferConfigRef.current.retryDelayMs);
+        console.log(`[SecureMedia] Retrying... attempt ${retryCount + 1}/${maxRetries} after ${delay}ms`);
+        
         setTimeout(() => {
           if (video) {
             const currentPos = lastValidTimeRef.current;
@@ -431,7 +503,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             video.currentTime = currentPos;
             setRetryCount(prev => prev + 1);
           }
-        }, 2000);
+        }, delay);
+      } else {
+        console.error('[SecureMedia] Max retries reached, error type:', errorType);
       }
     };
 
@@ -733,8 +807,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
-              preload={typeof window !== 'undefined' && window.innerWidth < 768 ? "metadata" : "auto"}
+              preload={bufferConfigRef.current.preloadStrategy}
               playsInline
+              // @ts-ignore - webkit-playsinline for older iOS
+              webkit-playsinline="true"
+              // @ts-ignore - x5-playsinline for WeChat browser
+              x5-playsinline="true"
+              crossOrigin="anonymous"
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
@@ -756,6 +835,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             isBuffering={isInitialBuffering || isSmartBuffering}
             bufferProgress={bufferProgress}
             onRetry={handleRetry}
+            bufferedRanges={bufferedRanges}
+            networkQuality={networkQuality}
           />
         </div>
       );
@@ -771,6 +852,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         controlsList="nodownload"
         className={`w-full h-auto rounded-lg ${className || ''}`}
         preload="metadata"
+        playsInline
+        // @ts-ignore - webkit-playsinline for older iOS
+        webkit-playsinline="true"
+        crossOrigin="anonymous"
       >
         Twoja przeglądarka nie obsługuje odtwarzania wideo.
       </video>

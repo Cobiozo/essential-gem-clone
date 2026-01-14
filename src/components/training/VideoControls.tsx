@@ -1,5 +1,5 @@
-import React from 'react';
-import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -11,10 +11,14 @@ interface VideoControlsProps {
   isTabHidden?: boolean;
   onFullscreen?: () => void;
   isFullscreen?: boolean;
-  // New props for buffering and retry
+  // Buffering props
   isBuffering?: boolean;
   bufferProgress?: number; // 0-100, percentage of buffer ready
   onRetry?: () => void;
+  // NEW: Buffer visualization
+  bufferedRanges?: { start: number; end: number }[];
+  // NEW: Network quality indicator
+  networkQuality?: 'good' | 'slow' | 'offline';
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -27,7 +31,9 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   isFullscreen = false,
   isBuffering = false,
   bufferProgress,
-  onRetry
+  onRetry,
+  bufferedRanges,
+  networkQuality
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -39,6 +45,20 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
 
   // Determine if this is initial buffering (before first play)
   const isInitialLoad = bufferProgress !== undefined && bufferProgress < 100 && currentTime === 0;
+
+  // Calculate buffer bar segments
+  const bufferSegments = useMemo(() => {
+    if (!bufferedRanges || !duration || duration <= 0) return [];
+    
+    return bufferedRanges.map(range => ({
+      left: (range.start / duration) * 100,
+      width: ((range.end - range.start) / duration) * 100,
+    }));
+  }, [bufferedRanges, duration]);
+
+  // Network quality icon
+  const NetworkIcon = networkQuality === 'slow' ? WifiOff : Wifi;
+  const showNetworkWarning = networkQuality === 'slow' || networkQuality === 'offline';
   
   return (
     <div className="bg-card border rounded-lg p-3 space-y-3">
@@ -61,6 +81,18 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Network quality warning */}
+      {showNetworkWarning && !isBuffering && (
+        <div className="flex items-center gap-2 text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-3 py-2 rounded-md text-sm">
+          <NetworkIcon className="h-4 w-4 flex-shrink-0" />
+          <span>
+            {networkQuality === 'offline' 
+              ? "Brak połączenia z internetem" 
+              : "Słabe połączenie - wideo może się zacinać"}
+          </span>
         </div>
       )}
 
@@ -93,7 +125,26 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         </Button>
 
         <div className="flex-1 space-y-1">
-          <Progress value={progressPercentage} className="h-2" />
+          {/* Progress bar container with buffer visualization */}
+          <div className="relative h-2">
+            {/* Buffer segments (background layer) */}
+            {bufferSegments.length > 0 && (
+              <div className="absolute inset-0 rounded overflow-hidden">
+                {bufferSegments.map((segment, i) => (
+                  <div
+                    key={i}
+                    className="absolute h-full bg-primary/20 dark:bg-primary/30"
+                    style={{
+                      left: `${segment.left}%`,
+                      width: `${segment.width}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            {/* Playback progress (foreground layer) */}
+            <Progress value={progressPercentage} className="h-2 relative z-10" />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
