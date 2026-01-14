@@ -83,6 +83,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     account: 'Konto',
     logout: 'Wyloguj',
     support: 'Wsparcie i pomoc',
+    dashboardFooter: 'Stopka dashboardu',
   },
   en: {
     content: 'Content',
@@ -116,6 +117,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     account: 'Account',
     logout: 'Logout',
     support: 'Support & Help',
+    dashboardFooter: 'Dashboard Footer',
   },
 };
 
@@ -150,6 +152,7 @@ const navCategories: NavCategory[] = [
       { value: 'content', labelKey: 'main', icon: Settings2 },
       { value: 'layout', labelKey: 'layout', icon: Type },
       { value: 'pages', labelKey: 'pages', icon: FileText },
+      { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
     ],
   },
   {

@@ -1394,6 +1394,84 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboard_footer_settings: {
+        Row: {
+          contact_description: string | null
+          contact_email_address: string | null
+          contact_email_label: string | null
+          contact_icon: string | null
+          contact_reminder: string | null
+          contact_title: string | null
+          created_at: string | null
+          feature_1_description: string | null
+          feature_1_icon: string | null
+          feature_1_title: string | null
+          feature_2_description: string | null
+          feature_2_icon: string | null
+          feature_2_title: string | null
+          feature_3_description: string | null
+          feature_3_icon: string | null
+          feature_3_title: string | null
+          id: string
+          is_active: boolean | null
+          mission_statement: string | null
+          quote_text: string | null
+          team_description: string | null
+          team_title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contact_description?: string | null
+          contact_email_address?: string | null
+          contact_email_label?: string | null
+          contact_icon?: string | null
+          contact_reminder?: string | null
+          contact_title?: string | null
+          created_at?: string | null
+          feature_1_description?: string | null
+          feature_1_icon?: string | null
+          feature_1_title?: string | null
+          feature_2_description?: string | null
+          feature_2_icon?: string | null
+          feature_2_title?: string | null
+          feature_3_description?: string | null
+          feature_3_icon?: string | null
+          feature_3_title?: string | null
+          id?: string
+          is_active?: boolean | null
+          mission_statement?: string | null
+          quote_text?: string | null
+          team_description?: string | null
+          team_title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contact_description?: string | null
+          contact_email_address?: string | null
+          contact_email_label?: string | null
+          contact_icon?: string | null
+          contact_reminder?: string | null
+          contact_title?: string | null
+          created_at?: string | null
+          feature_1_description?: string | null
+          feature_1_icon?: string | null
+          feature_1_title?: string | null
+          feature_2_description?: string | null
+          feature_2_icon?: string | null
+          feature_2_title?: string | null
+          feature_3_description?: string | null
+          feature_3_icon?: string | null
+          feature_3_title?: string | null
+          id?: string
+          is_active?: boolean | null
+          mission_statement?: string | null
+          quote_text?: string | null
+          team_description?: string | null
+          team_title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       email_event_types: {
         Row: {
           created_at: string
