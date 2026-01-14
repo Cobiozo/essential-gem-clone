@@ -147,7 +147,8 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
       className={cn(
         'relative group bg-card border rounded-lg shadow-sm transition-all flex-1',
         isDragging && 'opacity-50 shadow-lg z-50',
-        'hover:ring-2 hover:ring-primary/30'
+        'hover:ring-2 hover:ring-primary/30',
+        !labelVisible && 'opacity-40 border-dashed'
       )}
     >
       {/* Drag handle */}
@@ -223,7 +224,7 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
             </div>
 
             <div className="flex items-center justify-between">
-              <Label htmlFor={`label-visible-${id}`}>Pokaż etykietę</Label>
+              <Label htmlFor={`label-visible-${id}`}>Pokaż kartę</Label>
               <Switch
                 id={`label-visible-${id}`}
                 checked={editLabelVisible}
