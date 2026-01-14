@@ -4,6 +4,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { parseCells } from '@/lib/cellsParser';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -899,11 +900,7 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
       console.log('[handleNewElementDrop] Item created:', newItemData);
 
       // Update local state - NO fetchData()
-      const cellsData = typeof newItemData.cells === 'string' 
-        ? JSON.parse(newItemData.cells) 
-        : Array.isArray(newItemData.cells) 
-          ? newItemData.cells 
-          : [];
+      const cellsData = parseCells(newItemData.cells);
       
       const convertedItem: CMSItem = {
         ...newItemData,

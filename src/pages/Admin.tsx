@@ -62,6 +62,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 // import * as XLSX from 'xlsx';
 // import JSZip from 'jszip';
 import { ContentCell, CMSItem, CMSSection } from '@/types/cms';
+import { parseCellsAsArray } from '@/lib/cellsParser';
 
 // Remove duplicate interfaces - using shared types from @/types/cms
 
@@ -121,18 +122,7 @@ interface Page {
 const Admin = () => {
   // Helper functions for type conversion
   const convertCellsFromDatabase = (cells: any): ContentCell[] => {
-    if (!cells) return [];
-    if (typeof cells === 'string') {
-      try {
-        return JSON.parse(cells);
-      } catch {
-        return [];
-      }
-    }
-    if (Array.isArray(cells)) {
-      return cells;
-    }
-    return [];
+    return parseCellsAsArray(cells);
   };
 
   const convertCellsToDatabase = (cells: ContentCell[]): any => {
