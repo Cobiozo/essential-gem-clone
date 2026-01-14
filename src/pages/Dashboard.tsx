@@ -1,7 +1,6 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { WelcomeWidget } from '@/components/dashboard/widgets/WelcomeWidget';
-import { QuickStatsWidget } from '@/components/dashboard/widgets/QuickStatsWidget';
 import { TrainingProgressWidget } from '@/components/dashboard/widgets/TrainingProgressWidget';
 import { ResourcesWidget } from '@/components/dashboard/widgets/ResourcesWidget';
 import { NotificationsWidget } from '@/components/dashboard/widgets/NotificationsWidget';
@@ -21,9 +20,6 @@ const Dashboard: React.FC = () => {
       <div className="space-y-4 lg:space-y-6">
         {/* Welcome with digital clock - Full width */}
         <WelcomeWidget />
-
-        {/* Quick Stats - Full width */}
-        <QuickStatsWidget fullWidth />
 
         {/* Three-column grid for remaining widgets */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
