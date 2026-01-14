@@ -45,6 +45,7 @@ import {
   ChevronDown,
   Clock,
   CalendarDays,
+  HelpCircle,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -81,6 +82,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     users: 'Użytkownicy',
     account: 'Konto',
     logout: 'Wyloguj',
+    support: 'Wsparcie i pomoc',
   },
   en: {
     content: 'Content',
@@ -113,6 +115,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     users: 'Users',
     account: 'Account',
     logout: 'Logout',
+    support: 'Support & Help',
   },
 };
 
@@ -198,6 +201,7 @@ const navCategories: NavCategory[] = [
       { value: 'team-contacts', labelKey: 'teamContacts', icon: Users },
       { value: 'notifications', labelKey: 'notifications', icon: Bell },
       { value: 'emails', labelKey: 'email', icon: Mail },
+      { value: 'support', labelKey: 'support', icon: HelpCircle },
     ],
   },
   {

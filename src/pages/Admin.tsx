@@ -50,6 +50,7 @@ import { NotificationSystemManagement } from '@/components/admin/NotificationSys
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
+import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';

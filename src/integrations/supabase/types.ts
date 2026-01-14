@@ -3244,6 +3244,105 @@ export type Database = {
         }
         Relationships: []
       }
+      support_settings: {
+        Row: {
+          created_at: string | null
+          email_address: string | null
+          email_field_label: string | null
+          email_icon: string | null
+          email_label: string | null
+          email_placeholder: string | null
+          error_message: string | null
+          form_title: string | null
+          header_description: string | null
+          header_title: string | null
+          id: string
+          info_box_content: string | null
+          info_box_icon: string | null
+          info_box_title: string | null
+          is_active: boolean | null
+          message_label: string | null
+          message_placeholder: string | null
+          name_label: string | null
+          name_placeholder: string | null
+          phone_icon: string | null
+          phone_label: string | null
+          phone_number: string | null
+          subject_label: string | null
+          subject_placeholder: string | null
+          submit_button_text: string | null
+          success_message: string | null
+          updated_at: string | null
+          working_hours: string | null
+          working_hours_icon: string | null
+          working_hours_label: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_address?: string | null
+          email_field_label?: string | null
+          email_icon?: string | null
+          email_label?: string | null
+          email_placeholder?: string | null
+          error_message?: string | null
+          form_title?: string | null
+          header_description?: string | null
+          header_title?: string | null
+          id?: string
+          info_box_content?: string | null
+          info_box_icon?: string | null
+          info_box_title?: string | null
+          is_active?: boolean | null
+          message_label?: string | null
+          message_placeholder?: string | null
+          name_label?: string | null
+          name_placeholder?: string | null
+          phone_icon?: string | null
+          phone_label?: string | null
+          phone_number?: string | null
+          subject_label?: string | null
+          subject_placeholder?: string | null
+          submit_button_text?: string | null
+          success_message?: string | null
+          updated_at?: string | null
+          working_hours?: string | null
+          working_hours_icon?: string | null
+          working_hours_label?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_address?: string | null
+          email_field_label?: string | null
+          email_icon?: string | null
+          email_label?: string | null
+          email_placeholder?: string | null
+          error_message?: string | null
+          form_title?: string | null
+          header_description?: string | null
+          header_title?: string | null
+          id?: string
+          info_box_content?: string | null
+          info_box_icon?: string | null
+          info_box_title?: string | null
+          is_active?: boolean | null
+          message_label?: string | null
+          message_placeholder?: string | null
+          name_label?: string | null
+          name_placeholder?: string | null
+          phone_icon?: string | null
+          phone_label?: string | null
+          phone_number?: string | null
+          subject_label?: string | null
+          subject_placeholder?: string | null
+          submit_button_text?: string | null
+          success_message?: string | null
+          updated_at?: string | null
+          working_hours?: string | null
+          working_hours_icon?: string | null
+          working_hours_label?: string | null
+        }
+        Relationships: []
+      }
       system_texts: {
         Row: {
           content: string | null

@@ -86,3 +86,9 @@ verify_jwt = false
 
 [functions.retry-failed-email]
 verify_jwt = false
+
+[functions.cleanup-training-media]
+verify_jwt = true
+
+[functions.send-support-email]
+verify_jwt = false

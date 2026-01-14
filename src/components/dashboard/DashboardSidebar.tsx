@@ -295,8 +295,8 @@ export const DashboardSidebar: React.FC = () => {
       visibleFor: ['specjalista', 'admin']
     },
     { id: 'support', icon: HelpCircle, labelKey: 'dashboard.menu.support', action: () => {
-      // Open chat widget - dispatch custom event
-      window.dispatchEvent(new CustomEvent('openSupportChat'));
+      // Open support form dialog - dispatch custom event
+      window.dispatchEvent(new CustomEvent('openSupportForm'));
     }},
     { 
       id: 'reflinks', 
