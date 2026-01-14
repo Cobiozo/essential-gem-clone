@@ -1,8 +1,12 @@
 // Konfiguracja lokalnego storage na VPS
 export const STORAGE_CONFIG = {
   // Limity
-  MAX_FILE_SIZE_MB: 2048, // 2GB
+  MAX_FILE_SIZE_MB: 2048, // 2GB - maksymalny rozmiar ogólny
   MAX_FILE_SIZE_BYTES: 2 * 1024 * 1024 * 1024,
+  
+  // Limit dla Supabase Storage (małe pliki)
+  SUPABASE_MAX_SIZE_MB: 2, // 2MB
+  SUPABASE_MAX_SIZE_BYTES: 2 * 1024 * 1024, // 2MB w bajtach
   
   // URL do API uploadu (Node.js Express)
   UPLOAD_API_URL: '/upload',

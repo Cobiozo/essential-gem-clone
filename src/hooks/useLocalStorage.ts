@@ -101,7 +101,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     setUploadProgress(0);
     setError(null);
 
-    // Walidacja rozmiaru
+    // Walidacja maksymalnego rozmiaru
     if (file.size > STORAGE_CONFIG.MAX_FILE_SIZE_BYTES) {
       const errorMsg = `Plik jest za duży. Maksymalny rozmiar to ${STORAGE_CONFIG.MAX_FILE_SIZE_MB}MB (${formatFileSize(STORAGE_CONFIG.MAX_FILE_SIZE_BYTES)})`;
       setError(errorMsg);
@@ -111,12 +111,33 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
     const folder = options?.folder || 'uploads';
 
+    // NOWA LOGIKA: Pliki <= 2MB do Supabase, > 2MB do VPS
+    if (file.size <= STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
+      // Małe pliki -> Supabase Storage (szybsze, CDN)
+      console.log(`📦 Mały plik ${file.name} (${formatFileSize(file.size)}) -> Supabase Storage`);
+      
+      try {
+        setUploadProgress(10);
+        const result = await uploadToSupabase(file, folder, (progress) => {
+          setUploadProgress(progress);
+          options?.onProgress?.(progress);
+        });
+        setIsUploading(false);
+        return result;
+      } catch (supabaseErr) {
+        // Fallback do VPS jeśli Supabase nie działa
+        console.warn('Supabase upload failed, trying VPS fallback:', supabaseErr);
+      }
+    } else {
+      console.log(`📁 Duży plik ${file.name} (${formatFileSize(file.size)}) -> VPS Upload`);
+    }
+
+    // Duże pliki -> VPS lub fallback z małych plików gdy Supabase nie działa
     try {
       setUploadProgress(10);
       
-      // Próbuj lokalny upload (VPS)
       const formData = new FormData();
-      formData.append('folder', folder);  // Folder MUST be first for Multer to read it
+      formData.append('folder', folder);
       formData.append('file', file);
       
       setUploadProgress(30);
@@ -126,18 +147,16 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         body: formData
       });
       
-      // Sprawdź czy odpowiedź jest JSON (lokalny serwer) czy HTML (brak serwera)
       const contentType = response.headers.get('content-type') || '';
       
       if (!contentType.includes('application/json')) {
-        // Fallback do Supabase Storage gdy lokalny serwer niedostępny
-        console.warn('Local upload not available, using Supabase Storage fallback');
-        const result = await uploadToSupabase(file, folder, (progress) => {
-          setUploadProgress(progress);
-          options?.onProgress?.(progress);
-        });
-        setIsUploading(false);
-        return result;
+        // VPS niedostępny
+        if (file.size > STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
+          // Dla dużych plików to błąd - nie możemy użyć Supabase
+          throw new Error('Serwer VPS niedostępny. Duże pliki (>2MB) wymagają połączenia z serwerem.');
+        }
+        // Dla małych plików już próbowaliśmy Supabase - zwróć błąd
+        throw new Error('Nie udało się przesłać pliku. Oba serwery niedostępne.');
       }
       
       if (!response.ok) {
@@ -166,23 +185,11 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         fileType: result.fileType || file.type
       };
     } catch (err) {
-      // Fallback do Supabase przy jakimkolwiek błędzie lokalnego uploadu
-      console.warn('Local upload failed, trying Supabase Storage fallback:', err);
-      
-      try {
-        const result = await uploadToSupabase(file, folder, (progress) => {
-          setUploadProgress(progress);
-          options?.onProgress?.(progress);
-        });
-        setIsUploading(false);
-        setError(null);
-        return result;
-      } catch (supabaseErr) {
-        const errorMsg = supabaseErr instanceof Error ? supabaseErr.message : 'Błąd uploadu pliku';
-        setError(errorMsg);
-        setIsUploading(false);
-        throw new Error(errorMsg);
-      }
+      // Przy błędzie VPS - dla małych plików już próbowaliśmy Supabase
+      const errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
+      setError(errorMsg);
+      setIsUploading(false);
+      throw new Error(errorMsg);
     }
   }, []);
 
