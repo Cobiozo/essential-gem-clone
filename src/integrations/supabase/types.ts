@@ -2068,6 +2068,85 @@ export type Database = {
         }
         Relationships: []
       }
+      infolink_otp_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          is_invalidated: boolean | null
+          partner_id: string
+          reflink_id: string
+          used_sessions: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          is_invalidated?: boolean | null
+          partner_id: string
+          reflink_id: string
+          used_sessions?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          is_invalidated?: boolean | null
+          partner_id?: string
+          reflink_id?: string
+          used_sessions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infolink_otp_codes_reflink_id_fkey"
+            columns: ["reflink_id"]
+            isOneToOne: false
+            referencedRelation: "reflinks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infolink_sessions: {
+        Row: {
+          created_at: string | null
+          device_fingerprint: string | null
+          expires_at: string
+          id: string
+          last_activity_at: string | null
+          otp_code_id: string
+          session_token: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          expires_at: string
+          id?: string
+          last_activity_at?: string | null
+          otp_code_id: string
+          session_token: string
+        }
+        Update: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          expires_at?: string
+          id?: string
+          last_activity_at?: string | null
+          otp_code_id?: string
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infolink_sessions_otp_code_id_fkey"
+            columns: ["otp_code_id"]
+            isOneToOne: false
+            referencedRelation: "infolink_otp_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_resources: {
         Row: {
           allow_click_redirect: boolean
@@ -2988,12 +3067,18 @@ export type Database = {
           is_active: boolean
           link_type: string | null
           link_url: string | null
+          otp_max_sessions: number | null
+          otp_validity_hours: number | null
           position: number | null
+          protected_content: string | null
           reflink_code: string
+          requires_otp: boolean | null
+          slug: string | null
           target_role: string
           title: string | null
           updated_at: string
           visible_to_roles: string[] | null
+          welcome_message: string | null
         }
         Insert: {
           clipboard_content?: string | null
@@ -3004,12 +3089,18 @@ export type Database = {
           is_active?: boolean
           link_type?: string | null
           link_url?: string | null
+          otp_max_sessions?: number | null
+          otp_validity_hours?: number | null
           position?: number | null
+          protected_content?: string | null
           reflink_code: string
+          requires_otp?: boolean | null
+          slug?: string | null
           target_role: string
           title?: string | null
           updated_at?: string
           visible_to_roles?: string[] | null
+          welcome_message?: string | null
         }
         Update: {
           clipboard_content?: string | null
@@ -3020,12 +3111,18 @@ export type Database = {
           is_active?: boolean
           link_type?: string | null
           link_url?: string | null
+          otp_max_sessions?: number | null
+          otp_validity_hours?: number | null
           position?: number | null
+          protected_content?: string | null
           reflink_code?: string
+          requires_otp?: boolean | null
+          slug?: string | null
           target_role?: string
           title?: string | null
           updated_at?: string
           visible_to_roles?: string[] | null
+          welcome_message?: string | null
         }
         Relationships: []
       }
