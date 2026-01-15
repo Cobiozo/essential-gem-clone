@@ -11,6 +11,7 @@ import { CalendarWidget } from '@/components/dashboard/widgets/CalendarWidget';
 import { MyMeetingsWidget } from '@/components/dashboard/widgets/MyMeetingsWidget';
 import { DashboardFooterSection } from '@/components/dashboard/widgets/DashboardFooterSection';
 import { ActiveOtpCodesWidget } from '@/components/dashboard/widgets/ActiveOtpCodesWidget';
+import { CacheManagementWidget } from '@/components/dashboard/widgets/CacheManagementWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const Dashboard: React.FC = () => {
@@ -42,6 +43,9 @@ const Dashboard: React.FC = () => {
           <ReflinksWidget />
           <InfoLinksWidget />
           <MyMeetingsWidget />
+
+          {/* Cache Management Widget - full width */}
+          <CacheManagementWidget />
         </div>
       </div>
 
