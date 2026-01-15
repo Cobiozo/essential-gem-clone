@@ -86,12 +86,30 @@ const TrainingModule = () => {
   const currentLessonIdRef = useRef<string | null>(null);
   const isTransitioningRef = useRef<boolean>(false);
 
+  // Funkcja walidacji UUID
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   // Load module, lessons and progress
   useEffect(() => {
     let mounted = true;
 
     const loadData = async () => {
       if (!moduleId) return;
+      
+      // Walidacja UUID przed zapytaniem do bazy
+      if (!isValidUUID(moduleId)) {
+        console.error('[TrainingModule] Invalid module ID format:', moduleId);
+        toast({
+          title: "Błąd",
+          description: "Nieprawidłowy identyfikator modułu szkoleniowego",
+          variant: "destructive"
+        });
+        navigate('/training');
+        return;
+      }
       
       try {
         const { data: moduleData, error: moduleError } = await supabase
