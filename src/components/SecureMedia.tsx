@@ -707,17 +707,25 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     const checkStuck = () => {
       const video = videoElement;
-      if (!video.paused && !isBufferingRef.current && !isSmartBuffering) {
-        // If video is playing but time hasn't changed for 5 seconds - likely stuck
-        if (video.currentTime === lastProgressTimeRef.current && video.currentTime > 0) {
-          console.warn('[SecureMedia] Playback appears stuck, attempting auto-recovery');
-          handleRetry();
-        }
+      
+      // Don't check if video is paused, buffering, tab hidden, or smart buffering active
+      if (video.paused || isBufferingRef.current || isSmartBuffering || isTabHidden) {
         lastProgressTimeRef.current = video.currentTime;
+        return;
       }
+      
+      // If video is playing but time hasn't changed for 10 seconds AND video has sufficient data
+      if (video.currentTime === lastProgressTimeRef.current && 
+          video.currentTime > 0 && 
+          video.readyState >= 2) { // HAVE_CURRENT_DATA or better
+        console.warn('[SecureMedia] Playback appears stuck, attempting auto-recovery');
+        handleRetry();
+      }
+      lastProgressTimeRef.current = video.currentTime;
     };
     
-    stuckCheckRef.current = setInterval(checkStuck, 5000);
+    // Increased interval from 5s to 10s for better tolerance
+    stuckCheckRef.current = setInterval(checkStuck, 10000);
     
     return () => {
       if (stuckCheckRef.current) {
@@ -813,7 +821,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               webkit-playsinline="true"
               // @ts-ignore - x5-playsinline for WeChat browser
               x5-playsinline="true"
-              crossOrigin="anonymous"
+              // Only use crossOrigin for Supabase storage URLs (which support CORS)
+              {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
@@ -855,7 +864,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         playsInline
         // @ts-ignore - webkit-playsinline for older iOS
         webkit-playsinline="true"
-        crossOrigin="anonymous"
+        // Only use crossOrigin for Supabase storage URLs (which support CORS)
+        {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
       >
         Twoja przeglądarka nie obsługuje odtwarzania wideo.
       </video>
@@ -872,6 +882,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           controlsList="nodownload"
           className="w-full"
           preload="metadata"
+          onError={(e) => {
+            console.error('[SecureMedia] Audio error:', e);
+            // Show user-friendly error toast (if toast is available via import)
+            const event = new CustomEvent('audio-error', { 
+              detail: { message: 'Nie można załadować pliku audio. Spróbuj odświeżyć stronę.' }
+            });
+            window.dispatchEvent(event);
+          }}
         >
           Twoja przeglądarka nie obsługuje odtwarzania audio.
         </audio>

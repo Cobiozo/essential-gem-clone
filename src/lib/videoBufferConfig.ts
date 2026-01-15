@@ -21,7 +21,7 @@ export const VIDEO_BUFFER_CONFIG = {
     targetBufferSeconds: 30,       // Target buffer during playback
     preloadStrategy: 'auto' as const, // Full preload for better UX
     retryDelayMs: 2000,            // Initial retry delay
-    maxRetries: 3,                 // Maximum retry attempts
+    maxRetries: 5,                 // Maximum retry attempts (increased from 3)
   },
   
   // Mobile settings - more conservative for variable networks
@@ -35,9 +35,9 @@ export const VIDEO_BUFFER_CONFIG = {
   
   // Common settings (device-independent)
   common: {
-    stuckDetectionIntervalMs: 5000,  // Check every 5s for stuck playback
-    bufferingStateDelayMs: 300,      // Delay before showing buffering state
-    seekToleranceSeconds: 5,         // Max allowed time jump before blocking
+    stuckDetectionIntervalMs: 10000,  // Check every 10s for stuck playback (increased from 5s)
+    bufferingStateDelayMs: 500,       // Delay before showing buffering state (increased from 300)
+    seekToleranceSeconds: 5,          // Max allowed time jump before blocking
   }
 } as const;
 

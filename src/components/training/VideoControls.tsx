@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, HelpCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -164,6 +165,33 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               Napraw
             </Button>
           )}
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              toast.info(
+                <div className="space-y-2">
+                  <p className="font-medium">Problem z wideo?</p>
+                  <ol className="text-sm list-decimal list-inside space-y-1">
+                    <li>Sprawdź połączenie internetowe</li>
+                    <li>Kliknij przycisk "Napraw"</li>
+                    <li>Odśwież stronę (F5)</li>
+                    <li>Spróbuj innej przeglądarki</li>
+                  </ol>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Jeśli problem się powtarza, skontaktuj się z zespołem wsparcia.
+                  </p>
+                </div>,
+                { duration: 15000 }
+              );
+            }}
+            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+            title="Pomoc z problemami z wideo"
+          >
+            <HelpCircle className="h-3 w-3 mr-1" />
+            Pomoc
+          </Button>
           
           {onFullscreen && (
             <Button
