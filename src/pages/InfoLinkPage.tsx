@@ -449,7 +449,7 @@ export default function InfoLinkPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col items-center space-y-4">
+                <div className="flex flex-col items-center space-y-4 text-foreground">
                   <InputOTP
                     maxLength={8}
                     value={otpValue}
@@ -457,22 +457,23 @@ export default function InfoLinkPage() {
                       setOtpValue(value);
                       setOtpError(null);
                     }}
+                    className="text-foreground"
                   >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
+                    <InputOTPGroup className="text-foreground">
+                      <InputOTPSlot index={0} className="text-foreground" />
+                      <InputOTPSlot index={1} className="text-foreground" />
                     </InputOTPGroup>
                     <InputOTPSeparator />
-                    <InputOTPGroup>
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
+                    <InputOTPGroup className="text-foreground">
+                      <InputOTPSlot index={2} className="text-foreground" />
+                      <InputOTPSlot index={3} className="text-foreground" />
+                      <InputOTPSlot index={4} className="text-foreground" />
+                      <InputOTPSlot index={5} className="text-foreground" />
                     </InputOTPGroup>
                     <InputOTPSeparator />
-                    <InputOTPGroup>
-                      <InputOTPSlot index={6} />
-                      <InputOTPSlot index={7} />
+                    <InputOTPGroup className="text-foreground">
+                      <InputOTPSlot index={6} className="text-foreground" />
+                      <InputOTPSlot index={7} className="text-foreground" />
                     </InputOTPGroup>
                   </InputOTP>
 
