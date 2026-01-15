@@ -132,9 +132,9 @@ export default function InfoLinkPage() {
 
         setReflink(data);
 
-        // Check for existing session
+        // Check for existing session - pass reflink data for auto-redirect
         if (data.requires_otp) {
-          await checkExistingSession(data.slug || data.id);
+          await checkExistingSession(data.slug || data.id, data);
         } else {
           // If no OTP required, show content directly (fetch protected_content)
           const { data: fullData } = await supabase
@@ -159,8 +159,8 @@ export default function InfoLinkPage() {
     loadReflink();
   }, [slug]);
 
-  // Check for existing valid session
-  const checkExistingSession = async (reflinkSlug: string) => {
+  // Check for existing valid session - with auto-redirect for returning users
+  const checkExistingSession = async (reflinkSlug: string, reflinkData: typeof reflink) => {
     const storedSession = localStorage.getItem(SESSION_STORAGE_KEY + reflinkSlug);
     if (!storedSession) return;
 
@@ -181,11 +181,25 @@ export default function InfoLinkPage() {
         return;
       }
 
-      // Valid session - go directly to content (no confirmation screen for existing sessions)
+      // Valid session - set access state
       setHasAccess(true);
       setProtectedContent(data.protected_content);
       setExpiresAt(new Date(data.expires_at));
       setRemainingSeconds(data.remaining_seconds);
+
+      // Auto-redirect for returning users with infolink_url
+      if (reflinkData?.infolink_url) {
+        setShowLogoTransition(true);
+        
+        setTimeout(() => {
+          if (reflinkData.infolink_url_type === 'external') {
+            window.location.href = reflinkData.infolink_url;
+          } else {
+            navigate(reflinkData.infolink_url);
+          }
+        }, 1000); // Shorter delay for returning users
+      }
+      // If no infolink_url - show protected_content as before
     } catch (err) {
       console.error('Session verification error:', err);
       localStorage.removeItem(SESSION_STORAGE_KEY + reflinkSlug);
