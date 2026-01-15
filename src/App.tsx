@@ -8,7 +8,7 @@ import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -54,6 +54,27 @@ const InactivityHandler = () => {
   const { user } = useAuth();
   useInactivityTimeout({ enabled: !!user });
   return null;
+};
+
+// Wrapper component to access location inside BrowserRouter
+const ChatWidgetsWrapper = () => {
+  const { user } = useAuth();
+  const location = useLocation();
+  const isInfoLinkPage = location.pathname.startsWith('/infolink/');
+
+  // Hide chat widgets on InfoLink pages
+  if (!user || isInfoLinkPage) return null;
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <MedicalChatWidget />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ChatWidget />
+      </Suspense>
+    </>
+  );
 };
 
 const AppContent = () => {
@@ -168,6 +189,9 @@ const AppContent = () => {
             </Routes>
           </Suspense>
         </ProfileCompletionGuard>
+        
+        {/* Chat widgets - inside BrowserRouter to access location */}
+        <ChatWidgetsWrapper />
       </BrowserRouter>
       <CookieConsentBanner />
       
@@ -189,18 +213,6 @@ const AppContent = () => {
               onComplete={handleInfoBannersComplete}
             />
           ) : null}
-        </>
-      )}
-
-      {/* Chat widgets - always visible for logged in users */}
-      {user && (
-        <>
-          <Suspense fallback={null}>
-            <MedicalChatWidget />
-          </Suspense>
-          <Suspense fallback={null}>
-            <ChatWidget />
-          </Suspense>
         </>
       )}
       
