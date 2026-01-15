@@ -21,6 +21,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import multer from 'multer';
+import cors from 'cors';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,6 +76,21 @@ const upload = multer({
 // Enable gzip compression
 app.use(compression());
 
+// CORS configuration for video streaming
+app.use(cors({
+  origin: [
+    'https://purelife.info.pl',
+    'https://purelife.lovable.app',
+    /\.lovable\.app$/,
+    'http://localhost:8080',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'HEAD', 'OPTIONS'],
+  allowedHeaders: ['Range', 'Content-Type'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
+  credentials: false
+}));
+
 // Parse JSON bodies
 app.use(express.json());
 
@@ -87,7 +103,63 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve uploaded files
+// Dedicated video streaming handler for training media
+app.get('/uploads/training-media/:filename', (req, res) => {
+  const filePath = path.join(UPLOADS_DIR, 'training-media', req.params.filename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('File not found');
+  }
+  
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const ext = path.extname(filePath).toLowerCase();
+  
+  const mimeTypes = {
+    '.mp4': 'video/mp4',
+    '.mov': 'video/mp4',  // Serve MOV as MP4 for browser compatibility
+    '.webm': 'video/webm',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.ogg': 'audio/ogg'
+  };
+  
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+  
+  // Handle Range Requests for proper video streaming
+  const range = req.headers.range;
+  
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunksize = (end - start) + 1;
+    
+    console.log(`📹 Streaming ${req.params.filename}: bytes ${start}-${end}/${fileSize}`);
+    
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=31536000'
+    });
+    
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+  } else {
+    res.writeHead(200, {
+      'Content-Length': fileSize,
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'public, max-age=31536000'
+    });
+    
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
+// Serve uploaded files (other than training-media which has dedicated handler)
 app.use('/uploads', express.static(UPLOADS_DIR, {
   maxAge: '1y',
   etag: true,
