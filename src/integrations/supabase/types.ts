@@ -3064,6 +3064,8 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          infolink_url: string | null
+          infolink_url_type: string | null
           is_active: boolean
           link_type: string | null
           link_url: string | null
@@ -3086,6 +3088,8 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          infolink_url?: string | null
+          infolink_url_type?: string | null
           is_active?: boolean
           link_type?: string | null
           link_url?: string | null
@@ -3108,6 +3112,8 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          infolink_url?: string | null
+          infolink_url_type?: string | null
           is_active?: boolean
           link_type?: string | null
           link_url?: string | null
