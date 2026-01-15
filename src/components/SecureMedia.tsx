@@ -403,14 +403,15 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           
           // Check if buffer is sufficient for immediate playback
           if (video.buffered.length > 0 && video.duration > 0) {
-            const bufferedAhead = video.buffered.end(video.buffered.length - 1) - video.currentTime;
+            // Use utility that correctly finds range containing current position
+            const bufferedAhead = getBufferedAhead(video);
             const remainingDuration = video.duration - video.currentTime;
             const minBuffer = bufferConfigRef.current.minBufferSeconds;
             const targetBuffer = Math.min(minBuffer, remainingDuration);
             
-            // Calculate and set buffer progress
+            // Calculate and set buffer progress (ensure 0-100 range)
             const progress = targetBuffer > 0 
-              ? Math.min(100, (bufferedAhead / targetBuffer) * 100) 
+              ? Math.max(0, Math.min(100, (bufferedAhead / targetBuffer) * 100)) 
               : 100;
             setBufferProgress(progress);
             
@@ -440,18 +441,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // NEW: Progress handler for buffer calculation
     const handleProgress = () => {
       if (video.buffered.length > 0 && video.duration > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
         const currentPos = video.currentTime;
         const remainingDuration = video.duration - currentPos;
         const minBuffer = bufferConfigRef.current.minBufferSeconds;
         
-        // Calculate seconds of buffer ahead
-        const bufferedAhead = bufferedEnd - currentPos;
+        // Use utility that correctly finds range containing current position
+        const bufferedAhead = getBufferedAhead(video);
         
         // Calculate buffer progress percentage (target: minBuffer or end of video)
+        // Ensure value is always between 0-100
         const targetBuffer = Math.min(minBuffer, remainingDuration);
         const progress = targetBuffer > 0 
-          ? Math.min(100, (bufferedAhead / targetBuffer) * 100) 
+          ? Math.max(0, Math.min(100, (bufferedAhead / targetBuffer) * 100)) 
           : 100;
         
         setBufferProgress(progress);
