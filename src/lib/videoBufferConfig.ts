@@ -17,7 +17,7 @@ export interface BufferConfig {
 export const VIDEO_BUFFER_CONFIG = {
   // Desktop settings - faster networks, larger buffers
   desktop: {
-    minBufferSeconds: 10,          // Minimum buffer before allowing playback
+    minBufferSeconds: 5,           // Zmniejszone z 10 na 5 dla szybszego startu
     targetBufferSeconds: 30,       // Target buffer during playback
     preloadStrategy: 'auto' as const, // Full preload for better UX
     retryDelayMs: 2000,            // Initial retry delay

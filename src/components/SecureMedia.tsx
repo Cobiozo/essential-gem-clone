@@ -63,6 +63,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
   
   // Use adaptive buffer config based on device and network
   const bufferConfigRef = useRef<BufferConfig>(getAdaptiveBufferConfig());
@@ -86,6 +87,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const stuckCheckRef = useRef<NodeJS.Timeout>();
   const lastProgressTimeRef = useRef<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // State dla odświeżania signed URL przed wygaśnięciem
+  const [urlExpiryTime, setUrlExpiryTime] = useState<number | null>(null);
+  const urlRefreshTimerRef = useRef<NodeJS.Timeout>();
+  const isSupabaseUrlRef = useRef<boolean>(false);
   
   // State to track when video element is mounted (for callback ref pattern)
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
@@ -191,6 +197,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const getSignedUrl = async () => {
       try {
         if (mediaUrl.includes('supabase.co')) {
+          isSupabaseUrlRef.current = true;
           const urlObj = new URL(mediaUrl);
           const pathParts = urlObj.pathname.split('/storage/v1/object/public/');
           if (pathParts.length > 1) {
@@ -204,9 +211,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             if (error) {
               console.warn('Error creating signed URL, using original:', error);
               setSignedUrl(mediaUrl);
+              isSupabaseUrlRef.current = false;
               return;
             }
             setSignedUrl(data.signedUrl);
+            // Ustaw czas wygaśnięcia (55 minut = 3300000ms, zostawić 5 min bufora)
+            setUrlExpiryTime(Date.now() + 3300000);
             return;
           }
         }
@@ -214,6 +224,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         const urlParts = mediaUrl.split('/');
         const bucketName = urlParts[urlParts.length - 2];
         const fileName = urlParts[urlParts.length - 1];
+        
+        // Sprawdź czy to wygląda na URL z bucket Supabase
+        const looksLikeSupabasePath = bucketName && fileName && !mediaUrl.startsWith('http');
+        if (looksLikeSupabasePath) {
+          isSupabaseUrlRef.current = true;
+        }
         
         const { data, error } = await supabase.storage
           .from(bucketName)
@@ -224,13 +240,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         if (error) {
           console.warn('Error creating signed URL, using original:', error);
           setSignedUrl(mediaUrl);
+          isSupabaseUrlRef.current = false;
           return;
         }
 
         setSignedUrl(data.signedUrl);
+        // Ustaw czas wygaśnięcia dla URL z Supabase
+        setUrlExpiryTime(Date.now() + 3300000);
       } catch (error) {
         console.error('Error processing media URL:', error);
-        if (mounted) setSignedUrl(mediaUrl);
+        if (mounted) {
+          setSignedUrl(mediaUrl);
+          isSupabaseUrlRef.current = false;
+        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -262,6 +284,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     isBufferingRef.current = false;
     setIsBuffering(false);
     setRetryCount(0); // Reset retry count on new video
+    setHasExhaustedRetries(false); // Reset flagi wyczerpanych prób
     // NEW: Reset buffering states
     setIsInitialBuffering(true);
     setBufferProgress(0);
@@ -271,6 +294,49 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Refresh buffer config on new video
     bufferConfigRef.current = getAdaptiveBufferConfig();
   }, [mediaUrl]);
+
+  // Mechanizm odświeżania signed URL przed wygaśnięciem (dla wideo z Supabase Storage)
+  useEffect(() => {
+    // Tylko dla URL z Supabase, nie dla YouTube ani zewnętrznych
+    if (!urlExpiryTime || !signedUrl || isYouTube || !isSupabaseUrlRef.current) {
+      return;
+    }
+    
+    const checkExpiry = () => {
+      const timeToExpiry = urlExpiryTime - Date.now();
+      
+      // Mniej niż 5 minut do wygaśnięcia - odśwież URL
+      if (timeToExpiry < 300000) {
+        console.log('[SecureMedia] Refreshing signed URL before expiry, time left:', Math.round(timeToExpiry / 1000), 's');
+        
+        // Zapisz aktualną pozycję przed odświeżeniem
+        const currentVideoTime = videoRef.current?.currentTime || 0;
+        const wasPlaying = !videoRef.current?.paused;
+        
+        // Wyczyść URL aby wywołać ponowne pobranie
+        setSignedUrl('');
+        setLoading(true);
+        setUrlExpiryTime(null);
+        
+        // Po ponownym załadowaniu przywróć pozycję
+        // To zostanie obsłużone przez initialTime prop
+        if (onTimeUpdateRef.current && currentVideoTime > 0) {
+          lastValidTimeRef.current = currentVideoTime;
+        }
+        
+        console.log('[SecureMedia] URL refresh triggered, saved position:', currentVideoTime);
+      }
+    };
+    
+    // Sprawdzaj co minutę
+    urlRefreshTimerRef.current = setInterval(checkExpiry, 60000);
+    
+    return () => {
+      if (urlRefreshTimerRef.current) {
+        clearInterval(urlRefreshTimerRef.current);
+      }
+    };
+  }, [urlExpiryTime, signedUrl, isYouTube]);
 
   // Monitor network quality changes
   useEffect(() => {
@@ -507,6 +573,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         }, delay);
       } else {
         console.error('[SecureMedia] Max retries reached, error type:', errorType);
+        // Ustaw flagę wyczerpanych prób - pokaże komunikat użytkownikowi
+        setHasExhaustedRetries(true);
       }
     };
 
@@ -743,9 +811,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     e.preventDefault();
   };
 
-  const handleSelectStart = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-  };
+  // handleSelectStart usunięty - userSelect: 'none' w CSS załatwia sprawę bez ostrzeżeń React
 
   if (loading) {
     return (
@@ -766,12 +832,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const securityProps = {
     onContextMenu: handleContextMenu,
     onDragStart: handleDragStart,
-    onSelectStart: handleSelectStart,
+    // onSelectStart usunięty - powodował ostrzeżenia React, CSS userSelect wystarczy
     style: { 
       userSelect: 'none',
       WebkitUserSelect: 'none',
       MozUserSelect: 'none',
-      msUserSelect: 'none'
+      msUserSelect: 'none',
+      WebkitTouchCallout: 'none'  // Dodatkowe zabezpieczenie dla iOS
     } as React.CSSProperties,
     draggable: false
   };
@@ -802,6 +869,44 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     // Handle regular video files with restricted mode
     if (disableInteraction) {
+      // Pokaż komunikat fallback gdy wyczerpane są wszystkie próby
+      if (hasExhaustedRetries) {
+        return (
+          <div className="bg-destructive/10 border border-destructive rounded-lg w-full p-6 flex flex-col items-center justify-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-destructive/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <h3 className="font-semibold text-destructive">Nie można załadować wideo</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Sprawdź połączenie internetowe i spróbuj ponownie
+              </p>
+              {networkQuality === 'offline' && (
+                <p className="text-xs text-destructive mt-2">
+                  Brak połączenia z internetem
+                </p>
+              )}
+            </div>
+            <button 
+              onClick={() => {
+                setRetryCount(0);
+                setHasExhaustedRetries(false);
+                setLoading(true);
+                setSignedUrl('');
+              }}
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Spróbuj ponownie
+            </button>
+          </div>
+        );
+      }
+      
       return (
         <div 
           ref={containerRef}
@@ -853,6 +958,39 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     }
 
     // Handle regular video files with full controls (lesson completed)
+    // Pokaż komunikat fallback gdy wyczerpane są wszystkie próby
+    if (hasExhaustedRetries) {
+      return (
+        <div className="bg-destructive/10 border border-destructive rounded-lg w-full p-6 flex flex-col items-center justify-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-destructive/20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div className="text-center">
+            <h3 className="font-semibold text-destructive">Nie można załadować wideo</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Sprawdź połączenie internetowe i spróbuj ponownie
+            </p>
+          </div>
+          <button 
+            onClick={() => {
+              setRetryCount(0);
+              setHasExhaustedRetries(false);
+              setLoading(true);
+              setSignedUrl('');
+            }}
+            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Spróbuj ponownie
+          </button>
+        </div>
+      );
+    }
+    
     return (
       <video
         ref={videoRefCallback}
