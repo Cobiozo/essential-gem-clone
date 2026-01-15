@@ -73,11 +73,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                 ? "Przygotowuję wideo do odtwarzania..." 
                 : "Słaby zasięg sieci - ładowanie wideo..."}
             </span>
-            {bufferProgress !== undefined && bufferProgress < 100 && (
+            {bufferProgress !== undefined && bufferProgress > 0 && bufferProgress < 100 && (
               <div className="mt-1">
-                <Progress value={bufferProgress} className="h-1" />
+                <Progress value={Math.max(0, bufferProgress)} className="h-1" />
                 <span className="text-xs mt-0.5 block text-blue-500 dark:text-blue-400">
-                  Buforowanie: {Math.round(bufferProgress)}%
+                  Buforowanie: {Math.round(Math.max(0, bufferProgress))}%
                 </span>
               </div>
             )}
