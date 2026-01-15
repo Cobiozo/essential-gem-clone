@@ -60,6 +60,7 @@ interface OtpCode {
     last_name: string | null;
     email: string | null;
     eq_id: string | null;
+    _noProfile?: boolean;
   };
 }
 
@@ -109,9 +110,10 @@ export const OtpCodesManagement: React.FC = () => {
     // Fetch partner profiles separately
     const partnerIds = [...new Set(codesData?.map(c => c.partner_id) || [])];
     
-    let partnersMap: Record<string, { first_name: string | null; last_name: string | null; email: string | null; eq_id: string | null }> = {};
+    let partnersMap: Record<string, { first_name: string | null; last_name: string | null; email: string | null; eq_id: string | null; _noProfile?: boolean }> = {};
     
     if (partnerIds.length > 0) {
+      // First fetch from profiles table
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, email, eq_id')
@@ -122,6 +124,31 @@ export const OtpCodesManagement: React.FC = () => {
           acc[p.id] = { first_name: p.first_name, last_name: p.last_name, email: p.email, eq_id: p.eq_id };
           return acc;
         }, {} as typeof partnersMap);
+      }
+
+      // Find partners without profiles and fetch their emails from auth.users
+      const missingPartnerIds = partnerIds.filter(id => !partnersMap[id]);
+      
+      if (missingPartnerIds.length > 0) {
+        try {
+          const { data: authEmailsData, error: authError } = await supabase.functions.invoke('get-user-emails', {
+            body: { userIds: missingPartnerIds }
+          });
+          
+          if (!authError && authEmailsData) {
+            authEmailsData.forEach((u: { id: string; email: string }) => {
+              partnersMap[u.id] = { 
+                first_name: null, 
+                last_name: null, 
+                email: u.email, 
+                eq_id: null,
+                _noProfile: true 
+              };
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching auth emails:', err);
+        }
       }
     }
 
@@ -567,23 +594,39 @@ export const OtpCodesManagement: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                             <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">
-                                {code.partner?.first_name || code.partner?.last_name 
-                                  ? `${code.partner?.first_name || ''} ${code.partner?.last_name || ''}`.trim()
-                                  : code.partner_id
-                                    ? <span className="text-muted-foreground italic text-xs font-mono" title={code.partner_id}>ID: {code.partner_id.slice(0, 8)}...</span>
-                                    : <span className="text-muted-foreground italic">Brak danych</span>
-                                }
-                              </p>
-                              {code.partner?.eq_id && (
-                                <p className="text-xs text-primary font-medium">
-                                  EQ: {code.partner.eq_id}
+                              {code.partner?.first_name || code.partner?.last_name ? (
+                                <>
+                                  <p className="font-medium text-sm truncate">
+                                    {`${code.partner?.first_name || ''} ${code.partner?.last_name || ''}`.trim()}
+                                  </p>
+                                  {code.partner?.eq_id && (
+                                    <p className="text-xs text-primary font-medium">
+                                      EQ: {code.partner.eq_id}
+                                    </p>
+                                  )}
+                                  {code.partner?.email && (
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {code.partner.email}
+                                    </p>
+                                  )}
+                                </>
+                              ) : code.partner?.email ? (
+                                <>
+                                  <p className="font-medium text-sm truncate">
+                                    {code.partner.email}
+                                  </p>
+                                  {code.partner._noProfile && (
+                                    <p className="text-xs text-amber-600 italic">
+                                      (brak profilu)
+                                    </p>
+                                  )}
+                                </>
+                              ) : code.partner_id ? (
+                                <p className="text-muted-foreground italic text-xs font-mono" title={code.partner_id}>
+                                  ID: {code.partner_id.slice(0, 8)}...
                                 </p>
-                              )}
-                              {code.partner?.email && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {code.partner.email}
-                                </p>
+                              ) : (
+                                <span className="text-muted-foreground italic">Brak danych</span>
                               )}
                             </div>
                           </div>
