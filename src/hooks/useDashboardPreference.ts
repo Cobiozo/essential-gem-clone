@@ -9,9 +9,9 @@ export const useDashboardPreference = () => {
   const [viewMode, setViewModeState] = useState<DashboardView>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return (stored === 'classic' || stored === 'modern') ? stored : 'classic';
+      return (stored === 'classic' || stored === 'modern') ? stored : 'modern';
     }
-    return 'classic';
+    return 'modern';
   });
 
   const setViewMode = useCallback((mode: DashboardView) => {
