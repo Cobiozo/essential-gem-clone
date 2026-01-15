@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { MediaUpload } from '@/components/MediaUpload';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import { Shield, Link as LinkIcon, Plus, ExternalLink, FileText } from 'lucide-react';
+import { Shield, Link as LinkIcon, Plus, ExternalLink, FileText, Copy, Clock, Key, Eye } from 'lucide-react';
+import { toast } from 'sonner';
 import { usePublishedPages } from '@/hooks/usePublishedPages';
 
 interface ReflinkFormData {
@@ -52,8 +53,85 @@ const getFullReflink = (code: string) => {
 const getInfoLinkUrl = (slug: string) => {
   return `${window.location.origin}/infolink/${slug}`;
 };
+// Preview component for OTP InfoLink
+const PreviewSection: React.FC<{ localData: ReflinkFormData }> = ({ localData }) => {
+  const sampleOTP = 'ABC123';
+  const infolinkUrl = getInfoLinkUrl(localData.slug || '');
+  const validityHours = localData.otp_validity_hours ?? 24;
 
-export const ReflinksForm: React.FC<ReflinksFormProps> = ({ 
+  const previewContent = useMemo(() => {
+    let content = localData.welcome_message || '';
+    content = content.replace(/\{\{OTP_CODE\}\}/g, sampleOTP);
+    content = content.replace(/\{\{INFOLINK_URL\}\}/g, infolinkUrl);
+    content = content.replace(/\{\{VALIDITY_HOURS\}\}/g, String(validityHours));
+    return content;
+  }, [localData.welcome_message, infolinkUrl, validityHours]);
+
+  const plainTextContent = useMemo(() => {
+    // Strip HTML tags for copying
+    const temp = document.createElement('div');
+    temp.innerHTML = previewContent;
+    return temp.textContent || temp.innerText || '';
+  }, [previewContent]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(plainTextContent);
+      toast.success('Skopiowano podgląd do schowka!');
+    } catch (err) {
+      toast.error('Nie udało się skopiować');
+    }
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/20">
+      <div className="flex items-center gap-2 text-sm font-medium text-primary">
+        <Eye className="h-4 w-4" />
+        <span>Podgląd treści do skopiowania</span>
+      </div>
+
+      <div className="space-y-2 text-sm bg-background p-3 rounded border">
+        {previewContent ? (
+          <div 
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: previewContent }}
+          />
+        ) : (
+          <p className="text-muted-foreground italic">
+            Wpisz treść powitalną aby zobaczyć podgląd...
+          </p>
+        )}
+
+        {!localData.welcome_message?.includes('{{OTP_CODE}}') && !localData.welcome_message?.includes('{{INFOLINK_URL}}') && (
+          <div className="mt-3 pt-3 border-t border-dashed space-y-1">
+            <p><strong>🔗 Link:</strong> {infolinkUrl}</p>
+            <p><strong>🔐 Kod dostępu:</strong> {sampleOTP}</p>
+            <p className="text-xs text-muted-foreground">(ważny przez {validityHours} godzin)</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Key className="h-3 w-3" />
+          Kod OTP będzie generowany unikalnie dla każdego klienta
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleCopy}
+          disabled={!previewContent}
+        >
+          <Copy className="h-3 w-3 mr-1" />
+          Kopiuj podgląd
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export const ReflinksForm: React.FC<ReflinksFormProps> = ({
   initialData, 
   onDataChange,
   isEdit = false 
@@ -280,6 +358,44 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
 
           <div className="space-y-2">
             <Label>Treść powitalna (do skopiowania przez partnera)</Label>
+            <div className="flex flex-wrap gap-1 mb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const currentMessage = localData.welcome_message || '';
+                  handleTextChange('welcome_message', currentMessage + '{{OTP_CODE}}');
+                }}
+              >
+                <Key className="h-3 w-3 mr-1" />
+                + Kod OTP
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const currentMessage = localData.welcome_message || '';
+                  handleTextChange('welcome_message', currentMessage + '{{INFOLINK_URL}}');
+                }}
+              >
+                <LinkIcon className="h-3 w-3 mr-1" />
+                + Link InfoLink
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const currentMessage = localData.welcome_message || '';
+                  handleTextChange('welcome_message', currentMessage + '{{VALIDITY_HOURS}}h');
+                }}
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                + Ważność
+              </Button>
+            </div>
             <RichTextEditor
               value={localData.welcome_message || ''}
               onChange={(value) => handleTextChange('welcome_message', value)}
@@ -288,7 +404,7 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
               rows={4}
             />
             <p className="text-xs text-muted-foreground">
-              Ta treść zostanie skopiowana do schowka partnera wraz z linkiem i kodem OTP
+              Użyj placeholderów powyżej aby wstawić kod OTP, link i ważność - zostaną automatycznie zamienione
             </p>
           </div>
 
@@ -331,6 +447,11 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
               </p>
             </div>
           </div>
+
+          {/* OTP Preview Section */}
+          {localData.slug && (
+            <PreviewSection localData={localData} />
+          )}
         </div>
       )}
 
