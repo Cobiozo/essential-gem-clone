@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye, Users } from 'lucide-react';
+import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye, Users, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ReflinksForm } from './ReflinksForm';
 import { UserReflinksSettings } from './UserReflinksSettings';
+import { OtpCodesManagement } from './OtpCodesManagement';
 
 interface VisibilitySettings {
   client: boolean;
@@ -372,6 +373,10 @@ export const ReflinksManagement: React.FC = () => {
           <Users className="w-4 h-4 mr-2" />
           Linki użytkowników
         </TabsTrigger>
+        <TabsTrigger value="otp">
+          <Key className="w-4 h-4 mr-2" />
+          Kody OTP
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="global">
@@ -577,6 +582,10 @@ export const ReflinksManagement: React.FC = () => {
 
       <TabsContent value="user">
         <UserReflinksSettings />
+      </TabsContent>
+
+      <TabsContent value="otp">
+        <OtpCodesManagement />
       </TabsContent>
     </Tabs>
   );
