@@ -422,7 +422,7 @@ export default function InfoLinkPage() {
                 <div className="text-center">
                   <Button 
                     size="lg" 
-                    className="px-12 py-6 text-xl font-bold"
+                    className="px-12 py-6 text-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                     onClick={handleEnter}
                   >
                     WCHODZĘ

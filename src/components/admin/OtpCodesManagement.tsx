@@ -569,7 +569,9 @@ export const OtpCodesManagement: React.FC = () => {
                               <p className="font-medium text-sm truncate">
                                 {code.partner?.first_name || code.partner?.last_name 
                                   ? `${code.partner?.first_name || ''} ${code.partner?.last_name || ''}`.trim()
-                                  : <span className="text-muted-foreground italic">Brak danych</span>
+                                  : code.partner_id
+                                    ? <span className="text-muted-foreground italic text-xs font-mono" title={code.partner_id}>ID: {code.partner_id.slice(0, 8)}...</span>
+                                    : <span className="text-muted-foreground italic">Brak danych</span>
                                 }
                               </p>
                               {code.partner?.email && (
