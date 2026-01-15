@@ -5,6 +5,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Strip HTML tags from text for plain text output
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')           // br -> newline
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')   // </p><p> -> double newline
+    .replace(/<p[^>]*>/gi, '')               // opening p tags
+    .replace(/<\/p>/gi, '\n')                // closing p tags
+    .replace(/<[^>]+>/g, '')                 // all other HTML tags
+    .replace(/&nbsp;/g, ' ')                 // nbsp entities
+    .replace(/&amp;/g, '&')                  // amp entities
+    .replace(/&lt;/g, '<')                   // lt entities
+    .replace(/&gt;/g, '>')                   // gt entities
+    .replace(/\n{3,}/g, '\n\n')              // max 2 newlines in a row
+    .trim();
+}
+
 // Generate a random OTP code in format PL-XXXX-XX
 function generateOTPCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding similar chars (0,O,1,I)
@@ -141,8 +157,8 @@ Deno.serve(async (req) => {
     const baseUrl = req.headers.get('origin') || 'https://purelife.lovable.app';
     const infolinkUrl = `${baseUrl}/infolink/${reflink.slug || reflink.id}`;
 
-    // Format the message for clipboard
-    const welcomeMessage = reflink.welcome_message || 'Witaj! Przesyłam Ci link do materiałów informacyjnych:';
+    // Format the message for clipboard - strip HTML tags for plain text
+    const welcomeMessage = stripHtml(reflink.welcome_message || 'Witaj! Przesyłam Ci link do materiałów informacyjnych:');
     const validityText = validityHours === 1 
       ? '1 godzinę' 
       : validityHours < 5 

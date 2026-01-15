@@ -3072,6 +3072,7 @@ export type Database = {
           otp_max_sessions: number | null
           otp_validity_hours: number | null
           position: number | null
+          pre_otp_message: string | null
           protected_content: string | null
           reflink_code: string
           requires_otp: boolean | null
@@ -3096,6 +3097,7 @@ export type Database = {
           otp_max_sessions?: number | null
           otp_validity_hours?: number | null
           position?: number | null
+          pre_otp_message?: string | null
           protected_content?: string | null
           reflink_code: string
           requires_otp?: boolean | null
@@ -3120,6 +3122,7 @@ export type Database = {
           otp_max_sessions?: number | null
           otp_validity_hours?: number | null
           position?: number | null
+          pre_otp_message?: string | null
           protected_content?: string | null
           reflink_code?: string
           requires_otp?: boolean | null
