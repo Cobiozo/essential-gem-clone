@@ -59,6 +59,7 @@ interface OtpCode {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
+    eq_id: string | null;
   };
 }
 
@@ -108,17 +109,17 @@ export const OtpCodesManagement: React.FC = () => {
     // Fetch partner profiles separately
     const partnerIds = [...new Set(codesData?.map(c => c.partner_id) || [])];
     
-    let partnersMap: Record<string, { first_name: string | null; last_name: string | null; email: string | null }> = {};
+    let partnersMap: Record<string, { first_name: string | null; last_name: string | null; email: string | null; eq_id: string | null }> = {};
     
     if (partnerIds.length > 0) {
       const { data: profilesData } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, email')
+        .select('id, first_name, last_name, email, eq_id')
         .in('id', partnerIds);
       
       if (profilesData) {
         partnersMap = profilesData.reduce((acc, p) => {
-          acc[p.id] = { first_name: p.first_name, last_name: p.last_name, email: p.email };
+          acc[p.id] = { first_name: p.first_name, last_name: p.last_name, email: p.email, eq_id: p.eq_id };
           return acc;
         }, {} as typeof partnersMap);
       }
@@ -574,6 +575,11 @@ export const OtpCodesManagement: React.FC = () => {
                                     : <span className="text-muted-foreground italic">Brak danych</span>
                                 }
                               </p>
+                              {code.partner?.eq_id && (
+                                <p className="text-xs text-primary font-medium">
+                                  EQ: {code.partner.eq_id}
+                                </p>
+                              )}
                               {code.partner?.email && (
                                 <p className="text-xs text-muted-foreground truncate">
                                   {code.partner.email}
