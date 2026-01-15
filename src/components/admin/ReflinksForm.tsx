@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -141,34 +141,44 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
   
   // Local state for form fields - prevents parent re-renders during typing
   const [localData, setLocalData] = useState<ReflinkFormData>(initialData);
+  
+  // Track the ID to detect when we're editing a different reflink
+  const initialDataIdRef = useRef<string | undefined>(undefined);
+  const isFirstRender = useRef(true);
 
-  // Sync local state when initialData changes (e.g., when opening edit modal)
+  // Sync local state ONLY when the reflink ID changes (e.g., when opening edit modal for different item)
   useEffect(() => {
-    setLocalData(initialData);
+    const currentId = (initialData as any)?.id;
+    if (currentId !== initialDataIdRef.current) {
+      setLocalData(initialData);
+      initialDataIdRef.current = currentId;
+      isFirstRender.current = true; // Reset first render flag for new item
+    }
   }, [initialData]);
 
-  // Notify parent of changes (used for non-text fields and final sync)
-  const updateParent = useCallback((newData: ReflinkFormData) => {
-    onDataChange(newData);
-  }, [onDataChange]);
+  // Notify parent of changes with debounce to prevent loops
+  const onDataChangeRef = useRef(onDataChange);
+  onDataChangeRef.current = onDataChange;
+  
+  useEffect(() => {
+    // Skip first render to avoid initial sync loop
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Use ref to call onDataChange without adding it to dependencies
+    onDataChangeRef.current(localData);
+  }, [localData]);
 
-  // Handle text input changes - update local state AND sync with parent immediately
+  // Handle text input changes - update local state only (parent sync via useEffect)
   const handleTextChange = useCallback((field: keyof ReflinkFormData, value: string) => {
-    setLocalData(prev => {
-      const updated = { ...prev, [field]: value };
-      updateParent(updated);
-      return updated;
-    });
-  }, [updateParent]);
+    setLocalData(prev => ({ ...prev, [field]: value }));
+  }, []);
 
-  // Handle non-text field changes - update both local and parent immediately
+  // Handle non-text field changes - update local state only (parent sync via useEffect)
   const handleSelectChange = useCallback((field: keyof ReflinkFormData, value: string | string[] | number | boolean) => {
-    setLocalData(prev => {
-      const updated = { ...prev, [field]: value };
-      updateParent(updated);
-      return updated;
-    });
-  }, [updateParent]);
+    setLocalData(prev => ({ ...prev, [field]: value }));
+  }, []);
 
   const toggleVisibleRole = useCallback((role: string) => {
     setLocalData(prev => {
@@ -176,19 +186,13 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
       const newRoles = roles.includes(role) 
         ? roles.filter(r => r !== role)
         : [...roles, role];
-      const updated = { ...prev, visible_to_roles: newRoles };
-      updateParent(updated);
-      return updated;
+      return { ...prev, visible_to_roles: newRoles };
     });
-  }, [updateParent]);
+  }, []);
 
   const handleMediaUploaded = useCallback((url: string) => {
-    setLocalData(prev => {
-      const updated = { ...prev, image_url: url };
-      updateParent(updated);
-      return updated;
-    });
-  }, [updateParent]);
+    setLocalData(prev => ({ ...prev, image_url: url }));
+  }, []);
 
   return (
     <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
@@ -535,11 +539,7 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
           onChange={(e) => handleTextChange('position', e.target.value)}
           onBlur={() => {
             // Parse position as number on blur
-            setLocalData(prev => {
-              const updated = { ...prev, position: parseInt(String(prev.position)) || 0 };
-              updateParent(updated);
-              return updated;
-            });
+            setLocalData(prev => ({ ...prev, position: parseInt(String(prev.position)) || 0 }));
           }}
           min={0}
         />

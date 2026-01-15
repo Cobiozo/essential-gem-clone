@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye, Users, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -597,7 +597,12 @@ export const ReflinksManagement: React.FC = () => {
             <>
               <ReflinksForm 
                 initialData={editingReflink} 
-                onDataChange={(data) => setEditingReflink({ ...editingReflink, ...data } as Reflink)}
+                onDataChange={(data) => {
+                  setEditingReflink(prev => {
+                    if (!prev) return null;
+                    return { ...prev, ...data } as Reflink;
+                  });
+                }}
                 isEdit
               />
               <div className="flex items-center gap-2 pt-2 border-t">
