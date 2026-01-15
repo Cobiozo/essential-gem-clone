@@ -487,11 +487,47 @@ const TrainingModule = () => {
     }, 5000);
   }, []); // Empty deps - uses refs for stability
 
-  // Handle video duration change from SecureMedia
-  const handleDurationChange = useCallback((duration: number) => {
+  // Handle video duration change from SecureMedia - auto-update database if needed
+  const handleDurationChange = useCallback(async (duration: number) => {
     setVideoDuration(duration);
     videoDurationRef.current = duration;
-  }, []);
+    
+    // Auto-update database if duration is unknown or significantly different
+    const currentLesson = lessons[currentLessonIndex];
+    if (!currentLesson || currentLesson.media_type !== 'video') return;
+    
+    const storedDuration = currentLesson.video_duration_seconds || 0;
+    const roundedDuration = Math.round(duration);
+    
+    // Update if stored is 0 or differs by more than 5 seconds
+    if (storedDuration === 0 || Math.abs(storedDuration - roundedDuration) > 5) {
+      console.log('[TrainingModule] Auto-updating video duration:', {
+        lesson: currentLesson.title,
+        old: storedDuration,
+        new: roundedDuration
+      });
+      
+      try {
+        const { error } = await supabase
+          .from('training_lessons')
+          .update({ video_duration_seconds: roundedDuration })
+          .eq('id', currentLesson.id);
+          
+        if (error) throw error;
+        
+        // Update local state to reflect new duration in sidebar
+        setLessons(prev => prev.map(lesson => 
+          lesson.id === currentLesson.id 
+            ? { ...lesson, video_duration_seconds: roundedDuration }
+            : lesson
+        ));
+        
+        console.log('[TrainingModule] Duration updated successfully');
+      } catch (error) {
+        console.error('[TrainingModule] Failed to update duration:', error);
+      }
+    }
+  }, [lessons, currentLessonIndex]);
 
   // Stable callback for play state changes (uses refs to avoid dependency cycles)
   const handlePlayStateChange = useCallback((playing: boolean) => {
