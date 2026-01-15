@@ -34,6 +34,15 @@ interface Reflink {
   visible_to_roles: string[];
   position: number;
   clipboard_content: string | null;
+  // OTP/InfoLink fields
+  requires_otp?: boolean;
+  slug?: string | null;
+  welcome_message?: string | null;
+  protected_content?: string | null;
+  otp_validity_hours?: number;
+  otp_max_sessions?: number;
+  infolink_url_type?: string | null;
+  infolink_url?: string | null;
 }
 
 const availableRoles = [
@@ -64,6 +73,15 @@ export const ReflinksManagement: React.FC = () => {
     visible_to_roles: ['partner', 'specjalista'] as string[],
     position: 0,
     clipboard_content: '',
+    // OTP/InfoLink fields
+    requires_otp: true,
+    slug: '',
+    welcome_message: '',
+    protected_content: '',
+    otp_validity_hours: 24,
+    otp_max_sessions: 1,
+    infolink_url_type: 'external',
+    infolink_url: '',
   });
   const { toast } = useToast();
 
@@ -78,6 +96,7 @@ export const ReflinksManagement: React.FC = () => {
     internal: 'Link wewnętrzny',
     external: 'Link zewnętrzny',
     clipboard: 'Kopiuj do schowka',
+    infolink: 'InfoLink (z kodem OTP)',
   };
 
   useEffect(() => {
@@ -236,6 +255,15 @@ export const ReflinksManagement: React.FC = () => {
         position: newReflink.position,
         clipboard_content: newReflink.clipboard_content?.trim() || null,
         is_active: true,
+        // OTP/InfoLink fields
+        requires_otp: newReflink.requires_otp ?? true,
+        slug: newReflink.slug?.trim() || null,
+        welcome_message: newReflink.welcome_message?.trim() || null,
+        protected_content: newReflink.protected_content?.trim() || null,
+        otp_validity_hours: newReflink.otp_validity_hours ?? 24,
+        otp_max_sessions: newReflink.otp_max_sessions ?? 1,
+        infolink_url_type: newReflink.infolink_url_type || 'external',
+        infolink_url: newReflink.infolink_url?.trim() || null,
       });
 
     if (error) {
@@ -264,6 +292,14 @@ export const ReflinksManagement: React.FC = () => {
         visible_to_roles: ['partner', 'specjalista'],
         position: 0,
         clipboard_content: '',
+        requires_otp: true,
+        slug: '',
+        welcome_message: '',
+        protected_content: '',
+        otp_validity_hours: 24,
+        otp_max_sessions: 1,
+        infolink_url_type: 'external',
+        infolink_url: '',
       });
       fetchReflinks();
     }
@@ -286,6 +322,15 @@ export const ReflinksManagement: React.FC = () => {
         position: editingReflink.position,
         clipboard_content: editingReflink.clipboard_content?.trim() || null,
         is_active: editingReflink.is_active,
+        // OTP/InfoLink fields
+        requires_otp: editingReflink.requires_otp ?? true,
+        slug: editingReflink.slug?.trim() || null,
+        welcome_message: editingReflink.welcome_message?.trim() || null,
+        protected_content: editingReflink.protected_content?.trim() || null,
+        otp_validity_hours: editingReflink.otp_validity_hours ?? 24,
+        otp_max_sessions: editingReflink.otp_max_sessions ?? 1,
+        infolink_url_type: editingReflink.infolink_url_type || 'external',
+        infolink_url: editingReflink.infolink_url?.trim() || null,
       })
       .eq('id', editingReflink.id);
 

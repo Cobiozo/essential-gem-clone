@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { MediaUpload } from '@/components/MediaUpload';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import { Shield, Link as LinkIcon } from 'lucide-react';
+import { Shield, Link as LinkIcon, Plus, ExternalLink, FileText } from 'lucide-react';
+import { usePublishedPages } from '@/hooks/usePublishedPages';
 
 interface ReflinkFormData {
   target_role: string;
@@ -26,6 +28,9 @@ interface ReflinkFormData {
   protected_content?: string | null;
   otp_validity_hours?: number;
   otp_max_sessions?: number;
+  // InfoLink URL fields
+  infolink_url_type?: string | null;
+  infolink_url?: string | null;
 }
 
 interface ReflinksFormProps {
@@ -53,6 +58,9 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
   onDataChange,
   isEdit = false 
 }) => {
+  // Fetch published pages for internal link selection
+  const { data: publishedPages = [] } = usePublishedPages();
+  
   // Local state for form fields - prevents parent re-renders during typing
   const [localData, setLocalData] = useState<ReflinkFormData>(initialData);
 
@@ -180,6 +188,95 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
               </p>
             )}
           </div>
+
+          {/* URL Type Selection */}
+          <div className="space-y-2">
+            <Label>Typ linku do strony</Label>
+            <Select
+              value={localData.infolink_url_type || 'external'}
+              onValueChange={(value) => handleSelectChange('infolink_url_type', value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="internal">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Wewnętrzny (strona w aplikacji)
+                  </div>
+                </SelectItem>
+                <SelectItem value="external">
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4" />
+                    Zewnętrzny (dowolny URL)
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Internal page selection */}
+          {localData.infolink_url_type === 'internal' && (
+            <div className="space-y-2">
+              <Label>Wybierz stronę wewnętrzną</Label>
+              <Select
+                value={localData.infolink_url || ''}
+                onValueChange={(value) => handleSelectChange('infolink_url', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz stronę..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {publishedPages.map((page) => (
+                    <SelectItem key={page.id} value={`/page/${page.slug}`}>
+                      {page.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {localData.infolink_url && (
+                <p className="text-xs text-muted-foreground">
+                  Link: {window.location.origin}{localData.infolink_url}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* External URL input */}
+          {localData.infolink_url_type === 'external' && (
+            <div className="space-y-2">
+              <Label>URL zewnętrzny</Label>
+              <Input
+                value={localData.infolink_url || ''}
+                onChange={(e) => handleTextChange('infolink_url', e.target.value)}
+                placeholder="https://example.com/materialy"
+              />
+            </div>
+          )}
+
+          {/* Insert link button */}
+          {localData.infolink_url && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                const fullUrl = localData.infolink_url_type === 'internal' 
+                  ? `${window.location.origin}${localData.infolink_url}`
+                  : localData.infolink_url;
+                const currentMessage = localData.welcome_message || '';
+                const newMessage = currentMessage 
+                  ? `${currentMessage}\n\nLink: ${fullUrl}`
+                  : `Link do materiałów: ${fullUrl}`;
+                handleTextChange('welcome_message', newMessage);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Wstaw link do treści powitalnej
+            </Button>
+          )}
 
           <div className="space-y-2">
             <Label>Treść powitalna (do skopiowania przez partnera)</Label>
