@@ -9,6 +9,9 @@ verify_jwt = true
 [functions.get-certificate-url]
 verify_jwt = false
 
+[functions.get-user-emails]
+verify_jwt = true
+
 [functions.hide-cms-element]
 verify_jwt = true
 
