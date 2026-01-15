@@ -101,10 +101,10 @@ export default function InfoLinkPage() {
       }
 
       try {
-        // Try by slug first, then by ID - include infolink_url fields
+        // Try by slug first, then by ID - include infolink_url fields and pre_otp_message
         let { data, error: fetchError } = await supabase
           .from('reflinks')
-          .select('id, title, description, welcome_message, requires_otp, slug, is_active, infolink_url, infolink_url_type')
+          .select('id, title, description, welcome_message, pre_otp_message, requires_otp, slug, is_active, infolink_url, infolink_url_type')
           .eq('slug', slug)
           .single();
 
@@ -112,7 +112,7 @@ export default function InfoLinkPage() {
           // Try by ID
           const { data: byId, error: idError } = await supabase
             .from('reflinks')
-            .select('id, title, description, welcome_message, requires_otp, slug, is_active, infolink_url, infolink_url_type')
+            .select('id, title, description, welcome_message, pre_otp_message, requires_otp, slug, is_active, infolink_url, infolink_url_type')
             .eq('id', slug)
             .single();
 
@@ -431,10 +431,10 @@ export default function InfoLinkPage() {
               </div>
             )}
 
-            {/* Welcome message - shown before OTP verification */}
-            {reflink?.welcome_message && !hasAccess && (
+            {/* Pre-OTP message - shown above OTP form (use pre_otp_message or fallback to welcome_message) */}
+            {(reflink?.pre_otp_message || reflink?.welcome_message) && !hasAccess && (
               <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-                <FormattedText text={reflink.welcome_message} />
+                <FormattedText text={reflink.pre_otp_message || reflink.welcome_message} />
               </div>
             )}
 

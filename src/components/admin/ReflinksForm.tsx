@@ -25,6 +25,7 @@ interface ReflinkFormData {
   // OTP fields
   requires_otp?: boolean;
   slug?: string | null;
+  pre_otp_message?: string | null;  // NEW: Message shown above OTP form on InfoLink page
   welcome_message?: string | null;
   protected_content?: string | null;
   otp_validity_hours?: number;
@@ -359,6 +360,21 @@ export const ReflinksForm: React.FC<ReflinksFormProps> = ({
               Wstaw link do treści powitalnej
             </Button>
           )}
+
+          {/* Pre-OTP message - displayed on InfoLink page above OTP form */}
+          <div className="space-y-2">
+            <Label>Tekst na stronie (powyżej formularza OTP)</Label>
+            <RichTextEditor
+              value={localData.pre_otp_message || ''}
+              onChange={(value) => handleTextChange('pre_otp_message', value)}
+              placeholder="Witaj! Poniżej znajdziesz formularz z kodem dostępu..."
+              compact={true}
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ten tekst wyświetla się klientowi na stronie InfoLink powyżej formularza z kodem OTP
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label>Treść powitalna (do skopiowania przez partnera)</Label>
