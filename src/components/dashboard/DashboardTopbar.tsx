@@ -10,10 +10,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench } from 'lucide-react';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { CacheManagementDialog } from './CacheManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
@@ -107,6 +108,12 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
               <Settings className="mr-2 h-4 w-4" />
               {t('dashboard.menu.settings')}
             </DropdownMenuItem>
+            <CacheManagementDialog>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <Wrench className="mr-2 h-4 w-4" />
+                Panel narzędziowy
+              </DropdownMenuItem>
+            </CacheManagementDialog>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
