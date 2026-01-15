@@ -279,6 +279,34 @@ const TrainingModule = () => {
     };
   }, [currentLessonIndex, lessons, progress]);
 
+  // Preload następnej lekcji wideo dla płynniejszego przejścia
+  useEffect(() => {
+    if (lessons.length === 0 || currentLessonIndex >= lessons.length - 1) return;
+    
+    const nextLesson = lessons[currentLessonIndex + 1];
+    if (nextLesson?.media_type === 'video' && nextLesson?.media_url) {
+      // Sprawdź czy URL nie jest YouTube
+      const isYouTube = nextLesson.media_url.includes('youtube.com') || nextLesson.media_url.includes('youtu.be');
+      if (isYouTube) return;
+      
+      // Prefetch następnego wideo w tle
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = nextLesson.media_url;
+      link.as = 'video';
+      link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+      
+      console.log('[TrainingModule] Preloading next lesson video:', nextLesson.title);
+      
+      return () => {
+        if (link.parentNode) {
+          document.head.removeChild(link);
+        }
+      };
+    }
+  }, [lessons, currentLessonIndex]);
+
   // Save progress before unload with localStorage backup and proper auth
   useEffect(() => {
     const handleBeforeUnload = async () => {
