@@ -285,16 +285,22 @@ const TrainingModule = () => {
     
     const nextLesson = lessons[currentLessonIndex + 1];
     if (nextLesson?.media_type === 'video' && nextLesson?.media_url) {
-      // Sprawdź czy URL nie jest YouTube
-      const isYouTube = nextLesson.media_url.includes('youtube.com') || nextLesson.media_url.includes('youtu.be');
-      if (isYouTube) return;
+      const url = nextLesson.media_url;
       
-      // Prefetch następnego wideo w tle
+      // Nie prefetchuj YouTube ani zewnętrznych URL (powodują błędy CORS)
+      const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+      const isExternalUrl = !url.includes('supabase.co');
+      
+      if (isYouTube || isExternalUrl) {
+        console.log('[TrainingModule] Skipping prefetch for external URL:', nextLesson.title);
+        return;
+      }
+      
+      // Prefetch tylko dla plików z Supabase Storage
       const link = document.createElement('link');
       link.rel = 'prefetch';
-      link.href = nextLesson.media_url;
+      link.href = url;
       link.as = 'video';
-      link.crossOrigin = 'anonymous';
       document.head.appendChild(link);
       
       console.log('[TrainingModule] Preloading next lesson video:', nextLesson.title);
