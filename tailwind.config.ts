@@ -124,6 +124,25 @@ export default {
           "0%": { opacity: "0", transform: "scale(0.85)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+        // Logo reveal animations for InfoLink
+        "logo-reveal": {
+          "0%": { 
+            opacity: "0", 
+            transform: "scale(0.3) translateY(20px)" 
+          },
+          "50%": { 
+            opacity: "1", 
+            transform: "scale(1.1) translateY(0)" 
+          },
+          "100%": { 
+            opacity: "1", 
+            transform: "scale(1) translateY(0)" 
+          },
+        },
+        "logo-pulse": {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.05)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
@@ -137,6 +156,9 @@ export default {
         "banner-slide-down-enhanced": "banner-slide-down-enhanced 0.4s ease-out",
         "banner-scale-in-subtle": "banner-scale-in-subtle 0.2s ease-out",
         "banner-scale-in-enhanced": "banner-scale-in-enhanced 0.35s ease-out",
+        // Logo animations
+        "logo-reveal": "logo-reveal 0.8s ease-out forwards",
+        "logo-pulse": "logo-pulse 2s ease-in-out infinite",
       },
     },
   },

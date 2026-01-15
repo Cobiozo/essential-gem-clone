@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp';
@@ -8,6 +8,8 @@ import { Loader2, Lock, Clock, CheckCircle, AlertCircle, Shield } from 'lucide-r
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { FormattedText } from '@/components/FormattedText';
+import confetti from 'canvas-confetti';
+import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const SESSION_STORAGE_KEY = 'infolink_session_';
 
@@ -18,6 +20,7 @@ interface SessionData {
 
 export default function InfoLinkPage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,59 @@ export default function InfoLinkPage() {
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
+  // Confirmation & transition states
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showLogoTransition, setShowLogoTransition] = useState(false);
+
+  // Trigger confetti animation
+  const triggerConfetti = useCallback(() => {
+    // First burst
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#22c55e', '#3b82f6', '#a855f7', '#f59e0b'],
+    });
+
+    // Second burst from sides
+    setTimeout(() => {
+      confetti({
+        particleCount: 50,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+      });
+      confetti({
+        particleCount: 50,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+      });
+    }, 200);
+  }, []);
+
+  // Handle "WCHODZĘ" click - show logo transition then redirect
+  const handleEnter = useCallback(() => {
+    setShowConfirmation(false);
+    setShowLogoTransition(true);
+
+    setTimeout(() => {
+      if (!reflink?.infolink_url) {
+        // Fallback: if no URL, just hide transition and show protected_content
+        setShowLogoTransition(false);
+        return;
+      }
+
+      if (reflink.infolink_url_type === 'external') {
+        // External link - redirect in same tab
+        window.location.href = reflink.infolink_url;
+      } else {
+        // Internal link - use react-router
+        navigate(reflink.infolink_url);
+      }
+    }, 1500);
+  }, [reflink, navigate]);
+
   // Load reflink data
   useEffect(() => {
     const loadReflink = async () => {
@@ -45,10 +101,10 @@ export default function InfoLinkPage() {
       }
 
       try {
-        // Try by slug first, then by ID
+        // Try by slug first, then by ID - include infolink_url fields
         let { data, error: fetchError } = await supabase
           .from('reflinks')
-          .select('id, title, description, welcome_message, requires_otp, slug, is_active')
+          .select('id, title, description, welcome_message, requires_otp, slug, is_active, infolink_url, infolink_url_type')
           .eq('slug', slug)
           .single();
 
@@ -56,7 +112,7 @@ export default function InfoLinkPage() {
           // Try by ID
           const { data: byId, error: idError } = await supabase
             .from('reflinks')
-            .select('id, title, description, welcome_message, requires_otp, slug, is_active')
+            .select('id, title, description, welcome_message, requires_otp, slug, is_active, infolink_url, infolink_url_type')
             .eq('id', slug)
             .single();
 
@@ -125,7 +181,7 @@ export default function InfoLinkPage() {
         return;
       }
 
-      // Valid session
+      // Valid session - go directly to content (no confirmation screen for existing sessions)
       setHasAccess(true);
       setProtectedContent(data.protected_content);
       setExpiresAt(new Date(data.expires_at));
@@ -185,9 +241,13 @@ export default function InfoLinkPage() {
       setExpiresAt(new Date(data.expires_at));
       setRemainingSeconds(data.remaining_seconds);
 
+      // Show confirmation screen with confetti
+      setShowConfirmation(true);
+      triggerConfetti();
+
       toast({
         title: 'Dostęp przyznany',
-        description: 'Możesz teraz przeglądać treść',
+        description: 'Możesz teraz przejść do treści',
       });
     } catch (err) {
       console.error('OTP submission error:', err);
@@ -208,6 +268,7 @@ export default function InfoLinkPage() {
           clearInterval(interval);
           setHasAccess(false);
           setProtectedContent(null);
+          setShowConfirmation(false);
           localStorage.removeItem(SESSION_STORAGE_KEY + (reflink?.slug || reflink?.id));
           toast({
             title: 'Sesja wygasła',
@@ -221,7 +282,7 @@ export default function InfoLinkPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [hasAccess, reflink]);
+  }, [hasAccess, reflink, toast]);
 
   // Format remaining time
   const formatTime = useCallback((seconds: number) => {
@@ -237,6 +298,24 @@ export default function InfoLinkPage() {
     }
     return `${secs}s`;
   }, []);
+
+  // Logo transition overlay
+  if (showLogoTransition) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+        <div className="text-center space-y-6">
+          <img 
+            src={pureLifeLogo}
+            alt="Pure Life"
+            className="h-32 w-auto mx-auto animate-logo-reveal"
+          />
+          <p className="text-lg text-muted-foreground animate-banner-fade-in-enhanced">
+            Przekierowuję...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading) {
@@ -268,8 +347,8 @@ export default function InfoLinkPage() {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Session expiry banner */}
-        {hasAccess && expiresAt && (
+        {/* Session expiry banner - shown when accessing content directly */}
+        {hasAccess && expiresAt && !showConfirmation && (
           <Alert className={remainingSeconds < 300 ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : 'border-primary bg-primary/5'}>
             <Clock className={`h-4 w-4 ${remainingSeconds < 300 ? 'text-orange-500' : 'text-primary'}`} />
             <AlertDescription className="flex items-center justify-between">
@@ -287,20 +366,58 @@ export default function InfoLinkPage() {
         <Card className="shadow-lg">
           <CardHeader className="text-center border-b">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              {hasAccess ? (
+              {showConfirmation ? (
+                <CheckCircle className="h-8 w-8 text-green-500 animate-logo-pulse" />
+              ) : hasAccess ? (
                 <CheckCircle className="h-8 w-8 text-primary" />
               ) : (
                 <Shield className="h-8 w-8 text-primary" />
               )}
             </div>
-            <CardTitle className="text-2xl">{reflink?.title || 'Informacje'}</CardTitle>
-            {reflink?.description && (
+            <CardTitle className="text-2xl">
+              {showConfirmation ? 'Kod poprawny!' : (reflink?.title || 'Informacje')}
+            </CardTitle>
+            {!showConfirmation && reflink?.description && (
               <CardDescription>{reflink.description}</CardDescription>
+            )}
+            {showConfirmation && (
+              <CardDescription className="text-green-600 font-medium">
+                Dostęp został przyznany
+              </CardDescription>
             )}
           </CardHeader>
 
           <CardContent className="pt-6">
-            {/* Welcome message - always visible */}
+            {/* Confirmation screen after OTP verification */}
+            {showConfirmation && (
+              <div className="space-y-6 animate-banner-scale-in-enhanced">
+                {/* Welcome message */}
+                {reflink?.welcome_message && (
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <FormattedText text={reflink.welcome_message} />
+                  </div>
+                )}
+
+                {/* Timer info */}
+                <div className="text-center text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 inline mr-1" />
+                  Ważność dostępu: {formatTime(remainingSeconds)}
+                </div>
+
+                {/* WCHODZĘ button */}
+                <div className="text-center">
+                  <Button 
+                    size="lg" 
+                    className="px-12 py-6 text-xl font-bold"
+                    onClick={handleEnter}
+                  >
+                    WCHODZĘ
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Welcome message - shown before OTP verification */}
             {reflink?.welcome_message && !hasAccess && (
               <div className="mb-6 p-4 bg-muted/50 rounded-lg">
                 <FormattedText text={reflink.welcome_message} />
@@ -367,15 +484,15 @@ export default function InfoLinkPage() {
               </div>
             )}
 
-            {/* Protected content - shown when has access */}
-            {hasAccess && protectedContent && (
+            {/* Protected content - shown when has access and NOT in confirmation mode */}
+            {hasAccess && protectedContent && !showConfirmation && (
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <FormattedText text={protectedContent} as="div" />
               </div>
             )}
 
-            {/* No content message */}
-            {hasAccess && !protectedContent && (
+            {/* No content message - only when no URL and no content */}
+            {hasAccess && !protectedContent && !showConfirmation && !reflink?.infolink_url && (
               <div className="text-center py-8 text-muted-foreground">
                 <p>Brak dodatkowej treści do wyświetlenia</p>
               </div>
