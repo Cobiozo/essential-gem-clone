@@ -20,6 +20,10 @@ interface VideoControlsProps {
   bufferedRanges?: { start: number; end: number }[];
   // NEW: Network quality indicator
   networkQuality?: 'good' | 'slow' | 'offline';
+  // NEW: Diagnostics props (for admins)
+  showDiagnostics?: boolean;
+  videoSrc?: string;
+  retryCount?: number;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -34,7 +38,10 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   bufferProgress,
   onRetry,
   bufferedRanges,
-  networkQuality
+  networkQuality,
+  showDiagnostics = false,
+  videoSrc,
+  retryCount = 0
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -170,7 +177,8 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             variant="ghost"
             size="sm"
             onClick={() => {
-              toast.info(
+              // Podstawowa pomoc + diagnostyka dla adminów
+              const helpContent = (
                 <div className="space-y-2">
                   <p className="font-medium">Problem z wideo?</p>
                   <ol className="text-sm list-decimal list-inside space-y-1">
@@ -179,18 +187,28 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                     <li>Odśwież stronę (F5)</li>
                     <li>Spróbuj innej przeglądarki</li>
                   </ol>
+                  {showDiagnostics && (
+                    <div className="mt-3 pt-2 border-t border-muted text-xs space-y-1">
+                      <p className="font-medium text-muted-foreground">🔧 Diagnostyka:</p>
+                      <p>Sieć: {networkQuality === 'good' ? '✅ Dobra' : networkQuality === 'slow' ? '⚠️ Wolna' : '❌ Offline'}</p>
+                      <p>Bufor: {bufferProgress?.toFixed(0) || 0}%</p>
+                      <p>Czas: {formatTime(currentTime)} / {formatTime(duration)}</p>
+                      <p>Próby: {retryCount}/5</p>
+                      {videoSrc && <p className="truncate max-w-[200px]">Źródło: ...{videoSrc.slice(-30)}</p>}
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground mt-2">
                     Jeśli problem się powtarza, skontaktuj się z zespołem wsparcia.
                   </p>
-                </div>,
-                { duration: 15000 }
+                </div>
               );
+              toast.info(helpContent, { duration: showDiagnostics ? 20000 : 15000 });
             }}
             className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-            title="Pomoc z problemami z wideo"
+            title={showDiagnostics ? "Diagnostyka wideo" : "Pomoc z problemami z wideo"}
           >
             <HelpCircle className="h-3 w-3 mr-1" />
-            Pomoc
+            {showDiagnostics ? 'Diagnostyka' : 'Pomoc'}
           </Button>
           
           {onFullscreen && (
