@@ -36,6 +36,7 @@ import { WebinarList } from './WebinarList';
 import { TeamTrainingForm } from './TeamTrainingForm';
 import { TeamTrainingList } from './TeamTrainingList';
 import { IndividualMeetingsManagement } from './IndividualMeetingsManagement';
+import ZoomIntegrationSettings from './ZoomIntegrationSettings';
 import { BookOpen } from 'lucide-react';
 
 export const EventsManagement: React.FC = () => {
@@ -759,6 +760,9 @@ export const EventsManagement: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Zoom Integration Settings */}
+          <ZoomIntegrationSettings />
         </TabsContent>
       </Tabs>
 
