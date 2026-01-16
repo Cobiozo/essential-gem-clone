@@ -63,9 +63,15 @@ async function getZoomAccessToken(): Promise<string> {
 
 async function createZoomMeeting(
   accessToken: string,
-  request: CreateMeetingRequest
+  request: CreateMeetingRequest,
+  defaultSettings?: {
+    default_waiting_room?: boolean;
+    default_mute_on_entry?: boolean;
+    default_auto_recording?: string;
+    default_host_email?: string | null;
+  }
 ): Promise<ZoomMeetingResponse> {
-  const hostEmail = Deno.env.get('ZOOM_HOST_EMAIL') || 'me';
+  const hostEmail = defaultSettings?.default_host_email || Deno.env.get('ZOOM_HOST_EMAIL') || 'me';
   
   const meetingData = {
     topic: request.topic,
@@ -74,14 +80,14 @@ async function createZoomMeeting(
     duration: request.duration,
     timezone: 'Europe/Warsaw',
     settings: {
-      waiting_room: request.settings?.waiting_room ?? true,
-      mute_upon_entry: request.settings?.mute_upon_entry ?? true,
+      waiting_room: request.settings?.waiting_room ?? defaultSettings?.default_waiting_room ?? true,
+      mute_upon_entry: request.settings?.mute_upon_entry ?? defaultSettings?.default_mute_on_entry ?? true,
       host_video: request.settings?.host_video ?? true,
       participant_video: request.settings?.participant_video ?? true,
       join_before_host: false,
       approval_type: 0, // Automatically approve
       audio: 'both',
-      auto_recording: 'none',
+      auto_recording: defaultSettings?.default_auto_recording ?? 'none',
     },
   };
 
@@ -207,7 +213,14 @@ serve(async (req) => {
       throw error;
     }
 
-    const zoomMeeting = await createZoomMeeting(accessToken, requestData);
+    // Load default settings from database
+    const { data: zoomSettings } = await supabase
+      .from('zoom_integration_settings')
+      .select('*')
+      .limit(1)
+      .single();
+
+    const zoomMeeting = await createZoomMeeting(accessToken, requestData, zoomSettings || undefined);
 
     // If event_id provided, update the event with Zoom data
     if (requestData.event_id) {
