@@ -258,12 +258,8 @@ Zapisz się tutaj: ${inviteUrl}
             <span className="text-muted-foreground">Spotkanie zespołu</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span className="text-muted-foreground">Spotkanie indywidualne</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
             <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-            <span className="text-muted-foreground">Trójstronne</span>
+            <span className="text-muted-foreground">Spotkanie trójstronne</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <div className="w-2.5 h-2.5 rounded-full bg-fuchsia-500" />
