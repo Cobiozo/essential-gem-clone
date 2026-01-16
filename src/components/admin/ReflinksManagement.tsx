@@ -38,6 +38,7 @@ interface Reflink {
   requires_otp?: boolean;
   slug?: string | null;
   welcome_message?: string | null;
+  pre_otp_message?: string | null;
   protected_content?: string | null;
   otp_validity_hours?: number;
   otp_max_sessions?: number;
@@ -77,6 +78,7 @@ export const ReflinksManagement: React.FC = () => {
     requires_otp: true,
     slug: '',
     welcome_message: '',
+    pre_otp_message: '',
     protected_content: '',
     otp_validity_hours: 24,
     otp_max_sessions: 1,
@@ -259,6 +261,7 @@ export const ReflinksManagement: React.FC = () => {
         requires_otp: newReflink.requires_otp ?? true,
         slug: newReflink.slug?.trim() || null,
         welcome_message: newReflink.welcome_message?.trim() || null,
+        pre_otp_message: newReflink.pre_otp_message?.trim() || null,
         protected_content: newReflink.protected_content?.trim() || null,
         otp_validity_hours: newReflink.otp_validity_hours ?? 24,
         otp_max_sessions: newReflink.otp_max_sessions ?? 1,
@@ -295,6 +298,7 @@ export const ReflinksManagement: React.FC = () => {
         requires_otp: true,
         slug: '',
         welcome_message: '',
+        pre_otp_message: '',
         protected_content: '',
         otp_validity_hours: 24,
         otp_max_sessions: 1,
@@ -326,6 +330,7 @@ export const ReflinksManagement: React.FC = () => {
         requires_otp: editingReflink.requires_otp ?? true,
         slug: editingReflink.slug?.trim() || null,
         welcome_message: editingReflink.welcome_message?.trim() || null,
+        pre_otp_message: editingReflink.pre_otp_message?.trim() || null,
         protected_content: editingReflink.protected_content?.trim() || null,
         otp_validity_hours: editingReflink.otp_validity_hours ?? 24,
         otp_max_sessions: editingReflink.otp_max_sessions ?? 1,
