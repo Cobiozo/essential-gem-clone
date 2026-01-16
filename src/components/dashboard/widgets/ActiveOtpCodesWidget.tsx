@@ -16,6 +16,7 @@ interface ActiveOtpCode {
     slug: string | null;
     otp_max_sessions: number | null;
   } | null;
+  first_session_expires_at: string | null;
 }
 
 // Live countdown component that updates every second with visibility control
@@ -104,7 +105,8 @@ export const ActiveOtpCodesWidget: React.FC = () => {
         .from('infolink_otp_codes')
         .select(`
           id, code, expires_at, used_sessions,
-          reflink:reflinks(title, slug, otp_max_sessions)
+          reflink:reflinks(title, slug, otp_max_sessions),
+          infolink_sessions(expires_at)
         `)
         .eq('partner_id', user.id)
         .eq('is_invalidated', false)
@@ -115,7 +117,24 @@ export const ActiveOtpCodesWidget: React.FC = () => {
         console.error('Error fetching active OTP codes:', error);
         setCodes([]);
       } else {
-        const validCodes = (data || []).filter(c => c.reflink) as ActiveOtpCode[];
+        const validCodes = (data || [])
+          .filter(c => c.reflink)
+          .map(c => {
+            const sessions = (c as any).infolink_sessions || [];
+            const firstSessionExpiresAt = sessions.length > 0
+              ? sessions.sort((a: any, b: any) => 
+                  new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()
+                )[0].expires_at
+              : null;
+            return {
+              id: c.id,
+              code: c.code,
+              expires_at: c.expires_at,
+              used_sessions: c.used_sessions,
+              reflink: c.reflink,
+              first_session_expires_at: firstSessionExpiresAt,
+            };
+          }) as ActiveOtpCode[];
         setCodes(validCodes);
       }
       setLoading(false);
@@ -213,7 +232,10 @@ export const ActiveOtpCodesWidget: React.FC = () => {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {t('dashboard.otpExpiresIn') || 'Wygasa za'} <LiveCountdown expiresAt={code.expires_at} />
+                  {isUsed && code.first_session_expires_at
+                    ? (t('dashboard.otpSessionExpiresIn') || 'Sesja wygasa za')
+                    : (t('dashboard.otpExpiresIn') || 'Wygasa za')
+                  } <LiveCountdown expiresAt={isUsed && code.first_session_expires_at ? code.first_session_expires_at : code.expires_at} />
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="h-3 w-3" />
