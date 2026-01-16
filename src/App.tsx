@@ -40,6 +40,7 @@ const IndividualMeetingsPage = lazy(() => import("./pages/IndividualMeetingsPage
 const InfoLinkPage = lazy(() => import("./pages/InfoLinkPage"));
 const WebinarsPage = lazy(() => import("./pages/WebinarsPage"));
 const TeamMeetingsPage = lazy(() => import("./pages/TeamMeetingsPage"));
+const EventGuestRegistration = lazy(() => import("./pages/EventGuestRegistration"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -186,6 +187,7 @@ const AppContent = () => {
               <Route path="/events/individual-meetings" element={<IndividualMeetingsPage />} />
               <Route path="/events/webinars" element={<WebinarsPage />} />
               <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />
+              <Route path="/events/register/:eventId" element={<EventGuestRegistration />} />
               <Route path="/infolink/:slug" element={<InfoLinkPage />} />
               <Route path="/page/:slug" element={<Page />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

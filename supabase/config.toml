@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.verify-infolink-session]
 verify_jwt = false
+
+[functions.send-webinar-confirmation]
+verify_jwt = false
