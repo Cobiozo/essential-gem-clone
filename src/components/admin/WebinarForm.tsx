@@ -36,6 +36,7 @@ import {
 import type { DbEvent, WebinarFormData, WEBINAR_TYPES, DURATION_OPTIONS } from '@/types/events';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RegistrationFormEditor, RegistrationFormConfig, defaultRegistrationFormConfig } from './RegistrationFormEditor';
+import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
 
 interface WebinarFormProps {
   editingWebinar: DbEvent | null;
@@ -101,6 +102,11 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const [remindersOpen, setRemindersOpen] = useState(true);
   const [formEditorOpen, setFormEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Zoom API integration state
+  const [zoomMeetingId, setZoomMeetingId] = useState<string | null>(null);
+  const [zoomStartUrl, setZoomStartUrl] = useState<string | null>(null);
+  const [zoomPassword, setZoomPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingWebinar) {
@@ -143,6 +149,12 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         registration_form_config: parsedFormConfig || defaultRegistrationFormConfig,
       });
       setImageUrlInput(editingWebinar.image_url || '');
+      
+      // Load existing Zoom API data (from dynamic properties)
+      const webinarAny = editingWebinar as any;
+      setZoomMeetingId(webinarAny.zoom_meeting_id || null);
+      setZoomStartUrl(webinarAny.zoom_start_url || null);
+      setZoomPassword(webinarAny.zoom_password || null);
     }
   }, [editingWebinar]);
 
@@ -380,12 +392,30 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         {/* Zoom Link */}
         <div className="space-y-2">
           <Label className="text-muted-foreground font-medium">{t('admin.webinar.zoomLink')}</Label>
-          <Input
-            value={form.zoom_link}
-            onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
-            placeholder="https://zoom.us/j/..."
-            className="h-10"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={form.zoom_link}
+              onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
+              placeholder="https://zoom.us/j/..."
+              className="h-10 flex-1"
+            />
+            <ZoomMeetingGenerator
+              eventId={editingWebinar?.id}
+              eventTitle={form.title}
+              startTime={form.start_time}
+              duration={form.duration_minutes}
+              currentZoomLink={form.zoom_link}
+              existingMeetingId={zoomMeetingId}
+              existingPassword={zoomPassword}
+              existingStartUrl={zoomStartUrl}
+              onGenerated={(data) => {
+                setForm({ ...form, zoom_link: data.join_url });
+                setZoomMeetingId(data.meeting_id);
+                setZoomStartUrl(data.start_url);
+                setZoomPassword(data.password || null);
+              }}
+            />
+          </div>
         </div>
 
         {/* Image Upload Section */}

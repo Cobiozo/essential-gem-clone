@@ -1751,7 +1751,12 @@ export type Database = {
           visible_to_partners: boolean | null
           visible_to_specjalista: boolean | null
           webinar_type: string | null
+          zoom_auto_generated: boolean | null
+          zoom_generated_at: string | null
           zoom_link: string | null
+          zoom_meeting_id: string | null
+          zoom_password: string | null
+          zoom_start_url: string | null
         }
         Insert: {
           buttons?: Json | null
@@ -1784,7 +1789,12 @@ export type Database = {
           visible_to_partners?: boolean | null
           visible_to_specjalista?: boolean | null
           webinar_type?: string | null
+          zoom_auto_generated?: boolean | null
+          zoom_generated_at?: string | null
           zoom_link?: string | null
+          zoom_meeting_id?: string | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
         }
         Update: {
           buttons?: Json | null
@@ -1817,7 +1827,12 @@ export type Database = {
           visible_to_partners?: boolean | null
           visible_to_specjalista?: boolean | null
           webinar_type?: string | null
+          zoom_auto_generated?: boolean | null
+          zoom_generated_at?: string | null
           zoom_link?: string | null
+          zoom_meeting_id?: string | null
+          zoom_password?: string | null
+          zoom_start_url?: string | null
         }
         Relationships: [
           {
@@ -4359,6 +4374,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      zoom_integration_settings: {
+        Row: {
+          api_status: string | null
+          created_at: string | null
+          default_auto_recording: string | null
+          default_host_email: string | null
+          default_mute_on_entry: boolean | null
+          default_waiting_room: boolean | null
+          id: string
+          is_configured: boolean | null
+          last_api_check_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_status?: string | null
+          created_at?: string | null
+          default_auto_recording?: string | null
+          default_host_email?: string | null
+          default_mute_on_entry?: boolean | null
+          default_waiting_room?: boolean | null
+          id?: string
+          is_configured?: boolean | null
+          last_api_check_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_status?: string | null
+          created_at?: string | null
+          default_auto_recording?: string | null
+          default_host_email?: string | null
+          default_mute_on_entry?: boolean | null
+          default_waiting_room?: boolean | null
+          id?: string
+          is_configured?: boolean | null
+          last_api_check_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

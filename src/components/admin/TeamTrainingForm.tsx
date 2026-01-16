@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type { DbEvent, TeamTrainingFormData, TEAM_TRAINING_TYPES } from '@/types/events';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
 
 interface TeamTrainingFormProps {
   editingTraining: DbEvent | null;
@@ -82,6 +83,11 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [remindersOpen, setRemindersOpen] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Zoom API integration state
+  const [zoomMeetingId, setZoomMeetingId] = useState<string | null>(null);
+  const [zoomStartUrl, setZoomStartUrl] = useState<string | null>(null);
+  const [zoomPassword, setZoomPassword] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingTraining) {
@@ -109,6 +115,12 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         is_published: editingTraining.is_published ?? true,
       });
       setImageUrlInput(editingTraining.image_url || '');
+      
+      // Load existing Zoom API data (from dynamic properties)
+      const trainingAny = editingTraining as any;
+      setZoomMeetingId(trainingAny.zoom_meeting_id || null);
+      setZoomStartUrl(trainingAny.zoom_start_url || null);
+      setZoomPassword(trainingAny.zoom_password || null);
     }
   }, [editingTraining]);
 
@@ -344,12 +356,30 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         {/* Meeting Link */}
         <div className="space-y-2">
           <Label className="text-muted-foreground font-medium">Link do spotkania (Zoom/Teams/Meet)</Label>
-          <Input
-            value={form.zoom_link}
-            onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
-            placeholder="https://zoom.us/j/..."
-            className="h-10"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={form.zoom_link}
+              onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
+              placeholder="https://zoom.us/j/..."
+              className="h-10 flex-1"
+            />
+            <ZoomMeetingGenerator
+              eventId={editingTraining?.id}
+              eventTitle={form.title}
+              startTime={form.start_time}
+              duration={form.duration_minutes}
+              currentZoomLink={form.zoom_link}
+              existingMeetingId={zoomMeetingId}
+              existingPassword={zoomPassword}
+              existingStartUrl={zoomStartUrl}
+              onGenerated={(data) => {
+                setForm({ ...form, zoom_link: data.join_url });
+                setZoomMeetingId(data.meeting_id);
+                setZoomStartUrl(data.start_url);
+                setZoomPassword(data.password || null);
+              }}
+            />
+          </div>
         </div>
 
         {/* Location */}
