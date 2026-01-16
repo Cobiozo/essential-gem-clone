@@ -73,20 +73,45 @@ const GuestRegistrationsManagement: React.FC = () => {
     const fetchRegistrations = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        // Fetch registrations first
+        const { data: regData, error: regError } = await supabase
           .from('guest_event_registrations')
-          .select(`
-            *,
-            inviter_profile:profiles!guest_event_registrations_invited_by_user_id_fkey(
-              first_name,
-              last_name
-            )
-          `)
+          .select('*')
           .eq('event_id', selectedEventId)
           .order('registered_at', { ascending: false });
 
-        if (error) throw error;
-        setRegistrations(data || []);
+        if (regError) throw regError;
+
+        // If we have registrations with inviters, fetch their profiles separately
+        const inviterIds = [...new Set(
+          (regData || [])
+            .filter(r => r.invited_by_user_id)
+            .map(r => r.invited_by_user_id)
+        )].filter(Boolean) as string[];
+
+        let profilesMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+
+        if (inviterIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name')
+            .in('user_id', inviterIds);
+
+          if (profiles) {
+            profilesMap = profiles.reduce((acc, p) => {
+              acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+              return acc;
+            }, {} as typeof profilesMap);
+          }
+        }
+
+        // Merge profiles into registrations
+        const enrichedData = (regData || []).map(r => ({
+          ...r,
+          inviter_profile: r.invited_by_user_id ? profilesMap[r.invited_by_user_id] || null : null,
+        }));
+
+        setRegistrations(enrichedData);
       } catch (error) {
         console.error('Error fetching registrations:', error);
         toast({
