@@ -43,12 +43,7 @@ interface WebinarFormProps {
   onCancel: () => void;
 }
 
-const webinarTypes = [
-  { value: 'biznesowy', label: 'Biznesowy' },
-  { value: 'produktowy', label: 'Produktowy' },
-  { value: 'motywacyjny', label: 'Motywacyjny' },
-  { value: 'szkoleniowy', label: 'Szkoleniowy' },
-];
+// Webinar types will be generated with translations inside the component
 
 const durationOptions = [
   { value: 30, label: '30 min' },
@@ -67,6 +62,14 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
   const dateLocale = language === 'pl' ? pl : enUS;
+
+  // Translated webinar types
+  const webinarTypes = [
+    { value: 'biznesowy', label: t('admin.webinar.types.business') },
+    { value: 'produktowy', label: t('admin.webinar.types.product') },
+    { value: 'motywacyjny', label: t('admin.webinar.types.motivational') },
+    { value: 'szkoleniowy', label: t('admin.webinar.types.training') },
+  ];
 
   const [form, setForm] = useState<WebinarFormData & { registration_form_config: RegistrationFormConfig | null }>({
     title: '',
@@ -158,11 +161,11 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const handleSave = async () => {
     if (!user) return;
     if (!form.title.trim()) {
-      toast({ title: 'Błąd', description: 'Tytuł jest wymagany', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('admin.webinar.error.titleRequired'), variant: 'destructive' });
       return;
     }
     if (!form.start_time) {
-      toast({ title: 'Błąd', description: 'Data i godzina są wymagane', variant: 'destructive' });
+      toast({ title: t('common.error'), description: t('admin.webinar.error.dateRequired'), variant: 'destructive' });
       return;
     }
 
@@ -180,8 +183,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
 
       if (conflictingEvents && conflictingEvents.length > 0) {
         toast({
-          title: 'Konflikt czasowy',
-          description: `W tym czasie istnieje już: ${conflictingEvents[0].title}`,
+          title: t('admin.webinar.error.conflict'),
+          description: `${t('admin.webinar.error.conflictDesc')}: ${conflictingEvents[0].title}`,
           variant: 'destructive',
         });
         setSaving(false);
@@ -234,13 +237,13 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
       }
 
       if (error) {
-        toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+        toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
         return;
       }
 
       toast({ 
-        title: 'Sukces', 
-        description: editingWebinar ? 'Webinar został zaktualizowany' : 'Webinar został dodany' 
+        title: t('common.success'), 
+        description: editingWebinar ? t('admin.webinar.success.updated') : t('admin.webinar.success.added') 
       });
       onSave();
     } finally {
@@ -256,7 +259,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const handleAddImageUrl = () => {
     if (imageUrlInput.trim()) {
       setForm(prev => ({ ...prev, image_url: imageUrlInput }));
-      toast({ title: 'Sukces', description: 'URL miniatury został dodany' });
+      toast({ title: t('common.success'), description: t('admin.webinar.success.thumbnailAdded') });
     }
   };
 
@@ -264,14 +267,14 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     <Card className="border-muted">
       <CardHeader className="pb-4">
         <CardTitle className="text-lg">
-          {editingWebinar ? 'Edytuj Webinar' : 'Nowy Webinar'}
+          {editingWebinar ? t('admin.webinar.edit') : t('admin.webinar.new')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Title */}
         <div className="space-y-2">
           <Label className="text-primary font-medium">
-            Tytuł <span className="text-destructive">*</span>
+            {t('admin.webinar.title')} <span className="text-destructive">*</span>
           </Label>
           <Input
             value={form.title}
@@ -284,7 +287,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         {/* Description with RichTextEditor */}
         <div className="space-y-2">
           <Label className="text-primary font-medium">
-            Opis <span className="text-destructive">*</span>
+            {t('admin.webinar.description')} <span className="text-destructive">*</span>
           </Label>
           <RichTextEditor
             value={form.description}
@@ -298,7 +301,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-primary font-medium">
-              Data i godzina <span className="text-destructive">*</span>
+              {t('admin.webinar.dateTime')} <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
               <Input
@@ -312,13 +315,13 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-muted-foreground font-medium">Typ webinaru</Label>
+            <Label className="text-muted-foreground font-medium">{t('admin.webinar.type')}</Label>
             <Select
               value={form.webinar_type || 'biznesowy'}
               onValueChange={(value) => setForm({ ...form, webinar_type: value })}
             >
               <SelectTrigger className="h-10">
-                <SelectValue placeholder="Wybierz typ" />
+                <SelectValue placeholder={t('admin.webinar.selectType')} />
               </SelectTrigger>
               <SelectContent>
                 {webinarTypes.map((type) => (
@@ -334,7 +337,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         {/* Host and Duration row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label className="text-muted-foreground font-medium">Prowadzący</Label>
+            <Label className="text-muted-foreground font-medium">{t('admin.webinar.host')}</Label>
             <Input
               value={form.host_name || ''}
               onChange={(e) => setForm({ ...form, host_name: e.target.value })}
@@ -344,7 +347,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-muted-foreground font-medium">Czas trwania (minuty)</Label>
+            <Label className="text-muted-foreground font-medium">{t('admin.webinar.duration')}</Label>
             <Select
               value={form.duration_minutes.toString()}
               onValueChange={(value) => setForm({ ...form, duration_minutes: parseInt(value) })}
@@ -365,7 +368,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
 
         {/* Zoom Link */}
         <div className="space-y-2">
-          <Label className="text-muted-foreground font-medium">Link do webinaru (Zoom/Teams)</Label>
+          <Label className="text-muted-foreground font-medium">{t('admin.webinar.zoomLink')}</Label>
           <Input
             value={form.zoom_link}
             onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
@@ -376,7 +379,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
 
         {/* Image Upload Section */}
         <div className="space-y-2">
-          <Label className="text-muted-foreground font-medium">URL miniatury</Label>
+          <Label className="text-muted-foreground font-medium">{t('admin.webinar.thumbnailUrl')}</Label>
           <MediaUpload
             onMediaUploaded={(url) => handleImageUploaded(url)}
             currentMediaUrl={form.image_url}
@@ -401,7 +404,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
               onClick={handleAddImageUrl}
               className="h-10"
             >
-              Dodaj
+              {t('admin.webinar.addUrl')}
             </Button>
           </div>
         </div>
@@ -412,7 +415,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
             checked={form.is_published}
             onCheckedChange={(checked) => setForm({ ...form, is_published: checked })}
           />
-          <Label className="text-muted-foreground">Opublikuj od razu</Label>
+          <Label className="text-muted-foreground">{t('admin.webinar.publishImmediately')}</Label>
         </div>
 
         {/* Reminders Section */}
@@ -420,7 +423,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-start gap-2 h-10 px-3 hover:bg-muted">
               <Bell className="h-4 w-4" />
-              <span className="font-medium">Przypomnienia</span>
+              <span className="font-medium">{t('admin.webinar.reminders')}</span>
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="pl-6 pt-3 space-y-3">
@@ -430,7 +433,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
                 onCheckedChange={(checked) => setForm({ ...form, sms_reminder_enabled: checked })}
               />
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-muted-foreground">Włącz przypomnienie SMS</Label>
+              <Label className="text-muted-foreground">{t('admin.webinar.smsReminder')}</Label>
             </div>
             <div className="flex items-center gap-3">
               <Switch
@@ -438,7 +441,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
                 onCheckedChange={(checked) => setForm({ ...form, email_reminder_enabled: checked })}
               />
               <Mail className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-muted-foreground">Włącz przypomnienie Email</Label>
+              <Label className="text-muted-foreground">{t('admin.webinar.emailReminder')}</Label>
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -448,7 +451,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full justify-start gap-2 h-10 px-3 hover:bg-muted">
               <FileText className="h-4 w-4" />
-              <span className="font-medium">Konfiguracja formularza rejestracji</span>
+              <span className="font-medium">{t('admin.webinar.formConfig')}</span>
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
@@ -466,10 +469,10 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
             disabled={saving || !form.title.trim() || !form.start_time}
             className="bg-primary hover:bg-primary/90"
           >
-            {saving ? 'Zapisywanie...' : (editingWebinar ? 'Zapisz zmiany' : 'Dodaj Webinar')}
+            {saving ? t('admin.webinar.saving') : (editingWebinar ? t('admin.webinar.save') : t('admin.webinar.add'))}
           </Button>
           <Button variant="outline" onClick={onCancel}>
-            Anuluj
+            {t('admin.webinar.cancel')}
           </Button>
         </div>
       </CardContent>
