@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { Json } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,10 +30,12 @@ import {
   Eye,
   EyeOff,
   Clock,
-  Upload
+  Upload,
+  FileText
 } from 'lucide-react';
 import type { DbEvent, WebinarFormData, WEBINAR_TYPES, DURATION_OPTIONS } from '@/types/events';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RegistrationFormEditor, RegistrationFormConfig, defaultRegistrationFormConfig } from './RegistrationFormEditor';
 
 interface WebinarFormProps {
   editingWebinar: DbEvent | null;
@@ -65,7 +68,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const { user } = useAuth();
   const dateLocale = language === 'pl' ? pl : enUS;
 
-  const [form, setForm] = useState<WebinarFormData>({
+  const [form, setForm] = useState<WebinarFormData & { registration_form_config: RegistrationFormConfig | null }>({
     title: '',
     description: '',
     event_type: 'webinar',
@@ -88,14 +91,29 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     email_reminder_enabled: true,
     is_published: true,
     guest_link: '',
+    registration_form_config: defaultRegistrationFormConfig,
   });
 
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [remindersOpen, setRemindersOpen] = useState(true);
+  const [formEditorOpen, setFormEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (editingWebinar) {
+      // Parse registration_form_config from database
+      let parsedFormConfig: RegistrationFormConfig | null = null;
+      if (editingWebinar.registration_form_config) {
+        try {
+          const rawConfig = editingWebinar.registration_form_config;
+          parsedFormConfig = typeof rawConfig === 'string' 
+            ? JSON.parse(rawConfig)
+            : (rawConfig as unknown as RegistrationFormConfig);
+        } catch {
+          parsedFormConfig = defaultRegistrationFormConfig;
+        }
+      }
+      
       setForm({
         title: editingWebinar.title || '',
         description: editingWebinar.description || '',
@@ -119,6 +137,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         email_reminder_enabled: editingWebinar.email_reminder_enabled ?? true,
         is_published: editingWebinar.is_published ?? true,
         guest_link: editingWebinar.guest_link || '',
+        registration_form_config: parsedFormConfig || defaultRegistrationFormConfig,
       });
       setImageUrlInput(editingWebinar.image_url || '');
     }
@@ -199,6 +218,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         email_reminder_enabled: form.email_reminder_enabled,
         is_published: form.is_published,
         guest_link: form.guest_link || null,
+        registration_form_config: JSON.parse(JSON.stringify(form.registration_form_config)) as Json,
       };
 
       let error;
@@ -420,6 +440,22 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
               <Mail className="h-4 w-4 text-muted-foreground" />
               <Label className="text-muted-foreground">Włącz przypomnienie Email</Label>
             </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Registration Form Editor Section */}
+        <Collapsible open={formEditorOpen} onOpenChange={setFormEditorOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start gap-2 h-10 px-3 hover:bg-muted">
+              <FileText className="h-4 w-4" />
+              <span className="font-medium">Konfiguracja formularza rejestracji</span>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <RegistrationFormEditor
+              config={form.registration_form_config}
+              onChange={(config) => setForm({ ...form, registration_form_config: config })}
+            />
           </CollapsibleContent>
         </Collapsible>
 
