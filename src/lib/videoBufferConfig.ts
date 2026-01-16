@@ -12,22 +12,23 @@ export interface BufferConfig {
   stuckDetectionIntervalMs: number;
   bufferingStateDelayMs: number;
   seekToleranceSeconds: number;
+  smartBufferingDelayMs: number; // NEW: Delay before activating smart buffering
 }
 
 export const VIDEO_BUFFER_CONFIG = {
-  // Desktop settings - faster networks, larger buffers
+  // Desktop settings - faster networks, smaller buffers for quick start
   desktop: {
-    minBufferSeconds: 5,           // Zmniejszone z 10 na 5 dla szybszego startu
-    targetBufferSeconds: 30,       // Target buffer during playback
+    minBufferSeconds: 2,           // Zmniejszone z 5 na 2 dla natychmiastowego startu
+    targetBufferSeconds: 15,       // Zmniejszone z 30 na 15 dla płynności
     preloadStrategy: 'auto' as const, // Full preload for better UX
     retryDelayMs: 2000,            // Initial retry delay
-    maxRetries: 5,                 // Maximum retry attempts (increased from 3)
+    maxRetries: 5,                 // Maximum retry attempts
   },
   
   // Mobile settings - more conservative for variable networks
   mobile: {
-    minBufferSeconds: 5,           // Smaller buffer for faster start
-    targetBufferSeconds: 15,       // Smaller target buffer to save data
+    minBufferSeconds: 2,           // Zmniejszone z 5 na 2 dla szybszego startu
+    targetBufferSeconds: 10,       // Zmniejszone z 15 na 10 dla oszczędności danych
     preloadStrategy: 'metadata' as const, // Light preload to save bandwidth
     retryDelayMs: 3000,            // Longer delay on mobile (worse networks)
     maxRetries: 5,                 // More retries on mobile
@@ -35,9 +36,10 @@ export const VIDEO_BUFFER_CONFIG = {
   
   // Common settings (device-independent)
   common: {
-    stuckDetectionIntervalMs: 10000,  // Check every 10s for stuck playback (increased from 5s)
-    bufferingStateDelayMs: 500,       // Delay before showing buffering state (increased from 300)
+    stuckDetectionIntervalMs: 10000,  // Check every 10s for stuck playback
+    bufferingStateDelayMs: 1000,      // Zwiększone z 500 na 1000ms - opóźnienie pokazania spinnera
     seekToleranceSeconds: 5,          // Max allowed time jump before blocking
+    smartBufferingDelayMs: 1500,      // NEW: Tolerancja dla mikro-zacinań przed aktywacją smart buffering
   }
 } as const;
 
@@ -74,11 +76,23 @@ export const getNetworkQuality = (): NetworkQuality => {
 };
 
 /**
- * Check if network is slow (2g or slow-2g)
+ * Check if network is slow (2g, slow-2g, low downlink, high RTT)
  */
 export const isSlowNetwork = (): boolean => {
-  const quality = getNetworkQuality();
-  return quality === '2g' || quality === 'slow-2g';
+  if (typeof navigator !== 'undefined' && 'connection' in navigator) {
+    const connection = (navigator as any).connection;
+    if (connection) {
+      const effectiveType = connection.effectiveType;
+      const downlink = connection.downlink; // Mbps
+      const rtt = connection.rtt; // ms
+      
+      // Slow if 2g/slow-2g OR downlink < 1.5 Mbps OR RTT > 400ms
+      if (effectiveType === '2g' || effectiveType === 'slow-2g') return true;
+      if (downlink && downlink < 1.5) return true;
+      if (rtt && rtt > 400) return true;
+    }
+  }
+  return false;
 };
 
 /**
