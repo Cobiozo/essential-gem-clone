@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,7 +40,9 @@ import {
   AlignLeft,
   AlertCircle,
   Link,
-  Play
+  Play,
+  Search,
+  CheckCircle
 } from "lucide-react";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useToast } from "@/hooks/use-toast";
@@ -1310,6 +1312,20 @@ const LessonForm = ({
 };
 
 // User Selector Modal Component
+interface UserWithAssignment {
+  user_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  role: string;
+  assignment?: {
+    notification_sent: boolean;
+    assigned_by: string | null;
+    assigned_at: string;
+    assigned_by_name?: string;
+  };
+}
+
 const UserSelectorModal = ({ 
   module, 
   onClose 
@@ -1317,11 +1333,23 @@ const UserSelectorModal = ({
   module: TrainingModule;
   onClose: () => void;
 }) => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserWithAssignment[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
   const { toast } = useToast();
+
+  // Determine available roles based on module visibility
+  const availableRoles = useMemo(() => {
+    const roles: { value: string; label: string }[] = [{ value: 'all', label: 'Wszyscy' }];
+    if (module.visible_to_everyone) return roles;
+    if (module.visible_to_partners) roles.push({ value: 'partner', label: 'Partnerzy' });
+    if (module.visible_to_specjalista) roles.push({ value: 'specjalista', label: 'Specjaliści' });
+    if (module.visible_to_clients) roles.push({ value: 'client', label: 'Klienci' });
+    return roles;
+  }, [module]);
 
   useEffect(() => {
     fetchUsers();
@@ -1345,12 +1373,41 @@ const UserSelectorModal = ({
 
       if (rolesError) throw rolesError;
 
-      // Combine profiles with roles
-      const usersWithRoles = profiles?.map(profile => {
+      // Fetch existing assignments for this module
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('training_assignments')
+        .select('user_id, notification_sent, assigned_by, assigned_at')
+        .eq('module_id', module.id);
+
+      if (assignmentsError) throw assignmentsError;
+
+      // Fetch admin profiles for assignment display
+      const assignerIds = [...new Set(assignments?.map(a => a.assigned_by).filter(Boolean) || [])];
+      let assignerProfiles: Record<string, string> = {};
+      if (assignerIds.length > 0) {
+        const { data: assigners } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', assignerIds);
+        
+        assigners?.forEach(a => {
+          assignerProfiles[a.user_id] = `${a.first_name || ''} ${a.last_name || ''}`.trim() || 'Admin';
+        });
+      }
+
+      // Combine profiles with roles and assignments
+      const usersWithRoles: UserWithAssignment[] = profiles?.map(profile => {
         const userRole = userRoles?.find(ur => ur.user_id === profile.user_id);
+        const assignment = assignments?.find(a => a.user_id === profile.user_id);
         return {
           ...profile,
-          role: userRole?.role || 'client'
+          role: userRole?.role || 'client',
+          assignment: assignment ? {
+            notification_sent: assignment.notification_sent ?? false,
+            assigned_by: assignment.assigned_by,
+            assigned_at: assignment.assigned_at,
+            assigned_by_name: assignment.assigned_by ? assignerProfiles[assignment.assigned_by] : 'Cron'
+          } : undefined
         };
       }) || [];
 
@@ -1382,6 +1439,23 @@ const UserSelectorModal = ({
     }
   };
 
+  // Filter users by search query and role
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      // Search filter
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchQuery === '' || 
+        user.first_name?.toLowerCase().includes(searchLower) ||
+        user.last_name?.toLowerCase().includes(searchLower) ||
+        user.email?.toLowerCase().includes(searchLower);
+      
+      // Role filter
+      const matchesRole = selectedRole === 'all' || user.role.toLowerCase() === selectedRole;
+      
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchQuery, selectedRole]);
+
   const toggleUser = (userId: string) => {
     setSelectedUsers(prev => 
       prev.includes(userId) 
@@ -1391,7 +1465,7 @@ const UserSelectorModal = ({
   };
 
   const selectAll = () => {
-    setSelectedUsers(users.map(user => user.user_id));
+    setSelectedUsers(filteredUsers.map(user => user.user_id));
   };
 
   const clearAll = () => {
@@ -1461,7 +1535,15 @@ const UserSelectorModal = ({
     } finally {
       setSending(false);
     }
-      // Here you would call an edge function to send emails
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pl-PL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
   };
 
   return (
@@ -1480,37 +1562,94 @@ const UserSelectorModal = ({
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 mb-4">
+            {/* Search bar */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj po imieniu, nazwisku lub email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Role filter tabs */}
+            {availableRoles.length > 1 && (
+              <Tabs value={selectedRole} onValueChange={setSelectedRole} className="mb-3">
+                <TabsList className="w-full justify-start">
+                  {availableRoles.map(role => (
+                    <TabsTrigger key={role.value} value={role.value} className="text-xs">
+                      {role.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+
+            <div className="flex items-center gap-2 mb-3">
               <Button size="sm" variant="outline" onClick={selectAll}>
                 <UserPlus className="h-4 w-4 mr-1" />
-                Zaznacz wszystkich
+                Zaznacz widocznych
               </Button>
               <Button size="sm" variant="outline" onClick={clearAll}>
                 Odznacz wszystkich
               </Button>
-              <span className="text-sm text-muted-foreground">
-                Wybrano: {selectedUsers.length} z {users.length}
+              <span className="text-sm text-muted-foreground ml-auto">
+                Wybrano: {selectedUsers.length} z {filteredUsers.length}
               </span>
             </div>
 
             <div className="border rounded-lg max-h-60 overflow-y-auto flex-1">
-              {users.map((user) => (
-                <div key={user.user_id} className="flex items-center p-3 border-b last:border-b-0">
-                  <Checkbox
-                    checked={selectedUsers.includes(user.user_id)}
-                    onCheckedChange={() => toggleUser(user.user_id)}
-                  />
-                  <div className="ml-3 flex-1">
-                    <div className="font-medium">
-                      {user.first_name} {user.last_name} 
-                      <Badge variant="outline" className="ml-2">
-                        {user.role}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">{user.email}</div>
-                  </div>
+              {filteredUsers.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  {searchQuery || selectedRole !== 'all' 
+                    ? 'Brak wyników dla podanych kryteriów'
+                    : 'Brak użytkowników do wyświetlenia'}
                 </div>
-              ))}
+              ) : (
+                filteredUsers.map((user) => (
+                  <div 
+                    key={user.user_id} 
+                    className={`flex items-center p-3 border-b last:border-b-0 ${
+                      user.assignment ? 'bg-muted/30' : ''
+                    }`}
+                  >
+                    <Checkbox
+                      checked={selectedUsers.includes(user.user_id)}
+                      onCheckedChange={() => toggleUser(user.user_id)}
+                    />
+                    <div className="ml-3 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">
+                          {user.first_name} {user.last_name}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {user.role}
+                        </Badge>
+                        {user.assignment && (
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 gap-1"
+                            title={`Wysłane przez: ${user.assignment.assigned_by_name || 'Cron'} dnia ${formatDate(user.assignment.assigned_at)}`}
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            Wysłane {formatDate(user.assignment.assigned_at)}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">{user.email}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="mt-2 text-xs text-muted-foreground flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <CheckCircle className="h-3 w-3 text-green-600" />
+                Szkolenie już wysłane
+              </span>
             </div>
           </>
         )}
