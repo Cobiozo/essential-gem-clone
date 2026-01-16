@@ -79,7 +79,8 @@ serve(async (req) => {
     welcomeEmails: { processed: 0, success: 0, failed: 0 },
     trainingNotifications: { processed: 0, success: 0, failed: 0 },
     retries: { processed: 0, success: 0, failed: 0 },
-    webinarReminders: { processed: 0, success: 0, failed: 0 },
+    webinarReminders24h: { processed: 0, success: 0, failed: 0 },
+    webinarReminders1h: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
@@ -294,7 +295,7 @@ serve(async (req) => {
 
     // 5. Process webinar reminders (24h before event) - skip if stopped early
     if (!results.stoppedEarly) {
-      console.log("[CRON] Finding webinars starting in next 24-30 hours...");
+      console.log("[CRON] Finding webinars starting in next 24-30 hours (24h reminders)...");
       
       const now = new Date();
       const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
@@ -309,18 +310,18 @@ serve(async (req) => {
         .eq("event_type", "webinar");
 
       if (webinarError) {
-        console.error("[CRON] Error fetching upcoming webinars:", webinarError);
+        console.error("[CRON] Error fetching upcoming webinars (24h):", webinarError);
       } else if (upcomingWebinars && upcomingWebinars.length > 0) {
         console.log(`[CRON] Found ${upcomingWebinars.length} webinars starting in 24-30 hours`);
         
         for (const webinar of upcomingWebinars) {
           if (isTimeoutApproaching()) {
-            console.log("[CRON] Approaching timeout limit, stopping webinar reminders");
+            console.log("[CRON] Approaching timeout limit, stopping webinar reminders 24h");
             results.stoppedEarly = true;
             break;
           }
           
-          // Get guests who haven't received a reminder
+          // Get guests who haven't received a 24h reminder
           const { data: guests, error: guestError } = await supabase
             .from("guest_event_registrations")
             .select("id, email, first_name, last_name")
@@ -334,11 +335,11 @@ serve(async (req) => {
           }
 
           if (!guests || guests.length === 0) {
-            console.log(`[CRON] No guests to remind for webinar: ${webinar.title}`);
+            console.log(`[CRON] No guests to remind (24h) for webinar: ${webinar.title}`);
             continue;
           }
 
-          console.log(`[CRON] Found ${guests.length} guests to remind for webinar: ${webinar.title}`);
+          console.log(`[CRON] Found ${guests.length} guests to remind (24h) for webinar: ${webinar.title}`);
 
           for (const guest of guests) {
             if (isTimeoutApproaching()) {
@@ -346,12 +347,12 @@ serve(async (req) => {
               break;
             }
 
-            if (results.webinarReminders.processed > 0) {
-              console.log("[CRON] Waiting 1 second before next webinar reminder...");
+            if (results.webinarReminders24h.processed > 0) {
+              console.log("[CRON] Waiting 1 second before next webinar reminder 24h...");
               await delay(1000);
             }
 
-            results.webinarReminders.processed++;
+            results.webinarReminders24h.processed++;
             try {
               // Format date for display
               const eventDate = new Date(webinar.start_time);
@@ -366,27 +367,28 @@ serve(async (req) => {
                 minute: '2-digit'
               });
 
-              // Send reminder email using send-webinar-confirmation with isReminder flag
-              const { error: sendError } = await supabase.functions.invoke("send-webinar-confirmation", {
+              // Send reminder email using send-webinar-email with template
+              const { error: sendError } = await supabase.functions.invoke("send-webinar-email", {
                 body: {
+                  type: "reminder_24h",
                   email: guest.email,
                   firstName: guest.first_name,
-                  lastName: guest.last_name,
                   eventTitle: webinar.title,
                   eventDate: formattedDate,
                   eventTime: formattedTime,
                   zoomLink: webinar.zoom_link || webinar.location || '',
                   hostName: webinar.host_name || 'Zespół Pure Life',
-                  isReminder: true
+                  eventId: webinar.id,
+                  registrationId: guest.id
                 }
               });
 
               if (sendError) {
-                console.error(`[CRON] Failed to send webinar reminder to ${guest.email}:`, sendError);
-                results.webinarReminders.failed++;
+                console.error(`[CRON] Failed to send webinar reminder 24h to ${guest.email}:`, sendError);
+                results.webinarReminders24h.failed++;
               } else {
-                console.log(`[CRON] Sent webinar reminder to ${guest.email} for: ${webinar.title}`);
-                results.webinarReminders.success++;
+                console.log(`[CRON] Sent webinar reminder 24h to ${guest.email} for: ${webinar.title}`);
+                results.webinarReminders24h.success++;
 
                 // Mark reminder as sent
                 await supabase
@@ -398,13 +400,130 @@ serve(async (req) => {
                   .eq("id", guest.id);
               }
             } catch (err) {
-              console.error(`[CRON] Exception sending webinar reminder to ${guest.email}:`, err);
-              results.webinarReminders.failed++;
+              console.error(`[CRON] Exception sending webinar reminder 24h to ${guest.email}:`, err);
+              results.webinarReminders24h.failed++;
             }
           }
         }
       } else {
         console.log("[CRON] No webinars starting in next 24-30 hours");
+      }
+    }
+
+    // 5b. Process webinar reminders (1h before event) - skip if stopped early
+    if (!results.stoppedEarly) {
+      console.log("[CRON] Finding webinars starting in next 50-70 minutes (1h reminders)...");
+      
+      const now = new Date();
+      const fiftyMinutesFromNow = new Date(now.getTime() + 50 * 60 * 1000).toISOString();
+      const seventyMinutesFromNow = new Date(now.getTime() + 70 * 60 * 1000).toISOString();
+      
+      const { data: webinars1h, error: webinar1hError } = await supabase
+        .from("events")
+        .select("id, title, start_time, zoom_link, host_name, location")
+        .gte("start_time", fiftyMinutesFromNow)
+        .lte("start_time", seventyMinutesFromNow)
+        .eq("is_active", true)
+        .eq("event_type", "webinar");
+
+      if (webinar1hError) {
+        console.error("[CRON] Error fetching upcoming webinars (1h):", webinar1hError);
+      } else if (webinars1h && webinars1h.length > 0) {
+        console.log(`[CRON] Found ${webinars1h.length} webinars starting in 50-70 minutes`);
+        
+        for (const webinar of webinars1h) {
+          if (isTimeoutApproaching()) {
+            console.log("[CRON] Approaching timeout limit, stopping webinar reminders 1h");
+            results.stoppedEarly = true;
+            break;
+          }
+          
+          // Get guests who haven't received a 1h reminder (and are registered)
+          const { data: guests1h, error: guest1hError } = await supabase
+            .from("guest_event_registrations")
+            .select("id, email, first_name, last_name")
+            .eq("event_id", webinar.id)
+            .eq("reminder_1h_sent", false)
+            .eq("status", "registered");
+
+          if (guest1hError) {
+            console.error(`[CRON] Error fetching guests for webinar 1h ${webinar.id}:`, guest1hError);
+            continue;
+          }
+
+          if (!guests1h || guests1h.length === 0) {
+            console.log(`[CRON] No guests to remind (1h) for webinar: ${webinar.title}`);
+            continue;
+          }
+
+          console.log(`[CRON] Found ${guests1h.length} guests to remind (1h) for webinar: ${webinar.title}`);
+
+          for (const guest of guests1h) {
+            if (isTimeoutApproaching()) {
+              results.stoppedEarly = true;
+              break;
+            }
+
+            if (results.webinarReminders1h.processed > 0) {
+              console.log("[CRON] Waiting 1 second before next webinar reminder 1h...");
+              await delay(1000);
+            }
+
+            results.webinarReminders1h.processed++;
+            try {
+              // Format date for display
+              const eventDate = new Date(webinar.start_time);
+              const formattedDate = eventDate.toLocaleDateString('pl-PL', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              });
+              const formattedTime = eventDate.toLocaleTimeString('pl-PL', {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+
+              // Send 1h reminder email using send-webinar-email with template
+              const { error: sendError } = await supabase.functions.invoke("send-webinar-email", {
+                body: {
+                  type: "reminder_1h",
+                  email: guest.email,
+                  firstName: guest.first_name,
+                  eventTitle: webinar.title,
+                  eventDate: formattedDate,
+                  eventTime: formattedTime,
+                  zoomLink: webinar.zoom_link || webinar.location || '',
+                  hostName: webinar.host_name || 'Zespół Pure Life',
+                  eventId: webinar.id,
+                  registrationId: guest.id
+                }
+              });
+
+              if (sendError) {
+                console.error(`[CRON] Failed to send webinar reminder 1h to ${guest.email}:`, sendError);
+                results.webinarReminders1h.failed++;
+              } else {
+                console.log(`[CRON] Sent webinar reminder 1h to ${guest.email} for: ${webinar.title}`);
+                results.webinarReminders1h.success++;
+
+                // Mark 1h reminder as sent
+                await supabase
+                  .from("guest_event_registrations")
+                  .update({ 
+                    reminder_1h_sent: true, 
+                    reminder_1h_sent_at: new Date().toISOString() 
+                  })
+                  .eq("id", guest.id);
+              }
+            } catch (err) {
+              console.error(`[CRON] Exception sending webinar reminder 1h to ${guest.email}:`, err);
+              results.webinarReminders1h.failed++;
+            }
+          }
+        }
+      } else {
+        console.log("[CRON] No webinars starting in next 50-70 minutes");
       }
     }
 
@@ -474,8 +593,8 @@ serve(async (req) => {
     }
 
     // 7. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.retries.processed + results.webinarReminders.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.retries.success + results.webinarReminders.success;
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success;
     
     await supabase
       .from("cron_job_logs")
