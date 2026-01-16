@@ -138,6 +138,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   }, [user, fetchNotifications]);
 
   // Polling for unread count when realtime is disabled (60 second interval)
+  // Pauses when tab is hidden to save resources
   useEffect(() => {
     if (!user || enableRealtime) {
       // Clear polling if realtime is enabled or no user
@@ -148,22 +149,45 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       return;
     }
 
-    // Clear any existing interval before creating new one to prevent leaks
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-
-    // Start polling when realtime is disabled
-    pollingIntervalRef.current = setInterval(() => {
-      fetchUnreadCount();
-    }, 60000); // 60 seconds
-
-    return () => {
+    const startPolling = () => {
+      // Clear any existing interval before creating new one
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      
+      pollingIntervalRef.current = setInterval(() => {
+        fetchUnreadCount();
+      }, 60000); // 60 seconds
+    };
+
+    const stopPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Immediate fetch when tab becomes visible, then resume polling
+        fetchUnreadCount();
+        startPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Start polling only if tab is visible
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user, enableRealtime, fetchUnreadCount]);
 
