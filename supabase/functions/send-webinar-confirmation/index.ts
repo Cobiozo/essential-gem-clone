@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface WebinarConfirmationRequest {
-  eventId: string;
+  eventId?: string;
   email: string;
   firstName: string;
   lastName?: string;
@@ -15,7 +15,11 @@ interface WebinarConfirmationRequest {
   invitedByUserId?: string;
   eventTitle: string;
   eventDate: string;
+  eventTime?: string;
   eventHost?: string;
+  zoomLink?: string;
+  hostName?: string;
+  isReminder?: boolean;
 }
 
 interface SmtpSettings {
@@ -160,16 +164,17 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestData: WebinarConfirmationRequest = await req.json();
-    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventHost } = requestData;
+    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder } = requestData;
     
-    console.log(`[send-webinar-confirmation] Processing for: ${email}, event: ${eventTitle}`);
+    const emailType = isReminder ? 'reminder' : 'confirmation';
+    console.log(`[send-webinar-confirmation] Processing ${emailType} for: ${email}, event: ${eventTitle}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Add guest to team_contacts if invited by a user
-    if (invitedByUserId) {
+    // Add guest to team_contacts if invited by a user (only for confirmations, not reminders)
+    if (invitedByUserId && eventId && !isReminder) {
       console.log(`[send-webinar-confirmation] Adding to team_contacts for user: ${invitedByUserId}`);
       
       const formattedDate = eventDate 
@@ -237,12 +242,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (smtpError || !smtpData) {
       console.warn("[send-webinar-confirmation] SMTP settings not found, skipping email");
-      // Still mark as processed
-      await supabase
-        .from('guest_event_registrations')
-        .update({ confirmation_sent: true, confirmation_sent_at: new Date().toISOString() })
-        .eq('event_id', eventId)
-        .eq('email', email);
+      // Still mark as processed (only for confirmations with eventId)
+      if (eventId && !isReminder) {
+        await supabase
+          .from('guest_event_registrations')
+          .update({ confirmation_sent: true, confirmation_sent_at: new Date().toISOString() })
+          .eq('event_id', eventId)
+          .eq('email', email);
+      }
       
       return new Response(
         JSON.stringify({ success: true, message: "Registration processed, email skipped (no SMTP)" }),
@@ -261,77 +268,144 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     // Format date for email
-    const formattedEventDate = eventDate 
-      ? new Date(eventDate).toLocaleDateString('pl-PL', { 
-          weekday: 'long', 
-          day: 'numeric', 
-          month: 'long', 
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      : '';
+    const displayDate = eventTime 
+      ? `${eventDate}, godz. ${eventTime}` 
+      : (eventDate 
+        ? new Date(eventDate).toLocaleDateString('pl-PL', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : '');
 
-    // Build confirmation email
-    const subject = `Potwierdzenie rejestracji: ${eventTitle}`;
-    const htmlBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #22c55e; }
-          .content { padding: 30px 0; }
-          .event-box { background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
-          h1 { color: #16a34a; margin: 0; }
-          .highlight { color: #16a34a; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>✅ Rejestracja potwierdzona!</h1>
-          </div>
-          <div class="content">
-            <p>Cześć <strong>${firstName}</strong>!</p>
-            <p>Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia:</p>
-            
-            <div class="event-box">
-              <h2 style="margin-top: 0;">${eventTitle}</h2>
-              <p>📅 <strong>Data:</strong> ${formattedEventDate}</p>
-              ${eventHost ? `<p>👤 <strong>Prowadzący:</strong> ${eventHost}</p>` : ''}
+    const displayHost = hostName || eventHost || 'Zespół Pure Life';
+    const displayZoomLink = zoomLink || '';
+
+    // Build email based on type (confirmation or reminder)
+    let subject: string;
+    let htmlBody: string;
+
+    if (isReminder) {
+      subject = `⏰ Przypomnienie: ${eventTitle} - już jutro!`;
+      htmlBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f59e0b; }
+            .content { padding: 30px 0; }
+            .event-box { background: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b; }
+            .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+            h1 { color: #d97706; margin: 0; }
+            .highlight { color: #d97706; font-weight: bold; }
+            .join-button { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⏰ Przypomnienie o webinarze!</h1>
             </div>
-            
-            <p><strong>Co dalej?</strong></p>
-            <ul>
-              <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
-              <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
-              <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
-            </ul>
-            
-            <p>Do zobaczenia na webinarze! 🎉</p>
+            <div class="content">
+              <p>Cześć <strong>${firstName}</strong>!</p>
+              <p>Przypominamy, że <span class="highlight">już jutro</span> odbędzie się webinar, na który się zapisałeś/aś:</p>
+              
+              <div class="event-box">
+                <h2 style="margin-top: 0;">📅 ${eventTitle}</h2>
+                <p><strong>Data i godzina:</strong> ${displayDate}</p>
+                <p><strong>Prowadzący:</strong> ${displayHost}</p>
+                ${displayZoomLink ? `
+                  <p style="margin-top: 20px;"><strong>🔗 Link do dołączenia:</strong></p>
+                  <a href="${displayZoomLink}" class="join-button">Dołącz do webinaru</a>
+                  <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayZoomLink}</p>
+                ` : ''}
+              </div>
+              
+              <p><strong>Wskazówki:</strong></p>
+              <ul>
+                <li>Dołącz kilka minut przed rozpoczęciem</li>
+                <li>Sprawdź swoje połączenie internetowe</li>
+                <li>Przygotuj notatnik na ważne informacje</li>
+              </ul>
+              
+              <p>Do zobaczenia! 🎉</p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+            </div>
           </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
-            <p>Ta wiadomość została wygenerowana automatycznie.</p>
+        </body>
+        </html>
+      `;
+    } else {
+      subject = `Potwierdzenie rejestracji: ${eventTitle}`;
+      htmlBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #22c55e; }
+            .content { padding: 30px 0; }
+            .event-box { background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+            h1 { color: #16a34a; margin: 0; }
+            .highlight { color: #16a34a; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Rejestracja potwierdzona!</h1>
+            </div>
+            <div class="content">
+              <p>Cześć <strong>${firstName}</strong>!</p>
+              <p>Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia:</p>
+              
+              <div class="event-box">
+                <h2 style="margin-top: 0;">${eventTitle}</h2>
+                <p>📅 <strong>Data:</strong> ${displayDate}</p>
+                <p>👤 <strong>Prowadzący:</strong> ${displayHost}</p>
+              </div>
+              
+              <p><strong>Co dalej?</strong></p>
+              <ul>
+                <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
+                <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
+                <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
+              </ul>
+              
+              <p>Do zobaczenia na webinarze! 🎉</p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+              <p>Ta wiadomość została wygenerowana automatycznie.</p>
+            </div>
           </div>
-        </div>
-      </body>
-      </html>
-    `;
+        </body>
+        </html>
+      `;
+    }
 
     try {
       await sendSmtpEmail(smtpSettings, email, subject, htmlBody);
       
-      // Update confirmation status
-      await supabase
-        .from('guest_event_registrations')
-        .update({ confirmation_sent: true, confirmation_sent_at: new Date().toISOString() })
-        .eq('event_id', eventId)
-        .eq('email', email);
+      // Update confirmation status (only for confirmations with eventId)
+      if (eventId && !isReminder) {
+        await supabase
+          .from('guest_event_registrations')
+          .update({ confirmation_sent: true, confirmation_sent_at: new Date().toISOString() })
+          .eq('event_id', eventId)
+          .eq('email', email);
+      }
 
       // Log email
       await supabase.from("email_logs").insert({
@@ -339,13 +413,17 @@ const handler = async (req: Request): Promise<Response> => {
         subject: subject,
         status: "sent",
         sent_at: new Date().toISOString(),
-        metadata: { type: "webinar_confirmation", event_id: eventId, event_title: eventTitle },
+        metadata: { 
+          type: isReminder ? "webinar_reminder" : "webinar_confirmation", 
+          event_id: eventId, 
+          event_title: eventTitle 
+        },
       });
 
-      console.log(`[send-webinar-confirmation] Email sent to ${email}`);
+      console.log(`[send-webinar-confirmation] ${isReminder ? 'Reminder' : 'Confirmation'} email sent to ${email}`);
       
       return new Response(
-        JSON.stringify({ success: true, message: "Confirmation email sent" }),
+        JSON.stringify({ success: true, message: `${isReminder ? 'Reminder' : 'Confirmation'} email sent` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
@@ -358,7 +436,10 @@ const handler = async (req: Request): Promise<Response> => {
         subject: subject,
         status: "failed",
         error_message: sendError.message,
-        metadata: { type: "webinar_confirmation", event_id: eventId },
+        metadata: { 
+          type: isReminder ? "webinar_reminder" : "webinar_confirmation", 
+          event_id: eventId 
+        },
       });
 
       return new Response(

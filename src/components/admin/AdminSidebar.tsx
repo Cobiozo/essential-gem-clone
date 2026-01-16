@@ -46,6 +46,7 @@ import {
   Clock,
   CalendarDays,
   HelpCircle,
+  UserPlus,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -64,6 +65,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     dailySignal: 'Sygnał dnia',
     importantInfo: 'Ważne informacje',
     events: 'Wydarzenia',
+    guestRegistrations: 'Rejestracje gości',
     communication: 'Komunikacja',
     translations: 'Tłumaczenia',
     teamContacts: 'Kontakty zespołu',
@@ -98,6 +100,7 @@ const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
     dailySignal: 'Daily signal',
     importantInfo: 'Important info',
     events: 'Events',
+    guestRegistrations: 'Guest Registrations',
     communication: 'Communication',
     translations: 'Translations',
     teamContacts: 'Team contacts',
@@ -193,6 +196,7 @@ const navCategories: NavCategory[] = [
       { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
       { value: 'events', labelKey: 'events', icon: CalendarDays },
+      { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
     ],
   },
   {
