@@ -38,6 +38,8 @@ const KnowledgeCenter = lazy(() => import("./pages/KnowledgeCenter"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const IndividualMeetingsPage = lazy(() => import("./pages/IndividualMeetingsPage"));
 const InfoLinkPage = lazy(() => import("./pages/InfoLinkPage"));
+const WebinarsPage = lazy(() => import("./pages/WebinarsPage"));
+const TeamMeetingsPage = lazy(() => import("./pages/TeamMeetingsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -182,6 +184,8 @@ const AppContent = () => {
               <Route path="/knowledge" element={<KnowledgeCenter />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/events/individual-meetings" element={<IndividualMeetingsPage />} />
+              <Route path="/events/webinars" element={<WebinarsPage />} />
+              <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />
               <Route path="/infolink/:slug" element={<InfoLinkPage />} />
               <Route path="/page/:slug" element={<Page />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
