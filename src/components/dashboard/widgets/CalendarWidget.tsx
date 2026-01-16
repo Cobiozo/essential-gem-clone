@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { EventWithRegistration } from '@/types/events';
@@ -15,9 +16,34 @@ export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { events, loading, registerForEvent } = useEvents();
+  const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<EventWithRegistration[]>([]);
+  const dateLocale = language === 'pl' ? pl : enUS;
+
+  // Copy webinar invitation to clipboard
+  const handleCopyInvitation = (event: EventWithRegistration) => {
+    const startDate = new Date(event.start_time);
+    const endDate = new Date(event.end_time);
+    const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    
+    const invitationText = `
+🎥 Zaproszenie na webinar: ${event.title}
+
+📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
+⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
+${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
+
+Zapisz się tutaj: ${inviteUrl}
+    `.trim();
+    
+    navigator.clipboard.writeText(invitationText);
+    toast({ 
+      title: 'Skopiowano!', 
+      description: 'Zaproszenie zostało skopiowane do schowka' 
+    });
+  };
 
   // Sync selectedDayEvents when events change (for real-time updates)
   useEffect(() => {
@@ -295,7 +321,23 @@ export const CalendarWidget: React.FC = () => {
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                       </span>
-                      {getRegistrationButton(event)}
+                      <div className="flex items-center gap-1">
+                        {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyInvitation(event);
+                            }}
+                            title="Zaproś Gościa"
+                          >
+                            <UserPlus className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {getRegistrationButton(event)}
+                      </div>
                     </div>
                   </div>
                 ))}

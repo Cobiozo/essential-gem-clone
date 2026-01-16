@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { addMinutes } from 'date-fns';
+import { addMinutes, format } from 'date-fns';
 import { 
   Calendar, 
   Bell,
@@ -270,8 +270,19 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             <div className="relative">
               <Input
                 type="datetime-local"
-                value={form.start_time ? form.start_time.slice(0, 16) : ''}
-                onChange={(e) => setForm({ ...form, start_time: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                value={form.start_time ? format(new Date(form.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    // Preserve local time by parsing without timezone conversion
+                    const [datePart, timePart] = e.target.value.split('T');
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    const [hours, minutes] = timePart.split(':').map(Number);
+                    const localDate = new Date(year, month - 1, day, hours, minutes);
+                    setForm({ ...form, start_time: localDate.toISOString() });
+                  } else {
+                    setForm({ ...form, start_time: '' });
+                  }
+                }}
                 className="h-10 pl-10"
               />
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
