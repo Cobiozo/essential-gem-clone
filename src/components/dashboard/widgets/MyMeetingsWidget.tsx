@@ -84,9 +84,16 @@ export const MyMeetingsWidget: React.FC = () => {
       )
       .subscribe();
 
+    // Listen for custom events from CalendarWidget registration actions
+    const handleRegistrationChange = () => {
+      fetchUserEventsData();
+    };
+    window.addEventListener('eventRegistrationChange', handleRegistrationChange);
+
     return () => {
       supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(eventsChannel);
+      window.removeEventListener('eventRegistrationChange', handleRegistrationChange);
     };
   }, [user?.id, fetchUserEventsData]); // Only user.id as dependency
 

@@ -93,52 +93,54 @@ export const ActiveOtpCodesWidget: React.FC = () => {
   const [codes, setCodes] = useState<ActiveOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchActiveCodes = async () => {
+    if (!user?.id) return;
+    
+    const now = new Date().toISOString();
+    
+    const { data, error } = await supabase
+      .from('infolink_otp_codes')
+      .select(`
+        id, code, expires_at, used_sessions,
+        reflink:reflinks(title, slug, otp_max_sessions),
+        infolink_sessions(expires_at)
+      `)
+      .eq('partner_id', user.id)
+      .eq('is_invalidated', false)
+      .gte('expires_at', now)
+      .order('expires_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching active OTP codes:', error);
+      setCodes([]);
+    } else {
+      const validCodes = (data || [])
+        .filter(c => c.reflink)
+        .map(c => {
+          const sessions = (c as any).infolink_sessions || [];
+          const firstSessionExpiresAt = sessions.length > 0
+            ? sessions.sort((a: any, b: any) => 
+                new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()
+              )[0].expires_at
+            : null;
+          return {
+            id: c.id,
+            code: c.code,
+            expires_at: c.expires_at,
+            used_sessions: c.used_sessions,
+            reflink: c.reflink,
+            first_session_expires_at: firstSessionExpiresAt,
+          };
+        }) as ActiveOtpCode[];
+      setCodes(validCodes);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (!user?.id || !isPartner) return;
 
     let interval: NodeJS.Timeout | null = null;
-
-    const fetchActiveCodes = async () => {
-      const now = new Date().toISOString();
-      
-      const { data, error } = await supabase
-        .from('infolink_otp_codes')
-        .select(`
-          id, code, expires_at, used_sessions,
-          reflink:reflinks(title, slug, otp_max_sessions),
-          infolink_sessions(expires_at)
-        `)
-        .eq('partner_id', user.id)
-        .eq('is_invalidated', false)
-        .gte('expires_at', now)
-        .order('expires_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching active OTP codes:', error);
-        setCodes([]);
-      } else {
-        const validCodes = (data || [])
-          .filter(c => c.reflink)
-          .map(c => {
-            const sessions = (c as any).infolink_sessions || [];
-            const firstSessionExpiresAt = sessions.length > 0
-              ? sessions.sort((a: any, b: any) => 
-                  new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()
-                )[0].expires_at
-              : null;
-            return {
-              id: c.id,
-              code: c.code,
-              expires_at: c.expires_at,
-              used_sessions: c.used_sessions,
-              reflink: c.reflink,
-              first_session_expires_at: firstSessionExpiresAt,
-            };
-          }) as ActiveOtpCode[];
-        setCodes(validCodes);
-      }
-      setLoading(false);
-    };
 
     const startPolling = () => {
       if (interval) clearInterval(interval);
@@ -163,6 +165,30 @@ export const ActiveOtpCodesWidget: React.FC = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Listen for custom event from InfoLinksWidget OTP generation
+    const handleOtpGenerated = () => {
+      fetchActiveCodes();
+    };
+    window.addEventListener('otpCodeGenerated', handleOtpGenerated);
+
+    // Real-time subscription for OTP codes changes
+    const channelName = `otp-codes-${user.id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'infolink_otp_codes',
+          filter: `partner_id=eq.${user.id}`
+        },
+        () => {
+          fetchActiveCodes();
+        }
+      )
+      .subscribe();
+
     fetchActiveCodes();
     if (!document.hidden) {
       startPolling();
@@ -171,6 +197,8 @@ export const ActiveOtpCodesWidget: React.FC = () => {
     return () => {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('otpCodeGenerated', handleOtpGenerated);
+      supabase.removeChannel(channel);
     };
   }, [user?.id, isPartner]);
 
