@@ -247,29 +247,17 @@ Zapisz się tutaj: ${inviteUrl}
       );
     }
 
-    // Copy invitation button (for upcoming webinars)
+    // Invite guest button (for upcoming webinars)
     if (isUpcoming && !isPastEvent && event.event_type === 'webinar') {
-      buttons.push(
-        <Button
-          key="copy-invite"
-          variant="outline"
-          size="sm"
-          onClick={handleCopyInvitation}
-        >
-          <Copy className="h-4 w-4 mr-2" />
-          Kopiuj zaproszenie
-        </Button>
-      );
-
       buttons.push(
         <Button
           key="invite-guest"
           variant="outline"
           size="sm"
-          onClick={handleCopyGuestLink}
+          onClick={handleCopyInvitation}
         >
           <UserPlus className="h-4 w-4 mr-2" />
-          Zaproś gościa
+          Zaproś Gościa
         </Button>
       );
     }
