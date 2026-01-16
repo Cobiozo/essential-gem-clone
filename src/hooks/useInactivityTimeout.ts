@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -20,67 +20,76 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningShownRef = useRef(false);
   const lastActivityRef = useRef<number>(Date.now());
-
-  const handleLogout = useCallback(async () => {
-    console.log('[useInactivityTimeout] Logging out due to inactivity');
-    
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error('[useInactivityTimeout] Error during signOut:', error);
-    }
-    
-    onLogout?.();
-    navigate('/auth', { replace: true });
-    
-    toast({
-      title: 'Sesja wygasła',
-      description: 'Zostałeś wylogowany z powodu braku aktywności.',
-      variant: 'default',
-    });
-  }, [navigate, toast, onLogout]);
-
-  const showWarning = useCallback(() => {
-    if (warningShownRef.current) return;
-    warningShownRef.current = true;
-    
-    toast({
-      title: 'Ostrzeżenie o sesji',
-      description: 'Za 5 minut zostaniesz wylogowany z powodu braku aktywności. Kliknij gdziekolwiek, aby pozostać zalogowanym.',
-      duration: 10000,
-    });
-  }, [toast]);
-
-  const resetTimer = useCallback(() => {
-    lastActivityRef.current = Date.now();
-    warningShownRef.current = false;
-
-    // Clear existing timers
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (warningTimeoutRef.current) {
-      clearTimeout(warningTimeoutRef.current);
-    }
-
-    // Set warning timeout (5 min before logout)
-    warningTimeoutRef.current = setTimeout(() => {
-      showWarning();
-    }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_LOGOUT_MS);
-
-    // Set logout timeout
-    timeoutRef.current = setTimeout(() => {
-      handleLogout();
-    }, INACTIVITY_TIMEOUT_MS);
-  }, [handleLogout, showWarning]);
+  
+  // Stable refs for callbacks to avoid re-creating timers
+  const onLogoutRef = useRef(onLogout);
+  const navigateRef = useRef(navigate);
+  const toastRef = useRef(toast);
+  
+  // Update refs on each render
+  onLogoutRef.current = onLogout;
+  navigateRef.current = navigate;
+  toastRef.current = toast;
 
   useEffect(() => {
     if (!enabled) return;
 
-    // Events that indicate user activity
+    const handleLogout = async () => {
+      console.log('[useInactivityTimeout] Logging out due to inactivity');
+      
+      try {
+        await supabase.auth.signOut();
+      } catch (error) {
+        console.error('[useInactivityTimeout] Error during signOut:', error);
+      }
+      
+      onLogoutRef.current?.();
+      navigateRef.current('/auth', { replace: true });
+      
+      toastRef.current({
+        title: 'Sesja wygasła',
+        description: 'Zostałeś wylogowany z powodu braku aktywności.',
+        variant: 'default',
+      });
+    };
+
+    const showWarning = () => {
+      if (warningShownRef.current) return;
+      warningShownRef.current = true;
+      
+      toastRef.current({
+        title: 'Ostrzeżenie o sesji',
+        description: 'Za 5 minut zostaniesz wylogowany z powodu braku aktywności. Kliknij gdziekolwiek, aby pozostać zalogowanym.',
+        duration: 10000,
+      });
+    };
+
+    const resetTimer = () => {
+      lastActivityRef.current = Date.now();
+      warningShownRef.current = false;
+
+      // Clear existing timers
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (warningTimeoutRef.current) {
+        clearTimeout(warningTimeoutRef.current);
+      }
+
+      // Set warning timeout (5 min before logout)
+      warningTimeoutRef.current = setTimeout(() => {
+        showWarning();
+      }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_LOGOUT_MS);
+
+      // Set logout timeout
+      timeoutRef.current = setTimeout(() => {
+        handleLogout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    // Events that indicate user activity (no mousemove - only actual interactions)
     const activityEvents = [
       'mousedown',
-      'mousemove',
       'keydown',
       'scroll',
       'touchstart',
@@ -139,10 +148,9 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       });
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [enabled, resetTimer, handleLogout]);
+  }, [enabled]);
 
   return {
-    resetTimer,
     lastActivity: lastActivityRef.current,
   };
 };
