@@ -107,3 +107,9 @@ verify_jwt = false
 
 [functions.send-webinar-email]
 verify_jwt = false
+
+[functions.zoom-create-meeting]
+verify_jwt = true
+
+[functions.zoom-check-status]
+verify_jwt = true

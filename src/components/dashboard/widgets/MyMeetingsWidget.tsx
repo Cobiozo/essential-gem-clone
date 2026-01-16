@@ -166,22 +166,28 @@ export const MyMeetingsWidget: React.FC = () => {
     // Check if event is webinar or team training
     const isWebinarOrTeamMeeting = event.event_type === 'webinar' || event.event_type === 'team_training';
     
+    // Determine which URL to use - host gets start_url if available
+    const eventAny = event as any;
+    const isHost = event.host_user_id === user?.id || (event as any).created_by === user?.id;
+    const zoomUrl = isHost && eventAny.zoom_start_url ? eventAny.zoom_start_url : event.zoom_link;
+    const buttonLabel = isHost && eventAny.zoom_start_url ? 'Rozpocznij' : 'WEJDŹ';
+    
     // 15 min before or during event - show WEJDŹ button with pulsing red dot
     if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
-      if (event.zoom_link) {
+      if (zoomUrl) {
         return (
           <Button
             size="sm"
             className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
             asChild
           >
-            <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+            <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
               {/* Pulsing red dot - recording indicator */}
               <span className="relative flex h-2 w-2 mr-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
               </span>
-              WEJDŹ
+              {buttonLabel}
             </a>
           </Button>
         );
@@ -226,7 +232,7 @@ export const MyMeetingsWidget: React.FC = () => {
     }
     
     // Standard zoom link for other future events
-    if (event.zoom_link) {
+    if (zoomUrl) {
       return (
         <Button
           size="sm"
@@ -234,9 +240,9 @@ export const MyMeetingsWidget: React.FC = () => {
           className="h-6 px-2 text-xs"
           asChild
         >
-          <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+          <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-3 w-3 mr-1" />
-            Zoom
+            {isHost ? 'Rozpocznij' : 'Zoom'}
           </a>
         </Button>
       );
