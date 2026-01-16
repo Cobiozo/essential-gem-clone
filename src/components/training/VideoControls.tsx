@@ -78,7 +78,9 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             <span>
               {isInitialLoad 
                 ? "Przygotowuję wideo do odtwarzania..." 
-                : "Słaby zasięg sieci - ładowanie wideo..."}
+                : networkQuality === 'slow' || networkQuality === 'offline'
+                  ? "Słaby zasięg sieci - ładowanie wideo..."
+                  : "Buforowanie wideo..."}
             </span>
             {bufferProgress !== undefined && bufferProgress > 0 && bufferProgress < 100 && (
               <div className="mt-1">

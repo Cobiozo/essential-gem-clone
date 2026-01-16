@@ -86,6 +86,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const wasPlayingBeforeBufferRef = useRef<boolean>(false);
   const stuckCheckRef = useRef<NodeJS.Timeout>();
   const lastProgressTimeRef = useRef<number>(0);
+  const bufferingTimeoutRef = useRef<NodeJS.Timeout>(); // NEW: Timeout for smart buffering delay
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // State dla odświeżania signed URL przed wygaśnięciem
@@ -437,18 +438,37 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     console.log('[SecureMedia] Attaching event listeners to video element');
 
     // Buffering handlers - prevent false seek detection during network delays
+    // NEW: Added tolerance for micro-stalls to avoid unnecessary interruptions
     const handleWaiting = () => {
-      console.log('[SecureMedia] Video waiting for data (buffering)');
-      isBufferingRef.current = true;
-      setIsBuffering(true);
+      console.log('[SecureMedia] Video waiting for data (potential buffering)');
       
-      // NEW: Remember if video was playing before buffering
-      if (!video.paused) {
-        wasPlayingBeforeBufferRef.current = true;
-        video.pause(); // Pause until buffer is sufficient
-        setIsSmartBuffering(true);
-        console.log('[SecureMedia] Smart buffering activated - waiting for sufficient buffer');
+      // Clear any existing buffering timeout
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
       }
+      
+      // Delay smart buffering activation to ignore micro-stalls (1.5s tolerance)
+      const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 1500;
+      
+      bufferingTimeoutRef.current = setTimeout(() => {
+        // Check if video already recovered
+        if (video.paused || video.readyState >= 3) {
+          console.log('[SecureMedia] Video recovered before smart buffering activation');
+          return;
+        }
+        
+        console.log('[SecureMedia] Buffering timeout reached, activating smart buffering');
+        isBufferingRef.current = true;
+        setIsBuffering(true);
+        
+        // Remember if video was playing before buffering
+        if (!video.paused) {
+          wasPlayingBeforeBufferRef.current = true;
+          video.pause(); // Pause until buffer is sufficient
+          setIsSmartBuffering(true);
+          console.log('[SecureMedia] Smart buffering activated - waiting for sufficient buffer');
+        }
+      }, smartBufferingDelay);
     };
 
     const handleStalled = () => {
@@ -460,7 +480,25 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handleCanPlay = () => {
       console.log('[SecureMedia] Video can play');
       
-      // NEW: Delay before disabling buffering flag to prevent false seek detection
+      // NEW: Clear any pending buffering timeout - video recovered
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = undefined;
+      }
+      
+      // NEW: Immediately resume if smart buffering was active (faster recovery)
+      if (isSmartBuffering && wasPlayingBeforeBufferRef.current) {
+        console.log('[SecureMedia] Smart buffering recovery - resuming immediately');
+        setIsSmartBuffering(false);
+        setIsBuffering(false);
+        isBufferingRef.current = false;
+        lastValidTimeRef.current = video.currentTime;
+        video.play().catch(console.error);
+        wasPlayingBeforeBufferRef.current = false;
+        return;
+      }
+      
+      // Delay before disabling buffering flag to prevent false seek detection
       setTimeout(() => {
         if (isBufferingRef.current) {
           // CRITICAL: Sync lastValidTimeRef after buffering to prevent false seek detection
@@ -484,7 +522,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             // Update buffered ranges for visualization
             setBufferedRanges(getBufferedRanges(video));
             
-            // NEW: Disable initial buffering when buffer is ready
+            // Disable initial buffering when buffer is ready
             if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
               console.log('[SecureMedia] Initial buffer complete via canPlay, Play button enabled');
               setIsInitialBuffering(false);
