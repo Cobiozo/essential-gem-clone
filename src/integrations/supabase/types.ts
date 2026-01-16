@@ -1901,6 +1901,94 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_event_registrations: {
+        Row: {
+          cancelled_at: string | null
+          confirmation_sent: boolean | null
+          confirmation_sent_at: string | null
+          created_at: string | null
+          email: string
+          event_id: string
+          first_name: string
+          id: string
+          invited_by_user_id: string | null
+          last_name: string | null
+          notes: string | null
+          phone: string | null
+          registered_at: string | null
+          reminder_sent: boolean | null
+          reminder_sent_at: string | null
+          source: string | null
+          status: string | null
+          team_contact_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          confirmation_sent?: boolean | null
+          confirmation_sent_at?: string | null
+          created_at?: string | null
+          email: string
+          event_id: string
+          first_name: string
+          id?: string
+          invited_by_user_id?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_at?: string | null
+          reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
+          source?: string | null
+          status?: string | null
+          team_contact_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          confirmation_sent?: boolean | null
+          confirmation_sent_at?: string | null
+          created_at?: string | null
+          email?: string
+          event_id?: string
+          first_name?: string
+          id?: string
+          invited_by_user_id?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_at?: string | null
+          reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
+          source?: string | null
+          status?: string | null
+          team_contact_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_event_registrations_invited_by_user_id_fkey"
+            columns: ["invited_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "guest_event_registrations_team_contact_id_fkey"
+            columns: ["team_contact_id"]
+            isOneToOne: false
+            referencedRelation: "team_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       i18n_languages: {
         Row: {
           code: string

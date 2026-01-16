@@ -18,7 +18,9 @@ import {
   Users,
   Check,
   X,
-  Loader2
+  Loader2,
+  Copy,
+  UserPlus
 } from 'lucide-react';
 import type { EventWithRegistration, EventButton } from '@/types/events';
 
@@ -139,6 +141,36 @@ export const EventCard: React.FC<EventCardProps> = ({
     return <Badge variant="outline">{labels[type] || type}</Badge>;
   };
 
+  // Copy invitation text to clipboard
+  const handleCopyInvitation = () => {
+    const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    const invitationText = `
+🎥 Zaproszenie na webinar: ${event.title}
+
+📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
+⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
+${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
+
+Zapisz się tutaj: ${inviteUrl}
+    `.trim();
+    
+    navigator.clipboard.writeText(invitationText);
+    toast({ 
+      title: 'Skopiowano!', 
+      description: 'Zaproszenie zostało skopiowane do schowka' 
+    });
+  };
+
+  // Copy guest registration link
+  const handleCopyGuestLink = () => {
+    const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    navigator.clipboard.writeText(inviteUrl);
+    toast({ 
+      title: 'Skopiowano!', 
+      description: 'Link do formularza rejestracji został skopiowany' 
+    });
+  };
+
   const renderButtons = () => {
     const buttons: React.ReactNode[] = [];
 
@@ -191,7 +223,7 @@ export const EventCard: React.FC<EventCardProps> = ({
       );
     }
 
-    // Registration button
+    // Registration button for logged-in users
     if (showRegistration && event.requires_registration && isUpcoming && !isPastEvent) {
       const isFull = event.max_participants && (event.registration_count || 0) >= event.max_participants;
       
@@ -215,18 +247,45 @@ export const EventCard: React.FC<EventCardProps> = ({
       );
     }
 
+    // Copy invitation button (for upcoming webinars)
+    if (isUpcoming && !isPastEvent && event.event_type === 'webinar') {
+      buttons.push(
+        <Button
+          key="copy-invite"
+          variant="outline"
+          size="sm"
+          onClick={handleCopyInvitation}
+        >
+          <Copy className="h-4 w-4 mr-2" />
+          Kopiuj zaproszenie
+        </Button>
+      );
+
+      buttons.push(
+        <Button
+          key="invite-guest"
+          variant="outline"
+          size="sm"
+          onClick={handleCopyGuestLink}
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          Zaproś gościa
+        </Button>
+      );
+    }
+
     return buttons;
   };
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      {/* Event image */}
+      {/* Event image - full size, not cropped */}
       {event.image_url && (
-        <div className="relative h-48 overflow-hidden">
+        <div className="relative w-full bg-muted/30">
           <img
             src={event.image_url}
             alt={event.title}
-            className="w-full h-full object-cover"
+            className="w-full h-auto object-contain max-h-[300px]"
           />
           <div className="absolute top-2 right-2 flex gap-2">
             {getStatusBadge()}
