@@ -313,16 +313,16 @@ serve(async (req) => {
 </html>
     `;
 
-    // Send email
+    // Send email - map database column names to SmtpSettings interface
     await sendSmtpEmail(
       {
-        host: smtpSettings.host,
-        port: smtpSettings.port,
-        username: smtpSettings.username,
-        password: smtpSettings.password,
-        from_email: smtpSettings.from_email,
-        from_name: smtpSettings.from_name || "Pure Life System",
-        encryption_type: smtpSettings.encryption_type || "starttls",
+        host: smtpSettings.smtp_host,
+        port: smtpSettings.smtp_port,
+        username: smtpSettings.smtp_username,
+        password: smtpSettings.smtp_password,
+        from_email: smtpSettings.sender_email,
+        from_name: smtpSettings.sender_name || "Pure Life System",
+        encryption_type: smtpSettings.smtp_encryption || "starttls",
       },
       profile.email,
       "🔧 Tryb serwisowy - Twój link dostępu",
