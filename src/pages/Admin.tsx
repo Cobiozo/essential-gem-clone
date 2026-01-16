@@ -53,6 +53,7 @@ import CronJobsManagement from '@/components/admin/CronJobsManagement';
 import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
 import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
+import GuestRegistrationsManagement from '@/components/admin/GuestRegistrationsManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
@@ -4326,6 +4327,10 @@ const Admin = () => {
 
           <TabsContent value="events">
             <EventsManagement />
+          </TabsContent>
+
+          <TabsContent value="guest-registrations">
+            <GuestRegistrationsManagement />
           </TabsContent>
 
           <TabsContent value="translations">
