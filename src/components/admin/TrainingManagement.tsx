@@ -145,6 +145,48 @@ const TrainingManagement = () => {
     }
   }, [activeTab]);
 
+  // Real-time subscription for training progress updates
+  useEffect(() => {
+    if (activeTab !== 'progress') return;
+
+    const progressChannel = supabase
+      .channel('training-progress-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'training_progress'
+        },
+        () => {
+          console.log('📊 Training progress changed, refreshing...');
+          fetchUserProgress();
+        }
+      )
+      .subscribe();
+
+    const assignmentsChannel = supabase
+      .channel('training-assignments-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'training_assignments'
+        },
+        () => {
+          console.log('📋 Training assignments changed, refreshing...');
+          fetchUserProgress();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(progressChannel);
+      supabase.removeChannel(assignmentsChannel);
+    };
+  }, [activeTab]);
+
   const fetchModules = async () => {
     try {
       const { data, error } = await supabase

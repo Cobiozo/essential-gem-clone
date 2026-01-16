@@ -11,6 +11,7 @@ import { CalendarWidget } from '@/components/dashboard/widgets/CalendarWidget';
 import { MyMeetingsWidget } from '@/components/dashboard/widgets/MyMeetingsWidget';
 import { DashboardFooterSection } from '@/components/dashboard/widgets/DashboardFooterSection';
 import { ActiveOtpCodesWidget } from '@/components/dashboard/widgets/ActiveOtpCodesWidget';
+import { ActiveUsersWidget } from '@/components/dashboard/widgets/ActiveUsersWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const Dashboard: React.FC = () => {
@@ -27,10 +28,13 @@ const Dashboard: React.FC = () => {
           {/* Column 1: Calendar */}
           <CalendarWidget />
 
-          {/* Column 2: Training Progress */}
+          {/* Column 2: My Meetings - obok kalendarza */}
+          <MyMeetingsWidget />
+
+          {/* Column 3: Training Progress */}
           <TrainingProgressWidget />
 
-          {/* Column 3: Notifications */}
+          {/* Notifications */}
           <NotificationsWidget />
 
           {/* Active OTP Codes for partners */}
@@ -41,7 +45,9 @@ const Dashboard: React.FC = () => {
           <TeamContactsWidget />
           <ReflinksWidget />
           <InfoLinksWidget />
-          <MyMeetingsWidget />
+          
+          {/* Active Users Widget - only visible to admins */}
+          <ActiveUsersWidget />
         </div>
       </div>
 

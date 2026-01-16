@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Video, Users, User, ExternalLink, Clock } from 'lucide-react';
+import { Calendar, Video, Users, User, ExternalLink, Clock, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -15,6 +16,7 @@ export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { getUserEvents } = useEvents();
+  const navigate = useNavigate();
   const [userEvents, setUserEvents] = useState<EventWithRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
@@ -145,7 +147,10 @@ export const MyMeetingsWidget: React.FC = () => {
       return null;
     }
     
-    // 15 min before or during event - show WEJDŹ button
+    // Check if event is webinar or team training
+    const isWebinarOrTeamMeeting = event.event_type === 'webinar' || event.event_type === 'team_training';
+    
+    // 15 min before or during event - show WEJDŹ button with pulsing red dot
     if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
       if (event.zoom_link) {
         return (
@@ -155,20 +160,28 @@ export const MyMeetingsWidget: React.FC = () => {
             asChild
           >
             <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3 w-3 mr-1" />
+              {/* Pulsing red dot - recording indicator */}
+              <span className="relative flex h-2 w-2 mr-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
               WEJDŹ
             </a>
           </Button>
         );
       }
       return (
-        <Badge className="bg-emerald-600 text-white">
+        <Badge className="bg-emerald-600 text-white flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+          </span>
           Trwa teraz
         </Badge>
       );
     }
     
-    // More than 15 min until event - show countdown or zoom link
+    // More than 15 min until event - show countdown or details button
     if (minutesUntilEvent <= 60 && minutesUntilEvent > 15) {
       return (
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -178,7 +191,25 @@ export const MyMeetingsWidget: React.FC = () => {
       );
     }
     
-    // Standard zoom link for future events
+    // For webinars and team meetings - show "Szczegóły" button instead of Zoom
+    if (isWebinarOrTeamMeeting) {
+      const detailsPath = event.event_type === 'webinar' 
+        ? '/events/webinars' 
+        : '/events/team-meetings';
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 px-2 text-xs"
+          onClick={() => navigate(detailsPath)}
+        >
+          <Info className="h-3 w-3 mr-1" />
+          Szczegóły
+        </Button>
+      );
+    }
+    
+    // Standard zoom link for other future events
     if (event.zoom_link) {
       return (
         <Button
