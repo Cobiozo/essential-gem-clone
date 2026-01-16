@@ -136,17 +136,16 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         if (availError) throw availError;
       }
 
-      // Update zoom link in leader_permissions using upsert (creates record if not exists)
-      const { error: permError } = await supabase
+      // Update zoom link in leader_permissions (only update, no insert - record must exist)
+      const { error: permError, count } = await supabase
         .from('leader_permissions')
-        .upsert({ 
-          user_id: user.id, 
-          zoom_link: zoomLink || null 
-        }, { 
-          onConflict: 'user_id' 
-        });
+        .update({ zoom_link: zoomLink || null })
+        .eq('user_id', user.id);
 
-      if (permError) throw permError;
+      if (permError) {
+        console.error('Error updating leader_permissions:', permError);
+        // Don't throw - this is not critical, just log it
+      }
 
       toast({
         title: t('toast.success'),

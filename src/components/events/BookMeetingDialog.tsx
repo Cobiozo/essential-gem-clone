@@ -163,7 +163,7 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
     setSubmitting(true);
     
     try {
-      // Create event
+      // Create event timestamps
       const startDateTime = new Date(selectedDate);
       const [hours, minutes] = selectedTime.split(':').map(Number);
       startDateTime.setHours(hours, minutes, 0, 0);
@@ -171,12 +171,34 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
       const endDateTime = new Date(startDateTime);
       endDateTime.setMinutes(endDateTime.getMinutes() + (selectedTopic.duration_minutes || 30));
       
+      // Check if slot is still available (prevent double booking)
+      const { data: existingEvent } = await supabase
+        .from('events')
+        .select('id')
+        .eq('host_user_id', selectedTopic.leader_user_id)
+        .gte('start_time', startDateTime.toISOString())
+        .lt('start_time', endDateTime.toISOString())
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingEvent) {
+        toast({
+          title: t('toast.error'),
+          description: 'Ten termin został właśnie zarezerwowany. Wybierz inny.',
+          variant: 'destructive',
+        });
+        setStep('time');
+        setSelectedTime(null);
+        await loadAvailability();
+        return;
+      }
+      
       const { data: event, error: eventError } = await supabase
         .from('events')
         .insert({
           title: selectedTopic.title,
           description: selectedTopic.description,
-          event_type: 'meeting_private',
+          event_type: 'private_meeting',
           start_time: startDateTime.toISOString(),
           end_time: endDateTime.toISOString(),
           host_user_id: selectedTopic.leader_user_id,
@@ -204,6 +226,15 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
         });
       
       if (regError) throw regError;
+
+      // Also register the host as participant
+      await supabase
+        .from('event_registrations')
+        .insert({
+          event_id: event.id,
+          user_id: selectedTopic.leader_user_id,
+          status: 'registered',
+        });
       
       toast({
         title: t('toast.success'),
