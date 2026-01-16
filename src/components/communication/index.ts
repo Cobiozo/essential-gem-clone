@@ -1,0 +1,1 @@
+export { CommunicationCenter } from './CommunicationCenter';
