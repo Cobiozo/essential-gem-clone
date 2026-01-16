@@ -92,12 +92,20 @@ const TrainingModule = () => {
     return uuidRegex.test(str);
   };
 
+  // Redirect unauthenticated users to login with returnTo parameter
+  useEffect(() => {
+    if (!user && !loading) {
+      const returnUrl = encodeURIComponent(window.location.pathname);
+      navigate(`/auth?returnTo=${returnUrl}`);
+    }
+  }, [user, loading, navigate]);
+
   // Load module, lessons and progress
   useEffect(() => {
     let mounted = true;
 
     const loadData = async () => {
-      if (!moduleId) return;
+      if (!moduleId || !user) return;
       
       // Walidacja UUID przed zapytaniem do bazy
       if (!isValidUUID(moduleId)) {

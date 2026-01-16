@@ -254,24 +254,31 @@ const Auth = () => {
     // Check if user just activated their account via email link
     const urlParams = new URLSearchParams(window.location.search);
     const isActivated = urlParams.get('activated') === 'true';
+    const returnTo = urlParams.get('returnTo');
     
     if (isActivated) {
       toast({
         title: t('auth.toast.accountActivated'),
         description: t('auth.toast.welcomeToPureLife'),
       });
-      // Clear the URL parameter
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // Clear the URL parameter but keep returnTo if present
+      const newUrl = returnTo 
+        ? `${window.location.pathname}?returnTo=${encodeURIComponent(returnTo)}`
+        : window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
     }
+    
+    // Determine redirect destination (returnTo parameter or default /)
+    const redirectPath = returnTo || '/';
     
     // SAFE NAVIGATION: Only redirect when loginComplete is true (auth event fully processed)
     // OR when user exists but not from fresh login (e.g., page refresh while logged in)
     if (loginComplete && user) {
-      console.log('[Auth] loginComplete=true, navigating to /');
-      navigate('/');
+      console.log('[Auth] loginComplete=true, navigating to:', redirectPath);
+      navigate(redirectPath);
     } else if (user && !loginComplete) {
       // User exists from previous session (page refresh) - redirect immediately
-      navigate('/');
+      navigate(redirectPath);
     }
   }, [user, navigate, showEmailConfirmDialog, toast, loginComplete, t]);
 
