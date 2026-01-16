@@ -68,36 +68,13 @@ const ZoomIntegrationSettings = () => {
   const testConnection = async () => {
     setTesting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: "Błąd",
-          description: "Musisz być zalogowany",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('zoom-check-status', {
-        body: {},
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+      const { data: result, error } = await supabase.functions.invoke('zoom-check-status?test=true', {
+        body: {}
       });
 
-      // Add test=true query parameter by calling again
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zoom-check-status?test=true`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const result = await response.json();
+      if (error) {
+        throw error;
+      }
 
       if (result.status === 'active') {
         toast({
@@ -107,7 +84,7 @@ const ZoomIntegrationSettings = () => {
       } else if (result.status === 'error') {
         toast({
           title: "Błąd połączenia",
-          description: result.error || "Nie udało się połączyć z Zoom API",
+          description: result.message || "Nie udało się połączyć z Zoom API",
           variant: "destructive"
         });
       } else if (result.status === 'not_configured') {
