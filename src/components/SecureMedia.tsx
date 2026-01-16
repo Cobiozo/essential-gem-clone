@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { VideoControls } from '@/components/training/VideoControls';
 import { 
   getAdaptiveBufferConfig, 
@@ -53,6 +54,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   onDurationChange,
   initialTime = 0
 }) => {
+  // Get admin status for diagnostics
+  const { isAdmin } = useAuth();
+  
   const [signedUrl, setSignedUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isYouTube, setIsYouTube] = useState(false);
@@ -76,6 +80,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // NEW: Buffer visualization and network quality
   const [bufferedRanges, setBufferedRanges] = useState<{ start: number; end: number }[]>([]);
   const [networkQuality, setNetworkQuality] = useState<'good' | 'slow' | 'offline'>('good');
+  
+  // NEW: Connection details for admin diagnostics
+  const [connectionDetails, setConnectionDetails] = useState<{
+    type?: string;
+    downlink?: number;
+    rtt?: number;
+  }>({});
+  const [bufferedAhead, setBufferedAhead] = useState(0);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -339,17 +351,30 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [urlExpiryTime, signedUrl, isYouTube]);
 
-  // Monitor network quality changes
+  // Monitor network quality changes and collect connection details for diagnostics
   useEffect(() => {
     const updateNetworkQuality = () => {
       if (!navigator.onLine) {
         setNetworkQuality('offline');
+        setConnectionDetails({});
         return;
       }
       if (isSlowNetwork()) {
         setNetworkQuality('slow');
       } else {
         setNetworkQuality('good');
+      }
+      
+      // Collect connection details for admin diagnostics
+      if ('connection' in navigator) {
+        const conn = (navigator as any).connection;
+        if (conn) {
+          setConnectionDetails({
+            type: conn.effectiveType,
+            downlink: conn.downlink,
+            rtt: conn.rtt
+          });
+        }
       }
     };
 
@@ -550,13 +575,16 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         const minBuffer = bufferConfigRef.current.minBufferSeconds;
         
         // Use utility that correctly finds range containing current position
-        const bufferedAhead = getBufferedAhead(video);
+        const bufferedAheadValue = getBufferedAhead(video);
+        
+        // Update bufferedAhead state for admin diagnostics
+        setBufferedAhead(bufferedAheadValue);
         
         // Calculate buffer progress percentage (target: minBuffer or end of video)
         // Ensure value is always between 0-100
         const targetBuffer = Math.min(minBuffer, remainingDuration);
         const progress = targetBuffer > 0 
-          ? Math.max(0, Math.min(100, (bufferedAhead / targetBuffer) * 100)) 
+          ? Math.max(0, Math.min(100, (bufferedAheadValue / targetBuffer) * 100)) 
           : 100;
         
         setBufferProgress(progress);
@@ -565,14 +593,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setBufferedRanges(getBufferedRanges(video));
         
         // NEW: Check initial buffering - unlock Play button when buffer is ready
-        if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
-          console.log('[SecureMedia] Initial buffer ready (' + bufferedAhead.toFixed(1) + 's), Play button enabled');
+        if (isInitialBuffering && (bufferedAheadValue >= targetBuffer || progress >= 100)) {
+          console.log('[SecureMedia] Initial buffer ready (' + bufferedAheadValue.toFixed(1) + 's), Play button enabled');
           setIsInitialBuffering(false);
         }
         
         // SMART RESUME: When buffer is sufficient, resume playback
-        if (isSmartBuffering && bufferedAhead >= minBuffer) {
-          console.log('[SecureMedia] Buffer sufficient (' + bufferedAhead.toFixed(1) + 's), resuming playback');
+        if (isSmartBuffering && bufferedAheadValue >= minBuffer) {
+          console.log('[SecureMedia] Buffer sufficient (' + bufferedAheadValue.toFixed(1) + 's), resuming playback');
           setIsSmartBuffering(false);
           isBufferingRef.current = false;
           setIsBuffering(false);
@@ -990,6 +1018,15 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onRetry={handleRetry}
             bufferedRanges={bufferedRanges}
             networkQuality={networkQuality}
+            // Admin diagnostics props
+            showDiagnostics={isAdmin}
+            videoSrc={signedUrl}
+            retryCount={retryCount}
+            smartBufferingActive={isSmartBuffering}
+            bufferedAheadSeconds={bufferedAhead}
+            connectionType={connectionDetails.type}
+            downlink={connectionDetails.downlink}
+            rtt={connectionDetails.rtt}
           />
         </div>
       );
