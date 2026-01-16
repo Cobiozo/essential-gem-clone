@@ -66,18 +66,24 @@ const EventGuestRegistration: React.FC = () => {
       if (!eventId) return;
       
       try {
+        console.log('Fetching event with ID:', eventId);
         const { data, error } = await supabase
           .from('events')
           .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published')
           .eq('id', eventId)
           .eq('is_active', true)
+          .eq('is_published', true)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Event fetch error:', error.message, error.code, error.details);
+          throw error;
+        }
+        console.log('Event fetched successfully:', data?.title);
         setEvent(data);
       } catch (err: any) {
-        console.error('Error fetching event:', err);
-        setError('Nie znaleziono wydarzenia lub jest nieaktywne');
+        console.error('Error fetching event:', err?.message || err);
+        setError(`Nie znaleziono wydarzenia lub jest nieaktywne. (${err?.code || 'unknown'})`);
       } finally {
         setLoading(false);
       }
@@ -148,8 +154,8 @@ const EventGuestRegistration: React.FC = () => {
 
       setSuccess(true);
     } catch (err: any) {
-      console.error('Registration error:', err);
-      setError('Wystąpił błąd podczas rejestracji. Spróbuj ponownie.');
+      console.error('Registration error:', err?.message || err, err?.code, err?.details);
+      setError(`Wystąpił błąd podczas rejestracji: ${err?.message || 'nieznany błąd'}. Spróbuj ponownie.`);
     } finally {
       setSubmitting(false);
     }
