@@ -83,6 +83,12 @@ export const InfoLinksWidget: React.FC = () => {
           title: 'Skopiowano!',
           description: `Kod OTP: ${data.otp_code} (ważny ${data.validity_hours}h)`,
         });
+        
+        // Emit custom event for immediate ActiveOtpCodesWidget update
+        window.dispatchEvent(new CustomEvent('otpCodeGenerated', { 
+          detail: { code: data.otp_code, reflinkId: link.id } 
+        }));
+        
         setTimeout(() => setCopiedId(null), 3000);
       } catch (error) {
         console.error('Failed to generate OTP:', error);

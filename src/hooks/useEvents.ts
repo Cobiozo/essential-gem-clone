@@ -296,6 +296,11 @@ export const useEvents = () => {
         description: 'Zapisano na wydarzenie',
       });
       
+      // Emit custom event for immediate widget updates
+      window.dispatchEvent(new CustomEvent('eventRegistrationChange', { 
+        detail: { eventId, action: 'register' } 
+      }));
+      
       await fetchEvents();
       return true;
     } catch (error) {
@@ -328,6 +333,11 @@ export const useEvents = () => {
         title: 'Sukces',
         description: 'Rezerwacja anulowana',
       });
+      
+      // Emit custom event for immediate widget updates
+      window.dispatchEvent(new CustomEvent('eventRegistrationChange', { 
+        detail: { eventId, action: 'cancel' } 
+      }));
       
       await fetchEvents();
       return true;
