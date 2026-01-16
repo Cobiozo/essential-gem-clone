@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, HelpCircle } from 'lucide-react';
+import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, HelpCircle, Settings, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -20,10 +20,15 @@ interface VideoControlsProps {
   bufferedRanges?: { start: number; end: number }[];
   // NEW: Network quality indicator
   networkQuality?: 'good' | 'slow' | 'offline';
-  // NEW: Diagnostics props (for admins)
+  // NEW: Extended diagnostics props (for admins)
   showDiagnostics?: boolean;
   videoSrc?: string;
   retryCount?: number;
+  smartBufferingActive?: boolean;
+  bufferedAheadSeconds?: number;
+  connectionType?: string;
+  downlink?: number;
+  rtt?: number;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -41,12 +46,40 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   networkQuality,
   showDiagnostics = false,
   videoSrc,
-  retryCount = 0
+  retryCount = 0,
+  smartBufferingActive = false,
+  bufferedAheadSeconds = 0,
+  connectionType,
+  downlink,
+  rtt
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  // Function to copy diagnostics to clipboard (for admins)
+  const copyDiagnostics = () => {
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      networkQuality,
+      connectionType: connectionType || 'unknown',
+      downlink: downlink ? `${downlink} Mbps` : 'n/a',
+      rtt: rtt ? `${rtt}ms` : 'n/a',
+      bufferProgress: bufferProgress?.toFixed(1) || 0,
+      bufferedAhead: bufferedAheadSeconds?.toFixed(1) || 0,
+      currentTime: formatTime(currentTime),
+      duration: formatTime(duration),
+      retryCount,
+      isPlaying,
+      isBuffering,
+      smartBufferingActive,
+      videoSrc: videoSrc?.slice(-80) || 'n/a'
+    };
+    navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2))
+      .then(() => toast.success('Skopiowano dane diagnostyczne'))
+      .catch(() => toast.error('Nie udało się skopiować'));
   };
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -191,12 +224,33 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                   </ol>
                   {showDiagnostics && (
                     <div className="mt-3 pt-2 border-t border-muted text-xs space-y-1">
-                      <p className="font-medium text-muted-foreground">🔧 Diagnostyka:</p>
-                      <p>Sieć: {networkQuality === 'good' ? '✅ Dobra' : networkQuality === 'slow' ? '⚠️ Wolna' : '❌ Offline'}</p>
-                      <p>Bufor: {bufferProgress?.toFixed(0) || 0}%</p>
-                      <p>Czas: {formatTime(currentTime)} / {formatTime(duration)}</p>
-                      <p>Próby: {retryCount}/5</p>
-                      {videoSrc && <p className="truncate max-w-[200px]">Źródło: ...{videoSrc.slice(-30)}</p>}
+                      <p className="font-medium text-muted-foreground">🔧 Diagnostyka admina:</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <p>Sieć: {networkQuality === 'good' ? '✅ Dobra' : networkQuality === 'slow' ? '⚠️ Wolna' : '❌ Offline'}</p>
+                        <p>Typ: {connectionType || 'brak danych'}</p>
+                        <p>Downlink: {downlink ? `${downlink} Mbps` : 'n/a'}</p>
+                        <p>RTT: {rtt ? `${rtt}ms` : 'n/a'}</p>
+                        <p>Bufor: {bufferProgress?.toFixed(0) || 0}%</p>
+                        <p>Bufor ahead: {bufferedAheadSeconds?.toFixed(1) || 0}s</p>
+                        <p>Pozycja: {formatTime(currentTime)}</p>
+                        <p>Całkowity: {formatTime(duration)}</p>
+                        <p>Próby: {retryCount}/5</p>
+                        <p>Smart buf: {smartBufferingActive ? '🔴 Aktywny' : '🟢 Nie'}</p>
+                      </div>
+                      {videoSrc && (
+                        <p className="truncate max-w-full pt-1">
+                          Źródło: <code className="text-[10px]">...{videoSrc.slice(-50)}</code>
+                        </p>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={copyDiagnostics}
+                        className="mt-2 h-6 text-[10px] w-full"
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Kopiuj dane diagnostyczne
+                      </Button>
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2">
