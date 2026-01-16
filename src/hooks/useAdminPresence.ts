@@ -24,6 +24,7 @@ export const useAdminPresence = (currentTab: string) => {
     if (!isAdmin || !user) return;
     
     mountedRef.current = true;
+    let isTabVisible = !document.hidden;
 
     // Cleanup previous channel
     if (channelRef.current) {
@@ -71,6 +72,35 @@ export const useAdminPresence = (currentTab: string) => {
       setAdmins(otherAdmins);
     };
 
+    // Track presence with current data
+    const trackPresence = async () => {
+      if (!channelRef.current || !mountedRef.current || !isTabVisible) return;
+      
+      try {
+        await channelRef.current.track({
+          firstName: profile?.first_name || 'Admin',
+          lastName: profile?.last_name || '',
+          email: profile?.email || '',
+          activeTab: currentTab,
+          lastActivity: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error tracking admin presence:', error);
+      }
+    };
+
+    // Handle visibility change - pause/resume tracking
+    const handleVisibilityChange = () => {
+      isTabVisible = !document.hidden;
+      
+      if (isTabVisible && channelRef.current && mountedRef.current) {
+        // Resume tracking when tab becomes visible
+        trackPresence();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     channel
       .on('presence', { event: 'sync' }, () => {
         console.log('📡 Presence sync');
@@ -101,18 +131,15 @@ export const useAdminPresence = (currentTab: string) => {
       
       if (status === 'SUBSCRIBED' && mountedRef.current) {
         setIsConnected(true);
-        await channel.track({
-          firstName: profile?.first_name || 'Admin',
-          lastName: profile?.last_name || '',
-          email: profile?.email || '',
-          activeTab: currentTab,
-          lastActivity: new Date().toISOString()
-        });
+        if (isTabVisible) {
+          await trackPresence();
+        }
       }
     });
 
     return () => {
       mountedRef.current = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

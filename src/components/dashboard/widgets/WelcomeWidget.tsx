@@ -23,10 +23,42 @@ export const WelcomeWidget: React.FC = () => {
     Intl.DateTimeFormat().resolvedOptions().timeZone
   );
 
-  // Update time every second
+  // Update time every second - pause when tab is hidden
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    let timer: NodeJS.Timeout | null = null;
+    
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    };
+    
+    const stopTimer = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        setCurrentTime(new Date()); // Immediate update when tab becomes visible
+        startTimer();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Start timer only if tab is visible
+    if (!document.hidden) {
+      startTimer();
+    }
+    
+    return () => {
+      stopTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Popular timezones

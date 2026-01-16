@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Video, Users, User, ExternalLink, Clock, Info } from 'lucide-react';
@@ -22,27 +22,36 @@ export const MyMeetingsWidget: React.FC = () => {
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
 
   const locale = language === 'pl' ? pl : enUS;
+  
+  // Stable reference for getUserEvents to prevent re-subscriptions
+  const getUserEventsRef = useRef(getUserEvents);
+  getUserEventsRef.current = getUserEvents;
 
   const toggleExpand = (type: string) => {
     setExpandedTypes(prev => ({ ...prev, [type]: !prev[type] }));
   };
 
+  // Stable callback that doesn't change reference
   const fetchUserEventsData = useCallback(async () => {
     setLoading(true);
-    const events = await getUserEvents();
+    const events = await getUserEventsRef.current();
     setUserEvents(events);
     setLoading(false);
-  }, [getUserEvents]);
+  }, []); // Empty deps - uses ref internally
 
   // Initial fetch + real-time subscription for user's registrations and events
   useEffect(() => {
     fetchUserEventsData();
 
-    if (!user) return;
+    if (!user?.id) return;
+
+    // Use stable channel names with user ID to prevent duplicates
+    const registrationsChannelName = `my-meetings-registrations-${user.id}`;
+    const eventsChannelName = `my-meetings-events-${user.id}`;
 
     // Subscribe to changes for current user's registrations
     const registrationsChannel = supabase
-      .channel('my-meetings-registrations-changes')
+      .channel(registrationsChannelName)
       .on(
         'postgres_changes',
         {
@@ -60,7 +69,7 @@ export const MyMeetingsWidget: React.FC = () => {
 
     // Subscribe to events table for real-time updates (new individual meetings)
     const eventsChannel = supabase
-      .channel('my-meetings-events-changes')
+      .channel(eventsChannelName)
       .on(
         'postgres_changes',
         {
@@ -79,7 +88,7 @@ export const MyMeetingsWidget: React.FC = () => {
       supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(eventsChannel);
     };
-  }, [fetchUserEventsData, user]);
+  }, [user?.id, fetchUserEventsData]); // Only user.id as dependency
 
   const getEventIcon = (type: string) => {
     switch (type) {

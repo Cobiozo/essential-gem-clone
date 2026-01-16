@@ -40,6 +40,7 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
     if (!user) return;
     
     mountedRef.current = true;
+    let isTabVisible = !document.hidden;
 
     // Cleanup previous channel
     if (channelRef.current) {
@@ -105,6 +106,37 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
       setStats(newStats);
     };
 
+    // Track presence with current data
+    const trackPresence = async () => {
+      if (!channelRef.current || !mountedRef.current || !isTabVisible) return;
+      
+      try {
+        await channelRef.current.track({
+          firstName: profile?.first_name || '',
+          lastName: profile?.last_name || '',
+          email: profile?.email || '',
+          role: userRole?.role || 'client',
+          currentPage,
+          lastActivity: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error tracking presence:', error);
+      }
+    };
+
+    // Handle visibility change - pause/resume tracking
+    const handleVisibilityChange = () => {
+      isTabVisible = !document.hidden;
+      
+      if (isTabVisible && channelRef.current && mountedRef.current) {
+        // Resume tracking when tab becomes visible
+        trackPresence();
+      }
+      // When tab is hidden, we don't untrack - just stop updating
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     channel
       .on('presence', { event: 'sync' }, updateUserList)
       .on('presence', { event: 'join' }, updateUserList)
@@ -124,19 +156,15 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
       
       if (status === 'SUBSCRIBED' && mountedRef.current) {
         setIsConnected(true);
-        await channel.track({
-          firstName: profile?.first_name || '',
-          lastName: profile?.last_name || '',
-          email: profile?.email || '',
-          role: userRole?.role || 'client',
-          currentPage,
-          lastActivity: new Date().toISOString()
-        });
+        if (isTabVisible) {
+          await trackPresence();
+        }
       }
     });
 
     return () => {
       mountedRef.current = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
