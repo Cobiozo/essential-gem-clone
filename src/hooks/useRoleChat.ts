@@ -218,6 +218,16 @@ export const useRoleChat = (options?: UseRoleChatOptions) => {
     };
   }, [selectedChannel?.id]); // Use only ID to prevent unnecessary re-runs
 
+  // Get channels where user can receive messages (is target)
+  const getIncomingChannels = () => {
+    return channels.filter(c => c.target_role === userRole && c.is_active);
+  };
+  
+  // Get channels where user can send messages (is sender)
+  const getOutgoingChannels = () => {
+    return channels.filter(c => c.sender_role === userRole && c.is_active);
+  };
+
   return {
     channels,
     messages,
@@ -229,6 +239,8 @@ export const useRoleChat = (options?: UseRoleChatOptions) => {
     sendMessage,
     markAsRead,
     markChannelAsRead,
+    getIncomingChannels,
+    getOutgoingChannels,
     refetch: () => {
       fetchChannels();
       fetchUnreadCount();

@@ -24,6 +24,7 @@ import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionFor
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
 import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
 import { PrivateChatWidget } from '@/components/private-chat';
+import { CommunicationCenter } from '@/components/communication';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
@@ -122,7 +123,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'individual-meetings'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'individual-meetings', 'communication'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -209,7 +210,8 @@ const MyAccount = () => {
   const visibleTabs = useMemo(() => ({
     profile: true,
     teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists),
-    privateChats: isSpecjalista,
+    communication: true, // Visible to all roles
+    privateChats: false, // Replaced by communication
     correspondence: false,
     notifications: true,
     preferences: dailySignalVisible,
@@ -530,6 +532,12 @@ const MyAccount = () => {
                       {pendingApprovalsCount > 9 ? '9+' : pendingApprovalsCount}
                     </Badge>
                   )}
+                </TabsTrigger>
+              )}
+              {visibleTabs.communication && (
+                <TabsTrigger value="communication" disabled={mustCompleteProfile}>
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Komunikacja
                 </TabsTrigger>
               )}
               {visibleTabs.privateChats && (
@@ -864,6 +872,12 @@ const MyAccount = () => {
             {visibleTabs.teamContacts && (
               <TabsContent value="team-contacts" className="mt-6">
                 <TeamContactsTab />
+              </TabsContent>
+            )}
+
+            {visibleTabs.communication && (
+              <TabsContent value="communication" className="mt-6">
+                <CommunicationCenter />
               </TabsContent>
             )}
 
