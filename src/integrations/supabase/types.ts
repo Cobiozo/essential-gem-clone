@@ -1739,6 +1739,7 @@ export type Database = {
           location: string | null
           max_participants: number | null
           meeting_topic_id: string | null
+          registration_form_config: Json | null
           requires_registration: boolean | null
           sms_reminder_enabled: boolean | null
           start_time: string
@@ -1771,6 +1772,7 @@ export type Database = {
           location?: string | null
           max_participants?: number | null
           meeting_topic_id?: string | null
+          registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
           start_time: string
@@ -1803,6 +1805,7 @@ export type Database = {
           location?: string | null
           max_participants?: number | null
           meeting_topic_id?: string | null
+          registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
           start_time?: string

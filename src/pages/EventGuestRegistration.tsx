@@ -39,10 +39,25 @@ interface EventData {
   is_published: boolean;
 }
 
+// UUID validation helper
+const isValidUUID = (str: string | null): boolean => {
+  if (!str) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
 const EventGuestRegistration: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams] = useSearchParams();
-  const invitedBy = searchParams.get('invited_by');
+  const invitedByRaw = searchParams.get('invited_by');
+  
+  // Validate UUID format - if invalid, set to null
+  const invitedBy = isValidUUID(invitedByRaw) ? invitedByRaw : null;
+  
+  // Log warning if UUID was invalid
+  if (invitedByRaw && !invitedBy) {
+    console.warn('Invalid invited_by UUID format, ignoring:', invitedByRaw);
+  }
   
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
