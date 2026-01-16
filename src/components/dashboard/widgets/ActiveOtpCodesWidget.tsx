@@ -18,12 +18,14 @@ interface ActiveOtpCode {
   } | null;
 }
 
-// Live countdown component that updates every second
+// Live countdown component that updates every second with visibility control
 const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
   const [timeLeft, setTimeLeft] = useState('');
   const { t } = useLanguage();
 
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
     const updateTime = () => {
       const now = new Date();
       const expires = new Date(expiresAt);
@@ -47,9 +49,38 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
       }
     };
     
+    const startTimer = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(updateTime, 1000);
+    };
+    
+    const stopTimer = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        updateTime();
+        startTimer();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
+    if (!document.hidden) {
+      startTimer();
+    }
+    
+    return () => {
+      stopTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [expiresAt, t]);
   
   return <span className="font-mono">{timeLeft}</span>;
@@ -63,6 +94,8 @@ export const ActiveOtpCodesWidget: React.FC = () => {
 
   useEffect(() => {
     if (!user?.id || !isPartner) return;
+
+    let interval: NodeJS.Timeout | null = null;
 
     const fetchActiveCodes = async () => {
       const now = new Date().toISOString();
@@ -82,18 +115,44 @@ export const ActiveOtpCodesWidget: React.FC = () => {
         console.error('Error fetching active OTP codes:', error);
         setCodes([]);
       } else {
-        // Filter codes that have valid reflink
         const validCodes = (data || []).filter(c => c.reflink) as ActiveOtpCode[];
         setCodes(validCodes);
       }
       setLoading(false);
     };
 
+    const startPolling = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(fetchActiveCodes, 60000);
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchActiveCodes();
+        startPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     fetchActiveCodes();
-    
-    // Auto-refresh every 60 seconds to check for expired codes
-    const interval = setInterval(fetchActiveCodes, 60000);
-    return () => clearInterval(interval);
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user?.id, isPartner]);
 
   // Hide widget for non-partners or when no active codes
