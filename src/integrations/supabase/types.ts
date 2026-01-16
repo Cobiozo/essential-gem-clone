@@ -1919,6 +1919,8 @@ export type Database = {
           notes: string | null
           phone: string | null
           registered_at: string | null
+          reminder_1h_sent: boolean | null
+          reminder_1h_sent_at: string | null
           reminder_sent: boolean | null
           reminder_sent_at: string | null
           source: string | null
@@ -1940,6 +1942,8 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           registered_at?: string | null
+          reminder_1h_sent?: boolean | null
+          reminder_1h_sent_at?: string | null
           reminder_sent?: boolean | null
           reminder_sent_at?: string | null
           source?: string | null
@@ -1961,6 +1965,8 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           registered_at?: string | null
+          reminder_1h_sent?: boolean | null
+          reminder_1h_sent_at?: string | null
           reminder_sent?: boolean | null
           reminder_sent_at?: string | null
           source?: string | null

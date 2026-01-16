@@ -233,6 +233,23 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Try to get template from database
+    const templateInternalName = isReminder ? 'webinar_reminder_24h' : 'webinar_confirmation';
+    const { data: template } = await supabase
+      .from("email_templates")
+      .select("*")
+      .eq("internal_name", templateInternalName)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    // Get event type for logging
+    const eventTypeKey = isReminder ? 'webinar_reminder_24h' : 'webinar_confirmation';
+    const { data: eventType } = await supabase
+      .from("email_event_types")
+      .select("id")
+      .eq("event_key", eventTypeKey)
+      .maybeSingle();
+
     // Get SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
       .from("smtp_settings")
@@ -283,116 +300,138 @@ const handler = async (req: Request): Promise<Response> => {
 
     const displayHost = hostName || eventHost || 'Zespół Pure Life';
     const displayZoomLink = zoomLink || '';
+    const displayTime = eventTime || '';
 
-    // Build email based on type (confirmation or reminder)
     let subject: string;
     let htmlBody: string;
 
-    if (isReminder) {
-      subject = `⏰ Przypomnienie: ${eventTitle} - już jutro!`;
-      htmlBody = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f59e0b; }
-            .content { padding: 30px 0; }
-            .event-box { background: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b; }
-            .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
-            h1 { color: #d97706; margin: 0; }
-            .highlight { color: #d97706; font-weight: bold; }
-            .join-button { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>⏰ Przypomnienie o webinarze!</h1>
-            </div>
-            <div class="content">
-              <p>Cześć <strong>${firstName}</strong>!</p>
-              <p>Przypominamy, że <span class="highlight">już jutro</span> odbędzie się webinar, na który się zapisałeś/aś:</p>
-              
-              <div class="event-box">
-                <h2 style="margin-top: 0;">📅 ${eventTitle}</h2>
-                <p><strong>Data i godzina:</strong> ${displayDate}</p>
-                <p><strong>Prowadzący:</strong> ${displayHost}</p>
-                ${displayZoomLink ? `
-                  <p style="margin-top: 20px;"><strong>🔗 Link do dołączenia:</strong></p>
-                  <a href="${displayZoomLink}" class="join-button">Dołącz do webinaru</a>
-                  <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayZoomLink}</p>
-                ` : ''}
-              </div>
-              
-              <p><strong>Wskazówki:</strong></p>
-              <ul>
-                <li>Dołącz kilka minut przed rozpoczęciem</li>
-                <li>Sprawdź swoje połączenie internetowe</li>
-                <li>Przygotuj notatnik na ważne informacje</li>
-              </ul>
-              
-              <p>Do zobaczenia! 🎉</p>
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+    // Use template from database if available, otherwise use fallback
+    if (template) {
+      console.log(`[send-webinar-confirmation] Using template: ${template.internal_name}`);
+      
+      // Replace template variables
+      const replaceVariables = (text: string): string => {
+        return text
+          .replace(/\{\{imię\}\}/gi, firstName)
+          .replace(/\{\{event_title\}\}/gi, eventTitle)
+          .replace(/\{\{event_date\}\}/gi, displayDate)
+          .replace(/\{\{event_time\}\}/gi, displayTime)
+          .replace(/\{\{host_name\}\}/gi, displayHost)
+          .replace(/\{\{zoom_link\}\}/gi, displayZoomLink);
+      };
+
+      subject = replaceVariables(template.subject);
+      htmlBody = replaceVariables(template.body_html);
     } else {
-      subject = `Potwierdzenie rejestracji: ${eventTitle}`;
-      htmlBody = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #22c55e; }
-            .content { padding: 30px 0; }
-            .event-box { background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; }
-            .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
-            h1 { color: #16a34a; margin: 0; }
-            .highlight { color: #16a34a; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Rejestracja potwierdzona!</h1>
-            </div>
-            <div class="content">
-              <p>Cześć <strong>${firstName}</strong>!</p>
-              <p>Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia:</p>
-              
-              <div class="event-box">
-                <h2 style="margin-top: 0;">${eventTitle}</h2>
-                <p>📅 <strong>Data:</strong> ${displayDate}</p>
-                <p>👤 <strong>Prowadzący:</strong> ${displayHost}</p>
+      // Fallback to hardcoded templates
+      console.log(`[send-webinar-confirmation] Template not found, using fallback for ${emailType}`);
+      
+      if (isReminder) {
+        subject = `⏰ Przypomnienie: ${eventTitle} - już jutro!`;
+        htmlBody = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f59e0b; }
+              .content { padding: 30px 0; }
+              .event-box { background: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b; }
+              .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+              h1 { color: #d97706; margin: 0; }
+              .highlight { color: #d97706; font-weight: bold; }
+              .join-button { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>⏰ Przypomnienie o webinarze!</h1>
               </div>
-              
-              <p><strong>Co dalej?</strong></p>
-              <ul>
-                <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
-                <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
-                <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
-              </ul>
-              
-              <p>Do zobaczenia na webinarze! 🎉</p>
+              <div class="content">
+                <p>Cześć <strong>${firstName}</strong>!</p>
+                <p>Przypominamy, że <span class="highlight">już jutro</span> odbędzie się webinar, na który się zapisałeś/aś:</p>
+                
+                <div class="event-box">
+                  <h2 style="margin-top: 0;">📅 ${eventTitle}</h2>
+                  <p><strong>Data i godzina:</strong> ${displayDate}</p>
+                  <p><strong>Prowadzący:</strong> ${displayHost}</p>
+                  ${displayZoomLink ? `
+                    <p style="margin-top: 20px;"><strong>🔗 Link do dołączenia:</strong></p>
+                    <a href="${displayZoomLink}" class="join-button">Dołącz do webinaru</a>
+                    <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayZoomLink}</p>
+                  ` : ''}
+                </div>
+                
+                <p><strong>Wskazówki:</strong></p>
+                <ul>
+                  <li>Dołącz kilka minut przed rozpoczęciem</li>
+                  <li>Sprawdź swoje połączenie internetowe</li>
+                  <li>Przygotuj notatnik na ważne informacje</li>
+                </ul>
+                
+                <p>Do zobaczenia! 🎉</p>
+              </div>
+              <div class="footer">
+                <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+              </div>
             </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
-              <p>Ta wiadomość została wygenerowana automatycznie.</p>
+          </body>
+          </html>
+        `;
+      } else {
+        subject = `Potwierdzenie rejestracji: ${eventTitle}`;
+        htmlBody = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #22c55e; }
+              .content { padding: 30px 0; }
+              .event-box { background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; }
+              .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+              h1 { color: #16a34a; margin: 0; }
+              .highlight { color: #16a34a; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>✅ Rejestracja potwierdzona!</h1>
+              </div>
+              <div class="content">
+                <p>Cześć <strong>${firstName}</strong>!</p>
+                <p>Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia:</p>
+                
+                <div class="event-box">
+                  <h2 style="margin-top: 0;">${eventTitle}</h2>
+                  <p>📅 <strong>Data:</strong> ${displayDate}</p>
+                  <p>👤 <strong>Prowadzący:</strong> ${displayHost}</p>
+                </div>
+                
+                <p><strong>Co dalej?</strong></p>
+                <ul>
+                  <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
+                  <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
+                  <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
+                </ul>
+                
+                <p>Do zobaczenia na webinarze! 🎉</p>
+              </div>
+              <div class="footer">
+                <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+                <p>Ta wiadomość została wygenerowana automatycznie.</p>
+              </div>
             </div>
-          </div>
-        </body>
-        </html>
-      `;
+          </body>
+          </html>
+        `;
+      }
     }
 
     try {
@@ -413,6 +452,8 @@ const handler = async (req: Request): Promise<Response> => {
         subject: subject,
         status: "sent",
         sent_at: new Date().toISOString(),
+        template_id: template?.id || null,
+        event_type_id: eventType?.id || null,
         metadata: { 
           type: isReminder ? "webinar_reminder" : "webinar_confirmation", 
           event_id: eventId, 
@@ -436,6 +477,8 @@ const handler = async (req: Request): Promise<Response> => {
         subject: subject,
         status: "failed",
         error_message: sendError.message,
+        template_id: template?.id || null,
+        event_type_id: eventType?.id || null,
         metadata: { 
           type: isReminder ? "webinar_reminder" : "webinar_confirmation", 
           event_id: eventId 
