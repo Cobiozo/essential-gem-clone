@@ -50,78 +50,43 @@ import {
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
-// Hardcoded translations for sidebar - avoids missing translation keys
-const SIDEBAR_LABELS: Record<string, Record<string, string>> = {
-  pl: {
-    content: 'Treść',
-    layout: 'Układ stron',
-    appearance: 'Wygląd',
-    usersCategory: 'Użytkownicy',
-    training: 'Szkolenia',
-    trainings: 'Szkolenia',
-    certificates: 'Certyfikaty',
-    resources: 'Zasoby wiedzy',
-    features: 'Funkcje',
-    dailySignal: 'Sygnał dnia',
-    importantInfo: 'Ważne informacje',
-    events: 'Wydarzenia',
-    guestRegistrations: 'Rejestracje gości',
-    communication: 'Komunikacja',
-    translations: 'Tłumaczenia',
-    teamContacts: 'Kontakty zespołu',
-    notifications: 'Powiadomienia',
-    system: 'System',
-    maintenance: 'Tryb konserwacji',
-    cronJobs: 'Zadania Cron',
-    cookies: 'Cookies',
-    email: 'E-mail',
-    compass: 'Kompas AI',
-    home: 'Strona główna',
-    main: 'Główne',
-    pages: 'Strony',
-    colors: 'Kolory',
-    settings: 'Ustawienia',
-    users: 'Użytkownicy',
-    account: 'Konto',
-    logout: 'Wyloguj',
-    support: 'Wsparcie i pomoc',
-    dashboardFooter: 'Stopka dashboardu',
-  },
-  en: {
-    content: 'Content',
-    layout: 'Page layout',
-    appearance: 'Appearance',
-    usersCategory: 'Users',
-    training: 'Training',
-    trainings: 'Trainings',
-    certificates: 'Certificates',
-    resources: 'Knowledge resources',
-    features: 'Features',
-    dailySignal: 'Daily signal',
-    importantInfo: 'Important info',
-    events: 'Events',
-    guestRegistrations: 'Guest Registrations',
-    communication: 'Communication',
-    translations: 'Translations',
-    teamContacts: 'Team contacts',
-    notifications: 'Notifications',
-    system: 'System',
-    maintenance: 'Maintenance mode',
-    cronJobs: 'Cron Jobs',
-    cookies: 'Cookies',
-    email: 'E-mail',
-    compass: 'AI Compass',
-    home: 'Home',
-    main: 'Main',
-    pages: 'Pages',
-    colors: 'Colors',
-    settings: 'Settings',
-    users: 'Users',
-    account: 'Account',
-    logout: 'Logout',
-    support: 'Support & Help',
-    dashboardFooter: 'Dashboard Footer',
-  },
+// Translation keys for sidebar navigation
+const SIDEBAR_KEYS = {
+  content: 'admin.sidebar.content',
+  layout: 'admin.sidebar.layout',
+  appearance: 'admin.sidebar.appearance',
+  usersCategory: 'admin.sidebar.usersCategory',
+  training: 'admin.sidebar.training',
+  trainings: 'admin.sidebar.trainings',
+  certificates: 'admin.sidebar.certificates',
+  resources: 'admin.sidebar.resources',
+  features: 'admin.sidebar.features',
+  dailySignal: 'admin.sidebar.dailySignal',
+  importantInfo: 'admin.sidebar.importantInfo',
+  events: 'admin.sidebar.events',
+  guestRegistrations: 'admin.sidebar.guestRegistrations',
+  communication: 'admin.sidebar.communication',
+  translations: 'admin.sidebar.translations',
+  teamContacts: 'admin.sidebar.teamContacts',
+  notifications: 'admin.sidebar.notifications',
+  system: 'admin.sidebar.system',
+  maintenance: 'admin.sidebar.maintenance',
+  cronJobs: 'admin.sidebar.cronJobs',
+  cookies: 'admin.sidebar.cookies',
+  email: 'admin.sidebar.email',
+  compass: 'admin.sidebar.compass',
+  home: 'admin.sidebar.home',
+  main: 'admin.sidebar.main',
+  pages: 'admin.sidebar.pages',
+  colors: 'admin.sidebar.colors',
+  settings: 'admin.sidebar.settings',
+  users: 'admin.sidebar.users',
+  account: 'admin.sidebar.account',
+  logout: 'admin.sidebar.logout',
+  support: 'admin.sidebar.support',
+  dashboardFooter: 'admin.sidebar.dashboardFooter',
+  adminPanel: 'admin.sidebar.adminPanel',
+  administrator: 'admin.sidebar.administrator',
 };
 
 interface AdminSidebarProps {
@@ -228,7 +193,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onSignOut,
   siteLogo,
 }) => {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
@@ -243,10 +208,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     return initial;
   });
 
-  // Get translated label from hardcoded translations
+  // Get translated label using t() function
   const getLabel = (key: string): string => {
-    const langLabels = SIDEBAR_LABELS[language] || SIDEBAR_LABELS['pl'];
-    return langLabels[key] || key;
+    const translationKey = SIDEBAR_KEYS[key as keyof typeof SIDEBAR_KEYS];
+    return translationKey ? t(translationKey) : key;
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -283,8 +248,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-sm truncate">Panel Administracyjny</span>
-              <span className="text-xs text-muted-foreground">Administrator</span>
+              <span className="font-semibold text-sm truncate">{getLabel('adminPanel')}</span>
+              <span className="text-xs text-muted-foreground">{getLabel('administrator')}</span>
             </div>
           )}
         </div>

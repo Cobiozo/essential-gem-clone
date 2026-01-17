@@ -137,8 +137,8 @@ export const IndividualMeetingsManagement: React.FC = () => {
       toast({ 
         title: t('toast.success'), 
         description: value 
-          ? 'Uprawnienie zostało włączone' 
-          : 'Uprawnienie zostało wyłączone' 
+          ? t('admin.meetings.permissionEnabled') 
+          : t('admin.meetings.permissionDisabled') 
       });
       loadPartners();
     } catch (error: any) {
@@ -175,10 +175,10 @@ export const IndividualMeetingsManagement: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserRound className="h-5 w-5" />
-            Zarządzanie spotkaniami indywidualnymi
+            {t('admin.meetings.title')}
           </CardTitle>
           <CardDescription>
-            Włącz lub wyłącz możliwość prowadzenia spotkań indywidualnych dla partnerów
+            {t('admin.meetings.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -186,7 +186,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Szukaj partnera..."
+                placeholder={t('admin.meetings.searchPartner')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -197,18 +197,18 @@ export const IndividualMeetingsManagement: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Partner</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>{t('common.partner')}</TableHead>
+                <TableHead>{t('common.email')}</TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
                     <Users className="h-4 w-4" />
-                    <span>Spotkanie trójstronne</span>
+                    <span>{t('admin.meetings.tripartiteMeeting')}</span>
                   </div>
                 </TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
                     <UserRound className="h-4 w-4" />
-                    <span>Konsultacje dla partnerów</span>
+                    <span>{t('admin.meetings.partnerConsultation')}</span>
                   </div>
                 </TableHead>
               </TableRow>
@@ -245,7 +245,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
               {filteredPartners.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    {searchQuery ? 'Nie znaleziono partnerów' : 'Brak partnerów w systemie'}
+                    {searchQuery ? t('admin.meetings.noPartnersFound') : t('admin.meetings.noPartnersInSystem')}
                   </TableCell>
                 </TableRow>
               )}

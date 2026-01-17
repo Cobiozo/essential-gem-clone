@@ -38,8 +38,9 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { pl, enUS } from 'date-fns/locale';
 
 interface OtpCode {
   id: string;
@@ -79,6 +80,9 @@ export const OtpCodesManagement: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { toast } = useToast();
+  const { t, language } = useLanguage();
+  
+  const dateLocale = language === 'pl' ? pl : enUS;
 
   useEffect(() => {
     fetchOtpCodes();
@@ -99,8 +103,8 @@ export const OtpCodesManagement: React.FC = () => {
     if (codesError) {
       console.error('Error fetching OTP codes:', codesError);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się pobrać kodów OTP',
+        title: t('toast.error'),
+        description: t('admin.otp.fetchError'),
         variant: 'destructive',
       });
       setLoading(false);
@@ -173,14 +177,14 @@ export const OtpCodesManagement: React.FC = () => {
     if (error) {
       console.error('Error invalidating code:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się unieważnić kodu',
+        title: t('toast.error'),
+        description: t('admin.otp.invalidateError'),
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Sukces',
-        description: 'Kod został unieważniony',
+        title: t('toast.success'),
+        description: t('admin.otp.invalidateSuccess'),
       });
       fetchOtpCodes();
     }
@@ -193,8 +197,8 @@ export const OtpCodesManagement: React.FC = () => {
     const isExpired = isPast(new Date(code.expires_at));
     if (!code.is_invalidated && !isExpired) {
       toast({
-        title: 'Uwaga',
-        description: 'Można usuwać tylko unieważnione lub wygasłe kody',
+        title: t('toast.warning'),
+        description: t('admin.otp.canOnlyDeleteInvalidated'),
         variant: 'destructive',
       });
       return;
@@ -208,14 +212,14 @@ export const OtpCodesManagement: React.FC = () => {
     if (error) {
       console.error('Error deleting code:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się usunąć kodu',
+        title: t('toast.error'),
+        description: t('admin.otp.deleteError'),
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Sukces',
-        description: 'Kod został usunięty',
+        title: t('toast.success'),
+        description: t('admin.otp.deleteSuccess'),
       });
       fetchOtpCodes();
     }
@@ -230,8 +234,8 @@ export const OtpCodesManagement: React.FC = () => {
 
     if (codesToDelete.length === 0) {
       toast({
-        title: 'Uwaga',
-        description: 'Zaznaczone kody są aktywne - można usuwać tylko unieważnione lub wygasłe kody',
+        title: t('toast.warning'),
+        description: t('admin.otp.selectedCodesActive'),
         variant: 'destructive',
       });
       setDeleteDialogOpen(false);
@@ -246,14 +250,14 @@ export const OtpCodesManagement: React.FC = () => {
     if (error) {
       console.error('Error deleting codes:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się usunąć kodów',
+        title: t('toast.error'),
+        description: t('admin.otp.deleteMultipleError'),
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Sukces',
-        description: `Usunięto ${codesToDelete.length} kodów`,
+        title: t('toast.success'),
+        description: `${t('admin.otp.deleted')} ${codesToDelete.length}`,
       });
       setSelectedCodes(new Set());
       fetchOtpCodes();
@@ -263,12 +267,12 @@ export const OtpCodesManagement: React.FC = () => {
 
   const getCodeStatus = (code: OtpCode): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; order: number } => {
     if (code.is_invalidated) {
-      return { label: 'Unieważniony', variant: 'destructive', order: 3 };
+      return { label: t('admin.otp.statusInvalidated'), variant: 'destructive', order: 3 };
     }
     if (isPast(new Date(code.expires_at))) {
-      return { label: 'Wygasł', variant: 'secondary', order: 2 };
+      return { label: t('admin.otp.statusExpired'), variant: 'secondary', order: 2 };
     }
-    return { label: 'Aktywny', variant: 'default', order: 1 };
+    return { label: t('admin.otp.statusActive'), variant: 'default', order: 1 };
   };
 
   const handleSort = (field: SortField) => {
@@ -399,7 +403,7 @@ export const OtpCodesManagement: React.FC = () => {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-muted-foreground text-center">Ładowanie kodów OTP...</p>
+          <p className="text-muted-foreground text-center">{t('admin.otp.loading')}</p>
         </CardContent>
       </Card>
     );
@@ -413,15 +417,15 @@ export const OtpCodesManagement: React.FC = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Key className="w-5 h-5" />
-                Zarządzanie kodami OTP
+                {t('admin.otp.title')}
               </CardTitle>
               <CardDescription>
-                Przeglądaj i zarządzaj kodami dostępu do InfoLinków
+                {t('admin.otp.description')}
               </CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={fetchOtpCodes}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Odśwież
+              {t('common.refresh')}
             </Button>
           </div>
         </CardHeader>
@@ -433,28 +437,28 @@ export const OtpCodesManagement: React.FC = () => {
               onClick={() => setFilter('all')}
             >
               <p className="text-2xl font-bold">{otpCodes.length}</p>
-              <p className="text-sm text-muted-foreground">Wszystkie</p>
+              <p className="text-sm text-muted-foreground">{t('admin.otp.filterAll')}</p>
             </div>
             <div 
               className={`p-3 rounded-lg border cursor-pointer transition-colors ${filter === 'active' ? 'bg-green-500/10 border-green-500' : 'bg-muted/30'}`}
               onClick={() => setFilter('active')}
             >
               <p className="text-2xl font-bold text-green-600">{activeCodes}</p>
-              <p className="text-sm text-muted-foreground">Aktywne</p>
+              <p className="text-sm text-muted-foreground">{t('admin.otp.filterActive')}</p>
             </div>
             <div 
               className={`p-3 rounded-lg border cursor-pointer transition-colors ${filter === 'expired' ? 'bg-yellow-500/10 border-yellow-500' : 'bg-muted/30'}`}
               onClick={() => setFilter('expired')}
             >
               <p className="text-2xl font-bold text-yellow-600">{expiredCodes}</p>
-              <p className="text-sm text-muted-foreground">Wygasłe</p>
+              <p className="text-sm text-muted-foreground">{t('admin.otp.filterExpired')}</p>
             </div>
             <div 
               className={`p-3 rounded-lg border cursor-pointer transition-colors ${filter === 'invalidated' ? 'bg-red-500/10 border-red-500' : 'bg-muted/30'}`}
               onClick={() => setFilter('invalidated')}
             >
               <p className="text-2xl font-bold text-red-600">{invalidatedCodes}</p>
-              <p className="text-sm text-muted-foreground">Unieważnione</p>
+              <p className="text-sm text-muted-foreground">{t('admin.otp.filterInvalidated')}</p>
             </div>
           </div>
 
@@ -462,7 +466,7 @@ export const OtpCodesManagement: React.FC = () => {
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Szukaj po kodzie, partnerze lub InfoLinku..."
+              placeholder={t('admin.otp.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -473,10 +477,10 @@ export const OtpCodesManagement: React.FC = () => {
           {selectedCodes.size > 0 && (
             <div className="flex items-center gap-3 mb-4 p-3 bg-muted/50 rounded-lg border">
               <span className="text-sm font-medium">
-                Zaznaczono: {selectedCodes.size}
+                {t('admin.otp.selected')}: {selectedCodes.size}
                 {deletableSelectedCount < selectedCodes.size && (
                   <span className="text-muted-foreground ml-1">
-                    (do usunięcia: {deletableSelectedCount})
+                    ({t('admin.otp.toDelete')}: {deletableSelectedCount})
                   </span>
                 )}
               </span>
@@ -487,10 +491,10 @@ export const OtpCodesManagement: React.FC = () => {
                 disabled={deletableSelectedCount === 0}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Usuń zaznaczone
+                {t('admin.otp.deleteSelected')}
               </Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedCodes(new Set())}>
-                Anuluj zaznaczenie
+                {t('common.cancelSelection')}
               </Button>
             </div>
           )}
@@ -499,8 +503,8 @@ export const OtpCodesManagement: React.FC = () => {
           {filteredAndSortedCodes.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
               {searchTerm || filter !== 'all' 
-                ? 'Brak kodów spełniających kryteria wyszukiwania' 
-                : 'Brak wygenerowanych kodów OTP'}
+                ? t('admin.otp.noCodesMatchingCriteria') 
+                : t('admin.otp.noCodes')}
             </p>
           ) : (
             <div className="border rounded-lg overflow-hidden">
@@ -518,7 +522,7 @@ export const OtpCodesManagement: React.FC = () => {
                       onClick={() => handleSort('code')}
                     >
                       <div className="flex items-center">
-                        Kod
+                        {t('admin.otp.code')}
                         <SortIcon field="code" />
                       </div>
                     </TableHead>
@@ -527,7 +531,7 @@ export const OtpCodesManagement: React.FC = () => {
                       onClick={() => handleSort('partner')}
                     >
                       <div className="flex items-center">
-                        Partner
+                        {t('common.partner')}
                         <SortIcon field="partner" />
                       </div>
                     </TableHead>
@@ -545,7 +549,7 @@ export const OtpCodesManagement: React.FC = () => {
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center">
-                        Status
+                        {t('common.status')}
                         <SortIcon field="status" />
                       </div>
                     </TableHead>
@@ -554,7 +558,7 @@ export const OtpCodesManagement: React.FC = () => {
                       onClick={() => handleSort('sessions')}
                     >
                       <div className="flex items-center">
-                        Sesje
+                        {t('admin.otp.sessions')}
                         <SortIcon field="sessions" />
                       </div>
                     </TableHead>
@@ -563,11 +567,11 @@ export const OtpCodesManagement: React.FC = () => {
                       onClick={() => handleSort('expires_at')}
                     >
                       <div className="flex items-center">
-                        Wygasa
+                        {t('admin.otp.expires')}
                         <SortIcon field="expires_at" />
                       </div>
                     </TableHead>
-                    <TableHead className="text-right">Akcje</TableHead>
+                    <TableHead className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -611,13 +615,13 @@ export const OtpCodesManagement: React.FC = () => {
                                   )}
                                 </>
                               ) : code.partner?.email ? (
-                                <>
+                              <>
                                   <p className="font-medium text-sm truncate">
                                     {code.partner.email}
                                   </p>
                                   {code.partner._noProfile && (
                                     <p className="text-xs text-amber-600 italic">
-                                      (brak profilu)
+                                      ({t('admin.otp.noProfile')})
                                     </p>
                                   )}
                                 </>
@@ -626,7 +630,7 @@ export const OtpCodesManagement: React.FC = () => {
                                   ID: {code.partner_id.slice(0, 8)}...
                                 </p>
                               ) : (
-                                <span className="text-muted-foreground italic">Brak danych</span>
+                                <span className="text-muted-foreground italic">{t('admin.otp.noData')}</span>
                               )}
                             </div>
                           </div>
@@ -649,16 +653,16 @@ export const OtpCodesManagement: React.FC = () => {
                             {code.used_sessions} / {code.reflink?.otp_max_sessions || 1}
                           </span>
                         </TableCell>
-                        <TableCell>
+                          <TableCell>
                           <div className="flex items-center gap-1 text-sm">
                             <Clock className="w-3 h-3 text-muted-foreground" />
                             {isExpired ? (
                               <span className="text-muted-foreground">
-                                {formatDistanceToNow(new Date(code.expires_at), { addSuffix: true, locale: pl })}
+                                {formatDistanceToNow(new Date(code.expires_at), { addSuffix: true, locale: dateLocale })}
                               </span>
                             ) : (
                               <span>
-                                {format(new Date(code.expires_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                                {format(new Date(code.expires_at), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}
                               </span>
                             )}
                           </div>
@@ -673,7 +677,7 @@ export const OtpCodesManagement: React.FC = () => {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => viewCodeDetails(code)}>
                                 <Eye className="w-4 h-4 mr-2" />
-                                Szczegóły
+                                {t('common.details')}
                               </DropdownMenuItem>
                               {canInvalidate && (
                                 <DropdownMenuItem 
@@ -681,7 +685,7 @@ export const OtpCodesManagement: React.FC = () => {
                                   className="text-orange-600 focus:text-orange-600"
                                 >
                                   <XCircle className="w-4 h-4 mr-2" />
-                                  Unieważnij
+                                  {t('admin.otp.invalidate')}
                                 </DropdownMenuItem>
                               )}
                               {canDelete && (
@@ -690,7 +694,7 @@ export const OtpCodesManagement: React.FC = () => {
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
-                                  Usuń
+                                  {t('common.delete')}
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -710,29 +714,26 @@ export const OtpCodesManagement: React.FC = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usunąć zaznaczone kody?</AlertDialogTitle>
+            <AlertDialogTitle>{t('admin.otp.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {deletableSelectedCount === selectedCodes.size ? (
                 <>
-                  Czy na pewno chcesz usunąć <strong>{selectedCodes.size}</strong> zaznaczonych kodów? 
-                  Ta operacja jest nieodwracalna.
+                  {t('admin.otp.deleteConfirmText')} <strong>{selectedCodes.size}</strong>
                 </>
               ) : (
                 <>
-                  Zaznaczono <strong>{selectedCodes.size}</strong> kodów, ale tylko{' '}
-                  <strong>{deletableSelectedCount}</strong> można usunąć (unieważnione/wygasłe).
-                  Aktywne kody zostaną pominięte. Ta operacja jest nieodwracalna.
+                  {t('admin.otp.deleteConfirmPartialText')} <strong>{selectedCodes.size}</strong> → <strong>{deletableSelectedCount}</strong>
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteSelected}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Usuń ({deletableSelectedCount})
+              {t('common.delete')} ({deletableSelectedCount})
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -742,20 +743,20 @@ export const OtpCodesManagement: React.FC = () => {
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Szczegóły kodu OTP</DialogTitle>
+            <DialogTitle>{t('admin.otp.detailsTitle')}</DialogTitle>
             <DialogDescription>
-              Pełne informacje o kodzie dostępu
+              {t('admin.otp.detailsDescription')}
             </DialogDescription>
           </DialogHeader>
           {selectedCodeDetails && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Kod</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('admin.otp.code')}</p>
                   <code className="text-lg font-mono">{selectedCodeDetails.code}</code>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('common.status')}</p>
                   <Badge variant={getCodeStatus(selectedCodeDetails).variant}>
                     {getCodeStatus(selectedCodeDetails).label}
                   </Badge>
@@ -763,11 +764,11 @@ export const OtpCodesManagement: React.FC = () => {
               </div>
               
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Partner</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('common.partner')}</p>
                 <p className="text-sm">
                   {selectedCodeDetails.partner?.first_name || selectedCodeDetails.partner?.last_name 
                     ? `${selectedCodeDetails.partner?.first_name || ''} ${selectedCodeDetails.partner?.last_name || ''}`.trim()
-                    : 'Brak danych'
+                    : t('admin.otp.noData')
                   }
                 </p>
                 {selectedCodeDetails.partner?.email && (
@@ -782,23 +783,23 @@ export const OtpCodesManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Wykorzystane sesje</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('admin.otp.usedSessions')}</p>
                   <p className="text-sm">
                     {selectedCodeDetails.used_sessions} / {selectedCodeDetails.reflink?.otp_max_sessions || 1}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Wygasa</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('admin.otp.expires')}</p>
                   <p className="text-sm">
-                    {format(new Date(selectedCodeDetails.expires_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                    {format(new Date(selectedCodeDetails.expires_at), 'dd.MM.yyyy HH:mm', { locale: dateLocale })}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Utworzono</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('admin.otp.createdAt')}</p>
                 <p className="text-sm">
-                  {format(new Date(selectedCodeDetails.created_at), 'dd.MM.yyyy HH:mm:ss', { locale: pl })}
+                  {format(new Date(selectedCodeDetails.created_at), 'dd.MM.yyyy HH:mm:ss', { locale: dateLocale })}
                 </p>
               </div>
             </div>
