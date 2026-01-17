@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { ReflinksForm } from './ReflinksForm';
 import { UserReflinksSettings } from './UserReflinksSettings';
 import { OtpCodesManagement } from './OtpCodesManagement';
@@ -53,6 +54,7 @@ const availableRoles = [
 ];
 
 export const ReflinksManagement: React.FC = () => {
+  const { t } = useLanguage();
   const [reflinks, setReflinks] = useState<Reflink[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingReflink, setEditingReflink] = useState<Reflink | null>(null);
@@ -136,8 +138,8 @@ export const ReflinksManagement: React.FC = () => {
     if (error) {
       console.error('Error updating visibility:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się zmienić widoczności',
+        title: t('toast.error'),
+        description: t('admin.reflinks.visibilityChangeFailed'),
         variant: 'destructive',
       });
       return;
@@ -145,8 +147,8 @@ export const ReflinksManagement: React.FC = () => {
 
     setVisibilitySettings(prev => ({ ...prev, [role]: visible }));
     toast({
-      title: 'Zapisano',
-      description: `Widoczność przycisku dla roli "${roleLabels[role] || role}" zmieniona`,
+      title: t('toast.saved'),
+      description: t('admin.reflinks.visibilityChanged'),
     });
   };
 
@@ -161,8 +163,8 @@ export const ReflinksManagement: React.FC = () => {
     if (error) {
       console.error('Error fetching reflinks:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się pobrać reflinków',
+        title: t('toast.error'),
+        description: t('admin.reflinks.fetchFailed'),
         variant: 'destructive',
       });
     } else {
@@ -218,8 +220,8 @@ export const ReflinksManagement: React.FC = () => {
   const handleAddReflink = async () => {
     if (newReflink.link_type === 'reflink' && !newReflink.reflink_code.trim()) {
       toast({
-        title: 'Błąd',
-        description: 'Kod reflinku jest wymagany',
+        title: t('toast.error'),
+        description: t('admin.reflinks.codeRequired'),
         variant: 'destructive',
       });
       return;
@@ -227,8 +229,8 @@ export const ReflinksManagement: React.FC = () => {
 
     if ((newReflink.link_type === 'internal' || newReflink.link_type === 'external') && !newReflink.link_url.trim()) {
       toast({
-        title: 'Błąd',
-        description: 'URL linku jest wymagany',
+        title: t('toast.error'),
+        description: t('admin.reflinks.urlRequired'),
         variant: 'destructive',
       });
       return;
@@ -236,8 +238,8 @@ export const ReflinksManagement: React.FC = () => {
 
     if (newReflink.link_type === 'clipboard' && !newReflink.clipboard_content?.trim()) {
       toast({
-        title: 'Błąd',
-        description: 'Treść do skopiowania jest wymagana',
+        title: t('toast.error'),
+        description: t('admin.reflinks.clipboardContentRequired'),
         variant: 'destructive',
       });
       return;
@@ -272,16 +274,16 @@ export const ReflinksManagement: React.FC = () => {
     if (error) {
       console.error('Error adding reflink:', error);
       toast({
-        title: 'Błąd',
+        title: t('toast.error'),
         description: error.message.includes('unique') 
-          ? 'Kod reflinku już istnieje' 
-          : 'Nie udało się dodać reflinku',
+          ? t('admin.reflinks.codeExists') 
+          : t('admin.reflinks.addFailed'),
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Sukces',
-        description: 'Reflink został dodany',
+        title: t('toast.success'),
+        description: t('admin.reflinks.added'),
       });
       setShowAddDialog(false);
       setNewReflink({ 
@@ -342,16 +344,16 @@ export const ReflinksManagement: React.FC = () => {
     if (error) {
       console.error('Error updating reflink:', error);
       toast({
-        title: 'Błąd',
+        title: t('toast.error'),
         description: error.message.includes('unique') 
-          ? 'Kod reflinku już istnieje' 
-          : 'Nie udało się zaktualizować reflinku',
+          ? t('admin.reflinks.codeExists') 
+          : t('admin.reflinks.updateFailed'),
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Sukces',
-        description: 'Reflink został zaktualizowany',
+        title: t('toast.success'),
+        description: t('admin.reflinks.updated'),
       });
       setEditingReflink(null);
       fetchReflinks();
@@ -359,7 +361,7 @@ export const ReflinksManagement: React.FC = () => {
   };
 
   const handleDeleteReflink = async (id: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten reflink?')) return;
+    if (!confirm(t('admin.reflinks.deleteConfirm'))) return;
 
     const { error } = await supabase
       .from('reflinks')
@@ -369,14 +371,14 @@ export const ReflinksManagement: React.FC = () => {
     if (error) {
       console.error('Error deleting reflink:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się usunąć reflinku',
+        title: t('toast.error'),
+        description: t('admin.reflinks.deleteFailed'),
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Sukces',
-        description: 'Reflink został usunięty',
+        title: t('toast.success'),
+        description: t('admin.reflinks.deleted'),
       });
       fetchReflinks();
     }
@@ -391,8 +393,8 @@ export const ReflinksManagement: React.FC = () => {
     if (error) {
       console.error('Error toggling reflink:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się zmienić statusu reflinku',
+        title: t('toast.error'),
+        description: t('admin.reflinks.statusChangeFailed'),
         variant: 'destructive',
       });
     } else {

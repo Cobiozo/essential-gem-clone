@@ -10,6 +10,7 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { Shield, Link as LinkIcon, Plus, ExternalLink, FileText, Copy, Clock, Key, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePublishedPages } from '@/hooks/usePublishedPages';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ReflinkFormData {
   target_role: string;
