@@ -133,6 +133,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     onDurationChangeRef.current = onDurationChange;
   }, [onDurationChange]);
 
+  // Rewind 10 seconds (for restricted mode - backward seeking allowed)
+  const handleRewind = useCallback(() => {
+    if (!videoElement) return;
+    
+    const newTime = Math.max(0, videoElement.currentTime - 10);
+    console.log('[SecureMedia] Rewinding 10s:', {
+      from: videoElement.currentTime,
+      to: newTime
+    });
+    
+    // Set seeking flag to prevent handleSeeking from interfering
+    isSeekingRef.current = true;
+    videoElement.currentTime = newTime;
+    setCurrentTime(newTime);
+    
+    setTimeout(() => {
+      isSeekingRef.current = false;
+    }, 300);
+  }, [videoElement]);
+
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
     try {
@@ -644,26 +664,36 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
     };
 
-    // Block ALL seeking (forward and backward)
+    // Block FORWARD seeking only - allow backward seeking to already-watched parts
     const handleSeeking = () => {
       // Don't block during buffering - it's not a user seek
       if (isSeekingRef.current || isBufferingRef.current) return;
       
-      const timeDiff = Math.abs(video.currentTime - lastValidTimeRef.current);
+      const seekTarget = video.currentTime;
+      const maxWatchedPosition = lastValidTimeRef.current;
       
-      // If time jumped more than 5 seconds, it's a seek attempt - block it
-      // (increased from 2.5s to give more tolerance for buffering)
-      if (timeDiff > 5) {
-        console.log('[SecureMedia] Seek blocked:', {
-          currentTime: video.currentTime,
-          lastValidTime: lastValidTimeRef.current,
-          timeDiff
+      // FORWARD SEEK - block if trying to skip ahead of max watched position
+      if (seekTarget > maxWatchedPosition + 5) {
+        console.log('[SecureMedia] Forward seek blocked:', {
+          seekTarget,
+          maxWatchedPosition,
+          diff: seekTarget - maxWatchedPosition
         });
         isSeekingRef.current = true;
-        video.currentTime = lastValidTimeRef.current;
+        video.currentTime = maxWatchedPosition;
         setTimeout(() => {
           isSeekingRef.current = false;
-        }, 500); // Increased from 100ms for stability
+        }, 500);
+        return;
+      }
+      
+      // BACKWARD SEEK - always allowed (user wants to rewatch)
+      if (seekTarget < maxWatchedPosition) {
+        console.log('[SecureMedia] Backward seek allowed:', {
+          from: maxWatchedPosition,
+          to: seekTarget
+        });
+        // Don't update lastValidTimeRef - user can still only progress to where they were
       }
     };
 
@@ -1010,6 +1040,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             currentTime={currentTime}
             duration={duration}
             onPlayPause={handlePlayPause}
+            onRewind={handleRewind}
             isTabHidden={isTabHidden}
             onFullscreen={handleFullscreen}
             isFullscreen={isFullscreen}
