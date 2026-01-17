@@ -90,6 +90,9 @@ export interface PartnerWithAvailability {
   tripartite_meeting_enabled: boolean;
   partner_consultation_enabled: boolean;
   has_availability: boolean;
+  // External booking (Calendly) support
+  use_external_booking?: boolean;
+  external_calendly_url?: string | null;
 }
 
 // All possible event types

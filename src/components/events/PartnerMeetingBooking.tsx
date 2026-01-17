@@ -17,7 +17,8 @@ import {
   Video,
   CheckCircle,
   ArrowRight,
-  Globe
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import { format, addMinutes, parse, isSameDay, isAfter, startOfDay } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
@@ -79,7 +80,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Get leader permissions with the required permission enabled
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
-        .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled')
+        .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled, use_external_booking, external_calendly_url')
         .eq(permissionField, true);
 
       if (permError) {
@@ -143,9 +144,12 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
             tripartite_meeting_enabled: perm.tripartite_meeting_enabled || false,
             partner_consultation_enabled: perm.partner_consultation_enabled || false,
             has_availability: leadersWithAvailability.has(perm.user_id),
+            use_external_booking: perm.use_external_booking || false,
+            external_calendly_url: perm.external_calendly_url,
           };
         })
-        .filter(p => p.has_availability); // Only show partners with availability
+        // Show partners with availability OR using external booking
+        .filter(p => p.has_availability || p.use_external_booking);
 
       console.log('[PartnerMeetingBooking] Final partners list:', partnersData.length, partnersData.map(p => p.email));
       setPartners(partnersData);
@@ -398,7 +402,13 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     setSelectedPartner(partner);
     setSelectedDate(undefined);
     setSelectedSlot(null);
-    setStep('select-datetime');
+    
+    // If partner uses external booking, go directly to external booking step
+    if (partner.use_external_booking && partner.external_calendly_url) {
+      setStep('select-datetime'); // Reuse this step for external booking display
+    } else {
+      setStep('select-datetime');
+    }
   };
 
   const handleSelectSlot = (slot: AvailableSlot) => {
@@ -630,12 +640,20 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                       </p>
                       <p className="text-sm text-muted-foreground">{partner.email}</p>
                     </div>
-                    {partner.zoom_link && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Video className="h-3 w-3" />
-                        Zoom
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {partner.use_external_booking && (
+                        <Badge variant="outline" className="gap-1 text-xs">
+                          <ExternalLink className="h-3 w-3" />
+                          Zewnętrzny kalendarz
+                        </Badge>
+                      )}
+                      {partner.zoom_link && !partner.use_external_booking && (
+                        <Badge variant="secondary" className="gap-1">
+                          <Video className="h-3 w-3" />
+                          Zoom
+                        </Badge>
+                      )}
+                    </div>
                     <ChevronLeft className="h-5 w-5 rotate-180 text-muted-foreground" />
                   </button>
                 ))}
@@ -645,7 +663,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         </Card>
       )}
 
-      {/* Step 2: Select Date & Time */}
+      {/* Step 2: Select Date & Time OR External Booking */}
       {step === 'select-datetime' && selectedPartner && (
         <Card>
           <CardHeader>
@@ -655,8 +673,12 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
               </Button>
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Wybierz termin
+                  {selectedPartner.use_external_booking ? (
+                    <ExternalLink className="h-5 w-5" />
+                  ) : (
+                    <CalendarIcon className="h-5 w-5" />
+                  )}
+                  {selectedPartner.use_external_booking ? 'Rezerwacja zewnętrzna' : 'Wybierz termin'}
                 </CardTitle>
                 <CardDescription>
                   Spotkanie z: {selectedPartner.first_name} {selectedPartner.last_name}
@@ -665,6 +687,33 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
             </div>
           </CardHeader>
           <CardContent>
+            {/* External Booking View */}
+            {selectedPartner.use_external_booking && selectedPartner.external_calendly_url ? (
+              <div className="text-center py-8 space-y-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+                  <ExternalLink className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg">Zewnętrzny system rezerwacji</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Ten partner używa zewnętrznego narzędzia do rezerwacji spotkań. 
+                    Kliknij przycisk poniżej, aby przejść do jego kalendarza.
+                  </p>
+                </div>
+                <Button 
+                  size="lg" 
+                  onClick={() => window.open(selectedPartner.external_calendly_url!, '_blank')}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Przejdź do Calendly
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Zostaniesz przekierowany do zewnętrznej strony
+                </p>
+              </div>
+            ) : (
+              /* Internal Booking View */
             <div className="grid md:grid-cols-2 gap-6">
               {/* Calendar */}
               <div>
@@ -734,6 +783,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 )}
               </div>
             </div>
+            )}
           </CardContent>
         </Card>
       )}
