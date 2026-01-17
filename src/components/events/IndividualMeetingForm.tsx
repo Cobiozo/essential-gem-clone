@@ -8,11 +8,12 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Save, Loader2, Users, UserRound, Video, Eye, Clock, History, Settings, ExternalLink, CalendarDays } from 'lucide-react';
+import { Save, Loader2, Users, UserRound, Video, Eye, Clock, History, Settings, ExternalLink, CalendarDays, AlertTriangle } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { WeeklyAvailabilityScheduler, TimeSlot } from './WeeklyAvailabilityScheduler';
 import { IndividualMeetingsHistory } from './IndividualMeetingsHistory';
@@ -55,12 +56,28 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
   // External booking (Calendly) options
   const [bookingMode, setBookingMode] = useState<'internal' | 'external'>('internal');
   const [externalCalendlyUrl, setExternalCalendlyUrl] = useState('');
+  
+  // Google Calendar connection status
+  const [hasGoogleCalendar, setHasGoogleCalendar] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadExistingData();
+      checkGoogleCalendarConnection();
     }
   }, [user, meetingType]);
+
+  const checkGoogleCalendarConnection = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('user_google_tokens')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    setHasGoogleCalendar(!!data);
+  };
 
   const loadExistingData = async () => {
     if (!user) return;
@@ -122,6 +139,16 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
 
   const handleSave = async () => {
     if (!user) return;
+
+    // Validate: cannot use external booking if Google Calendar is connected
+    if (bookingMode === 'external' && hasGoogleCalendar) {
+      toast({
+        title: 'Konflikt konfiguracji',
+        description: 'Nie możesz używać zewnętrznego Calendly gdy masz połączony Google Calendar. Rozłącz Google Calendar w ustawieniach konta.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -264,18 +291,35 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
             </div>
             
             <div className={cn(
-              "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors",
-              bookingMode === 'external' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+              "flex items-start gap-3 p-4 rounded-lg border transition-colors",
+              hasGoogleCalendar ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              bookingMode === 'external' && !hasGoogleCalendar ? "border-primary bg-primary/5" : "hover:bg-muted/50"
             )}>
-              <RadioGroupItem value="external" id="external" className="mt-1" />
+              <RadioGroupItem 
+                value="external" 
+                id="external" 
+                className="mt-1" 
+                disabled={hasGoogleCalendar}
+              />
               <div className="flex-1">
-                <Label htmlFor="external" className="font-medium cursor-pointer flex items-center gap-2">
+                <Label htmlFor="external" className={cn(
+                  "font-medium flex items-center gap-2",
+                  hasGoogleCalendar ? "cursor-not-allowed" : "cursor-pointer"
+                )}>
                   Zewnętrzny link (Calendly/Cal.com)
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Label>
                 <p className="text-sm text-muted-foreground mt-1">
                   Przekieruj partnerów do swojego zewnętrznego kalendarza rezerwacji.
                 </p>
+                {hasGoogleCalendar && (
+                  <Alert variant="destructive" className="mt-2 py-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Niedostępne - masz połączony Google Calendar. Rozłącz go w ustawieniach konta, aby używać Calendly.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </div>
           </RadioGroup>
