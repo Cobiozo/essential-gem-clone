@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { AlertTriangle, Save, Wrench, Eye, Key, Copy, RefreshCw, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useLanguage } from '@/contexts/LanguageContext';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
 import {
   AlertDialog,
@@ -31,6 +32,7 @@ interface MaintenanceSettings {
 }
 
 const MaintenanceModeManagement: React.FC = () => {
+  const { t } = useLanguage();
   const [settings, setSettings] = useState<MaintenanceSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,8 +42,8 @@ const MaintenanceModeManagement: React.FC = () => {
 
   // Form state
   const [isEnabled, setIsEnabled] = useState(false);
-  const [title, setTitle] = useState('Przerwa techniczna');
-  const [message, setMessage] = useState('Trwają prace serwisowe. Prosimy o cierpliwość.');
+  const [title, setTitle] = useState(t('admin.maintenance.defaultTitle'));
+  const [message, setMessage] = useState(t('admin.maintenance.defaultMessage'));
   const [plannedEndTime, setPlannedEndTime] = useState('');
   const [bypassKey, setBypassKey] = useState<string | null>(null);
 
@@ -61,15 +63,15 @@ const MaintenanceModeManagement: React.FC = () => {
       if (data) {
         setSettings(data as MaintenanceSettings);
         setIsEnabled(data.is_enabled || false);
-        setTitle(data.title || 'Przerwa techniczna');
-        setMessage(data.message || 'Trwają prace serwisowe. Prosimy o cierpliwość.');
+        setTitle(data.title || t('admin.maintenance.defaultTitle'));
+        setMessage(data.message || t('admin.maintenance.defaultMessage'));
         setPlannedEndTime(data.planned_end_time ? 
           format(new Date(data.planned_end_time), "yyyy-MM-dd'T'HH:mm") : '');
         setBypassKey(data.bypass_key || null);
       }
     } catch (error) {
       console.error('Error fetching maintenance settings:', error);
-      toast.error('Błąd podczas pobierania ustawień serwisowych');
+      toast.error(t('admin.maintenance.fetchError'));
     } finally {
       setLoading(false);
     }
@@ -93,13 +95,13 @@ const MaintenanceModeManagement: React.FC = () => {
       if (error) throw error;
 
       toast.success(isEnabled ? 
-        'Tryb serwisowy włączony - strona logowania jest zablokowana' : 
-        'Ustawienia zapisane');
+        t('admin.maintenance.enabledSuccess') : 
+        t('admin.maintenance.savedSuccess'));
       
       fetchSettings();
     } catch (error) {
       console.error('Error saving maintenance settings:', error);
-      toast.error('Błąd podczas zapisywania ustawień');
+      toast.error(t('admin.maintenance.saveError'));
     } finally {
       setSaving(false);
     }
@@ -116,10 +118,10 @@ const MaintenanceModeManagement: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success(`Email z linkiem bypass wysłany na: ${data.email}`);
+      toast.success(t('admin.maintenance.bypassEmailSent') + ': ' + data.email);
     } catch (error) {
       console.error('Error sending bypass email:', error);
-      toast.error('Błąd podczas wysyłania emaila');
+      toast.error(t('admin.maintenance.bypassEmailError'));
     } finally {
       setSendingEmail(false);
     }
@@ -142,17 +144,17 @@ const MaintenanceModeManagement: React.FC = () => {
       if (error) throw error;
 
       setBypassKey(newKey);
-      toast.success('Wygenerowano nowy klucz bypass');
+      toast.success(t('admin.maintenance.bypassKeyGenerated'));
     } catch (error) {
       console.error('Error regenerating bypass key:', error);
-      toast.error('Błąd podczas generowania klucza');
+      toast.error(t('admin.maintenance.bypassKeyError'));
     }
   };
 
   const copyBypassLink = () => {
     const link = `${window.location.origin}/auth?admin=${bypassKey}`;
     navigator.clipboard.writeText(link);
-    toast.success('Link skopiowany do schowka');
+    toast.success(t('admin.maintenance.linkCopied'));
   };
 
   const handleQuickToggle = async (enabled: boolean) => {
@@ -193,12 +195,12 @@ const MaintenanceModeManagement: React.FC = () => {
       if (error) throw error;
 
       toast.success(enabled ? 
-        '🔧 Tryb serwisowy WŁĄCZONY - logowanie zablokowane' : 
-        '✅ Tryb serwisowy WYŁĄCZONY - logowanie dostępne');
+        t('admin.maintenance.modeEnabled') : 
+        t('admin.maintenance.modeDisabled'));
       
     } catch (error) {
       console.error('Error toggling maintenance mode:', error);
-      toast.error('Błąd podczas zmiany trybu');
+      toast.error(t('admin.maintenance.toggleError'));
       setIsEnabled(!enabled); // Revert on error
     } finally {
       setSaving(false);
@@ -210,7 +212,7 @@ const MaintenanceModeManagement: React.FC = () => {
       <Card>
         <CardContent className="py-8 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="mt-2 text-muted-foreground">Ładowanie ustawień...</p>
+          <p className="mt-2 text-muted-foreground">{t('admin.maintenance.loading')}</p>
         </CardContent>
       </Card>
     );
@@ -229,17 +231,17 @@ const MaintenanceModeManagement: React.FC = () => {
                 <Wrench className={`h-5 w-5 ${isEnabled ? 'text-amber-500' : 'text-muted-foreground'}`} />
               </div>
               <div>
-                <CardTitle>Tryb serwisowy</CardTitle>
+                <CardTitle>{t('admin.maintenance.title')}</CardTitle>
                 <CardDescription>
                   {isEnabled ? 
-                    'Strona logowania i rejestracji jest zablokowana' : 
-                    'Użytkownicy mogą się normalnie logować i rejestrować'}
+                    t('admin.maintenance.statusBlocked') : 
+                    t('admin.maintenance.statusNormal')}
                 </CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="maintenance-switch" className="text-sm font-medium">
-                {isEnabled ? 'AKTYWNY' : 'Wyłączony'}
+                {isEnabled ? t('admin.maintenance.active') : t('admin.maintenance.inactive')}
               </Label>
               <Switch
                 id="maintenance-switch"
@@ -258,12 +260,12 @@ const MaintenanceModeManagement: React.FC = () => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5 text-blue-500" />
-              <CardTitle className="text-lg">Link dostępu administratora</CardTitle>
+              <CardTitle className="text-lg">{t('admin.maintenance.bypassLinkTitle')}</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Użyj tego linku, aby zalogować się podczas prac serwisowych:
+              {t('admin.maintenance.bypassLinkDescription')}
             </p>
             <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
               <code className="text-xs break-all flex-1 font-mono">
@@ -276,15 +278,15 @@ const MaintenanceModeManagement: React.FC = () => {
             <div className="flex gap-2 flex-wrap">
               <Button size="sm" variant="outline" onClick={sendBypassEmail} disabled={sendingEmail}>
                 <Mail className="h-3 w-3 mr-1" />
-                {sendingEmail ? 'Wysyłanie...' : 'Wyślij na email'}
+                {sendingEmail ? t('admin.maintenance.sending') : t('admin.maintenance.sendToEmail')}
               </Button>
               <Button size="sm" variant="ghost" onClick={regenerateBypassKey}>
                 <RefreshCw className="h-3 w-3 mr-1" />
-                Nowy klucz
+                {t('admin.maintenance.newKey')}
               </Button>
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              ✉️ Email z linkiem został automatycznie wysłany przy aktywacji trybu serwisowego
+              ✉️ {t('admin.maintenance.emailSentAutomatically')}
             </p>
           </CardContent>
         </Card>
@@ -293,35 +295,35 @@ const MaintenanceModeManagement: React.FC = () => {
       {/* Settings Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Konfiguracja banera</CardTitle>
+          <CardTitle className="text-lg">{t('admin.maintenance.bannerConfigTitle')}</CardTitle>
           <CardDescription>
-            Ustaw treść i czas zakończenia prac serwisowych
+            {t('admin.maintenance.bannerConfigDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Tytuł banera</Label>
+            <Label htmlFor="title">{t('admin.maintenance.bannerTitleLabel')}</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Przerwa techniczna"
+              placeholder={t('admin.maintenance.defaultTitle')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="message">Treść komunikatu</Label>
+            <Label htmlFor="message">{t('admin.maintenance.messageLabel')}</Label>
             <Textarea
               id="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Trwają prace serwisowe. Prosimy o cierpliwość."
+              placeholder={t('admin.maintenance.defaultMessage')}
               rows={3}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="planned-end">Planowany czas zakończenia prac</Label>
+            <Label htmlFor="planned-end">{t('admin.maintenance.plannedEndLabel')}</Label>
             <Input
               id="planned-end"
               type="datetime-local"
@@ -329,21 +331,21 @@ const MaintenanceModeManagement: React.FC = () => {
               onChange={(e) => setPlannedEndTime(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Pozostaw puste, jeśli czas zakończenia jest nieznany
+              {t('admin.maintenance.plannedEndHint')}
             </p>
           </div>
 
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSave} disabled={saving} className="flex-1">
               <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Zapisywanie...' : 'Zapisz ustawienia'}
+              {saving ? t('admin.maintenance.saving') : t('admin.maintenance.saveSettings')}
             </Button>
             <Button 
               variant="outline" 
               onClick={() => setShowPreview(true)}
             >
               <Eye className="h-4 w-4 mr-2" />
-              Podgląd
+              {t('admin.maintenance.preview')}
             </Button>
           </div>
         </CardContent>
@@ -356,10 +358,9 @@ const MaintenanceModeManagement: React.FC = () => {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
               <div>
-                <p className="font-medium text-destructive">Uwaga!</p>
+                <p className="font-medium text-destructive">{t('admin.maintenance.warningTitle')}</p>
                 <p className="text-sm text-muted-foreground">
-                  Tryb serwisowy jest aktywny. Użytkownicy nie mogą się logować ani rejestrować.
-                  Pamiętaj, aby wyłączyć tryb serwisowy po zakończeniu prac.
+                  {t('admin.maintenance.warningDescription')}
                 </p>
               </div>
             </div>
@@ -373,29 +374,28 @@ const MaintenanceModeManagement: React.FC = () => {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Włączenie trybu serwisowego
+              {t('admin.maintenance.enableWarningTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>
-                  Włączenie trybu serwisowego <strong>zablokuje dostęp</strong> do logowania 
-                  i rejestracji dla wszystkich użytkowników.
+                  {t('admin.maintenance.enableWarningDescription')}
                 </p>
                 <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    📧 Po zatwierdzeniu automatycznie otrzymasz email z linkiem umożliwiającym logowanie
+                    📧 {t('admin.maintenance.enableWarningEmail')}
                   </p>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Czy na pewno chcesz kontynuować?
+                  {t('admin.maintenance.confirmQuestion')}
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmEnableMaintenance}>
-              Tak, włącz tryb serwisowy
+              {t('admin.maintenance.confirmEnable')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -410,7 +410,7 @@ const MaintenanceModeManagement: React.FC = () => {
               variant="secondary"
               onClick={() => setShowPreview(false)}
             >
-              Zamknij podgląd
+              {t('admin.maintenance.closePreview')}
             </Button>
             <MaintenanceBanner 
               maintenance={{

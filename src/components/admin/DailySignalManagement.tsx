@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Sparkles, Plus, Check, X, Trash2, Wand2, Edit, Calendar, Loader2, 
   BarChart3, Users, Eye, EyeOff, Heart, Zap, Cloud, Filter 
@@ -70,6 +71,7 @@ const GENERATION_COUNTS = [5, 10, 25, 50];
 export const DailySignalManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [settings, setSettings] = useState<SignalSettings | null>(null);
   const [signals, setSignals] = useState<DailySignal[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
@@ -152,8 +154,8 @@ export const DailySignalManagement: React.FC = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
-        title: 'Błąd',
-        description: 'Nie udało się pobrać danych',
+        title: t('toast.error'),
+        description: t('admin.dailySignal.fetchError'),
         variant: 'destructive'
       });
     } finally {
@@ -174,10 +176,10 @@ export const DailySignalManagement: React.FC = () => {
       if (error) throw error;
 
       setSettings({ ...settings, ...updates });
-      toast({ title: 'Zapisano', description: 'Ustawienia zostały zaktualizowane' });
+      toast({ title: t('toast.saved'), description: t('admin.dailySignal.settingsUpdated') });
     } catch (error) {
       console.error('Error updating settings:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się zapisać ustawień', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.dailySignal.settingsUpdateError'), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -195,7 +197,7 @@ export const DailySignalManagement: React.FC = () => {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Błąd funkcji AI');
+        throw new Error(error.message || t('admin.dailySignal.aiFunctionError'));
       }
 
       if (data?.error) {
@@ -207,7 +209,7 @@ export const DailySignalManagement: React.FC = () => {
       const generatedSignals = data.signals || [data];
       
       if (!generatedSignals.length) {
-        throw new Error('AI nie zwróciło poprawnych danych');
+        throw new Error(t('admin.dailySignal.aiNoData'));
       }
 
       // Save all signals to database
@@ -232,16 +234,16 @@ export const DailySignalManagement: React.FC = () => {
       fetchData();
       
       toast({
-        title: `Wygenerowano ${generatedSignals.length} sygnałów`,
+        title: t('admin.dailySignal.generatedCount').replace('{count}', String(generatedSignals.length)),
         description: settings?.generation_mode === 'auto' 
-          ? 'Sygnały zostały automatycznie zatwierdzone'
-          : 'Sygnały czekają na zatwierdzenie'
+          ? t('admin.dailySignal.autoApproved')
+          : t('admin.dailySignal.pendingApproval')
       });
     } catch (error) {
       console.error('Error generating signals:', error);
       toast({
-        title: 'Błąd generowania',
-        description: error instanceof Error ? error.message : 'Nie udało się wygenerować sygnałów',
+        title: t('admin.dailySignal.generationError'),
+        description: error instanceof Error ? error.message : t('admin.dailySignal.generationFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -270,17 +272,17 @@ export const DailySignalManagement: React.FC = () => {
       ));
       
       toast({
-        title: newStatus ? 'Aktywowano' : 'Dezaktywowano',
-        description: newStatus ? 'Sygnał jest teraz dostępny w rotacji' : 'Sygnał został wyłączony z rotacji'
+        title: newStatus ? t('admin.dailySignal.activated') : t('admin.dailySignal.deactivated'),
+        description: newStatus ? t('admin.dailySignal.activatedDescription') : t('admin.dailySignal.deactivatedDescription')
       });
     } catch (error) {
       console.error('Error toggling signal:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się zmienić statusu', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.dailySignal.statusChangeError'), variant: 'destructive' });
     }
   };
 
   const deleteSignal = async (signalId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten sygnał?')) return;
+    if (!confirm(t('admin.dailySignal.deleteConfirm'))) return;
     
     try {
       const { error } = await supabase
@@ -291,16 +293,16 @@ export const DailySignalManagement: React.FC = () => {
       if (error) throw error;
 
       setSignals(signals.filter(s => s.id !== signalId));
-      toast({ title: 'Usunięto', description: 'Sygnał został usunięty' });
+      toast({ title: t('toast.deleted'), description: t('admin.dailySignal.deleted') });
     } catch (error) {
       console.error('Error deleting signal:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się usunąć sygnału', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.dailySignal.deleteError'), variant: 'destructive' });
     }
   };
 
   const saveNewSignal = async () => {
     if (!newSignal.main_message || !newSignal.explanation) {
-      toast({ title: 'Błąd', description: 'Wypełnij wszystkie wymagane pola', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.dailySignal.fillRequiredFields'), variant: 'destructive' });
       return;
     }
 
@@ -326,10 +328,10 @@ export const DailySignalManagement: React.FC = () => {
       setShowAddDialog(false);
       setNewSignal({ main_message: '', explanation: '', signal_type: 'supportive', scheduled_date: '' });
       
-      toast({ title: 'Dodano', description: 'Nowy sygnał został dodany do biblioteki' });
+      toast({ title: t('toast.added'), description: t('admin.dailySignal.added') });
     } catch (error) {
       console.error('Error saving signal:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się zapisać sygnału', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.dailySignal.saveError'), variant: 'destructive' });
     }
   };
 
@@ -352,10 +354,10 @@ export const DailySignalManagement: React.FC = () => {
       setSignals(signals.map(s => s.id === editingSignal.id ? editingSignal : s));
       setEditingSignal(null);
       
-      toast({ title: 'Zapisano', description: 'Sygnał został zaktualizowany' });
+      toast({ title: t('toast.saved'), description: t('admin.dailySignal.updated') });
     } catch (error) {
       console.error('Error updating signal:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się zaktualizować sygnału', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.dailySignal.updateError'), variant: 'destructive' });
     }
   };
 
