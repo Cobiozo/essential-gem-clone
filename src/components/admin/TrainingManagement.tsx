@@ -43,8 +43,16 @@ import {
   Link,
   Play,
   Search,
-  CheckCircle
+  CheckCircle,
+  MoreVertical
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
@@ -629,77 +637,112 @@ const TrainingManagement = () => {
 
           {/* Modules List */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {modules.map((module) => (
-              <Card key={module.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{module.title}</CardTitle>
-                    <Badge variant={module.is_active ? "default" : "secondary"}>
-                      {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
-                    </Badge>
-                  </div>
-                  {module.description && (
-                    <p className="text-sm text-muted-foreground">{module.description}</p>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 mb-4 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/training/${module.id}`)}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      {t('admin.training.preview')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedModule(module.id);
-                        setActiveTab("lessons");
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      {t('admin.training.lessons')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedModuleForUsers(module.id);
-                        setShowUserSelector(true);
-                      }}
-                    >
-                      <Send className="h-4 w-4 mr-1" />
-                      {t('admin.training.send')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingModule(module);
-                        setShowModuleForm(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      {t('admin.training.edit')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => deleteModule(module.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    {t('admin.training.visibleTo')}: {getVisibilityText(module)}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {modules.map((module) => {
+              const lessonCount = lessons.filter(l => l.module_id === module.id).length;
+              
+              return (
+                <Card key={module.id} className="flex flex-col">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base font-semibold line-clamp-2">
+                        {module.title}
+                      </CardTitle>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <div 
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full",
+                            module.is_active ? "bg-green-500" : "bg-gray-400"
+                          )}
+                        />
+                        <span className={cn(
+                          "text-xs",
+                          module.is_active ? "text-green-600" : "text-muted-foreground"
+                        )}>
+                          {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
+                        </span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="flex-1 flex flex-col justify-between pt-0">
+                    {/* Lesson count */}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                      <BookOpen className="h-4 w-4" />
+                      <span>{lessonCount} {lessonCount === 1 ? 'lekcja' : lessonCount < 5 ? 'lekcje' : 'lekcji'}</span>
+                    </div>
+                    
+                    {/* Action buttons - 3 main + dropdown */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => navigate(`/training/${module.id}`)}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          {t('admin.training.preview')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedModule(module.id);
+                            setActiveTab("lessons");
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          {t('admin.training.lessons')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedModuleForUsers(module.id);
+                            setShowUserSelector(true);
+                          }}
+                        >
+                          <Send className="h-4 w-4 mr-1" />
+                          {t('admin.training.send')}
+                        </Button>
+                        
+                        {/* Dropdown menu for Edit/Delete */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setEditingModule(module);
+                              setShowModuleForm(true);
+                            }}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              {t('admin.training.edit')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive focus:text-destructive" 
+                              onClick={() => deleteModule(module.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {t('admin.training.delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      
+                      {/* Visibility */}
+                      <div className="text-xs text-muted-foreground border-t pt-2">
+                        {t('admin.training.visibleTo')}: {getVisibilityText(module)}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </TabsContent>
 
