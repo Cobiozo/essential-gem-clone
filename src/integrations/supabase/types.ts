@@ -1645,6 +1645,7 @@ export type Database = {
           cancelled_at: string | null
           event_id: string
           id: string
+          occurrence_index: number | null
           registered_at: string | null
           reminder_sent: boolean | null
           status: string | null
@@ -1654,6 +1655,7 @@ export type Database = {
           cancelled_at?: string | null
           event_id: string
           id?: string
+          occurrence_index?: number | null
           registered_at?: string | null
           reminder_sent?: boolean | null
           status?: string | null
@@ -1663,6 +1665,7 @@ export type Database = {
           cancelled_at?: string | null
           event_id?: string
           id?: string
+          occurrence_index?: number | null
           registered_at?: string | null
           reminder_sent?: boolean | null
           status?: string | null
@@ -1739,6 +1742,7 @@ export type Database = {
           location: string | null
           max_participants: number | null
           meeting_topic_id: string | null
+          occurrences: Json | null
           registration_form_config: Json | null
           requires_registration: boolean | null
           sms_reminder_enabled: boolean | null
@@ -1777,6 +1781,7 @@ export type Database = {
           location?: string | null
           max_participants?: number | null
           meeting_topic_id?: string | null
+          occurrences?: Json | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
@@ -1815,6 +1820,7 @@ export type Database = {
           location?: string | null
           max_participants?: number | null
           meeting_topic_id?: string | null
+          occurrences?: Json | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
