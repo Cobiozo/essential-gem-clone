@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -8,9 +8,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays } from 'lucide-react';
+import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
@@ -28,6 +33,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
   const { profile, signOut } = useAuth();
   const { t } = useLanguage();
   const { setViewMode } = useDashboardPreference();
+  const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
 
   const handleSwitchToClassic = () => {
     setViewMode('classic');
@@ -108,6 +114,18 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
               <Settings className="mr-2 h-4 w-4" />
               {t('dashboard.menu.settings')}
             </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Link2 className="mr-2 h-4 w-4" />
+                Synchronizacja API
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-48">
+                <DropdownMenuItem onClick={() => setIsGoogleCalendarOpen(true)}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Google Calendar
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <CacheManagementDialog>
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 <Wrench className="mr-2 h-4 w-4" />
@@ -121,6 +139,19 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Google Calendar Dialog */}
+        <Dialog open={isGoogleCalendarOpen} onOpenChange={setIsGoogleCalendarOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" />
+                Google Calendar
+              </DialogTitle>
+            </DialogHeader>
+            <GoogleCalendarConnect />
+          </DialogContent>
+        </Dialog>
       </div>
     </header>
   );
