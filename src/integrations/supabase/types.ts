@@ -2477,11 +2477,13 @@ export type Database = {
           activated_by: string | null
           can_host_private_meetings: boolean | null
           created_at: string | null
+          external_calendly_url: string | null
           id: string
           individual_meetings_enabled: boolean | null
           partner_consultation_enabled: boolean | null
           tripartite_meeting_enabled: boolean | null
           updated_at: string | null
+          use_external_booking: boolean | null
           user_id: string
           zoom_link: string | null
         }
@@ -2490,11 +2492,13 @@ export type Database = {
           activated_by?: string | null
           can_host_private_meetings?: boolean | null
           created_at?: string | null
+          external_calendly_url?: string | null
           id?: string
           individual_meetings_enabled?: boolean | null
           partner_consultation_enabled?: boolean | null
           tripartite_meeting_enabled?: boolean | null
           updated_at?: string | null
+          use_external_booking?: boolean | null
           user_id: string
           zoom_link?: string | null
         }
@@ -2503,11 +2507,13 @@ export type Database = {
           activated_by?: string | null
           can_host_private_meetings?: boolean | null
           created_at?: string | null
+          external_calendly_url?: string | null
           id?: string
           individual_meetings_enabled?: boolean | null
           partner_consultation_enabled?: boolean | null
           tripartite_meeting_enabled?: boolean | null
           updated_at?: string | null
+          use_external_booking?: boolean | null
           user_id?: string
           zoom_link?: string | null
         }

@@ -7,15 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Save, Loader2, Users, UserRound, Video, Eye, Clock, History, Settings } from 'lucide-react';
+import { Save, Loader2, Users, UserRound, Video, Eye, Clock, History, Settings, ExternalLink, CalendarDays } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { WeeklyAvailabilityScheduler, TimeSlot } from './WeeklyAvailabilityScheduler';
 import { IndividualMeetingsHistory } from './IndividualMeetingsHistory';
 import { format, addMonths, addMinutes, parse } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const SLOT_DURATIONS = [
   { value: 30, label: '30 minut' },
@@ -49,6 +51,10 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
   
   // New availability slots (specific dates instead of day-of-week)
   const [availabilitySlots, setAvailabilitySlots] = useState<TimeSlot[]>([]);
+  
+  // External booking (Calendly) options
+  const [bookingMode, setBookingMode] = useState<'internal' | 'external'>('internal');
+  const [externalCalendlyUrl, setExternalCalendlyUrl] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -83,15 +89,23 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         setAvailabilitySlots(slots);
       }
 
-      // Load leader permissions for zoom link
+      // Load leader permissions for zoom link and external booking settings
       const { data: permData } = await supabase
         .from('leader_permissions')
-        .select('zoom_link')
+        .select('zoom_link, use_external_booking, external_calendly_url')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (permData?.zoom_link) {
         setZoomLink(permData.zoom_link);
+      }
+      
+      // Load external booking settings
+      if (permData?.use_external_booking) {
+        setBookingMode('external');
+        setExternalCalendlyUrl(permData.external_calendly_url || '');
+      } else {
+        setBookingMode('internal');
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -136,10 +150,14 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         if (availError) throw availError;
       }
 
-      // Update zoom link in leader_permissions (only update, no insert - record must exist)
-      const { error: permError, count } = await supabase
+      // Update zoom link and external booking settings in leader_permissions
+      const { error: permError } = await supabase
         .from('leader_permissions')
-        .update({ zoom_link: zoomLink || null })
+        .update({ 
+          zoom_link: zoomLink || null,
+          use_external_booking: bookingMode === 'external',
+          external_calendly_url: bookingMode === 'external' ? externalCalendlyUrl : null,
+        })
         .eq('user_id', user.id);
 
       if (permError) {
@@ -213,103 +231,174 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
           </CardHeader>
         </Card>
 
-      {/* Basic Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Ustawienia spotkania</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Tytuł spotkania</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Nazwa spotkania"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Opis</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Opisz, czego dotyczy spotkanie..."
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Video className="h-4 w-4" />
-              Link do spotkania (Zoom/Google Meet)
-            </Label>
-            <Input
-              value={zoomLink}
-              onChange={(e) => setZoomLink(e.target.value)}
-              placeholder="https://zoom.us/j/..."
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Czas trwania spotkania</Label>
-            <Select
-              value={slotDuration.toString()}
-              onValueChange={(value) => setSlotDuration(parseInt(value))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SLOT_DURATIONS.map((duration) => (
-                  <SelectItem key={duration.value} value={duration.value.toString()}>
-                    {duration.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Availability Schedule - New Calendly-style */}
+      {/* Booking Mode Selection */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock className="h-5 w-5" />
-            Harmonogram dostępności
+            <CalendarDays className="h-5 w-5" />
+            Sposób rezerwacji spotkań
           </CardTitle>
           <CardDescription>
-            Kliknij na godziny, w których chcesz być dostępny dla innych partnerów (maks. 1 miesiąc do przodu)
+            Wybierz jak partnerzy mają rezerwować spotkania z Tobą
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <WeeklyAvailabilityScheduler
-            meetingType={meetingType}
-            slotDuration={slotDuration}
-            hostName={hostName}
-            description={description}
-            zoomLink={zoomLink}
-            initialSlots={availabilitySlots}
-            onSlotsChange={handleSlotsChange}
-          />
+          <RadioGroup 
+            value={bookingMode} 
+            onValueChange={(value) => setBookingMode(value as 'internal' | 'external')}
+            className="space-y-4"
+          >
+            <div className={cn(
+              "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors",
+              bookingMode === 'internal' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+            )}>
+              <RadioGroupItem value="internal" id="internal" className="mt-1" />
+              <div className="flex-1">
+                <Label htmlFor="internal" className="font-medium cursor-pointer">
+                  Wbudowany harmonogram
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Ustalaj dostępność w aplikacji. Partnerzy rezerwują spotkania bezpośrednio w systemie.
+                </p>
+              </div>
+            </div>
+            
+            <div className={cn(
+              "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors",
+              bookingMode === 'external' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+            )}>
+              <RadioGroupItem value="external" id="external" className="mt-1" />
+              <div className="flex-1">
+                <Label htmlFor="external" className="font-medium cursor-pointer flex items-center gap-2">
+                  Zewnętrzny link (Calendly/Cal.com)
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Przekieruj partnerów do swojego zewnętrznego kalendarza rezerwacji.
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
+          
+          {bookingMode === 'external' && (
+            <div className="mt-4 space-y-2">
+              <Label>Link do rezerwacji</Label>
+              <Input
+                value={externalCalendlyUrl}
+                onChange={(e) => setExternalCalendlyUrl(e.target.value)}
+                placeholder="https://calendly.com/twoj-link"
+              />
+              <p className="text-xs text-muted-foreground">
+                Wklej link do Calendly, Cal.com lub innego narzędzia do rezerwacji spotkań
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Media Upload */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Multimedia</CardTitle>
-          <CardDescription>Dodaj obraz wyróżniający dla spotkania</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MediaUpload
-            onMediaUploaded={(url, type) => setImageUrl(url)}
-            currentMediaUrl={imageUrl}
-            currentMediaType="image"
-            allowedTypes={['image']}
-          />
-        </CardContent>
-      </Card>
+      {/* Basic Settings - only show when internal mode */}
+      {bookingMode === 'internal' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Ustawienia spotkania</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Tytuł spotkania</Label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Nazwa spotkania"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Opis</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Opisz, czego dotyczy spotkanie..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Video className="h-4 w-4" />
+                Link do spotkania (Zoom/Google Meet)
+              </Label>
+              <Input
+                value={zoomLink}
+                onChange={(e) => setZoomLink(e.target.value)}
+                placeholder="https://zoom.us/j/..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Czas trwania spotkania</Label>
+              <Select
+                value={slotDuration.toString()}
+                onValueChange={(value) => setSlotDuration(parseInt(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SLOT_DURATIONS.map((duration) => (
+                    <SelectItem key={duration.value} value={duration.value.toString()}>
+                      {duration.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Availability Schedule - only show when internal mode */}
+      {bookingMode === 'internal' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Clock className="h-5 w-5" />
+              Harmonogram dostępności
+            </CardTitle>
+            <CardDescription>
+              Kliknij na godziny, w których chcesz być dostępny dla innych partnerów (maks. 1 miesiąc do przodu)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <WeeklyAvailabilityScheduler
+              meetingType={meetingType}
+              slotDuration={slotDuration}
+              hostName={hostName}
+              description={description}
+              zoomLink={zoomLink}
+              initialSlots={availabilitySlots}
+              onSlotsChange={handleSlotsChange}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Media Upload - only show when internal mode */}
+      {bookingMode === 'internal' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Multimedia</CardTitle>
+            <CardDescription>Dodaj obraz wyróżniający dla spotkania</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MediaUpload
+              onMediaUploaded={(url, type) => setImageUrl(url)}
+              currentMediaUrl={imageUrl}
+              currentMediaType="image"
+              allowedTypes={['image']}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Visibility */}
       <Card>
