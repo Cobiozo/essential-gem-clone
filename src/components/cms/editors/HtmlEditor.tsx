@@ -7,6 +7,7 @@ import { CMSItem } from '@/types/cms';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface HtmlEditorProps {
   item: CMSItem;
@@ -15,6 +16,7 @@ interface HtmlEditorProps {
 }
 
 export const HtmlEditor: React.FC<HtmlEditorProps> = ({ item, onSave, onCancel }) => {
+  const { t } = useLanguage();
   const htmlCell = (item.cells as any[])?.[0] || {};
   const [html, setHtml] = useState(htmlCell.content || '');
   
@@ -63,13 +65,13 @@ export const HtmlEditor: React.FC<HtmlEditorProps> = ({ item, onSave, onCancel }
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-background z-10">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          Edycja HTML
-          {isSaving && <span className="text-xs text-muted-foreground">(zapisywanie...)</span>}
+          {t('cms.htmlCode')}
+          {isSaving && <span className="text-xs text-muted-foreground">({t('cms.saving')})</span>}
           {justSaved && <CheckCircle2 className="w-4 h-4 text-green-500" />}
         </h3>
         <div className="flex gap-2">
           <Button onClick={() => onSave(editedItem)} size="sm">
-            Zapisz
+            {t('common.save')}
           </Button>
           <Button onClick={onCancel} variant="ghost" size="sm">
             <X className="w-4 h-4" />
@@ -82,13 +84,12 @@ export const HtmlEditor: React.FC<HtmlEditorProps> = ({ item, onSave, onCancel }
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Uwaga! Wklejanie niesprawdzonego kodu HTML może stanowić zagrożenie bezpieczeństwa. 
-              Upewnij się, że rozumiesz kod który wklejasz.
+              {t('cms.htmlWarning')}
             </AlertDescription>
           </Alert>
 
           <div>
-            <Label>Kod HTML</Label>
+            <Label>{t('cms.htmlCode')}</Label>
             <Textarea
               value={html}
               onChange={(e) => handleHtmlChange(e.target.value)}
@@ -100,7 +101,7 @@ export const HtmlEditor: React.FC<HtmlEditorProps> = ({ item, onSave, onCancel }
 
           {html && (
             <div>
-              <Label>Podgląd</Label>
+              <Label>{t('common.preview')}</Label>
               <div 
                 className="border rounded-lg p-4 bg-muted/30 prose dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: html }}

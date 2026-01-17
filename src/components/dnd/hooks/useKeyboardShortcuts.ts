@@ -152,7 +152,23 @@ export const useKeyboardShortcuts = ({
   }, [enabled, handleKeyDown]);
 };
 
-// Keyboard shortcuts help data
+// Keyboard shortcuts help data - translation keys
+// Note: These are used with t() function in components
+export const keyboardShortcutKeys = [
+  { key: 'Ctrl + Z', actionKey: 'shortcuts.undo' },
+  { key: 'Ctrl + Shift + Z', actionKey: 'shortcuts.redo' },
+  { key: 'Ctrl + S', actionKey: 'shortcuts.save' },
+  { key: 'Ctrl + D', actionKey: 'shortcuts.duplicateElement' },
+  { key: 'Ctrl + C', actionKey: 'shortcuts.copyElement' },
+  { key: 'Ctrl + V', actionKey: 'shortcuts.pasteElement' },
+  { key: 'Delete', actionKey: 'shortcuts.deleteElement' },
+  { key: 'Escape', actionKey: 'shortcuts.deselect' },
+  { key: 'Ctrl + ↑', actionKey: 'shortcuts.moveUp' },
+  { key: 'Ctrl + ↓', actionKey: 'shortcuts.moveDown' },
+  { key: 'Ctrl + E', actionKey: 'shortcuts.toggleEditMode' },
+];
+
+// Legacy export for backwards compatibility
 export const keyboardShortcuts = [
   { key: 'Ctrl + Z', action: 'Cofnij' },
   { key: 'Ctrl + Shift + Z', action: 'Ponów' },

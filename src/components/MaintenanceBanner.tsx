@@ -3,6 +3,7 @@ import { AlertTriangle, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface MaintenanceData {
   title: string;
@@ -15,6 +16,8 @@ interface MaintenanceBannerProps {
 }
 
 const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({ maintenance }) => {
+  const { t } = useLanguage();
+  
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full text-center border-2 border-amber-500/50 shadow-xl">
@@ -32,7 +35,7 @@ const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({ maintenance }) =>
               <div className="flex items-center justify-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 <p className="font-medium text-sm text-muted-foreground">
-                  Planowane zakończenie prac:
+                  {t('maintenance.plannedEndTime')}
                 </p>
               </div>
               <p className="text-xl font-bold text-primary">
@@ -42,7 +45,7 @@ const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({ maintenance }) =>
           )}
           
           <p className="text-xs text-muted-foreground pt-2">
-            Przepraszamy za utrudnienia. Strona będzie dostępna wkrótce.
+            {t('maintenance.apology')}
           </p>
         </CardContent>
       </Card>

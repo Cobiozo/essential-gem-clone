@@ -4,6 +4,7 @@ import { ItemEditor } from './ItemEditor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VisibilityEditor } from './editors/VisibilityEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ItemEditorWrapperProps {
   item?: CMSItem;
@@ -20,6 +21,7 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
   onCancel,
   isNew = false,
 }) => {
+  const { t } = useLanguage();
   const [editedItem, setEditedItem] = useState<CMSItem | undefined>(item);
   const [activeTab, setActiveTab] = useState('content');
 
@@ -30,7 +32,7 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
   if (!editedItem) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        Wybierz element do edycji
+        {t('cms.selectElement')}
       </div>
     );
   }
@@ -62,8 +64,8 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
     <div className="flex flex-col h-full min-w-0 overflow-hidden">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-auto min-w-0">
         <TabsList className="mx-4 mt-2 grid grid-cols-2 shrink-0">
-          <TabsTrigger value="content">Edycja</TabsTrigger>
-          <TabsTrigger value="visibility">Widoczność</TabsTrigger>
+          <TabsTrigger value="content">{t('cms.edit')}</TabsTrigger>
+          <TabsTrigger value="visibility">{t('cms.visibility')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content" className="flex-1 overflow-auto m-0 data-[state=active]:flex data-[state=active]:flex-col">
@@ -91,10 +93,11 @@ export const ItemEditorWrapper: React.FC<ItemEditorWrapperProps> = ({
               />
               
               <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Informacja</h4>
+                <h4 className="font-medium text-sm mb-2">{t('common.info')}</h4>
                 <p className="text-xs text-muted-foreground">
-                  Ustawienia widoczności zostaną zapisane po kliknięciu "Zapisz" w zakładce Edycja.
-                  Pamiętaj, że sekcja nadrzędna również musi być widoczna dla użytkownika, aby zobaczyć ten element.
+                  {t('cms.visibilityInfo')}
+                  {' '}
+                  {t('cms.visibilityParentInfo')}
                 </p>
               </div>
             </div>

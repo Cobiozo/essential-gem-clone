@@ -2,9 +2,11 @@ import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const NotFound = () => {
   const location = useLocation();
+  const { t } = useLanguage();
 
   // Enable security preventions for public pages
   useSecurityPreventions();
@@ -19,10 +21,10 @@ const NotFound = () => {
         <div className="absolute top-4 right-4">
           <LanguageSelector />
         </div>
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-gray-600">Strona nie została znaleziona</p>
+        <h1 className="mb-4 text-4xl font-bold">{t('notFound.title')}</h1>
+        <p className="mb-4 text-xl text-gray-600">{t('notFound.subtitle')}</p>
         <a href="/" className="text-blue-500 underline hover:text-blue-700">
-          Wróć do strony głównej
+          {t('notFound.backToHome')}
         </a>
       </div>
     </div>

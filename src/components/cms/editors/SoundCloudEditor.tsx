@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { CMSItem } from '@/types/cms';
 import { X, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SoundCloudEditorProps {
   item: CMSItem;
@@ -14,6 +15,7 @@ interface SoundCloudEditorProps {
 }
 
 export const SoundCloudEditor: React.FC<SoundCloudEditorProps> = ({ item, onSave, onCancel }) => {
+  const { t } = useLanguage();
   const soundcloudCell = (item.cells as any[])?.[0] || {};
   const [url, setUrl] = useState(soundcloudCell.url || '');
   const [height, setHeight] = useState(soundcloudCell.height || 166);
@@ -71,13 +73,13 @@ export const SoundCloudEditor: React.FC<SoundCloudEditorProps> = ({ item, onSave
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-background z-10">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          Edycja SoundCloud
-          {isSaving && <span className="text-xs text-muted-foreground">(zapisywanie...)</span>}
+          SoundCloud
+          {isSaving && <span className="text-xs text-muted-foreground">({t('cms.saving')})</span>}
           {justSaved && <CheckCircle2 className="w-4 h-4 text-green-500" />}
         </h3>
         <div className="flex gap-2">
           <Button onClick={() => onSave(editedItem)} size="sm">
-            Zapisz
+            {t('common.save')}
           </Button>
           <Button onClick={onCancel} variant="ghost" size="sm">
             <X className="w-4 h-4" />
@@ -88,19 +90,19 @@ export const SoundCloudEditor: React.FC<SoundCloudEditorProps> = ({ item, onSave
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
           <div>
-            <Label>URL SoundCloud</Label>
+            <Label>{t('cms.soundcloudUrl')}</Label>
             <Input
               value={url}
               onChange={(e) => handleUrlChange(e.target.value)}
               placeholder="https://soundcloud.com/..."
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Wklej link do utworu lub playlisty z SoundCloud
+              {t('cms.soundcloudUrlHint')}
             </p>
           </div>
 
           <div>
-            <Label>Wysokość (px)</Label>
+            <Label>{t('cms.heightPx')}</Label>
             <Input
               type="number"
               value={height}
@@ -108,7 +110,7 @@ export const SoundCloudEditor: React.FC<SoundCloudEditorProps> = ({ item, onSave
               placeholder="166"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Zalecane: 166 dla pojedynczego utworu, 450 dla playlisty
+              {t('cms.heightHintSingle')}
             </p>
           </div>
         </div>
