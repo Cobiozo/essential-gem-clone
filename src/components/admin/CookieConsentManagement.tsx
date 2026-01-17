@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +30,7 @@ import {
 } from '@/types/cookies';
 
 export function CookieConsentManagement() {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -88,7 +90,7 @@ export function CookieConsentManagement() {
       }
     } catch (error) {
       console.error('Error loading cookie settings:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się załadować ustawień', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.cookies.loadFailed'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -107,10 +109,10 @@ export function CookieConsentManagement() {
         }).eq('id', bannerSettings.id),
       ]);
       
-      toast({ title: 'Zapisano', description: 'Ustawienia zostały zapisane' });
+      toast({ title: t('toast.success'), description: t('admin.cookies.saved') });
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się zapisać ustawień', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.cookies.saveFailed'), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -119,10 +121,10 @@ export function CookieConsentManagement() {
   async function saveCategory(category: CookieCategory) {
     try {
       await supabase.from('cookie_categories').update(category).eq('id', category.id);
-      toast({ title: 'Zapisano', description: 'Kategoria została zapisana' });
+      toast({ title: t('toast.success'), description: t('admin.cookies.categorySaved') });
     } catch (error) {
       console.error('Error saving category:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się zapisać kategorii', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.cookies.categorySaveFailed'), variant: 'destructive' });
     }
   }
 
@@ -132,8 +134,8 @@ export function CookieConsentManagement() {
       const { data, error } = await supabase
         .from('cookie_categories')
         .insert({ 
-          name: 'Nowa kategoria', 
-          description: 'Opis kategorii',
+          name: t('admin.cookies.newCategory'), 
+          description: t('admin.cookies.categoryDescriptionPlaceholder'),
           position: newPosition 
         })
         .select()
@@ -142,11 +144,11 @@ export function CookieConsentManagement() {
       if (error) throw error;
       if (data) {
         setCategories([...categories, data as CookieCategory]);
-        toast({ title: 'Dodano', description: 'Nowa kategoria została dodana' });
+        toast({ title: t('toast.success'), description: t('admin.cookies.categoryAdded') });
       }
     } catch (error) {
       console.error('Error adding category:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się dodać kategorii', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.cookies.categoryAddFailed'), variant: 'destructive' });
     }
   }
 
@@ -154,10 +156,10 @@ export function CookieConsentManagement() {
     try {
       await supabase.from('cookie_categories').delete().eq('id', id);
       setCategories(categories.filter(c => c.id !== id));
-      toast({ title: 'Usunięto', description: 'Kategoria została usunięta' });
+      toast({ title: t('toast.success'), description: t('admin.cookies.categoryDeleted') });
     } catch (error) {
       console.error('Error deleting category:', error);
-      toast({ title: 'Błąd', description: 'Nie udało się usunąć kategorii', variant: 'destructive' });
+      toast({ title: t('toast.error'), description: t('admin.cookies.categoryDeleteFailed'), variant: 'destructive' });
     }
   }
 
@@ -188,11 +190,11 @@ export function CookieConsentManagement() {
   }
 
   if (isLoading) {
-    return <div className="p-4">Ładowanie...</div>;
+    return <div className="p-4">{t('common.loading')}</div>;
   }
 
   if (!settings || !bannerSettings) {
-    return <div className="p-4">Błąd ładowania ustawień</div>;
+    return <div className="p-4">{t('admin.cookies.loadError')}</div>;
   }
 
   return (

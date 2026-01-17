@@ -238,7 +238,7 @@ export const EventsManagement: React.FC = () => {
       toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
       return;
     }
-    toast({ title: t('toast.success'), description: 'Webinar został usunięty' });
+    toast({ title: t('toast.success'), description: t('admin.events.webinarDeleted') });
     loadEvents();
   };
 
@@ -265,7 +265,7 @@ export const EventsManagement: React.FC = () => {
       toast({ title: t('toast.error'), description: error.message, variant: 'destructive' });
       return;
     }
-    toast({ title: t('toast.success'), description: 'Spotkanie zespołu zostało usunięte' });
+    toast({ title: t('toast.success'), description: t('admin.events.teamTrainingDeleted') });
     loadEvents();
   };
 
@@ -507,20 +507,20 @@ export const EventsManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Zarządzanie Wydarzeniami</h2>
-          <p className="text-muted-foreground">Panel administratora</p>
+          <h2 className="text-2xl font-bold">{t('admin.events.title')}</h2>
+          <p className="text-muted-foreground">{t('admin.events.adminPanel')}</p>
         </div>
         <div className="flex gap-2">
           {activeTab === 'webinars' && !showWebinarForm && (
             <Button onClick={() => setShowWebinarForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Dodaj Webinar
+              {t('admin.events.addWebinar')}
             </Button>
           )}
           {activeTab === 'team-training' && !showTeamTrainingForm && (
             <Button onClick={() => setShowTeamTrainingForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Dodaj spotkanie zespołu
+              {t('admin.events.addTeamMeeting')}
             </Button>
           )}
         </div>
@@ -530,31 +530,31 @@ export const EventsManagement: React.FC = () => {
         <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="webinars" className="flex items-center gap-2">
             <Video className="h-4 w-4" />
-            <span className="hidden sm:inline">Webinary</span>
+            <span className="hidden sm:inline">{t('admin.events.webinars')}</span>
           </TabsTrigger>
           <TabsTrigger value="team-training" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">Spotkanie zespołu</span>
+            <span className="hidden sm:inline">{t('admin.events.teamMeeting')}</span>
           </TabsTrigger>
           <TabsTrigger value="individual-meetings" className="flex items-center gap-2">
             <UserRound className="h-4 w-4" />
-            <span className="hidden sm:inline">Spotkanie indywidualne</span>
+            <span className="hidden sm:inline">{t('admin.events.individualMeeting')}</span>
           </TabsTrigger>
           <TabsTrigger value="sms-logs" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Logi SMS</span>
+            <span className="hidden sm:inline">{t('admin.events.smsLogs')}</span>
           </TabsTrigger>
           <TabsTrigger value="topics" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">Tematy</span>
+            <span className="hidden sm:inline">{t('admin.events.topics')}</span>
           </TabsTrigger>
           <TabsTrigger value="leaders" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Liderzy</span>
+            <span className="hidden sm:inline">{t('admin.events.leaders')}</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Ustawienia</span>
+            <span className="hidden sm:inline">{t('admin.events.settings')}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -603,12 +603,12 @@ export const EventsManagement: React.FC = () => {
         <TabsContent value="sms-logs" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Logi przypomnień SMS</CardTitle>
-              <CardDescription>Historia wysłanych przypomnień SMS dla webinarów</CardDescription>
+              <CardTitle>{t('admin.events.smsLogsTitle')}</CardTitle>
+              <CardDescription>{t('admin.events.smsLogsDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-muted-foreground">
-                Brak logów SMS. Przypomnienia zostaną zapisane po włączeniu funkcji SMS.
+                {t('admin.events.noSmsLogs')}
               </div>
             </CardContent>
           </Card>
