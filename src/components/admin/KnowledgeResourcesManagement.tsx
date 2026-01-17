@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Plus, Pencil, Trash2, FileText, Link as LinkIcon, Archive, 
   Download, Star, Sparkles, RefreshCw, Eye, EyeOff, Upload,
@@ -51,6 +52,8 @@ const emptyResource: Partial<KnowledgeResource> = {
 };
 
 export const KnowledgeResourcesManagement: React.FC = () => {
+  const { t } = useLanguage();
+  const { toast } = useToast();
   const [resources, setResources] = useState<KnowledgeResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -74,7 +77,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
       .order('position', { ascending: true });
     
     if (error) {
-      toast.error('Błąd pobierania zasobów');
+      toast({ title: t('toast.error'), description: t('admin.knowledge.fetchError'), variant: 'destructive' });
       console.error(error);
     } else {
       setResources((data || []) as KnowledgeResource[]);
@@ -95,20 +98,20 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         file_size: result.fileSize
       }));
       
-      toast.success(`Plik przesłany (${formatFileSize(result.fileSize)})`);
+      toast({ title: t('toast.success'), description: `${t('admin.knowledge.fileUploaded')} (${formatFileSize(result.fileSize)})` });
     } catch (error: any) {
-      toast.error(error.message || 'Błąd przesyłania pliku');
+      toast({ title: t('toast.error'), description: error.message || t('admin.knowledge.uploadError'), variant: 'destructive' });
       console.error(error);
     }
   };
 
   const handleSave = async () => {
     if (!editingResource?.title) {
-      toast.error('Tytuł jest wymagany');
+      toast({ title: t('toast.error'), description: t('admin.knowledge.titleRequired'), variant: 'destructive' });
       return;
     }
 
-    const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+    const tags = tagsInput.split(',').map(tag => tag.trim()).filter(Boolean);
     const resourceData = {
       ...editingResource,
       tags
@@ -121,10 +124,10 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         .eq('id', editingResource.id);
       
       if (error) {
-        toast.error('Błąd aktualizacji');
+        toast({ title: t('toast.error'), description: t('admin.knowledge.updateError'), variant: 'destructive' });
         console.error(error);
       } else {
-        toast.success('Zasób zaktualizowany');
+        toast({ title: t('toast.success'), description: t('admin.knowledge.resourceUpdated') });
         setDialogOpen(false);
         fetchResources();
       }
@@ -161,10 +164,10 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         }]);
       
       if (error) {
-        toast.error('Błąd tworzenia');
+        toast({ title: t('toast.error'), description: t('admin.knowledge.createError'), variant: 'destructive' });
         console.error(error);
       } else {
-        toast.success('Zasób utworzony');
+        toast({ title: t('toast.success'), description: t('admin.knowledge.resourceCreated') });
         setDialogOpen(false);
         fetchResources();
       }
@@ -172,7 +175,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten zasób?')) return;
+    if (!confirm(t('admin.knowledge.confirmDelete'))) return;
     
     const { error } = await supabase
       .from('knowledge_resources')
@@ -180,10 +183,10 @@ export const KnowledgeResourcesManagement: React.FC = () => {
       .eq('id', id);
     
     if (error) {
-      toast.error('Błąd usuwania');
+      toast({ title: t('toast.error'), description: t('admin.knowledge.deleteError'), variant: 'destructive' });
       console.error(error);
     } else {
-      toast.success('Zasób usunięty');
+      toast({ title: t('toast.success'), description: t('admin.knowledge.resourceDeleted') });
       fetchResources();
     }
   };
@@ -223,10 +226,10 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Biblioteka</h2>
+        <h2 className="text-2xl font-bold">{t('admin.knowledge.library')}</h2>
         <Button onClick={() => openEditDialog()}>
           <Plus className="h-4 w-4 mr-2" />
-          Dodaj zasób
+          {t('admin.knowledge.addResource')}
         </Button>
       </div>
 
@@ -238,7 +241,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Szukaj zasobów..."
+                  placeholder={t('admin.knowledge.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -247,21 +250,21 @@ export const KnowledgeResourcesManagement: React.FC = () => {
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t('common.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Wszystkie</SelectItem>
-                <SelectItem value="active">Aktywne</SelectItem>
-                <SelectItem value="draft">Robocze</SelectItem>
-                <SelectItem value="archived">Archiwalne</SelectItem>
+                <SelectItem value="all">{t('common.all')}</SelectItem>
+                <SelectItem value="active">{t('common.active')}</SelectItem>
+                <SelectItem value="draft">{t('admin.knowledge.statusDraft')}</SelectItem>
+                <SelectItem value="archived">{t('admin.knowledge.statusArchived')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Kategoria" />
+                <SelectValue placeholder={t('admin.knowledge.category')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Wszystkie kategorie</SelectItem>
+                <SelectItem value="all">{t('admin.knowledge.allCategories')}</SelectItem>
                 {RESOURCE_CATEGORIES.map(cat => (
                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                 ))}
@@ -273,11 +276,11 @@ export const KnowledgeResourcesManagement: React.FC = () => {
 
       {/* Resources List */}
       {loading ? (
-        <div className="text-center py-8">Ładowanie...</div>
+        <div className="text-center py-8">{t('common.loading')}</div>
       ) : filteredResources.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Brak zasobów do wyświetlenia
+            {t('admin.knowledge.noResources')}
           </CardContent>
         </Card>
       ) : (
@@ -290,11 +293,11 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h3 className="font-semibold truncate">{resource.title}</h3>
                       {resource.is_featured && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
-                      {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700">Nowy</Badge>}
-                      {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700">Zaktualizowany</Badge>}
+                      {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700">{t('admin.knowledge.badgeNew')}</Badge>}
+                      {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700">{t('admin.knowledge.badgeUpdated')}</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                      {resource.description || 'Brak opisu'}
+                      {resource.description || t('admin.knowledge.noDescription')}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       {getTypeBadge(resource.resource_type)}
@@ -329,50 +332,50 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingResource?.id ? 'Edytuj zasób' : 'Nowy zasób'}
+              {editingResource?.id ? t('admin.knowledge.editResource') : t('admin.knowledge.newResource')}
             </DialogTitle>
           </DialogHeader>
           
           {editingResource && (
             <Tabs defaultValue="basic" className="w-full">
               <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="basic">Podstawowe</TabsTrigger>
-                <TabsTrigger value="source">Źródło</TabsTrigger>
-                <TabsTrigger value="visibility">Widoczność</TabsTrigger>
-                <TabsTrigger value="actions">Akcje</TabsTrigger>
-                <TabsTrigger value="badges">Oznaczenia</TabsTrigger>
+                <TabsTrigger value="basic">{t('admin.knowledge.tabBasic')}</TabsTrigger>
+                <TabsTrigger value="source">{t('admin.knowledge.tabSource')}</TabsTrigger>
+                <TabsTrigger value="visibility">{t('admin.knowledge.tabVisibility')}</TabsTrigger>
+                <TabsTrigger value="actions">{t('admin.knowledge.tabActions')}</TabsTrigger>
+                <TabsTrigger value="badges">{t('admin.knowledge.tabBadges')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Tytuł *</Label>
+                  <Label>{t('admin.knowledge.titleLabel')} *</Label>
                   <Input
                     value={editingResource.title || ''}
                     onChange={(e) => setEditingResource({ ...editingResource, title: e.target.value })}
-                    placeholder="Nazwa zasobu"
+                    placeholder={t('admin.knowledge.titlePlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Opis</Label>
+                  <Label>{t('admin.knowledge.descriptionLabel')}</Label>
                   <Textarea
                     value={editingResource.description || ''}
                     onChange={(e) => setEditingResource({ ...editingResource, description: e.target.value })}
-                    placeholder="Krótki opis zasobu"
+                    placeholder={t('admin.knowledge.descriptionPlaceholder')}
                     rows={3}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Kontekst użycia</Label>
+                  <Label>{t('admin.knowledge.contextOfUse')}</Label>
                   <Textarea
                     value={editingResource.context_of_use || ''}
                     onChange={(e) => setEditingResource({ ...editingResource, context_of_use: e.target.value })}
-                    placeholder="Kiedy i jak używać tego zasobu"
+                    placeholder={t('admin.knowledge.contextPlaceholder')}
                     rows={2}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Typ zasobu</Label>
+                    <Label>{t('admin.knowledge.resourceType')}</Label>
                     <Select
                       value={editingResource.resource_type}
                       onValueChange={(v) => setEditingResource({ ...editingResource, resource_type: v as ResourceType })}
@@ -388,13 +391,13 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Kategoria</Label>
+                    <Label>{t('admin.knowledge.category')}</Label>
                     <Select
                       value={editingResource.category || ''}
                       onValueChange={(v) => setEditingResource({ ...editingResource, category: v })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Wybierz kategorię" />
+                        <SelectValue placeholder={t('admin.knowledge.selectCategory')} />
                       </SelectTrigger>
                       <SelectContent>
                         {RESOURCE_CATEGORIES.map(cat => (
@@ -405,16 +408,16 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Tagi (oddzielone przecinkami)</Label>
+                  <Label>{t('admin.knowledge.tagsLabel')}</Label>
                   <Input
                     value={tagsInput}
                     onChange={(e) => setTagsInput(e.target.value)}
-                    placeholder="np. onboarding, partner, cennik"
+                    placeholder={t('admin.knowledge.tagsPlaceholder')}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Status</Label>
+                    <Label>{t('common.status')}</Label>
                     <Select
                       value={editingResource.status}
                       onValueChange={(v) => setEditingResource({ ...editingResource, status: v as ResourceStatus })}
@@ -430,27 +433,27 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Wersja</Label>
+                    <Label>{t('admin.knowledge.version')}</Label>
                     <Input
                       value={editingResource.version || ''}
                       onChange={(e) => setEditingResource({ ...editingResource, version: e.target.value })}
-                      placeholder="np. 1.0, 2.1"
+                      placeholder={t('admin.knowledge.versionPlaceholder')}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Etap pracy (opcjonalny)</Label>
+                  <Label>{t('admin.knowledge.workStage')}</Label>
                   <Input
                     value={editingResource.work_stage || ''}
                     onChange={(e) => setEditingResource({ ...editingResource, work_stage: e.target.value })}
-                    placeholder="np. początkujący, zaawansowany"
+                    placeholder={t('admin.knowledge.workStagePlaceholder')}
                   />
                 </div>
               </TabsContent>
 
               <TabsContent value="source" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Typ źródła</Label>
+                  <Label>{t('admin.knowledge.sourceType')}</Label>
                   <Select
                     value={editingResource.source_type}
                     onValueChange={(v) => setEditingResource({ ...editingResource, source_type: v as 'file' | 'link' })}
@@ -459,8 +462,8 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="file">Plik</SelectItem>
-                      <SelectItem value="link">Link zewnętrzny</SelectItem>
+                      <SelectItem value="file">{t('admin.knowledge.sourceFile')}</SelectItem>
+                      <SelectItem value="link">{t('admin.knowledge.sourceLink')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -468,7 +471,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 {editingResource.source_type !== 'link' ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Prześlij plik (max 2GB)</Label>
+                      <Label>{t('admin.knowledge.uploadFile')}</Label>
                       <div className="flex gap-2">
                         <Input
                           type="file"
@@ -482,7 +485,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                       {isUploading && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Przesyłanie... {uploadProgress}%
+                          {t('common.uploading')} {uploadProgress}%
                         </div>
                       )}
                     </div>
@@ -492,7 +495,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                           <FileText className="h-4 w-4 text-primary" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {editingResource.file_name || 'Plik'}
+                              {editingResource.file_name || t('admin.knowledge.file')}
                             </p>
                             {editingResource.file_size && (
                               <p className="text-xs text-muted-foreground">
@@ -506,7 +509,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label>URL zasobu</Label>
+                    <Label>{t('admin.knowledge.resourceUrl')}</Label>
                     <Input
                       value={editingResource.source_url || ''}
                       onChange={(e) => setEditingResource({ ...editingResource, source_url: e.target.value })}
@@ -532,7 +535,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Copy className="h-4 w-4" />
-                    <Label>Pokaż przycisk kopiowania linku</Label>
+                    <Label>{t('admin.knowledge.showCopyLink')}</Label>
                   </div>
                   <Switch
                     checked={editingResource.allow_copy_link ?? true}
@@ -542,7 +545,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Download className="h-4 w-4" />
-                    <Label>Pokaż przycisk pobierania</Label>
+                    <Label>{t('admin.knowledge.showDownload')}</Label>
                   </div>
                   <Switch
                     checked={editingResource.allow_download ?? true}
@@ -552,7 +555,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Share2 className="h-4 w-4" />
-                    <Label>Pokaż przycisk udostępniania</Label>
+                    <Label>{t('admin.knowledge.showShare')}</Label>
                   </div>
                   <Switch
                     checked={editingResource.allow_share ?? false}
@@ -563,7 +566,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <MousePointer className="h-4 w-4" />
-                      <Label>Przekieruj po kliknięciu</Label>
+                      <Label>{t('admin.knowledge.redirectOnClick')}</Label>
                     </div>
                     <Switch
                       checked={editingResource.allow_click_redirect ?? false}
@@ -585,7 +588,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 text-yellow-500" />
-                    <Label>Wyróżniony</Label>
+                    <Label>{t('admin.knowledge.featured')}</Label>
                   </div>
                   <Switch
                     checked={editingResource.is_featured ?? false}
@@ -595,7 +598,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-blue-500" />
-                    <Label>Oznacz jako nowy</Label>
+                    <Label>{t('admin.knowledge.markAsNew')}</Label>
                   </div>
                   <Switch
                     checked={editingResource.is_new ?? false}
@@ -605,7 +608,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 text-purple-500" />
-                    <Label>Oznacz jako zaktualizowany</Label>
+                    <Label>{t('admin.knowledge.markAsUpdated')}</Label>
                   </div>
                   <Switch
                     checked={editingResource.is_updated ?? false}
@@ -618,16 +621,16 @@ export const KnowledgeResourcesManagement: React.FC = () => {
 
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Anuluj
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSave} disabled={isUploading}>
               {isUploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Przesyłanie...
+                  {t('common.uploading')}
                 </>
               ) : (
-                'Zapisz'
+                t('common.save')
               )}
             </Button>
           </div>
