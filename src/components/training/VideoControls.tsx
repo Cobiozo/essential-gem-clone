@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, HelpCircle, Settings, Copy } from 'lucide-react';
+import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, HelpCircle, Settings, Copy, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -9,6 +9,7 @@ interface VideoControlsProps {
   currentTime: number;
   duration: number;
   onPlayPause: () => void;
+  onRewind?: () => void; // NEW: Rewind 10 seconds callback
   isTabHidden?: boolean;
   onFullscreen?: () => void;
   isFullscreen?: boolean;
@@ -36,6 +37,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   currentTime,
   duration,
   onPlayPause,
+  onRewind,
   isTabHidden = false,
   onFullscreen,
   isFullscreen = false,
@@ -147,25 +149,41 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       )}
       
       <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onPlayPause}
-          className="flex items-center gap-2"
-          disabled={isBuffering}
-        >
-          {isPlaying ? (
-            <>
-              <Pause className="h-4 w-4" />
-              Pauza
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4" />
-              Odtwórz
-            </>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPlayPause}
+            className="flex items-center gap-2"
+            disabled={isBuffering}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="h-4 w-4" />
+                Pauza
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4" />
+                Odtwórz
+              </>
+            )}
+          </Button>
+
+          {onRewind && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRewind}
+              className="flex items-center gap-1"
+              disabled={isBuffering || currentTime < 1}
+              title="Cofnij 10 sekund"
+            >
+              <RotateCcw className="h-4 w-4" />
+              -10s
+            </Button>
           )}
-        </Button>
+        </div>
 
         <div className="flex-1 space-y-1">
           {/* Progress bar container with buffer visualization */}
@@ -286,7 +304,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        Podczas pierwszego oglądania przewijanie jest zablokowane
+        Podczas pierwszego oglądania możesz tylko cofać wideo
       </p>
     </div>
   );
