@@ -396,7 +396,7 @@ Deno.serve(async (req) => {
         end_time,
         zoom_link,
         event_type,
-        host_id
+        host_user_id
       `)
       .eq('id', event_id)
       .single();
@@ -411,11 +411,11 @@ Deno.serve(async (req) => {
 
     // Get host name if available
     let hostName: string | undefined;
-    if (eventData.host_id) {
+    if (eventData.host_user_id) {
       const { data: hostProfile } = await supabaseAdmin
         .from('profiles')
         .select('first_name, last_name')
-        .eq('id', eventData.host_id)
+        .eq('id', eventData.host_user_id)
         .single();
       
       if (hostProfile) {
