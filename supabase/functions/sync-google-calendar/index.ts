@@ -6,7 +6,8 @@ const corsHeaders = {
 };
 
 interface SyncRequest {
-  user_id: string;
+  user_id?: string;
+  user_ids?: string[]; // Support batch sync
   event_id?: string;
   action: 'create' | 'update' | 'delete' | 'test';
 }
@@ -20,6 +21,32 @@ interface EventData {
   zoom_link?: string;
   event_type: string;
   host_id?: string;
+}
+
+// Log sync operation to database (fire-and-forget)
+async function logSyncOperation(
+  supabase: any,
+  userId: string,
+  eventId: string | null,
+  action: string,
+  status: 'success' | 'error' | 'skipped',
+  responseTimeMs: number,
+  errorMessage?: string,
+  metadata?: any
+) {
+  try {
+    await supabase.from('google_calendar_sync_logs').insert({
+      user_id: userId,
+      event_id: eventId,
+      action,
+      status,
+      response_time_ms: responseTimeMs,
+      error_message: errorMessage || null,
+      metadata: metadata || null,
+    });
+  } catch (e) {
+    console.error('[sync-google-calendar] Failed to log operation:', e);
+  }
 }
 
 // Refresh Google access token if expired
@@ -223,39 +250,178 @@ async function deleteGoogleEvent(accessToken: string, calendarId: string, google
   }
 }
 
+// Process sync for a single user
+async function processSyncForUser(
+  supabaseAdmin: any,
+  userId: string,
+  eventId: string | undefined,
+  action: string,
+  eventData?: any,
+  hostName?: string
+): Promise<{ success: boolean; reason?: string; google_event_id?: string }> {
+  const startTime = Date.now();
+  
+  try {
+    // Get valid access token
+    const accessToken = await getValidAccessToken(supabaseAdmin, userId);
+    if (!accessToken) {
+      const responseTime = Date.now() - startTime;
+      // Log skipped - don't block, fire and forget
+      logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'skipped', responseTime, 'User not connected to Google Calendar');
+      return { success: false, reason: 'not_connected' };
+    }
+
+    // Get user's calendar ID
+    const { data: tokenData } = await supabaseAdmin
+      .from('user_google_tokens')
+      .select('calendar_id')
+      .eq('user_id', userId)
+      .single();
+
+    const calendarId = tokenData?.calendar_id || 'primary';
+
+    if (action === 'delete' && eventId) {
+      // Get existing sync record
+      const { data: syncRecord } = await supabaseAdmin
+        .from('event_google_sync')
+        .select('google_event_id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .single();
+
+      if (syncRecord?.google_event_id) {
+        const deleted = await deleteGoogleEvent(accessToken, calendarId, syncRecord.google_event_id);
+        
+        if (deleted) {
+          await supabaseAdmin
+            .from('event_google_sync')
+            .delete()
+            .eq('event_id', eventId)
+            .eq('user_id', userId);
+        }
+
+        const responseTime = Date.now() - startTime;
+        logSyncOperation(supabaseAdmin, userId, eventId, action, deleted ? 'success' : 'error', responseTime, deleted ? undefined : 'Delete failed');
+        return { success: deleted };
+      }
+
+      const responseTime = Date.now() - startTime;
+      logSyncOperation(supabaseAdmin, userId, eventId, action, 'skipped', responseTime, 'No sync record found');
+      return { success: true, reason: 'no_sync_record' };
+    }
+
+    if (!eventData) {
+      const responseTime = Date.now() - startTime;
+      logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, 'No event data provided');
+      return { success: false, reason: 'no_event_data' };
+    }
+
+    const googleEventData = formatGoogleEvent(eventData, hostName);
+
+    if (action === 'update' && eventId) {
+      // Check for existing sync record
+      const { data: syncRecord } = await supabaseAdmin
+        .from('event_google_sync')
+        .select('google_event_id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .single();
+
+      if (syncRecord?.google_event_id) {
+        const updated = await updateGoogleEvent(accessToken, calendarId, syncRecord.google_event_id, googleEventData);
+        
+        if (updated) {
+          await supabaseAdmin
+            .from('event_google_sync')
+            .update({ synced_at: new Date().toISOString() })
+            .eq('event_id', eventId)
+            .eq('user_id', userId);
+        }
+
+        const responseTime = Date.now() - startTime;
+        logSyncOperation(supabaseAdmin, userId, eventId, action, updated ? 'success' : 'error', responseTime, updated ? undefined : 'Update failed');
+        return { success: updated };
+      }
+
+      // No existing record, fall through to create
+    }
+
+    // Create new event
+    const googleEventId = await createGoogleEvent(accessToken, calendarId, googleEventData);
+
+    if (!googleEventId) {
+      const responseTime = Date.now() - startTime;
+      logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, 'Create failed');
+      return { success: false, reason: 'create_failed' };
+    }
+
+    // Save sync record
+    if (eventId) {
+      await supabaseAdmin
+        .from('event_google_sync')
+        .upsert({
+          event_id: eventId,
+          user_id: userId,
+          google_event_id: googleEventId,
+          synced_at: new Date().toISOString(),
+        }, {
+          onConflict: 'event_id,user_id',
+        });
+    }
+
+    const responseTime = Date.now() - startTime;
+    logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'success', responseTime);
+    return { success: true, google_event_id: googleEventId };
+  } catch (error: any) {
+    const responseTime = Date.now() - startTime;
+    logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, error.message || 'Unknown error');
+    console.error('[sync-google-calendar] Process sync error for user', userId, ':', error);
+    return { success: false, reason: 'sync_error' };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { user_id, event_id, action }: SyncRequest = await req.json();
+    const requestData: SyncRequest = await req.json();
+    const { user_id, user_ids, event_id, action } = requestData;
+    
+    // Support both single user_id and batch user_ids
+    const usersToSync = user_ids || (user_id ? [user_id] : []);
 
-    console.log(`[sync-google-calendar] Processing ${action} for user ${user_id}, event ${event_id || 'N/A'}`);
+    console.log(`[sync-google-calendar] Processing ${action} for ${usersToSync.length} user(s), event ${event_id || 'N/A'}`);
 
-    if (!user_id || !action) {
+    if (usersToSync.length === 0 || !action) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } }
+    );
+
     // Handle test action - doesn't require event_id
     if (action === 'test') {
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-        { auth: { persistSession: false } }
-      );
-
+      const testUserId = usersToSync[0];
+      const startTime = Date.now();
+      
       // Check if user has a token
       const { data: tokenData, error: tokenError } = await supabaseAdmin
         .from('user_google_tokens')
         .select('*')
-        .eq('user_id', user_id)
+        .eq('user_id', testUserId)
         .single();
 
       if (tokenError || !tokenData) {
+        const responseTime = Date.now() - startTime;
+        logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'error', responseTime, 'No token found');
         return new Response(JSON.stringify({ 
           success: false, 
           message: 'Nie znaleziono połączenia z Google Calendar.' 
@@ -266,9 +432,11 @@ Deno.serve(async (req) => {
       }
 
       // Try to get a valid access token (this will refresh if needed)
-      const accessToken = await getValidAccessToken(supabaseAdmin, user_id);
+      const accessToken = await getValidAccessToken(supabaseAdmin, testUserId);
       
       if (!accessToken) {
+        const responseTime = Date.now() - startTime;
+        logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'error', responseTime, 'Token refresh failed');
         return new Response(JSON.stringify({ 
           success: false, 
           message: 'Token wygasł i nie można go odświeżyć. Połącz ponownie.' 
@@ -289,7 +457,10 @@ Deno.serve(async (req) => {
           }
         );
 
+        const responseTime = Date.now() - startTime;
+
         if (calendarResponse.ok) {
+          logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'success', responseTime);
           return new Response(JSON.stringify({ 
             success: true, 
             message: 'Połączenie działa poprawnie! Token jest ważny.' 
@@ -300,6 +471,7 @@ Deno.serve(async (req) => {
         } else {
           const errorText = await calendarResponse.text();
           console.error('[sync-google-calendar] Calendar API test failed:', errorText);
+          logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'error', responseTime, 'API access error');
           return new Response(JSON.stringify({ 
             success: false, 
             message: 'Błąd dostępu do Google Calendar API.' 
@@ -309,7 +481,9 @@ Deno.serve(async (req) => {
           });
         }
       } catch (apiError) {
+        const responseTime = Date.now() - startTime;
         console.error('[sync-google-calendar] API test error:', apiError);
+        logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'error', responseTime, 'Connection error');
         return new Response(JSON.stringify({ 
           success: false, 
           message: 'Nie można połączyć się z Google Calendar API.' 
@@ -328,155 +502,71 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { persistSession: false } }
-    );
-
-    // Get valid access token
-    const accessToken = await getValidAccessToken(supabaseAdmin, user_id);
-    if (!accessToken) {
-      console.log('[sync-google-calendar] User not connected to Google Calendar');
-      return new Response(JSON.stringify({ success: false, reason: 'not_connected' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get user's calendar ID
-    const { data: tokenData } = await supabaseAdmin
-      .from('user_google_tokens')
-      .select('calendar_id')
-      .eq('user_id', user_id)
-      .single();
-
-    const calendarId = tokenData?.calendar_id || 'primary';
-
-    if (action === 'delete') {
-      // Get existing sync record
-      const { data: syncRecord } = await supabaseAdmin
-        .from('event_google_sync')
-        .select('google_event_id')
-        .eq('event_id', event_id)
-        .eq('user_id', user_id)
-        .single();
-
-      if (syncRecord?.google_event_id) {
-        const deleted = await deleteGoogleEvent(accessToken, calendarId, syncRecord.google_event_id);
-        
-        if (deleted) {
-          await supabaseAdmin
-            .from('event_google_sync')
-            .delete()
-            .eq('event_id', event_id)
-            .eq('user_id', user_id);
-        }
-
-        return new Response(JSON.stringify({ success: deleted }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, reason: 'no_sync_record' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get event data
-    const { data: eventData, error: eventError } = await supabaseAdmin
-      .from('events')
-      .select(`
-        id,
-        title,
-        description,
-        start_time,
-        end_time,
-        zoom_link,
-        event_type,
-        host_user_id
-      `)
-      .eq('id', event_id)
-      .single();
-
-    if (eventError || !eventData) {
-      console.error('[sync-google-calendar] Event not found:', event_id);
-      return new Response(JSON.stringify({ error: 'Event not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get host name if available
+    // Get event data (only needed once for all users)
+    let eventData: EventData | null = null;
     let hostName: string | undefined;
-    if (eventData.host_user_id) {
-      const { data: hostProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('id', eventData.host_user_id)
-        .single();
-      
-      if (hostProfile) {
-        hostName = `${hostProfile.first_name || ''} ${hostProfile.last_name || ''}`.trim();
-      }
-    }
 
-    const googleEventData = formatGoogleEvent(eventData, hostName);
-
-    if (action === 'update') {
-      // Check for existing sync record
-      const { data: syncRecord } = await supabaseAdmin
-        .from('event_google_sync')
-        .select('google_event_id')
-        .eq('event_id', event_id)
-        .eq('user_id', user_id)
+    if (action !== 'delete') {
+      const { data: eventResult, error: eventError } = await supabaseAdmin
+        .from('events')
+        .select(`
+          id,
+          title,
+          description,
+          start_time,
+          end_time,
+          zoom_link,
+          event_type,
+          host_user_id
+        `)
+        .eq('id', event_id)
         .single();
 
-      if (syncRecord?.google_event_id) {
-        const updated = await updateGoogleEvent(accessToken, calendarId, syncRecord.google_event_id, googleEventData);
-        
-        if (updated) {
-          await supabaseAdmin
-            .from('event_google_sync')
-            .update({ synced_at: new Date().toISOString() })
-            .eq('event_id', event_id)
-            .eq('user_id', user_id);
-        }
-
-        return new Response(JSON.stringify({ success: updated }), {
-          status: 200,
+      if (eventError || !eventResult) {
+        console.error('[sync-google-calendar] Event not found:', event_id);
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // No existing record, fall through to create
+      eventData = eventResult;
+
+      // Get host name if available
+      if (eventResult.host_user_id) {
+        const { data: hostProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', eventResult.host_user_id)
+          .single();
+        
+        if (hostProfile) {
+          hostName = `${hostProfile.first_name || ''} ${hostProfile.last_name || ''}`.trim();
+        }
+      }
     }
 
-    // Create new event
-    const googleEventId = await createGoogleEvent(accessToken, calendarId, googleEventData);
-
-    if (!googleEventId) {
-      return new Response(JSON.stringify({ success: false, reason: 'create_failed' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Process sync for each user sequentially (to avoid Google API rate limiting)
+    const results: { user_id: string; success: boolean; reason?: string }[] = [];
+    
+    for (const uid of usersToSync) {
+      const result = await processSyncForUser(supabaseAdmin, uid, event_id, action, eventData, hostName);
+      results.push({ user_id: uid, ...result });
     }
 
-    // Save sync record
-    await supabaseAdmin
-      .from('event_google_sync')
-      .upsert({
-        event_id,
-        user_id,
-        google_event_id: googleEventId,
-        synced_at: new Date().toISOString(),
-      }, {
-        onConflict: 'event_id,user_id',
-      });
+    // Check overall success
+    const allSuccess = results.every(r => r.success);
+    const successCount = results.filter(r => r.success).length;
 
-    return new Response(JSON.stringify({ success: true, google_event_id: googleEventId }), {
+    return new Response(JSON.stringify({ 
+      success: allSuccess,
+      results,
+      summary: {
+        total: results.length,
+        success: successCount,
+        failed: results.length - successCount,
+      }
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

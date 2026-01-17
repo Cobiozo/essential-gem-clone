@@ -44,6 +44,8 @@ export const useGoogleCalendar = () => {
     expiresAt: null,
   });
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number>(0);
+  const SYNC_COOLDOWN = 30000; // 30 seconds cooldown
 
   // Check connection status
   const checkConnection = useCallback(async () => {
@@ -245,6 +247,18 @@ export const useGoogleCalendar = () => {
       });
       return;
     }
+
+    // Debounce - prevent rapid syncs
+    const now = Date.now();
+    if (now - lastSyncTime < SYNC_COOLDOWN) {
+      toast({
+        title: 'Poczekaj',
+        description: 'Odczekaj 30 sekund przed kolejną synchronizacją.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setLastSyncTime(now);
 
     setIsSyncing(true);
 

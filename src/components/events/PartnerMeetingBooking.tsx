@@ -518,15 +518,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       if (regError) throw regError;
 
-      // Sync to Google Calendar for the joining user (current user)
+      // Sync to Google Calendar for both users (batch sync)
       supabase.functions.invoke('sync-google-calendar', {
-        body: { user_id: user.id, event_id: event.id, action: 'create' }
-      }).catch(err => console.log('[PartnerMeetingBooking] GCal sync (user) skipped or failed:', err));
-
-      // Sync to Google Calendar for the leading partner (host)
-      supabase.functions.invoke('sync-google-calendar', {
-        body: { user_id: selectedPartner.user_id, event_id: event.id, action: 'create' }
-      }).catch(err => console.log('[PartnerMeetingBooking] GCal sync (host) skipped or failed:', err));
+        body: { 
+          user_ids: [user.id, selectedPartner.user_id], 
+          event_id: event.id, 
+          action: 'create' 
+        }
+      }).catch(err => console.log('[PartnerMeetingBooking] GCal sync skipped or failed:', err));
 
       toast({
         title: 'Sukces!',

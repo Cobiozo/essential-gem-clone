@@ -72,6 +72,7 @@ const SIDEBAR_KEYS = {
   system: 'admin.sidebar.system',
   maintenance: 'admin.sidebar.maintenance',
   cronJobs: 'admin.sidebar.cronJobs',
+  googleCalendar: 'admin.sidebar.googleCalendar',
   cookies: 'admin.sidebar.cookies',
   email: 'admin.sidebar.email',
   compass: 'admin.sidebar.compass',
@@ -183,6 +184,7 @@ const navCategories: NavCategory[] = [
     items: [
       { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
+      { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
     ],
   },
 ];
