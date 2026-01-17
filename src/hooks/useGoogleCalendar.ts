@@ -237,6 +237,44 @@ export const useGoogleCalendar = () => {
     }
   }, [user, state.isConnected]);
 
+  // Refresh token if it expires soon (within 10 minutes)
+  const refreshTokenIfNeeded = useCallback(async () => {
+    if (!user || !state.isConnected) return;
+    
+    const expiresAt = state.expiresAt;
+    if (!expiresAt) return;
+    
+    // Check if token expires in less than 10 minutes
+    const timeUntilExpiry = expiresAt.getTime() - Date.now();
+    if (timeUntilExpiry > 10 * 60 * 1000) {
+      console.log('[useGoogleCalendar] Token still valid, no refresh needed');
+      return;
+    }
+    
+    console.log('[useGoogleCalendar] Token expires soon, refreshing automatically...');
+    
+    try {
+      // Call sync-google-calendar with 'test' action - this refreshes the token
+      const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
+        body: {
+          user_id: user.id,
+          action: 'test',
+        },
+      });
+      
+      if (error || !data?.success) {
+        console.error('[useGoogleCalendar] Token refresh failed:', error || data?.message);
+        return;
+      }
+      
+      console.log('[useGoogleCalendar] Token refreshed successfully');
+      // Re-check connection to update expires_at in state
+      await checkConnection();
+    } catch (error) {
+      console.error('[useGoogleCalendar] Token refresh error:', error);
+    }
+  }, [user, state.isConnected, state.expiresAt, checkConnection]);
+
   // Sync all user's registered events
   const syncAllEvents = useCallback(async () => {
     if (!user || !state.isConnected) {
@@ -376,5 +414,6 @@ export const useGoogleCalendar = () => {
     syncEvent,
     syncAllEvents,
     checkConnection,
+    refreshTokenIfNeeded,
   };
 };

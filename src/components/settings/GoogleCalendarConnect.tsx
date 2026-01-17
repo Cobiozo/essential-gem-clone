@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Calendar, CheckCircle, XCircle, Loader2, Unlink, RefreshCw, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,9 +14,17 @@ export const GoogleCalendarConnect = () => {
     expiresAt,
     connect, 
     disconnect,
-    syncAllEvents 
+    syncAllEvents,
+    refreshTokenIfNeeded 
   } = useGoogleCalendar();
   const { t } = useLanguage();
+
+  // Auto-refresh token on component mount if needed
+  useEffect(() => {
+    if (isConnected && !isLoading) {
+      refreshTokenIfNeeded();
+    }
+  }, [isConnected, isLoading, refreshTokenIfNeeded]);
 
   // Check if token is expired or expiring soon (within 5 minutes)
   const isTokenExpiringSoon = expiresAt 
