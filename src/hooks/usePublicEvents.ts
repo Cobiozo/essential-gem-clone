@@ -14,16 +14,16 @@ export const usePublicEvents = (eventType: PublicEventType) => {
     try {
       setLoading(true);
       
-      // Build query
-      let query = supabase
+      // Build query - include multi-occurrence events even if first end_time passed
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
         .from('events')
         .select('*')
         .eq('is_active', true)
         .eq('is_published', true)
         .eq('event_type', eventType)
+        .or(`end_time.gte.${now},occurrences.not.is.null`)
         .order('start_time', { ascending: true });
-
-      const { data, error } = await query;
 
       if (error) throw error;
 

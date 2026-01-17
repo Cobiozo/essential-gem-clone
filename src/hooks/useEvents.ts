@@ -30,11 +30,15 @@ export const useEvents = () => {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
+      const now = new Date().toISOString();
+      // Fetch events where:
+      // - end_time >= now (future single events) OR
+      // - occurrences is not null (multi-occurrence events - filtered client-side)
       const { data, error } = await supabase
         .from('events')
         .select('*')
         .eq('is_active', true)
-        .gte('end_time', new Date().toISOString())
+        .or(`end_time.gte.${now},occurrences.not.is.null`)
         .order('start_time', { ascending: true });
 
       if (error) throw error;

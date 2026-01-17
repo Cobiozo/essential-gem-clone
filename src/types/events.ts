@@ -75,6 +75,9 @@ export interface EventWithRegistration extends Event {
     last_name: string | null;
     email: string;
   } | null;
+  // Virtual fields set by expandEventsForCalendar
+  _occurrence_index?: number;
+  _is_multi_occurrence?: boolean;
 }
 
 // Partner with availability for booking interface

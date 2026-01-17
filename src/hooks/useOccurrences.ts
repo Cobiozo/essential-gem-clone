@@ -24,20 +24,45 @@ export const parseOccurrence = (occurrence: EventOccurrence, index: number): Exp
 };
 
 /**
+ * Parse occurrences from DB (can be JSON string or array)
+ */
+const parseOccurrencesFromDb = (occurrences: unknown): EventOccurrence[] | null => {
+  if (!occurrences) return null;
+  
+  // If already an array, return as-is
+  if (Array.isArray(occurrences)) {
+    return occurrences.length > 0 ? occurrences : null;
+  }
+  
+  // Try to parse JSON string
+  if (typeof occurrences === 'string') {
+    try {
+      const parsed = JSON.parse(occurrences);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  
+  return null;
+};
+
+/**
  * Check if event has multiple occurrences
  */
 export const isMultiOccurrenceEvent = (event: EventWithRegistration): boolean => {
-  return Array.isArray(event.occurrences) && event.occurrences.length > 0;
+  const parsed = parseOccurrencesFromDb(event.occurrences);
+  return parsed !== null && parsed.length > 0;
 };
 
 /**
  * Get all occurrences for an event, sorted by date
  */
 export const getAllOccurrences = (event: EventWithRegistration): ExpandedOccurrence[] => {
-  if (!isMultiOccurrenceEvent(event)) return [];
+  const parsed = parseOccurrencesFromDb(event.occurrences);
+  if (!parsed) return [];
   
-  const occurrences = event.occurrences as unknown as EventOccurrence[];
-  return occurrences
+  return parsed
     .map((occ, index) => parseOccurrence(occ, index))
     .sort((a, b) => compareAsc(a.start_datetime, b.start_datetime));
 };
