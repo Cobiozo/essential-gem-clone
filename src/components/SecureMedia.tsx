@@ -485,15 +485,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Buffering handlers - prevent false seek detection during network delays
     // NEW: Added tolerance for micro-stalls to avoid unnecessary interruptions
     const handleWaiting = () => {
-      console.log('[SecureMedia] Video waiting for data (potential buffering)');
+      const bufferedAhead = getBufferedAhead(video);
+      const networkQuality = getNetworkQuality();
+      console.log('[SecureMedia] Video waiting for data:', {
+        currentTime: video.currentTime.toFixed(2),
+        bufferedAhead: bufferedAhead.toFixed(2),
+        readyState: video.readyState,
+        networkQuality,
+        duration: video.duration?.toFixed(2) || 'unknown',
+        paused: video.paused
+      });
       
       // Clear any existing buffering timeout
       if (bufferingTimeoutRef.current) {
         clearTimeout(bufferingTimeoutRef.current);
       }
       
-      // Delay smart buffering activation to ignore micro-stalls (1.5s tolerance)
-      const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 1500;
+      // Delay smart buffering activation to ignore micro-stalls (2s tolerance)
+      const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 2000;
       
       bufferingTimeoutRef.current = setTimeout(() => {
         // Check if video already recovered

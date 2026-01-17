@@ -67,6 +67,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       mediaType = 'other';
     }
 
+    // Ostrzeżenie o formacie MOV - może powodować problemy z odtwarzaniem
+    const fileName = file.name.toLowerCase();
+    if (isVideo && fileName.endsWith('.mov')) {
+      toast({
+        title: "Uwaga: Format MOV",
+        description: "Pliki MOV mogą powodować problemy z buforowaniem. Zalecamy konwersję do MP4 z opcją 'Web Optimized' (FastStart).",
+        variant: "destructive",
+      });
+      // Kontynuuj upload, ale użytkownik został ostrzeżony
+    }
+
     // Check allowed types
     if (allowedTypes && allowedTypes.length > 0) {
       const typeAllowed = allowedTypes.some(type => {
