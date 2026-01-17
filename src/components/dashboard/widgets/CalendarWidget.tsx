@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,6 +11,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { EventWithRegistration } from '@/types/events';
+import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -45,15 +46,20 @@ Zapisz się tutaj: ${inviteUrl}
     });
   };
 
+  // Expand multi-occurrence events for calendar display
+  const expandedEvents = useMemo(() => {
+    return expandEventsForCalendar(events);
+  }, [events]);
+
   // Sync selectedDayEvents when events change (for real-time updates)
   useEffect(() => {
     if (selectedDate) {
-      const dayEvents = events.filter(event => 
+      const dayEvents = expandedEvents.filter(event => 
         isSameDay(new Date(event.start_time), selectedDate)
       );
       setSelectedDayEvents(dayEvents);
     }
-  }, [events, selectedDate]);
+  }, [expandedEvents, selectedDate]);
 
   const locale = language === 'pl' ? pl : enUS;
 
@@ -63,7 +69,7 @@ Zapisz się tutaj: ${inviteUrl}
 
   // Get events for the current month
   const getEventsForDay = (day: Date) => {
-    return events.filter(event => 
+    return expandedEvents.filter(event => 
       isSameDay(new Date(event.start_time), day)
     );
   };
@@ -281,7 +287,7 @@ Zapisz się tutaj: ${inviteUrl}
               <div className="space-y-2">
                 {selectedDayEvents.map(event => (
                   <div
-                    key={event.id}
+                    key={`${event.id}-${(event as any)._occurrence_index ?? 'single'}`}
                     className="p-2 rounded-md bg-muted/50 space-y-1"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -292,6 +298,12 @@ Zapisz się tutaj: ${inviteUrl}
                         {event.event_type === 'tripartite_meeting' && <Users className="h-3.5 w-3.5 text-violet-500" />}
                         {event.event_type === 'partner_consultation' && <User className="h-3.5 w-3.5 text-fuchsia-500" />}
                         <span className="text-sm font-medium line-clamp-1">{event.title}</span>
+                        {(event as any)._is_multi_occurrence && (
+                          <Badge variant="outline" className="text-xs ml-1 px-1.5 py-0">
+                            <CalendarDays className="h-3 w-3 mr-0.5" />
+                            Cykliczne
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     

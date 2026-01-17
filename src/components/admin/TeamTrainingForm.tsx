@@ -18,11 +18,14 @@ import {
   Bell,
   Mail,
   MessageSquare,
-  Users
+  Users,
+  CalendarDays
 } from 'lucide-react';
 import type { DbEvent, TeamTrainingFormData, TEAM_TRAINING_TYPES } from '@/types/events';
+import type { EventOccurrence } from '@/types/occurrences';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
+import { OccurrencesEditor } from './OccurrencesEditor';
 
 interface TeamTrainingFormProps {
   editingTraining: DbEvent | null;
@@ -84,6 +87,10 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const [remindersOpen, setRemindersOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   
+  // Multi-occurrence state
+  const [isMultiOccurrence, setIsMultiOccurrence] = useState(false);
+  const [occurrences, setOccurrences] = useState<EventOccurrence[]>([]);
+  
   // Zoom API integration state
   const [zoomMeetingId, setZoomMeetingId] = useState<string | null>(null);
   const [zoomStartUrl, setZoomStartUrl] = useState<string | null>(null);
@@ -116,6 +123,15 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       });
       setImageUrlInput(editingTraining.image_url || '');
       
+      // Load multi-occurrence data
+      if (editingTraining.occurrences && Array.isArray(editingTraining.occurrences)) {
+        setIsMultiOccurrence(true);
+        setOccurrences(editingTraining.occurrences as unknown as EventOccurrence[]);
+      } else {
+        setIsMultiOccurrence(false);
+        setOccurrences([]);
+      }
+      
       // Load existing Zoom API data (from dynamic properties)
       const trainingAny = editingTraining as any;
       setZoomMeetingId(trainingAny.zoom_meeting_id || null);
@@ -142,9 +158,18 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       toast({ title: 'Błąd', description: 'Tytuł jest wymagany', variant: 'destructive' });
       return;
     }
-    if (!form.start_time) {
-      toast({ title: 'Błąd', description: 'Data i godzina są wymagane', variant: 'destructive' });
-      return;
+    
+    // Validate based on multi-occurrence mode
+    if (isMultiOccurrence) {
+      if (occurrences.length === 0) {
+        toast({ title: 'Błąd', description: 'Dodaj co najmniej jeden termin', variant: 'destructive' });
+        return;
+      }
+    } else {
+      if (!form.start_time) {
+        toast({ title: 'Błąd', description: 'Data i godzina są wymagane', variant: 'destructive' });
+        return;
+      }
     }
 
     setSaving(true);
@@ -175,12 +200,25 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         style: b.style || 'primary' 
       }));
 
+      // For multi-occurrence, use first occurrence as start/end time for backwards compatibility
+      let startTime = form.start_time;
+      let endTime = form.end_time;
+      
+      if (isMultiOccurrence && occurrences.length > 0) {
+        const firstOcc = occurrences[0];
+        const [year, month, day] = firstOcc.date.split('-').map(Number);
+        const [hours, minutes] = firstOcc.time.split(':').map(Number);
+        const startDate = new Date(year, month - 1, day, hours, minutes);
+        startTime = startDate.toISOString();
+        endTime = addMinutes(startDate, firstOcc.duration_minutes).toISOString();
+      }
+
       const trainingData = {
         title: form.title,
         description: form.description || null,
         event_type: 'team_training' as const,
-        start_time: form.start_time,
-        end_time: form.end_time,
+        start_time: startTime,
+        end_time: endTime,
         location: form.location || null,
         zoom_link: form.zoom_link || null,
         max_participants: form.max_participants,
@@ -197,6 +235,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         sms_reminder_enabled: form.sms_reminder_enabled,
         email_reminder_enabled: form.email_reminder_enabled,
         is_published: form.is_published,
+        occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
       };
 
       let error;
@@ -273,34 +312,85 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           />
         </div>
 
-        {/* Date/Time and Type row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-primary font-medium">
-              Data i godzina <span className="text-destructive">*</span>
-            </Label>
-            <div className="relative">
-              <Input
-                type="datetime-local"
-                value={form.start_time ? format(new Date(form.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    // Preserve local time by parsing without timezone conversion
-                    const [datePart, timePart] = e.target.value.split('T');
-                    const [year, month, day] = datePart.split('-').map(Number);
-                    const [hours, minutes] = timePart.split(':').map(Number);
-                    const localDate = new Date(year, month - 1, day, hours, minutes);
-                    setForm({ ...form, start_time: localDate.toISOString() });
-                  } else {
-                    setForm({ ...form, start_time: '' });
-                  }
-                }}
-                className="h-10 pl-10"
-              />
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* Multi-occurrence toggle */}
+        <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+          <Switch
+            checked={isMultiOccurrence}
+            onCheckedChange={(checked) => {
+              setIsMultiOccurrence(checked);
+              if (!checked) {
+                setOccurrences([]);
+              }
+            }}
+          />
+          <CalendarDays className="h-4 w-4 text-primary" />
+          <div>
+            <Label className="text-primary font-medium">Wydarzenie wieloterminowe</Label>
+            <p className="text-xs text-muted-foreground">
+              Jedno wydarzenie z wieloma datami (np. cykliczne spotkania)
+            </p>
+          </div>
+        </div>
+
+        {/* Occurrences Editor (multi-occurrence mode) */}
+        {isMultiOccurrence ? (
+          <OccurrencesEditor
+            occurrences={occurrences}
+            onChange={setOccurrences}
+            defaultDuration={form.duration_minutes}
+          />
+        ) : (
+          /* Date/Time and Type row (single occurrence mode) */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-primary font-medium">
+                Data i godzina <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  type="datetime-local"
+                  value={form.start_time ? format(new Date(form.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      // Preserve local time by parsing without timezone conversion
+                      const [datePart, timePart] = e.target.value.split('T');
+                      const [year, month, day] = datePart.split('-').map(Number);
+                      const [hours, minutes] = timePart.split(':').map(Number);
+                      const localDate = new Date(year, month - 1, day, hours, minutes);
+                      setForm({ ...form, start_time: localDate.toISOString() });
+                    } else {
+                      setForm({ ...form, start_time: '' });
+                    }
+                  }}
+                  className="h-10 pl-10"
+                />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-muted-foreground font-medium">Typ szkolenia</Label>
+              <Select
+                value={form.training_type || 'wewnetrzny'}
+                onValueChange={(value) => setForm({ ...form, training_type: value })}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Wybierz typ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {trainingTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+        )}
 
+        {/* Type selector (visible in both modes) */}
+        {isMultiOccurrence && (
           <div className="space-y-2">
             <Label className="text-muted-foreground font-medium">Typ szkolenia</Label>
             <Select
@@ -319,7 +409,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
               </SelectContent>
             </Select>
           </div>
-        </div>
+        )}
 
         {/* Host and Duration row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -515,7 +605,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         <div className="flex gap-3 pt-4">
           <Button 
             onClick={handleSave} 
-            disabled={saving || !form.title.trim() || !form.start_time}
+            disabled={saving || !form.title.trim() || (isMultiOccurrence ? occurrences.length === 0 : !form.start_time)}
             className="bg-primary hover:bg-primary/90"
           >
             {saving ? 'Zapisywanie...' : (editingTraining ? 'Zapisz zmiany' : 'Dodaj Szkolenie')}

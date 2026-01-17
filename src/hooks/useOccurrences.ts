@@ -1,0 +1,138 @@
+import { useMemo } from 'react';
+import { parseISO, isBefore, isAfter, addMinutes, compareAsc } from 'date-fns';
+import type { EventOccurrence, ExpandedOccurrence, EventOccurrenceInfo } from '@/types/occurrences';
+import type { EventWithRegistration } from '@/types/events';
+
+/**
+ * Parse occurrence to get start and end datetime
+ */
+export const parseOccurrence = (occurrence: EventOccurrence, index: number): ExpandedOccurrence => {
+  const [year, month, day] = occurrence.date.split('-').map(Number);
+  const [hours, minutes] = occurrence.time.split(':').map(Number);
+  
+  const start_datetime = new Date(year, month - 1, day, hours, minutes);
+  const end_datetime = addMinutes(start_datetime, occurrence.duration_minutes);
+  const now = new Date();
+  
+  return {
+    ...occurrence,
+    index,
+    start_datetime,
+    end_datetime,
+    is_past: isAfter(now, end_datetime),
+  };
+};
+
+/**
+ * Check if event has multiple occurrences
+ */
+export const isMultiOccurrenceEvent = (event: EventWithRegistration): boolean => {
+  return Array.isArray(event.occurrences) && event.occurrences.length > 0;
+};
+
+/**
+ * Get all occurrences for an event, sorted by date
+ */
+export const getAllOccurrences = (event: EventWithRegistration): ExpandedOccurrence[] => {
+  if (!isMultiOccurrenceEvent(event)) return [];
+  
+  const occurrences = event.occurrences as unknown as EventOccurrence[];
+  return occurrences
+    .map((occ, index) => parseOccurrence(occ, index))
+    .sort((a, b) => compareAsc(a.start_datetime, b.start_datetime));
+};
+
+/**
+ * Get only future occurrences (not yet ended)
+ */
+export const getFutureOccurrences = (event: EventWithRegistration): ExpandedOccurrence[] => {
+  return getAllOccurrences(event).filter(occ => !occ.is_past);
+};
+
+/**
+ * Get the next active occurrence (nearest future)
+ */
+export const getNextActiveOccurrence = (event: EventWithRegistration): ExpandedOccurrence | null => {
+  const futureOccurrences = getFutureOccurrences(event);
+  return futureOccurrences[0] || null;
+};
+
+/**
+ * Check if user can register for a specific occurrence
+ * Users can only register for the nearest future occurrence
+ */
+export const canRegisterForOccurrence = (
+  event: EventWithRegistration, 
+  occurrenceIndex: number
+): boolean => {
+  const nextActive = getNextActiveOccurrence(event);
+  return nextActive?.index === occurrenceIndex;
+};
+
+/**
+ * Get occurrence info for an event
+ */
+export const getEventOccurrenceInfo = (event: EventWithRegistration): EventOccurrenceInfo => {
+  const isMulti = isMultiOccurrenceEvent(event);
+  const futureOccurrences = getFutureOccurrences(event);
+  const nextOccurrence = futureOccurrences[0] || null;
+  
+  return {
+    is_multi_occurrence: isMulti,
+    current_occurrence_index: nextOccurrence?.index ?? null,
+    next_occurrence: nextOccurrence,
+    all_future_occurrences: futureOccurrences,
+    total_occurrences: isMulti ? (event.occurrences as unknown as EventOccurrence[]).length : 0,
+  };
+};
+
+/**
+ * Hook to get occurrence info for an event
+ */
+export const useOccurrences = (event: EventWithRegistration | null) => {
+  return useMemo(() => {
+    if (!event) {
+      return {
+        is_multi_occurrence: false,
+        current_occurrence_index: null,
+        next_occurrence: null,
+        all_future_occurrences: [],
+        total_occurrences: 0,
+      };
+    }
+    return getEventOccurrenceInfo(event);
+  }, [event]);
+};
+
+/**
+ * Expand multi-occurrence events for calendar display
+ * Each occurrence becomes a separate "virtual" event entry
+ */
+export const expandEventsForCalendar = (events: EventWithRegistration[]): EventWithRegistration[] => {
+  const result: EventWithRegistration[] = [];
+  
+  events.forEach(event => {
+    if (isMultiOccurrenceEvent(event)) {
+      // Multi-occurrence: expand each future occurrence as separate entry
+      const futureOccurrences = getFutureOccurrences(event);
+      
+      futureOccurrences.forEach(occ => {
+        result.push({
+          ...event,
+          // Override start/end times with occurrence times
+          start_time: occ.start_datetime.toISOString(),
+          end_time: occ.end_datetime.toISOString(),
+          duration_minutes: occ.duration_minutes,
+          // Add occurrence tracking
+          _occurrence_index: occ.index,
+          _is_multi_occurrence: true,
+        } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean });
+      });
+    } else {
+      // Single occurrence: keep as-is
+      result.push(event);
+    }
+  });
+  
+  return result;
+};

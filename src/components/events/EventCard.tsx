@@ -20,9 +20,11 @@ import {
   X,
   Loader2,
   Copy,
-  UserPlus
+  UserPlus,
+  CalendarDays
 } from 'lucide-react';
 import type { EventWithRegistration, EventButton } from '@/types/events';
+import { isMultiOccurrenceEvent, getFutureOccurrences } from '@/hooks/useOccurrences';
 
 interface EventCardProps {
   event: EventWithRegistration;
@@ -125,20 +127,34 @@ export const EventCard: React.FC<EventCardProps> = ({
   };
 
   const getTypeBadge = () => {
+    const badges: React.ReactNode[] = [];
+    
+    // Multi-occurrence badge
+    if (isMultiOccurrenceEvent(event)) {
+      const futureCount = getFutureOccurrences(event).length;
+      badges.push(
+        <Badge key="multi" variant="outline" className="flex items-center gap-1">
+          <CalendarDays className="h-3 w-3" />
+          Cykliczne ({futureCount})
+        </Badge>
+      );
+    }
+    
     const type = event.webinar_type || (event as any).training_type;
-    if (!type) return null;
+    if (type) {
+      const labels: Record<string, string> = {
+        'biznesowy': 'Biznesowy',
+        'produktowy': 'Produktowy',
+        'motywacyjny': 'Motywacyjny',
+        'szkoleniowy': 'Szkoleniowy',
+        'wewnetrzny': 'Wewnętrzny',
+        'zewnetrzny': 'Zewnętrzny',
+        'onboarding': 'Onboarding',
+      };
+      badges.push(<Badge key="type" variant="outline">{labels[type] || type}</Badge>);
+    }
     
-    const labels: Record<string, string> = {
-      'biznesowy': 'Biznesowy',
-      'produktowy': 'Produktowy',
-      'motywacyjny': 'Motywacyjny',
-      'szkoleniowy': 'Szkoleniowy',
-      'wewnetrzny': 'Wewnętrzny',
-      'zewnetrzny': 'Zewnętrzny',
-      'onboarding': 'Onboarding',
-    };
-    
-    return <Badge variant="outline">{labels[type] || type}</Badge>;
+    return badges.length > 0 ? <>{badges}</> : null;
   };
 
   // Copy invitation text to clipboard
