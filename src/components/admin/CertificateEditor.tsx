@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslations } from '@/hooks/useTranslations';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2, AlertTriangle, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -132,6 +133,7 @@ const CertificateEditor = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<'pl' | 'en' | 'de'>('pl');
   const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { t } = useTranslations();
 
   const handleEditTemplate = (template: CertificateTemplate) => {
     setSelectedTemplate(template);
@@ -181,8 +183,8 @@ const CertificateEditor = () => {
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można załadować szablonów certyfikatów",
+        title: t('admin.certificates.error'),
+        description: t('admin.certificates.cannotLoadTemplates'),
         variant: "destructive"
       });
     } finally {
@@ -193,8 +195,8 @@ const CertificateEditor = () => {
   const createTemplate = async () => {
     if (!newTemplateName.trim()) {
       toast({
-        title: "Błąd",
-        description: "Nazwa szablonu jest wymagana",
+        title: t('admin.certificates.error'),
+        description: t('admin.certificates.templateNameRequired'),
         variant: "destructive"
       });
       return;
@@ -273,14 +275,14 @@ const CertificateEditor = () => {
       setShowCreateDialog(false);
 
       toast({
-        title: "Sukces",
-        description: "Szablon certyfikatu został utworzony",
+        title: t('admin.certificates.success'),
+        description: t('admin.certificates.templateCreated'),
       });
     } catch (error) {
       console.error('Error creating template:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się utworzyć szablonu",
+        title: t('admin.certificates.error'),
+        description: t('admin.certificates.templateCreationFailed'),
         variant: "destructive"
       });
     }

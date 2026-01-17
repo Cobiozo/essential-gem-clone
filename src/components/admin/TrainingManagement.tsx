@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslations } from "@/hooks/useTranslations";
 import { 
   Dialog,
   DialogContent,
@@ -124,6 +125,7 @@ const TrainingManagement = () => {
   const [certificateHistory, setCertificateHistory] = useState<Record<string, CertificateHistory[]>>({});
   const [regeneratingCert, setRegeneratingCert] = useState<string | null>(null);
   const { toast } = useToast();
+  const { t } = useTranslations();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { generateCertificate } = useCertificateGeneration();
@@ -199,8 +201,8 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error fetching modules:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można załadować modułów szkoleniowych",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotLoadModules'),
         variant: "destructive"
       });
     } finally {
@@ -226,8 +228,8 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error fetching lessons:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można załadować lekcji",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotLoadLessons'),
         variant: "destructive"
       });
     }
@@ -242,14 +244,14 @@ const TrainingManagement = () => {
           .eq('id', editingModule.id);
         
         if (error) throw error;
-        toast({ title: "Sukces", description: "Moduł został zaktualizowany" });
+        toast({ title: t('admin.training.success'), description: t('admin.training.moduleUpdated') });
       } else {
         const { error } = await supabase
           .from('training_modules')
-          .insert([{ ...moduleData, position: modules.length, title: moduleData.title || 'Nowy moduł' }]);
+          .insert([{ ...moduleData, position: modules.length, title: moduleData.title || t('admin.training.newModule') }]);
         
         if (error) throw error;
-        toast({ title: "Sukces", description: "Moduł został utworzony" });
+        toast({ title: t('admin.training.success'), description: t('admin.training.moduleCreated') });
       }
 
       await fetchModules();
@@ -258,8 +260,8 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error saving module:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można zapisać modułu",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotSaveModule'),
         variant: "destructive"
       });
     }
@@ -280,7 +282,7 @@ const TrainingManagement = () => {
           .eq('id', editingLesson.id);
         
         if (error) throw error;
-        toast({ title: "Sukces", description: "Lekcja została zaktualizowana" });
+        toast({ title: t('admin.training.success'), description: t('admin.training.lessonUpdated') });
       } else {
         const { error } = await supabase
           .from('training_lessons')
@@ -288,11 +290,11 @@ const TrainingManagement = () => {
             ...dbData, 
             module_id: selectedModule,
             position: lessons.length,
-            title: lessonData.title || 'Nowa lekcja'
+            title: lessonData.title || t('admin.training.newLesson')
           }]);
         
         if (error) throw error;
-        toast({ title: "Sukces", description: "Lekcja została utworzona" });
+        toast({ title: t('admin.training.success'), description: t('admin.training.lessonCreated') });
       }
 
       await fetchLessons(selectedModule);
@@ -301,15 +303,15 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error saving lesson:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można zapisać lekcji",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotSaveLesson'),
         variant: "destructive"
       });
     }
   };
 
   const deleteModule = async (moduleId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć ten moduł? Wszystkie powiązane lekcje też zostaną usunięte.')) {
+    if (!confirm(t('admin.training.confirmDeleteModule'))) {
       return;
     }
 
@@ -321,7 +323,7 @@ const TrainingManagement = () => {
 
       if (error) throw error;
       
-      toast({ title: "Sukces", description: "Moduł został usunięty" });
+      toast({ title: t('admin.training.success'), description: t('admin.training.moduleDeleted') });
       await fetchModules();
       
       if (selectedModule === moduleId) {
@@ -331,15 +333,15 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error deleting module:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można usunąć modułu",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotDeleteModule'),
         variant: "destructive"
       });
     }
   };
 
   const deleteLesson = async (lessonId: string) => {
-    if (!confirm('Czy na pewno chcesz usunąć tę lekcję?')) {
+    if (!confirm(t('admin.training.confirmDeleteLesson'))) {
       return;
     }
 
@@ -351,13 +353,13 @@ const TrainingManagement = () => {
 
       if (error) throw error;
       
-      toast({ title: "Sukces", description: "Lekcja została usunięta" });
+      toast({ title: t('admin.training.success'), description: t('admin.training.lessonDeleted') });
       await fetchLessons(selectedModule);
     } catch (error) {
       console.error('Error deleting lesson:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można usunąć lekcji",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotDeleteLesson'),
         variant: "destructive"
       });
     }
@@ -464,8 +466,8 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error fetching user progress:', error);
       toast({
-        title: "Błąd",
-        description: "Nie można załadować postępów użytkowników",
+        title: t('admin.training.error'),
+        description: t('admin.training.cannotLoadProgress'),
         variant: "destructive"
       });
     } finally {
@@ -511,19 +513,19 @@ const TrainingManagement = () => {
 
     try {
       toast({
-        title: "Regenerowanie certyfikatu...",
-        description: `Trwa generowanie certyfikatu dla ${userName}`,
+        title: t('admin.training.regeneratingCertificate'),
+        description: `${t('admin.training.generatingCertificateFor')} ${userName}`,
       });
 
       const result = await generateCertificate(userId, moduleId, moduleTitle, true);
 
       if (!result.success) {
-        throw new Error(result.error || 'Błąd generowania certyfikatu');
+        throw new Error(result.error || t('admin.training.certificateGenerationError'));
       }
 
       toast({
-        title: "Sukces",
-        description: `Certyfikat dla ${userName} został wygenerowany`,
+        title: t('admin.training.success'),
+        description: `${t('admin.training.certificateGeneratedFor')} ${userName}`,
       });
 
       // Refresh data
@@ -532,8 +534,8 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error regenerating certificate:', error);
       toast({
-        title: "Błąd",
-        description: error instanceof Error ? error.message : "Nie udało się wygenerować certyfikatu",
+        title: t('admin.training.error'),
+        description: error instanceof Error ? error.message : t('admin.training.certificateGenerationFailed'),
         variant: "destructive"
       });
     } finally {
@@ -570,8 +572,8 @@ const TrainingManagement = () => {
     } catch (error) {
       console.error('Error downloading certificate:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się pobrać certyfikatu",
+        title: t('admin.training.error'),
+        description: t('admin.training.certificateDownloadFailed'),
         variant: "destructive"
       });
     }
@@ -589,18 +591,18 @@ const TrainingManagement = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Zarządzanie szkoleniami</h2>
+        <h2 className="text-2xl font-bold">{t('admin.training.title')}</h2>
         <Button onClick={() => setShowModuleForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Nowy moduł
+          {t('admin.training.newModule')}
         </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="modules">Moduły</TabsTrigger>
-          <TabsTrigger value="lessons">Lekcje</TabsTrigger>
-          <TabsTrigger value="progress">Postępy użytkowników</TabsTrigger>
+          <TabsTrigger value="modules">{t('admin.training.modules')}</TabsTrigger>
+          <TabsTrigger value="lessons">{t('admin.training.lessons')}</TabsTrigger>
+          <TabsTrigger value="progress">{t('admin.training.userProgress')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="modules" className="space-y-4">
@@ -609,7 +611,7 @@ const TrainingManagement = () => {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {editingModule ? "Edytuj moduł" : "Nowy moduł"}
+                  {editingModule ? t('admin.training.editModule') : t('admin.training.newModule')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -633,7 +635,7 @@ const TrainingManagement = () => {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{module.title}</CardTitle>
                     <Badge variant={module.is_active ? "default" : "secondary"}>
-                      {module.is_active ? "Aktywny" : "Nieaktywny"}
+                      {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
                     </Badge>
                   </div>
                   {module.description && (
@@ -648,7 +650,7 @@ const TrainingManagement = () => {
                       onClick={() => navigate(`/training/${module.id}`)}
                     >
                       <ExternalLink className="h-4 w-4 mr-1" />
-                      Podgląd
+                      {t('admin.training.preview')}
                     </Button>
                     <Button
                       size="sm"
@@ -659,7 +661,7 @@ const TrainingManagement = () => {
                       }}
                     >
                       <Eye className="h-4 w-4 mr-1" />
-                      Lekcje
+                      {t('admin.training.lessons')}
                     </Button>
                     <Button
                       size="sm"
@@ -670,7 +672,7 @@ const TrainingManagement = () => {
                       }}
                     >
                       <Send className="h-4 w-4 mr-1" />
-                      Wyślij
+                      {t('admin.training.send')}
                     </Button>
                     <Button
                       size="sm"
@@ -681,7 +683,7 @@ const TrainingManagement = () => {
                       }}
                     >
                       <Edit className="h-4 w-4 mr-1" />
-                      Edytuj
+                      {t('admin.training.edit')}
                     </Button>
                     <Button
                       size="sm"
@@ -693,7 +695,7 @@ const TrainingManagement = () => {
                   </div>
 
                   <div className="text-xs text-muted-foreground">
-                    Widoczny dla: {getVisibilityText(module)}
+                    {t('admin.training.visibleTo')}: {getVisibilityText(module)}
                   </div>
                 </CardContent>
               </Card>
@@ -706,10 +708,10 @@ const TrainingManagement = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <Label htmlFor="module-select">Wybierz moduł:</Label>
+                <Label htmlFor="module-select">{t('admin.training.selectModule')}:</Label>
                 <Select value={selectedModule} onValueChange={setSelectedModule}>
                   <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Wybierz moduł" />
+                    <SelectValue placeholder={t('admin.training.selectModule')} />
                   </SelectTrigger>
                   <SelectContent>
                     {modules.map((module) => (
@@ -722,7 +724,7 @@ const TrainingManagement = () => {
                 {selectedModule && (
                   <Button onClick={() => setShowLessonForm(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Nowa lekcja
+                    {t('admin.training.newLesson')}
                   </Button>
                 )}
               </div>
@@ -734,7 +736,7 @@ const TrainingManagement = () => {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {editingLesson ? "Edytuj lekcję" : "Nowa lekcja"}
+                  {editingLesson ? t('admin.training.editLesson') : t('admin.training.newLesson')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
