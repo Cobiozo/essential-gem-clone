@@ -27,19 +27,19 @@ export const VIDEO_BUFFER_CONFIG = {
   
   // Mobile settings - more conservative for variable networks
   mobile: {
-    minBufferSeconds: 2,           // Zmniejszone z 5 na 2 dla szybszego startu
-    targetBufferSeconds: 10,       // Zmniejszone z 15 na 10 dla oszczędności danych
+    minBufferSeconds: 3,           // Zwiększone z 2 na 3 dla stabilniejszego odtwarzania
+    targetBufferSeconds: 12,       // Zwiększone z 10 na 12 dla mniej przerw
     preloadStrategy: 'metadata' as const, // Light preload to save bandwidth
     retryDelayMs: 3000,            // Longer delay on mobile (worse networks)
-    maxRetries: 5,                 // More retries on mobile
+    maxRetries: 6,                 // Zwiększone z 5 na 6 dla wolniejszych łączy
   },
   
   // Common settings (device-independent)
   common: {
     stuckDetectionIntervalMs: 10000,  // Check every 10s for stuck playback
-    bufferingStateDelayMs: 1000,      // Zwiększone z 500 na 1000ms - opóźnienie pokazania spinnera
+    bufferingStateDelayMs: 1200,      // Zwiększone z 1000 na 1200ms - mniej fałszywych spinnerów
     seekToleranceSeconds: 5,          // Max allowed time jump before blocking
-    smartBufferingDelayMs: 1500,      // NEW: Tolerancja dla mikro-zacinań przed aktywacją smart buffering
+    smartBufferingDelayMs: 2000,      // Zwiększone z 1500 na 2000ms - więcej tolerancji dla mikro-zacinań
   }
 } as const;
 
