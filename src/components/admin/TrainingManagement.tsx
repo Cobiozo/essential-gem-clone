@@ -11,6 +11,14 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -635,114 +643,116 @@ const TrainingManagement = () => {
             </Card>
           )}
 
-          {/* Modules List */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {modules.map((module) => {
-              const lessonCount = lessons.filter(l => l.module_id === module.id).length;
-              
-              return (
-                <Card key={module.id} className="flex flex-col">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold line-clamp-2">
-                        {module.title}
-                      </CardTitle>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <div 
-                          className={cn(
-                            "w-2.5 h-2.5 rounded-full",
-                            module.is_active ? "bg-green-500" : "bg-gray-400"
-                          )}
-                        />
-                        <span className={cn(
-                          "text-xs",
-                          module.is_active ? "text-green-600" : "text-muted-foreground"
-                        )}>
-                          {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
-                        </span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="flex-1 flex flex-col justify-between pt-0">
-                    {/* Lesson count */}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                      <BookOpen className="h-4 w-4" />
-                      <span>{lessonCount} {lessonCount === 1 ? 'lekcja' : lessonCount < 5 ? 'lekcje' : 'lekcji'}</span>
-                    </div>
+          {/* Modules Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('admin.training.moduleName') || 'Nazwa modułu'}</TableHead>
+                  <TableHead className="w-20 text-center">{t('admin.training.lessons') || 'Lekcje'}</TableHead>
+                  <TableHead className="w-28">{t('admin.training.status') || 'Status'}</TableHead>
+                  <TableHead>{t('admin.training.visibleTo') || 'Widoczność'}</TableHead>
+                  <TableHead className="text-right w-36">{t('admin.training.actions') || 'Akcje'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {modules.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      {t('admin.training.noModules') || 'Brak modułów szkoleniowych'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  modules.map((module) => {
+                    const lessonCount = lessons.filter(l => l.module_id === module.id).length;
                     
-                    {/* Action buttons - 3 main + dropdown */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => navigate(`/training/${module.id}`)}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          {t('admin.training.preview')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => {
-                            setSelectedModule(module.id);
-                            setActiveTab("lessons");
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          {t('admin.training.lessons')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => {
-                            setSelectedModuleForUsers(module.id);
-                            setShowUserSelector(true);
-                          }}
-                        >
-                          <Send className="h-4 w-4 mr-1" />
-                          {t('admin.training.send')}
-                        </Button>
-                        
-                        {/* Dropdown menu for Edit/Delete */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              setEditingModule(module);
-                              setShowModuleForm(true);
-                            }}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              {t('admin.training.edit')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-destructive focus:text-destructive" 
-                              onClick={() => deleteModule(module.id)}
+                    return (
+                      <TableRow key={module.id} className={cn(!module.is_active && "opacity-60")}>
+                        <TableCell className="font-medium">{module.title}</TableCell>
+                        <TableCell className="text-center">{lessonCount}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              module.is_active ? "bg-green-500" : "bg-gray-400"
+                            )} />
+                            <span className={cn(
+                              "text-sm",
+                              module.is_active ? "text-green-600" : "text-muted-foreground"
+                            )}>
+                              {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {getVisibilityText(module)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => navigate(`/training/${module.id}`)}
+                              title={t('admin.training.preview') || 'Podgląd'}
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              {t('admin.training.delete')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      
-                      {/* Visibility */}
-                      <div className="text-xs text-muted-foreground border-t pt-2">
-                        {t('admin.training.visibleTo')}: {getVisibilityText(module)}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setSelectedModule(module.id);
+                                setActiveTab("lessons");
+                              }}
+                              title={t('admin.training.lessons') || 'Lekcje'}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setSelectedModuleForUsers(module.id);
+                                setShowUserSelector(true);
+                              }}
+                              title={t('admin.training.send') || 'Wyślij'}
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingModule(module);
+                                  setShowModuleForm(true);
+                                }}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  {t('admin.training.edit')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="text-destructive focus:text-destructive" 
+                                  onClick={() => deleteModule(module.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  {t('admin.training.delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
 
