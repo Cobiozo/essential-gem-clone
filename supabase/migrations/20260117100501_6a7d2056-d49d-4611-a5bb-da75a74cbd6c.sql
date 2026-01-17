@@ -1,0 +1,32 @@
+-- Add translations for ReflinksManagement component
+INSERT INTO i18n_translations (language_code, namespace, key, value) VALUES
+-- admin.reflinks namespace
+('pl', 'admin.reflinks', 'visibilityChangeFailed', 'Nie udało się zmienić widoczności'),
+('pl', 'admin.reflinks', 'visibilityChanged', 'Widoczność przycisku została zmieniona'),
+('pl', 'admin.reflinks', 'fetchFailed', 'Nie udało się pobrać reflinków'),
+('pl', 'admin.reflinks', 'codeRequired', 'Kod reflinku jest wymagany'),
+('pl', 'admin.reflinks', 'urlRequired', 'URL linku jest wymagany'),
+('pl', 'admin.reflinks', 'clipboardContentRequired', 'Treść do skopiowania jest wymagana'),
+('pl', 'admin.reflinks', 'codeExists', 'Kod reflinku już istnieje'),
+('pl', 'admin.reflinks', 'addFailed', 'Nie udało się dodać reflinku'),
+('pl', 'admin.reflinks', 'added', 'Reflink został dodany'),
+('pl', 'admin.reflinks', 'updateFailed', 'Nie udało się zaktualizować reflinku'),
+('pl', 'admin.reflinks', 'updated', 'Reflink został zaktualizowany'),
+('pl', 'admin.reflinks', 'deleteConfirm', 'Czy na pewno chcesz usunąć ten reflink?'),
+('pl', 'admin.reflinks', 'deleteFailed', 'Nie udało się usunąć reflinku'),
+('pl', 'admin.reflinks', 'deleted', 'Reflink został usunięty'),
+('pl', 'admin.reflinks', 'statusChangeFailed', 'Nie udało się zmienić statusu reflinku'),
+('pl', 'admin.reflinks', 'title', 'Zarządzanie Reflinkami'),
+('pl', 'admin.reflinks', 'description', 'Twórz i zarządzaj reflinkami z tytułami, grafikami i kontrolą widoczności'),
+('pl', 'admin.reflinks', 'globalReflinks', 'Reflinki globalne'),
+('pl', 'admin.reflinks', 'userLinks', 'Linki użytkowników'),
+('pl', 'admin.reflinks', 'otpCodes', 'Kody OTP'),
+('pl', 'admin.reflinks', 'addReflink', 'Dodaj Reflink'),
+('pl', 'admin.reflinks', 'addNew', 'Dodaj nowy reflink'),
+('pl', 'admin.reflinks', 'addNewDescription', 'Utwórz nowy reflink z tytułem, grafiką i ustawieniami widoczności'),
+('pl', 'admin.reflinks', 'roleVisibility', 'Widoczność przycisku "Reflinki" dla ról'),
+('pl', 'admin.reflinks', 'visibilityHint', 'Użytkownik zobaczy przycisk "Reflinki" tylko gdy włączysz go dla jego roli.'),
+('pl', 'admin.reflinks', 'copied', 'Skopiowano!'),
+('pl', 'admin.reflinks', 'contentCopied', 'Treść została skopiowana do schowka'),
+('pl', 'admin.reflinks', 'loading', 'Ładowanie...')
+ON CONFLICT (language_code, namespace, key) DO UPDATE SET value = EXCLUDED.value;
