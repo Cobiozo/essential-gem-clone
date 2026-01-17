@@ -34,6 +34,8 @@ import { LeaderAvailabilityManager } from '@/components/events';
 import { IndividualMeetingForm } from '@/components/events/IndividualMeetingForm';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
+import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
+
 // Preferences Tab Component
 const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> = ({ userId, t }) => {
   const [showDailySignal, setShowDailySignal] = useState(true);
@@ -926,8 +928,9 @@ const MyAccount = () => {
             )}
 
             {visibleTabs.preferences && (
-              <TabsContent value="preferences" className="mt-6">
+              <TabsContent value="preferences" className="mt-6 space-y-6">
                 <PreferencesTab userId={user.id} t={t} />
+                <GoogleCalendarConnect />
               </TabsContent>
             )}
 

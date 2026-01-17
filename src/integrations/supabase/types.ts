@@ -1640,6 +1640,38 @@ export type Database = {
         }
         Relationships: []
       }
+      event_google_sync: {
+        Row: {
+          event_id: string
+          google_event_id: string
+          id: string
+          synced_at: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          google_event_id: string
+          id?: string
+          synced_at?: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          google_event_id?: string
+          id?: string
+          synced_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_google_sync_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           cancelled_at: string | null
@@ -4180,6 +4212,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_google_tokens: {
+        Row: {
+          access_token: string
+          calendar_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          calendar_id?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          calendar_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_notification_preferences: {
         Row: {
