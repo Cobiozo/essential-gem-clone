@@ -7,8 +7,8 @@ const corsHeaders = {
 
 interface SyncRequest {
   user_id: string;
-  event_id: string;
-  action: 'create' | 'update' | 'delete';
+  event_id?: string;
+  action: 'create' | 'update' | 'delete' | 'test';
 }
 
 interface EventData {
@@ -231,10 +231,98 @@ Deno.serve(async (req) => {
   try {
     const { user_id, event_id, action }: SyncRequest = await req.json();
 
-    console.log(`[sync-google-calendar] Processing ${action} for user ${user_id}, event ${event_id}`);
+    console.log(`[sync-google-calendar] Processing ${action} for user ${user_id}, event ${event_id || 'N/A'}`);
 
-    if (!user_id || !event_id || !action) {
+    if (!user_id || !action) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Handle test action - doesn't require event_id
+    if (action === 'test') {
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        { auth: { persistSession: false } }
+      );
+
+      // Check if user has a token
+      const { data: tokenData, error: tokenError } = await supabaseAdmin
+        .from('user_google_tokens')
+        .select('*')
+        .eq('user_id', user_id)
+        .single();
+
+      if (tokenError || !tokenData) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: 'Nie znaleziono połączenia z Google Calendar.' 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Try to get a valid access token (this will refresh if needed)
+      const accessToken = await getValidAccessToken(supabaseAdmin, user_id);
+      
+      if (!accessToken) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: 'Token wygasł i nie można go odświeżyć. Połącz ponownie.' 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Test API access by fetching calendar list
+      try {
+        const calendarResponse = await fetch(
+          'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1',
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (calendarResponse.ok) {
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'Połączenie działa poprawnie! Token jest ważny.' 
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } else {
+          const errorText = await calendarResponse.text();
+          console.error('[sync-google-calendar] Calendar API test failed:', errorText);
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Błąd dostępu do Google Calendar API.' 
+          }), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (apiError) {
+        console.error('[sync-google-calendar] API test error:', apiError);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: 'Nie można połączyć się z Google Calendar API.' 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // For non-test actions, event_id is required
+    if (!event_id) {
+      return new Response(JSON.stringify({ error: 'Missing event_id for this action' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

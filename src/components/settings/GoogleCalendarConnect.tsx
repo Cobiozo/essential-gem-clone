@@ -1,14 +1,24 @@
-import { Calendar, CheckCircle, XCircle, Loader2, Unlink, HelpCircle, ExternalLink } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Loader2, Unlink, HelpCircle, ExternalLink, AlertCircle, Settings, TestTube } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { GoogleCalendarSetupGuide } from './GoogleCalendarSetupGuide';
 
 export const GoogleCalendarConnect = () => {
-  const { isConnected, isLoading, connect, disconnect } = useGoogleCalendar();
+  const { 
+    isConnected, 
+    isLoading, 
+    isConfigured, 
+    testResult, 
+    isTesting,
+    connect, 
+    disconnect,
+    testConnection 
+  } = useGoogleCalendar();
   const { t } = useLanguage();
 
   return (
@@ -23,12 +33,37 @@ export const GoogleCalendarConnect = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        {/* Status Section */}
+        <div className="rounded-lg border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">{t('Status systemu:')}</span>
             {isLoading ? (
               <Badge variant="secondary" className="gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {t('Sprawdzanie...')}
+              </Badge>
+            ) : isConfigured === null ? (
+              <Badge variant="secondary" className="gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {t('Nieznany')}
+              </Badge>
+            ) : isConfigured ? (
+              <Badge className="gap-1 bg-green-500 hover:bg-green-600">
+                <CheckCircle className="h-3 w-3" />
+                {t('Skonfigurowano')}
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="gap-1">
+                <XCircle className="h-3 w-3" />
+                {t('Nieskonfigurowano')}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">{t('Twoje konto:')}</span>
+            {isLoading ? (
+              <Badge variant="secondary" className="gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
               </Badge>
             ) : isConnected ? (
               <Badge className="gap-1 bg-green-500 hover:bg-green-600">
@@ -42,31 +77,73 @@ export const GoogleCalendarConnect = () => {
               </Badge>
             )}
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            {isConnected ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={disconnect}
-                disabled={isLoading}
-                className="gap-1"
-              >
-                <Unlink className="h-4 w-4" />
-                {t('Rozłącz')}
-              </Button>
+        {/* Configuration Warning */}
+        {isConfigured === false && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t('Wymagana konfiguracja')}</AlertTitle>
+            <AlertDescription>
+              {t('Administrator musi skonfigurować sekrety GOOGLE_CLIENT_ID i GOOGLE_CLIENT_SECRET w ustawieniach Supabase.')}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Test Result */}
+        {testResult && (
+          <Alert variant={testResult.success ? 'default' : 'destructive'}>
+            {testResult.success ? (
+              <CheckCircle className="h-4 w-4" />
             ) : (
-              <Button
-                onClick={connect}
-                disabled={isLoading}
-                size="sm"
-                className="gap-1"
-              >
-                <Calendar className="h-4 w-4" />
-                {t('Połącz Google Calendar')}
-              </Button>
+              <AlertCircle className="h-4 w-4" />
             )}
-          </div>
+            <AlertTitle>
+              {testResult.success ? t('Test zaliczony') : t('Test nieudany')}
+            </AlertTitle>
+            <AlertDescription>{testResult.message}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={testConnection}
+            disabled={isLoading || isTesting}
+            className="gap-1"
+          >
+            {isTesting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <TestTube className="h-4 w-4" />
+            )}
+            {t('Test konfiguracji')}
+          </Button>
+
+          {isConnected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={disconnect}
+              disabled={isLoading}
+              className="gap-1"
+            >
+              <Unlink className="h-4 w-4" />
+              {t('Rozłącz')}
+            </Button>
+          ) : (
+            <Button
+              onClick={connect}
+              disabled={isLoading || isConfigured === false}
+              size="sm"
+              className="gap-1"
+            >
+              <Calendar className="h-4 w-4" />
+              {t('Połącz Google Calendar')}
+            </Button>
+          )}
         </div>
 
         {isConnected && (
@@ -81,7 +158,7 @@ export const GoogleCalendarConnect = () => {
             <AccordionTrigger className="text-sm py-2 hover:no-underline">
               <div className="flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                <span>{t('Jak skonfigurować Google Calendar?')}</span>
+                <span>{t('Jak skonfigurować Google Calendar? (dla admina)')}</span>
               </div>
             </AccordionTrigger>
             <AccordionContent>
