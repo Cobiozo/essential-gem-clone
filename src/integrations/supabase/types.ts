@@ -1957,6 +1957,50 @@ export type Database = {
         }
         Relationships: []
       }
+      google_calendar_sync_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          error_message: string | null
+          event_id: string | null
+          id: string
+          metadata: Json | null
+          response_time_ms: number | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          metadata?: Json | null
+          response_time_ms?: number | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          metadata?: Json | null
+          response_time_ms?: number | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_sync_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_event_registrations: {
         Row: {
           cancelled_at: string | null

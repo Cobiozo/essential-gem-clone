@@ -50,6 +50,7 @@ import { NotificationSystemManagement } from '@/components/admin/NotificationSys
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
+import GoogleCalendarManagement from '@/components/admin/GoogleCalendarManagement';
 import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
 import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
@@ -4355,6 +4356,10 @@ const Admin = () => {
 
           <TabsContent value="cron-jobs">
             <CronJobsManagement />
+          </TabsContent>
+
+          <TabsContent value="google-calendar">
+            <GoogleCalendarManagement />
           </TabsContent>
 
           <TabsContent value="support">

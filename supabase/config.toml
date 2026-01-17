@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.sync-google-calendar]
 verify_jwt = false
+
+[functions.cleanup-google-calendar-logs]
+verify_jwt = false
