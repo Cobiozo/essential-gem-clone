@@ -89,18 +89,25 @@ export const ReflinksManagement: React.FC = () => {
   });
   const { toast } = useToast();
 
-  const roleLabels: Record<string, string> = {
-    klient: 'Klient',
-    partner: 'Partner',
-    specjalista: 'Specjalista',
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      klient: t('roles.client'),
+      partner: t('roles.partner'),
+      specjalista: t('roles.specialist'),
+      client: t('roles.client'),
+    };
+    return labels[role] || role;
   };
 
-  const linkTypeLabels: Record<string, string> = {
-    reflink: 'Reflink (rejestracja)',
-    internal: 'Link wewnętrzny',
-    external: 'Link zewnętrzny',
-    clipboard: 'Kopiuj do schowka',
-    infolink: 'InfoLink (z kodem OTP)',
+  const getLinkTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      reflink: t('admin.reflinks.typeReflink'),
+      internal: t('admin.reflinks.typeInternal'),
+      external: t('admin.reflinks.typeExternal'),
+      clipboard: t('admin.reflinks.typeClipboard'),
+      infolink: t('admin.reflinks.typeInfolink'),
+    };
+    return labels[type] || type;
   };
 
   useEffect(() => {
@@ -189,7 +196,7 @@ export const ReflinksManagement: React.FC = () => {
     
     if (reflink.link_type === 'clipboard') {
       const content = reflink.clipboard_content || '';
-      description = 'Treść została skopiowana do schowka';
+      description = t('admin.reflinks.contentCopied');
       
       try {
         const blob = new Blob([content], { type: 'text/html' });
@@ -211,7 +218,7 @@ export const ReflinksManagement: React.FC = () => {
     
     setCopiedId(reflink.id);
     toast({
-      title: 'Skopiowano!',
+      title: t('toast.copied'),
       description,
     });
     setTimeout(() => setCopiedId(null), 2000);
@@ -407,7 +414,7 @@ export const ReflinksManagement: React.FC = () => {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-muted-foreground text-center">Ładowanie...</p>
+          <p className="text-muted-foreground text-center">{t('common.loading')}</p>
         </CardContent>
       </Card>
     );
@@ -419,15 +426,15 @@ export const ReflinksManagement: React.FC = () => {
       <TabsList>
         <TabsTrigger value="global">
           <Link2 className="w-4 h-4 mr-2" />
-          Reflinki globalne
+          {t('admin.reflinks.globalReflinks')}
         </TabsTrigger>
         <TabsTrigger value="user">
           <Users className="w-4 h-4 mr-2" />
-          Linki użytkowników
+          {t('admin.reflinks.userLinks')}
         </TabsTrigger>
         <TabsTrigger value="otp">
           <Key className="w-4 h-4 mr-2" />
-          Kody OTP
+          {t('admin.reflinks.otpCodes')}
         </TabsTrigger>
       </TabsList>
 
@@ -438,24 +445,24 @@ export const ReflinksManagement: React.FC = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Link2 className="w-5 h-5" />
-              Zarządzanie Reflinkami
+              {t('admin.reflinks.management')}
             </CardTitle>
             <CardDescription>
-              Twórz i zarządzaj reflinkami z tytułami, grafikami i kontrolą widoczności
+              {t('admin.reflinks.description')}
             </CardDescription>
           </div>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="w-4 h-4 mr-2" />
-                Dodaj Reflink
+                {t('admin.reflinks.addReflink')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>Dodaj nowy reflink</DialogTitle>
+                <DialogTitle>{t('admin.reflinks.addNewReflink')}</DialogTitle>
                 <DialogDescription>
-                  Utwórz nowy reflink z tytułem, grafiką i ustawieniami widoczności
+                  {t('admin.reflinks.addNewDescription')}
                 </DialogDescription>
               </DialogHeader>
               <ReflinksForm 
@@ -464,11 +471,11 @@ export const ReflinksManagement: React.FC = () => {
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                  Anuluj
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleAddReflink}>
                   <Save className="w-4 h-4 mr-2" />
-                  Zapisz
+                  {t('common.save')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -480,7 +487,7 @@ export const ReflinksManagement: React.FC = () => {
         <div className="mb-6 p-4 rounded-lg border bg-muted/30">
           <div className="flex items-center gap-2 mb-3">
             <Eye className="w-4 h-4 text-muted-foreground" />
-            <Label className="font-medium">Widoczność przycisku "Reflinki" dla ról</Label>
+            <Label className="font-medium">{t('admin.reflinks.buttonVisibility')}</Label>
           </div>
           <div className="flex flex-wrap gap-4">
             {(['client', 'partner', 'specjalista'] as const).map(role => (
@@ -489,12 +496,12 @@ export const ReflinksManagement: React.FC = () => {
                   checked={visibilitySettings[role]}
                   onCheckedChange={(checked) => handleToggleButtonVisibility(role, checked)}
                 />
-                <Label className="text-sm">{roleLabels[role]}</Label>
+                <Label className="text-sm">{getRoleLabel(role)}</Label>
               </div>
             ))}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Użytkownik zobaczy przycisk "Reflinki" tylko gdy włączysz go dla jego roli.
+            {t('admin.reflinks.buttonVisibilityHint')}
           </p>
         </div>
 
@@ -502,7 +509,7 @@ export const ReflinksManagement: React.FC = () => {
 
         {reflinks.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">
-            Brak reflinków. Kliknij "Dodaj Reflink" aby utworzyć pierwszy.
+            {t('admin.reflinks.noReflinks')}
           </p>
         ) : (
           <div className="space-y-3">
@@ -527,10 +534,10 @@ export const ReflinksManagement: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="px-2 py-0.5 text-xs rounded bg-primary/10 text-primary font-medium">
-                        {roleLabels[reflink.target_role] || reflink.target_role}
+                        {getRoleLabel(reflink.target_role)}
                       </span>
                       <span className="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground">
-                        {linkTypeLabels[reflink.link_type] || reflink.link_type}
+                        {getLinkTypeLabel(reflink.link_type)}
                       </span>
                       {reflink.position > 0 && (
                         <span className="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground flex items-center gap-1">
@@ -549,7 +556,7 @@ export const ReflinksManagement: React.FC = () => {
                     )}
                     {reflink.visible_to_roles && reflink.visible_to_roles.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Widoczny dla: {reflink.visible_to_roles.map(r => roleLabels[r] || r).join(', ')}
+                        {t('admin.reflinks.visibleTo')}: {reflink.visible_to_roles.map(r => getRoleLabel(r)).join(', ')}
                       </p>
                     )}
                   </div>
@@ -595,9 +602,9 @@ export const ReflinksManagement: React.FC = () => {
       <Dialog open={!!editingReflink} onOpenChange={(open) => !open && setEditingReflink(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edytuj reflink</DialogTitle>
+            <DialogTitle>{t('admin.reflinks.editReflink')}</DialogTitle>
             <DialogDescription>
-              Zmień ustawienia reflinka. Zapisz zmiany przyciskiem "Zapisz".
+              {t('admin.reflinks.editDescription')}
             </DialogDescription>
           </DialogHeader>
           {editingReflink && (
@@ -619,15 +626,15 @@ export const ReflinksManagement: React.FC = () => {
                     setEditingReflink(prev => prev ? { ...prev, is_active: checked } : null)
                   }
                 />
-                <Label>Aktywny</Label>
+                <Label>{t('common.active')}</Label>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditingReflink(null)}>
-                  Anuluj
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleUpdateReflink}>
                   <Save className="w-4 h-4 mr-2" />
-                  Zapisz
+                  {t('common.save')}
                 </Button>
               </DialogFooter>
             </>
