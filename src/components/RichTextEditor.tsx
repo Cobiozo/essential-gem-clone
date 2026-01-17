@@ -51,6 +51,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const cleanupFunctionsRef = useRef<(() => void)[]>([]);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
@@ -623,23 +624,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     });
 
     // Show/hide handles on hover
-    wrapper.addEventListener('mouseenter', () => {
+    const handleMouseEnter = () => {
       wrapper.style.borderColor = '#2563eb';
       handles.forEach(handle => {
         handle.style.opacity = '1';
       });
-    });
+    };
 
-    wrapper.addEventListener('mouseleave', () => {
+    const handleMouseLeave = () => {
       wrapper.style.borderColor = 'transparent';
       handles.forEach(handle => {
         handle.style.opacity = '0';
       });
-    });
+    };
+
+    wrapper.addEventListener('mouseenter', handleMouseEnter);
+    wrapper.addEventListener('mouseleave', handleMouseLeave);
+
+    // Store mousedown handlers for cleanup
+    const mousedownHandlers: ((e: MouseEvent) => void)[] = [];
 
     // Add resize functionality
     handles.forEach((handle, index) => {
-      handle.addEventListener('mousedown', (e) => {
+      const handleMouseDown = (e: MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -651,9 +658,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         const corner = corners[index];
         
-        const handleMouseMove = (e: MouseEvent) => {
-          let deltaX = e.clientX - startX;
-          let deltaY = e.clientY - startY;
+        const handleMouseMove = (moveE: MouseEvent) => {
+          let deltaX = moveE.clientX - startX;
+          let deltaY = moveE.clientY - startY;
 
           // Calculate new dimensions based on corner
           let newWidth = startWidth;
@@ -707,13 +714,31 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-      });
+      };
+
+      handle.addEventListener('mousedown', handleMouseDown);
+      mousedownHandlers.push(handleMouseDown);
     });
+
+    // Create cleanup function for this image's wrapper
+    const cleanup = () => {
+      wrapper.removeEventListener('mouseenter', handleMouseEnter);
+      wrapper.removeEventListener('mouseleave', handleMouseLeave);
+      handles.forEach((handle, i) => {
+        handle.removeEventListener('mousedown', mousedownHandlers[i]);
+      });
+    };
+    
+    cleanupFunctionsRef.current.push(cleanup);
   }, [onChange]);
 
   // Add effect to make existing images resizable when in preview mode
   useEffect(() => {
     if (activeTab === 'preview' && previewRef.current) {
+      // Clean up previous event listeners before adding new ones
+      cleanupFunctionsRef.current.forEach(fn => fn());
+      cleanupFunctionsRef.current = [];
+
       const images = previewRef.current.querySelectorAll('img');
       images.forEach((img) => {
         if (!img.parentElement?.classList.contains('resizable-image-wrapper')) {
@@ -748,7 +773,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         subtree: true
       });
 
-      return () => observer.disconnect();
+      return () => {
+        // Clean up all event listeners on unmount or tab change
+        cleanupFunctionsRef.current.forEach(fn => fn());
+        cleanupFunctionsRef.current = [];
+        observer.disconnect();
+      };
     }
   }, [activeTab, makeImageResizable]);
 
