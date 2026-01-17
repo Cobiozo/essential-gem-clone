@@ -7,6 +7,13 @@ interface GoogleCalendarState {
   isConnected: boolean;
   isLoading: boolean;
   expiresAt: Date | null;
+  isConfigured: boolean | null;
+}
+
+interface TestResult {
+  success: boolean;
+  step: 'config' | 'token' | 'api' | 'ready';
+  message: string;
 }
 
 export const useGoogleCalendar = () => {
@@ -16,16 +23,37 @@ export const useGoogleCalendar = () => {
     isConnected: false,
     isLoading: true,
     expiresAt: null,
+    isConfigured: null,
   });
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+
+  // Check if system is configured (admin has set up secrets)
+  const checkConfiguration = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('google-oauth-config');
+      if (error) {
+        console.error('[useGoogleCalendar] Error checking config:', error);
+        return false;
+      }
+      return data?.configured ?? false;
+    } catch (error) {
+      console.error('[useGoogleCalendar] Config check error:', error);
+      return false;
+    }
+  }, []);
 
   // Check connection status
   const checkConnection = useCallback(async () => {
     if (!user) {
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
+      setState({ isConnected: false, isLoading: false, expiresAt: null, isConfigured: null });
       return;
     }
 
     try {
+      // Check configuration first
+      const isConfigured = await checkConfiguration();
+
       const { data, error } = await supabase
         .from('user_google_tokens')
         .select('expires_at')
@@ -34,7 +62,7 @@ export const useGoogleCalendar = () => {
 
       if (error) {
         console.error('[useGoogleCalendar] Error checking connection:', error);
-        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        setState({ isConnected: false, isLoading: false, expiresAt: null, isConfigured });
         return;
       }
 
@@ -44,15 +72,16 @@ export const useGoogleCalendar = () => {
           isConnected: true,
           isLoading: false,
           expiresAt,
+          isConfigured,
         });
       } else {
-        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        setState({ isConnected: false, isLoading: false, expiresAt: null, isConfigured });
       }
     } catch (error) {
       console.error('[useGoogleCalendar] Unexpected error:', error);
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
+      setState({ isConnected: false, isLoading: false, expiresAt: null, isConfigured: null });
     }
-  }, [user]);
+  }, [user, checkConfiguration]);
 
   // Initialize OAuth flow
   const connect = useCallback(async () => {
@@ -130,7 +159,7 @@ export const useGoogleCalendar = () => {
         .delete()
         .eq('user_id', user.id);
 
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
+      setState({ isConnected: false, isLoading: false, expiresAt: null, isConfigured: state.isConfigured });
 
       toast({
         title: 'Rozłączono',
@@ -210,13 +239,88 @@ export const useGoogleCalendar = () => {
     checkConnection();
   }, [checkConnection]);
 
+  // Test connection
+  const testConnection = useCallback(async (): Promise<TestResult> => {
+    setIsTesting(true);
+    setTestResult(null);
+
+    try {
+      // Step 1: Check configuration
+      const isConfigured = await checkConfiguration();
+      if (!isConfigured) {
+        const result: TestResult = {
+          success: false,
+          step: 'config',
+          message: 'Administrator musi skonfigurować sekrety GOOGLE_CLIENT_ID i GOOGLE_CLIENT_SECRET w Supabase.',
+        };
+        setTestResult(result);
+        setIsTesting(false);
+        return result;
+      }
+
+      // Step 2: If not connected, we're ready to connect
+      if (!state.isConnected || !user) {
+        const result: TestResult = {
+          success: true,
+          step: 'ready',
+          message: 'Konfiguracja systemu poprawna. Możesz połączyć swoje konto Google.',
+        };
+        setTestResult(result);
+        setIsTesting(false);
+        return result;
+      }
+
+      // Step 3: Test token validity by calling sync function with test action
+      const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
+        body: {
+          user_id: user.id,
+          action: 'test',
+        },
+      });
+
+      if (error) {
+        const result: TestResult = {
+          success: false,
+          step: 'api',
+          message: 'Błąd połączenia z API synchronizacji.',
+        };
+        setTestResult(result);
+        setIsTesting(false);
+        return result;
+      }
+
+      const result: TestResult = {
+        success: data?.success ?? false,
+        step: data?.success ? 'api' : 'token',
+        message: data?.message ?? (data?.success ? 'Połączenie działa poprawnie!' : 'Token wygasł lub jest nieprawidłowy.'),
+      };
+      setTestResult(result);
+      setIsTesting(false);
+      return result;
+    } catch (error) {
+      console.error('[useGoogleCalendar] Test error:', error);
+      const result: TestResult = {
+        success: false,
+        step: 'api',
+        message: 'Wystąpił nieoczekiwany błąd podczas testu.',
+      };
+      setTestResult(result);
+      setIsTesting(false);
+      return result;
+    }
+  }, [checkConfiguration, state.isConnected, user]);
+
   return {
     isConnected: state.isConnected,
     isLoading: state.isLoading,
     expiresAt: state.expiresAt,
+    isConfigured: state.isConfigured,
+    testResult,
+    isTesting,
     connect,
     disconnect,
     syncEvent,
     checkConnection,
+    testConnection,
   };
 };
