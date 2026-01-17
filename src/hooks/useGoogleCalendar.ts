@@ -147,7 +147,13 @@ export const useGoogleCalendar = () => {
       authUrl.searchParams.set('prompt', 'consent');
       authUrl.searchParams.set('state', stateData);
 
-      console.log('[useGoogleCalendar] Redirecting to Google OAuth...');
+      // Detailed logging before redirect for debugging
+      console.log('[useGoogleCalendar] ========== OAuth Redirect Debug ==========');
+      console.log('[useGoogleCalendar] Current origin:', window.location.origin);
+      console.log('[useGoogleCalendar] Redirect URI (from config):', redirect_uri);
+      console.log('[useGoogleCalendar] State redirect_url:', window.location.origin + '/my-account');
+      console.log('[useGoogleCalendar] Full OAuth URL:', authUrl.toString());
+      console.log('[useGoogleCalendar] ===========================================');
       
       // Redirect to Google OAuth
       window.location.href = authUrl.toString();

@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const defaultRedirectBase = Deno.env.get('SITE_URL') || 'https://purelife.lovable.app';
+  const defaultRedirectBase = Deno.env.get('SITE_URL') || 'https://purelife.info.pl';
 
   try {
     const url = new URL(req.url);
