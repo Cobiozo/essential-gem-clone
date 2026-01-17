@@ -1,4 +1,4 @@
-import { Calendar, CheckCircle, XCircle, Loader2, Unlink, RefreshCw } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Loader2, Unlink, RefreshCw, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +10,17 @@ export const GoogleCalendarConnect = () => {
     isConnected, 
     isLoading, 
     isSyncing,
+    expiresAt,
     connect, 
     disconnect,
     syncAllEvents 
   } = useGoogleCalendar();
   const { t } = useLanguage();
+
+  // Check if token is expired or expiring soon (within 5 minutes)
+  const isTokenExpiringSoon = expiresAt 
+    ? expiresAt.getTime() - Date.now() < 5 * 60 * 1000 
+    : false;
 
   return (
     <Card>
@@ -49,6 +55,16 @@ export const GoogleCalendarConnect = () => {
           )}
         </div>
 
+        {/* Token expiration warning */}
+        {isConnected && isTokenExpiringSoon && (
+          <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            <span className="text-sm text-yellow-700 dark:text-yellow-400">
+              {t('Token wygasa wkrótce. Kliknij "Synchronizuj teraz" aby odświeżyć.')}
+            </span>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex flex-wrap gap-2">
           {isConnected ? (
@@ -65,13 +81,13 @@ export const GoogleCalendarConnect = () => {
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
-                {t('Synchronizuj teraz')}
+                {isSyncing ? t('Synchronizowanie...') : t('Synchronizuj teraz')}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={disconnect}
-                disabled={isLoading}
+                disabled={isLoading || isSyncing}
                 className="gap-1 text-destructive hover:text-destructive"
               >
                 <Unlink className="h-4 w-4" />
@@ -85,7 +101,11 @@ export const GoogleCalendarConnect = () => {
               size="sm"
               className="gap-1"
             >
-              <Calendar className="h-4 w-4" />
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Calendar className="h-4 w-4" />
+              )}
               {t('Połącz z Google')}
             </Button>
           )}

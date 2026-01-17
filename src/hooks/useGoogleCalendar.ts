@@ -9,6 +9,32 @@ interface GoogleCalendarState {
   expiresAt: Date | null;
 }
 
+// Error messages mapping for user-friendly display
+const ERROR_MESSAGES: Record<string, string> = {
+  // Google OAuth errors
+  'access_denied': 'Odmówiono dostępu. Upewnij się, że jesteś dodany jako użytkownik testowy w Google Cloud Console lub aplikacja jest opublikowana.',
+  'invalid_client': 'Nieprawidłowa konfiguracja OAuth. Skontaktuj się z administratorem.',
+  'invalid_grant': 'Kod autoryzacji wygasł lub został już użyty. Spróbuj ponownie.',
+  'redirect_uri_mismatch': 'Błąd konfiguracji: redirect URI nie pasuje. Skontaktuj się z administratorem.',
+  
+  // Server-side errors
+  'missing_client_id': 'Brak konfiguracji GOOGLE_CLIENT_ID. Skontaktuj się z administratorem.',
+  'missing_client_secret': 'Brak konfiguracji GOOGLE_CLIENT_SECRET. Skontaktuj się z administratorem.',
+  'missing_credentials': 'Brak danych uwierzytelniających Google OAuth. Skontaktuj się z administratorem.',
+  'missing_code': 'Nie otrzymano kodu autoryzacji od Google.',
+  'missing_state': 'Brak parametru state w odpowiedzi OAuth.',
+  'missing_user_id': 'Nie znaleziono ID użytkownika.',
+  'invalid_state': 'Nieprawidłowy parametr state.',
+  'token_exchange_failed': 'Wymiana kodu na tokeny nie powiodła się. Spróbuj ponownie.',
+  'no_access_token': 'Google nie zwrócił tokenu dostępu.',
+  'database_error': 'Błąd zapisu do bazy danych. Spróbuj ponownie.',
+  'unexpected_error': 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie.',
+  
+  // Legacy/generic errors
+  'save_failed': 'Nie udało się zapisać tokenów. Spróbuj ponownie.',
+  'not_configured': 'Integracja z Google Calendar nie jest skonfigurowana.',
+};
+
 export const useGoogleCalendar = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -66,16 +92,41 @@ export const useGoogleCalendar = () => {
       return;
     }
 
+    setState(prev => ({ ...prev, isLoading: true }));
+
     try {
+      console.log('[useGoogleCalendar] Fetching OAuth config...');
+      
       // Get Google OAuth config from edge function
       const { data: config, error: configError } = await supabase.functions.invoke('google-oauth-config');
 
-      if (configError || !config?.configured) {
+      console.log('[useGoogleCalendar] OAuth config response:', {
+        configured: config?.configured,
+        hasClientId: !!config?.client_id,
+        error: config?.error,
+        configError,
+      });
+
+      if (configError) {
+        console.error('[useGoogleCalendar] Config fetch error:', configError);
         toast({
-          title: 'Tymczasowo niedostępne',
-          description: 'Integracja z Google Calendar jest w trakcie konfiguracji. Spróbuj ponownie później.',
+          title: 'Błąd',
+          description: 'Nie udało się pobrać konfiguracji OAuth. Spróbuj ponownie.',
           variant: 'destructive',
         });
+        setState(prev => ({ ...prev, isLoading: false }));
+        return;
+      }
+
+      if (!config?.configured) {
+        const errorMessage = ERROR_MESSAGES[config?.error] || config?.message || 'Integracja z Google Calendar nie jest skonfigurowana. Skontaktuj się z administratorem.';
+        console.error('[useGoogleCalendar] OAuth not configured:', config?.error);
+        toast({
+          title: 'Konfiguracja wymagana',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
 
@@ -96,6 +147,8 @@ export const useGoogleCalendar = () => {
       authUrl.searchParams.set('prompt', 'consent');
       authUrl.searchParams.set('state', stateData);
 
+      console.log('[useGoogleCalendar] Redirecting to Google OAuth...');
+      
       // Redirect to Google OAuth
       window.location.href = authUrl.toString();
     } catch (error) {
@@ -105,6 +158,7 @@ export const useGoogleCalendar = () => {
         description: 'Nie udało się rozpocząć procesu autoryzacji.',
         variant: 'destructive',
       });
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   }, [user, toast]);
 
@@ -209,23 +263,40 @@ export const useGoogleCalendar = () => {
 
       // Sync each event
       let successCount = 0;
+      let errorCount = 0;
+      
       for (const reg of registrations) {
-        const result = await supabase.functions.invoke('sync-google-calendar', {
-          body: {
-            user_id: user.id,
-            event_id: reg.event_id,
-            action: 'create',
-          },
-        });
-        if (result.data?.success) {
-          successCount++;
+        try {
+          const result = await supabase.functions.invoke('sync-google-calendar', {
+            body: {
+              user_id: user.id,
+              event_id: reg.event_id,
+              action: 'create',
+            },
+          });
+          if (result.data?.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (err) {
+          console.error('[useGoogleCalendar] Failed to sync event:', reg.event_id, err);
+          errorCount++;
         }
       }
 
-      toast({
-        title: 'Synchronizacja zakończona',
-        description: `Zsynchronizowano ${successCount} z ${registrations.length} wydarzeń.`,
-      });
+      if (errorCount > 0) {
+        toast({
+          title: 'Synchronizacja częściowa',
+          description: `Zsynchronizowano ${successCount} z ${registrations.length} wydarzeń. ${errorCount} błędów.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Synchronizacja zakończona',
+          description: `Zsynchronizowano ${successCount} z ${registrations.length} wydarzeń.`,
+        });
+      }
     } catch (error) {
       console.error('[useGoogleCalendar] Sync all error:', error);
       toast({
@@ -243,8 +314,10 @@ export const useGoogleCalendar = () => {
     const params = new URLSearchParams(window.location.search);
     const googleConnected = params.get('google_connected');
     const googleError = params.get('google_error');
+    const googleErrorDesc = params.get('google_error_desc');
 
     if (googleConnected === 'true') {
+      console.log('[useGoogleCalendar] OAuth callback: success');
       toast({
         title: 'Połączono!',
         description: 'Twój kalendarz Google został pomyślnie połączony.',
@@ -253,15 +326,14 @@ export const useGoogleCalendar = () => {
       window.history.replaceState({}, '', window.location.pathname);
       checkConnection();
     } else if (googleError) {
-      const errorMessages: Record<string, string> = {
-        'access_denied': 'Odmówiono dostępu do kalendarza.',
-        'missing_credentials': 'Integracja jest w trakcie konfiguracji.',
-        'token_exchange_failed': 'Nie udało się uzyskać tokenu.',
-        'save_failed': 'Nie udało się zapisać połączenia.',
-      };
+      console.error('[useGoogleCalendar] OAuth callback error:', googleError, googleErrorDesc);
+      
+      // Get user-friendly error message
+      const errorMessage = ERROR_MESSAGES[googleError] || googleErrorDesc || `Błąd połączenia: ${googleError}`;
+      
       toast({
-        title: 'Błąd połączenia',
-        description: errorMessages[googleError] || 'Wystąpił nieznany błąd.',
+        title: 'Błąd połączenia z Google',
+        description: errorMessage,
         variant: 'destructive',
       });
       // Clean URL
