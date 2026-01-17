@@ -174,14 +174,28 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
 
     setSaving(true);
     try {
-      // Check for conflicts with other high-priority events
+      // Calculate startTime/endTime BEFORE conflict validation
+      let startTime = form.start_time;
+      let endTime = form.end_time;
+      
+      if (isMultiOccurrence && occurrences.length > 0) {
+        // Use first occurrence as start/end time for validation and backwards compatibility
+        const firstOcc = occurrences[0];
+        const [year, month, day] = firstOcc.date.split('-').map(Number);
+        const [hours, minutes] = firstOcc.time.split(':').map(Number);
+        const startDate = new Date(year, month - 1, day, hours, minutes);
+        startTime = startDate.toISOString();
+        endTime = addMinutes(startDate, firstOcc.duration_minutes).toISOString();
+      }
+
+      // Check for conflicts with other high-priority events using calculated times
       const { data: conflictingEvents } = await supabase
         .from('events')
         .select('id, title, event_type')
         .neq('id', editingTraining?.id || '')
         .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-        .lte('start_time', form.end_time)
-        .gte('end_time', form.start_time)
+        .lte('start_time', endTime)
+        .gte('end_time', startTime)
         .eq('is_active', true);
 
       if (conflictingEvents && conflictingEvents.length > 0) {
@@ -199,19 +213,6 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         url: b.url, 
         style: b.style || 'primary' 
       }));
-
-      // For multi-occurrence, use first occurrence as start/end time for backwards compatibility
-      let startTime = form.start_time;
-      let endTime = form.end_time;
-      
-      if (isMultiOccurrence && occurrences.length > 0) {
-        const firstOcc = occurrences[0];
-        const [year, month, day] = firstOcc.date.split('-').map(Number);
-        const [hours, minutes] = firstOcc.time.split(':').map(Number);
-        const startDate = new Date(year, month - 1, day, hours, minutes);
-        startTime = startDate.toISOString();
-        endTime = addMinutes(startDate, firstOcc.duration_minutes).toISOString();
-      }
 
       const trainingData = {
         title: form.title,
