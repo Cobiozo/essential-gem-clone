@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Mail, 
@@ -40,19 +41,20 @@ interface SmtpSettings {
   last_test_message: string | null;
 }
 
-const encryptionOptions = [
-  { value: 'ssl', label: 'SSL/TLS (port 465) - zalecane', port: 465 },
-  { value: 'tls', label: 'STARTTLS (port 587)', port: 587 },
-  { value: 'none', label: 'Brak szyfrowania (port 25)', port: 25 },
-];
-
 export const SmtpConfigurationPanel: React.FC = () => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
+  const encryptionOptions = [
+    { value: 'ssl', label: t('admin.smtp.encryptionSsl'), port: 465 },
+    { value: 'tls', label: t('admin.smtp.encryptionTls'), port: 587 },
+    { value: 'none', label: t('admin.smtp.encryptionNone'), port: 25 },
+  ];
+
   const [settings, setSettings] = useState<SmtpSettings>({
     id: '',
     smtp_host: '',
@@ -130,14 +132,14 @@ export const SmtpConfigurationPanel: React.FC = () => {
       }
 
       toast({
-        title: 'Sukces',
-        description: 'Konfiguracja SMTP została zapisana',
+        title: t('toast.success'),
+        description: t('admin.smtp.settingsSaved'),
       });
     } catch (error: any) {
       console.error('Error saving SMTP settings:', error);
       toast({
-        title: 'Błąd',
-        description: error.message || 'Nie udało się zapisać konfiguracji',
+        title: t('toast.error'),
+        description: error.message || t('admin.smtp.settingsSaveError'),
         variant: 'destructive',
       });
     } finally {
@@ -148,8 +150,8 @@ export const SmtpConfigurationPanel: React.FC = () => {
   const handleTestConnection = async () => {
     if (!settings.smtp_host || !settings.smtp_username || !settings.sender_email) {
       toast({
-        title: 'Uwaga',
-        description: 'Wypełnij wszystkie wymagane pola przed testem',
+        title: t('common.warning'),
+        description: t('admin.smtp.fillRequiredFields'),
         variant: 'destructive',
       });
       return;
@@ -176,7 +178,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
       if (error) throw error;
 
       const testResult = data?.success ?? false;
-      const testMessage = data?.message || (testResult ? 'Test połączenia zakończony sukcesem' : 'Test połączenia nieudany');
+      const testMessage = data?.message || (testResult ? t('toast.testConnectionSuccess') : t('toast.testConnectionError'));
 
       // Update test results in database
       if (settings.id) {
@@ -198,14 +200,14 @@ export const SmtpConfigurationPanel: React.FC = () => {
       }
 
       toast({
-        title: testResult ? 'Sukces' : 'Błąd',
+        title: testResult ? t('toast.success') : t('toast.error'),
         description: testMessage,
         variant: testResult ? 'default' : 'destructive',
       });
     } catch (error: any) {
       console.error('Error testing SMTP:', error);
       
-      const errorMessage = error.message || 'Błąd podczas testu połączenia';
+      const errorMessage = error.message || t('admin.smtp.testError');
       
       if (settings.id) {
         await supabase
@@ -226,7 +228,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
       }
 
       toast({
-        title: 'Błąd',
+        title: t('toast.error'),
         description: errorMessage,
         variant: 'destructive',
       });
@@ -252,10 +254,10 @@ export const SmtpConfigurationPanel: React.FC = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Mail className="w-5 h-5" />
-              Konfiguracja SMTP (globalna)
+              {t('admin.smtp.title')}
             </CardTitle>
             <CardDescription>
-              Ustawienia serwera email dla całej aplikacji
+              {t('admin.smtp.description')}
             </CardDescription>
           </div>
           <Button
@@ -265,7 +267,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
             disabled={loading}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Odśwież
+            {t('common.refresh')}
           </Button>
         </div>
       </CardHeader>
@@ -281,15 +283,15 @@ export const SmtpConfigurationPanel: React.FC = () => {
               )}
               <div>
                 <AlertTitle className="flex items-center gap-2">
-                  {settings.last_test_result ? 'Połączenie działa' : 'Błąd połączenia'}
+                  {settings.last_test_result ? t('admin.smtp.connectionWorks') : t('admin.smtp.connectionError')}
                   <Badge variant={settings.last_test_result ? 'default' : 'destructive'} className="text-xs">
                     {new Date(settings.last_test_at).toLocaleString('pl-PL')}
                   </Badge>
                 </AlertTitle>
                 <AlertDescription>
                   {settings.last_test_message || (settings.last_test_result 
-                    ? `Połączenie działa! Email testowy wysłany na ${settings.sender_email}` 
-                    : 'Sprawdź ustawienia SMTP i spróbuj ponownie')}
+                    ? `${t('admin.smtp.testEmailSent')} ${settings.sender_email}` 
+                    : t('admin.smtp.checkSettings'))}
                 </AlertDescription>
               </div>
             </div>
@@ -302,11 +304,11 @@ export const SmtpConfigurationPanel: React.FC = () => {
           <div className="space-y-2">
             <Label htmlFor="smtp_host" className="flex items-center gap-2">
               <Server className="w-4 h-4" />
-              Host SMTP
+              {t('admin.smtp.smtpHost')}
             </Label>
             <Input
               id="smtp_host"
-              placeholder="np. smtp.gmail.com, s108.cyber-folks.pl"
+              placeholder={t('admin.smtp.smtpHostPlaceholder')}
               value={settings.smtp_host}
               onChange={(e) => setSettings(prev => ({ ...prev, smtp_host: e.target.value }))}
             />
@@ -314,7 +316,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
 
           {/* Port */}
           <div className="space-y-2">
-            <Label htmlFor="smtp_port">Port</Label>
+            <Label htmlFor="smtp_port">{t('admin.smtp.port')}</Label>
             <Input
               id="smtp_port"
               type="number"
@@ -328,14 +330,14 @@ export const SmtpConfigurationPanel: React.FC = () => {
           <div className="space-y-2">
             <Label htmlFor="smtp_encryption" className="flex items-center gap-2">
               <Lock className="w-4 h-4" />
-              Szyfrowanie
+              {t('admin.smtp.encryption')}
             </Label>
             <Select
               value={settings.smtp_encryption}
               onValueChange={handleEncryptionChange}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Wybierz szyfrowanie" />
+                <SelectValue placeholder={t('admin.smtp.selectEncryption')} />
               </SelectTrigger>
               <SelectContent>
                 {encryptionOptions.map(option => (
@@ -351,11 +353,11 @@ export const SmtpConfigurationPanel: React.FC = () => {
           <div className="space-y-2">
             <Label htmlFor="smtp_username" className="flex items-center gap-2">
               <User className="w-4 h-4" />
-              Nazwa użytkownika / Email
+              {t('admin.smtp.username')}
             </Label>
             <Input
               id="smtp_username"
-              placeholder="np. admin@example.com"
+              placeholder={t('admin.smtp.usernamePlaceholder')}
               value={settings.smtp_username}
               onChange={(e) => setSettings(prev => ({ ...prev, smtp_username: e.target.value }))}
             />
@@ -363,7 +365,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
 
           {/* Password */}
           <div className="space-y-2">
-            <Label htmlFor="smtp_password">Hasło / Hasło aplikacji</Label>
+            <Label htmlFor="smtp_password">{t('admin.smtp.password')}</Label>
             <div className="relative">
               <Input
                 id="smtp_password"
@@ -389,17 +391,17 @@ export const SmtpConfigurationPanel: React.FC = () => {
             </div>
             <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
               <AlertCircle className="w-3 h-3" />
-              Dla Gmail: użyj "Hasła aplikacji"
+              {t('admin.smtp.gmailAppPassword')}
             </p>
           </div>
 
           {/* Sender Email */}
           <div className="space-y-2">
-            <Label htmlFor="sender_email">Email nadawcy</Label>
+            <Label htmlFor="sender_email">{t('admin.smtp.senderEmail')}</Label>
             <Input
               id="sender_email"
               type="email"
-              placeholder="np. noreply@example.com"
+              placeholder={t('admin.smtp.senderEmailPlaceholder')}
               value={settings.sender_email}
               onChange={(e) => setSettings(prev => ({ ...prev, sender_email: e.target.value }))}
             />
@@ -408,10 +410,10 @@ export const SmtpConfigurationPanel: React.FC = () => {
 
         {/* Sender Name - full width */}
         <div className="space-y-2">
-          <Label htmlFor="sender_name">Nazwa nadawcy</Label>
+          <Label htmlFor="sender_name">{t('admin.smtp.senderName')}</Label>
           <Input
             id="sender_name"
-            placeholder="np. Zespół Pure Life"
+            placeholder={t('admin.smtp.senderNamePlaceholder')}
             value={settings.sender_name}
             onChange={(e) => setSettings(prev => ({ ...prev, sender_name: e.target.value }))}
           />
@@ -431,7 +433,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
             ) : (
               <TestTube className="w-4 h-4 mr-2" />
             )}
-            Test połączenia
+            {t('admin.smtp.testConnection')}
           </Button>
           
           <Button
@@ -443,7 +445,7 @@ export const SmtpConfigurationPanel: React.FC = () => {
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            Zapisz ustawienia
+            {t('admin.smtp.saveSettings')}
           </Button>
         </div>
       </CardContent>

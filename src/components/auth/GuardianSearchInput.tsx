@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Check, X, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface Guardian {
   user_id: string;
@@ -27,6 +28,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
   disabled = false,
   error,
 }) => {
+  const { t } = useLanguage();
   const [eqidInput, setEqidInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
         .rpc('search_guardians', { search_query: eqidInput.trim() });
       
       if (searchError || !data || data.length === 0) {
-        setVerificationError('Nie znaleziono opiekuna z podanym numerem EQID. Skontaktuj się z opiekunem lub administratorem.');
+        setVerificationError(t('guardian.notFound'));
         return;
       }
       
@@ -50,7 +52,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       const exactMatch = data.find((g: Guardian) => g.eq_id === eqidInput.trim());
       
       if (!exactMatch) {
-        setVerificationError('Nie znaleziono opiekuna z podanym numerem EQID. Skontaktuj się z opiekunem lub administratorem.');
+        setVerificationError(t('guardian.notFound'));
         return;
       }
       
@@ -60,7 +62,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       setVerificationError(null);
     } catch (err) {
       console.error('Verification error:', err);
-      setVerificationError('Wystąpił błąd podczas weryfikacji. Spróbuj ponownie.');
+      setVerificationError(t('guardian.searchError'));
     } finally {
       setIsVerifying(false);
     }
@@ -89,7 +91,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
       <Label htmlFor="guardian-eqid" className="flex flex-col gap-1">
         <span>Opiekun (osoba wprowadzająca Partner/Specjalista Zespołu Pure Life) *</span>
         <span className="font-normal text-xs text-muted-foreground">
-          Wpisz numer EQID opiekuna i kliknij "Weryfikuj". Jeżeli nie znasz numeru EQID, skontaktuj się z opiekunem lub administratorem.
+          {t('guardian.searchByEqid')}. Jeżeli nie znasz numeru EQID, skontaktuj się z opiekunem lub administratorem.
         </span>
       </Label>
       
@@ -110,7 +112,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
               type="button"
               onClick={handleClear}
               className="p-1 hover:bg-muted rounded-sm"
-              aria-label="Usuń opiekuna"
+              aria-label={t('guardian.change')}
             >
               <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
             </button>
@@ -141,7 +143,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
               disabled={disabled || isVerifying || !eqidInput.trim()}
               variant="secondary"
             >
-              {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Weryfikuj'}
+              {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : t('guardian.verify')}
             </Button>
           </div>
 

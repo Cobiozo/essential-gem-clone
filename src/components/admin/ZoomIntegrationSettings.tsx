@@ -78,19 +78,19 @@ const ZoomIntegrationSettings = () => {
 
       if (result.status === 'active') {
         toast({
-          title: "Połączenie aktywne",
-          description: "Integracja z Zoom API działa prawidłowo",
+          title: t('admin.zoom.connectionActive'),
+          description: t('admin.zoom.connectionActiveDesc'),
         });
       } else if (result.status === 'error') {
         toast({
-          title: "Błąd połączenia",
-          description: result.message || "Nie udało się połączyć z Zoom API",
+          title: t('admin.zoom.connectionError'),
+          description: result.message || t('admin.zoom.connectionErrorDesc'),
           variant: "destructive"
         });
       } else if (result.status === 'not_configured') {
         toast({
-          title: "Nieskonfigurowane",
-          description: "Brak skonfigurowanych kluczy API Zoom",
+          title: t('admin.zoom.notConfigured'),
+          description: t('admin.zoom.notConfiguredDesc'),
           variant: "destructive"
         });
       }
@@ -100,8 +100,8 @@ const ZoomIntegrationSettings = () => {
     } catch (error) {
       console.error('Error testing Zoom connection:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się przetestować połączenia",
+        title: t('toast.error'),
+        description: t('admin.zoom.testConnectionError'),
         variant: "destructive"
       });
     } finally {
@@ -123,14 +123,14 @@ const ZoomIntegrationSettings = () => {
 
       setSettings({ ...settings, ...updates });
       toast({
-        title: "Zapisano",
-        description: "Ustawienia Zoom zostały zaktualizowane",
+        title: t('toast.saved'),
+        description: t('admin.zoom.settingsSaved'),
       });
     } catch (error) {
       console.error('Error saving Zoom settings:', error);
       toast({
-        title: "Błąd",
-        description: "Nie udało się zapisać ustawień",
+        title: t('toast.error'),
+        description: t('admin.zoom.settingsSaveError'),
         variant: "destructive"
       });
     } finally {
@@ -145,34 +145,34 @@ const ZoomIntegrationSettings = () => {
       return (
         <Badge variant="default" className="bg-green-600">
           <CheckCircle2 className="w-3 h-3 mr-1" />
-          Aktywne
+          {t('admin.zoom.statusActive')}
         </Badge>
       );
     } else if (settings.api_status === 'error') {
       return (
         <Badge variant="destructive">
           <XCircle className="w-3 h-3 mr-1" />
-          Błąd
+          {t('admin.zoom.statusError')}
         </Badge>
       );
     } else if (settings.is_configured) {
       return (
         <Badge variant="secondary">
           <AlertCircle className="w-3 h-3 mr-1" />
-          Skonfigurowane
+          {t('admin.zoom.statusConfigured')}
         </Badge>
       );
     }
     return (
       <Badge variant="outline">
         <Info className="w-3 h-3 mr-1" />
-        Nieskonfigurowane
+        {t('admin.zoom.notConfigured')}
       </Badge>
     );
   };
 
   const formatLastCheck = (dateStr: string | null) => {
-    if (!dateStr) return "Nigdy";
+    if (!dateStr) return t('common.never');
     const date = new Date(dateStr);
     return date.toLocaleString('pl-PL', {
       day: '2-digit',
@@ -201,17 +201,17 @@ const ZoomIntegrationSettings = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Video className="h-5 w-5 text-primary" />
-              <CardTitle>Integracja Zoom API</CardTitle>
+              <CardTitle>{t('admin.zoom.title')}</CardTitle>
             </div>
             {getStatusBadge()}
           </div>
           <CardDescription>
-            Automatyczne generowanie linków do spotkań Zoom
+            {t('admin.zoom.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Ostatni test połączenia:</span>
+            <span className="text-muted-foreground">{t('admin.zoom.lastTestConnection')}</span>
             <span>{formatLastCheck(settings?.last_api_check_at || null)}</span>
           </div>
           
@@ -226,7 +226,7 @@ const ZoomIntegrationSettings = () => {
             ) : (
               <RefreshCw className="h-4 w-4 mr-2" />
             )}
-            Testuj połączenie
+            {t('admin.zoom.testConnection')}
           </Button>
         </CardContent>
       </Card>
@@ -237,18 +237,18 @@ const ZoomIntegrationSettings = () => {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-primary" />
-              <CardTitle>Domyślne opcje spotkań</CardTitle>
+              <CardTitle>{t('admin.zoom.defaultMeetingOptions')}</CardTitle>
             </div>
             <CardDescription>
-              Te ustawienia będą stosowane dla nowo generowanych spotkań Zoom
+              {t('admin.zoom.defaultMeetingOptionsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <Label>Poczekalnia włączona</Label>
+                <Label>{t('admin.zoom.waitingRoomEnabled')}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Uczestnicy muszą zostać wpuszczeni przez hosta
+                  {t('admin.zoom.waitingRoomDesc')}
                 </p>
               </div>
               <Switch
@@ -264,9 +264,9 @@ const ZoomIntegrationSettings = () => {
 
             <div className="flex items-center justify-between">
               <div>
-                <Label>Wycisz przy wejściu</Label>
+                <Label>{t('admin.zoom.muteOnEntry')}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Uczestnicy są wyciszeni po dołączeniu
+                  {t('admin.zoom.muteOnEntryDesc')}
                 </p>
               </div>
               <Switch
@@ -281,7 +281,7 @@ const ZoomIntegrationSettings = () => {
             <Separator />
 
             <div className="space-y-2">
-              <Label>Automatyczne nagrywanie</Label>
+              <Label>{t('admin.zoom.autoRecording')}</Label>
               <Select
                 value={settings.default_auto_recording}
                 onValueChange={(value) => 
@@ -293,9 +293,9 @@ const ZoomIntegrationSettings = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Brak nagrywania</SelectItem>
-                  <SelectItem value="local">Nagrywanie lokalne</SelectItem>
-                  <SelectItem value="cloud">Nagrywanie w chmurze</SelectItem>
+                  <SelectItem value="none">{t('admin.zoom.recordingNone')}</SelectItem>
+                  <SelectItem value="local">{t('admin.zoom.recordingLocal')}</SelectItem>
+                  <SelectItem value="cloud">{t('admin.zoom.recordingCloud')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -303,9 +303,9 @@ const ZoomIntegrationSettings = () => {
             <Separator />
 
             <div className="space-y-2">
-              <Label>Domyślny email hosta</Label>
+              <Label>{t('admin.zoom.defaultHostEmail')}</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Email konta Zoom do tworzenia spotkań (pozostaw puste aby użyć domyślnego)
+                {t('admin.zoom.defaultHostEmailDesc')}
               </p>
               <Input
                 placeholder="email@example.com"
@@ -324,15 +324,15 @@ const ZoomIntegrationSettings = () => {
       {!settings?.is_configured && (
         <Card>
           <CardHeader>
-            <CardTitle>Jak skonfigurować integrację Zoom</CardTitle>
+            <CardTitle>{t('admin.zoom.howToConfigure')}</CardTitle>
             <CardDescription>
-              Wykonaj poniższe kroki aby włączyć automatyczne generowanie linków Zoom
+              {t('admin.zoom.howToConfigureDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ol className="list-decimal list-inside space-y-3 text-sm">
               <li>
-                Przejdź do{" "}
+                {t('admin.zoom.step1')}{" "}
                 <a 
                   href="https://marketplace.zoom.us/" 
                   target="_blank" 
@@ -343,9 +343,9 @@ const ZoomIntegrationSettings = () => {
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </li>
-              <li>Utwórz nową aplikację typu <strong>Server-to-Server OAuth</strong></li>
+              <li>{t('admin.zoom.step2')} <strong>{t('admin.zoom.step2Type')}</strong></li>
               <li>
-                Nadaj aplikacji następujące uprawnienia (Scopes):
+                {t('admin.zoom.step3')}
                 <ul className="list-disc list-inside ml-4 mt-1 text-muted-foreground">
                   <li>meeting:write:admin</li>
                   <li>meeting:read:admin</li>
@@ -353,7 +353,7 @@ const ZoomIntegrationSettings = () => {
                 </ul>
               </li>
               <li>
-                Dodaj sekrety w ustawieniach Supabase Edge Functions:
+                {t('admin.zoom.step4')}
                 <ul className="list-disc list-inside ml-4 mt-1 text-muted-foreground">
                   <li><code className="bg-muted px-1 rounded">ZOOM_ACCOUNT_ID</code></li>
                   <li><code className="bg-muted px-1 rounded">ZOOM_CLIENT_ID</code></li>
@@ -361,8 +361,8 @@ const ZoomIntegrationSettings = () => {
                   <li><code className="bg-muted px-1 rounded">ZOOM_HOST_EMAIL</code> (opcjonalnie)</li>
                 </ul>
               </li>
-              <li>Aktywuj aplikację w Zoom Marketplace</li>
-              <li>Wróć tutaj i kliknij "Testuj połączenie"</li>
+              <li>{t('admin.zoom.step5')}</li>
+              <li>{t('admin.zoom.step6')}</li>
             </ol>
 
             <Separator />
@@ -373,7 +373,7 @@ const ZoomIntegrationSettings = () => {
               onClick={() => window.open('https://marketplace.zoom.us/', '_blank')}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
-              Otwórz Zoom Marketplace
+              {t('admin.zoom.openZoomMarketplace')}
             </Button>
           </CardContent>
         </Card>
