@@ -305,6 +305,17 @@ export const useEvents = () => {
         detail: { eventId, action: 'register' } 
       }));
       
+      // Sync to Google Calendar in background (fire and forget)
+      supabase.functions.invoke('sync-google-calendar', {
+        body: { user_id: user.id, event_id: eventId, action: 'create' }
+      }).then(res => {
+        if (res.data?.success) {
+          console.log('[useEvents] Event synced to Google Calendar');
+        }
+      }).catch(err => {
+        console.warn('[useEvents] Google Calendar sync failed:', err);
+      });
+      
       await fetchEvents();
       return true;
     } catch (error) {
@@ -342,6 +353,17 @@ export const useEvents = () => {
       window.dispatchEvent(new CustomEvent('eventRegistrationChange', { 
         detail: { eventId, action: 'cancel' } 
       }));
+      
+      // Remove from Google Calendar in background (fire and forget)
+      supabase.functions.invoke('sync-google-calendar', {
+        body: { user_id: user.id, event_id: eventId, action: 'delete' }
+      }).then(res => {
+        if (res.data?.success) {
+          console.log('[useEvents] Event removed from Google Calendar');
+        }
+      }).catch(err => {
+        console.warn('[useEvents] Google Calendar sync (delete) failed:', err);
+      });
       
       await fetchEvents();
       return true;

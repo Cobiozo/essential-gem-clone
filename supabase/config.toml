@@ -113,3 +113,15 @@ verify_jwt = true
 
 [functions.zoom-check-status]
 verify_jwt = true
+
+[functions.send-webinar-confirmation]
+verify_jwt = false
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.google-oauth-config]
+verify_jwt = false
+
+[functions.sync-google-calendar]
+verify_jwt = false
