@@ -44,13 +44,13 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       }
       
       onLogoutRef.current?.();
-      navigateRef.current('/auth', { replace: true });
       
-      toastRef.current({
-        title: 'Sesja wygasła',
-        description: 'Zostałeś wylogowany z powodu braku aktywności.',
-        variant: 'default',
-      });
+      // Zapisz komunikat o wygaśnięciu sesji do wyświetlenia po przeładowaniu
+      sessionStorage.setItem('session_expired_message', 'true');
+      
+      // Użyj twardego przeładowania zamiast React Router navigate
+      // To gwarantuje pełny reset stanu aplikacji i pewne przekierowanie
+      window.location.href = '/auth';
     };
 
     const showWarning = () => {

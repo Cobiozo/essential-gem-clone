@@ -118,6 +118,18 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  // Sprawdź czy użytkownik został wylogowany z powodu braku aktywności
+  useEffect(() => {
+    const sessionExpired = sessionStorage.getItem('session_expired_message');
+    if (sessionExpired) {
+      sessionStorage.removeItem('session_expired_message');
+      toast({
+        title: 'Sesja wygasła',
+        description: 'Zostałeś wylogowany z powodu braku aktywności.',
+      });
+    }
+  }, [toast]);
+  
   // Check maintenance mode status with bypass support
   useEffect(() => {
     const checkMaintenance = async () => {
