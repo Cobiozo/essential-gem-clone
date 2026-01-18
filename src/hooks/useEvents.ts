@@ -285,15 +285,40 @@ export const useEvents = () => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
+      // Check if there's an existing registration (cancelled or otherwise)
+      const { data: existingReg } = await supabase
         .from('event_registrations')
-        .insert({
-          event_id: eventId,
-          user_id: user.id,
-          status: 'registered',
-        });
+        .select('id, status')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingReg) {
+        // Update existing registration to 'registered'
+        const { error } = await supabase
+          .from('event_registrations')
+          .update({ 
+            status: 'registered',
+            cancelled_at: null,
+            registered_at: new Date().toISOString()
+          })
+          .eq('id', existingReg.id);
+
+        if (error) throw error;
+        console.log('[useEvents] Re-activated existing registration');
+      } else {
+        // Insert new registration
+        const { error } = await supabase
+          .from('event_registrations')
+          .insert({
+            event_id: eventId,
+            user_id: user.id,
+            status: 'registered',
+          });
+
+        if (error) throw error;
+        console.log('[useEvents] Created new registration');
+      }
 
       toast({
         title: 'Sukces',
@@ -354,16 +379,24 @@ export const useEvents = () => {
         detail: { eventId, action: 'cancel' } 
       }));
       
-      // Remove from Google Calendar in background (fire and forget)
-      supabase.functions.invoke('sync-google-calendar', {
-        body: { user_id: user.id, event_id: eventId, action: 'delete' }
-      }).then(res => {
-        if (res.data?.success) {
+      // Remove from Google Calendar - use await to ensure request is sent
+      try {
+        console.log('[useEvents] Sending delete request to Google Calendar sync for event:', eventId);
+        const res = await supabase.functions.invoke('sync-google-calendar', {
+          body: { user_id: user.id, event_id: eventId, action: 'delete' }
+        });
+        
+        if (res.error) {
+          console.error('[useEvents] Google Calendar sync error:', res.error);
+        } else if (res.data?.success) {
           console.log('[useEvents] Event removed from Google Calendar');
+        } else {
+          console.warn('[useEvents] Google Calendar sync returned:', res.data);
         }
-      }).catch(err => {
-        console.warn('[useEvents] Google Calendar sync (delete) failed:', err);
-      });
+      } catch (syncErr) {
+        console.error('[useEvents] Google Calendar sync (delete) failed:', syncErr);
+        // Don't block - user already unregistered from event
+      }
       
       await fetchEvents();
       return true;
