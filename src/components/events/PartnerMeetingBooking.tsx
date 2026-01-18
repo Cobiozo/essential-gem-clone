@@ -491,12 +491,13 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       }
 
       // Check for conflicts with webinars and team trainings
+      // Use strict < and > to allow back-to-back meetings (event ends when slot starts = OK)
       const { data: blockingEvent } = await supabase
         .from('events')
         .select('id, title')
         .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-        .lte('start_time', endDateTime)
-        .gte('end_time', startDateTime)
+        .lt('start_time', endDateTime)
+        .gt('end_time', startDateTime)
         .eq('is_active', true)
         .maybeSingle();
 
