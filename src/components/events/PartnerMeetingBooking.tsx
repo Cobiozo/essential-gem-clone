@@ -20,8 +20,8 @@ import {
   Globe,
   ExternalLink
 } from 'lucide-react';
-import { format, addMinutes, parse, isSameDay, isAfter, startOfDay } from 'date-fns';
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { format, addMinutes, parse, addDays, getDay, startOfDay, isAfter, isBefore } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { PartnerWithAvailability } from '@/types/events';
@@ -34,8 +34,14 @@ interface AvailableSlot {
   date: string;
   time: string;
   slot_duration_minutes: number;
-  leaderTime?: string; // Original time in leader's timezone
+  leaderTime?: string;
   leaderTimezone?: string;
+}
+
+interface WeeklyRange {
+  start_time: string;
+  end_time: string;
+  slot_duration_minutes: number;
 }
 
 type BookingStep = 'select-partner' | 'select-datetime' | 'confirm';
@@ -104,7 +110,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       }
 
       const userIds = permissions.map(p => p.user_id);
-      console.log('[PartnerMeetingBooking] User IDs with permissions:', userIds);
 
       // Get profiles for these users
       const { data: profiles, error: profError } = await supabase
@@ -116,26 +121,20 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         console.error('[PartnerMeetingBooking] Error loading profiles:', profError);
         throw profError;
       }
-      
-      console.log('[PartnerMeetingBooking] Found profiles:', profiles?.length || 0);
 
-      // Check which leaders have availability
-      const today = format(new Date(), 'yyyy-MM-dd');
+      // Check which leaders have weekly availability (day_of_week based)
       const { data: availabilityData, error: availError } = await supabase
         .from('leader_availability')
-        .select('leader_user_id, specific_date')
+        .select('leader_user_id')
         .in('leader_user_id', userIds)
-        .gte('specific_date', today)
+        .not('day_of_week', 'is', null)
         .eq('is_active', true);
 
       if (availError) {
         console.error('[PartnerMeetingBooking] Error loading availability:', availError);
       }
-      
-      console.log('[PartnerMeetingBooking] Availability data:', availabilityData?.length || 0);
 
       const leadersWithAvailability = new Set(availabilityData?.map(a => a.leader_user_id) || []);
-      console.log('[PartnerMeetingBooking] Leaders with availability:', Array.from(leadersWithAvailability));
 
       // Merge data
       const partnersData: PartnerWithAvailability[] = permissions
@@ -158,7 +157,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         // Show partners with availability OR using external booking
         .filter(p => p.has_availability || p.use_external_booking);
 
-      console.log('[PartnerMeetingBooking] Final partners list:', partnersData.length, partnersData.map(p => p.email));
+      console.log('[PartnerMeetingBooking] Final partners list:', partnersData.length);
       setPartners(partnersData);
     } catch (error) {
       console.error('Error loading partners:', error);
@@ -174,7 +173,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
   // Load available dates when partner is selected
   useEffect(() => {
-    if (selectedPartner) {
+    if (selectedPartner && !selectedPartner.use_external_booking) {
       loadAvailableDates();
     }
   }, [selectedPartner]);
@@ -183,64 +182,39 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     if (!selectedPartner) return;
 
     try {
-      const now = new Date();
-      const today = format(now, 'yyyy-MM-dd');
-      const currentTime = format(now, 'HH:mm');
-      
-      // Get all availability slots for this partner
-      const { data: availability } = await supabase
+      // Get weekly schedule for this partner
+      const { data: weeklySchedule } = await supabase
         .from('leader_availability')
-        .select('specific_date, start_time')
+        .select('day_of_week')
         .eq('leader_user_id', selectedPartner.user_id)
-        .gte('specific_date', today)
+        .not('day_of_week', 'is', null)
         .eq('is_active', true);
 
-      // Get already booked events for this partner
-      const { data: bookedEvents } = await supabase
-        .from('events')
-        .select('start_time')
-        .eq('host_user_id', selectedPartner.user_id)
-        .in('event_type', ['tripartite_meeting', 'partner_consultation'])
-        .gte('start_time', `${today}T00:00:00`)
-        .eq('is_active', true);
+      // Get date exceptions (blocked dates)
+      const { data: exceptions } = await supabase
+        .from('leader_availability_exceptions')
+        .select('exception_date')
+        .eq('leader_user_id', selectedPartner.user_id);
 
-      // Filter dates that still have availability
-      const uniqueDates = [...new Set(availability?.map(a => a.specific_date).filter(Boolean) as string[])];
+      const activeDays = new Set(weeklySchedule?.map(s => s.day_of_week) || []);
+      const blockedDates = new Set(exceptions?.map(e => e.exception_date) || []);
+
+      // Generate available dates for next 30 days
+      const dates: string[] = [];
+      const today = startOfDay(new Date());
       
-      // For each date, check if there's at least one unbooked slot
-      const availableDatesList: string[] = [];
-      
-      for (const date of uniqueDates) {
-        const bookedTimesForDate = bookedEvents
-          ?.filter(e => format(new Date(e.start_time), 'yyyy-MM-dd') === date)
-          .map(e => format(new Date(e.start_time), 'HH:mm')) || [];
+      for (let i = 0; i < 30; i++) {
+        const date = addDays(today, i);
+        const dayOfWeek = getDay(date); // 0 = Sunday, 1 = Monday, etc.
+        const dateStr = format(date, 'yyyy-MM-dd');
         
-        // Check if any slot is still available
-        const { data: dateSlots } = await supabase
-          .from('leader_availability')
-          .select('start_time')
-          .eq('leader_user_id', selectedPartner.user_id)
-          .eq('specific_date', date)
-          .eq('is_active', true);
-
-        const hasAvailableSlot = dateSlots?.some(slot => {
-          const slotTime = slot.start_time?.substring(0, 5) || '';
-          const isBooked = bookedTimesForDate.includes(slotTime);
-          
-          // For today, filter out past times
-          if (date === today && slotTime <= currentTime) {
-            return false;
-          }
-          
-          return !isBooked;
-        });
-
-        if (hasAvailableSlot) {
-          availableDatesList.push(date);
+        // Check if this day of week is enabled and not blocked
+        if (activeDays.has(dayOfWeek) && !blockedDates.has(dateStr)) {
+          dates.push(dateStr);
         }
       }
 
-      setAvailableDates(availableDatesList);
+      setAvailableDates(dates);
     } catch (error) {
       console.error('Error loading available dates:', error);
     }
@@ -253,106 +227,167 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     }
   }, [selectedDate, selectedPartner]);
 
+  // Generate time slots from range
+  const generateSlotsFromRange = (startTime: string, endTime: string, duration: number): string[] => {
+    const slots: string[] = [];
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    
+    let currentMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    
+    while (currentMinutes + duration <= endMinutes) {
+      const hours = Math.floor(currentMinutes / 60);
+      const minutes = currentMinutes % 60;
+      slots.push(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+      currentMinutes += duration;
+    }
+    
+    return slots;
+  };
+
   const loadAvailableSlots = async () => {
     if (!selectedPartner || !selectedDate) return;
 
     setLoadingSlots(true);
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const dayOfWeek = getDay(selectedDate);
 
-      // Get availability for this date with timezone info
-      const { data: availability } = await supabase
+      // 1. Get weekly schedule for this day of week
+      const { data: weeklyRanges } = await supabase
         .from('leader_availability')
-        .select('start_time, slot_duration_minutes, timezone')
+        .select('start_time, end_time, slot_duration_minutes, timezone')
         .eq('leader_user_id', selectedPartner.user_id)
-        .eq('specific_date', dateStr)
+        .eq('day_of_week', dayOfWeek)
         .eq('is_active', true);
 
-      // Get leader's timezone from first availability record
-      const partnerTimezone = availability?.[0]?.timezone || 'Europe/Warsaw';
-      setLeaderTimezone(partnerTimezone);
-      console.log('[PartnerMeetingBooking] Leader timezone:', partnerTimezone, 'User timezone:', userTimezone);
+      if (!weeklyRanges || weeklyRanges.length === 0) {
+        setAvailableSlots([]);
+        setLoadingSlots(false);
+        return;
+      }
 
-      // Get already booked individual meetings for this partner on this date
+      const partnerTimezone = weeklyRanges[0]?.timezone || 'Europe/Warsaw';
+      setLeaderTimezone(partnerTimezone);
+      const slotDuration = weeklyRanges[0]?.slot_duration_minutes || 60;
+
+      // 2. Generate all possible slots from ranges
+      let allSlots: string[] = [];
+      weeklyRanges.forEach(range => {
+        const rangeSlots = generateSlotsFromRange(
+          range.start_time?.substring(0, 5) || '09:00',
+          range.end_time?.substring(0, 5) || '17:00',
+          range.slot_duration_minutes || 60
+        );
+        allSlots = [...allSlots, ...rangeSlots];
+      });
+
+      // Remove duplicates and sort
+      allSlots = [...new Set(allSlots)].sort();
+
+      // 3. Get already booked individual meetings for this partner on this date
       const { data: individualMeetings } = await supabase
         .from('events')
-        .select('start_time, title')
+        .select('start_time')
         .eq('host_user_id', selectedPartner.user_id)
         .in('event_type', ['tripartite_meeting', 'partner_consultation'])
         .gte('start_time', `${dateStr}T00:00:00`)
         .lt('start_time', `${dateStr}T23:59:59`)
         .eq('is_active', true);
 
-      // Get global BLOCKING events (webinars, team meetings) on this date
-      // These block ALL individual meetings, regardless of registration
+      const bookedTimes = new Set(
+        individualMeetings?.map(e => format(new Date(e.start_time), 'HH:mm')) || []
+      );
+
+      // 4. Get global BLOCKING events (webinars, team meetings) on this date
       const { data: blockingEvents } = await supabase
         .from('events')
-        .select('id, start_time, end_time, title, event_type')
+        .select('start_time, end_time')
         .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
         .gte('end_time', `${dateStr}T00:00:00`)
         .lte('start_time', `${dateStr}T23:59:59`)
         .eq('is_active', true);
 
-      // Calculate blocked times from webinars and team trainings
-      // These have highest priority and block ALL slots during their time
-      const blockedByGlobalEvents: string[] = [];
+      // Calculate blocked times from platform events
+      const blockedByPlatform = new Set<string>();
       blockingEvents?.forEach(event => {
         const eventStart = new Date(event.start_time);
         const eventEnd = new Date(event.end_time);
         
-        // Block all slots that overlap with this event
-        availability?.forEach(slot => {
-          const slotTime = slot.start_time?.substring(0, 5) || '';
+        allSlots.forEach(slotTime => {
           const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-          const slotEnd = addMinutes(slotStart, slot.slot_duration_minutes || 60);
+          const slotEnd = addMinutes(slotStart, slotDuration);
           
           // Check if slot overlaps with event
           if (slotStart < eventEnd && slotEnd > eventStart) {
-            blockedByGlobalEvents.push(slotTime);
+            blockedByPlatform.add(slotTime);
           }
         });
       });
 
-      // Individual meeting times (already booked by this partner)
-      const individualMeetingTimes = individualMeetings?.map(e => 
-        format(new Date(e.start_time), 'HH:mm')
-      ) || [];
+      // 5. Check Google Calendar busy times
+      let googleBusySlots = new Set<string>();
       
-      // Combine all blocked times
-      const allBlockedTimes = new Set([
-        ...individualMeetingTimes,
-        ...blockedByGlobalEvents
-      ]);
+      // Check if partner has Google Calendar connected
+      const { data: hasGoogleToken } = await supabase
+        .from('user_google_tokens')
+        .select('id')
+        .eq('user_id', selectedPartner.user_id)
+        .maybeSingle();
+      
+      if (hasGoogleToken) {
+        try {
+          const { data: busyData } = await supabase.functions.invoke(
+            'check-google-calendar-busy',
+            { body: { leader_user_id: selectedPartner.user_id, date: dateStr } }
+          );
+          
+          if (busyData?.busy && Array.isArray(busyData.busy)) {
+            busyData.busy.forEach((busySlot: { start: string; end: string }) => {
+              const busyStart = new Date(busySlot.start);
+              const busyEnd = new Date(busySlot.end);
+              
+              allSlots.forEach(slotTime => {
+                const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                const slotEnd = addMinutes(slotStart, slotDuration);
+                
+                // Check if slot overlaps with busy time
+                if (slotStart < busyEnd && slotEnd > busyStart) {
+                  googleBusySlots.add(slotTime);
+                }
+              });
+            });
+          }
+        } catch (error) {
+          console.warn('[PartnerMeetingBooking] Google Calendar check failed:', error);
+        }
+      }
 
-      console.log('[PartnerMeetingBooking] Blocked times for', dateStr, ':', Array.from(allBlockedTimes));
-
-      // Get current time for filtering today's past slots
+      // 6. Filter out all blocked slots
       const now = new Date();
       const today = format(now, 'yyyy-MM-dd');
       const currentTime = format(now, 'HH:mm');
 
-      // Filter out booked slots and past slots for today
-      // Convert times from leader's timezone to user's timezone for display
-      const slots: AvailableSlot[] = (availability || [])
-        .filter(slot => {
-          const slotTime = slot.start_time?.substring(0, 5) || '';
-          
-          // For today, filter out past times (in leader's timezone)
+      const availableSlotsList: AvailableSlot[] = allSlots
+        .filter(slotTime => {
+          // For today, filter out past times
           if (dateStr === today && slotTime <= currentTime) {
             return false;
           }
           
-          return !allBlockedTimes.has(slotTime);
-        })
-        .map(slot => {
-          const leaderSlotTime = slot.start_time?.substring(0, 5) || '09:00';
+          // Filter out blocked slots
+          if (bookedTimes.has(slotTime)) return false;
+          if (blockedByPlatform.has(slotTime)) return false;
+          if (googleBusySlots.has(slotTime)) return false;
           
-          // Convert slot time from leader's timezone to user's timezone
-          let displayTime = leaderSlotTime;
+          return true;
+        })
+        .map(slotTime => {
+          // Convert to user's timezone for display
+          let displayTime = slotTime;
           try {
-            // Create a date in the leader's timezone
-            const leaderDateTime = parse(`${dateStr} ${leaderSlotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-            // Convert to UTC, then to user's timezone for display
+            const leaderDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
             displayTime = formatInTimeZone(leaderDateTime, userTimezone, 'HH:mm');
           } catch (e) {
             console.warn('[PartnerMeetingBooking] Timezone conversion error:', e);
@@ -360,15 +395,15 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           
           return {
             date: dateStr,
-            time: displayTime, // Time in user's timezone for display
-            slot_duration_minutes: slot.slot_duration_minutes || 60,
-            leaderTime: leaderSlotTime, // Original time in leader's timezone
+            time: displayTime,
+            slot_duration_minutes: slotDuration,
+            leaderTime: slotTime,
             leaderTimezone: partnerTimezone,
           };
-        })
-        .sort((a, b) => a.time.localeCompare(b.time));
+        });
 
-      setAvailableSlots(slots);
+      console.log('[PartnerMeetingBooking] Available slots:', availableSlotsList.length);
+      setAvailableSlots(availableSlotsList);
     } catch (error) {
       console.error('Error loading slots:', error);
     } finally {
@@ -391,7 +426,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           filter: `host_user_id=eq.${selectedPartner.user_id}`
         },
         () => {
-          // Refresh available slots when new booking is made
           if (selectedDate) {
             loadAvailableSlots();
           }
@@ -424,12 +458,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       console.error('Error loading meeting settings:', error);
     }
     
-    // If partner uses external booking, go directly to external booking step
-    if (partner.use_external_booking && partner.external_calendly_url) {
-      setStep('select-datetime'); // Reuse this step for external booking display
-    } else {
-      setStep('select-datetime');
-    }
+    setStep('select-datetime');
   };
 
   const handleSelectSlot = (slot: AvailableSlot) => {
@@ -442,17 +471,8 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
     setBooking(true);
     try {
-      // Use leaderTime (original time in leader's timezone) for proper UTC conversion
       const timeToUse = selectedSlot.leaderTime || selectedSlot.time;
-      const slotTimezone = selectedSlot.leaderTimezone || leaderTimezone;
       
-      console.log('[PartnerMeetingBooking] Booking meeting:', {
-        displayTime: selectedSlot.time,
-        leaderTime: timeToUse,
-        timezone: slotTimezone
-      });
-      
-      // Parse local time and convert to ISO string (properly handles timezone offset)
       const localStartDate = parse(`${selectedSlot.date} ${timeToUse}`, 'yyyy-MM-dd HH:mm', new Date());
       const startDateTime = localStartDate.toISOString();
       const endDate = addMinutes(localStartDate, selectedSlot.slot_duration_minutes);
@@ -483,7 +503,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Check for conflicts with webinars and team trainings
       const { data: blockingEvent } = await supabase
         .from('events')
-        .select('id, title, event_type')
+        .select('id, title')
         .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
         .lte('start_time', endDateTime)
         .gte('end_time', startDateTime)
@@ -541,7 +561,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       if (regError) throw regError;
 
-      // Sync to Google Calendar for both users (batch sync)
+      // Sync to Google Calendar for both users
       supabase.functions.invoke('sync-google-calendar', {
         body: { 
           user_ids: [user.id, selectedPartner.user_id], 
@@ -561,7 +581,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       setSelectedDate(undefined);
       setSelectedSlot(null);
       
-      // Reload partners to refresh availability
       loadPartners();
     } catch (error: any) {
       console.error('Error booking meeting:', error);
@@ -602,226 +621,78 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Step indicator */}
-      <div className="flex items-center justify-center gap-2 mb-6">
-        <div className={cn(
-          "flex items-center gap-2 px-3 py-1 rounded-full text-sm",
-          step === 'select-partner' ? "bg-primary text-primary-foreground" : "bg-muted"
-        )}>
-          <User className="h-4 w-4" />
-          Partner
-        </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-        <div className={cn(
-          "flex items-center gap-2 px-3 py-1 rounded-full text-sm",
-          step === 'select-datetime' ? "bg-primary text-primary-foreground" : "bg-muted"
-        )}>
-          <CalendarIcon className="h-4 w-4" />
-          Termin
-        </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-        <div className={cn(
-          "flex items-center gap-2 px-3 py-1 rounded-full text-sm",
-          step === 'confirm' ? "bg-primary text-primary-foreground" : "bg-muted"
-        )}>
-          <CheckCircle className="h-4 w-4" />
-          Potwierdź
-        </div>
-      </div>
-
-      {/* Step 1: Select Partner */}
-      {step === 'select-partner' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {meetingType === 'tripartite' ? (
+  // Step 1: Select Partner
+  if (step === 'select-partner') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {meetingType === 'tripartite' ? (
+              <>
                 <Users className="h-5 w-5" />
-              ) : (
+                Spotkanie trójstronne
+              </>
+            ) : (
+              <>
                 <User className="h-5 w-5" />
-              )}
-              Wybierz partnera
-            </CardTitle>
-            <CardDescription>
-              Wybierz partnera, z którym chcesz umówić spotkanie
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {partners.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Brak dostępnych partnerów z aktywnymi terminami</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {partners.map(partner => (
-                  <button
-                    key={partner.user_id}
-                    onClick={() => handleSelectPartner(partner)}
-                    className="w-full flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback>
-                        {(partner.first_name?.[0] || '') + (partner.last_name?.[0] || '')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {partner.first_name} {partner.last_name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{partner.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {partner.use_external_booking && (
-                        <Badge variant="outline" className="gap-1 text-xs">
-                          <ExternalLink className="h-3 w-3" />
-                          Zewnętrzny kalendarz
-                        </Badge>
-                      )}
-                      {partner.zoom_link && !partner.use_external_booking && (
-                        <Badge variant="secondary" className="gap-1">
-                          <Video className="h-3 w-3" />
-                          Zoom
-                        </Badge>
-                      )}
-                    </div>
-                    <ChevronLeft className="h-5 w-5 rotate-180 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
+                Konsultacje dla partnerów
+              </>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 2: Select Date & Time OR External Booking */}
-      {step === 'select-datetime' && selectedPartner && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={goBack}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  {selectedPartner.use_external_booking ? (
-                    <ExternalLink className="h-5 w-5" />
-                  ) : (
-                    <CalendarIcon className="h-5 w-5" />
-                  )}
-                  {selectedPartner.use_external_booking ? 'Rezerwacja zewnętrzna' : 'Wybierz termin'}
-                </CardTitle>
-                <CardDescription>
-                  Spotkanie z: {selectedPartner.first_name} {selectedPartner.last_name}
-                </CardDescription>
-              </div>
+          </CardTitle>
+          <CardDescription>
+            Wybierz partnera, z którym chcesz umówić spotkanie
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {partners.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Brak dostępnych partnerów dla tego typu spotkania</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            {/* External Booking View */}
-            {selectedPartner.use_external_booking && selectedPartner.external_calendly_url ? (
-              <div className="text-center py-8 space-y-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
-                  <ExternalLink className="h-8 w-8 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">Zewnętrzny system rezerwacji</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">
-                    Ten partner używa zewnętrznego narzędzia do rezerwacji spotkań. 
-                    Kliknij przycisk poniżej, aby przejść do jego kalendarza.
-                  </p>
-                </div>
-                <Button 
-                  size="lg" 
-                  onClick={() => window.open(selectedPartner.external_calendly_url!, '_blank')}
-                  className="gap-2"
+          ) : (
+            <div className="grid gap-3">
+              {partners.map((partner) => (
+                <button
+                  key={partner.user_id}
+                  onClick={() => handleSelectPartner(partner)}
+                  className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors text-left w-full"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  Przejdź do Calendly
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  Zostaniesz przekierowany do zewnętrznej strony
-                </p>
-              </div>
-            ) : (
-              /* Internal Booking View */
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Calendar */}
-              <div>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  locale={pl}
-                  disabled={(date) => !isDateAvailable(date)}
-                  modifiers={{
-                    available: (date) => isDateAvailable(date),
-                  }}
-                  modifiersStyles={{
-                    available: { fontWeight: 'bold' },
-                  }}
-                  className="rounded-md border"
-                />
-              </div>
-
-              {/* Time slots */}
-              <div>
-                <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  {selectedDate 
-                    ? `Dostępne godziny - ${format(selectedDate, 'd MMMM', { locale: pl })}`
-                    : 'Wybierz datę, aby zobaczyć godziny'
-                  }
-                </h4>
-                
-                {/* Timezone info */}
-                {selectedDate && availableSlots.length > 0 && userTimezone !== leaderTimezone && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2 bg-muted/50 px-2 py-1 rounded">
-                    <Globe className="h-3 w-3" />
-                    <span>Godziny wyświetlane w Twojej strefie czasowej ({userTimezone})</span>
+                  <Avatar>
+                    <AvatarFallback>
+                      {(partner.first_name?.[0] || '') + (partner.last_name?.[0] || '')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                      {partner.first_name} {partner.last_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {partner.email}
+                    </p>
                   </div>
-                )}
-                
-                {!selectedDate ? (
-                  <p className="text-sm text-muted-foreground">
-                    Kliknij na podświetloną datę w kalendarzu
-                  </p>
-                ) : loadingSlots ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  </div>
-                ) : availableSlots.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Brak dostępnych godzin w tym dniu
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {availableSlots.map(slot => (
-                      <Button
-                        key={`${slot.date}-${slot.time}`}
-                        variant="outline"
-                        className="justify-start"
-                        onClick={() => handleSelectSlot(slot)}
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        {slot.time}
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          ({slot.slot_duration_minutes} min)
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  {partner.use_external_booking ? (
+                    <Badge variant="outline" className="gap-1">
+                      <ExternalLink className="h-3 w-3" />
+                      Zewnętrzny
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Dostępny</Badge>
+                  )}
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ))}
             </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
-      {/* Step 3: Confirm */}
-      {step === 'confirm' && selectedPartner && selectedSlot && (
+  // Step 2: Select Date & Time (or show external booking)
+  if (step === 'select-datetime' && selectedPartner) {
+    // External booking
+    if (selectedPartner.use_external_booking && selectedPartner.external_calendly_url) {
+      return (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -829,84 +700,194 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5" />
-                  Potwierdź rezerwację
+                <CardTitle className="text-lg">
+                  Rezerwacja u {selectedPartner.first_name} {selectedPartner.last_name}
                 </CardTitle>
                 <CardDescription>
-                  Sprawdź szczegóły spotkania przed zatwierdzeniem
+                  Ten partner używa zewnętrznego systemu rezerwacji
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="p-4 rounded-lg bg-muted/50 space-y-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback>
-                    {(selectedPartner.first_name?.[0] || '') + (selectedPartner.last_name?.[0] || '')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">
-                    {selectedPartner.first_name} {selectedPartner.last_name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{selectedPartner.email}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="col-span-2">
-                  <p className="text-muted-foreground">Typ spotkania</p>
-                  <p className="font-medium">
-                    {meetingSettings?.title || (meetingType === 'tripartite' ? 'Spotkanie trójstronne' : 'Konsultacje dla partnerów')}
-                  </p>
-                  {meetingSettings?.description && (
-                    <p className="text-sm text-muted-foreground mt-1">{meetingSettings.description}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Data</p>
-                  <p className="font-medium">
-                    {format(parse(selectedSlot.date, 'yyyy-MM-dd', new Date()), 'd MMMM yyyy', { locale: pl })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Godzina</p>
-                  <p className="font-medium">{selectedSlot.time}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Czas trwania</p>
-                  <p className="font-medium">{selectedSlot.slot_duration_minutes} minut</p>
-                </div>
-              </div>
-
-              {selectedPartner.zoom_link && (
-                <div className="flex items-center gap-2 text-sm pt-2 border-t">
-                  <Video className="h-4 w-4 text-blue-500" />
-                  <span className="text-muted-foreground">Link do spotkania zostanie udostępniony w kalendarzu</span>
-                </div>
-              )}
-            </div>
-
-            <Button 
-              onClick={handleBookMeeting} 
-              disabled={booking}
-              className="w-full"
-              size="lg"
-            >
-              {booking ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              )}
-              Zarezerwuj spotkanie
+          <CardContent className="text-center py-8">
+            <ExternalLink className="h-12 w-12 mx-auto mb-4 text-primary" />
+            <p className="mb-4 text-muted-foreground">
+              Kliknij poniżej, aby przejść do systemu rezerwacji
+            </p>
+            <Button asChild>
+              <a href={selectedPartner.external_calendly_url} target="_blank" rel="noopener noreferrer">
+                Przejdź do rezerwacji
+                <ExternalLink className="h-4 w-4 ml-2" />
+              </a>
             </Button>
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
-};
+      );
+    }
 
-export default PartnerMeetingBooking;
+    // Internal booking
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={goBack}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <CardTitle className="text-lg">
+                Wybierz termin
+              </CardTitle>
+              <CardDescription>
+                Spotkanie z {selectedPartner.first_name} {selectedPartner.last_name}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Calendar */}
+            <div>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                disabled={(date) => !isDateAvailable(date)}
+                locale={pl}
+                className="rounded-md border"
+              />
+            </div>
+
+            {/* Time Slots */}
+            <div>
+              {!selectedDate ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Wybierz datę z kalendarza</p>
+                </div>
+              ) : loadingSlots ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : availableSlots.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Brak dostępnych terminów w tym dniu</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium mb-3">
+                    {format(selectedDate, 'd MMMM yyyy', { locale: pl })}
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
+                    {availableSlots.map((slot, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSelectSlot(slot)}
+                        className="h-10"
+                      >
+                        {slot.time}
+                      </Button>
+                    ))}
+                  </div>
+                  {userTimezone !== leaderTimezone && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
+                      <Globe className="h-3 w-3" />
+                      Godziny w Twojej strefie czasowej ({userTimezone})
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Step 3: Confirm
+  if (step === 'confirm' && selectedPartner && selectedSlot) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={goBack}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <CardTitle className="text-lg">Potwierdź rezerwację</CardTitle>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Meeting Info */}
+          {meetingSettings && (
+            <div className="bg-muted/50 rounded-lg p-4">
+              <h3 className="font-medium">{meetingSettings.title}</h3>
+              {meetingSettings.description && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {meetingSettings.description}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Summary */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Avatar>
+                <AvatarFallback>
+                  {(selectedPartner.first_name?.[0] || '') + (selectedPartner.last_name?.[0] || '')}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium">
+                  {selectedPartner.first_name} {selectedPartner.last_name}
+                </p>
+                <p className="text-sm text-muted-foreground">{selectedPartner.email}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <span>{format(new Date(selectedSlot.date), 'd MMMM yyyy', { locale: pl })}</span>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span>{selectedSlot.time} ({selectedSlot.slot_duration_minutes} min)</span>
+            </div>
+
+            {selectedPartner.zoom_link && (
+              <div className="flex items-center gap-2 text-sm">
+                <Video className="h-4 w-4 text-muted-foreground" />
+                <span>Zoom</span>
+              </div>
+            )}
+          </div>
+
+          <Button 
+            onClick={handleBookMeeting} 
+            disabled={booking}
+            className="w-full gap-2"
+          >
+            {booking ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Rezerwacja...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Potwierdź rezerwację
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return null;
+};

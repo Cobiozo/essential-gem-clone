@@ -2482,6 +2482,30 @@ export type Database = {
         }
         Relationships: []
       }
+      leader_availability_exceptions: {
+        Row: {
+          created_at: string | null
+          exception_date: string
+          id: string
+          leader_user_id: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          exception_date: string
+          id?: string
+          leader_user_id: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          exception_date?: string
+          id?: string
+          leader_user_id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       leader_meeting_settings: {
         Row: {
           created_at: string | null

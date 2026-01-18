@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.cleanup-google-calendar-logs]
 verify_jwt = false
+
+[functions.check-google-calendar-busy]
+verify_jwt = false

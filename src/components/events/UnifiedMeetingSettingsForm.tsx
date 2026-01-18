@@ -8,7 +8,6 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -25,13 +24,14 @@ import {
   Settings, 
   ExternalLink, 
   CalendarDays, 
-  AlertTriangle,
-  CheckCircle 
+  CheckCircle,
+  CalendarOff
 } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
-import { WeeklyAvailabilityScheduler, TimeSlot } from './WeeklyAvailabilityScheduler';
+import { WorkingHoursScheduler, WeeklySchedule } from './WorkingHoursScheduler';
+import { DateExceptionsManager, DateException } from './DateExceptionsManager';
 import { IndividualMeetingsHistory } from './IndividualMeetingsHistory';
-import { format, addMonths, addMinutes, parse } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const SLOT_DURATIONS = [
@@ -63,8 +63,11 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
   const [externalCalendlyUrl, setExternalCalendlyUrl] = useState('');
   const [hasGoogleCalendar, setHasGoogleCalendar] = useState(false);
   
-  // Unified availability slots
-  const [availabilitySlots, setAvailabilitySlots] = useState<TimeSlot[]>([]);
+  // Weekly schedule (Calendly-style)
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>({});
+  
+  // Date exceptions (blocked dates)
+  const [dateExceptions, setDateExceptions] = useState<DateException[]>([]);
   
   // Meeting type specific settings
   const [tripartiteSettings, setTripartiteSettings] = useState<MeetingTypeSettings>({
@@ -113,36 +116,60 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
         setBookingMode(permData.use_external_booking ? 'external' : 'internal');
         setExternalCalendlyUrl(permData.external_calendly_url || '');
         
-        // Update is_active from permissions
         setTripartiteSettings(prev => ({ ...prev, is_active: permData.tripartite_meeting_enabled ?? true }));
         setConsultationSettings(prev => ({ ...prev, is_active: permData.partner_consultation_enabled ?? true }));
       }
 
-      // Load unified availability (specific dates)
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const maxDate = format(addMonths(new Date(), 1), 'yyyy-MM-dd');
-      
-      const { data: availData } = await supabase
+      // Load weekly availability (day_of_week based, not specific_date)
+      const { data: weeklyData } = await supabase
         .from('leader_availability')
-        .select('*')
+        .select('day_of_week, start_time, end_time, slot_duration_minutes')
         .eq('leader_user_id', user.id)
-        .not('specific_date', 'is', null)
-        .gte('specific_date', today)
-        .lte('specific_date', maxDate);
+        .not('day_of_week', 'is', null)
+        .is('specific_date', null)
+        .eq('is_active', true);
 
-      if (availData && availData.length > 0) {
-        const slots: TimeSlot[] = availData
-          .filter(s => s.is_active && s.specific_date)
-          .map(s => ({
-            date: s.specific_date!,
-            time: s.start_time?.substring(0, 5) || '09:00',
-          }));
-        setAvailabilitySlots(slots);
+      if (weeklyData && weeklyData.length > 0) {
+        // Group by day_of_week
+        const schedule: WeeklySchedule = {};
+        weeklyData.forEach(entry => {
+          const day = entry.day_of_week!;
+          if (!schedule[day]) {
+            schedule[day] = { enabled: true, ranges: [] };
+          }
+          schedule[day].ranges.push({
+            start: entry.start_time?.substring(0, 5) || '09:00',
+            end: entry.end_time?.substring(0, 5) || '17:00',
+          });
+        });
+        
+        // Fill in disabled days
+        for (let i = 0; i < 7; i++) {
+          if (!schedule[i]) {
+            schedule[i] = { enabled: false, ranges: [{ start: '09:00', end: '17:00' }] };
+          }
+        }
+        
+        setWeeklySchedule(schedule);
         
         // Get slot duration from first entry
-        if (availData[0].slot_duration_minutes) {
-          setSlotDuration(availData[0].slot_duration_minutes);
+        if (weeklyData[0].slot_duration_minutes) {
+          setSlotDuration(weeklyData[0].slot_duration_minutes);
         }
+      }
+
+      // Load date exceptions
+      const { data: exceptionsData } = await supabase
+        .from('leader_availability_exceptions')
+        .select('id, exception_date, reason')
+        .eq('leader_user_id', user.id);
+
+      if (exceptionsData) {
+        setDateExceptions(exceptionsData.map(e => ({
+          id: e.id,
+          date: parseISO(e.exception_date),
+          reason: e.reason || 'Niedostępny/a',
+        })));
       }
 
       // Load meeting type settings
@@ -156,21 +183,21 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
         const consultation = meetingSettings.find(s => s.meeting_type === 'consultation');
         
         if (tripartite) {
-          setTripartiteSettings({
+          setTripartiteSettings(prev => ({
+            ...prev,
             title: tripartite.title || 'Spotkanie trójstronne',
             description: tripartite.description || '',
             image_url: tripartite.image_url || '',
-            is_active: tripartiteSettings.is_active,
-          });
+          }));
         }
         
         if (consultation) {
-          setConsultationSettings({
+          setConsultationSettings(prev => ({
+            ...prev,
             title: consultation.title || 'Konsultacje dla partnerów',
             description: consultation.description || '',
             image_url: consultation.image_url || '',
-            is_active: consultationSettings.is_active,
-          });
+          }));
         }
       }
     } catch (error) {
@@ -178,12 +205,6 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-    const parsed = parse(startTime, 'HH:mm', new Date());
-    const endTime = addMinutes(parsed, durationMinutes);
-    return format(endTime, 'HH:mm');
   };
 
   const handleSave = async () => {
@@ -201,32 +222,65 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
 
     setSaving(true);
     try {
-      // 1. Delete old specific_date availability entries
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      // 1. Delete old weekly availability (day_of_week based)
       await supabase
         .from('leader_availability')
         .delete()
         .eq('leader_user_id', user.id)
-        .not('specific_date', 'is', null);
+        .not('day_of_week', 'is', null);
 
-      // 2. Insert new unified availability slots
-      if (availabilitySlots.length > 0) {
-        const insertData = availabilitySlots.map((slot) => ({
-          leader_user_id: user.id,
-          specific_date: slot.date,
-          start_time: slot.time,
-          end_time: calculateEndTime(slot.time, slotDuration),
-          is_active: true,
-          slot_duration_minutes: slotDuration,
-        }));
+      // 2. Insert new weekly schedule
+      const weeklyInsertData: any[] = [];
+      Object.entries(weeklySchedule).forEach(([dayStr, daySchedule]) => {
+        if (daySchedule.enabled) {
+          daySchedule.ranges.forEach(range => {
+            weeklyInsertData.push({
+              leader_user_id: user.id,
+              day_of_week: parseInt(dayStr),
+              specific_date: null,
+              start_time: range.start,
+              end_time: range.end,
+              is_active: true,
+              slot_duration_minutes: slotDuration,
+              timezone,
+            });
+          });
+        }
+      });
 
-        const { error: availError } = await supabase
+      if (weeklyInsertData.length > 0) {
+        const { error: weeklyError } = await supabase
           .from('leader_availability')
-          .insert(insertData);
+          .insert(weeklyInsertData);
 
-        if (availError) throw availError;
+        if (weeklyError) throw weeklyError;
       }
 
-      // 3. Update leader_permissions
+      // 3. Update date exceptions
+      // Delete all existing exceptions for this user
+      await supabase
+        .from('leader_availability_exceptions')
+        .delete()
+        .eq('leader_user_id', user.id);
+
+      // Insert new exceptions
+      if (dateExceptions.length > 0) {
+        const exceptionsInsert = dateExceptions.map(ex => ({
+          leader_user_id: user.id,
+          exception_date: format(ex.date, 'yyyy-MM-dd'),
+          reason: ex.reason,
+        }));
+
+        const { error: excError } = await supabase
+          .from('leader_availability_exceptions')
+          .insert(exceptionsInsert);
+
+        if (excError) throw excError;
+      }
+
+      // 4. Update leader_permissions
       const { error: permError } = await supabase
         .from('leader_permissions')
         .update({ 
@@ -242,7 +296,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
         console.error('Error updating leader_permissions:', permError);
       }
 
-      // 4. Upsert meeting type settings
+      // 5. Upsert meeting type settings
       const settingsToUpsert = [
         {
           leader_user_id: user.id,
@@ -288,8 +342,12 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
     }
   };
 
-  const handleSlotsChange = useCallback((slots: TimeSlot[]) => {
-    setAvailabilitySlots(slots);
+  const handleScheduleChange = useCallback((schedule: WeeklySchedule) => {
+    setWeeklySchedule(schedule);
+  }, []);
+
+  const handleExceptionsChange = useCallback((exceptions: DateException[]) => {
+    setDateExceptions(exceptions);
   }, []);
 
   if (loading) {
@@ -301,8 +359,6 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
       </Card>
     );
   }
-
-  const hostName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
 
   return (
     <Tabs defaultValue="settings" className="space-y-4">
@@ -326,7 +382,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
               Spotkania indywidualne
             </CardTitle>
             <CardDescription>
-              Jeden wspólny harmonogram dla wszystkich typów spotkań. Zarezerwowany termin znika dla obu rodzajów.
+              Jeden wspólny harmonogram dla wszystkich typów spotkań. Ustaw godziny pracy jak w Calendly.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -389,7 +445,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
               {hasGoogleCalendar && bookingMode !== 'external' && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <CheckCircle className="h-3 w-3 text-green-500" />
-                  Masz połączony Google Calendar - synchronizacja aktywna
+                  Masz połączony Google Calendar - zajętość będzie automatycznie sprawdzana
                 </p>
               )}
               
@@ -448,30 +504,35 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Unified Availability Schedule - only for internal mode */}
+        {/* Working Hours Schedule - only for internal mode */}
         {bookingMode === 'internal' && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
+          <Tabs defaultValue="weekly" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="weekly" className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Wspólny harmonogram dostępności
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Ten sam harmonogram dla wszystkich typów spotkań. Sloty kolidujące z webinarami/szkoleniami są oznaczone.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WeeklyAvailabilityScheduler
-                meetingType="tripartite"
+                Godziny tygodniowe
+              </TabsTrigger>
+              <TabsTrigger value="exceptions" className="flex items-center gap-2">
+                <CalendarOff className="h-4 w-4" />
+                Wyjątki dat
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="weekly">
+              <WorkingHoursScheduler
+                initialSchedule={weeklySchedule}
+                onScheduleChange={handleScheduleChange}
                 slotDuration={slotDuration}
-                hostName={hostName}
-                description=""
-                zoomLink={zoomLink}
-                initialSlots={availabilitySlots}
-                onSlotsChange={handleSlotsChange}
               />
-            </CardContent>
-          </Card>
+            </TabsContent>
+            
+            <TabsContent value="exceptions">
+              <DateExceptionsManager
+                exceptions={dateExceptions}
+                onExceptionsChange={handleExceptionsChange}
+              />
+            </TabsContent>
+          </Tabs>
         )}
 
         {/* Meeting Types Settings */}
