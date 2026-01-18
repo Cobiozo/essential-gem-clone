@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Video, Users, User, ExternalLink, Clock, Info } from 'lucide-react';
+import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
@@ -16,10 +17,12 @@ export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { getUserEvents } = useEvents();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [userEvents, setUserEvents] = useState<EventWithRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
+  const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
 
   const locale = language === 'pl' ? pl : enUS;
   
@@ -150,6 +153,109 @@ export const MyMeetingsWidget: React.FC = () => {
     return acc;
   }, {} as Record<string, EventWithRegistration[]>);
 
+  // Handle meeting cancellation with email notifications
+  const handleCancelMeeting = async (event: EventWithRegistration) => {
+    if (!user) return;
+    
+    const confirmed = window.confirm('Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.');
+    if (!confirmed) return;
+
+    setCancellingEventId(event.id);
+
+    try {
+      // Get the other party (either host or participant)
+      const { data: registrations } = await supabase
+        .from('event_registrations')
+        .select('user_id')
+        .eq('event_id', event.id)
+        .neq('user_id', user.id);
+
+      const otherPartyId = registrations?.[0]?.user_id || event.host_user_id;
+      const isHost = event.host_user_id === user.id;
+      
+      // Get current user's profile for email
+      const { data: currentUserProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+
+      const cancelerName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || (isHost ? 'prowadzący' : 'uczestnik');
+
+      // Soft delete: mark event as inactive
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ is_active: false })
+        .eq('id', event.id);
+
+      if (updateError) throw updateError;
+
+      // Cancel registrations for both parties
+      await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', event.id);
+
+      // Delete from Google Calendar for both users
+      const userIds = otherPartyId && otherPartyId !== user.id 
+        ? [user.id, otherPartyId] 
+        : [user.id];
+      
+      supabase.functions.invoke('sync-google-calendar', {
+        body: { 
+          user_ids: userIds, 
+          event_id: event.id, 
+          action: 'delete' 
+        }
+      }).catch(err => console.log('[MyMeetingsWidget] GCal delete skipped or failed:', err));
+
+      // Email data
+      const emailPayload = {
+        temat: event.title,
+        data_spotkania: format(new Date(event.start_time), 'dd.MM.yyyy', { locale: pl }),
+        godzina_spotkania: format(new Date(event.start_time), 'HH:mm'),
+        kto_odwolal: cancelerName,
+      };
+
+      // Send email to the other party
+      if (otherPartyId && otherPartyId !== user.id) {
+        supabase.functions.invoke('send-notification-email', {
+          body: {
+            event_type_id: '8eb3bd8a-e558-468f-8f9f-11eccd108436', // event_cancelled
+            recipient_user_id: otherPartyId,
+            payload: emailPayload,
+          },
+        }).catch(err => console.log('[MyMeetingsWidget] Email to other party failed:', err));
+      }
+
+      // Send confirmation email to the user who cancelled
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '8eb3bd8a-e558-468f-8f9f-11eccd108436', // event_cancelled
+          recipient_user_id: user.id,
+          payload: { ...emailPayload, kto_odwolal: 'Ty' },
+        },
+      }).catch(err => console.log('[MyMeetingsWidget] Email to canceler failed:', err));
+
+      toast({
+        title: 'Spotkanie anulowane',
+        description: 'Powiadomienia email zostały wysłane do obu stron.',
+      });
+
+      // Refresh the list
+      fetchUserEventsData();
+    } catch (error: any) {
+      console.error('[MyMeetingsWidget] Error cancelling meeting:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się anulować spotkania',
+        variant: 'destructive',
+      });
+    } finally {
+      setCancellingEventId(null);
+    }
+  };
+
   // Dynamic button based on time
   const getActionButton = (event: EventWithRegistration) => {
     const now = new Date();
@@ -234,16 +340,48 @@ export const MyMeetingsWidget: React.FC = () => {
     // Standard zoom link for other future events
     if (zoomUrl) {
       return (
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-xs"
+            asChild
+          >
+            <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" />
+              {isHost ? 'Rozpocznij' : 'Zoom'}
+            </a>
+          </Button>
+          {/* Cancel button for individual meetings (more than 2 hours before) */}
+          {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && 
+           minutesUntilEvent > 120 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => handleCancelMeeting(event)}
+              disabled={cancellingEventId === event.id}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      );
+    }
+    
+    // For individual meetings without zoom link - show cancel button if > 2 hours before
+    if ((event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && 
+        minutesUntilEvent > 120) {
+      return (
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 px-2 text-xs"
-          asChild
+          className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => handleCancelMeeting(event)}
+          disabled={cancellingEventId === event.id}
         >
-          <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3 w-3 mr-1" />
-            {isHost ? 'Rozpocznij' : 'Zoom'}
-          </a>
+          <X className="h-3 w-3 mr-1" />
+          Anuluj
         </Button>
       );
     }
