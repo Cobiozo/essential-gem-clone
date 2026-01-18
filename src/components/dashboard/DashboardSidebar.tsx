@@ -324,12 +324,26 @@ export const DashboardSidebar: React.FC = () => {
       submenuItems: communitySubmenuItems,
     },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
-    // Calculator - conditional based on access
+    // Calculator - conditional based on access with submenu
     ...(calculatorAccess?.hasAccess ? [{
       id: 'calculator',
       icon: Calculator,
       labelKey: 'Kalkulator',
-      path: '/calculator',
+      hasSubmenu: true,
+      submenuItems: [
+        { 
+          id: 'calculator-influencer', 
+          labelKey: 'Dla Influenserów', 
+          path: '/calculator/influencer', 
+          icon: Users,
+        },
+        { 
+          id: 'calculator-specialist', 
+          labelKey: 'Dla Specjalistów', 
+          path: '/calculator/specialist', 
+          icon: UserRound,
+        },
+      ],
     }] : []) as MenuItem[],
     { 
       id: 'admin', 
@@ -459,6 +473,13 @@ export const DashboardSidebar: React.FC = () => {
     }
     if (subItem.id === 'partner-consultation') {
       return location.pathname === '/my-account' && currentTab === 'individual-meetings' && searchParams.get('type') === 'consultation';
+    }
+    // Calculator submenu items
+    if (subItem.id === 'calculator-influencer') {
+      return location.pathname === '/calculator/influencer';
+    }
+    if (subItem.id === 'calculator-specialist') {
+      return location.pathname === '/calculator/specialist';
     }
     return false;
   };

@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Wallet, TrendingUp, Gift, Users, Euro } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface ResultsPanelProps {
@@ -25,7 +24,6 @@ export function ResultsPanel({
   eurToPlnRate,
   thresholds
 }: ResultsPanelProps) {
-  const { t } = useLanguage();
 
   // Calculate volume bonus based on client count
   const getVolumeBonus = (clientCount: number): number => {
@@ -59,7 +57,7 @@ export function ResultsPanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Wallet className="h-5 w-5 text-primary" />
-          {t('calculator.results') || 'Szacowane zarobki'}
+          Szacowane zarobki
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -68,7 +66,7 @@ export function ResultsPanel({
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
-              <span>{t('calculator.directCommission') || 'Prowizja bezpośrednia'}</span>
+              <span>Prowizja bezpośrednia</span>
             </div>
             <span className="font-medium">{formatPLN(directCommission)}</span>
           </div>
@@ -77,7 +75,7 @@ export function ResultsPanel({
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <span>{t('calculator.volumeBonus') || 'Bonus wolumenowy'}</span>
+                <span>Bonus wolumenowy</span>
               </div>
               <span className="font-medium text-green-600">+{formatPLN(volumeBonus)}</span>
             </div>
@@ -86,7 +84,7 @@ export function ResultsPanel({
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-muted-foreground" />
-              <span>{t('calculator.passiveIncome') || 'Dochód pasywny'} ({passiveMonths} mies.)</span>
+              <span>Dochód pasywny ({passiveMonths} mies.)</span>
             </div>
             <span className="font-medium">{formatPLN(passiveIncome)}</span>
           </div>
@@ -94,7 +92,7 @@ export function ResultsPanel({
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <Gift className="h-4 w-4 text-muted-foreground" />
-              <span>{t('calculator.extensionBonuses') || 'Bonusy przedłużeń'}</span>
+              <span>Bonusy przedłużeń</span>
             </div>
             <span className="font-medium">{formatPLN(extensionBonuses)}</span>
           </div>
@@ -106,7 +104,7 @@ export function ResultsPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-lg font-semibold">
-              {t('calculator.totalMonthly') || 'Suma'}
+              Suma
             </span>
             <span className="text-2xl font-bold text-primary">
               {formatPLN(totalPLN)}
@@ -122,7 +120,7 @@ export function ResultsPanel({
         {/* Yearly projection */}
         <div className="rounded-lg bg-primary/10 p-3 text-center">
           <p className="text-sm text-muted-foreground">
-            {t('calculator.yearlyProjection') || 'Projekcja roczna'}
+            Projekcja roczna
           </p>
           <p className="text-xl font-bold text-primary">
             {formatPLN(totalPLN * 12)}

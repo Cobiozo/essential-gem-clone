@@ -5,11 +5,9 @@ import { ResultsPanel } from './ResultsPanel';
 import { VolumeBonusProgress } from './VolumeBonusProgress';
 import { FranchiseInfoCard } from './FranchiseInfoCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { Calculator } from 'lucide-react';
 
 export function CommissionCalculator() {
-  const { t } = useLanguage();
   const { data, isLoading, error } = useCalculatorSettings();
 
   const [followers, setFollowers] = useState(5000);
@@ -42,7 +40,7 @@ export function CommissionCalculator() {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
         <p className="text-destructive">
-          {t('calculator.errorLoading') || 'Błąd ładowania kalkulatora. Spróbuj ponownie później.'}
+          Błąd ładowania kalkulatora. Spróbuj ponownie później.
         </p>
       </div>
     );
@@ -58,10 +56,10 @@ export function CommissionCalculator() {
         <Calculator className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">
-            {t('calculator.title') || 'Kalkulator zarobków partnera'}
+            Kalkulator zarobków influensera
           </h1>
           <p className="text-muted-foreground">
-            {t('calculator.subtitle') || 'Sprawdź potencjalne zarobki w modelu franczyzowym'}
+            Sprawdź potencjalne zarobki w modelu franczyzowym
           </p>
         </div>
       </div>
