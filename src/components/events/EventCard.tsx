@@ -72,33 +72,82 @@ export const EventCard: React.FC<EventCardProps> = ({
     setRegistering(true);
     try {
       if (isRegistered) {
-        // Cancel registration
-        await supabase
+        // Cancel registration - UPDATE status to cancelled
+        const { error } = await supabase
           .from('event_registrations')
-          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+          .update({ 
+            status: 'cancelled', 
+            cancelled_at: new Date().toISOString() 
+          })
           .eq('event_id', event.id)
           .eq('user_id', user.id);
+        
+        if (error) throw error;
         
         setIsRegistered(false);
         toast({
           title: t('toast.success'),
           description: t('events.registrationCancelled'),
         });
-      } else {
-        // Register
-        await supabase
-          .from('event_registrations')
-          .insert({
-            event_id: event.id,
-            user_id: user.id,
-            status: 'registered',
+        
+        // Sync with Google Calendar - delete event
+        try {
+          await supabase.functions.invoke('sync-google-calendar', {
+            body: { user_id: user.id, event_id: event.id, action: 'delete' }
           });
+        } catch (syncErr) {
+          console.error('[EventCard] Google Calendar sync (delete) failed:', syncErr);
+        }
+      } else {
+        // Check if there's an existing registration (cancelled)
+        const { data: existingReg } = await supabase
+          .from('event_registrations')
+          .select('id, status')
+          .eq('event_id', event.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (existingReg) {
+          // UPDATE existing registration to 'registered'
+          const { error } = await supabase
+            .from('event_registrations')
+            .update({ 
+              status: 'registered',
+              cancelled_at: null,
+              registered_at: new Date().toISOString()
+            })
+            .eq('id', existingReg.id);
+
+          if (error) throw error;
+          console.log('[EventCard] Re-activated existing registration');
+        } else {
+          // INSERT new registration
+          const { error } = await supabase
+            .from('event_registrations')
+            .insert({
+              event_id: event.id,
+              user_id: user.id,
+              status: 'registered',
+            });
+
+          if (error) throw error;
+          console.log('[EventCard] Created new registration');
+        }
         
         setIsRegistered(true);
         toast({
           title: t('toast.success'),
           description: t('events.registrationSuccess'),
         });
+        
+        // Sync with Google Calendar - create event
+        try {
+          await supabase.functions.invoke('sync-google-calendar', {
+            body: { user_id: user.id, event_id: event.id, action: 'create' }
+          });
+        } catch (syncErr) {
+          console.error('[EventCard] Google Calendar sync (create) failed:', syncErr);
+        }
       }
       onRegister?.();
     } catch (error: any) {
