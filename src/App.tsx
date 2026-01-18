@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense, ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,11 +13,38 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
+import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { SupportFormDialog } from "@/components/support";
+
+// Helper function for lazy loading with automatic retry on chunk errors
+function lazyWithRetry<T extends ComponentType<any>>(
+  importFn: () => Promise<{ default: T }>,
+  retries = 2
+): React.LazyExoticComponent<T> {
+  return lazy(async () => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await importFn();
+      } catch (error) {
+        console.warn(`[LazyLoad] Attempt ${i + 1} failed:`, error);
+        if (i === retries - 1) {
+          // Last attempt failed - reload the page to get fresh chunks
+          console.log('[LazyLoad] All retries failed, reloading page...');
+          sessionStorage.setItem('chunk_error_reload', Date.now().toString());
+          window.location.reload();
+          throw error;
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    throw new Error('Failed to load module after retries');
+  });
+}
 
 // Lazy load chat widgets - only mount when first opened
 const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
@@ -28,19 +55,19 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
-// Lazy load - heavy pages
-const Admin = lazy(() => import("./pages/Admin"));
-const MyAccount = lazy(() => import("./pages/MyAccount"));
-const Page = lazy(() => import("./pages/Page"));
-const Training = lazy(() => import("./pages/Training"));
-const TrainingModule = lazy(() => import("./pages/TrainingModule"));
-const KnowledgeCenter = lazy(() => import("./pages/KnowledgeCenter"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const IndividualMeetingsPage = lazy(() => import("./pages/IndividualMeetingsPage"));
-const InfoLinkPage = lazy(() => import("./pages/InfoLinkPage"));
-const WebinarsPage = lazy(() => import("./pages/WebinarsPage"));
-const TeamMeetingsPage = lazy(() => import("./pages/TeamMeetingsPage"));
-const EventGuestRegistration = lazy(() => import("./pages/EventGuestRegistration"));
+// Lazy load - heavy pages with retry
+const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const MyAccount = lazyWithRetry(() => import("./pages/MyAccount"));
+const Page = lazyWithRetry(() => import("./pages/Page"));
+const Training = lazyWithRetry(() => import("./pages/Training"));
+const TrainingModule = lazyWithRetry(() => import("./pages/TrainingModule"));
+const KnowledgeCenter = lazyWithRetry(() => import("./pages/KnowledgeCenter"));
+const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
+const IndividualMeetingsPage = lazyWithRetry(() => import("./pages/IndividualMeetingsPage"));
+const InfoLinkPage = lazyWithRetry(() => import("./pages/InfoLinkPage"));
+const WebinarsPage = lazyWithRetry(() => import("./pages/WebinarsPage"));
+const TeamMeetingsPage = lazyWithRetry(() => import("./pages/TeamMeetingsPage"));
+const EventGuestRegistration = lazyWithRetry(() => import("./pages/EventGuestRegistration"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,6 +109,7 @@ const ChatWidgetsWrapper = () => {
 
 const AppContent = () => {
   useDynamicMetaTags();
+  const { toast } = useToast();
   const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin } = useAuth();
   const { isModern } = useDashboardPreference();
   
@@ -99,6 +127,24 @@ const AppContent = () => {
   useEffect(() => {
     console.log('[App] Auth state:', { user: !!user, isFreshLogin, loginTrigger, rolesReady, shouldShowBanners });
   }, [user, isFreshLogin, loginTrigger, rolesReady, shouldShowBanners]);
+
+  // Show toast after automatic chunk error reload
+  useEffect(() => {
+    const chunkReload = sessionStorage.getItem('chunk_error_reload');
+    if (chunkReload) {
+      const reloadTime = parseInt(chunkReload);
+      const now = Date.now();
+      
+      // If reload was recent (< 5s ago), show message
+      if (now - reloadTime < 5000) {
+        toast({
+          title: 'Aplikacja została zaktualizowana',
+          description: 'Strona została automatycznie odświeżona aby załadować nową wersję.',
+        });
+      }
+      sessionStorage.removeItem('chunk_error_reload');
+    }
+  }, []);
 
   // Set shouldShowBanners when both user and isFreshLogin are true
   useEffect(() => {
