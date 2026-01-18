@@ -38,6 +38,7 @@ import {
   ExternalLink,
   Video,
   UserRound,
+  Calculator,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -46,6 +47,7 @@ import { supabase } from '@/integrations/supabase/client';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 
 interface SubMenuItem {
   id: string;
@@ -91,6 +93,9 @@ export const DashboardSidebar: React.FC = () => {
   const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+
+  // Calculator access
+  const { data: calculatorAccess } = useCalculatorAccess();
 
   // Visibility settings
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
@@ -319,6 +324,13 @@ export const DashboardSidebar: React.FC = () => {
       submenuItems: communitySubmenuItems,
     },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
+    // Calculator - conditional based on access
+    ...(calculatorAccess?.hasAccess ? [{
+      id: 'calculator',
+      icon: Calculator,
+      labelKey: 'Kalkulator',
+      path: '/calculator',
+    }] : []) as MenuItem[],
     { 
       id: 'admin', 
       icon: Shield, 
