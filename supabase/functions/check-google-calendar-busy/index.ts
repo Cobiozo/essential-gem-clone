@@ -175,7 +175,14 @@ Deno.serve(async (req) => {
         connected: true,
         busy: busySlots 
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'private, max-age=60', // Cache for 1 minute
+        } 
+      }
     );
 
   } catch (error) {
