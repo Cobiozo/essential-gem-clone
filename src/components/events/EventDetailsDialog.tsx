@@ -68,69 +68,71 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] p-0 overflow-hidden">
         <ScrollArea className="max-h-[90vh]">
-          <div className="p-6 space-y-4">
-            <DialogHeader>
-              <div className="flex items-center gap-2 mb-2">
+          <div className="p-4 space-y-3">
+            <DialogHeader className="space-y-1">
+              <div className="flex items-center gap-2">
                 {getEventTypeBadge()}
                 {isEnded && <Badge variant="secondary">Zakończone</Badge>}
                 {isLive && !isEnded && <Badge className="bg-emerald-600">Trwa teraz</Badge>}
               </div>
-              <DialogTitle className="text-xl leading-tight">{event.title}</DialogTitle>
+              <DialogTitle className="text-lg leading-tight">{event.title}</DialogTitle>
             </DialogHeader>
 
-            {/* Event banner/image */}
-            {event.image_url && (
-              <div className="rounded-lg overflow-hidden -mx-2">
-                <img
-                  src={event.image_url}
-                  alt={event.title}
-                  className="w-full h-auto object-cover max-h-48"
-                />
-              </div>
-            )}
-
-            {/* Event info */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>{format(eventStart, 'PPPP', { locale })}</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  {format(eventStart, 'HH:mm')} - {format(eventEnd, 'HH:mm')} ({durationMinutes} min)
-                </span>
-              </div>
-
-              {event.host_name && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>Prowadzący: {event.host_name}</span>
+            {/* Sekcja: Grafika + Info - układ dwukolumnowy */}
+            <div className="flex flex-col md:flex-row gap-3">
+              {/* Lewa kolumna: Grafika */}
+              {event.image_url && (
+                <div className="md:w-2/5 flex-shrink-0">
+                  <img
+                    src={event.image_url}
+                    alt={event.title}
+                    className="w-full h-auto rounded-lg object-contain"
+                  />
                 </div>
               )}
-
-              {event.location && (
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{event.location}</span>
+              
+              {/* Prawa kolumna: Informacje */}
+              <div className="flex-1 space-y-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>{format(eventStart, 'EEEE, d MMMM', { locale })}</span>
                 </div>
-              )}
 
-              {event.max_participants && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span>
-                    {event.registration_count || 0} / {event.max_participants} uczestników
+                    {format(eventStart, 'HH:mm')} - {format(eventEnd, 'HH:mm')} ({durationMinutes} min)
                   </span>
                 </div>
-              )}
+
+                {event.host_name && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{event.host_name}</span>
+                  </div>
+                )}
+
+                {event.location && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{event.location}</span>
+                  </div>
+                )}
+
+                {event.max_participants && (
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>
+                      {event.registration_count || 0} / {event.max_participants} uczestników
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Description */}
+            {/* Description - pod spodem */}
             {event.description && (
-              <div className="space-y-2 pt-2 border-t">
-                <h4 className="font-medium text-sm">Opis</h4>
+              <div className="pt-2 border-t">
                 <div
                   className="text-sm text-muted-foreground prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{ __html: event.description }}
