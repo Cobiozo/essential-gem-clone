@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useCalculatorSettings,
@@ -39,7 +38,6 @@ import {
 } from 'lucide-react';
 
 export function CalculatorManagement() {
-  const { t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
   const { data, isLoading, error } = useCalculatorSettings();
@@ -74,13 +72,13 @@ export function CalculatorManagement() {
     try {
       await updateSettings.mutateAsync(localSettings);
       toast({
-        title: t('admin.saved') || 'Zapisano',
-        description: t('calculator.settingsSaved') || 'Ustawienia kalkulatora zostały zapisane.'
+        title: 'Zapisano',
+        description: 'Ustawienia kalkulatora zostały zapisane.'
       });
     } catch (err) {
       toast({
-        title: t('admin.error') || 'Błąd',
-        description: t('calculator.settingsError') || 'Nie udało się zapisać ustawień.',
+        title: 'Błąd',
+        description: 'Nie udało się zapisać ustawień.',
         variant: 'destructive'
       });
     }
@@ -89,9 +87,9 @@ export function CalculatorManagement() {
   const handleThresholdUpdate = async (id: string, updates: Partial<VolumeThreshold>) => {
     try {
       await updateThreshold.mutateAsync({ id, ...updates });
-      toast({ title: t('admin.saved') || 'Zapisano' });
+      toast({ title: 'Zapisano' });
     } catch (err) {
-      toast({ title: t('admin.error') || 'Błąd', variant: 'destructive' });
+      toast({ title: 'Błąd', variant: 'destructive' });
     }
   };
 
@@ -103,18 +101,18 @@ export function CalculatorManagement() {
         bonus_amount: 0,
         position: maxPosition + 1
       });
-      toast({ title: t('admin.created') || 'Utworzono' });
+      toast({ title: 'Utworzono' });
     } catch (err) {
-      toast({ title: t('admin.error') || 'Błąd', variant: 'destructive' });
+      toast({ title: 'Błąd', variant: 'destructive' });
     }
   };
 
   const handleThresholdDelete = async (id: string) => {
     try {
       await deleteThreshold.mutateAsync(id);
-      toast({ title: t('admin.deleted') || 'Usunięto' });
+      toast({ title: 'Usunięto' });
     } catch (err) {
-      toast({ title: t('admin.error') || 'Błąd', variant: 'destructive' });
+      toast({ title: 'Błąd', variant: 'destructive' });
     }
   };
 
@@ -137,9 +135,9 @@ export function CalculatorManagement() {
       refetchUserAccess();
       setSearchResults([]);
       setSearchTerm('');
-      toast({ title: t('calculator.accessGranted') || 'Przyznano dostęp' });
+      toast({ title: 'Przyznano dostęp' });
     } catch (err) {
-      toast({ title: t('admin.error') || 'Błąd', variant: 'destructive' });
+      toast({ title: 'Błąd', variant: 'destructive' });
     }
   };
 
@@ -147,9 +145,9 @@ export function CalculatorManagement() {
     try {
       await revokeAccess.mutateAsync(userId);
       refetchUserAccess();
-      toast({ title: t('calculator.accessRevoked') || 'Cofnięto dostęp' });
+      toast({ title: 'Cofnięto dostęp' });
     } catch (err) {
-      toast({ title: t('admin.error') || 'Błąd', variant: 'destructive' });
+      toast({ title: 'Błąd', variant: 'destructive' });
     }
   };
 
@@ -166,7 +164,7 @@ export function CalculatorManagement() {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
         <p className="text-destructive">
-          {t('calculator.errorLoading') || 'Błąd ładowania ustawień kalkulatora.'}
+          Błąd ładowania ustawień kalkulatora.
         </p>
       </div>
     );
@@ -178,10 +176,10 @@ export function CalculatorManagement() {
         <Calculator className="h-8 w-8 text-primary" />
         <div>
           <h2 className="text-2xl font-bold">
-            {t('calculator.management') || 'Zarządzanie kalkulatorem'}
+            Zarządzanie kalkulatorem
           </h2>
           <p className="text-muted-foreground">
-            {t('calculator.managementDesc') || 'Konfiguruj ustawienia kalkulatora zarobków'}
+            Konfiguruj ustawienia kalkulatora zarobków
           </p>
         </div>
       </div>
@@ -190,23 +188,23 @@ export function CalculatorManagement() {
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basic" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('calculator.basicSettings') || 'Podstawowe'}</span>
+            <span className="hidden sm:inline">Podstawowe</span>
           </TabsTrigger>
           <TabsTrigger value="financial" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('calculator.financial') || 'Finansowe'}</span>
+            <span className="hidden sm:inline">Finansowe</span>
           </TabsTrigger>
           <TabsTrigger value="thresholds" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('calculator.thresholds') || 'Progi'}</span>
+            <span className="hidden sm:inline">Progi</span>
           </TabsTrigger>
           <TabsTrigger value="sliders" className="flex items-center gap-2">
             <Sliders className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('calculator.sliders') || 'Suwaki'}</span>
+            <span className="hidden sm:inline">Suwaki</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">{t('calculator.users') || 'Użytkownicy'}</span>
+            <span className="hidden sm:inline">Użytkownicy</span>
           </TabsTrigger>
         </TabsList>
 
@@ -214,14 +212,14 @@ export function CalculatorManagement() {
         <TabsContent value="basic">
           <Card>
             <CardHeader>
-              <CardTitle>{t('calculator.basicSettings') || 'Ustawienia podstawowe'}</CardTitle>
+              <CardTitle>Ustawienia podstawowe</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>{t('calculator.enabled') || 'Kalkulator włączony'}</Label>
+                  <Label>Kalkulator włączony</Label>
                   <p className="text-sm text-muted-foreground">
-                    {t('calculator.enabledDesc') || 'Włącz lub wyłącz kalkulator globalnie'}
+                    Włącz lub wyłącz kalkulator globalnie
                   </p>
                 </div>
                 <Switch
@@ -231,10 +229,10 @@ export function CalculatorManagement() {
               </div>
 
               <div className="space-y-4 border-t pt-4">
-                <Label className="text-lg">{t('calculator.accessByRole') || 'Dostęp według roli'}</Label>
+                <Label className="text-lg">Dostęp według roli</Label>
                 
                 <div className="flex items-center justify-between">
-                  <Label>{t('calculator.enabledForAdmins') || 'Administratorzy'}</Label>
+                  <Label>Administratorzy</Label>
                   <Switch
                     checked={localSettings.enabled_for_admins ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_admins', v)}
@@ -242,7 +240,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>{t('calculator.enabledForPartners') || 'Partnerzy'}</Label>
+                  <Label>Partnerzy</Label>
                   <Switch
                     checked={localSettings.enabled_for_partners ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_partners', v)}
@@ -250,7 +248,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>{t('calculator.enabledForClients') || 'Klienci'}</Label>
+                  <Label>Klienci</Label>
                   <Switch
                     checked={localSettings.enabled_for_clients ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_clients', v)}
@@ -258,7 +256,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Label>{t('calculator.enabledForSpecjalista') || 'Specjaliści'}</Label>
+                  <Label>Specjaliści</Label>
                   <Switch
                     checked={localSettings.enabled_for_specjalista ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_specjalista', v)}
@@ -269,7 +267,7 @@ export function CalculatorManagement() {
               <div className="flex justify-end pt-4">
                 <Button onClick={saveSettings} disabled={updateSettings.isPending}>
                   <Save className="mr-2 h-4 w-4" />
-                  {t('admin.save') || 'Zapisz'}
+                  Zapisz
                 </Button>
               </div>
             </CardContent>
@@ -280,12 +278,12 @@ export function CalculatorManagement() {
         <TabsContent value="financial">
           <Card>
             <CardHeader>
-              <CardTitle>{t('calculator.financialSettings') || 'Parametry finansowe'}</CardTitle>
+              <CardTitle>Parametry finansowe</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>{t('calculator.baseCommission') || 'Prowizja bazowa za klienta (PLN)'}</Label>
+                  <Label>Prowizja bazowa za klienta (PLN)</Label>
                   <Input
                     type="number"
                     value={localSettings.base_commission_per_client || 0}
@@ -294,7 +292,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.passiveRate') || 'Stawka dochodu pasywnego (%)'}</Label>
+                  <Label>Stawka dochodu pasywnego (%)</Label>
                   <Input
                     type="number"
                     value={localSettings.passive_rate_percentage || 0}
@@ -303,7 +301,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.passiveMonths') || 'Liczba miesięcy dochodu pasywnego'}</Label>
+                  <Label>Liczba miesięcy dochodu pasywnego</Label>
                   <Input
                     type="number"
                     value={localSettings.passive_months || 12}
@@ -312,7 +310,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.extensionBonus') || 'Bonus za przedłużenie (PLN/klient)'}</Label>
+                  <Label>Bonus za przedłużenie (PLN/klient)</Label>
                   <Input
                     type="number"
                     value={localSettings.extension_bonus_per_client || 0}
@@ -321,7 +319,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.extensionMonths') || 'Liczba przedłużeń'}</Label>
+                  <Label>Liczba przedłużeń</Label>
                   <Input
                     type="number"
                     value={localSettings.extension_months_count || 2}
@@ -330,7 +328,7 @@ export function CalculatorManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.eurToPlnRate') || 'Kurs EUR/PLN'}</Label>
+                  <Label>Kurs EUR/PLN</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -343,7 +341,7 @@ export function CalculatorManagement() {
               <div className="flex justify-end pt-4">
                 <Button onClick={saveSettings} disabled={updateSettings.isPending}>
                   <Save className="mr-2 h-4 w-4" />
-                  {t('admin.save') || 'Zapisz'}
+                  Zapisz
                 </Button>
               </div>
             </CardContent>
@@ -354,20 +352,20 @@ export function CalculatorManagement() {
         <TabsContent value="thresholds">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{t('calculator.volumeThresholds') || 'Progi bonusowe'}</CardTitle>
+              <CardTitle>Progi bonusowe</CardTitle>
               <Button onClick={handleThresholdCreate} size="sm">
                 <Plus className="mr-2 h-4 w-4" />
-                {t('admin.add') || 'Dodaj'}
+                Dodaj
               </Button>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('calculator.thresholdClients') || 'Min. klientów'}</TableHead>
-                    <TableHead>{t('calculator.bonusAmount') || 'Bonus (PLN)'}</TableHead>
-                    <TableHead>{t('calculator.position') || 'Pozycja'}</TableHead>
-                    <TableHead>{t('admin.actions') || 'Akcje'}</TableHead>
+                    <TableHead>Min. klientów</TableHead>
+                    <TableHead>Bonus (PLN)</TableHead>
+                    <TableHead>Pozycja</TableHead>
+                    <TableHead>Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -418,14 +416,14 @@ export function CalculatorManagement() {
         <TabsContent value="sliders">
           <Card>
             <CardHeader>
-              <CardTitle>{t('calculator.sliderSettings') || 'Ustawienia suwaków'}</CardTitle>
+              <CardTitle>Ustawienia suwaków</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <Label className="text-lg">{t('calculator.followersSlider') || 'Suwak obserwujących'}</Label>
+                <Label className="text-lg">Suwak obserwujących</Label>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <Label>{t('calculator.min') || 'Minimum'}</Label>
+                    <Label>Minimum</Label>
                     <Input
                       type="number"
                       value={localSettings.min_followers || 0}
@@ -433,7 +431,7 @@ export function CalculatorManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('calculator.max') || 'Maksimum'}</Label>
+                    <Label>Maksimum</Label>
                     <Input
                       type="number"
                       value={localSettings.max_followers || 100000}
@@ -441,7 +439,7 @@ export function CalculatorManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('calculator.default') || 'Domyślnie'}</Label>
+                    <Label>Domyślnie</Label>
                     <Input
                       type="number"
                       value={localSettings.default_followers || 5000}
@@ -452,10 +450,10 @@ export function CalculatorManagement() {
               </div>
 
               <div className="space-y-4 border-t pt-4">
-                <Label className="text-lg">{t('calculator.conversionSlider') || 'Suwak konwersji'}</Label>
+                <Label className="text-lg">Suwak konwersji</Label>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <Label>{t('calculator.min') || 'Minimum'} (%)</Label>
+                    <Label>Minimum (%)</Label>
                     <Input
                       type="number"
                       step="0.1"
@@ -464,7 +462,7 @@ export function CalculatorManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('calculator.max') || 'Maksimum'} (%)</Label>
+                    <Label>Maksimum (%)</Label>
                     <Input
                       type="number"
                       step="0.1"
@@ -473,7 +471,7 @@ export function CalculatorManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('calculator.default') || 'Domyślnie'} (%)</Label>
+                    <Label>Domyślnie (%)</Label>
                     <Input
                       type="number"
                       step="0.1"
@@ -487,7 +485,7 @@ export function CalculatorManagement() {
               <div className="flex justify-end pt-4">
                 <Button onClick={saveSettings} disabled={updateSettings.isPending}>
                   <Save className="mr-2 h-4 w-4" />
-                  {t('admin.save') || 'Zapisz'}
+                  Zapisz
                 </Button>
               </div>
             </CardContent>
@@ -498,7 +496,7 @@ export function CalculatorManagement() {
         <TabsContent value="users">
           <Card>
             <CardHeader>
-              <CardTitle>{t('calculator.userAccess') || 'Dostęp użytkowników'}</CardTitle>
+              <CardTitle>Dostęp użytkowników</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Search for users */}
@@ -506,7 +504,7 @@ export function CalculatorManagement() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder={t('calculator.searchUser') || 'Szukaj użytkownika...'}
+                    placeholder="Szukaj użytkownika..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleUserSearch()}
@@ -514,14 +512,14 @@ export function CalculatorManagement() {
                   />
                 </div>
                 <Button onClick={handleUserSearch} disabled={isSearching}>
-                  {t('admin.search') || 'Szukaj'}
+                  Szukaj
                 </Button>
               </div>
 
               {/* Search results */}
               {searchResults.length > 0 && (
                 <div className="rounded-lg border p-4">
-                  <Label className="mb-2 block">{t('calculator.searchResults') || 'Wyniki wyszukiwania'}</Label>
+                  <Label className="mb-2 block">Wyniki wyszukiwania</Label>
                   <div className="space-y-2">
                     {searchResults.map((user) => (
                       <div key={user.id} className="flex items-center justify-between rounded bg-muted/50 p-2">
@@ -531,7 +529,7 @@ export function CalculatorManagement() {
                         </div>
                         <Button size="sm" onClick={() => handleGrantAccess(user.id)}>
                           <UserPlus className="mr-2 h-4 w-4" />
-                          {t('calculator.grantAccess') || 'Przyznaj'}
+                          Przyznaj
                         </Button>
                       </div>
                     ))}
@@ -541,14 +539,14 @@ export function CalculatorManagement() {
 
               {/* Current access list */}
               <div>
-                <Label className="mb-2 block">{t('calculator.currentAccess') || 'Aktualne uprawnienia'}</Label>
+                <Label className="mb-2 block">Aktualne uprawnienia</Label>
                 {userAccessList && userAccessList.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('admin.user') || 'Użytkownik'}</TableHead>
-                        <TableHead>{t('calculator.status') || 'Status'}</TableHead>
-                        <TableHead>{t('admin.actions') || 'Akcje'}</TableHead>
+                        <TableHead>Użytkownik</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Akcje</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -567,9 +565,9 @@ export function CalculatorManagement() {
                           <TableCell>
                             <Badge variant={access.has_access ? 'default' : 'secondary'}>
                               {access.has_access ? (
-                                <><Check className="mr-1 h-3 w-3" /> {t('calculator.hasAccess') || 'Ma dostęp'}</>
+                                <><Check className="mr-1 h-3 w-3" /> Ma dostęp</>
                               ) : (
-                                <><X className="mr-1 h-3 w-3" /> {t('calculator.noAccessShort') || 'Brak'}</>
+                                <><X className="mr-1 h-3 w-3" /> Brak</>
                               )}
                             </Badge>
                           </TableCell>
@@ -588,7 +586,7 @@ export function CalculatorManagement() {
                   </Table>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {t('calculator.noUserOverrides') || 'Brak indywidualnych uprawnień. Użytkownicy korzystają z uprawnień wynikających z ich roli.'}
+                    Brak indywidualnych uprawnień. Użytkownicy korzystają z uprawnień wynikających z ich roli.
                   </p>
                 )}
               </div>

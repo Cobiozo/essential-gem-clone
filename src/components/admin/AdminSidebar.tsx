@@ -214,7 +214,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   });
 
   // Get translated label using t() function
+  // Hardcoded labels for features without i18n translations
+  const hardcodedLabels: Record<string, string> = {
+    calculator: 'Kalkulator',
+  };
+
   const getLabel = (key: string): string => {
+    if (hardcodedLabels[key]) return hardcodedLabels[key];
     const translationKey = SIDEBAR_KEYS[key as keyof typeof SIDEBAR_KEYS];
     return translationKey ? t(translationKey) : key;
   };
