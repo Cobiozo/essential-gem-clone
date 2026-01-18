@@ -220,15 +220,8 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     }
   };
 
-  // Load available time slots when date is selected
-  useEffect(() => {
-    if (selectedPartner && selectedDate) {
-      loadAvailableSlots();
-    }
-  }, [selectedDate, selectedPartner]);
-
   // Generate time slots from range
-  const generateSlotsFromRange = (startTime: string, endTime: string, duration: number): string[] => {
+  const generateSlotsFromRange = useCallback((startTime: string, endTime: string, duration: number): string[] => {
     const slots: string[] = [];
     const [startH, startM] = startTime.split(':').map(Number);
     const [endH, endM] = endTime.split(':').map(Number);
@@ -244,24 +237,48 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     }
     
     return slots;
-  };
+  }, []);
 
-  const loadAvailableSlots = async () => {
+  const loadAvailableSlots = useCallback(async () => {
     if (!selectedPartner || !selectedDate) return;
 
     setLoadingSlots(true);
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const dayOfWeek = getDay(selectedDate);
+      const partnerId = selectedPartner.user_id;
 
-      // 1. Get weekly schedule for this day of week
-      const { data: weeklyRanges } = await supabase
-        .from('leader_availability')
-        .select('start_time, end_time, slot_duration_minutes, timezone')
-        .eq('leader_user_id', selectedPartner.user_id)
-        .eq('day_of_week', dayOfWeek)
-        .eq('is_active', true);
+      // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + Google token check
+      const [weeklyResult, meetingsResult, blockingResult, tokenResult] = await Promise.all([
+        supabase
+          .from('leader_availability')
+          .select('start_time, end_time, slot_duration_minutes, timezone')
+          .eq('leader_user_id', partnerId)
+          .eq('day_of_week', dayOfWeek)
+          .eq('is_active', true),
+        supabase
+          .from('events')
+          .select('start_time')
+          .eq('host_user_id', partnerId)
+          .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+          .gte('start_time', `${dateStr}T00:00:00`)
+          .lt('start_time', `${dateStr}T23:59:59`)
+          .eq('is_active', true),
+        supabase
+          .from('events')
+          .select('start_time, end_time')
+          .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
+          .gte('end_time', `${dateStr}T00:00:00`)
+          .lte('start_time', `${dateStr}T23:59:59`)
+          .eq('is_active', true),
+        supabase
+          .from('user_google_tokens')
+          .select('id')
+          .eq('user_id', partnerId)
+          .maybeSingle(),
+      ]);
 
+      const weeklyRanges = weeklyResult.data;
       if (!weeklyRanges || weeklyRanges.length === 0) {
         setAvailableSlots([]);
         setLoadingSlots(false);
@@ -286,32 +303,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Remove duplicates and sort
       allSlots = [...new Set(allSlots)].sort();
 
-      // 3. Get already booked individual meetings for this partner on this date
-      const { data: individualMeetings } = await supabase
-        .from('events')
-        .select('start_time')
-        .eq('host_user_id', selectedPartner.user_id)
-        .in('event_type', ['tripartite_meeting', 'partner_consultation'])
-        .gte('start_time', `${dateStr}T00:00:00`)
-        .lt('start_time', `${dateStr}T23:59:59`)
-        .eq('is_active', true);
-
+      // 3. Process booked times
       const bookedTimes = new Set(
-        individualMeetings?.map(e => format(new Date(e.start_time), 'HH:mm')) || []
+        meetingsResult.data?.map(e => format(new Date(e.start_time), 'HH:mm')) || []
       );
 
-      // 4. Get global BLOCKING events (webinars, team meetings) on this date
-      const { data: blockingEvents } = await supabase
-        .from('events')
-        .select('start_time, end_time')
-        .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
-        .gte('end_time', `${dateStr}T00:00:00`)
-        .lte('start_time', `${dateStr}T23:59:59`)
-        .eq('is_active', true);
-
-      // Calculate blocked times from platform events
+      // 4. Calculate blocked times from platform events
       const blockedByPlatform = new Set<string>();
-      blockingEvents?.forEach(event => {
+      blockingResult.data?.forEach(event => {
         const eventStart = new Date(event.start_time);
         const eventEnd = new Date(event.end_time);
         
@@ -319,28 +318,20 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
           const slotEnd = addMinutes(slotStart, slotDuration);
           
-          // Check if slot overlaps with event
           if (slotStart < eventEnd && slotEnd > eventStart) {
             blockedByPlatform.add(slotTime);
           }
         });
       });
 
-      // 5. Check Google Calendar busy times
+      // 5. Check Google Calendar busy times (only if token exists)
       let googleBusySlots = new Set<string>();
       
-      // Check if partner has Google Calendar connected
-      const { data: hasGoogleToken } = await supabase
-        .from('user_google_tokens')
-        .select('id')
-        .eq('user_id', selectedPartner.user_id)
-        .maybeSingle();
-      
-      if (hasGoogleToken) {
+      if (tokenResult.data) {
         try {
           const { data: busyData } = await supabase.functions.invoke(
             'check-google-calendar-busy',
-            { body: { leader_user_id: selectedPartner.user_id, date: dateStr } }
+            { body: { leader_user_id: partnerId, date: dateStr } }
           );
           
           if (busyData?.busy && Array.isArray(busyData.busy)) {
@@ -352,7 +343,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
                 const slotEnd = addMinutes(slotStart, slotDuration);
                 
-                // Check if slot overlaps with busy time
                 if (slotStart < busyEnd && slotEnd > busyStart) {
                   googleBusySlots.add(slotTime);
                 }
@@ -371,20 +361,13 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       const availableSlotsList: AvailableSlot[] = allSlots
         .filter(slotTime => {
-          // For today, filter out past times
-          if (dateStr === today && slotTime <= currentTime) {
-            return false;
-          }
-          
-          // Filter out blocked slots
+          if (dateStr === today && slotTime <= currentTime) return false;
           if (bookedTimes.has(slotTime)) return false;
           if (blockedByPlatform.has(slotTime)) return false;
           if (googleBusySlots.has(slotTime)) return false;
-          
           return true;
         })
         .map(slotTime => {
-          // Convert to user's timezone for display
           let displayTime = slotTime;
           try {
             const leaderDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -409,14 +392,23 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     } finally {
       setLoadingSlots(false);
     }
-  };
+  }, [selectedPartner?.user_id, selectedDate, userTimezone, generateSlotsFromRange]);
 
-  // Real-time subscription for availability updates
+  // Load available time slots when date is selected
+  useEffect(() => {
+    if (selectedPartner && selectedDate) {
+      loadAvailableSlots();
+    }
+  }, [selectedDate, selectedPartner?.user_id, loadAvailableSlots]);
+
   useEffect(() => {
     if (!selectedPartner) return;
 
+    // Use stable channel name with partner ID
+    const channelName = `booking-${selectedPartner.user_id}`;
+    
     const channel = supabase
-      .channel('booking-availability-changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -426,9 +418,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           filter: `host_user_id=eq.${selectedPartner.user_id}`
         },
         () => {
-          if (selectedDate) {
-            loadAvailableSlots();
-          }
+          // Debounce refresh to avoid multiple rapid calls
           loadAvailableDates();
         }
       )
@@ -437,7 +427,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedPartner, selectedDate]);
+  }, [selectedPartner?.user_id]); // Only depend on user_id, not the whole object
 
   const handleSelectPartner = async (partner: PartnerWithAvailability) => {
     setSelectedPartner(partner);
