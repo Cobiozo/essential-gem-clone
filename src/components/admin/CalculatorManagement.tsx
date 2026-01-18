@@ -176,10 +176,10 @@ export function CalculatorManagement() {
         <Calculator className="h-8 w-8 text-primary" />
         <div>
           <h2 className="text-2xl font-bold">
-            Zarządzanie kalkulatorem
+            Kalkulator Influencerów
           </h2>
           <p className="text-muted-foreground">
-            Konfiguruj ustawienia kalkulatora zarobków
+            Konfiguruj ustawienia kalkulatora zarobków influencerów
           </p>
         </div>
       </div>
