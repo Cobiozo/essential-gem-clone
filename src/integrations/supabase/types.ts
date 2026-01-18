@@ -3759,6 +3759,30 @@ export type Database = {
         }
         Relationships: []
       }
+      specialist_calculator_user_access: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          has_access: boolean | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          has_access?: boolean | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          has_access?: boolean | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       specialist_message_limits: {
         Row: {
           created_at: string | null
