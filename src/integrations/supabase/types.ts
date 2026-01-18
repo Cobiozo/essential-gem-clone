@@ -4709,7 +4709,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "partner" | "client" | "specjalista" | "user"
       resource_status: "active" | "draft" | "archived"
-      resource_type: "pdf" | "doc" | "zip" | "form" | "link" | "page"
+      resource_type: "pdf" | "doc" | "zip" | "form" | "link" | "page" | "image"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4839,7 +4839,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "partner", "client", "specjalista", "user"],
       resource_status: ["active", "draft", "archived"],
-      resource_type: ["pdf", "doc", "zip", "form", "link", "page"],
+      resource_type: ["pdf", "doc", "zip", "form", "link", "page", "image"],
     },
   },
 } as const

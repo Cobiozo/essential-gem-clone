@@ -11,13 +11,14 @@ import { toast } from 'sonner';
 import { 
   Search, Download, ExternalLink, Copy, FileText, File, 
   Archive, Link as LinkIcon, FileSpreadsheet, Star, Sparkles,
-  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag
+  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag, Image
 } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
   KnowledgeResource, ResourceType,
-  RESOURCE_TYPE_LABELS, RESOURCE_CATEGORIES 
+  RESOURCE_TYPE_LABELS, DOCUMENT_CATEGORIES, GRAPHICS_CATEGORIES 
 } from '@/types/knowledge';
+import { SocialShareDialog, GraphicsCard } from '@/components/share';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
@@ -27,7 +28,7 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   form: <FileSpreadsheet className="h-5 w-5 text-green-500" />,
   link: <LinkIcon className="h-5 w-5 text-purple-500" />,
   page: <ExternalLink className="h-5 w-5 text-cyan-500" />,
-  image: <Star className="h-5 w-5 text-pink-500" />
+  image: <Image className="h-5 w-5 text-pink-500" />
 };
 
 export default function KnowledgeCenter() {
@@ -40,6 +41,14 @@ export default function KnowledgeCenter() {
   const [filterTag, setFilterTag] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'grouped'>('list');
   const [siteLogo, setSiteLogo] = useState<string>(newPureLifeLogo);
+  
+  // Main tab - documents or graphics
+  const [mainTab, setMainTab] = useState<'documents' | 'graphics'>('documents');
+  
+  // Graphics specific state
+  const [graphicsCategory, setGraphicsCategory] = useState<string>('all');
+  const [selectedGraphic, setSelectedGraphic] = useState<KnowledgeResource | null>(null);
+  const [graphicsSearchTerm, setGraphicsSearchTerm] = useState('');
 
   useEffect(() => {
     fetchResources();
@@ -76,6 +85,10 @@ export default function KnowledgeCenter() {
     setLoading(false);
   };
 
+  // Split resources into documents and graphics
+  const documentResources = resources.filter(r => r.resource_type !== 'image');
+  const graphicsResources = resources.filter(r => r.resource_type === 'image');
+
   // Get download endpoint URL for a resource
   const getDownloadUrl = (resourceId: string): string => {
     return `https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/download-resource?id=${resourceId}`;
@@ -87,7 +100,6 @@ export default function KnowledgeCenter() {
   };
 
   const handleOpenLink = (resource: KnowledgeResource) => {
-    // Increment download count
     supabase
       .from('knowledge_resources')
       .update({ download_count: resource.download_count + 1 })
@@ -102,7 +114,8 @@ export default function KnowledgeCenter() {
     }
   };
 
-  const filteredResources = resources.filter(r => {
+  // Filter documents
+  const filteredDocuments = documentResources.filter(r => {
     const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -112,26 +125,25 @@ export default function KnowledgeCenter() {
     return matchesSearch && matchesCategory && matchesType && matchesTag;
   });
 
-  const featuredResources = filteredResources.filter(r => r.is_featured);
-  const regularResources = filteredResources.filter(r => !r.is_featured);
+  // Filter graphics
+  const filteredGraphics = graphicsResources.filter(r => {
+    const matchesSearch = r.title.toLowerCase().includes(graphicsSearchTerm.toLowerCase()) ||
+      r.description?.toLowerCase().includes(graphicsSearchTerm.toLowerCase());
+    const matchesCategory = graphicsCategory === 'all' || r.category === graphicsCategory;
+    return matchesSearch && matchesCategory;
+  });
 
-  // Get unique tags from all resources
-  const allTags = [...new Set(resources.flatMap(r => r.tags || []))].sort();
+  const featuredDocuments = filteredDocuments.filter(r => r.is_featured);
+  const regularDocuments = filteredDocuments.filter(r => !r.is_featured);
+
+  // Get unique tags from documents
+  const allTags = [...new Set(documentResources.flatMap(r => r.tags || []))].sort();
 
   // Group resources by category
-  const groupedByCategory = regularResources.reduce((acc, r) => {
+  const groupedByCategory = regularDocuments.reduce((acc, r) => {
     const category = r.category || 'Inne';
     if (!acc[category]) acc[category] = [];
     acc[category].push(r);
-    return acc;
-  }, {} as Record<string, KnowledgeResource[]>);
-
-  // Group resources by tag
-  const groupedByTag = regularResources.reduce((acc, r) => {
-    (r.tags || ['Bez tagów']).forEach(tag => {
-      if (!acc[tag]) acc[tag] = [];
-      acc[tag].push(r);
-    });
     return acc;
   }, {} as Record<string, KnowledgeResource[]>);
 
@@ -144,7 +156,6 @@ export default function KnowledgeCenter() {
           text: shareText,
           url: resource.source_url
         }).catch(() => {
-          // Fallback to copy
           navigator.clipboard.writeText(resource.source_url || '');
           toast.success('Link skopiowany do schowka');
         });
@@ -161,11 +172,9 @@ export default function KnowledgeCenter() {
 
   const handleClickRedirect = (resource: KnowledgeResource) => {
     if (resource.click_redirect_url) {
-      // Internal link (starts with /)
       if (resource.click_redirect_url.startsWith('/')) {
         window.location.href = resource.click_redirect_url;
       } else {
-        // External link
         window.open(resource.click_redirect_url, '_blank');
       }
     }
@@ -175,7 +184,6 @@ export default function KnowledgeCenter() {
     const isLink = resource.source_type === 'link' || resource.resource_type === 'link' || resource.resource_type === 'page';
     const canDownload = resource.allow_download && hasValidDownloadUrl(resource);
     
-    // No actions enabled - show "coming soon" message
     if (!hasAnyAction(resource)) {
       return (
         <Badge variant="secondary" className="flex items-center gap-1.5 py-1.5 px-3">
@@ -217,7 +225,6 @@ export default function KnowledgeCenter() {
             Przejdź
           </Button>
         )}
-        {/* Download - real <a> link for files, button for external links */}
         {canDownload && (
           isLink ? (
             <Button 
@@ -250,7 +257,7 @@ export default function KnowledgeCenter() {
 
   const hasActiveFilters = searchTerm || filterCategory !== 'all' || filterType !== 'all' || filterTag !== 'all';
 
-  // Render resource card (reusable for grid/list views)
+  // Render resource card for documents
   const renderResourceCard = (resource: KnowledgeResource, isGrid: boolean = false) => (
     <Card key={resource.id} className={`hover:shadow-md transition-shadow ${isGrid ? 'h-full' : ''}`}>
       <CardContent className="p-4">
@@ -302,175 +309,184 @@ export default function KnowledgeCenter() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Biblioteka</h1>
           <p className="text-muted-foreground">
-            Dokumenty, materiały i narzędzia do Twojej dyspozycji
+            Dokumenty, materiały i grafiki do Twojej dyspozycji
           </p>
         </div>
 
-        {/* Search & Filters */}
-        <Card className="mb-6">
-          <CardContent className="pt-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Szukaj zasobów..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Kategoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Wszystkie kategorie</SelectItem>
-                  {RESOURCE_CATEGORIES.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-full sm:w-[150px]">
-                  <SelectValue placeholder="Typ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Wszystkie typy</SelectItem>
-                  {Object.entries(RESOURCE_TYPE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {allTags.length > 0 && (
-                <Select value={filterTag} onValueChange={setFilterTag}>
-                  <SelectTrigger className="w-full sm:w-[150px]">
-                    <SelectValue placeholder="Tag" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Wszystkie tagi</SelectItem>
-                    {allTags.map(tag => (
-                      <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {/* Main Tabs - Documents / Graphics */}
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'graphics')} className="w-full">
+          <TabsList className="mb-6 w-full sm:w-auto">
+            <TabsTrigger value="documents" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Dokumenty edukacyjne
+            </TabsTrigger>
+            <TabsTrigger value="graphics" className="flex items-center gap-2">
+              <Image className="h-4 w-4" />
+              Grafiki
+              {graphicsResources.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{graphicsResources.length}</Badge>
               )}
-              {hasActiveFilters && (
-                <Button variant="ghost" size="icon" onClick={clearFilters}>
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            {/* View mode toggle */}
-            <div className="flex items-center gap-2 mt-4 sm:mt-0">
-              <span className="text-sm text-muted-foreground">Widok:</span>
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'grid' | 'grouped')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="list" className="h-6 px-2">
-                    <List className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="grid" className="h-6 px-2">
-                    <LayoutGrid className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="grouped" className="h-6 px-2">
-                    <Tag className="h-4 w-4" />
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </CardContent>
-        </Card>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Content */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-muted-foreground">Ładowanie zasobów...</p>
-          </div>
-        ) : filteredResources.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">Brak zasobów</h3>
-              <p className="text-muted-foreground">
-                {hasActiveFilters 
-                  ? 'Nie znaleziono zasobów pasujących do kryteriów wyszukiwania.' 
-                  : 'Brak dostępnych zasobów dla Twojej roli.'}
-              </p>
-              {hasActiveFilters && (
-                <Button variant="outline" onClick={clearFilters} className="mt-4">
-                  Wyczyść filtry
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {/* Featured Resources */}
-            {featuredResources.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                  Polecane
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {featuredResources.map(resource => (
-                    <Card key={resource.id} className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-900">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-background">
-                            {RESOURCE_ICONS[resource.resource_type]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h3 className="font-semibold truncate">{resource.title}</h3>
-                              {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700 text-[10px]">Nowy</Badge>}
-                              {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700 text-[10px]">Zaktualizowany</Badge>}
-                            </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                              {resource.description || 'Brak opisu'}
-                            </p>
-                            {getActionButtons(resource)}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+          {/* Documents Tab */}
+          <TabsContent value="documents" className="space-y-6">
+            {/* Search & Filters for Documents */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj dokumentów..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Kategoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie kategorie</SelectItem>
+                      {DOCUMENT_CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder="Typ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie typy</SelectItem>
+                      {Object.entries(RESOURCE_TYPE_LABELS)
+                        .filter(([key]) => key !== 'image')
+                        .map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {allTags.length > 0 && (
+                    <Select value={filterTag} onValueChange={setFilterTag}>
+                      <SelectTrigger className="w-full sm:w-[150px]">
+                        <SelectValue placeholder="Tag" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Wszystkie tagi</SelectItem>
+                        {allTags.map(tag => (
+                          <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="icon" onClick={clearFilters}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-              </div>
-            )}
+                {/* View mode toggle */}
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-sm text-muted-foreground">Widok:</span>
+                  <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'grid' | 'grouped')}>
+                    <TabsList className="h-8">
+                      <TabsTrigger value="list" className="h-6 px-2">
+                        <List className="h-4 w-4" />
+                      </TabsTrigger>
+                      <TabsTrigger value="grid" className="h-6 px-2">
+                        <LayoutGrid className="h-4 w-4" />
+                      </TabsTrigger>
+                      <TabsTrigger value="grouped" className="h-6 px-2">
+                        <Tag className="h-4 w-4" />
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Regular Resources - Different views */}
-            {regularResources.length > 0 && (
-              <div>
-                {featuredResources.length > 0 && (
-                  <h2 className="text-lg font-semibold mb-3">Wszystkie zasoby</h2>
+            {/* Documents Content */}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                <p className="text-muted-foreground">Ładowanie dokumentów...</p>
+              </div>
+            ) : filteredDocuments.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">Brak dokumentów</h3>
+                  <p className="text-muted-foreground">
+                    {hasActiveFilters 
+                      ? 'Nie znaleziono dokumentów pasujących do kryteriów wyszukiwania.' 
+                      : 'Brak dostępnych dokumentów dla Twojej roli.'}
+                  </p>
+                  {hasActiveFilters && (
+                    <Button variant="outline" onClick={clearFilters} className="mt-4">
+                      Wyczyść filtry
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {/* Featured Documents */}
+                {featuredDocuments.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                      Polecane
+                    </h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {featuredDocuments.map(resource => (
+                        <Card key={resource.id} className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-900">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 rounded-lg bg-background">
+                                {RESOURCE_ICONS[resource.resource_type]}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <h3 className="font-semibold truncate">{resource.title}</h3>
+                                  {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700 text-[10px]">Nowy</Badge>}
+                                </div>
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                  {resource.description || 'Brak opisu'}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  {getActionButtons(resource)}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                
-                {/* List View */}
+
+                {/* Regular Documents */}
                 {viewMode === 'list' && (
                   <div className="space-y-3">
-                    {regularResources.map(resource => renderResourceCard(resource, false))}
+                    {regularDocuments.map(resource => renderResourceCard(resource))}
                   </div>
                 )}
 
-                {/* Grid View */}
                 {viewMode === 'grid' && (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {regularResources.map(resource => renderResourceCard(resource, true))}
+                    {regularDocuments.map(resource => renderResourceCard(resource, true))}
                   </div>
                 )}
 
-                {/* Grouped View */}
                 {viewMode === 'grouped' && (
-                  <div className="space-y-6">
-                    {Object.entries(groupedByCategory).sort(([a], [b]) => a.localeCompare(b)).map(([category, categoryResources]) => (
+                  <div className="space-y-8">
+                    {Object.entries(groupedByCategory).map(([category, items]) => (
                       <div key={category}>
-                        <h3 className="text-md font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-                          <Tag className="h-4 w-4" />
-                          {category} ({categoryResources.length})
-                        </h3>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {categoryResources.map(resource => renderResourceCard(resource, true))}
+                        <h2 className="text-lg font-semibold mb-3">{category}</h2>
+                        <div className="space-y-3">
+                          {items.map(resource => renderResourceCard(resource))}
                         </div>
                       </div>
                     ))}
@@ -478,8 +494,102 @@ export default function KnowledgeCenter() {
                 )}
               </div>
             )}
-          </div>
-        )}
+          </TabsContent>
+
+          {/* Graphics Tab */}
+          <TabsContent value="graphics" className="space-y-6">
+            {/* Search & Filters for Graphics */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj grafik..."
+                      value={graphicsSearchTerm}
+                      onChange={(e) => setGraphicsSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={graphicsCategory} onValueChange={setGraphicsCategory}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="Kategoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Wszystkie kategorie</SelectItem>
+                      {GRAPHICS_CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(graphicsSearchTerm || graphicsCategory !== 'all') && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                        setGraphicsSearchTerm('');
+                        setGraphicsCategory('all');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Graphics Content */}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                <p className="text-muted-foreground">Ładowanie grafik...</p>
+              </div>
+            ) : filteredGraphics.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">Brak grafik</h3>
+                  <p className="text-muted-foreground">
+                    {graphicsSearchTerm || graphicsCategory !== 'all'
+                      ? 'Nie znaleziono grafik pasujących do kryteriów wyszukiwania.' 
+                      : 'Brak dostępnych grafik do udostępniania.'}
+                  </p>
+                  {(graphicsSearchTerm || graphicsCategory !== 'all') && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setGraphicsSearchTerm('');
+                        setGraphicsCategory('all');
+                      }} 
+                      className="mt-4"
+                    >
+                      Wyczyść filtry
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {filteredGraphics.map(graphic => (
+                  <GraphicsCard
+                    key={graphic.id}
+                    resource={graphic}
+                    onClick={() => setSelectedGraphic(graphic)}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Social Share Dialog for Graphics */}
+        <SocialShareDialog
+          open={!!selectedGraphic}
+          onOpenChange={() => setSelectedGraphic(null)}
+          imageUrl={selectedGraphic?.source_url || ''}
+          title={selectedGraphic?.title || ''}
+          resourceId={selectedGraphic?.id || ''}
+        />
       </main>
     </div>
   );

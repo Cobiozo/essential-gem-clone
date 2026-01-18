@@ -51,7 +51,8 @@ export const RESOURCE_STATUS_LABELS: Record<ResourceStatus, string> = {
   archived: 'Archiwalny'
 };
 
-export const RESOURCE_CATEGORIES = [
+// Kategorie dla dokumentów edukacyjnych
+export const DOCUMENT_CATEGORIES = [
   'Dokumenty firmowe',
   'Materiały szkoleniowe',
   'Formularze',
@@ -60,6 +61,19 @@ export const RESOURCE_CATEGORIES = [
   'Katalogi produktów',
   'Cenniki',
   'Materiały marketingowe',
-  'Grafiki do udostępniania',
   'Inne'
 ];
+
+// Kategorie dla grafik do udostępniania
+export const GRAPHICS_CATEGORIES = [
+  'Social media',
+  'Tło Zoom',
+  'Grafiki produktów EQ',
+  'Stories Instagram',
+  'Posty Facebook',
+  'Banery',
+  'Inne grafiki'
+];
+
+// Wszystkie kategorie (do zachowania kompatybilności wstecznej)
+export const RESOURCE_CATEGORIES = [...DOCUMENT_CATEGORIES, ...GRAPHICS_CATEGORIES];
