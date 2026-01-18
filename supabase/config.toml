@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.check-google-calendar-busy]
 verify_jwt = false
+
+[functions.send-meeting-reminders]
+verify_jwt = false
