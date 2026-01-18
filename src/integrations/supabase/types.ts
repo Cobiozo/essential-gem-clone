@@ -474,6 +474,126 @@ export type Database = {
         }
         Relationships: []
       }
+      calculator_settings: {
+        Row: {
+          base_commission_per_client: number | null
+          created_at: string | null
+          default_conversion: number | null
+          default_followers: number | null
+          enabled_for_admins: boolean | null
+          enabled_for_clients: boolean | null
+          enabled_for_partners: boolean | null
+          enabled_for_specjalista: boolean | null
+          eur_to_pln_rate: number | null
+          extension_bonus_per_client: number | null
+          extension_months_count: number | null
+          id: string
+          is_enabled: boolean | null
+          max_conversion: number | null
+          max_followers: number | null
+          min_conversion: number | null
+          min_followers: number | null
+          passive_months: number | null
+          passive_rate_percentage: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_commission_per_client?: number | null
+          created_at?: string | null
+          default_conversion?: number | null
+          default_followers?: number | null
+          enabled_for_admins?: boolean | null
+          enabled_for_clients?: boolean | null
+          enabled_for_partners?: boolean | null
+          enabled_for_specjalista?: boolean | null
+          eur_to_pln_rate?: number | null
+          extension_bonus_per_client?: number | null
+          extension_months_count?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          max_conversion?: number | null
+          max_followers?: number | null
+          min_conversion?: number | null
+          min_followers?: number | null
+          passive_months?: number | null
+          passive_rate_percentage?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_commission_per_client?: number | null
+          created_at?: string | null
+          default_conversion?: number | null
+          default_followers?: number | null
+          enabled_for_admins?: boolean | null
+          enabled_for_clients?: boolean | null
+          enabled_for_partners?: boolean | null
+          enabled_for_specjalista?: boolean | null
+          eur_to_pln_rate?: number | null
+          extension_bonus_per_client?: number | null
+          extension_months_count?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          max_conversion?: number | null
+          max_followers?: number | null
+          min_conversion?: number | null
+          min_followers?: number | null
+          passive_months?: number | null
+          passive_rate_percentage?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      calculator_user_access: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          has_access: boolean | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          has_access?: boolean | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          has_access?: boolean | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      calculator_volume_thresholds: {
+        Row: {
+          bonus_amount: number
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          position: number | null
+          threshold_clients: number
+        }
+        Insert: {
+          bonus_amount: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          threshold_clients: number
+        }
+        Update: {
+          bonus_amount?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          threshold_clients?: number
+        }
+        Relationships: []
+      }
       certificate_templates: {
         Row: {
           created_at: string
