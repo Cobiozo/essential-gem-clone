@@ -24,9 +24,22 @@ const RECOVERABLE_DOM_ERRORS = [
   'not a child of this node',
 ];
 
+// Chunk load errors from dynamic imports after new deployments
+const CHUNK_LOAD_ERROR_PATTERNS = [
+  'Failed to fetch dynamically imported module',
+  'Loading chunk',
+  'ChunkLoadError',
+  'Loading CSS chunk',
+];
+
 function isRecoverableDOMError(error: Error): boolean {
   const message = error.message || '';
   return RECOVERABLE_DOM_ERRORS.some(pattern => message.includes(pattern));
+}
+
+function isChunkLoadError(error: Error): boolean {
+  const message = error.message || '';
+  return CHUNK_LOAD_ERROR_PATTERNS.some(pattern => message.includes(pattern));
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -92,6 +105,24 @@ export class ErrorBoundary extends Component<Props, State> {
         this.setState({ hasError: false, error: null, errorInfo: null });
       }, 100);
       return;
+    }
+    
+    // Auto-reload on chunk load errors (after new deployments)
+    if (isChunkLoadError(error)) {
+      console.log('[ErrorBoundary] Chunk load error detected, checking for auto-reload...');
+      
+      // Prevent infinite reload loop
+      const lastReload = sessionStorage.getItem('chunk_error_reload');
+      const now = Date.now();
+      
+      if (!lastReload || now - parseInt(lastReload) > 10000) {
+        console.log('[ErrorBoundary] Auto-reloading to fetch new chunks...');
+        sessionStorage.setItem('chunk_error_reload', now.toString());
+        window.location.reload();
+        return;
+      } else {
+        console.warn('[ErrorBoundary] Recent reload detected, showing error UI instead');
+      }
     }
     
     console.error('ErrorBoundary caught an error:', error, errorInfo);
