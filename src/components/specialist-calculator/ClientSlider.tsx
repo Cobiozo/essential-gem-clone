@@ -9,13 +9,41 @@ interface ClientSliderProps {
   maxClients: number;
 }
 
+const markers = [1, 250, 500, 1000, 5000, 10000];
+
+// Convert client value to slider position (0-100)
+const valueToSlider = (value: number): number => {
+  for (let i = 0; i < markers.length - 1; i++) {
+    if (value <= markers[i + 1]) {
+      const range = markers[i + 1] - markers[i];
+      const progress = (value - markers[i]) / range;
+      return (i + progress) * (100 / (markers.length - 1));
+    }
+  }
+  return 100;
+};
+
+// Convert slider position (0-100) to client value
+const sliderToValue = (sliderPos: number): number => {
+  const segment = sliderPos / (100 / (markers.length - 1));
+  const i = Math.floor(segment);
+  const progress = segment - i;
+  
+  if (i >= markers.length - 1) return markers[markers.length - 1];
+  
+  return Math.round(markers[i] + progress * (markers[i + 1] - markers[i]));
+};
+
 export function ClientSlider({ clients, onClientsChange, minClients, maxClients }: ClientSliderProps) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) || minClients;
     onClientsChange(Math.min(Math.max(value, minClients), maxClients));
   };
 
-  const markers = [1, 250, 500, 1000, 5000, 10000];
+  const handleSliderChange = (sliderValues: number[]) => {
+    const newValue = sliderToValue(sliderValues[0]);
+    onClientsChange(Math.min(Math.max(newValue, minClients), maxClients));
+  };
 
   const formatMarker = (value: number) => {
     if (value >= 10000) return "10 000+";
@@ -32,13 +60,13 @@ export function ClientSlider({ clients, onClientsChange, minClients, maxClients 
           </label>
           
           <div className="flex items-center gap-6">
-            <div className="flex-1">
+          <div className="flex-1">
               <Slider
-                value={[clients]}
-                onValueChange={(value) => onClientsChange(value[0])}
-                min={minClients}
-                max={maxClients}
-                step={1}
+                value={[valueToSlider(clients)]}
+                onValueChange={handleSliderChange}
+                min={0}
+                max={100}
+                step={0.1}
                 className="w-full"
               />
               

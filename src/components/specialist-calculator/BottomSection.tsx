@@ -90,6 +90,9 @@ export function BottomSection({
                   style={{ width: `${startPercent}%` }}
                 />
               </div>
+              <div className="text-right text-xs text-muted-foreground">
+                {formatNumber(commission)} €
+              </div>
             </div>
 
             {/* Passive bar */}
@@ -104,6 +107,9 @@ export function BottomSection({
                   style={{ width: `${passivePercent}%` }}
                 />
               </div>
+              <div className="text-right text-xs text-muted-foreground">
+                {formatNumber(passiveIncome)} €
+              </div>
             </div>
 
             {/* Bonuses bar */}
@@ -117,6 +123,9 @@ export function BottomSection({
                   className="h-full bg-orange-400 rounded-full transition-all duration-300"
                   style={{ width: `${bonusesPercent}%` }}
                 />
+              </div>
+              <div className="text-right text-xs text-muted-foreground">
+                {formatNumber(retentionBonus + volumeBonus)} €
               </div>
             </div>
           </div>
