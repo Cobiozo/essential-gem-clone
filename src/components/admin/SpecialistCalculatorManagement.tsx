@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   useSpecialistCalculatorSettings,
@@ -14,7 +16,9 @@ import {
   useUpdateSpecialistVolumeThreshold,
   useCreateSpecialistVolumeThreshold,
   useDeleteSpecialistVolumeThreshold,
-  type SpecialistVolumeThreshold
+  useSpecialistCalculatorUserAccess,
+  type SpecialistVolumeThreshold,
+  type SpecialistCalculatorUserAccess
 } from '@/hooks/useSpecialistCalculatorSettings';
 import {
   Calculator,
@@ -24,7 +28,11 @@ import {
   Sliders,
   Plus,
   Trash2,
-  Save
+  Save,
+  Users,
+  Search,
+  UserPlus,
+  UserMinus
 } from 'lucide-react';
 
 export function SpecialistCalculatorManagement() {
@@ -34,8 +42,52 @@ export function SpecialistCalculatorManagement() {
   const updateThreshold = useUpdateSpecialistVolumeThreshold();
   const createThreshold = useCreateSpecialistVolumeThreshold();
   const deleteThreshold = useDeleteSpecialistVolumeThreshold();
+  const { searchUsers, getUserAccess, grantAccess, revokeAccess } = useSpecialistCalculatorUserAccess();
 
   const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{id: string; first_name: string | null; last_name: string | null; email: string | null}>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const { data: userAccessList, isLoading: isLoadingAccess, refetch: refetchAccess } = useQuery({
+    queryKey: ['specialist-calculator-user-access'],
+    queryFn: getUserAccess
+  });
+
+  const handleUserSearch = async () => {
+    if (userSearchTerm.length < 2) return;
+    setIsSearching(true);
+    try {
+      const results = await searchUsers(userSearchTerm);
+      setSearchResults(results);
+    } catch (err) {
+      toast({ title: 'Błąd wyszukiwania', variant: 'destructive' });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleGrantAccess = async (userId: string) => {
+    try {
+      await grantAccess.mutateAsync(userId);
+      toast({ title: 'Przyznano dostęp' });
+      setSearchResults([]);
+      setUserSearchTerm('');
+      refetchAccess();
+    } catch (err) {
+      toast({ title: 'Błąd przyznawania dostępu', variant: 'destructive' });
+    }
+  };
+
+  const handleRevokeAccess = async (userId: string) => {
+    try {
+      await revokeAccess.mutateAsync(userId);
+      toast({ title: 'Cofnięto dostęp' });
+      refetchAccess();
+    } catch (err) {
+      toast({ title: 'Błąd cofania dostępu', variant: 'destructive' });
+    }
+  };
 
   useEffect(() => {
     if (data?.settings) {
@@ -129,7 +181,7 @@ export function SpecialistCalculatorManagement() {
       </div>
 
       <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basic" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Podstawowe</span>
@@ -145,6 +197,10 @@ export function SpecialistCalculatorManagement() {
           <TabsTrigger value="sliders" className="flex items-center gap-2">
             <Sliders className="h-4 w-4" />
             <span className="hidden sm:inline">Suwaki</span>
+          </TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Użytkownicy</span>
           </TabsTrigger>
         </TabsList>
 
@@ -414,6 +470,118 @@ export function SpecialistCalculatorManagement() {
                   <Save className="mr-2 h-4 w-4" />
                   Zapisz
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Users Tab */}
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Indywidualny dostęp użytkowników</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Przyznaj lub cofnij dostęp do kalkulatora konkretnym użytkownikom niezależnie od ich roli
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* User Search */}
+              <div className="space-y-4">
+                <Label>Wyszukaj użytkownika</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Wpisz imię, nazwisko lub email..."
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUserSearch()}
+                  />
+                  <Button onClick={handleUserSearch} disabled={isSearching || userSearchTerm.length < 2}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Szukaj
+                  </Button>
+                </div>
+
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                  <div className="border rounded-lg divide-y">
+                    {searchResults.map((user) => (
+                      <div key={user.id} className="flex items-center justify-between p-3">
+                        <div>
+                          <p className="font-medium">
+                            {user.first_name} {user.last_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleGrantAccess(user.id)}
+                          disabled={grantAccess.isPending}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Przyznaj
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Current Access List */}
+              <div className="space-y-4">
+                <Label>Użytkownicy z indywidualnym dostępem</Label>
+                {isLoadingAccess ? (
+                  <Skeleton className="h-32" />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Użytkownik</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Data przyznania</TableHead>
+                        <TableHead>Akcje</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!userAccessList || userAccessList.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            Brak użytkowników z indywidualnym dostępem
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        userAccessList.map((access) => (
+                          <TableRow key={access.id}>
+                            <TableCell className="font-medium">
+                              {access.profiles?.first_name} {access.profiles?.last_name}
+                            </TableCell>
+                            <TableCell>{access.profiles?.email}</TableCell>
+                            <TableCell>
+                              <Badge variant={access.has_access ? 'default' : 'secondary'}>
+                                {access.has_access ? 'Aktywny' : 'Nieaktywny'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {new Date(access.granted_at).toLocaleDateString('pl-PL')}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRevokeAccess(access.user_id)}
+                                disabled={revokeAccess.isPending}
+                              >
+                                <UserMinus className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </div>
             </CardContent>
           </Card>

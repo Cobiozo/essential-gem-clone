@@ -57,6 +57,20 @@ export function useSpecialistCalculatorSettings() {
   });
 }
 
+export interface SpecialistCalculatorUserAccess {
+  id: string;
+  user_id: string;
+  has_access: boolean;
+  granted_by: string | null;
+  granted_at: string;
+  profiles?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  };
+}
+
 export function useSpecialistCalculatorAccess() {
   const { user, userRole } = useAuth();
 
@@ -80,6 +94,20 @@ export function useSpecialistCalculatorAccess() {
         return { hasAccess: false, reason: 'disabled' };
       }
 
+      // Check individual user access first
+      const { data: userAccess } = await supabase
+        .from('specialist_calculator_user_access')
+        .select('has_access')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (userAccess !== null) {
+        return { 
+          hasAccess: userAccess.has_access, 
+          reason: userAccess.has_access ? 'user_granted' : 'user_revoked' 
+        };
+      }
+
       const role = userRole?.role;
 
       if (role === 'admin' && settings.enabled_for_admins) {
@@ -99,6 +127,93 @@ export function useSpecialistCalculatorAccess() {
     },
     enabled: !!user
   });
+}
+
+export function useSpecialistCalculatorUserAccess() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const searchUsers = async (searchTerm: string) => {
+    if (!searchTerm || searchTerm.length < 2) return [];
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+      .limit(10);
+
+    if (error) throw error;
+    return data || [];
+  };
+
+  const getUserAccess = async (): Promise<SpecialistCalculatorUserAccess[]> => {
+    const { data, error } = await supabase
+      .from('specialist_calculator_user_access')
+      .select(`
+        id,
+        user_id,
+        has_access,
+        granted_by,
+        granted_at
+      `)
+      .order('granted_at', { ascending: false });
+
+    if (error) throw error;
+    
+    // Fetch profiles separately to avoid RLS issues
+    const userIds = (data || []).map(d => d.user_id);
+    if (userIds.length === 0) return [];
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .in('id', userIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    
+    return (data || []).map(access => ({
+      ...access,
+      profiles: profileMap.get(access.user_id)
+    }));
+  };
+
+  const grantAccess = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase
+        .from('specialist_calculator_user_access')
+        .upsert({
+          user_id: userId,
+          has_access: true,
+          granted_by: user?.id
+        }, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['specialist-calculator-user-access'] });
+      queryClient.invalidateQueries({ queryKey: ['specialist-calculator-access'] });
+    }
+  });
+
+  const revokeAccess = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from('specialist_calculator_user_access')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['specialist-calculator-user-access'] });
+      queryClient.invalidateQueries({ queryKey: ['specialist-calculator-access'] });
+    }
+  });
+
+  return { searchUsers, getUserAccess, grantAccess, revokeAccess };
 }
 
 export function useUpdateSpecialistCalculatorSettings() {
