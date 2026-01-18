@@ -60,6 +60,13 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [leaderTimezone, setLeaderTimezone] = useState<string>('Europe/Warsaw');
   
+  // Meeting settings from leader_meeting_settings
+  const [meetingSettings, setMeetingSettings] = useState<{
+    title: string;
+    description: string;
+    image_url: string;
+  } | null>(null);
+  
   // Get user's local timezone
   const userTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
 
@@ -398,10 +405,24 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     };
   }, [selectedPartner, selectedDate]);
 
-  const handleSelectPartner = (partner: PartnerWithAvailability) => {
+  const handleSelectPartner = async (partner: PartnerWithAvailability) => {
     setSelectedPartner(partner);
     setSelectedDate(undefined);
     setSelectedSlot(null);
+    
+    // Load meeting settings for this partner and meeting type
+    try {
+      const { data: settings } = await supabase
+        .from('leader_meeting_settings')
+        .select('title, description, image_url')
+        .eq('leader_user_id', partner.user_id)
+        .eq('meeting_type', meetingType === 'tripartite' ? 'tripartite' : 'consultation')
+        .maybeSingle();
+      
+      setMeetingSettings(settings || null);
+    } catch (error) {
+      console.error('Error loading meeting settings:', error);
+    }
     
     // If partner uses external booking, go directly to external booking step
     if (partner.use_external_booking && partner.external_calendly_url) {
@@ -481,12 +502,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       }
 
       // Create the event
+      const eventTitle = meetingSettings?.title || (meetingType === 'tripartite' 
+        ? 'Spotkanie trójstronne' 
+        : 'Konsultacje dla partnerów');
+
       const { data: event, error: eventError } = await supabase
         .from('events')
         .insert({
-          title: meetingType === 'tripartite' 
-            ? 'Spotkanie trójstronne' 
-            : 'Konsultacje dla partnerów',
+          title: eventTitle,
           event_type: meetingType === 'tripartite' 
             ? 'tripartite_meeting' 
             : 'partner_consultation',
@@ -833,11 +856,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
+                <div className="col-span-2">
                   <p className="text-muted-foreground">Typ spotkania</p>
                   <p className="font-medium">
-                    {meetingType === 'tripartite' ? 'Spotkanie trójstronne' : 'Konsultacje dla partnerów'}
+                    {meetingSettings?.title || (meetingType === 'tripartite' ? 'Spotkanie trójstronne' : 'Konsultacje dla partnerów')}
                   </p>
+                  {meetingSettings?.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{meetingSettings.description}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Data</p>
