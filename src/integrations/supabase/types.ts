@@ -3702,6 +3702,63 @@ export type Database = {
         }
         Relationships: []
       }
+      specialist_calculator_settings: {
+        Row: {
+          base_commission_eur: number | null
+          default_clients: number | null
+          enabled_for_admins: boolean | null
+          enabled_for_clients: boolean | null
+          enabled_for_partners: boolean | null
+          enabled_for_specjalista: boolean | null
+          eur_to_pln_rate: number | null
+          id: string
+          is_enabled: boolean | null
+          max_clients: number | null
+          min_clients: number | null
+          passive_months: number | null
+          passive_per_month_eur: number | null
+          retention_bonus_eur: number | null
+          retention_months_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_commission_eur?: number | null
+          default_clients?: number | null
+          enabled_for_admins?: boolean | null
+          enabled_for_clients?: boolean | null
+          enabled_for_partners?: boolean | null
+          enabled_for_specjalista?: boolean | null
+          eur_to_pln_rate?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          max_clients?: number | null
+          min_clients?: number | null
+          passive_months?: number | null
+          passive_per_month_eur?: number | null
+          retention_bonus_eur?: number | null
+          retention_months_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_commission_eur?: number | null
+          default_clients?: number | null
+          enabled_for_admins?: boolean | null
+          enabled_for_clients?: boolean | null
+          enabled_for_partners?: boolean | null
+          enabled_for_specjalista?: boolean | null
+          eur_to_pln_rate?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          max_clients?: number | null
+          min_clients?: number | null
+          passive_months?: number | null
+          passive_per_month_eur?: number | null
+          retention_bonus_eur?: number | null
+          retention_months_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       specialist_message_limits: {
         Row: {
           created_at: string | null
@@ -3834,6 +3891,30 @@ export type Database = {
           visible_to_clients?: boolean
           visible_to_partners?: boolean
           visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
+      specialist_volume_thresholds: {
+        Row: {
+          bonus_amount: number
+          id: string
+          is_active: boolean | null
+          position: number | null
+          threshold_clients: number
+        }
+        Insert: {
+          bonus_amount: number
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          threshold_clients: number
+        }
+        Update: {
+          bonus_amount?: number
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          threshold_clients?: number
         }
         Relationships: []
       }
