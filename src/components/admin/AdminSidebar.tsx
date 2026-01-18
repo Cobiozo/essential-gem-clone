@@ -166,6 +166,7 @@ const navCategories: NavCategory[] = [
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
+      { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
     ],
   },
   {
@@ -217,6 +218,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   // Hardcoded labels for features without i18n translations
   const hardcodedLabels: Record<string, string> = {
     calculator: 'Kalkulator',
+    specialistCalculator: 'Kalkulator Specjalistów',
   };
 
   const getLabel = (key: string): string => {

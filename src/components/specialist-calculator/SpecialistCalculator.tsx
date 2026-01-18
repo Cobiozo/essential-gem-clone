@@ -57,7 +57,7 @@ export function SpecialistCalculator() {
         clients={clients}
         onClientsChange={setClients}
         minClients={settings.min_clients || 1}
-        maxClients={settings.max_clients || 500}
+        maxClients={settings.max_clients || 15000}
       />
 
       <ResultCards
