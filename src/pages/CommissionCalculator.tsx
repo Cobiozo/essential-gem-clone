@@ -6,10 +6,8 @@ import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShieldAlert } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function CommissionCalculatorPage() {
-  const { t } = useLanguage();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { data: accessData, isLoading: accessLoading } = useCalculatorAccess();
@@ -46,10 +44,10 @@ export default function CommissionCalculatorPage() {
         <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
           <ShieldAlert className="h-16 w-16 text-muted-foreground" />
           <h2 className="text-xl font-semibold">
-            {t('calculator.noAccess') || 'Brak dostępu'}
+            Brak dostępu
           </h2>
           <p className="text-muted-foreground">
-            {t('calculator.noAccessDesc') || 'Nie masz uprawnień do korzystania z kalkulatora.'}
+            Nie masz uprawnień do korzystania z kalkulatora.
           </p>
         </div>
       </DashboardLayout>

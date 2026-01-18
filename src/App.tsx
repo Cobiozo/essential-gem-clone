@@ -69,6 +69,7 @@ const WebinarsPage = lazyWithRetry(() => import("./pages/WebinarsPage"));
 const TeamMeetingsPage = lazyWithRetry(() => import("./pages/TeamMeetingsPage"));
 const EventGuestRegistration = lazyWithRetry(() => import("./pages/EventGuestRegistration"));
 const CommissionCalculatorPage = lazyWithRetry(() => import("./pages/CommissionCalculator"));
+const SpecialistCalculatorPage = lazyWithRetry(() => import("./pages/SpecialistCalculator"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -237,7 +238,9 @@ const AppContent = () => {
               <Route path="/events/register/:eventId" element={<EventGuestRegistration />} />
               <Route path="/infolink/:slug" element={<InfoLinkPage />} />
               <Route path="/page/:slug" element={<Page />} />
-              <Route path="/calculator" element={<CommissionCalculatorPage />} />
+              <Route path="/calculator" element={<Navigate to="/calculator/influencer" replace />} />
+              <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
+              <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

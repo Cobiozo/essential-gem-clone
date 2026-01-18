@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Users, TrendingUp, UserCheck } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ParametersPanelProps {
   followers: number;
@@ -25,7 +24,6 @@ export function ParametersPanel({
   conversionMin,
   conversionMax
 }: ParametersPanelProps) {
-  const { t } = useLanguage();
   const clients = Math.round(followers * (conversionRate / 100));
 
   return (
@@ -33,7 +31,7 @@ export function ParametersPanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <TrendingUp className="h-5 w-5 text-primary" />
-          {t('calculator.parameters') || 'Parametry'}
+          Parametry
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -42,7 +40,7 @@ export function ParametersPanel({
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />
-              {t('calculator.followers') || 'Obserwujący'}
+              Obserwujący
             </Label>
             <span className="text-lg font-semibold text-primary">
               {followers.toLocaleString('pl-PL')}
@@ -67,7 +65,7 @@ export function ParametersPanel({
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              {t('calculator.conversionRate') || 'Współczynnik konwersji'}
+              Współczynnik konwersji
             </Label>
             <span className="text-lg font-semibold text-primary">
               {conversionRate.toFixed(1)}%
@@ -93,7 +91,7 @@ export function ParametersPanel({
             <div className="flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" />
               <span className="font-medium">
-                {t('calculator.estimatedClients') || 'Szacowana liczba klientów'}
+                Szacowana liczba klientów
               </span>
             </div>
             <span className="text-2xl font-bold text-primary">

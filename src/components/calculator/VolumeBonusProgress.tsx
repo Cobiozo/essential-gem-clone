@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, Check } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface VolumeBonusProgressProps {
@@ -16,8 +15,6 @@ const getThresholdColor = (index: number, total: number): string => {
 };
 
 export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgressProps) {
-  const { t } = useLanguage();
-
   if (thresholds.length === 0) return null;
 
   // Sort by position
@@ -52,7 +49,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
     progressLabel = `${clients} / ${nextThreshold.threshold_clients}`;
   } else if (currentThreshold) {
     progressPercent = 100;
-    progressLabel = t('calculator.maxTierReached') || 'Osiągnięto maksymalny poziom!';
+    progressLabel = 'Osiągnięto maksymalny poziom!';
   }
 
   return (
@@ -60,7 +57,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <TrendingUp className="h-5 w-5 text-primary" />
-          {t('calculator.volumeBonusTiers') || 'Progi bonusowe'}
+          Progi bonusowe
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -68,7 +65,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
         {currentThreshold && (
           <div className="rounded-lg bg-primary/10 p-3">
             <div className="flex items-center justify-between">
-              <span className="font-medium">{t('calculator.currentTier') || 'Aktualny poziom'}</span>
+              <span className="font-medium">Aktualny poziom</span>
               <span 
                 className="rounded-full px-3 py-1 text-sm font-semibold text-white"
                 style={{ backgroundColor: getThresholdColor(sortedThresholds.indexOf(currentThreshold), sortedThresholds.length) }}
@@ -84,13 +81,13 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
-                {t('calculator.progressToNext') || 'Postęp do następnego poziomu'}
+                Postęp do następnego poziomu
               </span>
               <span className="font-medium">{progressLabel}</span>
             </div>
             <Progress value={progressPercent} className="h-3" />
             <p className="text-xs text-muted-foreground">
-              {t('calculator.nextTier') || 'Następny poziom'}: {nextThreshold.threshold_clients}+ klientów (+{nextThreshold.bonus_amount} zł)
+              Następny poziom: {nextThreshold.threshold_clients}+ klientów (+{nextThreshold.bonus_amount} zł)
             </p>
           </div>
         )}
@@ -98,7 +95,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
         {/* All tiers visualization */}
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">
-            {t('calculator.allTiers') || 'Wszystkie poziomy'}
+            Wszystkie poziomy
           </p>
           <div className="grid gap-2">
             {sortedThresholds.map((threshold, index) => {
