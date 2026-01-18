@@ -55,6 +55,7 @@ import { SupportSettingsManagement } from '@/components/admin/SupportSettingsMan
 import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
 import GuestRegistrationsManagement from '@/components/admin/GuestRegistrationsManagement';
+import { CalculatorManagement } from '@/components/admin/CalculatorManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
@@ -4332,6 +4333,10 @@ const Admin = () => {
 
           <TabsContent value="guest-registrations">
             <GuestRegistrationsManagement />
+          </TabsContent>
+
+          <TabsContent value="calculator">
+            <CalculatorManagement />
           </TabsContent>
 
           <TabsContent value="translations">

@@ -96,14 +96,11 @@ export function CalculatorManagement() {
   };
 
   const handleThresholdCreate = async () => {
-    const maxPosition = data?.thresholds?.reduce((max, t) => Math.max(max, t.position), 0) || 0;
+    const maxPosition = data?.thresholds?.reduce((max, t) => Math.max(max, t.position || 0), 0) || 0;
     try {
       await createThreshold.mutateAsync({
-        min_volume: 0,
-        max_volume: null,
-        bonus_percentage: 0,
-        label: 'Nowy poziom',
-        color: '#6b7280',
+        threshold_clients: 0,
+        bonus_amount: 0,
         position: maxPosition + 1
       });
       toast({ title: t('admin.created') || 'Utworzono' });
@@ -228,7 +225,7 @@ export function CalculatorManagement() {
                   </p>
                 </div>
                 <Switch
-                  checked={localSettings.is_enabled}
+                  checked={localSettings.is_enabled ?? false}
                   onCheckedChange={(v) => handleSettingChange('is_enabled', v)}
                 />
               </div>
@@ -237,9 +234,17 @@ export function CalculatorManagement() {
                 <Label className="text-lg">{t('calculator.accessByRole') || 'Dostęp według roli'}</Label>
                 
                 <div className="flex items-center justify-between">
+                  <Label>{t('calculator.enabledForAdmins') || 'Administratorzy'}</Label>
+                  <Switch
+                    checked={localSettings.enabled_for_admins ?? false}
+                    onCheckedChange={(v) => handleSettingChange('enabled_for_admins', v)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
                   <Label>{t('calculator.enabledForPartners') || 'Partnerzy'}</Label>
                   <Switch
-                    checked={localSettings.enabled_for_partners}
+                    checked={localSettings.enabled_for_partners ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_partners', v)}
                   />
                 </div>
@@ -247,7 +252,7 @@ export function CalculatorManagement() {
                 <div className="flex items-center justify-between">
                   <Label>{t('calculator.enabledForClients') || 'Klienci'}</Label>
                   <Switch
-                    checked={localSettings.enabled_for_clients}
+                    checked={localSettings.enabled_for_clients ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_clients', v)}
                   />
                 </div>
@@ -255,7 +260,7 @@ export function CalculatorManagement() {
                 <div className="flex items-center justify-between">
                   <Label>{t('calculator.enabledForSpecjalista') || 'Specjaliści'}</Label>
                   <Switch
-                    checked={localSettings.enabled_for_specjalista}
+                    checked={localSettings.enabled_for_specjalista ?? false}
                     onCheckedChange={(v) => handleSettingChange('enabled_for_specjalista', v)}
                   />
                 </div>
@@ -280,38 +285,47 @@ export function CalculatorManagement() {
             <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>{t('calculator.baseCommission') || 'Prowizja bazowa (PLN)'}</Label>
+                  <Label>{t('calculator.baseCommission') || 'Prowizja bazowa za klienta (PLN)'}</Label>
                   <Input
                     type="number"
-                    value={localSettings.base_commission_pln || 0}
-                    onChange={(e) => handleSettingChange('base_commission_pln', parseFloat(e.target.value))}
+                    value={localSettings.base_commission_per_client || 0}
+                    onChange={(e) => handleSettingChange('base_commission_per_client', parseFloat(e.target.value))}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.passiveIncomeRate') || 'Stawka dochodu pasywnego (PLN)'}</Label>
+                  <Label>{t('calculator.passiveRate') || 'Stawka dochodu pasywnego (%)'}</Label>
                   <Input
                     type="number"
-                    value={localSettings.passive_income_rate || 0}
-                    onChange={(e) => handleSettingChange('passive_income_rate', parseFloat(e.target.value))}
+                    value={localSettings.passive_rate_percentage || 0}
+                    onChange={(e) => handleSettingChange('passive_rate_percentage', parseFloat(e.target.value))}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.extensionBonus1') || 'Bonus za 1. przedłużenie (PLN)'}</Label>
+                  <Label>{t('calculator.passiveMonths') || 'Liczba miesięcy dochodu pasywnego'}</Label>
                   <Input
                     type="number"
-                    value={localSettings.extension_bonus_1 || 0}
-                    onChange={(e) => handleSettingChange('extension_bonus_1', parseFloat(e.target.value))}
+                    value={localSettings.passive_months || 12}
+                    onChange={(e) => handleSettingChange('passive_months', parseInt(e.target.value))}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t('calculator.extensionBonus2') || 'Bonus za 2. przedłużenie (PLN)'}</Label>
+                  <Label>{t('calculator.extensionBonus') || 'Bonus za przedłużenie (PLN/klient)'}</Label>
                   <Input
                     type="number"
-                    value={localSettings.extension_bonus_2 || 0}
-                    onChange={(e) => handleSettingChange('extension_bonus_2', parseFloat(e.target.value))}
+                    value={localSettings.extension_bonus_per_client || 0}
+                    onChange={(e) => handleSettingChange('extension_bonus_per_client', parseFloat(e.target.value))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('calculator.extensionMonths') || 'Liczba przedłużeń'}</Label>
+                  <Input
+                    type="number"
+                    value={localSettings.extension_months_count || 2}
+                    onChange={(e) => handleSettingChange('extension_months_count', parseInt(e.target.value))}
                   />
                 </div>
 
@@ -350,10 +364,9 @@ export function CalculatorManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('calculator.label') || 'Etykieta'}</TableHead>
-                    <TableHead>{t('calculator.minVolume') || 'Min. klientów'}</TableHead>
-                    <TableHead>{t('calculator.bonusPercent') || 'Bonus %'}</TableHead>
-                    <TableHead>{t('calculator.color') || 'Kolor'}</TableHead>
+                    <TableHead>{t('calculator.thresholdClients') || 'Min. klientów'}</TableHead>
+                    <TableHead>{t('calculator.bonusAmount') || 'Bonus (PLN)'}</TableHead>
+                    <TableHead>{t('calculator.position') || 'Pozycja'}</TableHead>
                     <TableHead>{t('admin.actions') || 'Akcje'}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -362,33 +375,26 @@ export function CalculatorManagement() {
                     <TableRow key={threshold.id}>
                       <TableCell>
                         <Input
-                          value={threshold.label}
-                          onChange={(e) => handleThresholdUpdate(threshold.id, { label: e.target.value })}
-                          className="w-32"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
                           type="number"
-                          value={threshold.min_volume}
-                          onChange={(e) => handleThresholdUpdate(threshold.id, { min_volume: parseInt(e.target.value) })}
+                          value={threshold.threshold_clients}
+                          onChange={(e) => handleThresholdUpdate(threshold.id, { threshold_clients: parseInt(e.target.value) })}
                           className="w-24"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="number"
-                          value={threshold.bonus_percentage}
-                          onChange={(e) => handleThresholdUpdate(threshold.id, { bonus_percentage: parseFloat(e.target.value) })}
-                          className="w-20"
+                          value={threshold.bonus_amount}
+                          onChange={(e) => handleThresholdUpdate(threshold.id, { bonus_amount: parseFloat(e.target.value) })}
+                          className="w-24"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
-                          type="color"
-                          value={threshold.color}
-                          onChange={(e) => handleThresholdUpdate(threshold.id, { color: e.target.value })}
-                          className="h-10 w-16 p-1"
+                          type="number"
+                          value={threshold.position || 0}
+                          onChange={(e) => handleThresholdUpdate(threshold.id, { position: parseInt(e.target.value) })}
+                          className="w-20"
                         />
                       </TableCell>
                       <TableCell>
@@ -422,24 +428,24 @@ export function CalculatorManagement() {
                     <Label>{t('calculator.min') || 'Minimum'}</Label>
                     <Input
                       type="number"
-                      value={localSettings.followers_min || 0}
-                      onChange={(e) => handleSettingChange('followers_min', parseInt(e.target.value))}
+                      value={localSettings.min_followers || 0}
+                      onChange={(e) => handleSettingChange('min_followers', parseInt(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>{t('calculator.max') || 'Maksimum'}</Label>
                     <Input
                       type="number"
-                      value={localSettings.followers_max || 100000}
-                      onChange={(e) => handleSettingChange('followers_max', parseInt(e.target.value))}
+                      value={localSettings.max_followers || 100000}
+                      onChange={(e) => handleSettingChange('max_followers', parseInt(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>{t('calculator.default') || 'Domyślnie'}</Label>
                     <Input
                       type="number"
-                      value={localSettings.followers_default || 5000}
-                      onChange={(e) => handleSettingChange('followers_default', parseInt(e.target.value))}
+                      value={localSettings.default_followers || 5000}
+                      onChange={(e) => handleSettingChange('default_followers', parseInt(e.target.value))}
                     />
                   </div>
                 </div>
@@ -453,8 +459,8 @@ export function CalculatorManagement() {
                     <Input
                       type="number"
                       step="0.1"
-                      value={localSettings.conversion_min || 0.5}
-                      onChange={(e) => handleSettingChange('conversion_min', parseFloat(e.target.value))}
+                      value={localSettings.min_conversion || 0.5}
+                      onChange={(e) => handleSettingChange('min_conversion', parseFloat(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -462,8 +468,8 @@ export function CalculatorManagement() {
                     <Input
                       type="number"
                       step="0.1"
-                      value={localSettings.conversion_max || 10}
-                      onChange={(e) => handleSettingChange('conversion_max', parseFloat(e.target.value))}
+                      value={localSettings.max_conversion || 10}
+                      onChange={(e) => handleSettingChange('max_conversion', parseFloat(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -471,8 +477,8 @@ export function CalculatorManagement() {
                     <Input
                       type="number"
                       step="0.1"
-                      value={localSettings.conversion_default || 2}
-                      onChange={(e) => handleSettingChange('conversion_default', parseFloat(e.target.value))}
+                      value={localSettings.default_conversion || 2}
+                      onChange={(e) => handleSettingChange('default_conversion', parseFloat(e.target.value))}
                     />
                   </div>
                 </div>
