@@ -561,9 +561,51 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         }
       }).catch(err => console.log('[PartnerMeetingBooking] GCal sync skipped or failed:', err));
 
+      // Send email notifications
+      const emailTopic = meetingSettings?.title || (meetingType === 'tripartite' ? 'Spotkanie trójstronne' : 'Konsultacje partnerskie');
+      const emailDate = format(selectedDate!, 'dd.MM.yyyy', { locale: pl });
+      const emailTime = selectedSlot!.time;
+
+      // Get current user's profile for email
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+
+      // Email to leader/host (meeting_booked)
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b', // meeting_booked
+          recipient_user_id: selectedPartner.user_id,
+          payload: {
+            temat: emailTopic,
+            data_spotkania: emailDate,
+            godzina_spotkania: emailTime,
+            imie_rezerwujacego: userProfile?.first_name || '',
+            nazwisko_rezerwujacego: userProfile?.last_name || '',
+          },
+        },
+      }).catch(err => console.log('[PartnerMeetingBooking] Email to leader failed:', err));
+
+      // Email to booking user (meeting_confirmed)
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e', // meeting_confirmed
+          recipient_user_id: user.id,
+          payload: {
+            temat: emailTopic,
+            data_spotkania: emailDate,
+            godzina_spotkania: emailTime,
+            imie_lidera: selectedPartner.first_name || '',
+            nazwisko_lidera: selectedPartner.last_name || '',
+          },
+        },
+      }).catch(err => console.log('[PartnerMeetingBooking] Email to booker failed:', err));
+
       toast({
         title: 'Sukces!',
-        description: 'Spotkanie zostało zarezerwowane',
+        description: 'Spotkanie zostało zarezerwowane. Powiadomienia email zostały wysłane.',
       });
 
       // Reset to partner selection
