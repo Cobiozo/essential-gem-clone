@@ -1,4 +1,4 @@
-export type ResourceType = 'pdf' | 'doc' | 'zip' | 'form' | 'link' | 'page';
+export type ResourceType = 'pdf' | 'doc' | 'zip' | 'form' | 'link' | 'page' | 'image';
 export type ResourceStatus = 'active' | 'draft' | 'archived';
 
 export interface KnowledgeResource {
@@ -41,7 +41,8 @@ export const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
   zip: 'Archiwum (ZIP/RAR)',
   form: 'Formularz',
   link: 'Link zewnętrzny',
-  page: 'Strona'
+  page: 'Strona',
+  image: 'Grafika'
 };
 
 export const RESOURCE_STATUS_LABELS: Record<ResourceStatus, string> = {
@@ -59,5 +60,6 @@ export const RESOURCE_CATEGORIES = [
   'Katalogi produktów',
   'Cenniki',
   'Materiały marketingowe',
+  'Grafiki do udostępniania',
   'Inne'
 ];
