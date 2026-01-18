@@ -31,7 +31,7 @@ import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
-import { IndividualMeetingForm } from '@/components/events/IndividualMeetingForm';
+import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
@@ -1041,9 +1041,7 @@ const MyAccount = () => {
             {/* Individual Meetings for Partners */}
             {isPartner && (
               <TabsContent value="individual-meetings" className="mt-6">
-                <IndividualMeetingForm 
-                  meetingType={new URLSearchParams(location.search).get('type') === 'consultation' ? 'consultation' : 'tripartite'} 
-                />
+                <UnifiedMeetingSettingsForm />
               </TabsContent>
             )}
           </Tabs>

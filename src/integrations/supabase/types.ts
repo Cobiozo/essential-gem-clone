@@ -2482,6 +2482,39 @@ export type Database = {
         }
         Relationships: []
       }
+      leader_meeting_settings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          leader_user_id: string
+          meeting_type: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          leader_user_id: string
+          meeting_type: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          leader_user_id?: string
+          meeting_type?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       leader_meeting_topics: {
         Row: {
           created_at: string | null
