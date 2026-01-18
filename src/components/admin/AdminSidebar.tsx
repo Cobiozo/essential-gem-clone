@@ -217,7 +217,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
   const hardcodedLabels: Record<string, string> = {
-    calculator: 'Kalkulator',
+    calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
   };
 

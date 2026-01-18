@@ -132,9 +132,24 @@ export function useUpdateCalculatorSettings() {
 
   return useMutation({
     mutationFn: async (updates: Partial<CalculatorSettings>) => {
+      // Get the settings ID - either from updates or fetch it
+      let settingsId = updates.id;
+      
+      if (!settingsId) {
+        const { data: existing } = await supabase
+          .from('calculator_settings')
+          .select('id')
+          .limit(1)
+          .single();
+        
+        if (!existing?.id) throw new Error('No settings found');
+        settingsId = existing.id;
+      }
+
       const { data, error } = await supabase
         .from('calculator_settings')
         .update(updates)
+        .eq('id', settingsId)
         .select()
         .single();
 
