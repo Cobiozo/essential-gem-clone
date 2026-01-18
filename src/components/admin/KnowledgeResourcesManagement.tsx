@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { 
   KnowledgeResource, ResourceType, ResourceStatus,
-  RESOURCE_TYPE_LABELS, RESOURCE_STATUS_LABELS, RESOURCE_CATEGORIES 
+  RESOURCE_TYPE_LABELS, RESOURCE_STATUS_LABELS, 
+  DOCUMENT_CATEGORIES, GRAPHICS_CATEGORIES, RESOURCE_CATEGORIES 
 } from '@/types/knowledge';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -120,7 +121,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
     if (editingResource.id) {
       const { error } = await supabase
         .from('knowledge_resources')
-        .update(resourceData)
+        .update(resourceData as any)
         .eq('id', editingResource.id);
       
       if (error) {
@@ -138,7 +139,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           title: resourceData.title || '',
           description: resourceData.description,
           context_of_use: resourceData.context_of_use,
-          resource_type: resourceData.resource_type || 'pdf',
+          resource_type: (resourceData.resource_type || 'pdf') as any,
           source_type: resourceData.source_type || 'file',
           source_url: resourceData.source_url,
           file_name: resourceData.file_name,
@@ -400,7 +401,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                         <SelectValue placeholder={t('admin.knowledge.selectCategory')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {RESOURCE_CATEGORIES.map(cat => (
+                        {(editingResource.resource_type === 'image' ? GRAPHICS_CATEGORIES : DOCUMENT_CATEGORIES).map(cat => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
