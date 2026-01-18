@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -12,6 +12,7 @@ import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { EventWithRegistration } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
+import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -21,6 +22,7 @@ export const CalendarWidget: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<EventWithRegistration[]>([]);
+  const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const dateLocale = language === 'pl' ? pl : enUS;
 
   // Copy webinar invitation to clipboard
@@ -330,6 +332,19 @@ Zapisz się tutaj: ${inviteUrl}
                         {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                       </span>
                       <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDetailsEvent(event);
+                          }}
+                          title="Szczegóły"
+                        >
+                          <Info className="h-3 w-3 mr-1" />
+                          Szczegóły
+                        </Button>
                         {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (
                           <Button
                             size="sm"
@@ -359,6 +374,14 @@ Zapisz się tutaj: ${inviteUrl}
             Ładowanie...
           </div>
         )}
+
+        {/* Event details dialog */}
+        <EventDetailsDialog
+          event={detailsEvent}
+          open={!!detailsEvent}
+          onOpenChange={(open) => !open && setDetailsEvent(null)}
+          onRegister={registerForEvent}
+        />
       </CardContent>
     </Card>
   );
