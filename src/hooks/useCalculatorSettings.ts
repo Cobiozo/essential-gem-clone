@@ -2,41 +2,43 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Types matching exact database schema
 export interface CalculatorSettings {
   id: string;
-  is_enabled: boolean;
-  enabled_for_partners: boolean;
-  enabled_for_clients: boolean;
-  enabled_for_specjalista: boolean;
-  enabled_for_admins: boolean;
-  base_commission_per_client: number;
-  passive_income_per_client: number;
-  extension_bonus_first: number;
-  extension_bonus_second: number;
-  eur_pln_rate: number;
-  min_followers: number;
-  max_followers: number;
-  default_followers: number;
-  min_conversion: number;
-  max_conversion: number;
-  default_conversion: number;
-  updated_at: string;
+  is_enabled: boolean | null;
+  enabled_for_partners: boolean | null;
+  enabled_for_clients: boolean | null;
+  enabled_for_specjalista: boolean | null;
+  enabled_for_admins: boolean | null;
+  base_commission_per_client: number | null;
+  passive_rate_percentage: number | null;
+  passive_months: number | null;
+  extension_bonus_per_client: number | null;
+  extension_months_count: number | null;
+  eur_to_pln_rate: number | null;
+  min_followers: number | null;
+  max_followers: number | null;
+  default_followers: number | null;
+  min_conversion: number | null;
+  max_conversion: number | null;
+  default_conversion: number | null;
+  updated_at: string | null;
 }
 
 export interface VolumeThreshold {
   id: string;
   threshold_clients: number;
   bonus_amount: number;
-  is_active: boolean;
-  position: number;
+  is_active: boolean | null;
+  position: number | null;
 }
 
 export interface CalculatorUserAccess {
   id: string;
   user_id: string;
-  has_access: boolean;
+  has_access: boolean | null;
   granted_by: string | null;
-  created_at: string;
+  granted_at: string | null;
 }
 
 export function useCalculatorSettings() {
@@ -223,7 +225,7 @@ export function useCalculatorUserAccess() {
     const { data, error } = await supabase
       .from('calculator_user_access')
       .select(`*, profiles:user_id (id, first_name, last_name, email)`)
-      .order('created_at', { ascending: false });
+      .order('granted_at', { ascending: false });
 
     if (error) throw error;
     return data;

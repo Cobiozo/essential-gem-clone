@@ -7,9 +7,10 @@ import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 interface ResultsPanelProps {
   clients: number;
   baseCommission: number;
-  passiveIncomeRate: number;
-  extensionBonus1: number;
-  extensionBonus2: number;
+  passiveRatePercentage: number;
+  passiveMonths: number;
+  extensionBonusPerClient: number;
+  extensionMonthsCount: number;
   eurToPlnRate: number;
   thresholds: VolumeThreshold[];
 }
@@ -17,9 +18,10 @@ interface ResultsPanelProps {
 export function ResultsPanel({
   clients,
   baseCommission,
-  passiveIncomeRate,
-  extensionBonus1,
-  extensionBonus2,
+  passiveRatePercentage,
+  passiveMonths,
+  extensionBonusPerClient,
+  extensionMonthsCount,
   eurToPlnRate,
   thresholds
 }: ResultsPanelProps) {
@@ -28,20 +30,20 @@ export function ResultsPanel({
   // Calculate volume bonus based on client count
   const getVolumeBonus = (clientCount: number): number => {
     for (const threshold of [...thresholds].reverse()) {
-      if (clientCount >= threshold.min_volume) {
-        return threshold.bonus_percentage;
+      if (clientCount >= threshold.threshold_clients) {
+        return threshold.bonus_amount;
       }
     }
     return 0;
   };
 
-  const volumeBonusPercent = getVolumeBonus(clients);
+  const volumeBonusAmount = getVolumeBonus(clients);
   
   // Calculations
   const directCommission = clients * baseCommission;
-  const volumeBonus = directCommission * (volumeBonusPercent / 100);
-  const passiveIncome = clients * passiveIncomeRate;
-  const extensionBonuses = clients * (extensionBonus1 + extensionBonus2);
+  const volumeBonus = volumeBonusAmount; // Flat bonus amount from threshold
+  const passiveIncome = directCommission * (passiveRatePercentage / 100) * passiveMonths;
+  const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
   
   const totalPLN = directCommission + volumeBonus + passiveIncome + extensionBonuses;
   const totalEUR = totalPLN / eurToPlnRate;
@@ -71,11 +73,11 @@ export function ResultsPanel({
             <span className="font-medium">{formatPLN(directCommission)}</span>
           </div>
 
-          {volumeBonusPercent > 0 && (
+          {volumeBonusAmount > 0 && (
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <span>{t('calculator.volumeBonus') || 'Bonus wolumenowy'} ({volumeBonusPercent}%)</span>
+                <span>{t('calculator.volumeBonus') || 'Bonus wolumenowy'}</span>
               </div>
               <span className="font-medium text-green-600">+{formatPLN(volumeBonus)}</span>
             </div>
@@ -84,7 +86,7 @@ export function ResultsPanel({
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-muted-foreground" />
-              <span>{t('calculator.passiveIncome') || 'Dochód pasywny'}</span>
+              <span>{t('calculator.passiveIncome') || 'Dochód pasywny'} ({passiveMonths} mies.)</span>
             </div>
             <span className="font-medium">{formatPLN(passiveIncome)}</span>
           </div>
@@ -104,7 +106,7 @@ export function ResultsPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-lg font-semibold">
-              {t('calculator.totalMonthly') || 'Suma miesięcznie'}
+              {t('calculator.totalMonthly') || 'Suma'}
             </span>
             <span className="text-2xl font-bold text-primary">
               {formatPLN(totalPLN)}

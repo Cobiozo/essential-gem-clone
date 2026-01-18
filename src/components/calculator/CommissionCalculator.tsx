@@ -18,8 +18,8 @@ export function CommissionCalculator() {
   // Set defaults from settings when loaded
   useEffect(() => {
     if (data?.settings) {
-      setFollowers(data.settings.followers_default);
-      setConversionRate(data.settings.conversion_default);
+      setFollowers(data.settings.default_followers || 5000);
+      setConversionRate(data.settings.default_conversion || 2);
     }
   }, [data?.settings]);
 
@@ -75,10 +75,10 @@ export function CommissionCalculator() {
             conversionRate={conversionRate}
             onFollowersChange={setFollowers}
             onConversionChange={setConversionRate}
-            followersMin={settings.followers_min}
-            followersMax={settings.followers_max}
-            conversionMin={settings.conversion_min}
-            conversionMax={settings.conversion_max}
+            followersMin={settings.min_followers || 1000}
+            followersMax={settings.max_followers || 100000}
+            conversionMin={settings.min_conversion || 0.5}
+            conversionMax={settings.max_conversion || 10}
           />
           
           <VolumeBonusProgress
@@ -91,11 +91,12 @@ export function CommissionCalculator() {
         <div className="space-y-6">
           <ResultsPanel
             clients={clients}
-            baseCommission={settings.base_commission_pln}
-            passiveIncomeRate={settings.passive_income_rate}
-            extensionBonus1={settings.extension_bonus_1}
-            extensionBonus2={settings.extension_bonus_2}
-            eurToPlnRate={settings.eur_to_pln_rate}
+            baseCommission={settings.base_commission_per_client || 100}
+            passiveRatePercentage={settings.passive_rate_percentage || 10}
+            passiveMonths={settings.passive_months || 12}
+            extensionBonusPerClient={settings.extension_bonus_per_client || 50}
+            extensionMonthsCount={settings.extension_months_count || 2}
+            eurToPlnRate={settings.eur_to_pln_rate || 4.3}
             thresholds={thresholds}
           />
           

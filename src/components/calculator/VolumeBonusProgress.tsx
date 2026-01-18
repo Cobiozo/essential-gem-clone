@@ -9,20 +9,27 @@ interface VolumeBonusProgressProps {
   thresholds: VolumeThreshold[];
 }
 
+// Generate colors for thresholds based on position
+const getThresholdColor = (index: number, total: number): string => {
+  const colors = ['#6b7280', '#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'];
+  return colors[index % colors.length];
+};
+
 export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgressProps) {
   const { t } = useLanguage();
 
   if (thresholds.length === 0) return null;
 
-  // Find current and next threshold
-  const sortedThresholds = [...thresholds].sort((a, b) => a.position - b.position);
+  // Sort by position
+  const sortedThresholds = [...thresholds].sort((a, b) => (a.position || 0) - (b.position || 0));
   
+  // Find current and next threshold
   let currentThreshold: VolumeThreshold | null = null;
   let nextThreshold: VolumeThreshold | null = null;
 
   for (let i = 0; i < sortedThresholds.length; i++) {
     const threshold = sortedThresholds[i];
-    if (clients >= threshold.min_volume) {
+    if (clients >= threshold.threshold_clients) {
       currentThreshold = threshold;
       nextThreshold = sortedThresholds[i + 1] || null;
     }
@@ -37,12 +44,12 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
   let progressLabel = '';
 
   if (nextThreshold) {
-    const startValue = currentThreshold?.min_volume || 0;
-    const endValue = nextThreshold.min_volume;
+    const startValue = currentThreshold?.threshold_clients || 0;
+    const endValue = nextThreshold.threshold_clients;
     const current = clients - startValue;
     const total = endValue - startValue;
     progressPercent = Math.min((current / total) * 100, 100);
-    progressLabel = `${clients} / ${nextThreshold.min_volume}`;
+    progressLabel = `${clients} / ${nextThreshold.threshold_clients}`;
   } else if (currentThreshold) {
     progressPercent = 100;
     progressLabel = t('calculator.maxTierReached') || 'Osiągnięto maksymalny poziom!';
@@ -64,9 +71,9 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
               <span className="font-medium">{t('calculator.currentTier') || 'Aktualny poziom'}</span>
               <span 
                 className="rounded-full px-3 py-1 text-sm font-semibold text-white"
-                style={{ backgroundColor: currentThreshold.color }}
+                style={{ backgroundColor: getThresholdColor(sortedThresholds.indexOf(currentThreshold), sortedThresholds.length) }}
               >
-                {currentThreshold.label} (+{currentThreshold.bonus_percentage}%)
+                {currentThreshold.threshold_clients}+ klientów (+{currentThreshold.bonus_amount} zł)
               </span>
             </div>
           </div>
@@ -83,7 +90,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
             </div>
             <Progress value={progressPercent} className="h-3" />
             <p className="text-xs text-muted-foreground">
-              {t('calculator.nextTier') || 'Następny poziom'}: {nextThreshold.label} (+{nextThreshold.bonus_percentage}%)
+              {t('calculator.nextTier') || 'Następny poziom'}: {nextThreshold.threshold_clients}+ klientów (+{nextThreshold.bonus_amount} zł)
             </p>
           </div>
         )}
@@ -94,9 +101,10 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
             {t('calculator.allTiers') || 'Wszystkie poziomy'}
           </p>
           <div className="grid gap-2">
-            {sortedThresholds.map((threshold) => {
-              const isAchieved = clients >= threshold.min_volume;
+            {sortedThresholds.map((threshold, index) => {
+              const isAchieved = clients >= threshold.threshold_clients;
               const isCurrent = currentThreshold?.id === threshold.id;
+              const color = getThresholdColor(index, sortedThresholds.length);
               
               return (
                 <div
@@ -115,18 +123,18 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
                     )}
                     <span 
                       className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: threshold.color }}
+                      style={{ backgroundColor: color }}
                     />
                     <span className={`text-sm ${isAchieved ? 'font-medium' : 'text-muted-foreground'}`}>
-                      {threshold.label}
+                      Poziom {index + 1}
                     </span>
                   </div>
                   <div className="text-right text-sm">
                     <span className={isAchieved ? 'font-semibold text-green-600' : 'text-muted-foreground'}>
-                      +{threshold.bonus_percentage}%
+                      +{threshold.bonus_amount} zł
                     </span>
                     <span className="ml-2 text-xs text-muted-foreground">
-                      ({threshold.min_volume}+ klientów)
+                      ({threshold.threshold_clients}+ klientów)
                     </span>
                   </div>
                 </div>
