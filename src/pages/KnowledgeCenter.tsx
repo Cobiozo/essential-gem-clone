@@ -26,7 +26,8 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   zip: <Archive className="h-5 w-5 text-yellow-600" />,
   form: <FileSpreadsheet className="h-5 w-5 text-green-500" />,
   link: <LinkIcon className="h-5 w-5 text-purple-500" />,
-  page: <ExternalLink className="h-5 w-5 text-cyan-500" />
+  page: <ExternalLink className="h-5 w-5 text-cyan-500" />,
+  image: <Star className="h-5 w-5 text-pink-500" />
 };
 
 export default function KnowledgeCenter() {
