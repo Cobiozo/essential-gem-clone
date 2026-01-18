@@ -1,7 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Users } from "lucide-react";
 
 interface ClientSliderProps {
   clients: number;
@@ -16,39 +15,52 @@ export function ClientSlider({ clients, onClientsChange, minClients, maxClients 
     onClientsChange(Math.min(Math.max(value, minClients), maxClients));
   };
 
+  const markers = [1, 250, 500, 1000, 5000, 10000];
+
+  const formatMarker = (value: number) => {
+    if (value >= 10000) return "10 000+";
+    if (value >= 1000) return value.toLocaleString('pl-PL').replace(',', ' ');
+    return value.toString();
+  };
+
   return (
     <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="h-5 w-5 text-primary" />
-          Liczba klientów
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Input
-            type="number"
-            value={clients}
-            onChange={handleInputChange}
-            min={minClients}
-            max={maxClients}
-            className="w-24 text-center text-lg font-semibold"
-          />
-          <span className="text-muted-foreground">klientów</span>
-        </div>
-        
-        <Slider
-          value={[clients]}
-          onValueChange={(value) => onClientsChange(value[0])}
-          min={minClients}
-          max={maxClients}
-          step={1}
-          className="w-full"
-        />
-        
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>{minClients}</span>
-          <span>{maxClients}</span>
+      <CardContent className="py-6">
+        <div className="space-y-4">
+          <label className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+            Liczba klientów (6-miesięczna kuracja)
+          </label>
+          
+          <div className="flex items-center gap-6">
+            <div className="flex-1">
+              <Slider
+                value={[clients]}
+                onValueChange={(value) => onClientsChange(value[0])}
+                min={minClients}
+                max={maxClients}
+                step={1}
+                className="w-full"
+              />
+              
+              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                {markers.map((marker) => (
+                  <span key={marker}>{formatMarker(marker)}</span>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center">
+              <Input
+                type="number"
+                value={clients}
+                onChange={handleInputChange}
+                min={minClients}
+                max={maxClients}
+                className="w-20 text-center text-lg font-semibold"
+              />
+              <span className="text-xs text-muted-foreground mt-1">osób</span>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

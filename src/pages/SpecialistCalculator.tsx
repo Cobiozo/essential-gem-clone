@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { SpecialistCalculator as SpecialistCalculatorComponent } from "@/components/specialist-calculator";
 import { useSpecialistCalculatorAccess } from "@/hooks/useSpecialistCalculatorSettings";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,24 +12,24 @@ const SpecialistCalculatorPage = () => {
     <DashboardLayout>
       <div className="container max-w-6xl mx-auto py-8 px-4">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calculator className="h-8 w-8 text-primary" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">Kalkulator dla Specjalistów</h1>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Sprawdź potencjał swoich zarobków w programie afiliacyjnym Pure Life. 
-            Przesuń suwak, aby zobaczyć szacowane przychody za 6 miesięcy.
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold mb-2">Sprawdź potencjał swojego zasięgu</h1>
+          <p className="text-muted-foreground text-sm">
+            Wprowadź liczbę klientów, aby zobaczyć symulację przychodów w perspektywie 6-miesięcznej kuracji. 
+            Wyliczenia oparte na modelu Pure Life / Eqology (Omega-3).
           </p>
         </div>
 
         {/* Content */}
         {accessLoading ? (
           <div className="space-y-6">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+            </div>
           </div>
         ) : accessData?.hasAccess ? (
           <SpecialistCalculatorComponent />
