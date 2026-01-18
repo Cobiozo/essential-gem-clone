@@ -47,6 +47,7 @@ import {
   CalendarDays,
   HelpCircle,
   UserPlus,
+  Calculator,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -88,6 +89,7 @@ const SIDEBAR_KEYS = {
   dashboardFooter: 'admin.sidebar.dashboardFooter',
   adminPanel: 'admin.sidebar.adminPanel',
   administrator: 'admin.sidebar.administrator',
+  calculator: 'admin.sidebar.calculator',
 };
 
 interface AdminSidebarProps {
@@ -163,6 +165,7 @@ const navCategories: NavCategory[] = [
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
+      { value: 'calculator', labelKey: 'calculator', icon: Calculator },
     ],
   },
   {
