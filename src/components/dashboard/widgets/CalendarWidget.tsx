@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -382,9 +383,45 @@ Zapisz się tutaj: ${inviteUrl}
           onOpenChange={(open) => !open && setDetailsEvent(null)}
           onRegister={registerForEvent}
           onCancelRegistration={async (eventId) => {
-            const confirmed = window.confirm('Czy na pewno chcesz anulować rezerwację?');
-            if (!confirmed) return;
-            await cancelRegistration(eventId);
+            // For individual meetings (tripartite/partner_consultation) use Edge Function
+            const event = detailsEvent;
+            if (event && ['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
+              const confirmed = window.confirm('Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.');
+              if (!confirmed) return;
+              
+              try {
+                const { data, error } = await supabase.functions.invoke('cancel-individual-meeting', {
+                  body: { event_id: eventId }
+                });
+                
+                if (error || !data?.success) {
+                  toast({
+                    title: 'Błąd',
+                    description: data?.error || 'Nie udało się anulować spotkania',
+                    variant: 'destructive'
+                  });
+                  return;
+                }
+                
+                toast({
+                  title: 'Spotkanie anulowane',
+                  description: `Powiadomienia email wysłane (${data.emails_sent}/${data.total_participants}).`
+                });
+              } catch (err: any) {
+                toast({
+                  title: 'Błąd',
+                  description: err.message || 'Nie udało się anulować spotkania',
+                  variant: 'destructive'
+                });
+                return;
+              }
+            } else {
+              // For other event types, use standard cancelRegistration
+              const confirmed = window.confirm('Czy na pewno chcesz anulować rezerwację?');
+              if (!confirmed) return;
+              await cancelRegistration(eventId);
+            }
+            
             setDetailsEvent(null);
             window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
           }}
