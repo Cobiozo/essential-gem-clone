@@ -294,10 +294,23 @@ serve(async (req) => {
     `;
 
     // Send email via SMTP with Reply-To header
+    // Ensure port is a number (database may return it as string)
+    const smtpPort = typeof smtpSettings.smtp_port === 'string' 
+      ? parseInt(smtpSettings.smtp_port, 10) 
+      : smtpSettings.smtp_port;
+    
+    if (!smtpPort || isNaN(smtpPort)) {
+      console.error('[send-support-email] Invalid SMTP port:', smtpSettings.smtp_port);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Nieprawidłowy port SMTP w konfiguracji' }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    
     const smtpResult = await sendSmtpEmail(
       {
         host: smtpSettings.smtp_host,
-        port: smtpSettings.smtp_port,
+        port: smtpPort,
         encryption: smtpSettings.smtp_encryption,
         username: smtpSettings.smtp_username,
         password: smtpSettings.smtp_password,
