@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
+import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 
 export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -23,6 +24,7 @@ export const MyMeetingsWidget: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
+  const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
 
   const locale = language === 'pl' ? pl : enUS;
   
@@ -337,24 +339,21 @@ export const MyMeetingsWidget: React.FC = () => {
       );
     }
     
-    // Standard zoom link for other future events
-    if (zoomUrl) {
+    // For individual meetings (tripartite, partner_consultation) - show "Szczegóły" button
+    if (event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') {
       return (
         <div className="flex items-center gap-1">
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
             className="h-6 px-2 text-xs"
-            asChild
+            onClick={() => setDetailsEvent(event)}
           >
-            <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3 w-3 mr-1" />
-              {isHost ? 'Rozpocznij' : 'Zoom'}
-            </a>
+            <Info className="h-3 w-3 mr-1" />
+            Szczegóły
           </Button>
-          {/* Cancel button for individual meetings (more than 2 hours before) */}
-          {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && 
-           minutesUntilEvent > 120 && (
+          {/* Cancel button (more than 2 hours before) */}
+          {minutesUntilEvent > 120 && (
             <Button
               size="sm"
               variant="ghost"
@@ -366,6 +365,23 @@ export const MyMeetingsWidget: React.FC = () => {
             </Button>
           )}
         </div>
+      );
+    }
+    
+    // Standard zoom link for other future events
+    if (zoomUrl) {
+      return (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-2 text-xs"
+          asChild
+        >
+          <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3 w-3 mr-1" />
+            {isHost ? 'Rozpocznij' : 'Zoom'}
+          </a>
+        </Button>
       );
     }
     
@@ -487,6 +503,19 @@ export const MyMeetingsWidget: React.FC = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Event details dialog */}
+      <EventDetailsDialog
+        event={detailsEvent}
+        open={!!detailsEvent}
+        onOpenChange={(open) => !open && setDetailsEvent(null)}
+        onRegister={() => {}} // Already registered
+        onCancelRegistration={(eventId) => {
+          const event = userEvents.find(e => e.id === eventId);
+          if (event) handleCancelMeeting(event);
+          setDetailsEvent(null);
+        }}
+      />
     </Card>
   );
 };
