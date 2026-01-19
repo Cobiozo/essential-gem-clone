@@ -155,7 +155,7 @@ export const MyMeetingsWidget: React.FC = () => {
     return acc;
   }, {} as Record<string, EventWithRegistration[]>);
 
-  // Handle meeting cancellation with email notifications
+  // Handle meeting cancellation via Edge Function (bypasses RLS)
   const handleCancelMeeting = async (event: EventWithRegistration) => {
     if (!user) return;
     
@@ -165,92 +165,39 @@ export const MyMeetingsWidget: React.FC = () => {
     setCancellingEventId(event.id);
 
     try {
-      // Get the other party (either host or participant)
-      const { data: registrations } = await supabase
-        .from('event_registrations')
-        .select('user_id')
-        .eq('event_id', event.id)
-        .neq('user_id', user.id);
-
-      const otherPartyId = registrations?.[0]?.user_id || event.host_user_id;
-      const isHost = event.host_user_id === user.id;
+      console.log('[MyMeetingsWidget] Cancelling meeting via Edge Function:', event.id);
       
-      // Get current user's profile for email
-      const { data: currentUserProfile } = await supabase
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('user_id', user.id)
-        .single();
+      const { data, error } = await supabase.functions.invoke('cancel-individual-meeting', {
+        body: { event_id: event.id }
+      });
 
-      const cancelerName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || (isHost ? 'prowadzący' : 'uczestnik');
-
-      // Soft delete: mark event as inactive
-      const { error: updateError } = await supabase
-        .from('events')
-        .update({ is_active: false })
-        .eq('id', event.id);
-
-      if (updateError) throw updateError;
-
-      // Cancel registrations for both parties
-      await supabase
-        .from('event_registrations')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('event_id', event.id);
-
-      // Delete from Google Calendar for both users
-      const userIds = otherPartyId && otherPartyId !== user.id 
-        ? [user.id, otherPartyId] 
-        : [user.id];
-      
-      supabase.functions.invoke('sync-google-calendar', {
-        body: { 
-          user_ids: userIds, 
-          event_id: event.id, 
-          action: 'delete' 
-        }
-      }).catch(err => console.log('[MyMeetingsWidget] GCal delete skipped or failed:', err));
-
-      // Email data
-      const emailPayload = {
-        temat: event.title,
-        data_spotkania: format(new Date(event.start_time), 'dd.MM.yyyy', { locale: pl }),
-        godzina_spotkania: format(new Date(event.start_time), 'HH:mm'),
-        kto_odwolal: cancelerName,
-      };
-
-      // Send email to the other party
-      if (otherPartyId && otherPartyId !== user.id) {
-        supabase.functions.invoke('send-notification-email', {
-          body: {
-            event_type_id: '8eb3bd8a-e558-468f-8f9f-11eccd108436', // event_cancelled
-            recipient_user_id: otherPartyId,
-            payload: emailPayload,
-          },
-        }).catch(err => console.log('[MyMeetingsWidget] Email to other party failed:', err));
+      if (error) {
+        console.error('[MyMeetingsWidget] Edge function error:', error);
+        throw new Error(error.message || 'Błąd wywołania funkcji');
       }
 
-      // Send confirmation email to the user who cancelled
-      supabase.functions.invoke('send-notification-email', {
-        body: {
-          event_type_id: '8eb3bd8a-e558-468f-8f9f-11eccd108436', // event_cancelled
-          recipient_user_id: user.id,
-          payload: { ...emailPayload, kto_odwolal: 'Ty' },
-        },
-      }).catch(err => console.log('[MyMeetingsWidget] Email to canceler failed:', err));
+      if (!data?.success) {
+        console.error('[MyMeetingsWidget] Cancellation failed:', data?.error);
+        throw new Error(data?.error || 'Nie udało się anulować spotkania');
+      }
+
+      console.log('[MyMeetingsWidget] Meeting cancelled successfully:', data);
 
       toast({
         title: 'Spotkanie anulowane',
-        description: 'Powiadomienia email zostały wysłane do obu stron.',
+        description: `Powiadomienia email wysłane (${data.emails_sent}/${data.total_participants}).`,
       });
 
       // Refresh the list
       fetchUserEventsData();
+      
+      // Dispatch event for other widgets to refresh
+      window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
     } catch (error: any) {
       console.error('[MyMeetingsWidget] Error cancelling meeting:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie udało się anulować spotkania',
+        description: error.message || 'Nie udało się anulować spotkania',
         variant: 'destructive',
       });
     } finally {

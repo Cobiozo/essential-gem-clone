@@ -3,6 +3,9 @@ project_id = "xzlhssqqbajqhnsmbucf"
 [functions.admin-delete-user]
 verify_jwt = true
 
+[functions.cancel-individual-meeting]
+verify_jwt = false
+
 [functions.admin-reset-password]
 verify_jwt = true
 
