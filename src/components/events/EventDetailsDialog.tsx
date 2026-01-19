@@ -19,8 +19,8 @@ interface EventDetailsDialogProps {
   event: EventWithRegistration | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRegister: (eventId: string) => void;
-  onCancelRegistration?: (eventId: string) => void;
+  onRegister: (eventId: string, occurrenceIndex?: number) => void;
+  onCancelRegistration?: (eventId: string, occurrenceIndex?: number) => void;
 }
 
 export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
@@ -79,8 +79,11 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
     ['tripartite_meeting', 'partner_consultation'].includes(event.event_type) && 
     minutesUntilEvent > 120;
 
+  // Get occurrence index for multi-occurrence events
+  const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
+
   const handleRegister = () => {
-    onRegister(event.id);
+    onRegister(event.id, occurrenceIndex);
   };
 
   const getEventTypeBadge = () => {
@@ -226,7 +229,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 <Button 
                   variant="destructive" 
                   className="w-full"
-                  onClick={() => onCancelRegistration(event.id)}
+                  onClick={() => onCancelRegistration(event.id, occurrenceIndex)}
                 >
                   <X className="h-4 w-4 mr-2" />
                   Anuluj rezerwację

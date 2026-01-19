@@ -54,11 +54,21 @@ export const useEvents = () => {
       if (user) {
         const { data: registrations } = await supabase
           .from('event_registrations')
-          .select('event_id')
+          .select('event_id, occurrence_index')
           .eq('user_id', user.id)
           .eq('status', 'registered');
 
+        // Create a Set for simple event_id check AND a Map for occurrence-specific check
         const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
+        // Map: "event_id:occurrence_index" -> true (for per-occurrence registration tracking)
+        const registrationMap = new Map<string, boolean>(
+          (registrations || []).map(r => [
+            `${r.event_id}:${r.occurrence_index ?? 'null'}`,
+            true
+          ])
+        );
+        // Store in global for expandEventsForCalendar to use
+        (window as any).__eventRegistrationMap = registrationMap;
         
         // Get individual meeting event IDs for profile fetching
         const individualMeetingIds = parsedEvents
@@ -292,17 +302,26 @@ export const useEvents = () => {
     }
   };
 
-  const registerForEvent = async (eventId: string): Promise<boolean> => {
+  const registerForEvent = async (eventId: string, occurrenceIndex?: number): Promise<boolean> => {
     if (!user) return false;
 
     try {
-      // Check if there's an existing registration (cancelled or otherwise)
-      const { data: existingReg } = await supabase
+      // Build query to check for existing registration
+      // For multi-occurrence events, check specific occurrence_index
+      // For single events, check where occurrence_index is null
+      let query = supabase
         .from('event_registrations')
         .select('id, status')
         .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user.id);
+      
+      if (occurrenceIndex !== undefined) {
+        query = query.eq('occurrence_index', occurrenceIndex);
+      } else {
+        query = query.is('occurrence_index', null);
+      }
+      
+      const { data: existingReg } = await query.maybeSingle();
 
       if (existingReg) {
         // Update existing registration to 'registered'
@@ -316,19 +335,20 @@ export const useEvents = () => {
           .eq('id', existingReg.id);
 
         if (error) throw error;
-        console.log('[useEvents] Re-activated existing registration');
+        console.log('[useEvents] Re-activated existing registration for occurrence:', occurrenceIndex);
       } else {
-        // Insert new registration
+        // Insert new registration with occurrence_index
         const { error } = await supabase
           .from('event_registrations')
           .insert({
             event_id: eventId,
             user_id: user.id,
             status: 'registered',
+            occurrence_index: occurrenceIndex ?? null,
           });
 
         if (error) throw error;
-        console.log('[useEvents] Created new registration');
+        console.log('[useEvents] Created new registration for occurrence:', occurrenceIndex);
       }
 
       toast({
@@ -338,12 +358,12 @@ export const useEvents = () => {
       
       // Emit custom event for immediate widget updates
       window.dispatchEvent(new CustomEvent('eventRegistrationChange', { 
-        detail: { eventId, action: 'register' } 
+        detail: { eventId, occurrenceIndex, action: 'register' } 
       }));
       
       // Sync to Google Calendar in background (fire and forget)
       supabase.functions.invoke('sync-google-calendar', {
-        body: { user_id: user.id, event_id: eventId, action: 'create' }
+        body: { user_id: user.id, event_id: eventId, action: 'create', occurrence_index: occurrenceIndex }
       }).then(res => {
         if (res.data?.success) {
           console.log('[useEvents] Event synced to Google Calendar');
@@ -365,11 +385,12 @@ export const useEvents = () => {
     }
   };
 
-  const cancelRegistration = async (eventId: string): Promise<boolean> => {
+  const cancelRegistration = async (eventId: string, occurrenceIndex?: number): Promise<boolean> => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase
+      // Build query to find the specific registration
+      let query = supabase
         .from('event_registrations')
         .update({ 
           status: 'cancelled',
@@ -377,6 +398,14 @@ export const useEvents = () => {
         })
         .eq('event_id', eventId)
         .eq('user_id', user.id);
+      
+      if (occurrenceIndex !== undefined) {
+        query = query.eq('occurrence_index', occurrenceIndex);
+      } else {
+        query = query.is('occurrence_index', null);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
@@ -387,14 +416,14 @@ export const useEvents = () => {
       
       // Emit custom event for immediate widget updates
       window.dispatchEvent(new CustomEvent('eventRegistrationChange', { 
-        detail: { eventId, action: 'cancel' } 
+        detail: { eventId, occurrenceIndex, action: 'cancel' } 
       }));
       
       // Remove from Google Calendar - use await to ensure request is sent
       try {
-        console.log('[useEvents] Sending delete request to Google Calendar sync for event:', eventId);
+        console.log('[useEvents] Sending delete request to Google Calendar sync for event:', eventId, 'occurrence:', occurrenceIndex);
         const res = await supabase.functions.invoke('sync-google-calendar', {
-          body: { user_id: user.id, event_id: eventId, action: 'delete' }
+          body: { user_id: user.id, event_id: eventId, action: 'delete', occurrence_index: occurrenceIndex }
         });
         
         if (res.error) {

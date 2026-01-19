@@ -59,6 +59,9 @@ export const EventCard: React.FC<EventCardProps> = ({
   // Duration in minutes
   const durationMinutes = event.duration_minutes || differenceInMinutes(endDate, startDate);
 
+  // Get occurrence index for multi-occurrence events
+  const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
+
   const handleRegister = async () => {
     if (!user) {
       toast({
@@ -72,8 +75,8 @@ export const EventCard: React.FC<EventCardProps> = ({
     setRegistering(true);
     try {
       if (isRegistered) {
-        // Cancel registration - UPDATE status to cancelled
-        const { error } = await supabase
+        // Cancel registration - UPDATE status to cancelled with occurrence_index
+        let query = supabase
           .from('event_registrations')
           .update({ 
             status: 'cancelled', 
@@ -81,6 +84,14 @@ export const EventCard: React.FC<EventCardProps> = ({
           })
           .eq('event_id', event.id)
           .eq('user_id', user.id);
+        
+        if (occurrenceIndex !== undefined) {
+          query = query.eq('occurrence_index', occurrenceIndex);
+        } else {
+          query = query.is('occurrence_index', null);
+        }
+        
+        const { error } = await query;
         
         if (error) throw error;
         
@@ -93,19 +104,26 @@ export const EventCard: React.FC<EventCardProps> = ({
         // Sync with Google Calendar - delete event
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'delete' }
+            body: { user_id: user.id, event_id: event.id, action: 'delete', occurrence_index: occurrenceIndex }
           });
         } catch (syncErr) {
           console.error('[EventCard] Google Calendar sync (delete) failed:', syncErr);
         }
       } else {
-        // Check if there's an existing registration (cancelled)
-        const { data: existingReg } = await supabase
+        // Check if there's an existing registration (cancelled) with occurrence_index
+        let checkQuery = supabase
           .from('event_registrations')
           .select('id, status')
           .eq('event_id', event.id)
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .eq('user_id', user.id);
+        
+        if (occurrenceIndex !== undefined) {
+          checkQuery = checkQuery.eq('occurrence_index', occurrenceIndex);
+        } else {
+          checkQuery = checkQuery.is('occurrence_index', null);
+        }
+        
+        const { data: existingReg } = await checkQuery.maybeSingle();
 
         if (existingReg) {
           // UPDATE existing registration to 'registered'
@@ -119,19 +137,20 @@ export const EventCard: React.FC<EventCardProps> = ({
             .eq('id', existingReg.id);
 
           if (error) throw error;
-          console.log('[EventCard] Re-activated existing registration');
+          console.log('[EventCard] Re-activated existing registration for occurrence:', occurrenceIndex);
         } else {
-          // INSERT new registration
+          // INSERT new registration with occurrence_index
           const { error } = await supabase
             .from('event_registrations')
             .insert({
               event_id: event.id,
               user_id: user.id,
               status: 'registered',
+              occurrence_index: occurrenceIndex ?? null,
             });
 
           if (error) throw error;
-          console.log('[EventCard] Created new registration');
+          console.log('[EventCard] Created new registration for occurrence:', occurrenceIndex);
         }
         
         setIsRegistered(true);
@@ -143,7 +162,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         // Sync with Google Calendar - create event
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'create' }
+            body: { user_id: user.id, event_id: event.id, action: 'create', occurrence_index: occurrenceIndex }
           });
         } catch (syncErr) {
           console.error('[EventCard] Google Calendar sync (create) failed:', syncErr);

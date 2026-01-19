@@ -164,12 +164,13 @@ Zapisz się tutaj: ${inviteUrl}
     }
     
     // User not registered
+    const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
     return (
       <Button
         size="sm"
         variant="outline"
         className="h-6 text-xs"
-        onClick={() => registerForEvent(event.id)}
+        onClick={() => registerForEvent(event.id, occurrenceIndex)}
       >
         {t('events.registerButton') || 'Zapisz się'}
       </Button>
@@ -381,8 +382,8 @@ Zapisz się tutaj: ${inviteUrl}
           event={detailsEvent}
           open={!!detailsEvent}
           onOpenChange={(open) => !open && setDetailsEvent(null)}
-          onRegister={registerForEvent}
-          onCancelRegistration={async (eventId) => {
+          onRegister={(eventId, occurrenceIndex) => registerForEvent(eventId, occurrenceIndex)}
+          onCancelRegistration={async (eventId, occurrenceIndex) => {
             // For individual meetings (tripartite/partner_consultation) use Edge Function
             const event = detailsEvent;
             if (event && ['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
@@ -416,10 +417,10 @@ Zapisz się tutaj: ${inviteUrl}
                 return;
               }
             } else {
-              // For other event types, use standard cancelRegistration
+              // For other event types, use standard cancelRegistration with occurrenceIndex
               const confirmed = window.confirm('Czy na pewno chcesz anulować rezerwację?');
               if (!confirmed) return;
-              await cancelRegistration(eventId);
+              await cancelRegistration(eventId, occurrenceIndex);
             }
             
             setDetailsEvent(null);
