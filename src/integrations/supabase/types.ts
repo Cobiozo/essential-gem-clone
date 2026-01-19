@@ -671,6 +671,42 @@ export type Database = {
           },
         ]
       }
+      chat_permissions: {
+        Row: {
+          allow_group: boolean | null
+          allow_individual: boolean | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          sender_role: string
+          target_role: string
+          updated_at: string | null
+        }
+        Insert: {
+          allow_group?: boolean | null
+          allow_individual?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          sender_role: string
+          target_role: string
+          updated_at?: string | null
+        }
+        Update: {
+          allow_group?: boolean | null
+          allow_individual?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          sender_role?: string
+          target_role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cms_item_translations: {
         Row: {
           cells: Json | null
@@ -4895,6 +4931,10 @@ export type Database = {
         Args: { target_role: string; target_user_id: string }
         Returns: boolean
       }
+      can_initiate_chat: {
+        Args: { sender_user_id: string; target_user_id: string }
+        Returns: boolean
+      }
       can_send_to_role: {
         Args: { sender_role: string; target_role: string }
         Returns: boolean
@@ -4972,6 +5012,7 @@ export type Database = {
           upline_last_name: string
         }[]
       }
+      get_user_role: { Args: { p_user_id: string }; Returns: string }
       get_user_role_name: { Args: { user_uuid: string }; Returns: string }
       get_users_without_welcome_email: {
         Args: never
