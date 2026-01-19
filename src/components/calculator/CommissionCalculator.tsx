@@ -56,7 +56,7 @@ export function CommissionCalculator() {
           <img src={pureLifeLogo} alt="Pure Life" className="h-10 w-auto" />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">
-              Pure Life <span className="font-light">Calculator</span>
+              Pure Life <span className="font-light">Kalkulator</span>
             </h1>
             <p className="text-emerald-200 text-xs sm:text-sm">
               Symulacja przychodów z systemu afiliacyjnego (Model Omega-3)
@@ -89,7 +89,7 @@ export function CommissionCalculator() {
           <TotalResultCard
             clients={clients}
             baseCommission={settings.base_commission_per_client || 20}
-            passiveRatePercentage={settings.passive_rate_percentage || 25}
+            passivePerClientEur={settings.passive_per_client_eur || 5}
             passiveMonths={settings.passive_months || 5}
             extensionBonusPerClient={settings.extension_bonus_per_client || 10}
             extensionMonthsCount={settings.extension_months_count || 2}
@@ -101,7 +101,7 @@ export function CommissionCalculator() {
           <IncomeBreakdown
             clients={clients}
             baseCommission={settings.base_commission_per_client || 20}
-            passiveRatePercentage={settings.passive_rate_percentage || 25}
+            passivePerClientEur={settings.passive_per_client_eur || 5}
             passiveMonths={settings.passive_months || 5}
             extensionBonusPerClient={settings.extension_bonus_per_client || 10}
             extensionMonthsCount={settings.extension_months_count || 2}

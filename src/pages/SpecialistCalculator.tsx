@@ -1,9 +1,11 @@
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Lock } from "lucide-react";
 import { SpecialistCalculator as SpecialistCalculatorComponent } from "@/components/specialist-calculator";
 import { useSpecialistCalculatorAccess } from "@/hooks/useSpecialistCalculatorSettings";
 import { Skeleton } from "@/components/ui/skeleton";
+import pureLifeLogo from "@/assets/pure-life-logo-new.png";
 
 const SpecialistCalculatorPage = () => {
   const { data: accessData, isLoading: accessLoading } = useSpecialistCalculatorAccess();
@@ -11,13 +13,22 @@ const SpecialistCalculatorPage = () => {
   return (
     <DashboardLayout>
       <div className="container max-w-6xl mx-auto py-8 px-4">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Sprawdź potencjał swojego zasięgu</h1>
-          <p className="text-muted-foreground text-sm">
-            Wprowadź liczbę klientów, aby zobaczyć symulację przychodów w perspektywie 6-miesięcznej kuracji. 
-            Wyliczenia oparte na modelu Pure Life / Eqology (Omega-3).
-          </p>
+        {/* Header - matching influencer calculator style */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-900 to-emerald-700 text-white p-4 sm:p-6 rounded-xl mb-6">
+          <div className="flex items-center gap-3">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-10 w-auto" />
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold">
+                Pure Life <span className="font-light">Kalkulator</span>
+              </h1>
+              <p className="text-emerald-200 text-xs sm:text-sm">
+                Wprowadź liczbę klientów, aby zobaczyć symulację przychodów w perspektywie 6-miesięcznej kuracji.
+              </p>
+            </div>
+          </div>
+          <Badge className="bg-white/20 text-white border-0 hover:bg-white/30 self-start sm:self-auto">
+            Model: Pure Life / Eqology
+          </Badge>
         </div>
 
         {/* Content */}

@@ -494,6 +494,7 @@ export type Database = {
           min_conversion: number | null
           min_followers: number | null
           passive_months: number | null
+          passive_per_client_eur: number | null
           passive_rate_percentage: number | null
           updated_at: string | null
         }
@@ -516,6 +517,7 @@ export type Database = {
           min_conversion?: number | null
           min_followers?: number | null
           passive_months?: number | null
+          passive_per_client_eur?: number | null
           passive_rate_percentage?: number | null
           updated_at?: string | null
         }
@@ -538,6 +540,7 @@ export type Database = {
           min_conversion?: number | null
           min_followers?: number | null
           passive_months?: number | null
+          passive_per_client_eur?: number | null
           passive_rate_percentage?: number | null
           updated_at?: string | null
         }

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { Settings, Users, TrendingUp, UserCheck } from 'lucide-react';
 
 interface ParametersPanelProps {
@@ -34,6 +35,16 @@ export function ParametersPanel({
 }: ParametersPanelProps) {
   const clients = Math.round(followers * (conversionRate / 100));
 
+  const handleFollowersInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || followersMin;
+    onFollowersChange(Math.min(Math.max(value, followersMin), followersMax));
+  };
+
+  const handleConversionInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value) || conversionMin;
+    onConversionChange(Math.min(Math.max(value, conversionMin), conversionMax));
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -52,23 +63,38 @@ export function ParametersPanel({
                 Liczba Obserwujących / Baza kontaktów
               </span>
             </div>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-emerald-600">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <Slider
+                  value={[followers]}
+                  onValueChange={(value) => onFollowersChange(value[0])}
+                  min={followersMin}
+                  max={followersMax}
+                  step={1000}
+                  className="py-2"
+                />
+              </div>
+              <Input
+                type="number"
+                value={followers}
+                onChange={handleFollowersInput}
+                min={followersMin}
+                max={followersMax}
+                step={1000}
+                className="w-24 text-center text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex justify-between text-xs text-muted-foreground flex-1 mr-24">
+                <span>{formatFollowers(followersMin)}</span>
+                <span>{formatFollowers(Math.round(followersMax / 2))}</span>
+                <span>{formatFollowers(followersMax)}</span>
+              </div>
+            </div>
+            <div className="text-center">
+              <span className="text-2xl font-bold text-emerald-600 transition-all duration-300">
                 {formatFollowers(followers)}
               </span>
-            </div>
-            <Slider
-              value={[followers]}
-              onValueChange={(value) => onFollowersChange(value[0])}
-              min={followersMin}
-              max={followersMax}
-              step={1000}
-              className="py-2"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{formatFollowers(followersMin)}</span>
-              <span>{formatFollowers(Math.round(followersMax / 2))}</span>
-              <span>{formatFollowers(followersMax)}</span>
             </div>
           </div>
 
@@ -80,23 +106,38 @@ export function ParametersPanel({
                 Szacowana Konwersja (%)
               </span>
             </div>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-emerald-600">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <Slider
+                  value={[conversionRate]}
+                  onValueChange={(value) => onConversionChange(value[0])}
+                  min={conversionMin}
+                  max={conversionMax}
+                  step={0.1}
+                  className="py-2"
+                />
+              </div>
+              <Input
+                type="number"
+                value={conversionRate.toFixed(1)}
+                onChange={handleConversionInput}
+                min={conversionMin}
+                max={conversionMax}
+                step={0.1}
+                className="w-24 text-center text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex justify-between text-xs text-muted-foreground flex-1 mr-24">
+                <span>{conversionMin}%</span>
+                <span>{((conversionMax + conversionMin) / 2).toFixed(1)}%</span>
+                <span>{conversionMax}%</span>
+              </div>
+            </div>
+            <div className="text-center">
+              <span className="text-2xl font-bold text-emerald-600 transition-all duration-300">
                 {conversionRate.toFixed(1)}%
               </span>
-            </div>
-            <Slider
-              value={[conversionRate]}
-              onValueChange={(value) => onConversionChange(value[0])}
-              min={conversionMin}
-              max={conversionMax}
-              step={0.1}
-              className="py-2"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{conversionMin}%</span>
-              <span>{((conversionMax + conversionMin) / 2).toFixed(1)}%</span>
-              <span>{conversionMax}%</span>
             </div>
           </div>
         </CardContent>
@@ -112,7 +153,7 @@ export function ParametersPanel({
                 Pozyskanych Klientów
               </span>
             </div>
-            <p className="text-4xl font-bold text-emerald-600">
+            <p className="text-4xl font-bold text-emerald-600 transition-all duration-300">
               {clients.toLocaleString('pl-PL')}
             </p>
           </div>

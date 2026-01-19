@@ -6,7 +6,7 @@ import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 interface IncomeBreakdownProps {
   clients: number;
   baseCommission: number;
-  passiveRatePercentage: number;
+  passivePerClientEur: number;
   passiveMonths: number;
   extensionBonusPerClient: number;
   extensionMonthsCount: number;
@@ -16,7 +16,7 @@ interface IncomeBreakdownProps {
 export function IncomeBreakdown({
   clients,
   baseCommission,
-  passiveRatePercentage,
+  passivePerClientEur,
   passiveMonths,
   extensionBonusPerClient,
   extensionMonthsCount,
@@ -34,7 +34,8 @@ export function IncomeBreakdown({
 
   const directCommission = clients * baseCommission;
   const volumeBonus = getVolumeBonus(clients);
-  const passiveIncome = directCommission * (passiveRatePercentage / 100) * passiveMonths;
+  // Fixed formula: passivePerClientEur per client per month
+  const passiveIncome = clients * passivePerClientEur * passiveMonths;
   const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
 
   const formatEUR = (value: number) => 
@@ -51,7 +52,7 @@ export function IncomeBreakdown({
     {
       icon: Wallet,
       label: 'Dochód Pasywny',
-      description: `Miesiące 2-${passiveMonths + 1} (${(baseCommission * passiveRatePercentage / 100).toFixed(0)}€/msc)`,
+      description: `Miesiące 2-${passiveMonths + 1} (${passivePerClientEur}€/msc)`,
       value: passiveIncome,
       highlight: false
     },
@@ -83,7 +84,7 @@ export function IncomeBreakdown({
         {items.map((item, index) => (
           <div key={item.label}>
             <div 
-              className={`flex items-center justify-between py-3 ${
+              className={`flex items-center justify-between py-3 transition-all duration-300 ${
                 item.highlight ? 'rounded-lg bg-emerald-50 dark:bg-emerald-950/30 px-3 -mx-3' : ''
               }`}
             >
@@ -96,7 +97,7 @@ export function IncomeBreakdown({
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
               </div>
-              <span className={`font-semibold ${item.highlight ? 'text-emerald-600' : 'text-foreground'}`}>
+              <span className={`font-semibold transition-all duration-300 ${item.highlight ? 'text-emerald-600' : 'text-foreground'}`}>
                 {formatEUR(item.value)}
               </span>
             </div>
