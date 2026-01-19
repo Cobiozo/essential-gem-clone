@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -35,9 +36,35 @@ const sliderToValue = (sliderPos: number): number => {
 };
 
 export function ClientSlider({ clients, onClientsChange, minClients, maxClients }: ClientSliderProps) {
+  const [inputValue, setInputValue] = useState(clients.toString());
+
+  // Sync when external value changes (e.g., from slider)
+  useEffect(() => {
+    setInputValue(clients.toString());
+  }, [clients]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value) || minClients;
-    onClientsChange(Math.min(Math.max(value, minClients), maxClients));
+    // Allow only digits
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    setInputValue(value);
+  };
+
+  const handleInputBlur = () => {
+    const parsed = parseInt(inputValue);
+    if (isNaN(parsed) || parsed < minClients) {
+      onClientsChange(minClients);
+    } else if (parsed > maxClients) {
+      onClientsChange(maxClients);
+    } else {
+      onClientsChange(parsed);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleInputBlur();
+      e.currentTarget.blur();
+    }
   };
 
   const handleSliderChange = (sliderValues: number[]) => {
@@ -79,11 +106,13 @@ export function ClientSlider({ clients, onClientsChange, minClients, maxClients 
             
             <div className="flex flex-col items-center">
               <Input
-                type="number"
-                value={clients}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={inputValue}
                 onChange={handleInputChange}
-                min={minClients}
-                max={maxClients}
+                onBlur={handleInputBlur}
+                onKeyDown={handleKeyDown}
                 className="w-20 text-center text-lg font-semibold"
               />
               <span className="text-xs text-muted-foreground mt-1">osób</span>

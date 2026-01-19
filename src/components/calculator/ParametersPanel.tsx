@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -35,14 +36,57 @@ export function ParametersPanel({
 }: ParametersPanelProps) {
   const clients = Math.round(followers * (conversionRate / 100));
 
-  const handleFollowersInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value) || followersMin;
-    onFollowersChange(Math.min(Math.max(value, followersMin), followersMax));
+  // Local state for text inputs
+  const [followersInput, setFollowersInput] = useState(followers.toString());
+  const [conversionInput, setConversionInput] = useState(conversionRate.toFixed(1));
+
+  // Sync when external values change (e.g., from sliders)
+  useEffect(() => {
+    setFollowersInput(followers.toString());
+  }, [followers]);
+
+  useEffect(() => {
+    setConversionInput(conversionRate.toFixed(1));
+  }, [conversionRate]);
+
+  const handleFollowersInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    setFollowersInput(value);
   };
 
-  const handleConversionInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value) || conversionMin;
-    onConversionChange(Math.min(Math.max(value, conversionMin), conversionMax));
+  const handleFollowersBlur = () => {
+    const parsed = parseInt(followersInput);
+    if (isNaN(parsed) || parsed < followersMin) {
+      onFollowersChange(followersMin);
+    } else if (parsed > followersMax) {
+      onFollowersChange(followersMax);
+    } else {
+      onFollowersChange(parsed);
+    }
+  };
+
+  const handleConversionInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow digits, one decimal point, and one digit after decimal
+    const value = e.target.value.replace(/[^0-9.]/g, '');
+    setConversionInput(value);
+  };
+
+  const handleConversionBlur = () => {
+    const parsed = parseFloat(conversionInput);
+    if (isNaN(parsed) || parsed < conversionMin) {
+      onConversionChange(conversionMin);
+    } else if (parsed > conversionMax) {
+      onConversionChange(conversionMax);
+    } else {
+      onConversionChange(parsed);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, onBlur: () => void) => {
+    if (e.key === 'Enter') {
+      onBlur();
+      e.currentTarget.blur();
+    }
   };
 
   return (
@@ -75,12 +119,13 @@ export function ParametersPanel({
                 />
               </div>
               <Input
-                type="number"
-                value={followers}
-                onChange={handleFollowersInput}
-                min={followersMin}
-                max={followersMax}
-                step={1000}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={followersInput}
+                onChange={handleFollowersInputChange}
+                onBlur={handleFollowersBlur}
+                onKeyDown={(e) => handleKeyDown(e, handleFollowersBlur)}
                 className="w-24 text-center text-sm"
               />
             </div>
@@ -118,12 +163,13 @@ export function ParametersPanel({
                 />
               </div>
               <Input
-                type="number"
-                value={conversionRate.toFixed(1)}
-                onChange={handleConversionInput}
-                min={conversionMin}
-                max={conversionMax}
-                step={0.1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9.]*"
+                value={conversionInput}
+                onChange={handleConversionInputChange}
+                onBlur={handleConversionBlur}
+                onKeyDown={(e) => handleKeyDown(e, handleConversionBlur)}
                 className="w-24 text-center text-sm"
               />
             </div>
