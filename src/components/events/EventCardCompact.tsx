@@ -332,7 +332,14 @@ Zapisz się tutaj: ${inviteUrl}
 
           {/* Title and host */}
           <div className="flex-1 text-left min-w-0">
-            <h3 className="font-semibold truncate text-sm">{event.title}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold truncate text-sm">{event.title}</h3>
+              {(event as any)._is_multi_occurrence && (
+                <Badge variant="outline" className="text-xs flex-shrink-0">
+                  Termin {((event as any)._occurrence_index ?? 0) + 1}
+                </Badge>
+              )}
+            </div>
             {event.host_name && (
               <span className="text-xs text-muted-foreground truncate block">{event.host_name}</span>
             )}

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { EventWithRegistration, EventButton, EventType } from '@/types/events';
+import { expandEventsForCalendar } from '@/hooks/useOccurrences';
 
 type PublicEventType = 'webinar' | 'team_training';
 
@@ -97,12 +98,16 @@ export const usePublicEvents = (eventType: PublicEventType) => {
             registration_count: countMap.get(event.id) || 0,
           }));
 
-          setEvents(eventsWithRegistration);
+          // Expand multi-occurrence events into separate entries
+          const expandedEvents = expandEventsForCalendar(eventsWithRegistration);
+          setEvents(expandedEvents);
         } else {
           setEvents([]);
         }
       } else {
-        setEvents(filteredEvents);
+        // Expand multi-occurrence events for non-logged users too
+        const expandedEvents = expandEventsForCalendar(filteredEvents);
+        setEvents(expandedEvents);
       }
     } catch (error) {
       console.error('Error fetching public events:', error);
