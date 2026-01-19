@@ -65,6 +65,7 @@ export interface SpecialistCalculatorUserAccess {
   granted_at: string;
   profiles?: {
     id: string;
+    user_id: string;
     first_name: string | null;
     last_name: string | null;
     email: string | null;
@@ -138,12 +139,18 @@ export function useSpecialistCalculatorUserAccess() {
     
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, email')
+      .select('user_id, first_name, last_name, email')
       .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
       .limit(10);
 
     if (error) throw error;
-    return data || [];
+    // Map user_id to id for component compatibility
+    return (data || []).map(user => ({
+      id: user.user_id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email
+    }));
   };
 
   const getUserAccess = async (): Promise<SpecialistCalculatorUserAccess[]> => {
@@ -166,15 +173,24 @@ export function useSpecialistCalculatorUserAccess() {
 
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, email')
-      .in('id', userIds);
+      .select('user_id, first_name, last_name, email')
+      .in('user_id', userIds);
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
     
-    return (data || []).map(access => ({
-      ...access,
-      profiles: profileMap.get(access.user_id)
-    }));
+    return (data || []).map(access => {
+      const profile = profileMap.get(access.user_id);
+      return {
+        ...access,
+        profiles: profile ? {
+          id: profile.user_id, // Map user_id to id for compatibility
+          user_id: profile.user_id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          email: profile.email
+        } : undefined
+      };
+    });
   };
 
   const grantAccess = useMutation({
