@@ -17,7 +17,7 @@ import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
-  const { events, loading, registerForEvent } = useEvents();
+  const { events, loading, registerForEvent, cancelRegistration } = useEvents();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -381,6 +381,13 @@ Zapisz się tutaj: ${inviteUrl}
           open={!!detailsEvent}
           onOpenChange={(open) => !open && setDetailsEvent(null)}
           onRegister={registerForEvent}
+          onCancelRegistration={async (eventId) => {
+            const confirmed = window.confirm('Czy na pewno chcesz anulować rezerwację?');
+            if (!confirmed) return;
+            await cancelRegistration(eventId);
+            setDetailsEvent(null);
+            window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
+          }}
         />
       </CardContent>
     </Card>
