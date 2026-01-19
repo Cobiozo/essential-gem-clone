@@ -57,6 +57,7 @@ export const GoogleCalendarSetupGuide = () => {
   const redirectUri = 'https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/google-oauth-callback';
   const scopes = [
     'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/calendar.readonly', // Required for FreeBusy API (checking busy times)
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
   ];

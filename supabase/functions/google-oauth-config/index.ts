@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
       configured: true,
       client_id: GOOGLE_CLIENT_ID,
       redirect_uri: redirectUri,
-      scope: 'https://www.googleapis.com/auth/calendar.events',
+      // calendar.events for creating/updating events, calendar.readonly for FreeBusy API (checking busy times)
+      scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
