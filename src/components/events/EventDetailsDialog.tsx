@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X } from 'lucide-react';
 import { format, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +19,7 @@ interface EventDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRegister: (eventId: string) => void;
+  onCancelRegistration?: (eventId: string) => void;
 }
 
 export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
@@ -26,6 +27,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   open,
   onOpenChange,
   onRegister,
+  onCancelRegistration,
 }) => {
   const { language } = useLanguage();
   const locale = language === 'pl' ? pl : enUS;
@@ -41,6 +43,13 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const isEnded = isAfter(now, eventEnd);
   const isLive = isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd);
   const canJoin = event.is_registered && isLive && event.zoom_link;
+  const showMeetingLink = event.is_registered && event.zoom_link && !isEnded;
+  
+  // Cancel allowed if more than 2 hours before meeting for individual meetings
+  const minutesUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60);
+  const canCancel = event.is_registered && 
+    ['tripartite_meeting', 'partner_consultation'].includes(event.event_type) && 
+    minutesUntilEvent > 120;
 
   const handleRegister = () => {
     onRegister(event.id);
@@ -105,10 +114,14 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                   </span>
                 </div>
 
-                {event.host_name && (
+                {(event.host_name || event.host_profile) && (
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{event.host_name}</span>
+                    <span>
+                      {event.host_profile 
+                        ? `${event.host_profile.first_name || ''} ${event.host_profile.last_name || ''}`.trim()
+                        : event.host_name}
+                    </span>
                   </div>
                 )}
 
@@ -142,6 +155,21 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 
             {/* Action buttons */}
             <div className="pt-4 border-t space-y-2">
+              {/* Meeting link visible for registered users before meeting ends */}
+              {showMeetingLink && !canJoin && (
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                  <Video className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <a 
+                    href={event.zoom_link!} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-sm text-primary hover:underline truncate flex-1"
+                  >
+                    Link do spotkania
+                  </a>
+                </div>
+              )}
+
               {canJoin && (
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700" asChild>
                   <a href={event.zoom_link!} target="_blank" rel="noopener noreferrer">
@@ -162,6 +190,18 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               ) : (
                 <Button className="w-full" onClick={handleRegister}>
                   Zapisz się
+                </Button>
+              )}
+
+              {/* Cancel button for individual meetings (more than 2h before) */}
+              {canCancel && onCancelRegistration && (
+                <Button 
+                  variant="destructive" 
+                  className="w-full"
+                  onClick={() => onCancelRegistration(event.id)}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Anuluj rezerwację
                 </Button>
               )}
             </div>
