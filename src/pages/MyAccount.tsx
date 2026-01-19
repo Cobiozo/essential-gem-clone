@@ -24,7 +24,7 @@ import { ProfileCompletionForm } from '@/components/profile/ProfileCompletionFor
 import { ProfileCompletionBanner } from '@/components/profile/ProfileCompletionGuard';
 import { SpecialistCorrespondence } from '@/components/specialist-correspondence';
 import { PrivateChatWidget } from '@/components/private-chat';
-import { CommunicationCenter } from '@/components/communication';
+import { CommunicationCenterV2 } from '@/components/communication';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
@@ -879,7 +879,7 @@ const MyAccount = () => {
 
             {visibleTabs.communication && (
               <TabsContent value="communication" className="mt-6">
-                <CommunicationCenter />
+                <CommunicationCenterV2 />
               </TabsContent>
             )}
 

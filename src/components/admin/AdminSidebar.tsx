@@ -48,6 +48,7 @@ import {
   HelpCircle,
   UserPlus,
   Calculator,
+  MessageSquare,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -90,6 +91,7 @@ const SIDEBAR_KEYS = {
   adminPanel: 'admin.sidebar.adminPanel',
   administrator: 'admin.sidebar.administrator',
   calculator: 'admin.sidebar.calculator',
+  chatPermissions: 'admin.sidebar.chatPermissions',
 };
 
 interface AdminSidebarProps {
@@ -176,6 +178,7 @@ const navCategories: NavCategory[] = [
     items: [
       { value: 'translations', labelKey: 'translations', icon: Languages },
       { value: 'team-contacts', labelKey: 'teamContacts', icon: Users },
+      { value: 'chat-permissions', labelKey: 'chatPermissions', icon: MessageSquare },
       { value: 'notifications', labelKey: 'notifications', icon: Bell },
       { value: 'emails', labelKey: 'email', icon: Mail },
       { value: 'support', labelKey: 'support', icon: HelpCircle },
@@ -219,6 +222,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const hardcodedLabels: Record<string, string> = {
     calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
+    chatPermissions: 'Kierunki komunikacji',
   };
 
   const getLabel = (key: string): string => {
