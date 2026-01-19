@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useToast } from "@/hooks/use-toast";
 import { MediaUpload } from "@/components/MediaUpload";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ActionButtonsEditor } from "./ActionButtonsEditor";
 import { ModuleResourcesSelector } from "./ModuleResourcesSelector";
@@ -145,6 +146,7 @@ const TrainingManagement = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { generateCertificate } = useCertificateGeneration();
+  const { deleteFile } = useLocalStorage();
 
   useEffect(() => {
     fetchModules();
@@ -292,6 +294,19 @@ const TrainingManagement = () => {
       };
 
       if (editingLesson) {
+        // Check if media_url changed - delete old file if replaced
+        const oldMediaUrl = editingLesson.media_url;
+        const newMediaUrl = lessonData.media_url;
+        
+        if (oldMediaUrl && newMediaUrl && oldMediaUrl !== newMediaUrl) {
+          // Delete old media file from VPS/Supabase
+          console.log('🗑️ Deleting old media file:', oldMediaUrl);
+          const deleteResult = await deleteFile(oldMediaUrl);
+          if (!deleteResult.success) {
+            console.warn('Could not delete old media file:', deleteResult.error);
+          }
+        }
+        
         const { error } = await supabase
           .from('training_lessons')
           .update(dbData)
