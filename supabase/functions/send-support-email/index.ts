@@ -209,12 +209,11 @@ serve(async (req) => {
       );
     }
 
-    // Fetch SMTP settings
+    // Fetch SMTP settings (column names are smtp_host, smtp_port, etc.)
     const { data: smtpSettings, error: smtpError } = await supabase
       .from('smtp_settings')
       .select('*')
       .eq('is_active', true)
-      .order('priority', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -227,9 +226,9 @@ serve(async (req) => {
     }
 
     console.log('[send-support-email] SMTP config loaded:', {
-      host: smtpSettings.host,
-      port: smtpSettings.port,
-      encryption: smtpSettings.encryption,
+      host: smtpSettings.smtp_host,
+      port: smtpSettings.smtp_port,
+      encryption: smtpSettings.smtp_encryption,
     });
 
     // Fetch support settings to get target email
@@ -297,13 +296,13 @@ serve(async (req) => {
     // Send email via SMTP with Reply-To header
     const smtpResult = await sendSmtpEmail(
       {
-        host: smtpSettings.host,
-        port: smtpSettings.port,
-        encryption: smtpSettings.encryption,
-        username: smtpSettings.username,
-        password: smtpSettings.password,
-        from_email: smtpSettings.from_email,
-        from_name: smtpSettings.from_name || 'Pure Life Support',
+        host: smtpSettings.smtp_host,
+        port: smtpSettings.smtp_port,
+        encryption: smtpSettings.smtp_encryption,
+        username: smtpSettings.smtp_username,
+        password: smtpSettings.smtp_password,
+        from_email: smtpSettings.sender_email,
+        from_name: smtpSettings.sender_name || 'Pure Life Support',
       },
       targetEmail,
       `[Wsparcie] ${subject}`,
