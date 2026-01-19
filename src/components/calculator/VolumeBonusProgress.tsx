@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { TrendingUp, Check } from 'lucide-react';
+import { Award, CheckCircle, Circle } from 'lucide-react';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface VolumeBonusProgressProps {
@@ -8,137 +7,88 @@ interface VolumeBonusProgressProps {
   thresholds: VolumeThreshold[];
 }
 
-// Generate colors for thresholds based on position
-const getThresholdColor = (index: number, total: number): string => {
-  const colors = ['#6b7280', '#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'];
-  return colors[index % colors.length];
-};
-
 export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgressProps) {
   if (thresholds.length === 0) return null;
 
-  // Sort by position
   const sortedThresholds = [...thresholds].sort((a, b) => (a.position || 0) - (b.position || 0));
   
-  // Find current and next threshold
-  let currentThreshold: VolumeThreshold | null = null;
-  let nextThreshold: VolumeThreshold | null = null;
-
-  for (let i = 0; i < sortedThresholds.length; i++) {
-    const threshold = sortedThresholds[i];
+  // Find highest achieved threshold
+  let highestAchieved: VolumeThreshold | null = null;
+  for (const threshold of sortedThresholds) {
     if (clients >= threshold.threshold_clients) {
-      currentThreshold = threshold;
-      nextThreshold = sortedThresholds[i + 1] || null;
+      highestAchieved = threshold;
     }
   }
 
-  if (!currentThreshold && sortedThresholds.length > 0) {
-    nextThreshold = sortedThresholds[0];
-  }
+  const allAchieved = highestAchieved && sortedThresholds.indexOf(highestAchieved) === sortedThresholds.length - 1;
 
-  // Calculate progress to next tier
-  let progressPercent = 0;
-  let progressLabel = '';
+  // Calculate total earned bonus
+  const totalBonus = sortedThresholds
+    .filter(t => clients >= t.threshold_clients)
+    .reduce((sum, t) => sum + t.bonus_amount, 0);
 
-  if (nextThreshold) {
-    const startValue = currentThreshold?.threshold_clients || 0;
-    const endValue = nextThreshold.threshold_clients;
-    const current = clients - startValue;
-    const total = endValue - startValue;
-    progressPercent = Math.min((current / total) * 100, 100);
-    progressLabel = `${clients} / ${nextThreshold.threshold_clients}`;
-  } else if (currentThreshold) {
-    progressPercent = 100;
-    progressLabel = 'Osiągnięto maksymalny poziom!';
-  }
+  const formatClients = (value: number): string => {
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(0)} tys.`;
+    }
+    return value.toString();
+  };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          Progi bonusowe
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Award className="h-4 w-4 text-emerald-600" />
+          Bonusy Wolumenowe
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Current tier indicator */}
-        {currentThreshold && (
-          <div className="rounded-lg bg-primary/10 p-3">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Aktualny poziom</span>
-              <span 
-                className="rounded-full px-3 py-1 text-sm font-semibold text-white"
-                style={{ backgroundColor: getThresholdColor(sortedThresholds.indexOf(currentThreshold), sortedThresholds.length) }}
-              >
-                {currentThreshold.threshold_clients}+ klientów (+{currentThreshold.bonus_amount} zł)
-              </span>
-            </div>
+      <CardContent className="space-y-3">
+        {/* Total earned */}
+        {totalBonus > 0 && (
+          <div className="text-center py-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 mb-3">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">Suma bonusów</p>
+            <p className="text-xl font-bold text-emerald-600">+{totalBonus.toLocaleString('pl-PL')} €</p>
           </div>
         )}
 
-        {/* Progress to next tier */}
-        {nextThreshold && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                Postęp do następnego poziomu
-              </span>
-              <span className="font-medium">{progressLabel}</span>
-            </div>
-            <Progress value={progressPercent} className="h-3" />
-            <p className="text-xs text-muted-foreground">
-              Następny poziom: {nextThreshold.threshold_clients}+ klientów (+{nextThreshold.bonus_amount} zł)
+        {/* Thresholds list */}
+        <div className="space-y-1">
+          {sortedThresholds.map((threshold) => {
+            const isAchieved = clients >= threshold.threshold_clients;
+            
+            return (
+              <div
+                key={threshold.id}
+                className={`flex items-center justify-between py-2 px-2 rounded-md transition-all ${
+                  isAchieved ? 'bg-emerald-50 dark:bg-emerald-950/20' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {isAchieved ? (
+                    <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                  )}
+                  <span className={`text-sm ${isAchieved ? 'font-medium' : 'text-muted-foreground'}`}>
+                    {formatClients(threshold.threshold_clients)} klientów
+                  </span>
+                </div>
+                <span className={`text-sm font-semibold ${isAchieved ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                  +{threshold.bonus_amount} €
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Max threshold indicator */}
+        {allAchieved && (
+          <div className="text-center pt-2">
+            <p className="text-xs text-emerald-600 font-medium">
+              ✨ Maksymalny próg osiągnięty!
             </p>
           </div>
         )}
-
-        {/* All tiers visualization */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">
-            Wszystkie poziomy
-          </p>
-          <div className="grid gap-2">
-            {sortedThresholds.map((threshold, index) => {
-              const isAchieved = clients >= threshold.threshold_clients;
-              const isCurrent = currentThreshold?.id === threshold.id;
-              const color = getThresholdColor(index, sortedThresholds.length);
-              
-              return (
-                <div
-                  key={threshold.id}
-                  className={`flex items-center justify-between rounded-lg border p-2 transition-all ${
-                    isCurrent 
-                      ? 'border-primary bg-primary/5' 
-                      : isAchieved 
-                        ? 'border-green-500/30 bg-green-500/5' 
-                        : 'border-muted'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {isAchieved && (
-                      <Check className="h-4 w-4 text-green-500" />
-                    )}
-                    <span 
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className={`text-sm ${isAchieved ? 'font-medium' : 'text-muted-foreground'}`}>
-                      Poziom {index + 1}
-                    </span>
-                  </div>
-                  <div className="text-right text-sm">
-                    <span className={isAchieved ? 'font-semibold text-green-600' : 'text-muted-foreground'}>
-                      +{threshold.bonus_amount} zł
-                    </span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({threshold.threshold_clients}+ klientów)
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </CardContent>
     </Card>
   );
