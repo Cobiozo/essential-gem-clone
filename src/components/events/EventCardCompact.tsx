@@ -69,6 +69,9 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const canJoinSoon = minutesUntilStart <= 15 && minutesUntilStart > 0;
   const durationMinutes = event.duration_minutes || differenceInMinutes(endDate, startDate);
 
+  // Get occurrence index for multi-occurrence events
+  const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
+
   const handleRegister = async () => {
     if (!user) {
       toast({
@@ -82,7 +85,8 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
     setRegistering(true);
     try {
       if (isRegistered) {
-        const { error } = await supabase
+        // Build cancel query with occurrence_index
+        let query = supabase
           .from('event_registrations')
           .update({ 
             status: 'cancelled', 
@@ -90,6 +94,14 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
           })
           .eq('event_id', event.id)
           .eq('user_id', user.id);
+        
+        if (occurrenceIndex !== undefined) {
+          query = query.eq('occurrence_index', occurrenceIndex);
+        } else {
+          query = query.is('occurrence_index', null);
+        }
+        
+        const { error } = await query;
         
         if (error) throw error;
         setIsRegistered(false);
@@ -100,18 +112,26 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'delete' }
+            body: { user_id: user.id, event_id: event.id, action: 'delete', occurrence_index: occurrenceIndex }
           });
         } catch (syncErr) {
           console.error('[EventCardCompact] Google Calendar sync (delete) failed:', syncErr);
         }
       } else {
-        const { data: existingReg } = await supabase
+        // Check for existing registration with occurrence_index
+        let checkQuery = supabase
           .from('event_registrations')
           .select('id, status')
           .eq('event_id', event.id)
-          .eq('user_id', user.id)
-          .maybeSingle();
+          .eq('user_id', user.id);
+        
+        if (occurrenceIndex !== undefined) {
+          checkQuery = checkQuery.eq('occurrence_index', occurrenceIndex);
+        } else {
+          checkQuery = checkQuery.is('occurrence_index', null);
+        }
+        
+        const { data: existingReg } = await checkQuery.maybeSingle();
 
         if (existingReg) {
           const { error } = await supabase
@@ -131,6 +151,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
               event_id: event.id,
               user_id: user.id,
               status: 'registered',
+              occurrence_index: occurrenceIndex ?? null,
             });
 
           if (error) throw error;
@@ -144,7 +165,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'create' }
+            body: { user_id: user.id, event_id: event.id, action: 'create', occurrence_index: occurrenceIndex }
           });
         } catch (syncErr) {
           console.error('[EventCardCompact] Google Calendar sync (create) failed:', syncErr);

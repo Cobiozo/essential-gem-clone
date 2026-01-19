@@ -136,26 +136,41 @@ export const useOccurrences = (event: EventWithRegistration | null) => {
 export const expandEventsForCalendar = (events: EventWithRegistration[]): EventWithRegistration[] => {
   const result: EventWithRegistration[] = [];
   
+  // Get registration map from global (set by useEvents.fetchEvents)
+  const registrationMap = (window as any).__eventRegistrationMap as Map<string, boolean> | undefined;
+  
   events.forEach(event => {
     if (isMultiOccurrenceEvent(event)) {
       // Multi-occurrence: expand each future occurrence as separate entry
       const futureOccurrences = getFutureOccurrences(event);
       
       futureOccurrences.forEach(occ => {
+        // Check if user is registered for THIS specific occurrence
+        const registrationKey = `${event.id}:${occ.index}`;
+        const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? false;
+        
         result.push({
           ...event,
           // Override start/end times with occurrence times
           start_time: occ.start_datetime.toISOString(),
           end_time: occ.end_datetime.toISOString(),
           duration_minutes: occ.duration_minutes,
+          // Set per-occurrence registration status
+          is_registered: isRegisteredForOccurrence,
           // Add occurrence tracking
           _occurrence_index: occ.index,
           _is_multi_occurrence: true,
         } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean });
       });
     } else {
-      // Single occurrence: keep as-is
-      result.push(event);
+      // Single occurrence: keep as-is (registration check uses null occurrence_index)
+      const registrationKey = `${event.id}:null`;
+      const isRegisteredForEvent = registrationMap?.get(registrationKey) ?? event.is_registered ?? false;
+      
+      result.push({
+        ...event,
+        is_registered: isRegisteredForEvent,
+      });
     }
   });
   

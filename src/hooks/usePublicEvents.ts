@@ -62,11 +62,21 @@ export const usePublicEvents = (eventType: PublicEventType) => {
         if (eventIds.length > 0) {
           const { data: registrations } = await supabase
             .from('event_registrations')
-            .select('event_id')
+            .select('event_id, occurrence_index')
             .eq('user_id', user.id)
             .eq('status', 'registered')
             .in('event_id', eventIds);
 
+          // Create registration map for per-occurrence tracking
+          const registrationMap = new Map<string, boolean>(
+            (registrations || []).map(r => [
+              `${r.event_id}:${r.occurrence_index ?? 'null'}`,
+              true
+            ])
+          );
+          // Store in global for expandEventsForCalendar to use
+          (window as any).__eventRegistrationMap = registrationMap;
+          
           const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
           
           // Get registration counts for events
