@@ -48,9 +48,9 @@ const TeamMeetingsPage: React.FC = () => {
           
           {upcomingEvents.length > 0 ? (
             <div className="space-y-2">
-              {upcomingEvents.map((event, index) => (
+              {upcomingEvents.map((event) => (
                 <EventCardCompact 
-                  key={`${event.id}-${(event as any)._occurrence_index ?? index}`} 
+                  key={event.id} 
                   event={event} 
                   onRegister={refetch}
                   defaultOpen={event.id === highlightedEventId}
@@ -79,9 +79,9 @@ const TeamMeetingsPage: React.FC = () => {
             </h2>
             
             <div className="space-y-2 opacity-70">
-              {pastEvents.slice(0, 6).map((event, index) => (
+              {pastEvents.slice(0, 6).map((event) => (
                 <EventCardCompact 
-                  key={`${event.id}-${(event as any)._occurrence_index ?? index}`} 
+                  key={event.id} 
                   event={event} 
                   showRegistration={false}
                 />
