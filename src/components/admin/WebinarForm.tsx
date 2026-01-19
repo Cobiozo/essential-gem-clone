@@ -147,7 +147,9 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         is_published: editingWebinar.is_published ?? true,
         guest_link: editingWebinar.guest_link || '',
         registration_form_config: parsedFormConfig || defaultRegistrationFormConfig,
-      });
+        allow_invites: (editingWebinar as any).allow_invites ?? false,
+        publish_at: (editingWebinar as any).publish_at || null,
+      } as any);
       setImageUrlInput(editingWebinar.image_url || '');
       
       // Load existing Zoom API data (from dynamic properties)
@@ -234,6 +236,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         is_published: form.is_published,
         guest_link: form.guest_link || null,
         registration_form_config: JSON.parse(JSON.stringify(form.registration_form_config)) as Json,
+        allow_invites: (form as any).allow_invites || false,
+        publish_at: (form as any).publish_at || null,
       };
 
       let error;
@@ -450,14 +454,52 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           </div>
         </div>
 
+        {/* Allow invites toggle */}
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={(form as any).allow_invites || false}
+            onCheckedChange={(checked) => setForm({ ...form, allow_invites: checked } as any)}
+          />
+          <Label className="text-muted-foreground">Zezwól na zapraszanie gości</Label>
+        </div>
+
         {/* Publish immediately toggle */}
         <div className="flex items-center gap-3">
           <Switch
             checked={form.is_published}
-            onCheckedChange={(checked) => setForm({ ...form, is_published: checked })}
+            onCheckedChange={(checked) => setForm({ ...form, is_published: checked, publish_at: checked ? null : (form as any).publish_at } as any)}
           />
           <Label className="text-muted-foreground">{t('admin.webinar.publishImmediately')}</Label>
         </div>
+
+        {/* Scheduled publication (when publish immediately is OFF) */}
+        {!form.is_published && (
+          <div className="space-y-2 pl-6">
+            <Label className="text-muted-foreground font-medium">Zaplanowana data publikacji</Label>
+            <div className="relative">
+              <Input
+                type="datetime-local"
+                value={(form as any).publish_at ? format(new Date((form as any).publish_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const [datePart, timePart] = e.target.value.split('T');
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    const [hours, minutes] = timePart.split(':').map(Number);
+                    const localDate = new Date(year, month - 1, day, hours, minutes);
+                    setForm({ ...form, publish_at: localDate.toISOString() } as any);
+                  } else {
+                    setForm({ ...form, publish_at: null } as any);
+                  }
+                }}
+                className="h-10 pl-10"
+              />
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Wydarzenie zostanie automatycznie opublikowane w podanym terminie
+            </p>
+          </div>
+        )}
 
         {/* Reminders Section */}
         <Collapsible open={remindersOpen} onOpenChange={setRemindersOpen}>

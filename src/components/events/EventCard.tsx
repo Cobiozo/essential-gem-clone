@@ -331,8 +331,8 @@ Zapisz się tutaj: ${inviteUrl}
       );
     }
 
-    // Invite guest button (for upcoming webinars)
-    if (isUpcoming && !isPastEvent && event.event_type === 'webinar') {
+    // Invite guest button - only if admin enabled allow_invites for this event
+    if (isUpcoming && !isPastEvent && (event as any).allow_invites === true) {
       buttons.push(
         <Button
           key="invite-guest"

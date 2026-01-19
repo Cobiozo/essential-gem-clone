@@ -1915,6 +1915,7 @@ export type Database = {
       }
       events: {
         Row: {
+          allow_invites: boolean | null
           buttons: Json | null
           created_at: string | null
           created_by: string
@@ -1934,6 +1935,7 @@ export type Database = {
           max_participants: number | null
           meeting_topic_id: string | null
           occurrences: Json | null
+          publish_at: string | null
           registration_form_config: Json | null
           requires_registration: boolean | null
           sms_reminder_enabled: boolean | null
@@ -1954,6 +1956,7 @@ export type Database = {
           zoom_start_url: string | null
         }
         Insert: {
+          allow_invites?: boolean | null
           buttons?: Json | null
           created_at?: string | null
           created_by: string
@@ -1973,6 +1976,7 @@ export type Database = {
           max_participants?: number | null
           meeting_topic_id?: string | null
           occurrences?: Json | null
+          publish_at?: string | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
@@ -1993,6 +1997,7 @@ export type Database = {
           zoom_start_url?: string | null
         }
         Update: {
+          allow_invites?: boolean | null
           buttons?: Json | null
           created_at?: string | null
           created_by?: string
@@ -2012,6 +2017,7 @@ export type Database = {
           max_participants?: number | null
           meeting_topic_id?: string | null
           occurrences?: Json | null
+          publish_at?: string | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
@@ -3094,6 +3100,7 @@ export type Database = {
       }
       page_settings: {
         Row: {
+          app_base_url: string | null
           column_count: number
           created_at: string
           favicon_url: string | null
@@ -3106,6 +3113,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          app_base_url?: string | null
           column_count?: number
           created_at?: string
           favicon_url?: string | null
@@ -3118,6 +3126,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          app_base_url?: string | null
           column_count?: number
           created_at?: string
           favicon_url?: string | null
