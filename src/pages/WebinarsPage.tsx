@@ -1,6 +1,6 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { EventCard } from '@/components/events/EventCard';
+import { EventCardCompact } from '@/components/events/EventCardCompact';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -22,7 +22,7 @@ const WebinarsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-lg bg-primary/10">
@@ -38,15 +38,15 @@ const WebinarsPage: React.FC = () => {
 
         {/* Upcoming Webinars */}
         <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
             Nadchodzące webinary
           </h2>
           
           {upcomingEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-2">
               {upcomingEvents.map((event) => (
-                <EventCard 
+                <EventCardCompact 
                   key={event.id} 
                   event={event} 
                   onRegister={refetch}
@@ -66,17 +66,17 @@ const WebinarsPage: React.FC = () => {
           )}
         </section>
 
-        {/* Past Webinars (optional) */}
+        {/* Past Webinars */}
         {pastEvents.length > 0 && (
           <section>
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
               Zakończone webinary
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-70">
+            <div className="space-y-2 opacity-70">
               {pastEvents.slice(0, 6).map((event) => (
-                <EventCard 
+                <EventCardCompact 
                   key={event.id} 
                   event={event} 
                   showRegistration={false}
