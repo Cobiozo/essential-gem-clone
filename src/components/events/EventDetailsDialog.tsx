@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { pl, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EventWithRegistration } from '@/types/events';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
 
 interface EventDetailsDialogProps {
   event: EventWithRegistration | null;
@@ -31,6 +32,30 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 }) => {
   const { language } = useLanguage();
   const locale = language === 'pl' ? pl : enUS;
+  const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
+
+  // Fetch zoom_link from leader_permissions if event doesn't have one
+  useEffect(() => {
+    const fetchDynamicZoomLink = async () => {
+      if (!event?.zoom_link && 
+          event?.host_user_id && 
+          ['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
+        
+        const { data } = await supabase
+          .from('leader_permissions')
+          .select('zoom_link')
+          .eq('user_id', event.host_user_id)
+          .maybeSingle();
+        
+        if (data?.zoom_link) {
+          setDynamicZoomLink(data.zoom_link);
+        }
+      }
+    };
+    
+    setDynamicZoomLink(null); // Reset when event changes
+    if (event) fetchDynamicZoomLink();
+  }, [event]);
 
   if (!event) return null;
 
@@ -40,10 +65,13 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const fifteenMinutesBefore = subMinutes(eventStart, 15);
   const durationMinutes = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60));
 
+  // Use dynamic zoom link as fallback
+  const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
+
   const isEnded = isAfter(now, eventEnd);
   const isLive = isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd);
-  const canJoin = event.is_registered && isLive && event.zoom_link;
-  const showMeetingLink = event.is_registered && event.zoom_link && !isEnded;
+  const canJoin = event.is_registered && isLive && effectiveZoomLink;
+  const showMeetingLink = event.is_registered && effectiveZoomLink && !isEnded;
   
   // Cancel allowed if more than 2 hours before meeting for individual meetings
   const minutesUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60);
@@ -160,7 +188,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                   <Video className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <a 
-                    href={event.zoom_link!} 
+                    href={effectiveZoomLink!} 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="text-sm text-primary hover:underline truncate flex-1"
@@ -172,7 +200,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 
               {canJoin && (
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700" asChild>
-                  <a href={event.zoom_link!} target="_blank" rel="noopener noreferrer">
+                  <a href={effectiveZoomLink!} target="_blank" rel="noopener noreferrer">
                     <Video className="h-4 w-4 mr-2" />
                     Dołącz do spotkania
                   </a>
