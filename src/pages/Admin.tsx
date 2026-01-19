@@ -47,6 +47,7 @@ import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagem
 import TranslationsManagement from '@/components/admin/TranslationsManagement';
 import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
+import { ChatPermissionsManagement } from '@/components/admin/ChatPermissionsManagement';
 import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
 import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
@@ -4354,6 +4355,10 @@ const Admin = () => {
 
           <TabsContent value="notifications">
             <NotificationSystemManagement />
+          </TabsContent>
+
+          <TabsContent value="chat-permissions">
+            <ChatPermissionsManagement />
           </TabsContent>
 
           <TabsContent value="emails">
