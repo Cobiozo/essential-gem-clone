@@ -283,39 +283,52 @@ export function CalculatorManagement() {
             <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Prowizja bazowa za klienta (PLN)</Label>
+                  <Label>Prowizja bazowa za klienta (€)</Label>
                   <Input
                     type="number"
                     value={localSettings.base_commission_per_client || 0}
                     onChange={(e) => handleSettingChange('base_commission_per_client', parseFloat(e.target.value))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Prowizja za 1. miesiąc za każdego klienta
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Stawka dochodu pasywnego (%)</Label>
+                  <Label>Dochód pasywny za klienta (€/msc)</Label>
                   <Input
                     type="number"
-                    value={localSettings.passive_rate_percentage || 0}
-                    onChange={(e) => handleSettingChange('passive_rate_percentage', parseFloat(e.target.value))}
+                    step="0.01"
+                    value={localSettings.passive_per_client_eur || 5}
+                    onChange={(e) => handleSettingChange('passive_per_client_eur', parseFloat(e.target.value))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Stała kwota za każdego klienta miesięcznie (miesiące 2-6)
+                  </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Liczba miesięcy dochodu pasywnego</Label>
                   <Input
                     type="number"
-                    value={localSettings.passive_months || 12}
+                    value={localSettings.passive_months || 5}
                     onChange={(e) => handleSettingChange('passive_months', parseInt(e.target.value))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Miesiące 2-6 = 5 miesięcy dochodu pasywnego
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Bonus za przedłużenie (PLN/klient)</Label>
+                  <Label>Bonus za przedłużenie (€/klient)</Label>
                   <Input
                     type="number"
                     value={localSettings.extension_bonus_per_client || 0}
                     onChange={(e) => handleSettingChange('extension_bonus_per_client', parseFloat(e.target.value))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Bonus za każdego klienta w miesiącu 4 i 6
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -363,7 +376,7 @@ export function CalculatorManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Min. klientów</TableHead>
-                    <TableHead>Bonus (PLN)</TableHead>
+                    <TableHead>Bonus (€)</TableHead>
                     <TableHead>Pozycja</TableHead>
                     <TableHead>Akcje</TableHead>
                   </TableRow>

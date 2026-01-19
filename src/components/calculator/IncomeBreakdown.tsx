@@ -23,13 +23,11 @@ export function IncomeBreakdown({
   thresholds
 }: IncomeBreakdownProps) {
   
+  // Sum ALL achieved thresholds (not just highest one)
   const getVolumeBonus = (clientCount: number): number => {
-    for (const threshold of [...thresholds].reverse()) {
-      if (clientCount >= threshold.threshold_clients) {
-        return threshold.bonus_amount;
-      }
-    }
-    return 0;
+    return thresholds
+      .filter(t => clientCount >= t.threshold_clients)
+      .reduce((sum, t) => sum + t.bonus_amount, 0);
   };
 
   const directCommission = clients * baseCommission;
