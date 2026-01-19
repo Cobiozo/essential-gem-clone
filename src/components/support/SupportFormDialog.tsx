@@ -139,7 +139,7 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
 
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-support-email', {
+      const { data, error } = await supabase.functions.invoke('send-support-email', {
         body: {
           name: formData.name,
           email: formData.email,
@@ -149,7 +149,17 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
         },
       });
 
-      if (error) throw error;
+      // Check for invoke error
+      if (error) {
+        console.error('Edge function invoke error:', error);
+        throw new Error(error.message || 'Błąd wywołania funkcji');
+      }
+
+      // Check for business logic error in response
+      if (data && !data.success) {
+        console.error('Edge function returned error:', data.error);
+        throw new Error(data.error || 'Nie udało się wysłać wiadomości');
+      }
 
       toast({
         title: 'Sukces',
@@ -161,9 +171,16 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error sending support email:', error);
+      
+      // Provide more detailed error message
+      let errorMessage = settings?.error_message || 'Nie udało się wysłać wiadomości';
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Błąd',
-        description: settings?.error_message || 'Nie udało się wysłać wiadomości',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

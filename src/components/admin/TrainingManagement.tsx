@@ -27,6 +27,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Plus, 
   Edit, 
@@ -52,7 +54,8 @@ import {
   Play,
   Search,
   CheckCircle,
-  MoreVertical
+  MoreVertical,
+  ChevronDown
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -108,6 +111,7 @@ interface UserProgress {
   email: string;
   first_name: string;
   last_name: string;
+  eq_id?: string;
   modules: {
     module_id: string;
     module_title: string;
@@ -141,12 +145,24 @@ const TrainingManagement = () => {
   const [progressLoading, setProgressLoading] = useState(false);
   const [certificateHistory, setCertificateHistory] = useState<Record<string, CertificateHistory[]>>({});
   const [regeneratingCert, setRegeneratingCert] = useState<string | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const { toast } = useToast();
   const { t } = useTranslations();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { generateCertificate } = useCertificateGeneration();
   const { deleteFile } = useLocalStorage();
+
+  // Filter users by search query
+  const filteredUserProgress = useMemo(() => {
+    if (!userSearchQuery.trim()) return userProgress;
+    const query = userSearchQuery.toLowerCase();
+    return userProgress.filter(u => 
+      `${u.first_name} ${u.last_name}`.toLowerCase().includes(query) ||
+      u.email?.toLowerCase().includes(query) ||
+      (u as any).eq_id?.toLowerCase().includes(query)
+    );
+  }, [userProgress, userSearchQuery]);
 
   useEffect(() => {
     fetchModules();
@@ -974,6 +990,17 @@ const TrainingManagement = () => {
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-4">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj użytkownika (imię, nazwisko, EQID)..."
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
           {progressLoading ? (
             <Card>
               <CardContent className="pt-6">
@@ -982,129 +1009,108 @@ const TrainingManagement = () => {
                 </div>
               </CardContent>
             </Card>
-          ) : userProgress.length === 0 ? (
+          ) : filteredUserProgress.length === 0 ? (
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Brak przypisanych szkoleń</p>
-                  <p className="text-sm mt-2">Przypisz moduły szkoleniowe użytkownikom w zakładce "Moduły"</p>
+                  <p>{userSearchQuery ? 'Nie znaleziono użytkowników' : 'Brak przypisanych szkoleń'}</p>
+                  {!userSearchQuery && <p className="text-sm mt-2">Przypisz moduły szkoleniowe użytkownikom w zakładce "Moduły"</p>}
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {userProgress.map((progressUser) => (
-                <Card key={progressUser.user_id}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">
-                      {progressUser.first_name} {progressUser.last_name}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">{progressUser.email}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {progressUser.modules.map((module) => (
-                        <div key={module.module_id} className="border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="font-medium">{module.module_title}</div>
-                            <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"}>
-                              {module.progress_percentage}%
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>
-                              Ukończono {module.completed_lessons} z {module.total_lessons} lekcji
-                            </span>
-                          </div>
-                          <div className="mt-2 bg-secondary rounded-full h-2">
-                            <div 
-                              className="bg-primary rounded-full h-2 transition-all"
-                              style={{ width: `${module.progress_percentage}%` }}
-                            />
-                          </div>
-                          {/* Certificate section */}
-                          {module.progress_percentage === 100 && (
-                            <div className="mt-3 space-y-2 border-t pt-3">
-                              {/* Certificate history */}
-                              {(() => {
-                                const key = `${progressUser.user_id}-${module.module_id}`;
-                                const history = certificateHistory[key];
-                                const latestCert = history?.[0];
-                                
-                                return (
-                                  <>
-                                    {latestCert ? (
-                                      <div className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2 text-muted-foreground">
-                                          <Calendar className="h-3 w-3" />
-                                          <span>
-                                            Ostatni certyfikat: {new Date(latestCert.created_at).toLocaleString('pl-PL', {
-                                              day: '2-digit',
-                                              month: '2-digit',
-                                              year: 'numeric',
-                                              hour: '2-digit',
-                                              minute: '2-digit'
-                                            })}
-                                          </span>
-                                        </div>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => downloadCertificateAdmin(latestCert.id)}
-                                        >
-                                          <Download className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    ) : (
-                                      <div className="text-xs text-muted-foreground">
-                                        Brak wygenerowanego certyfikatu
-                                      </div>
-                                    )}
-                                    
-                                    {/* Regenerate button */}
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="w-full"
-                                      onClick={() => regenerateCertificateAdmin(
-                                        progressUser.user_id,
-                                        module.module_id,
-                                        module.module_title,
-                                        `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email
-                                      )}
-                                      disabled={regeneratingCert === key}
-                                    >
-                                      {regeneratingCert === key ? (
-                                        <>
-                                          <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                                          Generowanie...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <RefreshCw className="h-4 w-4 mr-1" />
-                                          {latestCert ? 'Regeneruj certyfikat' : 'Wygeneruj certyfikat'}
-                                        </>
-                                      )}
-                                    </Button>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between mt-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredUserProgress.map((progressUser) => {
+                const overallProgress = progressUser.modules.length > 0
+                  ? Math.round(progressUser.modules.reduce((acc, m) => acc + m.progress_percentage, 0) / progressUser.modules.length)
+                  : 0;
+                
+                return (
+                  <Collapsible key={progressUser.user_id}>
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="text-sm">
+                              {progressUser.first_name?.[0]}{progressUser.last_name?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-left">
+                            <div className="font-medium">{progressUser.first_name} {progressUser.last_name}</div>
                             <div className="text-xs text-muted-foreground">
-                              Przypisano: {new Date(module.assigned_at).toLocaleDateString('pl-PL')}
+                              {progressUser.eq_id ? `EQID: ${progressUser.eq_id}` : progressUser.email}
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        <div className="flex items-center gap-2">
+                          <Badge variant={overallProgress === 100 ? "default" : "secondary"}>
+                            {overallProgress}%
+                          </Badge>
+                          <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    
+                    <CollapsibleContent className="mt-2 px-4 pb-4 space-y-3 border rounded-lg bg-card/50">
+                      <div className="pt-3 space-y-3">
+                        {progressUser.modules.map((module) => {
+                          const key = `${progressUser.user_id}-${module.module_id}`;
+                          const history = certificateHistory[key];
+                          const latestCert = history?.[0];
+                          
+                          return (
+                            <div key={module.module_id} className="border rounded-lg p-3 bg-background">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-medium text-sm">{module.module_title}</div>
+                                <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"} className="text-xs">
+                                  {module.progress_percentage}%
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                                <Clock className="h-3 w-3" />
+                                <span>Ukończono {module.completed_lessons} z {module.total_lessons} lekcji</span>
+                              </div>
+                              <div className="bg-secondary rounded-full h-1.5">
+                                <div className="bg-primary rounded-full h-1.5 transition-all" style={{ width: `${module.progress_percentage}%` }} />
+                              </div>
+                              
+                              {module.progress_percentage === 100 && (
+                                <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
+                                  {latestCert ? (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Award className="h-3 w-3" />
+                                      <span>{new Date(latestCert.created_at).toLocaleDateString('pl-PL')}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">Brak certyfikatu</span>
+                                  )}
+                                  <div className="flex gap-1">
+                                    {latestCert && (
+                                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => downloadCertificateAdmin(latestCert.id)}>
+                                        <Download className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => regenerateCertificateAdmin(progressUser.user_id, module.module_id, module.module_title, `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email)}
+                                      disabled={regeneratingCert === key}
+                                    >
+                                      {regeneratingCert === key ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
             </div>
           )}
         </TabsContent>

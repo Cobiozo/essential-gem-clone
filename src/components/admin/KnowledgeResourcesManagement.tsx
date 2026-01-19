@@ -7,15 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Plus, Pencil, Trash2, FileText, Link as LinkIcon, Archive, 
   Download, Star, Sparkles, RefreshCw, Eye, EyeOff, Upload,
-  Search, Filter, BarChart3, Copy, Share2, MousePointer, ExternalLink, Loader2
+  Search, Filter, BarChart3, Copy, Share2, MousePointer, ExternalLink, Loader2,
+  X, Check, Images, FileImage
 } from 'lucide-react';
 import { 
   KnowledgeResource, ResourceType, ResourceStatus,
@@ -63,6 +66,13 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [tagsInput, setTagsInput] = useState('');
+  
+  // Bulk upload state
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [bulkCategory, setBulkCategory] = useState<string>('Social media');
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; fileName: string }>({ current: 0, total: 0, fileName: '' });
   
   const { uploadFile, isUploading, uploadProgress } = useLocalStorage();
 
@@ -224,15 +234,243 @@ export const KnowledgeResourcesManagement: React.FC = () => {
     return <Badge variant="outline">{RESOURCE_TYPE_LABELS[type]}</Badge>;
   };
 
+  // Handle bulk file selection
+  const handleBulkFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      toast({ title: t('toast.warning'), description: 'Tylko pliki graficzne są akceptowane', variant: 'destructive' });
+    }
+    setBulkFiles(prev => [...prev, ...imageFiles]);
+  };
+
+  // Handle bulk upload
+  const handleBulkUpload = async () => {
+    if (bulkFiles.length === 0) return;
+    
+    setBulkUploading(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < bulkFiles.length; i++) {
+      const file = bulkFiles[i];
+      setBulkProgress({ current: i + 1, total: bulkFiles.length, fileName: file.name });
+      
+      try {
+        const result = await uploadFile(file, { folder: 'knowledge-resources' });
+        
+        // Create database record for each file
+        const { error } = await supabase
+          .from('knowledge_resources')
+          .insert([{
+            title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension for title
+            description: '',
+            resource_type: 'image' as any,
+            source_type: 'file',
+            source_url: result.url,
+            file_name: result.fileName,
+            file_size: result.fileSize,
+            category: bulkCategory,
+            tags: [],
+            visible_to_clients: false,
+            visible_to_partners: true,
+            visible_to_specjalista: true,
+            visible_to_everyone: false,
+            status: 'active',
+            version: '1.0',
+            is_featured: false,
+            is_new: true,
+            is_updated: false,
+            position: resources.length + i,
+            allow_copy_link: true,
+            allow_download: true,
+            allow_share: true,
+            allow_click_redirect: false
+          }]);
+        
+        if (error) {
+          console.error('Error inserting resource:', error);
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      } catch (error: any) {
+        console.error('Error uploading file:', error);
+        errorCount++;
+      }
+    }
+    
+    setBulkUploading(false);
+    setBulkProgress({ current: 0, total: 0, fileName: '' });
+    setBulkFiles([]);
+    setBulkUploadOpen(false);
+    fetchResources();
+    
+    if (successCount > 0) {
+      toast({ 
+        title: t('toast.success'), 
+        description: `Dodano ${successCount} grafik${errorCount > 0 ? `, ${errorCount} błędów` : ''}` 
+      });
+    } else if (errorCount > 0) {
+      toast({ title: t('toast.error'), description: `Wystąpiło ${errorCount} błędów`, variant: 'destructive' });
+    }
+  };
+
+  // Remove file from bulk list
+  const removeBulkFile = (index: number) => {
+    setBulkFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-2xl font-bold">{t('admin.knowledge.library')}</h2>
-        <Button onClick={() => openEditDialog()}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('admin.knowledge.addResource')}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+            <Images className="h-4 w-4 mr-2" />
+            Dodaj wiele grafik
+          </Button>
+          <Button onClick={() => openEditDialog()}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('admin.knowledge.addResource')}
+          </Button>
+        </div>
       </div>
+
+      {/* Bulk Upload Dialog */}
+      <Dialog open={bulkUploadOpen} onOpenChange={(open) => {
+        if (!bulkUploading) {
+          setBulkUploadOpen(open);
+          if (!open) {
+            setBulkFiles([]);
+          }
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileImage className="h-5 w-5" />
+              Masowe dodawanie grafik
+            </DialogTitle>
+            <DialogDescription>
+              Wybierz wiele plików graficznych jednocześnie. Zostaną automatycznie dodane do biblioteki.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Category selector */}
+            <div className="space-y-2">
+              <Label>Kategoria dla wszystkich grafik</Label>
+              <Select value={bulkCategory} onValueChange={setBulkCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GRAPHICS_CATEGORIES.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* File input */}
+            <div className="space-y-2">
+              <Label>Wybierz pliki</Label>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleBulkFilesSelect}
+                  className="hidden"
+                  id="bulk-file-input"
+                  disabled={bulkUploading}
+                />
+                <label htmlFor="bulk-file-input" className="cursor-pointer">
+                  <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Kliknij aby wybrać pliki lub przeciągnij je tutaj
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PNG, JPG, GIF, WebP
+                  </p>
+                </label>
+              </div>
+            </div>
+            
+            {/* Selected files list */}
+            {bulkFiles.length > 0 && (
+              <div className="space-y-2">
+                <Label>Wybrane pliki ({bulkFiles.length})</Label>
+                <ScrollArea className="h-[200px] border rounded-lg p-2">
+                  <div className="space-y-2">
+                    {bulkFiles.map((file, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name}
+                          className="h-10 w-10 object-cover rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                        </div>
+                        {!bulkUploading && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => removeBulkFile(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+            
+            {/* Upload progress */}
+            {bulkUploading && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Przesyłanie: {bulkProgress.fileName}</span>
+                  <span>{bulkProgress.current} / {bulkProgress.total}</span>
+                </div>
+                <Progress value={(bulkProgress.current / bulkProgress.total) * 100} />
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setBulkUploadOpen(false)}
+              disabled={bulkUploading}
+            >
+              Anuluj
+            </Button>
+            <Button 
+              onClick={handleBulkUpload}
+              disabled={bulkFiles.length === 0 || bulkUploading}
+            >
+              {bulkUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Przesyłanie...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Dodaj {bulkFiles.length} {bulkFiles.length === 1 ? 'grafikę' : 'grafik'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <Card>
