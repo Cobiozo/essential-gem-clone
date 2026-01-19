@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventCardCompact } from '@/components/events/EventCardCompact';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
@@ -8,6 +9,8 @@ import { Video, CalendarX } from 'lucide-react';
 
 const WebinarsPage: React.FC = () => {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  const highlightedEventId = searchParams.get('event');
   const { upcomingEvents, pastEvents, loading, refetch } = usePublicEvents('webinar');
 
   if (loading) {
@@ -50,6 +53,7 @@ const WebinarsPage: React.FC = () => {
                   key={event.id} 
                   event={event} 
                   onRegister={refetch}
+                  defaultOpen={event.id === highlightedEventId}
                 />
               ))}
             </div>
