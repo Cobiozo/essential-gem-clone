@@ -641,7 +641,9 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
   const isDateAvailable = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return availableDates.includes(dateStr) && isAfter(date, startOfDay(new Date()));
+    const today = startOfDay(new Date());
+    // Allow today and future dates (not just after today)
+    return availableDates.includes(dateStr) && !isBefore(date, today);
   };
 
   if (loading) {
@@ -787,6 +789,10 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 disabled={(date) => !isDateAvailable(date)}
                 locale={pl}
                 className="rounded-md border"
+                classNames={{
+                  day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary font-bold",
+                  day_today: "bg-accent text-accent-foreground font-semibold ring-1 ring-primary/30",
+                }}
               />
             </div>
 
