@@ -12,6 +12,7 @@ export interface CalculatorSettings {
   enabled_for_admins: boolean | null;
   base_commission_per_client: number | null;
   passive_rate_percentage: number | null;
+  passive_per_client_eur: number | null;
   passive_months: number | null;
   extension_bonus_per_client: number | null;
   extension_months_count: number | null;

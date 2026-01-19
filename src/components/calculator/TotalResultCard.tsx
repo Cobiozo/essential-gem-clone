@@ -5,7 +5,7 @@ import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 interface TotalResultCardProps {
   clients: number;
   baseCommission: number;
-  passiveRatePercentage: number;
+  passivePerClientEur: number;
   passiveMonths: number;
   extensionBonusPerClient: number;
   extensionMonthsCount: number;
@@ -17,7 +17,7 @@ interface TotalResultCardProps {
 export function TotalResultCard({
   clients,
   baseCommission,
-  passiveRatePercentage,
+  passivePerClientEur,
   passiveMonths,
   extensionBonusPerClient,
   extensionMonthsCount,
@@ -37,7 +37,8 @@ export function TotalResultCard({
 
   const directCommission = clients * baseCommission;
   const volumeBonus = getVolumeBonus(clients);
-  const passiveIncome = directCommission * (passiveRatePercentage / 100) * passiveMonths;
+  // Fixed formula: passivePerClientEur per client per month
+  const passiveIncome = clients * passivePerClientEur * passiveMonths;
   const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
   
   const totalEUR = directCommission + volumeBonus + passiveIncome + extensionBonuses;
@@ -58,10 +59,10 @@ export function TotalResultCard({
           <p className="text-sm text-muted-foreground mb-2">
             Szacowany przychód całkowity (6 miesięcy)
           </p>
-          <p className="text-4xl md:text-5xl font-bold text-emerald-600">
+          <p className="text-4xl md:text-5xl font-bold text-emerald-600 transition-all duration-300">
             {formatEUR(totalEUR)} €
           </p>
-          <p className="text-lg text-emerald-600/80 mt-1">
+          <p className="text-lg text-emerald-600/80 mt-1 transition-all duration-300">
             (~ {formatPLN(totalPLN)} zł)
           </p>
         </div>
@@ -69,7 +70,7 @@ export function TotalResultCard({
         <div className="space-y-2">
           <Progress 
             value={progressPercent} 
-            className="h-2 bg-emerald-100 dark:bg-emerald-900/50"
+            className="h-2 bg-emerald-100 dark:bg-emerald-900/50 transition-all duration-300"
           />
           <p className="text-xs text-center text-muted-foreground">
             {clients.toLocaleString('pl-PL')} klientów z {maxClients.toLocaleString('pl-PL')} możliwych
