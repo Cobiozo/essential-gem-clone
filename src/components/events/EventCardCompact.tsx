@@ -446,7 +446,8 @@ Zapisz się tutaj: ${inviteUrl}
       );
     }
 
-    if (isUpcoming && !isPastEvent && ['webinar', 'team_training'].includes(event.event_type)) {
+    // Only show invite button if admin enabled allow_invites for this event
+    if (isUpcoming && !isPastEvent && (event as any).allow_invites === true) {
       buttons.push(
         <Button
           key="invite-guest"

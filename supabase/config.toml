@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.send-meeting-reminders]
 verify_jwt = false
+
+[functions.auto-publish-events]
+verify_jwt = false

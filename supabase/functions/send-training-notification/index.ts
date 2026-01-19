@@ -234,9 +234,14 @@ serve(async (req) => {
       throw new Error("Email template 'training_assigned' not found");
     }
 
-    // Training URL - use origin from request or fallback to production URL
-    const requestOrigin = req.headers.get("origin");
-    const baseUrl = requestOrigin || "https://niezbednik.purelifepartner.pl";
+    // Training URL - use centralized APP_BASE_URL from page_settings
+    const { data: settingsData } = await supabase
+      .from('page_settings')
+      .select('app_base_url')
+      .limit(1)
+      .maybeSingle();
+    
+    const baseUrl = settingsData?.app_base_url || 'https://purelife.lovable.app';
     const trainingUrl = `${baseUrl}/training/${moduleId}`;
 
     // Build variables

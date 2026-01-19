@@ -19,7 +19,8 @@ import {
   Mail,
   MessageSquare,
   Users,
-  CalendarDays
+  CalendarDays,
+  Clock
 } from 'lucide-react';
 import type { DbEvent, TeamTrainingFormData, TEAM_TRAINING_TYPES } from '@/types/events';
 import type { EventOccurrence } from '@/types/occurrences';
@@ -120,7 +121,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         sms_reminder_enabled: editingTraining.sms_reminder_enabled ?? false,
         email_reminder_enabled: editingTraining.email_reminder_enabled ?? true,
         is_published: editingTraining.is_published ?? true,
-      });
+        allow_invites: (editingTraining as any).allow_invites ?? false,
+        publish_at: (editingTraining as any).publish_at || null,
+      } as any);
       setImageUrlInput(editingTraining.image_url || '');
       
       // Load multi-occurrence data
@@ -237,6 +240,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         email_reminder_enabled: form.email_reminder_enabled,
         is_published: form.is_published,
         occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
+        allow_invites: (form as any).allow_invites || false,
+        publish_at: (form as any).publish_at || null,
       };
 
       let error;
@@ -556,14 +561,52 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           </div>
         </div>
 
+        {/* Allow invites toggle */}
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={(form as any).allow_invites || false}
+            onCheckedChange={(checked) => setForm({ ...form, allow_invites: checked } as any)}
+          />
+          <Label className="text-muted-foreground">Zezwól na zapraszanie gości</Label>
+        </div>
+
         {/* Publish immediately toggle */}
         <div className="flex items-center gap-3">
           <Switch
             checked={form.is_published}
-            onCheckedChange={(checked) => setForm({ ...form, is_published: checked })}
+            onCheckedChange={(checked) => setForm({ ...form, is_published: checked, publish_at: checked ? null : (form as any).publish_at } as any)}
           />
           <Label className="text-muted-foreground">Opublikuj od razu</Label>
         </div>
+
+        {/* Scheduled publication (when publish immediately is OFF) */}
+        {!form.is_published && (
+          <div className="space-y-2 pl-6">
+            <Label className="text-muted-foreground font-medium">Zaplanowana data publikacji</Label>
+            <div className="relative">
+              <Input
+                type="datetime-local"
+                value={(form as any).publish_at ? format(new Date((form as any).publish_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const [datePart, timePart] = e.target.value.split('T');
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    const [hours, minutes] = timePart.split(':').map(Number);
+                    const localDate = new Date(year, month - 1, day, hours, minutes);
+                    setForm({ ...form, publish_at: localDate.toISOString() } as any);
+                  } else {
+                    setForm({ ...form, publish_at: null } as any);
+                  }
+                }}
+                className="h-10 pl-10"
+              />
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Wydarzenie zostanie automatycznie opublikowane w podanym terminie
+            </p>
+          </div>
+        )}
 
         {/* Requires registration */}
         <div className="flex items-center gap-3">
