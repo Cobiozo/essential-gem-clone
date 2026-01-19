@@ -124,7 +124,18 @@ export const useEvents = () => {
           participant_profile: participantProfileMap.get(event.id) || null,
         }));
 
-        setEvents(eventsWithRegistration);
+        // Filter individual meetings - only show to host or registered participant
+        const filteredEvents = eventsWithRegistration.filter(event => {
+          // For webinars, team trainings, public meetings - show to everyone
+          if (!['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
+            return true;
+          }
+          
+          // For individual meetings - only show if user is host OR registered
+          return event.host_user_id === user.id || event.is_registered;
+        });
+
+        setEvents(filteredEvents);
       } else {
         setEvents(parsedEvents);
       }

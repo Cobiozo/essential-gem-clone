@@ -297,11 +297,13 @@ serve(async (req) => {
       const dateStr = meetingStart.toLocaleDateString('pl-PL', { 
         weekday: 'long', 
         day: 'numeric', 
-        month: 'long' 
+        month: 'long',
+        timeZone: 'Europe/Warsaw'
       });
       const timeStr = meetingStart.toLocaleTimeString('pl-PL', { 
         hour: '2-digit', 
-        minute: '2-digit' 
+        minute: '2-digit',
+        timeZone: 'Europe/Warsaw'
       });
 
       // Send reminder to each participant

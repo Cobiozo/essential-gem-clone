@@ -27,7 +27,7 @@ const SpecialistCalculatorPage = () => {
             </div>
           </div>
           <Badge className="bg-white/20 text-white border-0 hover:bg-white/30 self-start sm:self-auto">
-            Model: Pure Life / Eqology
+            Model: Afiliacyjny Omega-3
           </Badge>
         </div>
 
