@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { EventWithRegistration, EventButton, EventType } from '@/types/events';
-import { expandEventsForCalendar } from '@/hooks/useOccurrences';
 
 type PublicEventType = 'webinar' | 'team_training';
 
@@ -68,15 +67,14 @@ export const usePublicEvents = (eventType: PublicEventType) => {
             .eq('status', 'registered')
             .in('event_id', eventIds);
 
-          // Create registration map for per-occurrence tracking
-          const registrationMap = new Map<string, boolean>(
-            (registrations || []).map(r => [
-              `${r.event_id}:${r.occurrence_index ?? 'null'}`,
-              true
-            ])
-          );
-          // Store in global for expandEventsForCalendar to use
-          (window as any).__eventRegistrationMap = registrationMap;
+          // Create map: event_id -> Set<occurrence_index>
+          const registrationsByEvent = new Map<string, Set<number | null>>();
+          registrations?.forEach(r => {
+            if (!registrationsByEvent.has(r.event_id)) {
+              registrationsByEvent.set(r.event_id, new Set());
+            }
+            registrationsByEvent.get(r.event_id)!.add(r.occurrence_index);
+          });
           
           const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
           
@@ -96,18 +94,18 @@ export const usePublicEvents = (eventType: PublicEventType) => {
             ...event,
             is_registered: registeredEventIds.has(event.id),
             registration_count: countMap.get(event.id) || 0,
+            registered_occurrences: registrationsByEvent.get(event.id) || new Set<number | null>(),
           }));
 
-          // Expand multi-occurrence events into separate entries
-          const expandedEvents = expandEventsForCalendar(eventsWithRegistration);
-          setEvents(expandedEvents);
+          setEvents(eventsWithRegistration);
         } else {
           setEvents([]);
         }
       } else {
-        // Expand multi-occurrence events for non-logged users too
-        const expandedEvents = expandEventsForCalendar(filteredEvents);
-        setEvents(expandedEvents);
+        setEvents(filteredEvents.map(e => ({
+          ...e,
+          registered_occurrences: new Set<number | null>(),
+        })));
       }
     } catch (error) {
       console.error('Error fetching public events:', error);
