@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +47,16 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to the card if it's opened by default (e.g., from URL param)
+  useEffect(() => {
+    if (defaultOpen && cardRef.current) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [defaultOpen]);
 
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
@@ -278,7 +288,10 @@ Zapisz się tutaj: ${inviteUrl}
   };
 
   return (
-    <div className={`border rounded-lg bg-card transition-all ${isLive ? 'ring-2 ring-red-500' : ''}`}>
+    <div 
+      ref={cardRef}
+      className={`border rounded-lg bg-card transition-all ${isLive ? 'ring-2 ring-red-500' : ''} ${defaultOpen ? 'ring-2 ring-primary/50' : ''}`}
+    >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors rounded-lg">
           {/* Thumbnail */}

@@ -277,8 +277,8 @@ export const MyMeetingsWidget: React.FC = () => {
     // For webinars and team meetings - show "Szczegóły" button instead of Zoom
     if (isWebinarOrTeamMeeting) {
       const detailsPath = event.event_type === 'webinar' 
-        ? '/events/webinars' 
-        : '/events/team-meetings';
+        ? `/events/webinars?event=${event.id}` 
+        : `/events/team-meetings?event=${event.id}`;
       return (
         <Button
           size="sm"
