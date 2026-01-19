@@ -300,14 +300,20 @@ export const MyMeetingsWidget: React.FC = () => {
           </Button>
         );
       }
+      // No zoom link - show "Wejdź" button that opens details dialog
       return (
-        <Badge className="bg-emerald-600 text-white flex items-center gap-1.5">
-          <span className="relative flex h-2 w-2">
+        <Button
+          size="sm"
+          className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+          onClick={() => setDetailsEvent(event)}
+        >
+          {/* Pulsing red dot - recording indicator */}
+          <span className="relative flex h-2 w-2 mr-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
           </span>
-          Trwa teraz
-        </Badge>
+          Wejdź
+        </Button>
       );
     }
     
