@@ -130,8 +130,12 @@ export function CalculatorManagement() {
   };
 
   const handleGrantAccess = async (userId: string) => {
+    if (!user?.id) {
+      toast({ title: 'Błąd autoryzacji', description: 'Zaloguj się ponownie', variant: 'destructive' });
+      return;
+    }
     try {
-      await grantAccess.mutateAsync({ userId, grantedBy: user?.id || '' });
+      await grantAccess.mutateAsync({ userId, grantedBy: user.id });
       refetchUserAccess();
       setSearchResults([]);
       setSearchTerm('');

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react';
 
 export function SpecialistCalculatorManagement() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const { data, isLoading, error } = useSpecialistCalculatorSettings();
   const updateSettings = useUpdateSpecialistCalculatorSettings();
@@ -68,6 +70,10 @@ export function SpecialistCalculatorManagement() {
   };
 
   const handleGrantAccess = async (userId: string) => {
+    if (!user?.id) {
+      toast({ title: 'Błąd autoryzacji', description: 'Zaloguj się ponownie', variant: 'destructive' });
+      return;
+    }
     try {
       await grantAccess.mutateAsync(userId);
       toast({ title: 'Przyznano dostęp' });
