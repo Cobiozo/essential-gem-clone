@@ -20,12 +20,15 @@ interface ActiveOtpCode {
 }
 
 // Live countdown component that updates every second with visibility control
+// Uses tabular-nums and fixed width to prevent flickering/jumping
 const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
   const [timeLeft, setTimeLeft] = useState('');
   const { t } = useLanguage();
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+    
+    const pad = (n: number) => n.toString().padStart(2, '0');
     
     const updateTime = () => {
       const now = new Date();
@@ -41,12 +44,11 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
       
+      // Fixed format with padding to prevent layout jumps
       if (hours > 0) {
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-      } else if (minutes > 0) {
-        setTimeLeft(`${minutes}m ${seconds}s`);
+        setTimeLeft(`${hours}:${pad(minutes)}:${pad(seconds)}`);
       } else {
-        setTimeLeft(`${seconds}s`);
+        setTimeLeft(`${minutes}:${pad(seconds)}`);
       }
     };
     
@@ -84,7 +86,15 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
     };
   }, [expiresAt, t]);
   
-  return <span className="font-mono">{timeLeft}</span>;
+  // tabular-nums ensures fixed-width digits, min-w prevents layout shifts
+  return (
+    <span 
+      className="font-mono inline-block min-w-[3.5rem] text-right"
+      style={{ fontVariantNumeric: 'tabular-nums' }}
+    >
+      {timeLeft}
+    </span>
+  );
 };
 
 export const ActiveOtpCodesWidget: React.FC = () => {

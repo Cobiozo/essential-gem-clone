@@ -95,8 +95,15 @@ Deno.serve(async (req) => {
     // Generate session token
     const sessionToken = generateSessionToken();
     
-    // Session expires when OTP expires (session cannot outlive the code)
-    const sessionExpiresAt = new Date(otpRecord.expires_at);
+    // Get validity hours from reflink
+    const validityHours = reflink.otp_validity_hours || 24;
+    
+    // Session expires X hours from NOW (when code is used), not from code generation
+    const sessionFromNow = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+    
+    // But session cannot outlive the OTP code itself (safety check)
+    const otpExpiresAt = new Date(otpRecord.expires_at);
+    const sessionExpiresAt = sessionFromNow < otpExpiresAt ? sessionFromNow : otpExpiresAt;
 
     // Create session
     const { data: session, error: sessionError } = await supabase
