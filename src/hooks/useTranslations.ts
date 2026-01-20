@@ -51,6 +51,9 @@ let cacheLoading = false;
 let cacheListeners: (() => void)[] = [];
 let loadedLanguages: Set<string> = new Set(); // Track which languages are loaded
 
+// Promise deduplication - prevents concurrent fetches for the same language
+const pendingLanguageFetches: Map<string, Promise<I18nTranslation[]>> = new Map();
+
 // Cache version - increment this when translation structure changes to force refresh
 const CACHE_VERSION = 3;
 
@@ -115,17 +118,50 @@ const setLocalStorageCache = (langCode: string, data: I18nTranslation[]): void =
   }
 };
 
+// Async localStorage save - prevents UI blocking on Chrome with large data
+const setLocalStorageCacheAsync = (langCode: string, data: I18nTranslation[]): void => {
+  const saveToStorage = () => {
+    try {
+      localStorage.setItem(`${LS_CACHE_KEY}_${langCode}`, JSON.stringify({
+        data,
+        timestamp: Date.now(),
+        version: CACHE_VERSION
+      }));
+    } catch (e) {
+      console.warn('Failed to save localStorage translation cache:', e);
+    }
+  };
+  
+  // Use requestIdleCallback for Chrome/Edge optimization
+  if ('requestIdleCallback' in window) {
+    (window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void })
+      .requestIdleCallback(saveToStorage, { timeout: 3000 });
+  } else {
+    // Fallback for Safari/Firefox - minimal delay to not block UI
+    setTimeout(saveToStorage, 1);
+  }
+};
+
 const notifyListeners = () => {
   cacheListeners.forEach(cb => cb());
 };
 
-// Fetch translations for specific languages only (optimization with localStorage cache)
+// Fetch translations for specific languages only (optimization with localStorage cache + deduplication)
 const fetchTranslationsForLanguages = async (languageCodes: string[]): Promise<I18nTranslation[]> => {
   const allData: I18nTranslation[] = [];
   const langsToFetch: string[] = [];
   
-  // Check localStorage cache first for each language
+  // Check localStorage cache and pending fetches first
   for (const langCode of languageCodes) {
+    // Check if fetch is already in progress for this language
+    if (pendingLanguageFetches.has(langCode)) {
+      console.log(`[i18n] Waiting for pending fetch: ${langCode}`);
+      const pendingData = await pendingLanguageFetches.get(langCode)!;
+      allData.push(...pendingData);
+      continue;
+    }
+    
+    // Check localStorage cache
     const cached = getLocalStorageCache(langCode);
     if (cached) {
       allData.push(...cached);
@@ -134,38 +170,52 @@ const fetchTranslationsForLanguages = async (languageCodes: string[]): Promise<I
     }
   }
   
-  // Fetch only non-cached languages from DB
+  // Fetch only non-cached languages from DB with deduplication
   for (const langCode of langsToFetch) {
-    const langData: I18nTranslation[] = [];
-    const pageSize = 1000;
-    let from = 0;
-    let hasMore = true;
+    const fetchPromise = (async (): Promise<I18nTranslation[]> => {
+      const langData: I18nTranslation[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
 
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from('i18n_translations')
-        .select('*')
-        .eq('language_code', langCode)
-        .range(from, from + pageSize - 1)
-        .order('namespace')
-        .order('key');
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('i18n_translations')
+          .select('*')
+          .eq('language_code', langCode)
+          .range(from, from + pageSize - 1)
+          .order('namespace')
+          .order('key');
 
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        langData.push(...data);
-        from += pageSize;
-        hasMore = data.length === pageSize;
-      } else {
-        hasMore = false;
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          langData.push(...data);
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
       }
-    }
+      
+      // Save to localStorage cache asynchronously (Chrome optimization)
+      if (langData.length > 0) {
+        setLocalStorageCacheAsync(langCode, langData);
+      }
+      
+      return langData;
+    })();
     
-    // Save to localStorage cache
-    if (langData.length > 0) {
-      setLocalStorageCache(langCode, langData);
+    // Register pending fetch to prevent duplicates
+    pendingLanguageFetches.set(langCode, fetchPromise);
+    
+    try {
+      const data = await fetchPromise;
+      allData.push(...data);
+    } finally {
+      // Clean up after completion
+      pendingLanguageFetches.delete(langCode);
     }
-    allData.push(...langData);
   }
 
   return allData;
