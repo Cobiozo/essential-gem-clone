@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Key, Clock, Users, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Key, Clock, Users, CheckCircle, Copy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface ActiveOtpCode {
   id: string;
@@ -12,11 +14,30 @@ interface ActiveOtpCode {
   expires_at: string;
   used_sessions: number;
   reflink: {
+    id: string;
     title: string | null;
     slug: string | null;
     otp_max_sessions: number | null;
+    welcome_message: string | null;
+    otp_validity_hours: number | null;
   } | null;
   first_session_expires_at: string | null;
+}
+
+// Strip HTML tags from text for plain text output
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Live countdown component that updates every second with visibility control
@@ -100,8 +121,75 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
 export const ActiveOtpCodesWidget: React.FC = () => {
   const { user, isPartner } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
   const [codes, setCodes] = useState<ActiveOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Generate clipboard message with dynamic time based on usage status
+  const generateClipboardMessage = (code: ActiveOtpCode): string => {
+    if (!code.reflink) return code.code;
+    
+    const baseUrl = window.location.origin;
+    const infolinkUrl = `${baseUrl}/infolink/${code.reflink.slug || code.reflink.id}`;
+    
+    const welcomeMessage = stripHtml(
+      code.reflink.welcome_message || 'Witaj! Przesyłam Ci link do materiałów informacyjnych:'
+    );
+    
+    let validityText: string;
+    
+    if (code.used_sessions > 0 && code.first_session_expires_at) {
+      // Code USED - show remaining session time
+      const now = new Date();
+      const expires = new Date(code.first_session_expires_at);
+      const diffMs = expires.getTime() - now.getTime();
+      
+      if (diffMs <= 0) {
+        validityText = 'Kod wygasł';
+      } else {
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (hours > 0) {
+          validityText = `jeszcze ${hours}h ${minutes}min`;
+        } else {
+          validityText = `jeszcze ${minutes} minut`;
+        }
+      }
+    } else {
+      // Code UNUSED - show original validity time
+      const validityHours = code.reflink.otp_validity_hours || 24;
+      validityText = validityHours === 1 
+        ? '1 godzinę' 
+        : validityHours < 5 
+          ? `${validityHours} godziny` 
+          : `${validityHours} godzin`;
+    }
+
+    return `${welcomeMessage}
+
+${infolinkUrl}
+
+Kod dostępu: ${code.code}
+Kod jest ważny przez ${validityText}.`;
+  };
+
+  const handleCopyMessage = async (code: ActiveOtpCode) => {
+    const message = generateClipboardMessage(code);
+    try {
+      await navigator.clipboard.writeText(message);
+      toast({
+        title: t('dashboard.otpCopied') || 'Skopiowano',
+        description: t('dashboard.otpMessageCopied') || 'Wiadomość skopiowana do schowka',
+      });
+    } catch (err) {
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się skopiować do schowka',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const fetchActiveCodes = async () => {
     if (!user?.id) return;
@@ -112,7 +200,7 @@ export const ActiveOtpCodesWidget: React.FC = () => {
       .from('infolink_otp_codes')
       .select(`
         id, code, expires_at, used_sessions,
-        reflink:reflinks(title, slug, otp_max_sessions),
+        reflink:reflinks(id, title, slug, otp_max_sessions, welcome_message, otp_validity_hours),
         infolink_sessions(expires_at)
       `)
       .eq('partner_id', user.id)
@@ -253,16 +341,27 @@ export const ActiveOtpCodesWidget: React.FC = () => {
                 <span className="font-mono font-bold text-primary text-lg tracking-wider">
                   {code.code}
                 </span>
-                {isUsed ? (
-                  <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    {t('dashboard.otpUsed') || 'Użyty'}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">
-                    {t('dashboard.otpPending') || 'Oczekuje'}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopyMessage(code)}
+                    className="h-7 px-2"
+                    title={t('dashboard.otpCopyAgain') || 'Kopiuj ponownie'}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  {isUsed ? (
+                    <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {t('dashboard.otpUsed') || 'Użyty'}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">
+                      {t('dashboard.otpPending') || 'Oczekuje'}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <p className="text-sm text-muted-foreground truncate font-medium">
                 {code.reflink?.title || code.reflink?.slug || 'InfoLink'}
