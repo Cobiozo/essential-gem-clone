@@ -248,11 +248,41 @@ export function useCalculatorUserAccess() {
   const getUserAccess = async () => {
     const { data, error } = await supabase
       .from('calculator_user_access')
-      .select(`*, profiles:user_id (id, first_name, last_name, email)`)
+      .select(`
+        id,
+        user_id,
+        has_access,
+        granted_by,
+        granted_at
+      `)
       .order('granted_at', { ascending: false });
 
     if (error) throw error;
-    return data;
+    
+    // Pobierz profile osobno żeby uniknąć problemu z brakującym FK w schema cache
+    const userIds = (data || []).map(d => d.user_id);
+    if (userIds.length === 0) return [];
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name, email')
+      .in('user_id', userIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+    
+    return (data || []).map(access => {
+      const profile = profileMap.get(access.user_id);
+      return {
+        ...access,
+        profiles: profile ? {
+          id: profile.user_id,
+          user_id: profile.user_id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          email: profile.email
+        } : undefined
+      };
+    });
   };
 
   const grantAccess = useMutation({
