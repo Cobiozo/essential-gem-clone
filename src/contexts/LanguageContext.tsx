@@ -52,8 +52,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const loadLangTranslations = async () => {
       // Lazy load translations for new language if not already loaded
+      // loadLanguageTranslations updates translationsCache internally
       await loadLanguageTranslations(language);
-      // Force re-render by updating dbTranslations
+      
+      // Get translations from memory cache (no additional fetch)
+      // loadTranslationsCache returns cached data if already loaded
       const { translations: t } = await loadTranslationsCache(language);
       setDbTranslations(t);
     };
