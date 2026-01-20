@@ -123,6 +123,7 @@ export const DashboardSidebar: React.FC = () => {
     url: string;
     icon_name?: string;
     icon_color?: string | null;
+    image_url?: string | null;
   }>>([]);
 
   useEffect(() => {
@@ -186,6 +187,7 @@ export const DashboardSidebar: React.FC = () => {
           url: icon.url,
           icon_name: icon.icon_name,
           icon_color: icon.icon_color,
+          image_url: icon.image_url,
         })));
 
         // Fetch individual meetings permissions for partners
@@ -596,6 +598,9 @@ export const DashboardSidebar: React.FC = () => {
           <div className="px-2 py-2 border-b border-sidebar-border mb-2">
             <div className="flex flex-wrap gap-2 justify-center">
               {communityLinks.map((link) => {
+                // Check if custom image exists
+                const hasCustomImage = !!link.image_url;
+                
                 // Use icon from database, fallback to platform detection
                 const IconComponent = link.icon_name 
                   ? (LucideIcons as Record<string, React.ElementType>)[link.icon_name] || ExternalLink
@@ -606,14 +611,22 @@ export const DashboardSidebar: React.FC = () => {
                     key={link.id}
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-full hover:bg-primary/10"
+                    className="h-9 w-9 rounded-full hover:bg-primary/10 overflow-hidden"
                     onClick={() => window.open(link.url, '_blank', 'noopener,noreferrer')}
                     title={link.title}
                   >
-                    <IconComponent 
-                      className="h-5 w-5"
-                      style={{ color: link.icon_color || undefined }}
-                    />
+                    {hasCustomImage ? (
+                      <img 
+                        src={link.image_url!} 
+                        alt={link.title} 
+                        className="h-5 w-5 object-contain"
+                      />
+                    ) : (
+                      <IconComponent 
+                        className="h-5 w-5"
+                        style={{ color: link.icon_color || undefined }}
+                      />
+                    )}
                   </Button>
                 );
               })}

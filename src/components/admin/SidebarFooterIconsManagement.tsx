@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, GripVertical, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, ExternalLink, Upload, Image as ImageIcon, X } from 'lucide-react';
 import { icons as LucideIcons } from 'lucide-react';
 import { IconPicker } from '@/components/cms/IconPicker';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -22,6 +23,7 @@ interface SidebarFooterIcon {
   title: string;
   url: string;
   icon_color: string | null;
+  image_url: string | null;
   position: number;
   is_active: boolean;
   visible_to_admin: boolean;
@@ -45,8 +47,9 @@ const SortableRow: React.FC<SortableRowProps> = ({ icon, onEdit, onDelete }) => 
     opacity: isDragging ? 0.5 : 1,
   };
 
-  // Get icon component
+  // Get icon component or show image
   const IconComponent = (LucideIcons as Record<string, React.ElementType>)[icon.icon_name] || ExternalLink;
+  const hasCustomImage = !!icon.image_url;
 
   return (
     <TableRow ref={setNodeRef} style={style}>
@@ -58,15 +61,22 @@ const SortableRow: React.FC<SortableRowProps> = ({ icon, onEdit, onDelete }) => 
       <TableCell>
         <div className="flex items-center gap-2">
           <div 
-            className="w-8 h-8 rounded flex items-center justify-center border"
-            style={{ backgroundColor: icon.icon_color ? `${icon.icon_color}20` : undefined }}
+            className="w-8 h-8 rounded flex items-center justify-center border overflow-hidden"
+            style={{ backgroundColor: !hasCustomImage && icon.icon_color ? `${icon.icon_color}20` : undefined }}
           >
-            <IconComponent 
-              className="h-5 w-5" 
-              style={{ color: icon.icon_color || 'currentColor' }} 
-            />
+            {hasCustomImage ? (
+              <img src={icon.image_url!} alt={icon.title} className="w-full h-full object-contain" />
+            ) : (
+              <IconComponent 
+                className="h-5 w-5" 
+                style={{ color: icon.icon_color || 'currentColor' }} 
+              />
+            )}
           </div>
-          <span className="font-medium">{icon.title}</span>
+          <div className="flex flex-col">
+            <span className="font-medium">{icon.title}</span>
+            {hasCustomImage && <Badge variant="outline" className="text-xs w-fit">Własny obrazek</Badge>}
+          </div>
         </div>
       </TableCell>
       <TableCell className="max-w-[200px]">
@@ -106,6 +116,8 @@ export const SidebarFooterIconsManagement: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIcon, setEditingIcon] = useState<SidebarFooterIcon | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -113,6 +125,8 @@ export const SidebarFooterIconsManagement: React.FC = () => {
     title: '',
     url: '',
     icon_color: '',
+    image_url: '',
+    icon_type: 'lucide' as 'lucide' | 'custom',
     is_active: true,
     visible_to_admin: true,
     visible_to_partner: true,
@@ -152,10 +166,8 @@ export const SidebarFooterIconsManagement: React.FC = () => {
     const newIndex = icons.findIndex(i => i.id === over.id);
     const newOrder = arrayMove(icons, oldIndex, newIndex);
     
-    // Update local state optimistically
     setIcons(newOrder);
 
-    // Update positions in database
     const updates = newOrder.map((icon, index) => ({
       id: icon.id,
       position: index,
@@ -178,6 +190,8 @@ export const SidebarFooterIconsManagement: React.FC = () => {
       title: '',
       url: '',
       icon_color: '',
+      image_url: '',
+      icon_type: 'lucide',
       is_active: true,
       visible_to_admin: true,
       visible_to_partner: true,
@@ -194,6 +208,8 @@ export const SidebarFooterIconsManagement: React.FC = () => {
       title: icon.title,
       url: icon.url,
       icon_color: icon.icon_color || '',
+      image_url: icon.image_url || '',
+      icon_type: icon.image_url ? 'custom' : 'lucide',
       is_active: icon.is_active,
       visible_to_admin: icon.visible_to_admin,
       visible_to_partner: icon.visible_to_partner,
@@ -203,9 +219,69 @@ export const SidebarFooterIconsManagement: React.FC = () => {
     setDialogOpen(true);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Błąd', description: 'Wybierz plik obrazu', variant: 'destructive' });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Błąd', description: 'Maksymalny rozmiar pliku to 2MB', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from('sidebar-icons')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('sidebar-icons')
+        .getPublicUrl(fileName);
+
+      setFormData(prev => ({ ...prev, image_url: urlData.publicUrl }));
+      toast({ title: 'Obrazek przesłany' });
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się przesłać obrazka', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (formData.image_url) {
+      // Extract filename from URL
+      const url = new URL(formData.image_url);
+      const pathParts = url.pathname.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+
+      // Try to delete from storage (ignore errors as file might not exist)
+      await supabase.storage.from('sidebar-icons').remove([fileName]);
+    }
+    setFormData(prev => ({ ...prev, image_url: '' }));
+  };
+
   const handleSave = async () => {
     if (!formData.title.trim() || !formData.url.trim()) {
       toast({ title: 'Błąd', description: 'Tytuł i URL są wymagane', variant: 'destructive' });
+      return;
+    }
+
+    if (formData.icon_type === 'custom' && !formData.image_url) {
+      toast({ title: 'Błąd', description: 'Prześlij własny obrazek lub wybierz ikonę Lucide', variant: 'destructive' });
       return;
     }
 
@@ -215,7 +291,8 @@ export const SidebarFooterIconsManagement: React.FC = () => {
       icon_name: formData.icon_name,
       title: formData.title.trim(),
       url: formData.url.trim(),
-      icon_color: formData.icon_color || null,
+      icon_color: formData.icon_type === 'lucide' ? (formData.icon_color || null) : null,
+      image_url: formData.icon_type === 'custom' ? formData.image_url : null,
       is_active: formData.is_active,
       visible_to_admin: formData.visible_to_admin,
       visible_to_partner: formData.visible_to_partner,
@@ -256,6 +333,15 @@ export const SidebarFooterIconsManagement: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Czy na pewno chcesz usunąć tę ikonę?')) return;
+
+    // Get icon to check for image
+    const iconToDelete = icons.find(i => i.id === id);
+    if (iconToDelete?.image_url) {
+      const url = new URL(iconToDelete.image_url);
+      const pathParts = url.pathname.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      await supabase.storage.from('sidebar-icons').remove([fileName]);
+    }
 
     const { error } = await supabase
       .from('sidebar_footer_icons')
@@ -320,39 +406,139 @@ export const SidebarFooterIconsManagement: React.FC = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingIcon ? 'Edytuj ikonę' : 'Dodaj nową ikonę'}</DialogTitle>
             <DialogDescription>
-              Skonfiguruj ikonę, link i widoczność w pasku bocznym
+              Skonfiguruj ikonę lub własny obrazek, link i widoczność w pasku bocznym
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Icon picker */}
-            <div className="space-y-2">
-              <Label>Ikona</Label>
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-12 h-12 rounded border flex items-center justify-center"
-                  style={{ backgroundColor: formData.icon_color ? `${formData.icon_color}20` : undefined }}
-                >
-                  <SelectedIconPreview 
-                    className="h-6 w-6" 
-                    style={{ color: formData.icon_color || 'currentColor' }} 
-                  />
+            {/* Icon Type Selector */}
+            <div className="space-y-3">
+              <Label>Typ ikony</Label>
+              <RadioGroup
+                value={formData.icon_type}
+                onValueChange={(value: 'lucide' | 'custom') => setFormData(prev => ({ ...prev, icon_type: value }))}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="lucide" id="lucide" />
+                  <Label htmlFor="lucide" className="font-normal cursor-pointer">Ikona Lucide</Label>
                 </div>
-                <IconPicker
-                  value={formData.icon_name}
-                  onChange={(iconName) => setFormData(prev => ({ ...prev, icon_name: iconName || 'ExternalLink' }))}
-                  trigger={
-                    <Button variant="outline" size="sm">
-                      Wybierz ikonę
-                    </Button>
-                  }
-                />
-              </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="custom" id="custom" />
+                  <Label htmlFor="custom" className="font-normal cursor-pointer">Własny obrazek</Label>
+                </div>
+              </RadioGroup>
             </div>
+
+            {/* Lucide Icon Picker */}
+            {formData.icon_type === 'lucide' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Ikona</Label>
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-12 h-12 rounded border flex items-center justify-center"
+                      style={{ backgroundColor: formData.icon_color ? `${formData.icon_color}20` : undefined }}
+                    >
+                      <SelectedIconPreview 
+                        className="h-6 w-6" 
+                        style={{ color: formData.icon_color || 'currentColor' }} 
+                      />
+                    </div>
+                    <IconPicker
+                      value={formData.icon_name}
+                      onChange={(iconName) => setFormData(prev => ({ ...prev, icon_name: iconName || 'ExternalLink' }))}
+                      trigger={
+                        <Button variant="outline" size="sm">
+                          Wybierz ikonę
+                        </Button>
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Color */}
+                <div className="space-y-2">
+                  <Label htmlFor="color">Kolor ikony (opcjonalnie)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="color"
+                      type="color"
+                      value={formData.icon_color || '#000000'}
+                      onChange={e => setFormData(prev => ({ ...prev, icon_color: e.target.value }))}
+                      className="w-14 h-10 p-1 cursor-pointer"
+                    />
+                    <Input
+                      value={formData.icon_color}
+                      onChange={e => setFormData(prev => ({ ...prev, icon_color: e.target.value }))}
+                      placeholder="#1877F2"
+                      className="flex-1"
+                    />
+                    {formData.icon_color && (
+                      <Button variant="ghost" size="sm" onClick={() => setFormData(prev => ({ ...prev, icon_color: '' }))}>
+                        Usuń
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Custom Image Upload */}
+            {formData.icon_type === 'custom' && (
+              <div className="space-y-2">
+                <Label>Własny obrazek/logo</Label>
+                <div className="flex items-center gap-3">
+                  {formData.image_url ? (
+                    <div className="relative">
+                      <div className="w-16 h-16 rounded border overflow-hidden bg-muted">
+                        <img 
+                          src={formData.image_url} 
+                          alt="Preview" 
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6"
+                        onClick={handleRemoveImage}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded border border-dashed flex items-center justify-center bg-muted">
+                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploading ? 'Przesyłanie...' : 'Prześlij obrazek'}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Max 2MB, PNG/JPG/SVG</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Title */}
             <div className="space-y-2">
@@ -374,31 +560,6 @@ export const SidebarFooterIconsManagement: React.FC = () => {
                 onChange={e => setFormData(prev => ({ ...prev, url: e.target.value }))}
                 placeholder="https://..."
               />
-            </div>
-
-            {/* Color */}
-            <div className="space-y-2">
-              <Label htmlFor="color">Kolor ikony (opcjonalnie)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="color"
-                  type="color"
-                  value={formData.icon_color || '#000000'}
-                  onChange={e => setFormData(prev => ({ ...prev, icon_color: e.target.value }))}
-                  className="w-14 h-10 p-1 cursor-pointer"
-                />
-                <Input
-                  value={formData.icon_color}
-                  onChange={e => setFormData(prev => ({ ...prev, icon_color: e.target.value }))}
-                  placeholder="#1877F2"
-                  className="flex-1"
-                />
-                {formData.icon_color && (
-                  <Button variant="ghost" size="sm" onClick={() => setFormData(prev => ({ ...prev, icon_color: '' }))}>
-                    Usuń
-                  </Button>
-                )}
-              </div>
             </div>
 
             {/* Visibility */}
