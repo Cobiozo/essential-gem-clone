@@ -34,7 +34,42 @@ interface EventCardCompactProps {
   defaultOpen?: boolean;
 }
 
-// Component for individual occurrence row
+// Past occurrence row component (read-only, visual indication)
+const PastOccurrenceRow: React.FC<{
+  occurrence: ExpandedOccurrence;
+  wasRegistered: boolean;
+  dateLocale: Locale;
+}> = ({ occurrence, wasRegistered, dateLocale }) => {
+  const dayName = format(occurrence.start_datetime, 'EEEE', { locale: dateLocale });
+
+  return (
+    <div className="flex items-center justify-between py-2 px-3 bg-muted/20 rounded-lg opacity-60">
+      <div className="flex items-center gap-3">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm line-through text-muted-foreground">
+          {format(occurrence.start_datetime, 'd MMM', { locale: dateLocale })}
+          <span className="ml-1 capitalize">({dayName})</span>
+        </span>
+        <span className="text-sm font-medium line-through text-muted-foreground">
+          {format(occurrence.start_datetime, 'HH:mm')}
+        </span>
+        <Badge variant="secondary" className="text-xs">
+          Zakończony
+        </Badge>
+      </div>
+      
+      {/* Show if user was registered */}
+      {wasRegistered && (
+        <Badge variant="outline" className="text-xs">
+          <Check className="h-3 w-3 mr-1" />
+          Uczestniczył
+        </Badge>
+      )}
+    </div>
+  );
+};
+
+// Component for individual occurrence row (future occurrences)
 const OccurrenceRow: React.FC<{
   event: EventWithRegistration;
   occurrence: ExpandedOccurrence;
@@ -61,7 +96,7 @@ const OccurrenceRow: React.FC<{
         <Calendar className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm">
           {format(occurrence.start_datetime, 'd MMM', { locale: dateLocale })}
-          <span className="text-muted-foreground ml-1">({dayName})</span>
+          <span className="text-muted-foreground ml-1 capitalize">({dayName})</span>
         </span>
         <span className="text-sm font-medium">
           {format(occurrence.start_datetime, 'HH:mm')}
@@ -585,23 +620,35 @@ Zapisz się tutaj: ${inviteUrl}
               </div>
             )}
 
-            {/* Cyclic occurrences list */}
-            {isMultiOccurrence && showRegistration && futureOccurrences.length > 0 && (
+            {/* Cyclic occurrences list - ALL occurrences with past marked */}
+            {isMultiOccurrence && showRegistration && allOccurrences.length > 0 && (
               <div className="border-t pt-4">
                 <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
                   <CalendarDays className="h-4 w-4" />
-                  Terminy spotkania ({futureOccurrences.length})
+                  Terminy spotkania ({allOccurrences.length})
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {registeredOccurrences.size} / {futureOccurrences.length} zapisanych
+                  </Badge>
                 </h4>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {futureOccurrences.map((occurrence) => (
-                    <OccurrenceRow
-                      key={occurrence.index}
-                      event={event}
-                      occurrence={occurrence}
-                      isRegistered={registeredOccurrences.has(occurrence.index)}
-                      onRegisterChange={handleOccurrenceRegister}
-                      dateLocale={dateLocale}
-                    />
+                  {allOccurrences.map((occurrence) => (
+                    occurrence.is_past ? (
+                      <PastOccurrenceRow
+                        key={occurrence.index}
+                        occurrence={occurrence}
+                        wasRegistered={registeredOccurrences.has(occurrence.index)}
+                        dateLocale={dateLocale}
+                      />
+                    ) : (
+                      <OccurrenceRow
+                        key={occurrence.index}
+                        event={event}
+                        occurrence={occurrence}
+                        isRegistered={registeredOccurrences.has(occurrence.index)}
+                        onRegisterChange={handleOccurrenceRegister}
+                        dateLocale={dateLocale}
+                      />
+                    )
                   ))}
                 </div>
               </div>
