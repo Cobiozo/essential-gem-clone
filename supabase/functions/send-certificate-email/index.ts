@@ -16,9 +16,20 @@ interface SmtpSettings {
   sender_name: string;
 }
 
-// Base64 encode for SMTP AUTH
-function base64Encode(str: string): string {
+// Base64 encode for SMTP AUTH (ASCII only - for credentials)
+function base64EncodeAscii(str: string): string {
   return btoa(str);
+}
+
+// Base64 encode for UTF-8 content (handles Polish characters)
+function base64EncodeUtf8(str: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 // Timeout wrapper for promises
@@ -124,14 +135,14 @@ async function sendSmtpEmail(
       throw new Error(`AUTH LOGIN failed: ${authResponse}`);
     }
     
-    // Send username (base64)
-    const userResponse = await sendCommand(base64Encode(smtp_username));
+    // Send username (base64 - ASCII)
+    const userResponse = await sendCommand(base64EncodeAscii(smtp_username));
     if (!userResponse.startsWith('334')) {
       throw new Error(`Username rejected: ${userResponse}`);
     }
     
-    // Send password (base64)
-    const passResponse = await sendCommand(base64Encode(smtp_password));
+    // Send password (base64 - ASCII)
+    const passResponse = await sendCommand(base64EncodeAscii(smtp_password));
     if (!passResponse.startsWith('235')) {
       throw new Error(`Authentication failed: ${passResponse}`);
     }
@@ -155,12 +166,12 @@ async function sendSmtpEmail(
       throw new Error(`DATA command rejected: ${dataResponse}`);
     }
     
-    // Build email message
+    // Build email message with UTF-8 encoding for content
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const emailMessage = [
-      `From: "${fromName}" <${fromEmail}>`,
+      `From: =?UTF-8?B?${base64EncodeUtf8(fromName)}?= <${fromEmail}>`,
       `To: ${to}`,
-      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Subject: =?UTF-8?B?${base64EncodeUtf8(subject)}?=`,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
       `Date: ${new Date().toUTCString()}`,
@@ -169,13 +180,13 @@ async function sendSmtpEmail(
       `Content-Type: text/plain; charset=UTF-8`,
       `Content-Transfer-Encoding: base64`,
       ``,
-      base64Encode(htmlContent.replace(/<[^>]*>/g, '')),
+      base64EncodeUtf8(htmlContent.replace(/<[^>]*>/g, '')),
       ``,
       `--${boundary}`,
       `Content-Type: text/html; charset=UTF-8`,
       `Content-Transfer-Encoding: base64`,
       ``,
-      base64Encode(htmlContent),
+      base64EncodeUtf8(htmlContent),
       ``,
       `--${boundary}--`,
       `.`
