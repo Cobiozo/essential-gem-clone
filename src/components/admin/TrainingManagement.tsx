@@ -55,7 +55,8 @@ import {
   Search,
   CheckCircle,
   MoreVertical,
-  ChevronDown
+  ChevronDown,
+  RotateCcw
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -106,6 +107,15 @@ interface TrainingLesson {
   action_buttons?: LessonActionButton[];
 }
 
+interface LessonProgressDetail {
+  lesson_id: string;
+  lesson_title: string;
+  position: number;
+  is_completed: boolean;
+  time_spent_seconds: number;
+  video_position_seconds?: number;
+}
+
 interface UserProgress {
   user_id: string;
   email: string;
@@ -119,6 +129,7 @@ interface UserProgress {
     total_lessons: number;
     completed_lessons: number;
     progress_percentage: number;
+    lessons: LessonProgressDetail[];
   }[];
 }
 
@@ -145,6 +156,7 @@ const TrainingManagement = () => {
   const [progressLoading, setProgressLoading] = useState(false);
   const [certificateHistory, setCertificateHistory] = useState<Record<string, CertificateHistory[]>>({});
   const [regeneratingCert, setRegeneratingCert] = useState<string | null>(null);
+  const [resettingProgress, setResettingProgress] = useState<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const { toast } = useToast();
   const { t } = useTranslations();
@@ -425,7 +437,8 @@ const TrainingManagement = () => {
           profiles!training_assignments_user_id_fkey (
             email,
             first_name,
-            last_name
+            last_name,
+            eq_id
           ),
           training_modules!training_assignments_module_id_fkey (
             title
@@ -434,42 +447,49 @@ const TrainingManagement = () => {
 
       if (assignmentsError) throw assignmentsError;
 
-      // Fetch all progress
+      // Fetch all progress with full details
       const { data: progressData, error: progressError } = await supabase
         .from('training_progress')
-        .select('user_id, lesson_id, is_completed');
+        .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds');
 
       if (progressError) throw progressError;
 
-      // Fetch all lessons per module
+      // Fetch all lessons per module with titles
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('training_lessons')
-        .select('id, module_id')
-        .eq('is_active', true);
+        .select('id, module_id, title, position')
+        .eq('is_active', true)
+        .order('position');
 
       if (lessonsError) throw lessonsError;
 
-      // Group lessons by module
-      const lessonsByModule: Record<string, string[]> = {};
+      // Group lessons by module with full details
+      const lessonsByModule: Record<string, { id: string; title: string; position: number }[]> = {};
       lessonsData?.forEach(lesson => {
         if (!lessonsByModule[lesson.module_id]) {
           lessonsByModule[lesson.module_id] = [];
         }
-        lessonsByModule[lesson.module_id].push(lesson.id);
+        lessonsByModule[lesson.module_id].push({
+          id: lesson.id,
+          title: lesson.title,
+          position: lesson.position
+        });
       });
 
-      // Group progress by user
-      const progressByUser: Record<string, Set<string>> = {};
+      // Group progress by user and lesson
+      const progressByUserLesson: Record<string, Record<string, { is_completed: boolean; time_spent_seconds: number; video_position_seconds?: number }>> = {};
       progressData?.forEach(progress => {
-        if (progress.is_completed) {
-          if (!progressByUser[progress.user_id]) {
-            progressByUser[progress.user_id] = new Set();
-          }
-          progressByUser[progress.user_id].add(progress.lesson_id);
+        if (!progressByUserLesson[progress.user_id]) {
+          progressByUserLesson[progress.user_id] = {};
         }
+        progressByUserLesson[progress.user_id][progress.lesson_id] = {
+          is_completed: progress.is_completed,
+          time_spent_seconds: progress.time_spent_seconds || 0,
+          video_position_seconds: progress.video_position_seconds || 0
+        };
       });
 
-      // Build user progress structure
+      // Build user progress structure with lesson details
       const userProgressMap: Record<string, UserProgress> = {};
 
       assignments?.forEach((assignment: any) => {
@@ -486,16 +506,28 @@ const TrainingManagement = () => {
             email: profile.email,
             first_name: profile.first_name || '',
             last_name: profile.last_name || '',
+            eq_id: profile.eq_id || undefined,
             modules: []
           };
         }
 
-        const totalLessons = lessonsByModule[moduleId]?.length || 0;
-        const userCompletedLessons = progressByUser[userId] 
-          ? lessonsByModule[moduleId]?.filter(lessonId => 
-              progressByUser[userId].has(lessonId)
-            ).length || 0
-          : 0;
+        const moduleLessons = lessonsByModule[moduleId] || [];
+        const totalLessons = moduleLessons.length;
+        
+        // Build lesson progress details
+        const lessonDetails: LessonProgressDetail[] = moduleLessons.map(lesson => {
+          const lessonProgress = progressByUserLesson[userId]?.[lesson.id];
+          return {
+            lesson_id: lesson.id,
+            lesson_title: lesson.title,
+            position: lesson.position,
+            is_completed: lessonProgress?.is_completed || false,
+            time_spent_seconds: lessonProgress?.time_spent_seconds || 0,
+            video_position_seconds: lessonProgress?.video_position_seconds || 0
+          };
+        });
+
+        const userCompletedLessons = lessonDetails.filter(l => l.is_completed).length;
 
         userProgressMap[userId].modules.push({
           module_id: moduleId,
@@ -505,7 +537,8 @@ const TrainingManagement = () => {
           completed_lessons: userCompletedLessons,
           progress_percentage: totalLessons > 0 
             ? Math.round((userCompletedLessons / totalLessons) * 100)
-            : 0
+            : 0,
+          lessons: lessonDetails
         });
       });
 
@@ -519,6 +552,106 @@ const TrainingManagement = () => {
       });
     } finally {
       setProgressLoading(false);
+    }
+  };
+
+  // Reset entire module progress for a user
+  const resetModuleProgress = async (userId: string, moduleId: string, moduleTitle: string) => {
+    if (!confirm(`Czy na pewno chcesz zresetować szkolenie "${moduleTitle}" dla tego użytkownika?\n\nWszystkie lekcje zostaną oznaczone jako nieukończone. Ta operacja jest nieodwracalna.`)) {
+      return;
+    }
+
+    const key = `${userId}-${moduleId}`;
+    setResettingProgress(key);
+
+    try {
+      // Get all lessons for this module
+      const { data: moduleLessons, error: lessonsError } = await supabase
+        .from('training_lessons')
+        .select('id')
+        .eq('module_id', moduleId);
+
+      if (lessonsError) throw lessonsError;
+
+      const lessonIds = moduleLessons?.map(l => l.id) || [];
+
+      // Delete progress for all lessons in this module for this user
+      if (lessonIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('training_progress')
+          .delete()
+          .eq('user_id', userId)
+          .in('lesson_id', lessonIds);
+
+        if (deleteError) throw deleteError;
+      }
+
+      // Reset the training assignment
+      const { error: assignmentError } = await supabase
+        .from('training_assignments')
+        .update({
+          is_completed: false,
+          completed_at: null
+        })
+        .eq('user_id', userId)
+        .eq('module_id', moduleId);
+
+      if (assignmentError) throw assignmentError;
+
+      toast({
+        title: "Szkolenie zresetowane",
+        description: `Postęp użytkownika w "${moduleTitle}" został zresetowany.`
+      });
+
+      // Refresh data
+      await fetchUserProgress();
+    } catch (error) {
+      console.error('Error resetting module progress:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zresetować szkolenia.",
+        variant: "destructive"
+      });
+    } finally {
+      setResettingProgress(null);
+    }
+  };
+
+  // Reset single lesson progress for a user
+  const resetLessonProgress = async (userId: string, lessonId: string, lessonTitle: string) => {
+    if (!confirm(`Czy na pewno chcesz zresetować lekcję "${lessonTitle}" dla tego użytkownika?`)) {
+      return;
+    }
+
+    const key = `lesson-${userId}-${lessonId}`;
+    setResettingProgress(key);
+
+    try {
+      // Delete progress for this specific lesson
+      const { error } = await supabase
+        .from('training_progress')
+        .delete()
+        .eq('user_id', userId)
+        .eq('lesson_id', lessonId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Lekcja zresetowana",
+        description: `Postęp w lekcji "${lessonTitle}" został zresetowany.`
+      });
+
+      // Refresh data
+      await fetchUserProgress();
+    } catch (error) {
+      console.error('Error resetting lesson progress:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zresetować lekcji.",
+        variant: "destructive"
+      });
+    } finally {
+      setResettingProgress(null);
     }
   };
 
@@ -1058,52 +1191,127 @@ const TrainingManagement = () => {
                           const key = `${progressUser.user_id}-${module.module_id}`;
                           const history = certificateHistory[key];
                           const latestCert = history?.[0];
+                          const isResettingModule = resettingProgress === key;
                           
                           return (
-                            <div key={module.module_id} className="border rounded-lg p-3 bg-background">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-medium text-sm">{module.module_title}</div>
-                                <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"} className="text-xs">
-                                  {module.progress_percentage}%
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                                <Clock className="h-3 w-3" />
-                                <span>Ukończono {module.completed_lessons} z {module.total_lessons} lekcji</span>
-                              </div>
-                              <div className="bg-secondary rounded-full h-1.5">
-                                <div className="bg-primary rounded-full h-1.5 transition-all" style={{ width: `${module.progress_percentage}%` }} />
-                              </div>
-                              
-                              {module.progress_percentage === 100 && (
-                                <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
-                                  {latestCert ? (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Award className="h-3 w-3" />
-                                      <span>{new Date(latestCert.created_at).toLocaleDateString('pl-PL')}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">Brak certyfikatu</span>
-                                  )}
-                                  <div className="flex gap-1">
-                                    {latestCert && (
-                                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => downloadCertificateAdmin(latestCert.id)}>
-                                        <Download className="h-3 w-3" />
-                                      </Button>
-                                    )}
+                            <Collapsible key={module.module_id}>
+                              <div className="border rounded-lg p-3 bg-background">
+                                <div className="flex items-center justify-between mb-2">
+                                  <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors">
+                                    <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                                    <span className="font-medium text-sm">{module.module_title}</span>
+                                  </CollapsibleTrigger>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"} className="text-xs">
+                                      {module.progress_percentage}%
+                                    </Badge>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="h-7 px-2 text-xs"
-                                      onClick={() => regenerateCertificateAdmin(progressUser.user_id, module.module_id, module.module_title, `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email)}
-                                      disabled={regeneratingCert === key}
+                                      className="h-7 px-2 text-xs gap-1"
+                                      onClick={() => resetModuleProgress(progressUser.user_id, module.module_id, module.module_title)}
+                                      disabled={isResettingModule}
+                                      title="Usuwa cały postęp użytkownika w tym szkoleniu"
                                     >
-                                      {regeneratingCert === key ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                      {isResettingModule ? (
+                                        <RotateCcw className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <RotateCcw className="h-3 w-3" />
+                                      )}
+                                      <span className="hidden sm:inline">Resetuj szkolenie</span>
                                     </Button>
                                   </div>
                                 </div>
-                              )}
-                            </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                                  <Clock className="h-3 w-3" />
+                                  <span>Ukończono {module.completed_lessons} z {module.total_lessons} lekcji</span>
+                                </div>
+                                <div className="bg-secondary rounded-full h-1.5 mb-2">
+                                  <div className="bg-primary rounded-full h-1.5 transition-all" style={{ width: `${module.progress_percentage}%` }} />
+                                </div>
+                                
+                                {/* Expandable lesson details */}
+                                <CollapsibleContent className="mt-3 pt-3 border-t space-y-2">
+                                  {module.lessons.map((lesson) => {
+                                    const lessonKey = `lesson-${progressUser.user_id}-${lesson.lesson_id}`;
+                                    const isResettingLesson = resettingProgress === lessonKey;
+                                    const formatTime = (seconds: number) => {
+                                      const mins = Math.floor(seconds / 60);
+                                      const secs = seconds % 60;
+                                      return `${mins}:${secs.toString().padStart(2, '0')}`;
+                                    };
+                                    
+                                    return (
+                                      <div 
+                                        key={lesson.lesson_id} 
+                                        className={cn(
+                                          "flex items-center justify-between py-2 px-2 rounded text-sm",
+                                          lesson.is_completed ? "bg-primary/5" : "bg-muted/30"
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          {lesson.is_completed ? (
+                                            <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                                          ) : (
+                                            <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                                          )}
+                                          <span className="truncate">{lesson.lesson_title}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className="text-xs text-muted-foreground">
+                                            {formatTime(lesson.time_spent_seconds)}
+                                          </span>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-xs gap-1"
+                                            onClick={() => resetLessonProgress(progressUser.user_id, lesson.lesson_id, lesson.lesson_title)}
+                                            disabled={isResettingLesson}
+                                            title="Usuwa postęp użytkownika w tej lekcji"
+                                          >
+                                            {isResettingLesson ? (
+                                              <RotateCcw className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                              <RotateCcw className="h-3 w-3" />
+                                            )}
+                                            <span className="hidden md:inline">Resetuj lekcję</span>
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </CollapsibleContent>
+                                
+                                {module.progress_percentage === 100 && (
+                                  <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
+                                    {latestCert ? (
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <Award className="h-3 w-3" />
+                                        <span>{new Date(latestCert.created_at).toLocaleDateString('pl-PL')}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">Brak certyfikatu</span>
+                                    )}
+                                    <div className="flex gap-1">
+                                      {latestCert && (
+                                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => downloadCertificateAdmin(latestCert.id)}>
+                                          <Download className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => regenerateCertificateAdmin(progressUser.user_id, module.module_id, module.module_title, `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email)}
+                                        disabled={regeneratingCert === key}
+                                      >
+                                        {regeneratingCert === key ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </Collapsible>
                           );
                         })}
                       </div>
