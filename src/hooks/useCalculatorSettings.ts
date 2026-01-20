@@ -227,14 +227,22 @@ export function useCalculatorUserAccess() {
   const queryClient = useQueryClient();
 
   const searchUsers = async (searchTerm: string) => {
+    if (!searchTerm || searchTerm.length < 2) return [];
+    
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, email')
+      .select('user_id, first_name, last_name, email')
       .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
       .limit(10);
 
     if (error) throw error;
-    return data;
+    // Map user_id to id for component compatibility
+    return (data || []).map(p => ({
+      id: p.user_id,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      email: p.email
+    }));
   };
 
   const getUserAccess = async () => {
