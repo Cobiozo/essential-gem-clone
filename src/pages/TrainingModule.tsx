@@ -161,6 +161,79 @@ const TrainingModule = () => {
             return acc;
           }, {} as Record<string, LessonProgress>);
 
+          // Sync ALL localStorage backups to database before setting progress
+          const syncAllLocalBackups = async () => {
+            for (const lesson of lessonsData) {
+              const backupKey = `lesson_progress_${lesson.id}`;
+              const backupStr = localStorage.getItem(backupKey);
+              if (backupStr) {
+                try {
+                  const backup = JSON.parse(backupStr);
+                  const dbUpdatedAt = progressMap[lesson.id]?.updated_at 
+                    ? new Date(progressMap[lesson.id].updated_at as unknown as string).getTime() 
+                    : 0;
+                  
+                  // Only sync if backup is newer than DB and not older than 24h
+                  if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
+                    console.log(`[TrainingModule] Syncing localStorage backup for lesson: ${lesson.title}`);
+                    
+                    const { error } = await supabase.from('training_progress').upsert({
+                      user_id: user.id,
+                      lesson_id: lesson.id,
+                      time_spent_seconds: backup.time_spent_seconds || 0,
+                      video_position_seconds: backup.video_position_seconds || 0,
+                      is_completed: backup.is_completed || false,
+                      completed_at: backup.is_completed ? new Date().toISOString() : null
+                    }, {
+                      onConflict: 'user_id,lesson_id'
+                    });
+                    
+                    if (!error) {
+                      // Update progressMap with synced data
+                      progressMap[lesson.id] = {
+                        ...progressMap[lesson.id],
+                        lesson_id: lesson.id,
+                        time_spent_seconds: backup.time_spent_seconds || 0,
+                        video_position_seconds: backup.video_position_seconds || 0,
+                        is_completed: backup.is_completed || false,
+                        started_at: progressMap[lesson.id]?.started_at || new Date().toISOString(),
+                        completed_at: backup.is_completed ? new Date().toISOString() : null
+                      };
+                      localStorage.removeItem(backupKey);
+                      console.log(`[TrainingModule] Backup synced successfully for: ${lesson.title}`);
+                    }
+                  } else {
+                    localStorage.removeItem(backupKey);
+                  }
+                } catch (e) {
+                  console.warn(`[TrainingModule] Failed to sync backup for ${lesson.id}:`, e);
+                  localStorage.removeItem(backupKey);
+                }
+              }
+            }
+          };
+          
+          await syncAllLocalBackups();
+          
+          // Auto-create training_assignment if missing (for admins or users without assignment)
+          const { data: existingAssignment } = await supabase
+            .from('training_assignments')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('module_id', moduleId)
+            .maybeSingle();
+          
+          if (!existingAssignment) {
+            console.log('[TrainingModule] No assignment found, creating one automatically');
+            await supabase.from('training_assignments').insert({
+              user_id: user.id,
+              module_id: moduleId,
+              assigned_by: user.id,
+              assigned_at: new Date().toISOString(),
+              is_completed: false
+            });
+          }
+
           setProgress(progressMap);
 
           // Find the last lesson with progress (most advanced lesson user worked on)
@@ -181,42 +254,8 @@ const TrainingModule = () => {
           setCurrentLessonIndex(targetIndex);
           const lessonId = lessonsData[targetIndex].id;
           
-          // Check localStorage backup (might be newer than DB data)
-          let savedPos = progressMap[lessonId]?.video_position_seconds || 0;
-          const dbUpdatedAt = progressMap[lessonId]?.updated_at 
-            ? new Date(progressMap[lessonId].updated_at as unknown as string).getTime() 
-            : 0;
-          const backupKey = `lesson_progress_${lessonId}`;
-          const backupStr = localStorage.getItem(backupKey);
-          
-          if (backupStr) {
-            try {
-              const backup = JSON.parse(backupStr);
-              // Use backup if it's newer than DB and not older than 24h
-              if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
-                savedPos = backup.video_position_seconds || 0;
-                
-                // Sync backup to database
-                if (user) {
-                  supabase.from('training_progress').upsert({
-                    user_id: user.id,
-                    lesson_id: lessonId,
-                    time_spent_seconds: backup.time_spent_seconds || 0,
-                    video_position_seconds: backup.video_position_seconds || 0,
-                    is_completed: backup.is_completed || false
-                  }, {
-                    onConflict: 'user_id,lesson_id'
-                  }).then(() => {
-                    localStorage.removeItem(backupKey);
-                  });
-                }
-              } else {
-                localStorage.removeItem(backupKey);
-              }
-            } catch (e) {
-              localStorage.removeItem(backupKey);
-            }
-          }
+          // Get saved position from synced progress
+          const savedPos = progressMap[lessonId]?.video_position_seconds || 0;
           
           setSavedVideoPosition(savedPos);
           setVideoPosition(savedPos);
@@ -386,7 +425,7 @@ const TrainingModule = () => {
   }, [user, lessons, currentLessonIndex, textLessonTime]);
 
   // Ref to hold latest saveProgressWithPosition function (for stable callbacks)
-  const saveProgressRef = useRef<() => Promise<void>>();
+  const saveProgressRef = useRef<() => Promise<boolean | void>>();
   const progressRef = useRef<Record<string, LessonProgress>>({});
   
   // Keep progressRef in sync
@@ -394,22 +433,66 @@ const TrainingModule = () => {
     progressRef.current = progress;
   }, [progress]);
 
-  const saveProgressWithPosition = useCallback(async () => {
-    if (!user || lessons.length === 0) return;
+  // Save with retry mechanism for reliability
+  const saveProgressWithRetry = useCallback(async (
+    lessonId: string,
+    videoPos: number,
+    timeSpent: number,
+    isCompleted: boolean,
+    maxRetries = 3
+  ): Promise<boolean> => {
+    if (!user) return false;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const { error } = await supabase
+          .from('training_progress')
+          .upsert({
+            user_id: user.id,
+            lesson_id: lessonId,
+            time_spent_seconds: timeSpent,
+            video_position_seconds: videoPos,
+            is_completed: isCompleted,
+            completed_at: isCompleted ? new Date().toISOString() : null
+          }, { 
+            onConflict: 'user_id,lesson_id'
+          });
+
+        if (!error) {
+          // Clear localStorage backup after successful save
+          localStorage.removeItem(`lesson_progress_${lessonId}`);
+          console.log(`[TrainingModule] Progress saved successfully for lesson ${lessonId}`);
+          return true;
+        }
+        throw error;
+      } catch (e) {
+        console.warn(`[TrainingModule] Save attempt ${attempt + 1} failed:`, e);
+      }
+      // Wait before retry (500ms, 1s, 2s - exponential backoff)
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+      }
+    }
+    console.error('[TrainingModule] All save attempts failed');
+    return false;
+  }, [user]);
+
+  const saveProgressWithPosition = useCallback(async (): Promise<boolean> => {
+    if (!user || lessons.length === 0) return false;
 
     const currentLesson = lessons[currentLessonIndex];
-    if (!currentLesson) return;
+    if (!currentLesson) return false;
     
     // Prevent saving during lesson transition (race condition prevention)
     if (isTransitioningRef.current) {
       console.log('[TrainingModule] Skipping save during transition');
-      return;
+      return false;
     }
     
     // Check if lesson changed (race condition prevention)
     if (currentLessonIdRef.current !== currentLesson.id) {
       console.log('[TrainingModule] Lesson changed, skipping save for old lesson');
-      return;
+      return false;
     }
 
     // Check if was already completed using ref (avoid stale state)
@@ -419,7 +502,7 @@ const TrainingModule = () => {
     // Użytkownik może swobodnie przewijać bez wpływu na status ukończenia
     if (wasAlreadyCompleted) {
       console.log('[TrainingModule] Skipping save for completed lesson (review mode)');
-      return;
+      return true; // Return true as there's nothing to save
     }
 
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
@@ -433,22 +516,25 @@ const TrainingModule = () => {
       : (currentLesson.min_time_seconds || 0);
     const isCompleted = effectiveTime >= requiredTime;
 
-    try {
-      const { error } = await supabase
-        .from('training_progress')
-        .upsert({
-          user_id: user.id,
-          lesson_id: currentLesson.id,
-          time_spent_seconds: effectiveTime,
-          video_position_seconds: hasVideo ? currentVideoPos : 0,
-          is_completed: isCompleted,
-          completed_at: isCompleted ? new Date().toISOString() : null
-        }, { 
-          onConflict: 'user_id,lesson_id'
-        });
+    // Save to localStorage first as backup
+    const backupData = {
+      lesson_id: currentLesson.id,
+      video_position_seconds: hasVideo ? currentVideoPos : 0,
+      time_spent_seconds: effectiveTime,
+      is_completed: isCompleted,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(`lesson_progress_${currentLesson.id}`, JSON.stringify(backupData));
 
-      if (error) throw error;
+    // Try to save with retry
+    const success = await saveProgressWithRetry(
+      currentLesson.id,
+      hasVideo ? currentVideoPos : 0,
+      effectiveTime,
+      isCompleted
+    );
 
+    if (success) {
       setProgress(prev => ({
         ...prev,
         [currentLesson.id]: {
@@ -463,16 +549,16 @@ const TrainingModule = () => {
       }));
 
       // Show toast when lesson is completed
-      if (isCompleted) {
+      if (isCompleted && !wasAlreadyCompleted) {
         toast({
           title: "Lekcja ukończona!",
           description: `Pomyślnie ukończyłeś lekcję "${currentLesson.title}"`,
         });
       }
-    } catch (error) {
-      console.error('Error saving progress:', error);
     }
-  }, [user, lessons, currentLessonIndex, textLessonTime, toast]);
+    
+    return success;
+  }, [user, lessons, currentLessonIndex, textLessonTime, toast, saveProgressWithRetry]);
   
   // Update saveProgressRef whenever saveProgressWithPosition changes
   useEffect(() => {
