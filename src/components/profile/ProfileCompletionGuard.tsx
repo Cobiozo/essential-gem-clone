@@ -26,15 +26,22 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   
   // Lista tras publicznych (dozwolone bez logowania)
   const PUBLIC_PATHS = [
-    '/auth',
+    '/',           // Strona główna - publiczna (CMS)
+    '/auth',       // Panel logowania
+    '/page/',      // Strony CMS - publiczne
     '/infolink/',  // InfoLink pages are public (OTP protected)
     '/events/register/', // Guest registration pages
   ];
   
   // Sprawdź czy ścieżka jest publiczna
-  const isPublicPath = PUBLIC_PATHS.some(path => 
-    location.pathname === path || location.pathname.startsWith(path)
-  );
+  const isPublicPath = PUBLIC_PATHS.some(path => {
+    if (path === '/') {
+      // Strona główna - tylko dokładnie "/"
+      return location.pathname === '/';
+    }
+    // Inne ścieżki - dokładne lub prefix
+    return location.pathname === path || location.pathname.startsWith(path);
+  });
   
   // Jeśli to ścieżka publiczna, przepuść bez sprawdzania
   if (isPublicPath) {
