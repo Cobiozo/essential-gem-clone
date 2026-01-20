@@ -270,10 +270,16 @@ export const ActiveOtpCodesWidget: React.FC = () => {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {isUsed && code.first_session_expires_at
-                    ? (t('dashboard.otpSessionExpiresIn') || 'Sesja wygasa za')
-                    : (t('dashboard.otpExpiresIn') || 'Wygasa za')
-                  } <LiveCountdown expiresAt={isUsed && code.first_session_expires_at ? code.first_session_expires_at : code.expires_at} />
+                  {isUsed && code.first_session_expires_at ? (
+                    <>
+                      {t('dashboard.otpSessionExpiresIn') || 'Sesja wygasa za'}{' '}
+                      <LiveCountdown expiresAt={code.first_session_expires_at} />
+                    </>
+                  ) : (
+                    <span className="italic">
+                      {t('dashboard.otpWaitingForUse') || 'Oczekuje na użycie'}
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="h-3 w-3" />
