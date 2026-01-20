@@ -58,6 +58,7 @@ import { EventsManagement } from '@/components/admin/EventsManagement';
 import GuestRegistrationsManagement from '@/components/admin/GuestRegistrationsManagement';
 import { CalculatorManagement } from '@/components/admin/CalculatorManagement';
 import { SpecialistCalculatorManagement } from '@/components/admin/SpecialistCalculatorManagement';
+import { SidebarFooterIconsManagement } from '@/components/admin/SidebarFooterIconsManagement';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
@@ -4383,6 +4384,10 @@ const Admin = () => {
 
           <TabsContent value="dashboard-footer">
             <DashboardFooterManagement />
+          </TabsContent>
+
+          <TabsContent value="sidebar-icons">
+            <SidebarFooterIconsManagement />
           </TabsContent>
         </Tabs>
       </div>
