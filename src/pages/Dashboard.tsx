@@ -1,4 +1,5 @@
 import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { WelcomeWidget } from '@/components/dashboard/widgets/WelcomeWidget';
 import { TrainingProgressWidget } from '@/components/dashboard/widgets/TrainingProgressWidget';
@@ -13,9 +14,17 @@ import { DashboardFooterSection } from '@/components/dashboard/widgets/Dashboard
 import { ActiveOtpCodesWidget } from '@/components/dashboard/widgets/ActiveOtpCodesWidget';
 import { ActiveUsersWidget } from '@/components/dashboard/widgets/ActiveUsersWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard: React.FC = () => {
   const { t } = useLanguage();
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  
+  // BEZPIECZEŃSTWO: Przekieruj niezalogowanych na stronę logowania
+  if (!loading && !user) {
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  }
 
   return (
     <DashboardLayout title={t('dashboard.menu.dashboard')}>

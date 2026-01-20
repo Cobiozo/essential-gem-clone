@@ -24,14 +24,26 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     }
   }, [profile]);
   
-  // Allow auth page to render without restrictions
-  if (location.pathname === '/auth') {
+  // Lista tras publicznych (dozwolone bez logowania)
+  const PUBLIC_PATHS = [
+    '/auth',
+    '/infolink/',  // InfoLink pages are public (OTP protected)
+    '/events/register/', // Guest registration pages
+  ];
+  
+  // Sprawdź czy ścieżka jest publiczna
+  const isPublicPath = PUBLIC_PATHS.some(path => 
+    location.pathname === path || location.pathname.startsWith(path)
+  );
+  
+  // Jeśli to ścieżka publiczna, przepuść bez sprawdzania
+  if (isPublicPath) {
     return <>{children}</>;
   }
   
-  // Don't guard if not logged in
+  // BEZPIECZEŃSTWO: Przekieruj niezalogowanych na stronę logowania
   if (!user) {
-    return <>{children}</>;
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
   }
   
   // Wait for profile and roles to load
