@@ -3699,6 +3699,54 @@ export type Database = {
           },
         ]
       }
+      sidebar_footer_icons: {
+        Row: {
+          created_at: string | null
+          icon_color: string | null
+          icon_name: string
+          id: string
+          is_active: boolean | null
+          position: number | null
+          title: string
+          updated_at: string | null
+          url: string
+          visible_to_admin: boolean | null
+          visible_to_client: boolean | null
+          visible_to_partner: boolean | null
+          visible_to_specjalista: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          icon_color?: string | null
+          icon_name?: string
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          title: string
+          updated_at?: string | null
+          url: string
+          visible_to_admin?: boolean | null
+          visible_to_client?: boolean | null
+          visible_to_partner?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          icon_color?: string | null
+          icon_name?: string
+          id?: string
+          is_active?: boolean | null
+          position?: number | null
+          title?: string
+          updated_at?: string | null
+          url?: string
+          visible_to_admin?: boolean | null
+          visible_to_client?: boolean | null
+          visible_to_partner?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Relationships: []
+      }
       smtp_settings: {
         Row: {
           created_at: string

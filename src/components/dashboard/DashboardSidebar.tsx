@@ -39,6 +39,7 @@ import {
   Video,
   UserRound,
   Calculator,
+  icons as LucideIcons,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -120,6 +121,8 @@ export const DashboardSidebar: React.FC = () => {
     id: string;
     title: string;
     url: string;
+    icon_name?: string;
+    icon_color?: string | null;
   }>>([]);
 
   useEffect(() => {
@@ -160,33 +163,30 @@ export const DashboardSidebar: React.FC = () => {
         setInfoLinks(infoLinksData || []);
         setHasInfoLinks((infoLinksData?.length || 0) > 0);
 
-        // Fetch community links (social media buttons from cms_items)
-        const { data: communityData } = await supabase
-          .from('cms_items')
-          .select('id, title, url, visible_to_everyone, visible_to_clients, visible_to_partners, visible_to_specjalista')
-          .eq('type', 'button')
+        // Fetch sidebar footer icons from new dedicated table
+        const role = userRole?.role?.toLowerCase();
+        const { data: footerIconsData } = await supabase
+          .from('sidebar_footer_icons')
+          .select('*')
           .eq('is_active', true)
-          .not('url', 'is', null)
-          .or('url.ilike.%facebook%,url.ilike.%whatsapp%,url.ilike.%chat.whatsapp%,url.ilike.%wa.me%')
           .order('position', { ascending: true });
 
         // Filter by visibility based on user role
-        const role = userRole?.role?.toLowerCase();
-        const filteredCommunity = (communityData || []).filter(item => {
-          if (item.visible_to_everyone) return true;
-          if (role === 'admin') return true;
-          if (role === 'client' && item.visible_to_clients) return true;
-          if (role === 'partner' && item.visible_to_partners) return true;
-          if (role === 'specjalista' && item.visible_to_specjalista) return true;
+        const filteredIcons = (footerIconsData || []).filter(icon => {
+          if (role === 'admin' && icon.visible_to_admin) return true;
+          if (role === 'partner' && icon.visible_to_partner) return true;
+          if ((role === 'client' || role === 'user') && icon.visible_to_client) return true;
+          if (role === 'specjalista' && icon.visible_to_specjalista) return true;
           return false;
-        }).filter(item => item.url); // Ensure url exists
+        });
 
-        // Deduplicate by URL - keep first occurrence
-        const uniqueCommunity = filteredCommunity.filter((item, index, self) =>
-          index === self.findIndex(t => t.url === item.url)
-        );
-
-        setCommunityLinks(uniqueCommunity as Array<{id: string; title: string; url: string}>);
+        setCommunityLinks(filteredIcons.map(icon => ({
+          id: icon.id,
+          title: icon.title,
+          url: icon.url,
+          icon_name: icon.icon_name,
+          icon_color: icon.icon_color,
+        })));
 
         // Fetch individual meetings permissions for partners
         if (role === 'partner') {
@@ -596,8 +596,11 @@ export const DashboardSidebar: React.FC = () => {
           <div className="px-2 py-2 border-b border-sidebar-border mb-2">
             <div className="flex flex-wrap gap-2 justify-center">
               {communityLinks.map((link) => {
-                const platform = detectPlatform(link.title, link.url);
-                const IconComponent = platformIcons[platform] || ExternalLink;
+                // Use icon from database, fallback to platform detection
+                const IconComponent = link.icon_name 
+                  ? (LucideIcons as Record<string, React.ElementType>)[link.icon_name] || ExternalLink
+                  : platformIcons[detectPlatform(link.title, link.url)] || ExternalLink;
+                
                 return (
                   <Button
                     key={link.id}
@@ -608,11 +611,8 @@ export const DashboardSidebar: React.FC = () => {
                     title={link.title}
                   >
                     <IconComponent 
-                      className={`h-5 w-5 ${
-                        platform === 'whatsapp' ? 'text-green-500' : 
-                        platform === 'facebook' ? 'text-blue-600' : 
-                        'text-muted-foreground'
-                      }`} 
+                      className="h-5 w-5"
+                      style={{ color: link.icon_color || undefined }}
                     />
                   </Button>
                 );

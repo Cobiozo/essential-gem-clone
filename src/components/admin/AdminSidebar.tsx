@@ -92,6 +92,7 @@ const SIDEBAR_KEYS = {
   administrator: 'admin.sidebar.administrator',
   calculator: 'admin.sidebar.calculator',
   chatPermissions: 'admin.sidebar.chatPermissions',
+  sidebarIcons: 'admin.sidebar.sidebarIcons',
 };
 
 interface AdminSidebarProps {
@@ -126,6 +127,7 @@ const navCategories: NavCategory[] = [
       { value: 'layout', labelKey: 'layout', icon: Type },
       { value: 'pages', labelKey: 'pages', icon: FileText },
       { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
+      { value: 'sidebar-icons', labelKey: 'sidebarIcons', icon: Palette },
     ],
   },
   {
@@ -223,6 +225,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
     chatPermissions: 'Kierunki komunikacji',
+    sidebarIcons: 'Ikony paska bocznego',
   };
 
   const getLabel = (key: string): string => {
