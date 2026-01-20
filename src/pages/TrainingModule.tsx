@@ -669,17 +669,26 @@ const TrainingModule = () => {
         hasInitialSaveRef.current = false;
         videoPositionRef.current = nextVideoPosition;
       } else {
-        // Last lesson - check if all completed
-        const allPreviousCompleted = lessons.slice(0, -1).every(lesson => {
-          return progress[lesson.id]?.is_completed === true;
+        // Last lesson - build set of completed lessons manually to avoid async state bug
+        const completedLessonIds = new Set<string>();
+        
+        // Add lessons from current progress state
+        Object.entries(progress).forEach(([lessonId, lessonProgress]) => {
+          if (lessonProgress.is_completed) {
+            completedLessonIds.add(lessonId);
+          }
         });
         
-        // Current lesson is now completed (we just marked it above)
-        const allCompleted = allPreviousCompleted;
+        // Add the lesson we just marked as completed (not yet in state due to async update)
+        completedLessonIds.add(currentLesson.id);
+        
+        // Check if ALL lessons are now completed
+        const allCompleted = lessons.every(lesson => completedLessonIds.has(lesson.id));
 
         if (allCompleted && user && moduleId) {
           try {
-            const { error: assignmentError } = await supabase
+            // First try to update existing assignment
+            const { error: updateError, count } = await supabase
               .from('training_assignments')
               .update({
                 is_completed: true,
@@ -688,8 +697,23 @@ const TrainingModule = () => {
               .eq('user_id', user.id)
               .eq('module_id', moduleId);
 
-            if (assignmentError) {
-              console.warn('Training assignment update failed:', assignmentError);
+            // If no record was updated (e.g., admin without assignment), create one
+            if (updateError || count === 0) {
+              console.log('No existing assignment found, creating one...');
+              const { error: insertError } = await supabase
+                .from('training_assignments')
+                .insert({
+                  user_id: user.id,
+                  module_id: moduleId,
+                  is_completed: true,
+                  completed_at: new Date().toISOString(),
+                  assigned_by: user.id,
+                  assigned_at: new Date().toISOString()
+                });
+              
+              if (insertError) {
+                console.warn('Could not create training assignment:', insertError);
+              }
             }
 
             toast({
@@ -938,11 +962,24 @@ const TrainingModule = () => {
   // Determine effective time based on lesson type
   const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
   const effectiveTimeSpent = hasVideo ? Math.floor(videoPosition) : textLessonTime;
-  // Use video_duration_seconds from DB if available, otherwise fallback to live videoDuration or min_time_seconds
-  const requiredTime = currentLesson?.video_duration_seconds 
-    || (hasVideo && videoDuration > 0 ? Math.floor(videoDuration) : 0)
-    || (currentLesson?.min_time_seconds || 0);
-  const canProceed = effectiveTimeSpent >= requiredTime;
+  
+  // Determine required time with proper fallbacks to handle missing/zero durations
+  const getRequiredTime = () => {
+    // Priority 1: video_duration_seconds from DB (if valid)
+    if (currentLesson?.video_duration_seconds && currentLesson.video_duration_seconds > 0) {
+      return currentLesson.video_duration_seconds;
+    }
+    // Priority 2: live detected duration (for videos with missing DB duration)
+    if (hasVideo && videoDuration > 0) {
+      return Math.floor(videoDuration);
+    }
+    // Priority 3: min_time_seconds (for text lessons or as fallback)
+    return currentLesson?.min_time_seconds || 0;
+  };
+  const requiredTime = getRequiredTime();
+  
+  // Allow proceeding if requiredTime is 0 (fallback for misconfigured lessons)
+  const canProceed = requiredTime === 0 || effectiveTimeSpent >= requiredTime;
   
   const progressPercentage = requiredTime > 0
     ? Math.min(100, (effectiveTimeSpent / requiredTime) * 100)
