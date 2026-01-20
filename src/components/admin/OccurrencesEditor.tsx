@@ -8,6 +8,16 @@ import { Calendar, Clock, Trash2, Plus, Copy } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { EventOccurrence } from '@/types/occurrences';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface OccurrencesEditorProps {
   occurrences: EventOccurrence[];
@@ -32,6 +42,16 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('10:00');
   const [newDuration, setNewDuration] = useState(defaultDuration);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+
+  const isPastOccurrence = (date: string, time: string, duration: number) => {
+    const [year, month, day] = date.split('-').map(Number);
+    const [hours, minutes] = time.split(':').map(Number);
+    const endTime = new Date(year, month - 1, day, hours, minutes);
+    endTime.setMinutes(endTime.getMinutes() + duration);
+    return endTime < new Date();
+  };
 
   const handleAddOccurrence = () => {
     if (!newDate) return;
@@ -54,9 +74,39 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
   };
 
   const handleRemoveOccurrence = (index: number) => {
-    const updated = occurrences.filter((_, i) => i !== index);
+    const occ = occurrences[index];
+    const isPast = isPastOccurrence(occ.date, occ.time, occ.duration_minutes);
+    
+    if (isPast) {
+      // Past occurrence - delete without confirmation
+      const updated = occurrences.filter((_, i) => i !== index);
+      onChange(updated);
+    } else {
+      // Future occurrence - show confirmation dialog
+      setPendingDeleteIndex(index);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (pendingDeleteIndex !== null) {
+      const updated = occurrences.filter((_, i) => i !== pendingDeleteIndex);
+      onChange(updated);
+    }
+    setDeleteDialogOpen(false);
+    setPendingDeleteIndex(null);
+  };
+
+  const handleRemoveAllPast = () => {
+    const updated = occurrences.filter(occ => 
+      !isPastOccurrence(occ.date, occ.time, occ.duration_minutes)
+    );
     onChange(updated);
   };
+
+  const hasPastOccurrences = occurrences.some(occ => 
+    isPastOccurrence(occ.date, occ.time, occ.duration_minutes)
+  );
 
   const handleDuplicateOccurrence = (occ: EventOccurrence) => {
     // Set form to same values for easy duplication with different date
@@ -73,14 +123,6 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
     }
   };
 
-  const isPastOccurrence = (date: string, time: string, duration: number) => {
-    const [year, month, day] = date.split('-').map(Number);
-    const [hours, minutes] = time.split(':').map(Number);
-    const endTime = new Date(year, month - 1, day, hours, minutes);
-    endTime.setMinutes(endTime.getMinutes() + duration);
-    return endTime < new Date();
-  };
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -89,7 +131,21 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
           <Calendar className="h-4 w-4" />
           Terminy spotkania
         </Label>
-        <Badge variant="secondary">{occurrences.length} terminów</Badge>
+        <div className="flex items-center gap-2">
+          {hasPastOccurrences && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemoveAllPast}
+              className="text-xs text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Usuń zakończone
+            </Button>
+          )}
+          <Badge variant="secondary">{occurrences.length} terminów</Badge>
+        </div>
       </div>
 
       {/* Existing occurrences list */}
@@ -210,6 +266,25 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
           Dodaj co najmniej jeden termin spotkania
         </p>
       )}
+
+      {/* Confirmation dialog for deleting future occurrences */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usuń przyszły termin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ten termin jeszcze się nie odbył. Jeśli są zapisani uczestnicy, 
+              ich rejestracje zostaną anulowane. Czy na pewno chcesz usunąć ten termin?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Usuń termin
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

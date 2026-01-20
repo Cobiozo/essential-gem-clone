@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { EventWithRegistration, EventButton, EventType } from '@/types/events';
+import { isMultiOccurrenceEvent, getFutureOccurrences } from '@/hooks/useOccurrences';
 
 type PublicEventType = 'webinar' | 'team_training';
 
@@ -114,10 +115,24 @@ export const usePublicEvents = (eventType: PublicEventType) => {
     }
   }, [user, userRole, eventType]);
 
-  // Split events into upcoming and past
-  const now = new Date();
-  const upcomingEvents = events.filter(e => new Date(e.end_time) >= now);
-  const pastEvents = events.filter(e => new Date(e.end_time) < now);
+  // Split events into upcoming and past - for multi-occurrence, check if ANY occurrence is future
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = new Date();
+    
+    const hasUpcomingSchedule = (event: EventWithRegistration): boolean => {
+      // For multi-occurrence events - check if there are any future occurrences
+      if (isMultiOccurrenceEvent(event)) {
+        return getFutureOccurrences(event).length > 0;
+      }
+      // For regular events - check end_time
+      return new Date(event.end_time) >= now;
+    };
+    
+    return {
+      upcomingEvents: events.filter(hasUpcomingSchedule),
+      pastEvents: events.filter(e => !hasUpcomingSchedule(e)),
+    };
+  }, [events]);
 
   useEffect(() => {
     fetchEvents();
