@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -56,7 +57,8 @@ import {
   CheckCircle,
   MoreVertical,
   ChevronDown,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -948,6 +950,37 @@ const TrainingManagement = () => {
             </CardContent>
           </Card>
 
+          {/* Alert for lessons with missing video duration */}
+          {(() => {
+            const lessonsWithMissingDuration = lessons.filter(
+              l => l.media_type === 'video' && (!l.video_duration_seconds || l.video_duration_seconds <= 0)
+            );
+            if (lessonsWithMissingDuration.length === 0) return null;
+            
+            const formatDuration = (seconds: number) => {
+              const mins = Math.floor(seconds / 60);
+              const secs = seconds % 60;
+              return `${mins}:${String(secs).padStart(2, '0')}`;
+            };
+            
+            return (
+              <Alert variant="default" className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800 dark:text-amber-200">
+                  Lekcje wideo bez wykrytego czasu ({lessonsWithMissingDuration.length})
+                </AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-300">
+                  <p className="mb-2">Poniższe lekcje wideo nie mają wykrytego czasu trwania. Czas zostanie wykryty automatycznie przy pierwszym odtworzeniu.</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {lessonsWithMissingDuration.map(l => (
+                      <li key={l.id}>{l.title} (wyświetla: min. {formatDuration(l.min_time_seconds)})</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            );
+          })()}
+
           {/* Lesson Form */}
           {showLessonForm && selectedModule && (
             <Card>
@@ -1572,10 +1605,16 @@ const LessonForm = ({
           allowedTypes={['video', 'document', 'audio']}
           maxSizeMB={null}
         />
-        {formData.video_duration_seconds > 0 && (
+        {formData.media_type === 'video' && formData.video_duration_seconds > 0 && (
           <div className="mt-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg text-sm flex items-center gap-2">
             <Clock className="h-4 w-4 text-green-600" />
             <span>Wykryty czas wideo: <strong>{formatDuration(formData.video_duration_seconds)}</strong></span>
+          </div>
+        )}
+        {formData.media_type === 'video' && (!formData.video_duration_seconds || formData.video_duration_seconds <= 0) && (
+          <div className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 rounded-lg text-sm flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <span>Czas wideo nieznany. Zostanie wykryty automatycznie przy pierwszym odtworzeniu przez użytkownika. (Tymczasowo: min. {formatDuration(formData.min_time_seconds)})</span>
           </div>
         )}
       </div>
