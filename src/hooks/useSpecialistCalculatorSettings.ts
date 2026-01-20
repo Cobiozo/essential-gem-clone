@@ -95,36 +95,36 @@ export function useSpecialistCalculatorAccess() {
         return { hasAccess: false, reason: 'disabled' };
       }
 
-      // Check individual user access first
+      const role = userRole?.role;
+
+      // 1. Admini - automatyczny dostęp gdy switch włączony
+      if (role === 'admin' && settings.enabled_for_admins) {
+        return { hasAccess: true, reason: 'admin' };
+      }
+
+      // 2. Sprawdź czy switch dla roli jest włączony
+      const roleEnabled = 
+        (role === 'partner' && settings.enabled_for_partners) ||
+        (role === 'client' && settings.enabled_for_clients) ||
+        (role === 'specjalista' && settings.enabled_for_specjalista);
+
+      // Jeśli switch wyłączony - brak dostępu (lista zachowana w bazie)
+      if (!roleEnabled) {
+        return { hasAccess: false, reason: 'role_disabled' };
+      }
+
+      // 3. Switch włączony - sprawdź indywidualny dostęp
       const { data: userAccess } = await supabase
         .from('specialist_calculator_user_access')
         .select('has_access')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (userAccess !== null) {
-        return { 
-          hasAccess: userAccess.has_access, 
-          reason: userAccess.has_access ? 'user_granted' : 'user_revoked' 
-        };
+      if (userAccess?.has_access === true) {
+        return { hasAccess: true, reason: 'user_granted' };
       }
 
-      const role = userRole?.role;
-
-      if (role === 'admin' && settings.enabled_for_admins) {
-        return { hasAccess: true, reason: 'admin' };
-      }
-      if (role === 'partner' && settings.enabled_for_partners) {
-        return { hasAccess: true, reason: 'role_partner' };
-      }
-      if (role === 'client' && settings.enabled_for_clients) {
-        return { hasAccess: true, reason: 'role_client' };
-      }
-      if (role === 'specjalista' && settings.enabled_for_specjalista) {
-        return { hasAccess: true, reason: 'role_specjalista' };
-      }
-
-      return { hasAccess: false, reason: 'no_access' };
+      return { hasAccess: false, reason: 'not_on_list' };
     },
     enabled: !!user
   });
