@@ -513,6 +513,9 @@ const TrainingModule = () => {
     const storedDuration = currentLesson.video_duration_seconds || 0;
     const roundedDuration = Math.round(duration);
     
+    // Skip if duration is 0 or NaN (invalid)
+    if (!roundedDuration || roundedDuration <= 0) return;
+    
     // Update if stored is 0 or differs by more than 5 seconds
     if (storedDuration === 0 || Math.abs(storedDuration - roundedDuration) > 5) {
       console.log('[TrainingModule] Auto-updating video duration:', {
@@ -521,27 +524,41 @@ const TrainingModule = () => {
         new: roundedDuration
       });
       
-      try {
-        const { error } = await supabase
-          .from('training_lessons')
-          .update({ video_duration_seconds: roundedDuration })
-          .eq('id', currentLesson.id);
+      // Retry up to 3 times for reliability
+      let attempts = 0;
+      while (attempts < 3) {
+        try {
+          const { error } = await supabase
+            .from('training_lessons')
+            .update({ video_duration_seconds: roundedDuration })
+            .eq('id', currentLesson.id);
+            
+          if (error) throw error;
           
-        if (error) throw error;
-        
-        // Update local state to reflect new duration in sidebar
-        setLessons(prev => prev.map(lesson => 
-          lesson.id === currentLesson.id 
-            ? { ...lesson, video_duration_seconds: roundedDuration }
-            : lesson
-        ));
-        
-        console.log('[TrainingModule] Duration updated successfully');
-      } catch (error) {
-        console.error('[TrainingModule] Failed to update duration:', error);
+          // Update local state to reflect new duration in sidebar
+          setLessons(prev => prev.map(lesson => 
+            lesson.id === currentLesson.id 
+              ? { ...lesson, video_duration_seconds: roundedDuration }
+              : lesson
+          ));
+          
+          console.log('[TrainingModule] Duration updated successfully');
+          break;
+        } catch (error) {
+          attempts++;
+          console.error(`[TrainingModule] Failed to update duration (attempt ${attempts}):`, error);
+          if (attempts >= 3) {
+            toast({
+              title: "Uwaga",
+              description: "Nie udało się zapisać czasu wideo. Spróbuj odświeżyć stronę.",
+              variant: "destructive"
+            });
+          }
+          await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+        }
       }
     }
-  }, [lessons, currentLessonIndex]);
+  }, [lessons, currentLessonIndex, toast]);
 
   // Stable callback for play state changes (uses refs to avoid dependency cycles)
   const handlePlayStateChange = useCallback((playing: boolean) => {
@@ -1056,7 +1073,11 @@ const TrainingModule = () => {
                       {(lesson.video_duration_seconds || lesson.min_time_seconds) > 0 && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          <span>{formatTime(lesson.video_duration_seconds || lesson.min_time_seconds)}</span>
+                          <span>
+                            {lesson.video_duration_seconds && lesson.video_duration_seconds > 0 
+                              ? formatTime(lesson.video_duration_seconds)
+                              : `min. ${formatTime(lesson.min_time_seconds)}`}
+                          </span>
                         </div>
                       )}
                     </button>
