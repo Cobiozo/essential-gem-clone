@@ -3705,6 +3705,7 @@ export type Database = {
           icon_color: string | null
           icon_name: string
           id: string
+          image_url: string | null
           is_active: boolean | null
           position: number | null
           title: string
@@ -3720,6 +3721,7 @@ export type Database = {
           icon_color?: string | null
           icon_name?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           position?: number | null
           title: string
@@ -3735,6 +3737,7 @@ export type Database = {
           icon_color?: string | null
           icon_name?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           position?: number | null
           title?: string
