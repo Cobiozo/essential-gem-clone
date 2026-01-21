@@ -78,6 +78,7 @@ export function SpecialistCalculator() {
         retentionBonusEur={settings.retention_bonus_eur || 10}
         retentionMonthsCount={settings.retention_months_count || 2}
         thresholds={thresholds}
+        eurToPlnRate={settings.eur_to_pln_rate || 4.3}
       />
 
       <FranchiseUpsell />
