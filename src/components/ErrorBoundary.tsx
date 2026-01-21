@@ -107,16 +107,41 @@ export class ErrorBoundary extends Component<Props, State> {
       return;
     }
     
+    // Check for chunk load loop error (thrown by lazyWithRetry)
+    if (error.message === 'CHUNK_LOAD_LOOP') {
+      console.error('[ErrorBoundary] Chunk load loop detected, showing manual action UI');
+      this.setState({ 
+        hasError: true,
+        error: new Error('Wykryto problem z cache przeglądarki. Proszę wyczyścić cache (Ctrl+Shift+Delete) i odświeżyć stronę.'),
+        errorInfo
+      });
+      return;
+    }
+    
     // Auto-reload on chunk load errors (after new deployments)
     if (isChunkLoadError(error)) {
       console.log('[ErrorBoundary] Chunk load error detected, checking for auto-reload...');
       
-      // Prevent infinite reload loop
       const lastReload = sessionStorage.getItem('chunk_error_reload');
+      const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
       const now = Date.now();
       
-      if (!lastReload || now - parseInt(lastReload) > 10000) {
+      // If already reloaded 2+ times within 60 seconds - show error UI instead
+      if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
+        console.error('[ErrorBoundary] Reload loop detected, showing manual action UI');
+        sessionStorage.removeItem('chunk_reload_count');
+        this.setState({ 
+          hasError: true,
+          error: new Error('Wykryto problem z ładowaniem aplikacji. Proszę wyczyścić cache przeglądarki (Ctrl+Shift+Delete) i odświeżyć stronę.'),
+          errorInfo
+        });
+        return;
+      }
+      
+      // Proceed with auto-reload
+      if (!lastReload || now - parseInt(lastReload) > 30000) {
         console.log('[ErrorBoundary] Auto-reloading to fetch new chunks...');
+        sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
         sessionStorage.setItem('chunk_error_reload', now.toString());
         window.location.reload();
         return;
