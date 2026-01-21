@@ -97,14 +97,14 @@ export function ExchangeRateWidget({ variant = "light" }: ExchangeRateWidgetProp
         <div className="w-px h-3 bg-white/20" />
 
         {/* Currency Toggle */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <span className={`text-[10px] font-medium transition-colors ${currency === 'EUR' ? 'text-white' : 'text-white/50'}`}>
             EUR
           </span>
           <Switch
             checked={currency === 'PLN'}
             onCheckedChange={(checked) => setCurrency(checked ? 'PLN' : 'EUR')}
-            className="h-4 w-7 data-[state=checked]:bg-white/30 data-[state=unchecked]:bg-white/20"
+            className="h-4 w-8 data-[state=checked]:bg-white/30 data-[state=unchecked]:bg-white/20 [&>span]:h-3 [&>span]:w-3"
           />
           <span className={`text-[10px] font-medium transition-colors ${currency === 'PLN' ? 'text-white' : 'text-white/50'}`}>
             PLN
