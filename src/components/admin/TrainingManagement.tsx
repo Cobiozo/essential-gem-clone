@@ -159,6 +159,7 @@ const TrainingManagement = () => {
   const [certificateHistory, setCertificateHistory] = useState<Record<string, CertificateHistory[]>>({});
   const [regeneratingCert, setRegeneratingCert] = useState<string | null>(null);
   const [resettingProgress, setResettingProgress] = useState<string | null>(null);
+  const [approvingModule, setApprovingModule] = useState<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const { toast } = useToast();
   const { t } = useTranslations();
@@ -654,6 +655,85 @@ const TrainingManagement = () => {
       });
     } finally {
       setResettingProgress(null);
+    }
+  };
+
+  // Approve module completion manually (admin override)
+  const approveModuleCompletion = async (
+    userId: string, 
+    moduleId: string, 
+    moduleTitle: string,
+    userName: string
+  ) => {
+    if (!confirm(`Czy na pewno chcesz zatwierdzić ukończenie szkolenia "${moduleTitle}" dla ${userName}? Wszystkie lekcje zostaną oznaczone jako ukończone.`)) {
+      return;
+    }
+
+    const key = `approve-${userId}-${moduleId}`;
+    setApprovingModule(key);
+
+    try {
+      // 1. Get all lessons for this module
+      const { data: lessons, error: lessonsError } = await supabase
+        .from('training_lessons')
+        .select('id, min_time_seconds')
+        .eq('module_id', moduleId)
+        .eq('is_active', true);
+      
+      if (lessonsError) throw lessonsError;
+
+      if (!lessons || lessons.length === 0) {
+        toast({
+          title: "Brak lekcji",
+          description: "Ten moduł nie ma aktywnych lekcji do zatwierdzenia.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 2. For each lesson - set is_completed = true
+      for (const lesson of lessons) {
+        await supabase
+          .from('training_progress')
+          .upsert({
+            user_id: userId,
+            lesson_id: lesson.id,
+            is_completed: true,
+            time_spent_seconds: lesson.min_time_seconds || 300,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, { 
+            onConflict: 'user_id,lesson_id' 
+          });
+      }
+
+      // 3. Update training_assignments to mark as completed
+      await supabase
+        .from('training_assignments')
+        .update({
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('module_id', moduleId);
+
+      toast({
+        title: "Szkolenie zatwierdzone",
+        description: `Moduł "${moduleTitle}" został zatwierdzony dla ${userName}`,
+      });
+
+      // Refresh data
+      await fetchUserProgress();
+    } catch (error) {
+      console.error('Error approving module:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zatwierdzić szkolenia",
+        variant: "destructive"
+      });
+    } finally {
+      setApprovingModule(null);
     }
   };
 
@@ -1238,6 +1318,29 @@ const TrainingManagement = () => {
                                     <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"} className="text-xs">
                                       {module.progress_percentage}%
                                     </Badge>
+                                    {/* Approve button - visible when progress < 100% */}
+                                    {module.progress_percentage < 100 && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs gap-1 border-green-500/50 text-green-600 hover:bg-green-50"
+                                        onClick={() => approveModuleCompletion(
+                                          progressUser.user_id, 
+                                          module.module_id, 
+                                          module.module_title,
+                                          `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email
+                                        )}
+                                        disabled={approvingModule === `approve-${progressUser.user_id}-${module.module_id}`}
+                                        title="Zatwierdź ukończenie szkolenia niezależnie od postępu"
+                                      >
+                                        {approvingModule === `approve-${progressUser.user_id}-${module.module_id}` ? (
+                                          <CheckCircle className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <CheckCircle className="h-3 w-3" />
+                                        )}
+                                        <span className="hidden sm:inline">Zatwierdź</span>
+                                      </Button>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="outline"
