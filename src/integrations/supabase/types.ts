@@ -4339,7 +4339,7 @@ export type Database = {
       training_assignments: {
         Row: {
           assigned_at: string
-          assigned_by: string
+          assigned_by: string | null
           completed_at: string | null
           created_at: string
           due_date: string | null
@@ -4352,7 +4352,7 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string
-          assigned_by: string
+          assigned_by?: string | null
           completed_at?: string | null
           created_at?: string
           due_date?: string | null
@@ -4365,7 +4365,7 @@ export type Database = {
         }
         Update: {
           assigned_at?: string
-          assigned_by?: string
+          assigned_by?: string | null
           completed_at?: string | null
           created_at?: string
           due_date?: string | null

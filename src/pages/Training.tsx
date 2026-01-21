@@ -42,8 +42,9 @@ const Training = () => {
   const [generating, setGenerating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string}}>({});
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -311,12 +312,31 @@ const Training = () => {
             .from('training_modules')
             .select('*')
             .in('id', moduleIds)
+            .eq('is_active', true)
             .order('position');
           
           if (modulesError) throw modulesError;
           modulesData = assignedModules || [];
         } else {
-          modulesData = [];
+          // FALLBACK: Use visibility flags if no assignments exist
+          let fallbackQuery = supabase
+            .from('training_modules')
+            .select('*')
+            .eq('is_active', true)
+            .order('position');
+          
+          const currentRole = userRole?.role;
+          if (currentRole === 'partner') {
+            fallbackQuery = fallbackQuery.eq('visible_to_partners', true);
+          } else if (currentRole === 'specjalista') {
+            fallbackQuery = fallbackQuery.eq('visible_to_specjalista', true);
+          } else if (currentRole === 'client' || currentRole === 'user') {
+            fallbackQuery = fallbackQuery.eq('visible_to_clients', true);
+          }
+          
+          const { data: fallbackModules, error: fallbackError } = await fallbackQuery;
+          if (fallbackError) throw fallbackError;
+          modulesData = fallbackModules || [];
         }
       }
 
@@ -407,22 +427,119 @@ const Training = () => {
   const dashboardPreference = localStorage.getItem('dashboard_view_preference') || 'modern';
   const homeUrl = dashboardPreference === 'modern' ? '/dashboard' : '/';
 
+  // Refresh academy - check and add missing assignments
+  const refreshAcademy = async () => {
+    if (!user) return;
+    
+    setRefreshing(true);
+    try {
+      // 1. Get user's role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      const currentRole = roleData?.role;
+      
+      // 2. Get existing assignments (only module IDs)
+      const { data: existingAssignments } = await supabase
+        .from('training_assignments')
+        .select('module_id')
+        .eq('user_id', user.id);
+      
+      const existingModuleIds = new Set(existingAssignments?.map(a => a.module_id) || []);
+      
+      // 3. Get modules available for role
+      let query = supabase
+        .from('training_modules')
+        .select('id')
+        .eq('is_active', true);
+      
+      if (currentRole === 'partner') {
+        query = query.eq('visible_to_partners', true);
+      } else if (currentRole === 'specjalista') {
+        query = query.eq('visible_to_specjalista', true);
+      } else if (currentRole === 'client' || currentRole === 'user') {
+        query = query.eq('visible_to_clients', true);
+      } else if (currentRole === 'admin') {
+        // Admin sees all modules - no filter needed
+      }
+      
+      const { data: availableModules } = await query;
+      
+      // 4. Find missing assignments
+      const missingModuleIds = (availableModules || [])
+        .filter(m => !existingModuleIds.has(m.id))
+        .map(m => m.id);
+      
+      // 5. Add missing assignments (if any)
+      if (missingModuleIds.length > 0) {
+        const newAssignments = missingModuleIds.map(moduleId => ({
+          user_id: user.id,
+          module_id: moduleId,
+          assigned_by: null,
+          notification_sent: true
+        }));
+        
+        await supabase
+          .from('training_assignments')
+          .insert(newAssignments);
+        
+        toast({
+          title: "Akademia odświeżona",
+          description: `Dodano ${missingModuleIds.length} nowych szkoleń`,
+        });
+        
+        // Reload data
+        const certMap = await fetchCertificates();
+        await fetchTrainingModules(certMap);
+      } else {
+        toast({
+          title: "Akademia aktualna",
+          description: "Wszystkie dostępne szkolenia są już przypisane",
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing academy:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się odświeżyć akademii",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header with Navigation */}
       <header className="border-b bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button 
-            variant="ghost" 
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate(homeUrl)}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('training.backToHome')}
+            </Button>
+            <Separator orientation="vertical" className="h-6" />
+            <h1 className="text-xl font-semibold">{t('training.title')}</h1>
+          </div>
+          <Button
+            variant="outline"
             size="sm"
-            onClick={() => navigate(homeUrl)}
-            className="flex items-center gap-2"
+            onClick={refreshAcademy}
+            disabled={refreshing}
+            className="gap-2"
           >
-            <ArrowLeft className="h-4 w-4" />
-            {t('training.backToHome')}
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Odśwież akademię</span>
           </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <h1 className="text-xl font-semibold">{t('training.title')}</h1>
         </div>
       </header>
 
