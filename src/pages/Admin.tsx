@@ -62,6 +62,7 @@ import { SidebarFooterIconsManagement } from '@/components/admin/SidebarFooterIc
 import { SystemHealthAlertsPanel } from '@/components/admin/SystemHealthAlertsPanel';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
+import { HtmlPagesManagement } from '@/components/admin/HtmlPagesManagement';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
@@ -4393,6 +4394,10 @@ const Admin = () => {
 
           <TabsContent value="sidebar-icons">
             <SidebarFooterIconsManagement />
+          </TabsContent>
+
+          <TabsContent value="html-pages">
+            <HtmlPagesManagement />
           </TabsContent>
         </Tabs>
       </div>
