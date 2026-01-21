@@ -16,9 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   Plus, Edit, Trash2, Eye, EyeOff, FileCode, ExternalLink, 
-  Globe, Users, UserCheck, Sparkles, Menu, Code, FileText
+  Globe, Users, UserCheck, Sparkles, Menu, Code, FileText, MousePointer
 } from 'lucide-react';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
+import { HtmlVisualEditor } from './html-editor/HtmlVisualEditor';
 
 interface HtmlPage {
   id: string;
@@ -430,15 +431,19 @@ export const HtmlPagesManagement: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="preview" className="mt-0">
-                <Card>
-                  <CardContent className="p-4">
-                    {editingPage?.custom_css && (
-                      <style dangerouslySetInnerHTML={{ __html: editingPage.custom_css }} />
-                    )}
-                    <div 
-                      className="prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: editingPage?.html_content || '<p class="text-muted-foreground">Brak zawartości HTML</p>' }}
+              <TabsContent value="preview" className="mt-0 h-[600px]">
+                <Card className="h-full">
+                  <CardContent className="p-0 h-full">
+                    <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
+                      <MousePointer className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        Kliknij element, aby go edytować
+                      </span>
+                    </div>
+                    <HtmlVisualEditor
+                      htmlContent={editingPage?.html_content || ''}
+                      customCss={editingPage?.custom_css || ''}
+                      onChange={(html) => setEditingPage(prev => ({ ...prev, html_content: html }))}
                     />
                   </CardContent>
                 </Card>
