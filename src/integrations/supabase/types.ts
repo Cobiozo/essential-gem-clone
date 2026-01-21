@@ -2317,6 +2317,81 @@ export type Database = {
           },
         ]
       }
+      html_pages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          custom_css: string | null
+          html_content: string
+          id: string
+          is_active: boolean
+          is_published: boolean
+          meta_description: string | null
+          meta_title: string | null
+          show_footer: boolean
+          show_header: boolean
+          show_in_sidebar: boolean
+          sidebar_icon: string | null
+          sidebar_position: number | null
+          slug: string
+          title: string
+          updated_at: string
+          visible_to_anonymous: boolean
+          visible_to_clients: boolean
+          visible_to_everyone: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          custom_css?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean
+          is_published?: boolean
+          meta_description?: string | null
+          meta_title?: string | null
+          show_footer?: boolean
+          show_header?: boolean
+          show_in_sidebar?: boolean
+          sidebar_icon?: string | null
+          sidebar_position?: number | null
+          slug: string
+          title: string
+          updated_at?: string
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          custom_css?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean
+          is_published?: boolean
+          meta_description?: string | null
+          meta_title?: string | null
+          show_footer?: boolean
+          show_header?: boolean
+          show_in_sidebar?: boolean
+          sidebar_icon?: string | null
+          sidebar_position?: number | null
+          slug?: string
+          title?: string
+          updated_at?: string
+          visible_to_anonymous?: boolean
+          visible_to_clients?: boolean
+          visible_to_everyone?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
       i18n_languages: {
         Row: {
           code: string

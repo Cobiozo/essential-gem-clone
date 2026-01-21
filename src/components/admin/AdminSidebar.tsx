@@ -26,6 +26,7 @@ import {
   Type,
   Palette,
   FileText,
+  FileCode,
   Users,
   BookOpen,
   Award,
@@ -127,6 +128,7 @@ const navCategories: NavCategory[] = [
       { value: 'content', labelKey: 'main', icon: Settings2 },
       { value: 'layout', labelKey: 'layout', icon: Type },
       { value: 'pages', labelKey: 'pages', icon: FileText },
+      { value: 'html-pages', labelKey: 'htmlPages', icon: FileCode },
       { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
       { value: 'sidebar-icons', labelKey: 'sidebarIcons', icon: Palette },
     ],
@@ -229,6 +231,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     chatPermissions: 'Kierunki komunikacji',
     sidebarIcons: 'Ikony paska bocznego',
     systemHealth: 'Alerty systemowe',
+    htmlPages: 'Strony HTML',
   };
 
   const getLabel = (key: string): string => {
