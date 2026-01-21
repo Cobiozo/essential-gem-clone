@@ -5,6 +5,7 @@ import { Lock } from "lucide-react";
 import { SpecialistCalculator as SpecialistCalculatorComponent } from "@/components/specialist-calculator";
 import { useSpecialistCalculatorAccess } from "@/hooks/useSpecialistCalculatorSettings";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ExchangeRateWidget } from "@/components/calculator/ExchangeRateWidget";
 import pureLifeLogo from "@/assets/pure-life-logo-new.png";
 
 const SpecialistCalculatorPage = () => {
@@ -26,9 +27,12 @@ const SpecialistCalculatorPage = () => {
               </p>
             </div>
           </div>
-          <Badge className="bg-white/20 text-white border-0 hover:bg-white/30 self-start sm:self-auto">
-            Model: Afiliacyjny Omega-3
-          </Badge>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+            <ExchangeRateWidget />
+            <Badge className="bg-white/20 text-white border-0 hover:bg-white/30">
+              Model: Afiliacyjny Omega-3
+            </Badge>
+          </div>
         </div>
 
         {/* Content */}

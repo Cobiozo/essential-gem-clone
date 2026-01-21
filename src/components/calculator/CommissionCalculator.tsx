@@ -5,6 +5,7 @@ import { TotalResultCard } from './TotalResultCard';
 import { IncomeBreakdown } from './IncomeBreakdown';
 import { VolumeBonusProgress } from './VolumeBonusProgress';
 import { FranchiseInfoCard } from './FranchiseInfoCard';
+import { ExchangeRateWidget } from './ExchangeRateWidget';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import pureLifeLogo from '@/assets/pure-life-logo-new.png';
@@ -63,9 +64,12 @@ export function CommissionCalculator() {
             </p>
           </div>
         </div>
-        <Badge className="bg-white/20 text-white border-0 hover:bg-white/30 self-start sm:self-auto">
-          Model: 6-miesięczna kuracja
-        </Badge>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+          <ExchangeRateWidget />
+          <Badge className="bg-white/20 text-white border-0 hover:bg-white/30">
+            Model: 6-miesięczna kuracja
+          </Badge>
+        </div>
       </div>
 
       {/* Main 3-column grid */}
