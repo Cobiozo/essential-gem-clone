@@ -21,25 +21,56 @@ import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { SupportFormDialog } from "@/components/support";
 
 // Helper function for lazy loading with automatic retry on chunk errors
+// Improved: More retries, cache clearing, loop detection
 function lazyWithRetry<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
-  retries = 2
+  retries = 3
 ): React.LazyExoticComponent<T> {
   return lazy(async () => {
     for (let i = 0; i < retries; i++) {
       try {
         return await importFn();
       } catch (error) {
-        console.warn(`[LazyLoad] Attempt ${i + 1} failed:`, error);
+        console.warn(`[LazyLoad] Attempt ${i + 1}/${retries} failed:`, error);
+        
         if (i === retries - 1) {
-          // Last attempt failed - reload the page to get fresh chunks
-          console.log('[LazyLoad] All retries failed, reloading page...');
-          sessionStorage.setItem('chunk_error_reload', Date.now().toString());
-          window.location.reload();
-          throw error;
+          // Before reload - try to clear browser cache
+          if ('caches' in window) {
+            try {
+              const cacheNames = await caches.keys();
+              await Promise.all(cacheNames.map(name => caches.delete(name)));
+              console.log('[LazyLoad] Browser cache cleared');
+            } catch (e) {
+              console.warn('[LazyLoad] Failed to clear cache:', e);
+            }
+          }
+          
+          // Check for reload loop (prevent infinite reloads)
+          const lastReload = sessionStorage.getItem('chunk_error_reload');
+          const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
+          const now = Date.now();
+          
+          // If already reloaded 2+ times within 60 seconds - stop and show error
+          if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
+            console.error('[LazyLoad] Reload loop detected, stopping auto-reload');
+            sessionStorage.removeItem('chunk_reload_count');
+            throw new Error('CHUNK_LOAD_LOOP');
+          }
+          
+          // Increment reload counter and trigger reload
+          sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
+          sessionStorage.setItem('chunk_error_reload', now.toString());
+          
+          // Hard reload with cache-busting query param
+          console.log('[LazyLoad] All retries failed, hard reloading...');
+          window.location.href = window.location.pathname + '?v=' + now;
+          
+          // Return empty component while reload happens
+          return { default: (() => null) as unknown as T };
         }
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Wait longer between retries (1.5s)
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
     throw new Error('Failed to load module after retries');
@@ -133,18 +164,37 @@ const AppContent = () => {
   // Show toast after automatic chunk error reload
   useEffect(() => {
     const chunkReload = sessionStorage.getItem('chunk_error_reload');
+    const reloadCount = sessionStorage.getItem('chunk_reload_count');
+    
     if (chunkReload) {
       const reloadTime = parseInt(chunkReload);
       const now = Date.now();
       
-      // If reload was recent (< 5s ago), show message
+      // If reload was recent (< 5s ago), show appropriate message
       if (now - reloadTime < 5000) {
-        toast({
-          title: 'Aplikacja została zaktualizowana',
-          description: 'Strona została automatycznie odświeżona aby załadować nową wersję.',
-        });
+        const count = parseInt(reloadCount || '1');
+        
+        if (count >= 2) {
+          // Multiple reloads - show cache clearing hint
+          toast({
+            title: 'Problem z ładowaniem',
+            description: 'Jeśli problem się powtarza, wyczyść cache przeglądarki (Ctrl+Shift+Delete) i odśwież stronę.',
+            variant: 'destructive',
+            duration: 10000,
+          });
+        } else {
+          toast({
+            title: 'Aplikacja została zaktualizowana',
+            description: 'Strona została automatycznie odświeżona aby załadować nową wersję.',
+          });
+        }
       }
+      
       sessionStorage.removeItem('chunk_error_reload');
+      // Reset reload counter after 60 seconds of successful operation
+      setTimeout(() => {
+        sessionStorage.removeItem('chunk_reload_count');
+      }, 60000);
     }
   }, []);
 

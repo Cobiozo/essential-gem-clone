@@ -28,14 +28,16 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Core React vendor chunk
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // Consolidated core chunk: React + Router + Query (reduces requests)
+          'vendor-core': [
+            'react', 
+            'react-dom', 
+            'react-router-dom',
+            '@tanstack/react-query',
+          ],
           
-          // TanStack Query
-          'vendor-query': ['@tanstack/react-query'],
-          
-          // Radix UI components
-          'vendor-radix': [
+          // Consolidated UI chunk: All Radix + Icons + UI utilities
+          'vendor-ui': [
             '@radix-ui/react-dialog',
             '@radix-ui/react-dropdown-menu',
             '@radix-ui/react-tabs',
@@ -63,33 +65,29 @@ export default defineConfig(({ mode }) => ({
             '@radix-ui/react-context-menu',
             '@radix-ui/react-aspect-ratio',
             '@radix-ui/react-slider',
+            'lucide-react',
+            'cmdk',
+            'sonner',
+            'vaul',
           ],
           
-          // DnD Kit
-          'vendor-dnd': [
+          // Consolidated utilities: DnD + Date + Supabase
+          'vendor-utils': [
             '@dnd-kit/core',
             '@dnd-kit/sortable',
             '@dnd-kit/modifiers',
             '@dnd-kit/utilities',
+            '@supabase/supabase-js',
+            'date-fns',
           ],
           
-          // Heavy libraries - loaded separately
+          // Heavy libraries - loaded on-demand only
           'lib-xlsx': ['xlsx'],
           'lib-pdf': ['jspdf', 'html2canvas', 'html2pdf.js'],
           'lib-fabric': ['fabric'],
           'lib-charts': ['recharts'],
-          // lib-editor removed - quill not used
           'lib-zip': ['jszip'],
           'lib-carousel': ['embla-carousel-react'],
-          
-          // Supabase
-          'vendor-supabase': ['@supabase/supabase-js'],
-          
-          // Date utilities
-          'vendor-date': ['date-fns'],
-          
-          // Icons
-          'vendor-icons': ['lucide-react'],
         },
       },
     },
