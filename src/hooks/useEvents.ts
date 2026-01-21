@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { isMultiOccurrenceEvent, getAllOccurrences } from '@/hooks/useOccurrences';
 import type { 
   Event, 
   EventRegistration, 
@@ -488,10 +489,10 @@ export const useEvents = () => {
     if (!user) return [];
 
     try {
-      // Step 1: Get user's registrations (simple query, no nested join)
+      // Step 1: Get user's registrations WITH occurrence_index for multi-occurrence support
       const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select('event_id')
+        .select('event_id, occurrence_index')
         .eq('user_id', user.id)
         .eq('status', 'registered');
 
@@ -499,7 +500,7 @@ export const useEvents = () => {
       if (!registrations || registrations.length === 0) return [];
 
       // Step 2: Get events by IDs (separate query avoids RLS issues with nested joins)
-      const eventIds = registrations.map(r => r.event_id);
+      const eventIds = [...new Set(registrations.map(r => r.event_id))];
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('*')
@@ -570,17 +571,49 @@ export const useEvents = () => {
         }
       }
 
-      // Step 5: Map and sort events with host and participant info
-      return (events || [])
-        .map(event => ({
+      // Step 5: Expand multi-occurrence events based on user's registrations
+      const expandedEvents: EventWithRegistration[] = [];
+      const eventMap = new Map((events || []).map(e => [e.id, e]));
+
+      registrations.forEach(reg => {
+        const event = eventMap.get(reg.event_id);
+        if (!event) return;
+
+        const baseEvent = {
           ...event,
           buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
           event_type: event.event_type as EventType,
           is_registered: true,
           host_profile: event.host_user_id ? hostProfiles.get(event.host_user_id) || null : null,
           participant_profile: participantProfiles.get(event.id) || null,
-        }))
-        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        };
+
+        // Check if this is a multi-occurrence event with specific occurrence_index
+        if (isMultiOccurrenceEvent(baseEvent) && reg.occurrence_index !== null && reg.occurrence_index !== undefined) {
+          const allOccurrences = getAllOccurrences(baseEvent);
+          const occurrence = allOccurrences.find(o => o.index === reg.occurrence_index);
+          
+          if (occurrence) {
+            // Create expanded event with occurrence-specific times
+            expandedEvents.push({
+              ...baseEvent,
+              start_time: occurrence.start_datetime.toISOString(),
+              end_time: occurrence.end_datetime.toISOString(),
+              duration_minutes: occurrence.duration_minutes,
+              _occurrence_index: occurrence.index,
+              _is_multi_occurrence: true,
+            } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean });
+          }
+        } else {
+          // Single occurrence or legacy registration without occurrence_index
+          expandedEvents.push(baseEvent);
+        }
+      });
+
+      // Sort by start_time
+      return expandedEvents.sort((a, b) => 
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
     } catch (error) {
       console.error('Error fetching user events:', error);
       return [];
