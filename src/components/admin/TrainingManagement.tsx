@@ -707,16 +707,19 @@ const TrainingManagement = () => {
           });
       }
 
-      // 3. Update training_assignments to mark as completed
+      // 3. Upsert training_assignments to mark as completed (creates if not exists)
       await supabase
         .from('training_assignments')
-        .update({
+        .upsert({
+          user_id: userId,
+          module_id: moduleId,
+          assigned_by: user?.id || null,
           is_completed: true,
           completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .eq('module_id', moduleId);
+          notification_sent: true
+        }, {
+          onConflict: 'user_id,module_id'
+        });
 
       toast({
         title: "Szkolenie zatwierdzone",

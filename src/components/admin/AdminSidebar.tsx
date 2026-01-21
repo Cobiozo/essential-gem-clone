@@ -72,6 +72,7 @@ const SIDEBAR_KEYS = {
   teamContacts: 'admin.sidebar.teamContacts',
   notifications: 'admin.sidebar.notifications',
   system: 'admin.sidebar.system',
+  systemHealth: 'admin.sidebar.systemHealth',
   maintenance: 'admin.sidebar.maintenance',
   cronJobs: 'admin.sidebar.cronJobs',
   googleCalendar: 'admin.sidebar.googleCalendar',
@@ -191,6 +192,7 @@ const navCategories: NavCategory[] = [
     labelKey: 'system',
     icon: Wrench,
     items: [
+      { value: 'system-health', labelKey: 'systemHealth', icon: AlertTriangle },
       { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
@@ -226,6 +228,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     specialistCalculator: 'Kalkulator Specjalistów',
     chatPermissions: 'Kierunki komunikacji',
     sidebarIcons: 'Ikony paska bocznego',
+    systemHealth: 'Alerty systemowe',
   };
 
   const getLabel = (key: string): string => {

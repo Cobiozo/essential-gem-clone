@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_alerts: {
+        Row: {
+          affected_entity_id: string | null
+          affected_entity_type: string | null
+          affected_user_id: string | null
+          alert_type: string
+          created_at: string | null
+          description: string | null
+          detected_at: string | null
+          id: string
+          is_resolved: boolean | null
+          metadata: Json | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          suggested_action: string | null
+          title: string
+        }
+        Insert: {
+          affected_entity_id?: string | null
+          affected_entity_type?: string | null
+          affected_user_id?: string | null
+          alert_type: string
+          created_at?: string | null
+          description?: string | null
+          detected_at?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          suggested_action?: string | null
+          title: string
+        }
+        Update: {
+          affected_entity_id?: string | null
+          affected_entity_type?: string | null
+          affected_user_id?: string | null
+          alert_type?: string
+          created_at?: string | null
+          description?: string | null
+          detected_at?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          suggested_action?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       ai_compass_contact_history: {
         Row: {
           ai_session_id: string | null
