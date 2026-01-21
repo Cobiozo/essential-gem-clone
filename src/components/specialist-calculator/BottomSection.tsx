@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Lightbulb } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { SpecialistVolumeThreshold } from "@/hooks/useSpecialistCalculatorSettings";
 
 interface BottomSectionProps {
@@ -23,6 +24,8 @@ export function BottomSection({
   thresholds,
   eurToPlnRate
 }: BottomSectionProps) {
+  const { currency, formatAmount } = useCurrency();
+  
   const commission = clients * baseCommissionEur;
   const passiveIncome = clients * passivePerMonthEur * passiveMonths;
   const retentionBonus = clients * retentionBonusEur * retentionMonthsCount;
@@ -53,6 +56,11 @@ export function BottomSection({
   
   const totalPossibleBonus = thresholds.reduce((sum, t) => sum + t.bonus_amount, 0);
 
+  // Secondary display (opposite currency)
+  const secondaryAmount = currency === 'EUR' 
+    ? `~${formatNumber(totalPln)} zł`
+    : `~${formatNumber(totalEur)} €`;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Left - Dark Card */}
@@ -62,17 +70,17 @@ export function BottomSection({
             Łączny przychód (6 miesięcy)
           </p>
           <p className="text-5xl font-bold mb-2">
-            {formatNumber(totalEur)} €
+            {formatAmount(totalEur)}
           </p>
           <p className="text-lg text-slate-400 mb-4">
-            (~{formatNumber(totalPln)} zł)
+            ({secondaryAmount})
           </p>
           <p className="text-sm text-slate-300 mb-4">
             To estymacja przy założeniu, że klienci pozostaną na pełnej kuracji. Kwota zawiera wszystkie prowizje i bonusy.
           </p>
           <div className="border-t border-slate-600 pt-4">
             <p className="text-sm text-slate-300">
-              Średnio miesięcznie: <span className="text-emerald-400 font-semibold">{formatNumber(monthlyAvgEur)} €</span>
+              Średnio miesięcznie: <span className="text-emerald-400 font-semibold">{formatAmount(monthlyAvgEur)}</span>
             </p>
           </div>
         </CardContent>
@@ -97,7 +105,7 @@ export function BottomSection({
                 />
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                {formatNumber(commission)} €
+                {formatAmount(commission)}
               </div>
             </div>
 
@@ -114,7 +122,7 @@ export function BottomSection({
                 />
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                {formatNumber(passiveIncome)} €
+                {formatAmount(passiveIncome)}
               </div>
             </div>
 
@@ -131,7 +139,7 @@ export function BottomSection({
                 />
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                {formatNumber(retentionBonus + volumeBonus)} €
+                {formatAmount(retentionBonus + volumeBonus)}
               </div>
             </div>
           </div>
@@ -144,7 +152,7 @@ export function BottomSection({
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   <span className="font-medium">Wskazówka:</span> Przy {formatNumber(maxThreshold.threshold_clients)} klientów 
                   przekraczasz wszystkie progi bonusowe, co daje dodatkowe{" "}
-                  <span className="font-bold">{formatNumber(totalPossibleBonus)} €</span> w samych premiach motywacyjnych.
+                  <span className="font-bold">{formatAmount(totalPossibleBonus)}</span> w samych premiach motywacyjnych.
                 </p>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Award, CheckCircle, Circle } from 'lucide-react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface VolumeBonusProgressProps {
@@ -8,6 +9,8 @@ interface VolumeBonusProgressProps {
 }
 
 export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgressProps) {
+  const { formatAmount } = useCurrency();
+  
   if (thresholds.length === 0) return null;
 
   const sortedThresholds = [...thresholds].sort((a, b) => (a.position || 0) - (b.position || 0));
@@ -47,7 +50,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
         {totalBonus > 0 && (
           <div className="text-center py-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 mb-3">
             <p className="text-xs text-emerald-700 dark:text-emerald-400">Suma bonusów</p>
-            <p className="text-xl font-bold text-emerald-600">+{totalBonus.toLocaleString('pl-PL')} €</p>
+            <p className="text-xl font-bold text-emerald-600">+{formatAmount(totalBonus)}</p>
           </div>
         )}
 
@@ -74,7 +77,7 @@ export function VolumeBonusProgress({ clients, thresholds }: VolumeBonusProgress
                   </span>
                 </div>
                 <span className={`text-sm font-semibold ${isAchieved ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-                  +{threshold.bonus_amount} €
+                  +{formatAmount(threshold.bonus_amount)}
                 </span>
               </div>
             );

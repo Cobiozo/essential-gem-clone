@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { BarChart3 } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { SpecialistVolumeThreshold } from "@/hooks/useSpecialistCalculatorSettings";
 
 interface IncomeChartProps {
@@ -22,6 +23,8 @@ export function IncomeChart({
   retentionMonthsCount,
   thresholds
 }: IncomeChartProps) {
+  const { formatAmount, symbol, convert } = useCurrency();
+  
   const commission = clients * baseCommissionEur;
   const passiveIncome = clients * passivePerMonthEur * passiveMonths;
   const retentionBonus = clients * retentionBonusEur * retentionMonthsCount;
@@ -30,18 +33,11 @@ export function IncomeChart({
     .reduce((sum, t) => sum + t.bonus_amount, 0);
 
   const data = [
-    { name: "Prowizja", value: commission, color: "hsl(var(--chart-1))" },
-    { name: "Pasywny", value: passiveIncome, color: "hsl(var(--chart-2))" },
-    { name: "Przedłużenie", value: retentionBonus, color: "hsl(var(--chart-3))" },
-    { name: "Premie", value: volumeBonus, color: "hsl(var(--chart-4))" }
+    { name: "Prowizja", value: convert(commission), color: "hsl(var(--chart-1))" },
+    { name: "Pasywny", value: convert(passiveIncome), color: "hsl(var(--chart-2))" },
+    { name: "Przedłużenie", value: convert(retentionBonus), color: "hsl(var(--chart-3))" },
+    { name: "Premie", value: convert(volumeBonus), color: "hsl(var(--chart-4))" }
   ];
-
-  const formatValue = (value: number) => {
-    return new Intl.NumberFormat('pl-PL', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value) + ' €';
-  };
 
   return (
     <Card>
@@ -55,10 +51,10 @@ export function IncomeChart({
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} layout="vertical" margin={{ left: 80, right: 20 }}>
-              <XAxis type="number" tickFormatter={(value) => `${value} €`} />
+              <XAxis type="number" tickFormatter={(value) => `${value} ${symbol}`} />
               <YAxis type="category" dataKey="name" width={75} />
               <Tooltip 
-                formatter={(value: number) => [formatValue(value), 'Kwota']}
+                formatter={(value: number) => [formatAmount(value, false) + ` ${symbol}`, 'Kwota']}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--background))',
                   border: '1px solid hsl(var(--border))',

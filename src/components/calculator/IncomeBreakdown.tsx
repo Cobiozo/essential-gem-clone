@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { BarChart3, Users, Wallet, Gift, TrendingUp } from 'lucide-react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface IncomeBreakdownProps {
@@ -22,6 +23,7 @@ export function IncomeBreakdown({
   extensionMonthsCount,
   thresholds
 }: IncomeBreakdownProps) {
+  const { formatAmount } = useCurrency();
   
   // Sum ALL achieved thresholds (not just highest one)
   const getVolumeBonus = (clientCount: number): number => {
@@ -35,9 +37,6 @@ export function IncomeBreakdown({
   // Fixed formula: passivePerClientEur per client per month
   const passiveIncome = clients * passivePerClientEur * passiveMonths;
   const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
-
-  const formatEUR = (value: number) => 
-    value.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €';
 
   const items = [
     {
@@ -96,7 +95,7 @@ export function IncomeBreakdown({
                 </div>
               </div>
               <span className={`font-semibold transition-all duration-300 ${item.highlight ? 'text-emerald-600' : 'text-foreground'}`}>
-                {formatEUR(item.value)}
+                {formatAmount(item.value)}
               </span>
             </div>
             {index < items.length - 1 && !item.highlight && <Separator />}

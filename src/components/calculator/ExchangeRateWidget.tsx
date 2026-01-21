@@ -1,13 +1,10 @@
 import { useNbpExchangeRate } from "@/hooks/useNbpExchangeRate";
 import { useSyncNbpRate } from "@/hooks/useSyncNbpRate";
-import { RefreshCw, Save } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { RefreshCw, Save } from "lucide-react";
 
 interface ExchangeRateWidgetProps {
   variant?: "light" | "dark";
@@ -16,30 +13,17 @@ interface ExchangeRateWidgetProps {
 export function ExchangeRateWidget({ variant = "light" }: ExchangeRateWidgetProps) {
   const { data, isLoading, error, refetch, isFetching } = useNbpExchangeRate();
   const syncRate = useSyncNbpRate();
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('pl-PL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  const { currency, setCurrency } = useCurrency();
 
   const handleSync = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.preventDefault();
     if (data?.rate) {
       await syncRate.mutateAsync(data.rate);
     }
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-end gap-0.5">
-        <Skeleton className="h-5 w-28 bg-white/20" />
-        <Skeleton className="h-3 w-20 bg-white/10" />
-      </div>
-    );
+    return <Skeleton className="h-6 w-32 bg-white/20" />;
   }
 
   if (error || !data) {
@@ -47,17 +31,12 @@ export function ExchangeRateWidget({ variant = "light" }: ExchangeRateWidgetProp
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex flex-col items-end gap-0.5 opacity-60">
-              <span className="text-sm font-medium text-white">
-                EUR/PLN —
-              </span>
-              <span className="text-[10px] text-emerald-200">
-                Kurs niedostępny
-              </span>
+            <div className="text-[10px] text-white/60 px-2 py-1 bg-white/10 rounded">
+              NBP —
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Nie udało się pobrać kursu z NBP</p>
+            <p>Kurs niedostępny</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -65,55 +44,73 @@ export function ExchangeRateWidget({ variant = "light" }: ExchangeRateWidgetProp
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <TooltipProvider>
+    <TooltipProvider>
+      <div className="flex items-center gap-2 bg-white/10 rounded-md px-2 py-1">
+        {/* NBP Rate */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-[11px] text-white/90 font-medium tabular-nums cursor-default">
+              NBP {data.rate.toFixed(2)}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-xs">1 EUR = {data.rate.toFixed(4)} PLN</p>
+            <p className="text-[10px] text-muted-foreground">
+              Kurs średni z {new Date(data.date).toLocaleDateString('pl-PL')}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Refresh button */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={() => refetch()}
-              className="flex flex-col items-end gap-0.5 bg-white/10 hover:bg-white/15 transition-colors rounded-lg px-3 py-1.5 cursor-pointer group"
               disabled={isFetching}
+              className="p-0.5 hover:bg-white/20 rounded transition-colors disabled:opacity-50"
             >
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold text-white">
-                  1 EUR = {data.rate.toFixed(4)} PLN
-                </span>
-                <RefreshCw 
-                  className={`h-3 w-3 text-emerald-200 opacity-0 group-hover:opacity-100 transition-opacity ${isFetching ? 'animate-spin opacity-100' : ''}`} 
-                />
-              </div>
-              <span className="text-[10px] text-emerald-200">
-                NBP • {formatDate(data.date)}
-              </span>
+              <RefreshCw className={`h-3 w-3 text-white/70 ${isFetching ? 'animate-spin' : ''}`} />
             </button>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Kurs średni NBP (Tabela A)</p>
-            <p className="text-xs text-muted-foreground">Kliknij, aby odświeżyć</p>
+          <TooltipContent side="bottom">
+            <p className="text-xs">Odśwież kurs z NBP</p>
           </TooltipContent>
         </Tooltip>
-      </TooltipProvider>
 
-      <TooltipProvider>
+        {/* Sync button */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={handleSync}
-              disabled={syncRate.isPending || !data}
-              className="flex items-center gap-1 bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg px-2.5 py-2 text-white text-xs font-medium"
+              disabled={syncRate.isPending}
+              className="p-0.5 hover:bg-white/20 rounded transition-colors disabled:opacity-50"
             >
-              <Save className={`h-3.5 w-3.5 ${syncRate.isPending ? 'animate-pulse' : ''}`} />
-              <span className="hidden sm:inline">
-                {syncRate.isPending ? 'Synchronizuję...' : 'Synchronizuj kurs'}
-              </span>
+              <Save className={`h-3 w-3 text-white/70 ${syncRate.isPending ? 'animate-pulse' : ''}`} />
             </button>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Zapisz aktualny kurs NBP do obliczeń</p>
-            <p className="text-xs text-muted-foreground">Zaktualizuje oba kalkulatory</p>
+          <TooltipContent side="bottom">
+            <p className="text-xs">Synchronizuj kurs do kalkulatorów</p>
           </TooltipContent>
         </Tooltip>
-      </TooltipProvider>
-    </div>
+
+        {/* Divider */}
+        <div className="w-px h-3 bg-white/20" />
+
+        {/* Currency Toggle */}
+        <div className="flex items-center gap-1">
+          <span className={`text-[10px] font-medium transition-colors ${currency === 'EUR' ? 'text-white' : 'text-white/50'}`}>
+            EUR
+          </span>
+          <Switch
+            checked={currency === 'PLN'}
+            onCheckedChange={(checked) => setCurrency(checked ? 'PLN' : 'EUR')}
+            className="h-4 w-7 data-[state=checked]:bg-white/30 data-[state=unchecked]:bg-white/20"
+          />
+          <span className={`text-[10px] font-medium transition-colors ${currency === 'PLN' ? 'text-white' : 'text-white/50'}`}>
+            PLN
+          </span>
+        </div>
+      </div>
+    </TooltipProvider>
   );
 }
