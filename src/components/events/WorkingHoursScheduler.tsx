@@ -41,7 +41,7 @@ const DAYS_OF_WEEK = [
 
 const DEFAULT_RANGE: TimeRange = { start: '09:00', end: '17:00' };
 
-const getDefaultSchedule = (): WeeklySchedule => ({
+export const getDefaultSchedule = (): WeeklySchedule => ({
   0: { enabled: false, ranges: [{ ...DEFAULT_RANGE }] },
   1: { enabled: true, ranges: [{ ...DEFAULT_RANGE }] },
   2: { enabled: true, ranges: [{ ...DEFAULT_RANGE }] },
@@ -57,12 +57,19 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
   slotDuration,
   isSaving = false,
 }) => {
-  const [schedule, setSchedule] = useState<WeeklySchedule>(initialSchedule || getDefaultSchedule());
+  const [schedule, setSchedule] = useState<WeeklySchedule>(() => {
+    // Empty object {} or undefined/null → use default schedule
+    if (!initialSchedule || Object.keys(initialSchedule).length === 0) {
+      return getDefaultSchedule();
+    }
+    return initialSchedule;
+  });
   const [useSameHours, setUseSameHours] = useState(false);
   const [timezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   useEffect(() => {
-    if (initialSchedule) {
+    // Only update if initialSchedule has actual data (not empty object)
+    if (initialSchedule && Object.keys(initialSchedule).length > 0) {
       setSchedule(initialSchedule);
     }
   }, [initialSchedule]);
@@ -74,18 +81,23 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
 
   const toggleDay = (dayOfWeek: number) => {
     const newSchedule = { ...schedule };
+    // Defensive: ensure day exists with fallback
+    const currentDay = newSchedule[dayOfWeek] || { enabled: false, ranges: [{ ...DEFAULT_RANGE }] };
     newSchedule[dayOfWeek] = {
-      ...newSchedule[dayOfWeek],
-      enabled: !newSchedule[dayOfWeek].enabled,
+      ...currentDay,
+      enabled: !currentDay.enabled,
     };
     updateSchedule(newSchedule);
   };
 
   const updateTimeRange = (dayOfWeek: number, rangeIndex: number, field: 'start' | 'end', value: string) => {
     const newSchedule = { ...schedule };
+    // Defensive: ensure day exists with fallback
+    const currentDay = newSchedule[dayOfWeek] || { enabled: false, ranges: [{ ...DEFAULT_RANGE }] };
+    
     newSchedule[dayOfWeek] = {
-      ...newSchedule[dayOfWeek],
-      ranges: newSchedule[dayOfWeek].ranges.map((range, idx) =>
+      ...currentDay,
+      ranges: currentDay.ranges.map((range, idx) =>
         idx === rangeIndex ? { ...range, [field]: value } : range
       ),
     };
@@ -94,10 +106,14 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
     if (useSameHours) {
       const updatedRange = newSchedule[dayOfWeek].ranges[rangeIndex];
       DAYS_OF_WEEK.forEach(({ value: day }) => {
-        if (newSchedule[day].enabled && day !== dayOfWeek) {
-          newSchedule[day].ranges = newSchedule[day].ranges.map((range, idx) =>
-            idx === rangeIndex ? { ...updatedRange } : range
-          );
+        const daySchedule = newSchedule[day] || { enabled: false, ranges: [{ ...DEFAULT_RANGE }] };
+        if (daySchedule.enabled && day !== dayOfWeek) {
+          newSchedule[day] = {
+            ...daySchedule,
+            ranges: daySchedule.ranges.map((range, idx) =>
+              idx === rangeIndex ? { ...updatedRange } : range
+            ),
+          };
         }
       });
     }
