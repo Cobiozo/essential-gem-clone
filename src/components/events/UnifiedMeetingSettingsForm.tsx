@@ -28,7 +28,7 @@ import {
   CalendarOff
 } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
-import { WorkingHoursScheduler, WeeklySchedule } from './WorkingHoursScheduler';
+import { WorkingHoursScheduler, WeeklySchedule, getDefaultSchedule } from './WorkingHoursScheduler';
 import { DateExceptionsManager, DateException } from './DateExceptionsManager';
 import { IndividualMeetingsHistory } from './IndividualMeetingsHistory';
 import { format, parseISO } from 'date-fns';
@@ -64,7 +64,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
   const [hasGoogleCalendar, setHasGoogleCalendar] = useState(false);
   
   // Weekly schedule (Calendly-style)
-  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>({});
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(getDefaultSchedule());
   
   // Date exceptions (blocked dates)
   const [dateExceptions, setDateExceptions] = useState<DateException[]>([]);
