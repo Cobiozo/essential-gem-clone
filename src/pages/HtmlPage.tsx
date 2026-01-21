@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,12 @@ import { ShieldX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
+
+declare global {
+  interface Window {
+    lucide?: { createIcons: () => void };
+  }
+}
 
 interface HtmlPage {
   id: string;
@@ -49,6 +55,78 @@ const HtmlPage: React.FC = () => {
     },
     enabled: !!slug,
   });
+
+  const externalResourcesLoaded = useRef(false);
+
+  // Load external resources (Tailwind, Lucide, Fonts)
+  useEffect(() => {
+    if (!page || externalResourcesLoaded.current) return;
+    
+    const elementsToCleanup: HTMLElement[] = [];
+    
+    // Check if page uses Tailwind classes (detect common patterns)
+    const usesTailwind = page.html_content.includes('class="') && 
+      (page.html_content.includes('flex') || 
+       page.html_content.includes('grid') || 
+       page.html_content.includes('bg-') ||
+       page.html_content.includes('text-'));
+    
+    // Check if page uses Lucide icons
+    const usesLucide = page.html_content.includes('data-lucide') || 
+                       page.html_content.includes('lucide.createIcons');
+    
+    // Check if page uses custom fonts
+    const usesCustomFonts = page.custom_css?.includes('Montserrat') || 
+                            page.custom_css?.includes('Open Sans') ||
+                            page.html_content.includes('font-montserrat');
+    
+    // Load Tailwind CSS CDN
+    if (usesTailwind && !document.querySelector('script[src*="tailwindcss"]')) {
+      const tailwindScript = document.createElement('script');
+      tailwindScript.src = 'https://cdn.tailwindcss.com';
+      tailwindScript.async = true;
+      document.head.appendChild(tailwindScript);
+      elementsToCleanup.push(tailwindScript);
+    }
+    
+    // Load Lucide Icons
+    if (usesLucide && !document.querySelector('script[src*="lucide"]')) {
+      const lucideScript = document.createElement('script');
+      lucideScript.src = 'https://unpkg.com/lucide@latest';
+      lucideScript.async = true;
+      lucideScript.onload = () => {
+        setTimeout(() => {
+          window.lucide?.createIcons();
+        }, 100);
+      };
+      document.body.appendChild(lucideScript);
+      elementsToCleanup.push(lucideScript);
+    }
+    
+    // Load Google Fonts
+    if (usesCustomFonts && !document.querySelector('link[href*="fonts.googleapis.com/css2?family=Montserrat"]')) {
+      const fontsLink = document.createElement('link');
+      fontsLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Open+Sans:wght@400;600&display=swap';
+      fontsLink.rel = 'stylesheet';
+      document.head.appendChild(fontsLink);
+      elementsToCleanup.push(fontsLink);
+    }
+    
+    externalResourcesLoaded.current = true;
+    
+    // Re-initialize Lucide icons when content changes
+    const initLucideInterval = setInterval(() => {
+      if (window.lucide) {
+        window.lucide.createIcons();
+        clearInterval(initLucideInterval);
+      }
+    }, 200);
+    
+    return () => {
+      clearInterval(initLucideInterval);
+      // Don't remove scripts on cleanup to avoid flashing
+    };
+  }, [page]);
 
   // Set meta tags
   useEffect(() => {
