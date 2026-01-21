@@ -131,14 +131,27 @@ export const useImageCompressionWorker = (
       }
 
       return new Promise((resolve) => {
+        let timeoutId: NodeJS.Timeout | null = null;
+        
+        const cleanup = () => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          worker.removeEventListener('message', handleMessage);
+        };
+        
         const handleMessage = (e: MessageEvent<CompressionResult>) => {
           const result = e.data;
 
           if (result.type === 'progress') {
             onProgress?.(result.message || 'Kompresowanie...');
-          } else if (result.type === 'success' && result.blob) {
-            worker.removeEventListener('message', handleMessage);
-            
+            return; // Don't remove listener on progress events
+          }
+          
+          cleanup();
+          
+          if (result.type === 'success' && result.blob) {
             const compressedFile = new File([result.blob], file.name, {
               type: file.type,
             });
@@ -146,7 +159,6 @@ export const useImageCompressionWorker = (
             onProgress?.(result.message || 'Kompresja zakończona');
             resolve(compressedFile);
           } else if (result.type === 'error') {
-            worker.removeEventListener('message', handleMessage);
             console.error('Worker compression error:', result.error);
             // Fallback to main thread compression
             compressImageFallback(file).then(resolve);
@@ -154,6 +166,13 @@ export const useImageCompressionWorker = (
         };
 
         worker.addEventListener('message', handleMessage);
+
+        // Safety timeout - fallback after 60s if worker hangs
+        timeoutId = setTimeout(() => {
+          console.warn('[ImageCompression] Worker timeout, falling back to main thread');
+          cleanup();
+          compressImageFallback(file).then(resolve);
+        }, 60000);
 
         // Send file data to worker
         file.arrayBuffer().then((arrayBuffer) => {

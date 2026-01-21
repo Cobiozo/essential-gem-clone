@@ -19,6 +19,7 @@ export const useAdminPresence = (currentTab: string) => {
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const mountedRef = useRef(true);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!isAdmin || !user) return;
@@ -121,7 +122,11 @@ export const useAdminPresence = (currentTab: string) => {
       if (status === 'CHANNEL_ERROR') {
         console.error('❌ Channel error, retrying in 2s...');
         setIsConnected(false);
-        setTimeout(() => {
+        // Clear any existing retry timer
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        retryTimeoutRef.current = setTimeout(() => {
           if (mountedRef.current && channelRef.current) {
             channel.subscribe();
           }
@@ -139,6 +144,11 @@ export const useAdminPresence = (currentTab: string) => {
 
     return () => {
       mountedRef.current = false;
+      // Clear retry timer to prevent memory leak
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);

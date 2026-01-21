@@ -122,7 +122,7 @@ export const FloatingAdminPresence = ({
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleEnd);
-      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchmove', handleMove, { passive: false } as EventListenerOptions);
       window.removeEventListener('touchend', handleEnd);
     };
   }, [isDragging, clampPosition, savePosition, position]);

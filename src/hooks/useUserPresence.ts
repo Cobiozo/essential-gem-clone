@@ -35,6 +35,7 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const mountedRef = useRef(true);
   const lastUpdateRef = useRef<number>(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -146,7 +147,11 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
       if (status === 'CHANNEL_ERROR') {
         console.error('❌ User presence channel error, retrying...');
         setIsConnected(false);
-        setTimeout(() => {
+        // Clear any existing retry timer
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        retryTimeoutRef.current = setTimeout(() => {
           if (mountedRef.current && channelRef.current) {
             channel.subscribe();
           }
@@ -164,6 +169,11 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
 
     return () => {
       mountedRef.current = false;
+      // Clear retry timer to prevent memory leak
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
