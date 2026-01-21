@@ -405,6 +405,20 @@ export const useTranslations = () => {
   const [translations, setTranslations] = useState<TranslationsMap>(translationsCache || {});
   const [loading, setLoading] = useState(!translationsCache);
   const [defaultLanguage, setDefaultLanguage] = useState<string>('pl');
+  const [, forceUpdate] = useState({});
+
+  // Register cache listener with proper cleanup to prevent memory leaks
+  useEffect(() => {
+    const listener = () => forceUpdate({});
+    cacheListeners.push(listener);
+    
+    return () => {
+      const index = cacheListeners.indexOf(listener);
+      if (index > -1) {
+        cacheListeners.splice(index, 1);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
