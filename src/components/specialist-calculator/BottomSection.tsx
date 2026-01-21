@@ -10,6 +10,7 @@ interface BottomSectionProps {
   retentionBonusEur: number;
   retentionMonthsCount: number;
   thresholds: SpecialistVolumeThreshold[];
+  eurToPlnRate: number;
 }
 
 export function BottomSection({
@@ -19,7 +20,8 @@ export function BottomSection({
   passiveMonths,
   retentionBonusEur,
   retentionMonthsCount,
-  thresholds
+  thresholds,
+  eurToPlnRate
 }: BottomSectionProps) {
   const commission = clients * baseCommissionEur;
   const passiveIncome = clients * passivePerMonthEur * passiveMonths;
@@ -29,6 +31,7 @@ export function BottomSection({
     .reduce((sum, t) => sum + t.bonus_amount, 0);
 
   const totalEur = commission + passiveIncome + retentionBonus + volumeBonus;
+  const totalPln = totalEur * eurToPlnRate;
   const monthlyAvgEur = totalEur / 6;
 
   // Calculate percentages
@@ -58,8 +61,11 @@ export function BottomSection({
           <p className="text-xs font-bold tracking-wide uppercase text-slate-300 mb-2">
             Łączny przychód (6 miesięcy)
           </p>
-          <p className="text-5xl font-bold mb-4">
+          <p className="text-5xl font-bold mb-2">
             {formatNumber(totalEur)} €
+          </p>
+          <p className="text-lg text-slate-400 mb-4">
+            (~{formatNumber(totalPln)} zł)
           </p>
           <p className="text-sm text-slate-300 mb-4">
             To estymacja przy założeniu, że klienci pozostaną na pełnej kuracji. Kwota zawiera wszystkie prowizje i bonusy.
