@@ -102,7 +102,7 @@ const MyAccount = () => {
   const { isComplete } = useProfileCompletion();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
-  const { isLeader, loading: leaderLoading } = useLeaderAvailability();
+  const { isLeader, leaderPermission, loading: leaderLoading } = useLeaderAvailability();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -219,9 +219,9 @@ const MyAccount = () => {
     preferences: dailySignalVisible,
     aiCompass: aiCompassVisible,
     reflinks: canGenerateReflinks,
-    leader: isLeader,
+    individualMeetings: leaderPermission?.individual_meetings_enabled || false,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isLeader]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, leaderPermission]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -584,10 +584,10 @@ const MyAccount = () => {
                   PureLinki
                 </TabsTrigger>
               )}
-              {visibleTabs.leader && (
-                <TabsTrigger value="leader" disabled={mustCompleteProfile}>
+              {visibleTabs.individualMeetings && (
+                <TabsTrigger value="individual-meetings" disabled={mustCompleteProfile}>
                   <CalendarDays className="w-4 h-4 mr-2" />
-                  Moje spotkania
+                  Spotkania indywidualne
                 </TabsTrigger>
               )}
             </TabsList>
@@ -1032,14 +1032,7 @@ const MyAccount = () => {
               </TabsContent>
             )}
 
-            {visibleTabs.leader && (
-              <TabsContent value="leader" className="mt-6">
-                <LeaderAvailabilityManager />
-              </TabsContent>
-            )}
-
-            {/* Individual Meetings for Partners */}
-            {isPartner && (
+            {visibleTabs.individualMeetings && (
               <TabsContent value="individual-meetings" className="mt-6">
                 <UnifiedMeetingSettingsForm />
               </TabsContent>
