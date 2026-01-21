@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface TotalResultCardProps {
@@ -9,7 +10,6 @@ interface TotalResultCardProps {
   passiveMonths: number;
   extensionBonusPerClient: number;
   extensionMonthsCount: number;
-  eurToPlnRate: number;
   thresholds: VolumeThreshold[];
   maxClients: number;
 }
@@ -21,10 +21,10 @@ export function TotalResultCard({
   passiveMonths,
   extensionBonusPerClient,
   extensionMonthsCount,
-  eurToPlnRate,
   thresholds,
   maxClients
 }: TotalResultCardProps) {
+  const { currency, formatAmount, eurToPlnRate } = useCurrency();
   
   // Sum ALL achieved thresholds (not just highest one)
   const getVolumeBonus = (clientCount: number): number => {
@@ -40,15 +40,13 @@ export function TotalResultCard({
   const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
   
   const totalEUR = directCommission + volumeBonus + passiveIncome + extensionBonuses;
-  const totalPLN = totalEUR * eurToPlnRate;
 
   const progressPercent = Math.min((clients / maxClients) * 100, 100);
 
-  const formatEUR = (value: number) => 
-    value.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  
-  const formatPLN = (value: number) => 
-    value.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  // Secondary display (opposite currency)
+  const secondaryAmount = currency === 'EUR' 
+    ? `~ ${(totalEUR * eurToPlnRate).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł`
+    : `~ ${totalEUR.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} €`;
 
   return (
     <Card className="border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/50 dark:to-background">
@@ -58,10 +56,10 @@ export function TotalResultCard({
             Szacowany przychód całkowity (6 miesięcy)
           </p>
           <p className="text-4xl md:text-5xl font-bold text-emerald-600 transition-all duration-300">
-            {formatEUR(totalEUR)} €
+            {formatAmount(totalEUR)}
           </p>
           <p className="text-lg text-emerald-600/80 mt-1 transition-all duration-300">
-            (~ {formatPLN(totalPLN)} zł)
+            ({secondaryAmount})
           </p>
         </div>
 

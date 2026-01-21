@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Euro, TrendingUp, RefreshCw, Award } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { SpecialistVolumeThreshold } from "@/hooks/useSpecialistCalculatorSettings";
 
 interface ResultCardsProps {
@@ -21,19 +22,14 @@ export function ResultCards({
   retentionMonthsCount,
   thresholds
 }: ResultCardsProps) {
+  const { formatAmount } = useCurrency();
+  
   const commission = clients * baseCommissionEur;
   const passiveIncome = clients * passivePerMonthEur * passiveMonths;
   const retentionBonus = clients * retentionBonusEur * retentionMonthsCount;
   const volumeBonus = thresholds
     .filter(t => clients >= t.threshold_clients)
     .reduce((sum, t) => sum + t.bonus_amount, 0);
-
-  const formatEur = (value: number) => {
-    return new Intl.NumberFormat('pl-PL', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
 
   const cards = [
     {
@@ -88,7 +84,7 @@ export function ResultCards({
                   {card.title}
                 </p>
                 <p className={`text-xl font-bold ${card.valueColor}`}>
-                  {formatEur(card.valueEur)} €
+                  {formatAmount(card.valueEur)}
                 </p>
                 <p className={`text-xs mt-1 ${index === 3 ? 'text-orange-500' : 'text-muted-foreground'}`}>
                   {card.description}
