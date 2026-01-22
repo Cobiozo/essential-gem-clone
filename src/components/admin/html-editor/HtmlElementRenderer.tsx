@@ -9,6 +9,7 @@ interface HtmlElementRendererProps {
   onSelect: (element: ParsedElement) => void;
   onHover: (id: string | null) => void;
   depth?: number;
+  showOutlines?: boolean;
 }
 
 export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
