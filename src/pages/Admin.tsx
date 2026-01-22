@@ -63,6 +63,7 @@ import { SystemHealthAlertsPanel } from '@/components/admin/SystemHealthAlertsPa
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { HtmlPagesManagement } from '@/components/admin/HtmlPagesManagement';
+import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
@@ -4398,6 +4399,10 @@ const Admin = () => {
 
           <TabsContent value="html-pages">
             <HtmlPagesManagement />
+          </TabsContent>
+
+          <TabsContent value="media-library">
+            <AdminMediaLibrary mode="standalone" />
           </TabsContent>
         </Tabs>
       </div>

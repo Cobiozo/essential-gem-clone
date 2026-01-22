@@ -71,6 +71,57 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_media_library: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          folder: string | null
+          id: string
+          mime_type: string | null
+          original_name: string
+          storage_bucket: string
+          tags: string[] | null
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          file_name: string
+          file_size?: number
+          file_type: string
+          file_url: string
+          folder?: string | null
+          id?: string
+          mime_type?: string | null
+          original_name: string
+          storage_bucket: string
+          tags?: string[] | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          folder?: string | null
+          id?: string
+          mime_type?: string | null
+          original_name?: string
+          storage_bucket?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       ai_compass_contact_history: {
         Row: {
           ai_session_id: string | null
