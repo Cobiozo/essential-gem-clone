@@ -50,6 +50,7 @@ import {
   UserPlus,
   Calculator,
   MessageSquare,
+  Images,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -95,6 +96,9 @@ const SIDEBAR_KEYS = {
   calculator: 'admin.sidebar.calculator',
   chatPermissions: 'admin.sidebar.chatPermissions',
   sidebarIcons: 'admin.sidebar.sidebarIcons',
+  mediaLibrary: 'admin.sidebar.mediaLibrary',
+  htmlPages: 'admin.sidebar.htmlPages',
+  specialistCalculator: 'admin.sidebar.specialistCalculator',
 };
 
 interface AdminSidebarProps {
@@ -159,6 +163,7 @@ const navCategories: NavCategory[] = [
       { value: 'training', labelKey: 'trainings', icon: BookOpen },
       { value: 'certificates', labelKey: 'certificates', icon: Award },
       { value: 'knowledge', labelKey: 'resources', icon: FolderOpen },
+      { value: 'media-library', labelKey: 'mediaLibrary', icon: Images },
     ],
   },
   {
