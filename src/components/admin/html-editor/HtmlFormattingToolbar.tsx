@@ -45,6 +45,26 @@ const highlightColors = [
   '#fbcfe8', '#fecaca', '#e0f2fe', '#dcfce7', '#fef3c7', '#f5d0fe',
 ];
 
+// Extract ToolbarButton OUTSIDE the main component to prevent React Error #137
+const ToolbarButton: React.FC<{
+  icon: React.ReactNode;
+  onClick: () => void;
+  title: string;
+  disabled?: boolean;
+  active?: boolean;
+}> = ({ icon, onClick, title, disabled, active }) => (
+  <Button
+    variant={active ? "default" : "ghost"}
+    size="sm"
+    className="h-8 w-8 p-0"
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+  >
+    {icon}
+  </Button>
+);
+
 export const HtmlFormattingToolbar: React.FC<HtmlFormattingToolbarProps> = ({
   onFormat,
   onUndo,
@@ -63,25 +83,6 @@ export const HtmlFormattingToolbar: React.FC<HtmlFormattingToolbarProps> = ({
       setLinkOpen(false);
     }
   };
-
-  const ToolbarButton: React.FC<{
-    icon: React.ReactNode;
-    onClick: () => void;
-    title: string;
-    disabled?: boolean;
-    active?: boolean;
-  }> = ({ icon, onClick, title, disabled, active }) => (
-    <Button
-      variant={active ? "default" : "ghost"}
-      size="sm"
-      className="h-8 w-8 p-0"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-    >
-      {icon}
-    </Button>
-  );
 
   return (
     <div className="flex flex-wrap items-center gap-0.5 p-1.5 border-b bg-muted/20">
