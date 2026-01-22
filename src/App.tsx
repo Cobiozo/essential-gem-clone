@@ -266,6 +266,24 @@ const AppContent = () => {
     setIsFreshLogin(false); // Banner sequence complete
   }, []);
   
+  // CRITICAL: Block routing until roles are loaded to prevent race conditions
+  if (user && !rolesReady) {
+    return (
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 mx-auto mb-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-muted-foreground">Ładowanie...</p>
+            </div>
+          </div>
+        </BrowserRouter>
+      </TooltipProvider>
+    );
+  }
+
   return (
     <TooltipProvider>
       <Toaster />

@@ -49,12 +49,23 @@ const FooterSkeleton: React.FC = () => (
 
 const Dashboard: React.FC = () => {
   const { t } = useLanguage();
-  const { user, loading } = useAuth();
+  const { user, loading, rolesReady } = useAuth();
   const location = useLocation();
   
   // BEZPIECZEŃSTWO: Przekieruj niezalogowanych na stronę logowania
   if (!loading && !user) {
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  }
+
+  // Wait for roles to load before rendering widgets
+  if (!rolesReady) {
+    return (
+      <DashboardLayout title={t('dashboard.menu.dashboard')}>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
