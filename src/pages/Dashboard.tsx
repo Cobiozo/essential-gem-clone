@@ -1,20 +1,51 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { WelcomeWidget } from '@/components/dashboard/widgets/WelcomeWidget';
-import { TrainingProgressWidget } from '@/components/dashboard/widgets/TrainingProgressWidget';
-import { ResourcesWidget } from '@/components/dashboard/widgets/ResourcesWidget';
-import { NotificationsWidget } from '@/components/dashboard/widgets/NotificationsWidget';
-import { TeamContactsWidget } from '@/components/dashboard/widgets/TeamContactsWidget';
-import { ReflinksWidget } from '@/components/dashboard/widgets/ReflinksWidget';
-import { InfoLinksWidget } from '@/components/dashboard/widgets/InfoLinksWidget';
-import { CalendarWidget } from '@/components/dashboard/widgets/CalendarWidget';
-import { MyMeetingsWidget } from '@/components/dashboard/widgets/MyMeetingsWidget';
-import { DashboardFooterSection } from '@/components/dashboard/widgets/DashboardFooterSection';
-import { ActiveOtpCodesWidget } from '@/components/dashboard/widgets/ActiveOtpCodesWidget';
-import { ActiveUsersWidget } from '@/components/dashboard/widgets/ActiveUsersWidget';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Lazy load all widgets for better mobile performance
+const WelcomeWidget = lazy(() => import('@/components/dashboard/widgets/WelcomeWidget'));
+const TrainingProgressWidget = lazy(() => import('@/components/dashboard/widgets/TrainingProgressWidget'));
+const ResourcesWidget = lazy(() => import('@/components/dashboard/widgets/ResourcesWidget'));
+const NotificationsWidget = lazy(() => import('@/components/dashboard/widgets/NotificationsWidget'));
+const TeamContactsWidget = lazy(() => import('@/components/dashboard/widgets/TeamContactsWidget'));
+const ReflinksWidget = lazy(() => import('@/components/dashboard/widgets/ReflinksWidget'));
+const InfoLinksWidget = lazy(() => import('@/components/dashboard/widgets/InfoLinksWidget'));
+const CalendarWidget = lazy(() => import('@/components/dashboard/widgets/CalendarWidget'));
+const MyMeetingsWidget = lazy(() => import('@/components/dashboard/widgets/MyMeetingsWidget'));
+const DashboardFooterSection = lazy(() => import('@/components/dashboard/widgets/DashboardFooterSection'));
+const ActiveOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/ActiveOtpCodesWidget'));
+const ActiveUsersWidget = lazy(() => import('@/components/dashboard/widgets/ActiveUsersWidget'));
+
+// Skeleton fallback for widgets during lazy load
+const WidgetSkeleton: React.FC = () => (
+  <div className="rounded-lg border bg-card p-6 animate-pulse">
+    <div className="h-4 bg-muted rounded w-1/3 mb-4" />
+    <div className="h-20 bg-muted rounded" />
+  </div>
+);
+
+// Full-width skeleton for welcome widget
+const WelcomeWidgetSkeleton: React.FC = () => (
+  <div className="col-span-full rounded-lg border bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 animate-pulse">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-2">
+        <div className="h-8 bg-muted rounded w-64" />
+        <div className="h-4 bg-muted rounded w-40" />
+      </div>
+      <div className="h-10 bg-muted rounded w-48" />
+    </div>
+  </div>
+);
+
+// Footer skeleton
+const FooterSkeleton: React.FC = () => (
+  <div className="mt-8 space-y-6 animate-pulse">
+    <div className="h-24 bg-muted rounded" />
+    <div className="h-32 bg-muted rounded" />
+  </div>
+);
 
 const Dashboard: React.FC = () => {
   const { t } = useLanguage();
@@ -30,38 +61,62 @@ const Dashboard: React.FC = () => {
     <DashboardLayout title={t('dashboard.menu.dashboard')}>
       <div className="space-y-4 lg:space-y-6">
         {/* Welcome with digital clock - Full width */}
-        <WelcomeWidget />
+        <Suspense fallback={<WelcomeWidgetSkeleton />}>
+          <WelcomeWidget />
+        </Suspense>
 
         {/* Three-column grid for remaining widgets */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Column 1: Calendar */}
-          <CalendarWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <CalendarWidget />
+          </Suspense>
 
           {/* Column 2: My Meetings - obok kalendarza */}
-          <MyMeetingsWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <MyMeetingsWidget />
+          </Suspense>
 
           {/* Column 3: Training Progress */}
-          <TrainingProgressWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <TrainingProgressWidget />
+          </Suspense>
 
           {/* Notifications */}
-          <NotificationsWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <NotificationsWidget />
+          </Suspense>
 
           {/* Active OTP Codes for partners */}
-          <ActiveOtpCodesWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <ActiveOtpCodesWidget />
+          </Suspense>
 
           {/* Remaining widgets flow naturally */}
-          <ResourcesWidget />
-          <TeamContactsWidget />
-          <ReflinksWidget />
-          <InfoLinksWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <ResourcesWidget />
+          </Suspense>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <TeamContactsWidget />
+          </Suspense>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <ReflinksWidget />
+          </Suspense>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <InfoLinksWidget />
+          </Suspense>
           
           {/* Active Users Widget - only visible to admins */}
-          <ActiveUsersWidget />
+          <Suspense fallback={<WidgetSkeleton />}>
+            <ActiveUsersWidget />
+          </Suspense>
         </div>
       </div>
 
       {/* Footer Section with quote, team features and contact */}
-      <DashboardFooterSection />
+      <Suspense fallback={<FooterSkeleton />}>
+        <DashboardFooterSection />
+      </Suspense>
     </DashboardLayout>
   );
 };

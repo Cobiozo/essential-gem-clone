@@ -24,7 +24,7 @@ import { SupportFormDialog } from "@/components/support";
 // Improved: More retries, cache clearing, loop detection
 function lazyWithRetry<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
-  retries = 3
+  retries = 4
 ): React.LazyExoticComponent<T> {
   return lazy(async () => {
     for (let i = 0; i < retries; i++) {
@@ -69,8 +69,8 @@ function lazyWithRetry<T extends ComponentType<any>>(
           return { default: (() => null) as unknown as T };
         }
         
-        // Wait longer between retries (1.5s)
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Wait longer between retries (2.5s for mobile networks)
+        await new Promise(resolve => setTimeout(resolve, 2500));
       }
     }
     throw new Error('Failed to load module after retries');

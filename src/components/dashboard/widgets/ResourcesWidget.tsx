@@ -202,3 +202,5 @@ export const ResourcesWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default ResourcesWidget;

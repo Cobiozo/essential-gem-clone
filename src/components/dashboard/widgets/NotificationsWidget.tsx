@@ -95,3 +95,5 @@ export const NotificationsWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default NotificationsWidget;

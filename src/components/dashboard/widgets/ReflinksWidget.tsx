@@ -201,3 +201,5 @@ export const ReflinksWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default ReflinksWidget;
