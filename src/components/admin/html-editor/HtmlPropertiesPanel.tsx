@@ -24,6 +24,24 @@ interface HtmlPropertiesPanelProps {
   onClose: () => void;
 }
 
+// Extract CollapsibleSection OUTSIDE the main component to prevent React Error #137
+const CollapsibleSection: React.FC<{ 
+  title: string; 
+  icon: React.ReactNode; 
+  children: React.ReactNode; 
+  defaultOpen?: boolean 
+}> = ({ title, icon, children, defaultOpen = true }) => (
+  <Collapsible defaultOpen={defaultOpen}>
+    <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 hover:bg-muted/50 rounded-lg transition-colors">
+      {icon}
+      <span className="font-medium text-sm">{title}</span>
+    </CollapsibleTrigger>
+    <CollapsibleContent className="px-2 pb-3 space-y-3">
+      {children}
+    </CollapsibleContent>
+  </Collapsible>
+);
+
 export const HtmlPropertiesPanel: React.FC<HtmlPropertiesPanelProps> = ({
   element,
   onUpdate,
@@ -63,19 +81,6 @@ export const HtmlPropertiesPanel: React.FC<HtmlPropertiesPanelProps> = ({
     delete newStyles[key];
     onUpdate({ styles: newStyles });
   };
-  
-  const CollapsibleSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }> = 
-    ({ title, icon, children, defaultOpen = true }) => (
-    <Collapsible defaultOpen={defaultOpen}>
-      <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 hover:bg-muted/50 rounded-lg transition-colors">
-        {icon}
-        <span className="font-medium text-sm">{title}</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-2 pb-3 space-y-3">
-        {children}
-      </CollapsibleContent>
-    </Collapsible>
-  );
 
   // Handle media upload
   const handleMediaUpload = (url: string, type: string) => {
