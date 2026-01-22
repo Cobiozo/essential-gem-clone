@@ -366,8 +366,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshProfile,
   };
 
-  // Don't render children until auth is initialized
-  if (!initialized) {
+  // Don't render children until auth is initialized AND roles are ready (if user exists)
+  // This prevents React Error #306 by ensuring all auth state is complete before rendering
+  if (!initialized || (user && !rolesReady)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">

@@ -113,7 +113,7 @@ const Auth = () => {
     message: string;
     planned_end_time: string | null;
   } | null>(null);
-  const { signIn, signUp, user, loginComplete } = useAuth();
+  const { signIn, signUp, user, loginComplete, rolesReady } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -283,16 +283,13 @@ const Auth = () => {
     // Determine redirect destination (returnTo parameter or default /)
     const redirectPath = returnTo || '/';
     
-    // SAFE NAVIGATION: Only redirect when loginComplete is true (auth event fully processed)
-    // OR when user exists but not from fresh login (e.g., page refresh while logged in)
-    if (loginComplete && user) {
-      console.log('[Auth] loginComplete=true, navigating to:', redirectPath);
-      navigate(redirectPath);
-    } else if (user && !loginComplete) {
-      // User exists from previous session (page refresh) - redirect immediately
+    // SAFE NAVIGATION: Only redirect when BOTH user exists AND rolesReady is true
+    // This prevents navigation before roles are fully loaded, avoiding React Error #306
+    if (user && rolesReady) {
+      console.log('[Auth] user + rolesReady, navigating to:', redirectPath);
       navigate(redirectPath);
     }
-  }, [user, navigate, showEmailConfirmDialog, toast, loginComplete, t]);
+  }, [user, navigate, showEmailConfirmDialog, toast, rolesReady, t]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
