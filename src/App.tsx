@@ -144,7 +144,7 @@ const ChatWidgetsWrapper = () => {
 const AppContent = () => {
   useDynamicMetaTags();
   const { toast } = useToast();
-  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin } = useAuth();
+  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista } = useAuth();
   const { isModern } = useDashboardPreference();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
@@ -275,14 +275,24 @@ const AppContent = () => {
         <ProfileCompletionGuard>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
-              <Route path="/" element={user && isModern ? <Navigate to="/dashboard" replace /> : <Index />} />
-              <Route path="/auth" element={user ? <Navigate to={isModern ? '/dashboard' : '/'} replace /> : <Auth />} />
+              <Route path="/" element={
+                // Clients stay on classic view, Partners/Specialists go to modern dashboard
+                isClient ? <Index /> :
+                (isPartner || isSpecjalista) ? <Navigate to="/dashboard" replace /> :
+                (user && isModern) ? <Navigate to="/dashboard" replace /> : <Index />
+              } />
+              <Route path="/auth" element={
+                user ? <Navigate to={(isPartner || isSpecjalista) ? '/dashboard' : (isModern ? '/dashboard' : '/')} replace /> : <Auth />
+              } />
               <Route path="/admin" element={<Admin />} />
               <Route path="/my-account" element={<MyAccount />} />
               <Route path="/training" element={<Training />} />
               <Route path="/training/:moduleId" element={<TrainingModule />} />
               <Route path="/knowledge" element={<KnowledgeCenter />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard" element={
+                // Clients cannot access modern dashboard
+                isClient ? <Navigate to="/" replace /> : <Dashboard />
+              } />
               <Route path="/events/individual-meetings" element={<IndividualMeetingsPage />} />
               <Route path="/events/webinars" element={<WebinarsPage />} />
               <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />

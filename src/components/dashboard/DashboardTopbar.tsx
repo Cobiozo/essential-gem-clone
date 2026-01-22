@@ -30,7 +30,7 @@ interface DashboardTopbarProps {
 
 export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isAdmin } = useAuth();
   const { t } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
@@ -65,17 +65,18 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2 ml-auto">
-        {/* Classic view toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleSwitchToClassic}
-          className="h-9 w-9"
-          title={t('dashboard.switchToClassic')}
-        >
-          <LayoutGrid className="h-4 w-4" />
-        </Button>
-
+        {/* Classic view toggle - only for admins */}
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSwitchToClassic}
+            className="h-9 w-9"
+            title={t('dashboard.switchToClassic')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        )}
 
         {/* Notifications */}
         <NotificationBell />
