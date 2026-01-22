@@ -2,17 +2,19 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ParsedElement } from './types';
 import { parseHtmlToElements } from './hooks/useHtmlParser';
 import { serializeElementsToHtml } from './hooks/useHtmlSerializer';
-import { HtmlElementRenderer } from './HtmlElementRenderer';
+import { DraggableHtmlElement } from './DraggableHtmlElement';
 import { HtmlPropertiesPanel } from './HtmlPropertiesPanel';
 import { HtmlElementToolbar } from './HtmlElementToolbar';
 import { HtmlFormattingToolbar } from './HtmlFormattingToolbar';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Code, Maximize2, Globe, Info } from 'lucide-react';
+import { Eye, EyeOff, Code, Globe, Info, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
 
 interface HtmlHybridEditorProps {
   htmlContent: string;
@@ -32,10 +34,20 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showOutlines, setShowOutlines] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(true);
   const [activeTab, setActiveTab] = useState<'visual' | 'code' | 'preview'>('visual');
   const [codeValue, setCodeValue] = useState(htmlContent);
   const editableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
   
   // Parse HTML on mount and when htmlContent changes externally
   useEffect(() => {
@@ -211,6 +223,26 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     onChange(newHtml);
   }, [saveToHistory, onChange]);
   
+  // Handle drag end for reordering
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = elements.findIndex(el => el.id === active.id);
+    const newIndex = elements.findIndex(el => el.id === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    const reorderedElements = arrayMove(elements, oldIndex, newIndex);
+    syncAndSave(reorderedElements);
+    
+    toast({
+      title: "Elementy posortowane",
+      description: "Kolejność elementów została zmieniona."
+    });
+  }, [elements, syncAndSave, toast]);
+  
   // Add new element
   const addElement = useCallback((html: string, position: 'before' | 'after' | 'inside' = 'after') => {
     const newElements = parseHtmlToElements(html);
@@ -343,7 +375,6 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     if (command === 'formatBlock') {
       document.execCommand('formatBlock', false, value);
     } else if (command === 'fontSize') {
-      // Use CSS instead of execCommand for font size
       document.execCommand('styleWithCSS', false, 'true');
       const selection = window.getSelection();
       if (selection && selection.rangeCount > 0) {
@@ -367,7 +398,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   }, [editingElementId, handleEndInlineEdit]);
   
   return (
-    <div className="h-full flex flex-col min-h-[600px] border rounded-lg overflow-hidden bg-background">
+    <div className="h-full flex flex-col min-h-[600px] max-h-[calc(100vh-200px)] border rounded-lg overflow-hidden bg-background">
       {/* Formatting Toolbar */}
       <HtmlFormattingToolbar
         onFormat={handleFormat}
@@ -385,8 +416,8 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
       />
       
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col">
-        <div className="flex items-center justify-between border-b px-2 bg-muted/20">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between border-b px-2 bg-muted/20 shrink-0">
           <TabsList className="h-9 bg-transparent">
             <TabsTrigger value="visual" className="text-xs gap-1.5">
               <Eye className="h-3.5 w-3.5" />
@@ -407,15 +438,26 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
               {elements.length} elementów • Historia: {historyIndex + 1}/{history.length}
             </span>
             {activeTab === 'visual' && (
-              <Button
-                variant={showOutlines ? "default" : "ghost"}
-                size="sm"
-                className="h-7 px-2 gap-1 text-xs"
-                onClick={() => setShowOutlines(!showOutlines)}
-              >
-                {showOutlines ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                Kontury
-              </Button>
+              <>
+                <Button
+                  variant={isEditMode ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 px-2 gap-1 text-xs"
+                  onClick={() => setIsEditMode(!isEditMode)}
+                >
+                  <GripVertical className="w-3.5 h-3.5" />
+                  {isEditMode ? 'Sortowanie' : 'Sortowanie wył.'}
+                </Button>
+                <Button
+                  variant={showOutlines ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 px-2 gap-1 text-xs"
+                  onClick={() => setShowOutlines(!showOutlines)}
+                >
+                  {showOutlines ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  Kontury
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -423,42 +465,55 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
         {/* Visual Editor Tab */}
         <TabsContent value="visual" className="flex-1 m-0 overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="h-full">
-            <ResizablePanel defaultSize={selectedElement ? 60 : 100} minSize={40}>
-              <ScrollArea className="h-full">
-                <div className="p-4" ref={editableRef}>
+            <ResizablePanel defaultSize={selectedElement ? 60 : 100} minSize={40} className="h-full">
+              <div className="h-full overflow-y-auto">
+                <div className="p-4 pl-8 min-h-full" ref={editableRef}>
                   {customCss && <style>{customCss}</style>}
                   
-                  <div 
-                    className={`space-y-1 html-preview-container ${showOutlines ? 'show-outlines' : ''}`}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+                    onDragEnd={handleDragEnd}
                   >
-                    {elements.length === 0 ? (
-                      <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
-                        <Code className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                        <p className="text-lg font-medium mb-2">Brak elementów do wyświetlenia</p>
-                        <p className="text-sm mb-4">Użyj paska narzędzi powyżej, aby dodać elementy</p>
-                        <p className="text-xs">
-                          Kliknij element, aby go edytować • Kliknij dwukrotnie, aby edytować tekst
-                        </p>
+                    <SortableContext 
+                      items={elements.map(el => el.id)} 
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div 
+                        className={`space-y-1 html-preview-container ${showOutlines ? 'show-outlines' : ''}`}
+                      >
+                        {elements.length === 0 ? (
+                          <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
+                            <Code className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                            <p className="text-lg font-medium mb-2">Brak elementów do wyświetlenia</p>
+                            <p className="text-sm mb-4">Użyj paska narzędzi powyżej, aby dodać elementy</p>
+                            <p className="text-xs">
+                              Kliknij element, aby go edytować • Kliknij dwukrotnie, aby edytować tekst
+                            </p>
+                          </div>
+                        ) : (
+                          elements.map((element) => (
+                            <DraggableHtmlElement
+                              key={element.id}
+                              element={element}
+                              isEditMode={isEditMode}
+                              selectedId={selectedElement?.id || null}
+                              hoveredId={hoveredId}
+                              editingId={editingElementId}
+                              onSelect={handleSelect}
+                              onHover={setHoveredId}
+                              onStartEdit={handleStartInlineEdit}
+                              onEndEdit={handleEndInlineEdit}
+                              showOutlines={showOutlines}
+                            />
+                          ))
+                        )}
                       </div>
-                    ) : (
-                      elements.map((element) => (
-                        <HtmlElementRenderer
-                          key={element.id}
-                          element={element}
-                          selectedId={selectedElement?.id || null}
-                          hoveredId={hoveredId}
-                          editingId={editingElementId}
-                          onSelect={handleSelect}
-                          onHover={setHoveredId}
-                          onStartEdit={handleStartInlineEdit}
-                          onEndEdit={handleEndInlineEdit}
-                          showOutlines={showOutlines}
-                        />
-                      ))
-                    )}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
                 </div>
-              </ScrollArea>
+              </div>
             </ResizablePanel>
             
             {selectedElement && (
