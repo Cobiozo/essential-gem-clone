@@ -165,10 +165,25 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
   etag: true,
 }));
 
-// Serve static files from the 'dist' directory
+// Serve static files from the 'dist' directory with smart caching
 app.use(express.static(path.join(__dirname, 'dist'), {
-  maxAge: '1y', // Cache static assets for 1 year
   etag: true,
+  setHeaders: (res, filePath) => {
+    // HTML files should NEVER be cached - always check for new version
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } 
+    // JS/CSS files with hash in filename can be cached forever (Vite adds hash)
+    else if (filePath.match(/\.[a-f0-9]{8,}\.(js|css)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+    // Other assets (images, fonts without hash) - cache for 1 day
+    else {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
 }));
 
 // Health check endpoint
