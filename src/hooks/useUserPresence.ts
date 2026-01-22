@@ -145,7 +145,7 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
 
     channel.subscribe(async (status) => {
       if (status === 'CHANNEL_ERROR') {
-        console.error('❌ User presence channel error, retrying...');
+        if (process.env.NODE_ENV === 'development') console.error('❌ User presence channel error, retrying...');
         setIsConnected(false);
         // Clear any existing retry timer
         if (retryTimeoutRef.current) {

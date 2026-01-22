@@ -150,14 +150,13 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     }
 
     const startPolling = () => {
-      // Clear any existing interval before creating new one
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      // Guard: Don't create duplicate intervals
+      if (pollingIntervalRef.current) return;
       
       pollingIntervalRef.current = setInterval(() => {
-        fetchUnreadCount();
+        if (!document.hidden) {
+          fetchUnreadCount();
+        }
       }, 60000); // 60 seconds
     };
 
