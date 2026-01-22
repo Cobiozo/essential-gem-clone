@@ -19,7 +19,7 @@ import {
   Globe, Users, UserCheck, Sparkles, Menu, Code, FileText
 } from 'lucide-react';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
-import { RichTextEditor } from '@/components/RichTextEditor';
+import { HtmlHybridEditor } from '@/components/admin/html-editor/HtmlHybridEditor';
 
 interface HtmlPage {
   id: string;
@@ -431,17 +431,11 @@ export const HtmlPagesManagement: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="preview" className="mt-0 h-[600px]">
-                <RichTextEditor
-                  value={editingPage?.html_content || ''}
-                  onChange={(html) => setEditingPage(prev => prev ? { ...prev, html_content: html } : null)}
-                  mode="html-page"
+              <TabsContent value="preview" className="mt-0 h-[650px]">
+                <HtmlHybridEditor
+                  htmlContent={editingPage?.html_content || ''}
                   customCss={editingPage?.custom_css || ''}
-                  showFullPreview={true}
-                  showSectionTemplates={true}
-                  showHistory={true}
-                  minHeight={550}
-                  placeholder="Zacznij tworzyć swoją stronę..."
+                  onChange={(html) => setEditingPage(prev => prev ? { ...prev, html_content: html } : null)}
                 />
               </TabsContent>
 
