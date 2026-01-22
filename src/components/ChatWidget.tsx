@@ -53,10 +53,14 @@ export function ChatWidget() {
       <Button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-4 right-4 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+          "fixed z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
           "bg-primary hover:bg-primary/90 text-primary-foreground",
           isOpen && "rotate-90"
         )}
+        style={{
+          bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
+          right: 'max(1rem, env(safe-area-inset-right, 0px))'
+        }}
         size="icon"
         aria-label={isOpen ? t('chat.close') : t('chat.open')}
       >
@@ -65,12 +69,18 @@ export function ChatWidget() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className={cn(
-          "fixed bottom-20 right-4 z-50 flex flex-col",
-          "w-[calc(100vw-2rem)] sm:w-96 h-[500px] max-h-[70vh]",
-          "bg-background border border-border rounded-lg shadow-2xl",
-          "animate-in slide-in-from-bottom-5 duration-300"
-        )}>
+        <div 
+          className={cn(
+            "fixed z-50 flex flex-col",
+            "w-[calc(100vw-2rem)] sm:w-96 h-[500px] max-h-[70vh]",
+            "bg-background border border-border rounded-lg shadow-2xl",
+            "animate-in slide-in-from-bottom-5 duration-300"
+          )}
+          style={{
+            bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 4.5rem)',
+            right: 'max(1rem, env(safe-area-inset-right, 0px))'
+          }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border bg-muted/50 rounded-t-lg">
             <div className="flex items-center gap-2">

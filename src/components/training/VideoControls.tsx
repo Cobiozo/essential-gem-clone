@@ -148,8 +148,8 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
         </div>
       )}
       
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -208,8 +208,8 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="text-sm text-muted-foreground whitespace-nowrap">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+          <div className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
             {formatTime(currentTime)} / {formatTime(duration)}
           </div>
           
