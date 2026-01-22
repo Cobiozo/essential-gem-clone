@@ -48,7 +48,7 @@ export interface LanguageStats {
 let translationsCache: TranslationsMap | null = null;
 let languagesCache: I18nLanguage[] | null = null;
 let cacheLoading = false;
-let cacheListeners: (() => void)[] = [];
+const cacheListeners = new Set<() => void>();
 let loadedLanguages: Set<string> = new Set(); // Track which languages are loaded
 
 // Promise deduplication - prevents concurrent fetches for the same language
@@ -73,7 +73,7 @@ const checkCacheVersion = (): void => {
   try {
     const storedVersion = localStorage.getItem(LS_CACHE_VERSION_KEY);
     if (!storedVersion || parseInt(storedVersion) !== CACHE_VERSION) {
-      console.log(`Cache version mismatch (stored: ${storedVersion}, current: ${CACHE_VERSION}). Clearing cache...`);
+      if (isDev) console.log(`Cache version mismatch (stored: ${storedVersion}, current: ${CACHE_VERSION}). Clearing cache...`);
       // Clear all translation caches
       const keys = Object.keys(localStorage).filter(k => k.startsWith(LS_CACHE_KEY));
       keys.forEach(k => localStorage.removeItem(k));
@@ -94,7 +94,7 @@ const getLocalStorageCache = (langCode: string): I18nTranslation[] | null => {
       const { data, timestamp, version }: LSCacheEntry = JSON.parse(cached);
       // Check both version AND TTL
       if (version === CACHE_VERSION && Date.now() - timestamp < LS_CACHE_TTL) {
-        console.log(`Using localStorage cache for translations: ${langCode}`);
+        if (isDev) console.log(`Using localStorage cache for translations: ${langCode}`);
         return data;
       }
       // Clear outdated cache
@@ -142,6 +142,8 @@ const setLocalStorageCacheAsync = (langCode: string, data: I18nTranslation[]): v
   }
 };
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const notifyListeners = () => {
   cacheListeners.forEach(cb => cb());
 };
@@ -155,7 +157,7 @@ const fetchTranslationsForLanguages = async (languageCodes: string[]): Promise<I
   for (const langCode of languageCodes) {
     // Check if fetch is already in progress for this language
     if (pendingLanguageFetches.has(langCode)) {
-      console.log(`[i18n] Waiting for pending fetch: ${langCode}`);
+      if (isDev) console.log(`[i18n] Waiting for pending fetch: ${langCode}`);
       const pendingData = await pendingLanguageFetches.get(langCode)!;
       allData.push(...pendingData);
       continue;
@@ -266,7 +268,7 @@ export const loadLanguageTranslations = async (langCode: string): Promise<void> 
     }
     
     loadedLanguages.add(langCode);
-    console.log(`Lazy loaded translations for: ${langCode}`);
+    if (isDev) console.log(`Lazy loaded translations for: ${langCode}`);
   } catch (error) {
     console.error(`Error loading translations for ${langCode}:`, error);
   }
@@ -284,7 +286,7 @@ export const loadTranslationsCache = async (currentLanguage: string = 'pl'): Pro
           resolve({ translations: translationsCache, languages: languagesCache });
         }
       };
-      cacheListeners.push(listener);
+      cacheListeners.add(listener);
     });
   }
 
@@ -308,7 +310,7 @@ export const loadTranslationsCache = async (currentLanguage: string = 'pl'): Pro
     }
     
     const translationsData = await fetchTranslationsForLanguages(languagesToLoad);
-    console.log(`Loaded ${translationsData.length} translations for languages: ${languagesToLoad.join(', ')}`);
+    if (isDev) console.log(`Loaded ${translationsData.length} translations for languages: ${languagesToLoad.join(', ')}`);
     
     const map: TranslationsMap = {};
     for (const t of translationsData) {
@@ -320,7 +322,7 @@ export const loadTranslationsCache = async (currentLanguage: string = 'pl'): Pro
     languagesToLoad.forEach(lang => loadedLanguages.add(lang));
 
     notifyListeners();
-    cacheListeners = [];
+    cacheListeners.clear();
 
     return { translations: translationsCache, languages: languagesCache };
   } catch (error) {
@@ -410,13 +412,10 @@ export const useTranslations = () => {
   // Register cache listener with proper cleanup to prevent memory leaks
   useEffect(() => {
     const listener = () => forceUpdate({});
-    cacheListeners.push(listener);
+    cacheListeners.add(listener);
     
     return () => {
-      const index = cacheListeners.indexOf(listener);
-      if (index > -1) {
-        cacheListeners.splice(index, 1);
-      }
+      cacheListeners.delete(listener); // Set.delete is atomic - no race conditions
     };
   }, []);
 

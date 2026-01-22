@@ -20,6 +20,9 @@ export const useAdminPresence = (currentTab: string) => {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const mountedRef = useRef(true);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  
+  const isDev = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     if (!isAdmin || !user) return;
@@ -42,8 +45,13 @@ export const useAdminPresence = (currentTab: string) => {
     const updateAdminList = () => {
       if (!mountedRef.current) return;
       
+      // Throttle updates to max once per second
+      const now = Date.now();
+      if (now - lastUpdateRef.current < 1000) return;
+      lastUpdateRef.current = now;
+      
       const state = channel.presenceState();
-      console.log('📡 Presence state:', state);
+      if (isDev) console.log('📡 Presence state:', state);
       
       const adminList = Object.entries(state).map(([key, presences]) => {
         // Sort by lastActivity descending to get the newest session first
@@ -104,20 +112,20 @@ export const useAdminPresence = (currentTab: string) => {
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        console.log('📡 Presence sync');
+        if (isDev) console.log('📡 Presence sync');
         updateAdminList();
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('🟢 Admin joined:', key);
+        if (isDev) console.log('🟢 Admin joined:', key);
         updateAdminList();
       })
       .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('🔴 Admin left:', key);
+        if (isDev) console.log('🔴 Admin left:', key);
         updateAdminList();
       });
 
     channel.subscribe(async (status) => {
-      console.log('📡 Admin presence status:', status);
+      if (isDev) console.log('📡 Admin presence status:', status);
       
       if (status === 'CHANNEL_ERROR') {
         console.error('❌ Channel error, retrying in 2s...');
