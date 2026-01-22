@@ -240,9 +240,10 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           if (!cell.media_url) return null;
           const youtubeId = getYouTubeVideoId(cell.media_url);
           const videoStyle: React.CSSProperties = {
-            maxWidth: cell.max_width ? `${cell.max_width}px` : undefined,
+            maxWidth: cell.max_width ? `min(${cell.max_width}px, 100%)` : '100%',
             maxHeight: cell.max_height ? `${cell.max_height}px` : undefined,
             borderRadius: cell.border_radius ? `${cell.border_radius}px` : undefined,
+            width: '100%',
           };
           if (youtubeId) {
             return (

@@ -81,8 +81,8 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     // Box shadow
     if (item.box_shadow && item.box_shadow !== 'none') inlineStyles.boxShadow = item.box_shadow;
     
-    // Wymiary (tylko max, obsługiwane w bazie)
-    if (item.max_width) inlineStyles.maxWidth = `${item.max_width}px`;
+    // Wymiary (tylko max, obsługiwane w bazie) - with mobile-safe min()
+    if (item.max_width) inlineStyles.maxWidth = `min(${item.max_width}px, 100%)`;
     if (item.max_height) inlineStyles.maxHeight = `${item.max_height}px`;
     
     // Obramowanie
@@ -302,9 +302,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                     case 'image':
                       if (!subCell.media_url) return null;
                       const imgStyle: React.CSSProperties = {};
-                      if (subCell.width) imgStyle.width = `${subCell.width}px`;
+                      if (subCell.width) imgStyle.width = `min(${subCell.width}px, 100%)`;
                       if (subCell.height_px) imgStyle.height = `${subCell.height_px}px`;
-                      if (subCell.max_width) imgStyle.maxWidth = `${subCell.max_width}px`;
+                      if (subCell.max_width) imgStyle.maxWidth = `min(${subCell.max_width}px, 100%)`;
                       if (subCell.max_height) imgStyle.maxHeight = `${subCell.max_height}px`;
                       if (subCell.object_fit) imgStyle.objectFit = subCell.object_fit as any;
                       if (subCell.border_radius) imgStyle.borderRadius = `${subCell.border_radius}px`;
@@ -328,7 +328,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                         return (
                           <div key={subCell.id} className={subAlignmentClass}>
                             <div className="relative w-full aspect-video rounded overflow-hidden" style={{
-                              maxWidth: subCell.max_width ? `${subCell.max_width}px` : undefined,
+                              maxWidth: subCell.max_width ? `min(${subCell.max_width}px, 100%)` : '100%',
                               maxHeight: subCell.max_height ? `${subCell.max_height}px` : undefined,
                               borderRadius: subCell.border_radius ? `${subCell.border_radius}px` : undefined,
                             }}>
@@ -344,7 +344,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                       
                       // Local/library video - use HTML5 video
                       const videoStyle: React.CSSProperties = {
-                        maxWidth: subCell.max_width ? `${subCell.max_width}px` : '100%',
+                        maxWidth: subCell.max_width ? `min(${subCell.max_width}px, 100%)` : '100%',
                         maxHeight: subCell.max_height ? `${subCell.max_height}px` : undefined,
                         borderRadius: subCell.border_radius ? `${subCell.border_radius}px` : undefined,
                       };
