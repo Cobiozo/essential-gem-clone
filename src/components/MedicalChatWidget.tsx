@@ -986,7 +986,11 @@ Provide a structured summary:`;
       {/* Toggle Button - positioned above the support chat */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
+        className="fixed z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
+        style={{
+          bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 4.5rem)',
+          right: 'max(1rem, env(safe-area-inset-right, 0px))'
+        }}
         aria-label={getTranslation('title')}
       >
         {isOpen ? (
@@ -998,7 +1002,13 @@ Provide a structured summary:`;
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-40 right-4 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-12rem)] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden">
+        <div 
+          className="fixed z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-12rem)] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden"
+          style={{
+            bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 9rem)',
+            right: 'max(1rem, env(safe-area-inset-right, 0px))'
+          }}
+        >
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
