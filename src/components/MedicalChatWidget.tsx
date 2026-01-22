@@ -1221,3 +1221,5 @@ Provide a structured summary:`;
     </>
   );
 };
+
+export default MedicalChatWidget;

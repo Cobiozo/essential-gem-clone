@@ -192,3 +192,5 @@ export function ChatWidget() {
     </>
   );
 }
+
+export default ChatWidget;

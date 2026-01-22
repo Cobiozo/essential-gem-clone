@@ -78,8 +78,8 @@ function lazyWithRetry<T extends ComponentType<any>>(
 }
 
 // Lazy load chat widgets - only mount when first opened
-const ChatWidget = lazy(() => import("@/components/ChatWidget").then(m => ({ default: m.ChatWidget })));
-const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget").then(m => ({ default: m.MedicalChatWidget })));
+const ChatWidget = lazy(() => import("@/components/ChatWidget"));
+const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget"));
 
 // Eager load - critical pages
 import Index from "./pages/Index";
