@@ -48,6 +48,16 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     return <>{children}</>;
   }
   
+  // GUARD: Wait for roles to be ready before any navigation decisions
+  // This prevents React Error #306 by ensuring auth state is complete
+  if (user && !rolesReady) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
   // BEZPIECZEŃSTWO: Przekieruj niezalogowanych na stronę logowania
   if (!user) {
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />;

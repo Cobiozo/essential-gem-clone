@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, lazy, Suspense, ComponentType } from "react";
+import React, { useState, useCallback, useEffect, lazy, Suspense, ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -65,8 +65,15 @@ function lazyWithRetry<T extends ComponentType<any>>(
           console.log('[LazyLoad] All retries failed, hard reloading...');
           window.location.href = window.location.pathname + '?v=' + now;
           
-          // Return empty component while reload happens
-          return { default: (() => null) as unknown as T };
+          // Return a valid placeholder component to prevent React Error #306
+          const PlaceholderComponent = () => {
+            return React.createElement('div', { 
+              className: 'min-h-screen bg-background flex items-center justify-center'
+            }, React.createElement('div', {
+              className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-primary'
+            }));
+          };
+          return { default: PlaceholderComponent as unknown as T };
         }
         
         // Wait longer between retries (2.5s for mobile networks)
