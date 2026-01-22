@@ -278,13 +278,16 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
                     </DropdownMenuSub>
                   )}
                   
-                  <DropdownMenuSeparator />
-                  
-                  {/* Nowy Panel */}
-                  <DropdownMenuItem onClick={handleSwitchToModern} className="cursor-pointer">
-                    <LayoutDashboard className="w-4 h-4 mr-2" />
-                    {t('dashboard.newDashboard')}
-                  </DropdownMenuItem>
+                  {/* Nowy Panel - only for admins */}
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSwitchToModern} className="cursor-pointer">
+                        <LayoutDashboard className="w-4 h-4 mr-2" />
+                        {t('dashboard.newDashboard')}
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   
                   <DropdownMenuSeparator />
                   
