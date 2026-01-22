@@ -18,6 +18,9 @@ interface HtmlElementRendererProps {
 // Editable text tags
 const EDITABLE_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'button', 'li', 'td', 'th', 'label', 'strong', 'em', 'b', 'i', 'u'];
 
+// Void elements - cannot have children in React
+const VOID_ELEMENTS = ['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
+
 export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
   element,
   selectedId,
@@ -38,6 +41,7 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
   const [localContent, setLocalContent] = useState(element.textContent);
   
   const isTextEditable = EDITABLE_TAGS.includes(element.tagName.toLowerCase());
+  const isVoidElement = VOID_ELEMENTS.includes(element.tagName.toLowerCase());
   
   // Reset local content when element changes
   useEffect(() => {
@@ -239,7 +243,10 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
       onMouseLeave={handleMouseLeave}
     >
       {getTypeBadge()}
-      {isEditing && isTextEditable ? (
+      {isVoidElement ? (
+        // Void elements (img, br, hr, etc.) - render without children wrapper
+        renderContent()
+      ) : isEditing && isTextEditable ? (
         <Tag {...tagProps}>
           {localContent}
         </Tag>
