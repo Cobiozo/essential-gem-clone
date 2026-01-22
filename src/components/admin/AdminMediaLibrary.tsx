@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +101,8 @@ export const AdminMediaLibrary: React.FC<AdminMediaLibraryProps> = ({
   const [editDescription, setEditDescription] = useState('');
   const [editTags, setEditTags] = useState('');
   const [newTagInput, setNewTagInput] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Fetch files from database
   const fetchFiles = useCallback(async () => {
@@ -498,28 +500,29 @@ export const AdminMediaLibrary: React.FC<AdminMediaLibraryProps> = ({
           {/* Upload button */}
           <div className="flex items-center gap-2">
             <Input
+              ref={fileInputRef}
               type="file"
-              id="media-upload"
               className="hidden"
               multiple
               onChange={handleFileUpload}
               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
             />
-            <Label htmlFor="media-upload" asChild>
-              <Button disabled={isUploading}>
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {uploadProgress}%
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Prześlij pliki
-                  </>
-                )}
-              </Button>
-            </Label>
+            <Button 
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {uploadProgress}%
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Prześlij pliki
+                </>
+              )}
+            </Button>
           </div>
         </div>
         
