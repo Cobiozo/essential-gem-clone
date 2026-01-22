@@ -159,3 +159,5 @@ export const TrainingProgressWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default TrainingProgressWidget;

@@ -153,3 +153,5 @@ export const DashboardFooterSection: React.FC = () => {
     </div>
   );
 };
+
+export default DashboardFooterSection;

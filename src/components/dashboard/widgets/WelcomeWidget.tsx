@@ -132,3 +132,5 @@ export const WelcomeWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default WelcomeWidget;

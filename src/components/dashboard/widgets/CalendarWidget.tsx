@@ -431,3 +431,5 @@ Zapisz się tutaj: ${inviteUrl}
     </Card>
   );
 };
+
+export default CalendarWidget;

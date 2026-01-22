@@ -195,3 +195,5 @@ export const InfoLinksWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default InfoLinksWidget;

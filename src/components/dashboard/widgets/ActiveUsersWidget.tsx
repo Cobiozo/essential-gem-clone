@@ -156,3 +156,5 @@ export const ActiveUsersWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default ActiveUsersWidget;

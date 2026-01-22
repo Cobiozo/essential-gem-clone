@@ -217,3 +217,5 @@ export const TeamContactsWidget: React.FC = () => {
     </>
   );
 };
+
+export default TeamContactsWidget;

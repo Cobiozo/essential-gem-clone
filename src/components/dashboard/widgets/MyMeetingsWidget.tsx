@@ -472,3 +472,5 @@ export const MyMeetingsWidget: React.FC = () => {
     </Card>
   );
 };
+
+export default MyMeetingsWidget;

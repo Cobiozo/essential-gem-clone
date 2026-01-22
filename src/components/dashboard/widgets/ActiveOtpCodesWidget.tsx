@@ -392,3 +392,5 @@ Kod jest ważny przez ${validityText}.`;
     </Card>
   );
 };
+
+export default ActiveOtpCodesWidget;
