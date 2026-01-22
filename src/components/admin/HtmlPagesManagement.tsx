@@ -16,10 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   Plus, Edit, Trash2, Eye, EyeOff, FileCode, ExternalLink, 
-  Globe, Users, UserCheck, Sparkles, Menu, Code, FileText, MousePointer
+  Globe, Users, UserCheck, Sparkles, Menu, Code, FileText
 } from 'lucide-react';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
-import { HtmlVisualEditor } from './html-editor/HtmlVisualEditor';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface HtmlPage {
   id: string;
@@ -432,21 +432,17 @@ export const HtmlPagesManagement: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="preview" className="mt-0 h-[600px]">
-                <Card className="h-full">
-                  <CardContent className="p-0 h-full">
-                    <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
-                      <MousePointer className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
-                        Kliknij element, aby go edytować
-                      </span>
-                    </div>
-                    <HtmlVisualEditor
-                      htmlContent={editingPage?.html_content || ''}
-                      customCss={editingPage?.custom_css || ''}
-                      onChange={(html) => setEditingPage(prev => ({ ...prev, html_content: html }))}
-                    />
-                  </CardContent>
-                </Card>
+                <RichTextEditor
+                  value={editingPage?.html_content || ''}
+                  onChange={(html) => setEditingPage(prev => prev ? { ...prev, html_content: html } : null)}
+                  mode="html-page"
+                  customCss={editingPage?.custom_css || ''}
+                  showFullPreview={true}
+                  showSectionTemplates={true}
+                  showHistory={true}
+                  minHeight={550}
+                  placeholder="Zacznij tworzyć swoją stronę..."
+                />
               </TabsContent>
 
               <TabsContent value="settings" className="mt-0 space-y-4">
