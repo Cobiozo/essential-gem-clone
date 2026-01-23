@@ -648,6 +648,83 @@ const HealthyKnowledgeManagement: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Thumbnail Upload */}
+                <div className="space-y-2">
+                  <Label>Okładka (opcjonalnie)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !editingMaterial) return;
+                        
+                        if (!file.type.startsWith('image/')) {
+                          toast.error('Okładka musi być obrazem (JPG, PNG, WebP)');
+                          return;
+                        }
+                        
+                        setUploading(true);
+                        try {
+                          const fileName = `thumbnails/${Date.now()}-${file.name}`;
+                          const { data, error } = await supabase.storage
+                            .from('healthy-knowledge')
+                            .upload(fileName, file, { upsert: true });
+                          
+                          if (error) throw error;
+                          
+                          const { data: { publicUrl } } = supabase.storage
+                            .from('healthy-knowledge')
+                            .getPublicUrl(data.path);
+                          
+                          setEditingMaterial({
+                            ...editingMaterial,
+                            thumbnail_url: publicUrl,
+                          });
+                          
+                          toast.success('Okładka przesłana');
+                        } catch (error: any) {
+                          console.error('Thumbnail upload error:', error);
+                          toast.error('Błąd przesyłania okładki');
+                        } finally {
+                          setUploading(false);
+                        }
+                      }}
+                      disabled={uploading}
+                      accept="image/*"
+                    />
+                    {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  </div>
+                  
+                  {editingMaterial.thumbnail_url && (
+                    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+                      <img 
+                        src={editingMaterial.thumbnail_url} 
+                        alt="Okładka" 
+                        className="w-32 h-20 object-cover rounded-lg border shadow-sm"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Okładka ustawiona</p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        type="button"
+                        onClick={() => setEditingMaterial({
+                          ...editingMaterial,
+                          thumbnail_url: null,
+                        })}
+                        title="Usuń okładkę"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Jeśli nie ustawisz okładki, dla obrazów zostanie użyty sam plik, dla pozostałych typów - ikona zastępcza.
+                  </p>
+                </div>
+
                 {/* File Upload */}
                 {editingMaterial.content_type !== 'text' && (
                   <div className="space-y-2">
@@ -667,7 +744,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                       {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
                     </div>
                     
-                    {/* File Preview with Thumbnail */}
+                    {/* File Preview */}
                     {editingMaterial.media_url && (
                       <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
                         {/* Thumbnail */}
