@@ -9,6 +9,7 @@ export interface HealthyKnowledge {
   slug: string;
   content_type: ContentType;
   media_url: string | null;
+  thumbnail_url: string | null;
   text_content: string | null;
   file_name: string | null;
   file_size: number | null;

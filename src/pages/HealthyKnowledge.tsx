@@ -243,29 +243,59 @@ const HealthyKnowledgePage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredMaterials.map((material) => (
-              <Card key={material.id} className="group hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "p-2 rounded-lg",
-                        material.content_type === 'video' && "bg-blue-500/10 text-blue-500",
-                        material.content_type === 'audio' && "bg-purple-500/10 text-purple-500",
-                        material.content_type === 'document' && "bg-orange-500/10 text-orange-500",
-                        material.content_type === 'image' && "bg-green-500/10 text-green-500",
-                        material.content_type === 'text' && "bg-gray-500/10 text-gray-500",
-                      )}>
-                        <ContentTypeIcon type={material.content_type} className="w-4 h-4" />
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {CONTENT_TYPE_LABELS[material.content_type as keyof typeof CONTENT_TYPE_LABELS] || material.content_type}
-                      </Badge>
+              <Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
+                {/* Thumbnail/Cover Image */}
+                <div className="relative aspect-video bg-muted overflow-hidden">
+                  {material.thumbnail_url ? (
+                    <img 
+                      src={material.thumbnail_url} 
+                      alt={material.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : material.content_type === 'image' && material.media_url ? (
+                    <img 
+                      src={material.media_url} 
+                      alt={material.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+                      <ContentTypeIcon type={material.content_type} className="w-16 h-16 text-muted-foreground/30" />
                     </div>
-                    {material.is_featured && (
-                      <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                        Wyróżnione
-                      </Badge>
-                    )}
+                  )}
+                  
+                  {/* Play overlay for video/audio */}
+                  {(material.content_type === 'video' || material.content_type === 'audio') && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="p-4 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
+                        <Play className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Featured badge on thumbnail */}
+                  {material.is_featured && (
+                    <Badge className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-950">
+                      Wyróżnione
+                    </Badge>
+                  )}
+                </div>
+
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "p-1.5 rounded",
+                      material.content_type === 'video' && "bg-blue-500/10 text-blue-500",
+                      material.content_type === 'audio' && "bg-purple-500/10 text-purple-500",
+                      material.content_type === 'document' && "bg-orange-500/10 text-orange-500",
+                      material.content_type === 'image' && "bg-green-500/10 text-green-500",
+                      material.content_type === 'text' && "bg-gray-500/10 text-gray-500",
+                    )}>
+                      <ContentTypeIcon type={material.content_type} className="w-3 h-3" />
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {CONTENT_TYPE_LABELS[material.content_type as keyof typeof CONTENT_TYPE_LABELS] || material.content_type}
+                    </Badge>
                   </div>
                   <CardTitle className="text-lg mt-2 line-clamp-2">
                     {material.title}

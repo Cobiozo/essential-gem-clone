@@ -2390,6 +2390,7 @@ export type Database = {
           slug: string
           tags: string[] | null
           text_content: string | null
+          thumbnail_url: string | null
           title: string
           updated_at: string | null
           view_count: number | null
@@ -2420,6 +2421,7 @@ export type Database = {
           slug: string
           tags?: string[] | null
           text_content?: string | null
+          thumbnail_url?: string | null
           title: string
           updated_at?: string | null
           view_count?: number | null
@@ -2450,6 +2452,7 @@ export type Database = {
           slug?: string
           tags?: string[] | null
           text_content?: string | null
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string | null
           view_count?: number | null
