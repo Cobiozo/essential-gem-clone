@@ -414,6 +414,17 @@ const HealthyKnowledgeManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
+                          {/* Admin Only Badge */}
+                          {material.visible_to_admin && 
+                           !material.visible_to_everyone && 
+                           !material.visible_to_partner && 
+                           !material.visible_to_client && 
+                           !material.visible_to_specjalista && (
+                            <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+                              <Star className="w-3 h-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
                           {material.visible_to_everyone && <Badge variant="secondary" className="text-xs">Wszyscy</Badge>}
                           {material.visible_to_partner && <Badge variant="secondary" className="text-xs">Partner</Badge>}
                           {material.visible_to_client && <Badge variant="secondary" className="text-xs">Klient</Badge>}
@@ -725,6 +736,40 @@ const HealthyKnowledgeManagement: React.FC = () => {
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Widoczność</Label>
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Admin Only Toggle */}
+                  <div className="flex items-center justify-between col-span-2 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-yellow-500" />
+                      <Label className="font-medium">Tylko Admin</Label>
+                    </div>
+                    <Switch
+                      checked={
+                        editingMaterial.visible_to_admin === true &&
+                        !editingMaterial.visible_to_everyone &&
+                        !editingMaterial.visible_to_partner &&
+                        !editingMaterial.visible_to_client &&
+                        !editingMaterial.visible_to_specjalista
+                      }
+                      onCheckedChange={(v) => {
+                        if (v) {
+                          setEditingMaterial({
+                            ...editingMaterial,
+                            visible_to_admin: true,
+                            visible_to_everyone: false,
+                            visible_to_partner: false,
+                            visible_to_client: false,
+                            visible_to_specjalista: false,
+                          });
+                        } else {
+                          setEditingMaterial({
+                            ...editingMaterial,
+                            visible_to_everyone: true,
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  
                   <div className="flex items-center justify-between">
                     <Label>Wszyscy zalogowani</Label>
                     <Switch
@@ -766,6 +811,9 @@ const HealthyKnowledgeManagement: React.FC = () => {
                     />
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  💡 "Tylko Admin" ukrywa materiał przed wszystkimi innymi rolami.
+                </p>
               </div>
 
               {/* External Share Settings */}
