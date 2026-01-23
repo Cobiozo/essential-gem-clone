@@ -1,266 +1,271 @@
 
+# Plan: Naprawienie modułu "Zdrowa Wiedza" - podgląd materiałów i widoczność dla adminów
 
-# Plan: Ulepszenie formularza materiałów w module Zdrowa Wiedza
+## Zidentyfikowane problemy
 
-## Cel
+1. **Brak podglądu wideo/materiałów** - przycisk "Podgląd" wyświetla tylko komunikat "funkcja w przygotowaniu" zamiast otwierać materiał
+2. **Brak grupy "Admin" w widoczności** - w formularzu edycji brakuje przełącznika dla adminów, mimo że kolumna `visible_to_admin` istnieje w bazie danych
+3. **Brak wyświetlania badge "Admin"** - w tabeli materiałów nie pokazuje się znacznik widoczności dla adminów
 
-Dwa ulepszenia w formularzu edycji/dodawania materiału:
+## Proponowane rozwiązanie
 
-1. **Miniaturka po uploadzie pliku** - wyświetlenie podglądu przesłanego pliku obok informacji o pliku
-2. **Edytor szablonu wiadomości** - pole tekstowe do edycji szablonu wiadomości kopiowanej przy generowaniu kodu OTP
+### Zmiana 1: Implementacja podglądu materiałów
 
-## Zmiany w komponencie
+Zamiast wyświetlać toast "funkcja w przygotowaniu", otworzy się dialog z odtwarzaczem/podglądem wykorzystujący komponent `SecureMedia`:
 
-### 1. Miniaturka pliku po uploadzie
-
-Lokalizacja: Sekcja "Plik" (linie 640-664)
-
-**Stan obecny:**
-```tsx
-{editingMaterial.file_name && (
-  <p className="text-sm text-muted-foreground mt-1">
-    Aktualny plik: {editingMaterial.file_name}
-  </p>
-)}
-```
-
-**Po zmianie:**
-- Dla obrazów: wyświetlenie miniaturki 80x80px z `object-cover`
-- Dla wideo: wyświetlenie miniatury z ikoną Play
-- Dla dokumentów/audio: ikona typu z nazwą pliku
-- Ramka z zaokrąglonymi rogami i cieniem
-- Przycisk "Usuń" aby wyczyścić plik
-
-Wizualnie:
 ```text
-┌────────────────────────────────────────────────┐
-│ Plik                                           │
-│ ┌──────────────────────────────────────────┐   │
-│ │ [Wybierz plik]  Nie wybrano pliku        │   │
-│ └──────────────────────────────────────────┘   │
-│                                                │
-│ ┌─────────────────────────────────────────┐   │
-│ │ ┌──────┐                                │   │
-│ │ │ 📷   │  Mój_obrazek.jpg              │   │
-│ │ │      │  (125 KB)          [🗑 Usuń]  │   │
-│ │ └──────┘                                │   │
-│ └─────────────────────────────────────────┘   │
-└────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ Podgląd: TEST                              [X]  │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  ┌─────────────────────────────────────────┐   │
+│  │                                         │   │
+│  │          [▶ ODTWARZACZ WIDEO]           │   │
+│  │                                         │   │
+│  │     ────────────────○───────────────    │   │
+│  │     ▶  0:32 / 5:45           🔊  ⛶     │   │
+│  └─────────────────────────────────────────┘   │
+│                                                 │
+│  Webinary archiwalne  ·  5:45 min  ·  0 wyśw.  │
+└─────────────────────────────────────────────────┘
 ```
 
-### 2. Edytor szablonu wiadomości do kopiowania
+Obsługiwane typy:
+- **video** - SecureMedia z odtwarzaczem wideo
+- **audio** - SecureMedia z odtwarzaczem audio  
+- **image** - SecureMedia z podglądem obrazu
+- **document** - Link do otwarcia/pobrania PDF
+- **text** - Wyświetlenie treści HTML
 
-Lokalizacja: Po sekcji "Max użyć kodu" (po linii 776), wewnątrz warunku `allow_external_share`
+### Zmiana 2: Dodanie przełącznika "Tylko Admin"
 
-**Nowe pole:**
-- Label: "Szablon wiadomości do udostępniania"
-- Opis: "Tekst kopiowany przy generowaniu kodu OTP"
-- Textarea z 8 rzędami
-- Przycisk "Przywróć domyślny"
-- Lista dostępnych zmiennych: `{title}`, `{description}`, `{share_url}`, `{otp_code}`, `{validity_hours}`, `{partner_name}`
+W sekcji "Widoczność" formularza edycji dodanie przełącznika:
 
-Wizualnie:
 ```text
-┌──────────────────────────────────────────────────────┐
-│ Szablon wiadomości do udostępniania                  │
-│ Tekst kopiowany przy generowaniu kodu OTP            │
-│                                                      │
-│ ┌──────────────────────────────────────────────────┐ │
-│ │ Cześć!                                           │ │
-│ │                                                  │ │
-│ │ Mam dla Ciebie ciekawy materiał: "{title}"      │ │
-│ │ {description}                                    │ │
-│ │                                                  │ │
-│ │ 🔗 Link: {share_url}                             │ │
-│ │ 🔑 Kod dostępu: {otp_code}                       │ │
-│ │                                                  │ │
-│ │ ⏰ Kod ważny przez {validity_hours} godzin.      │ │
-│ └──────────────────────────────────────────────────┘ │
-│                                                      │
-│ 💡 Zmienne: {title}, {description}, {share_url},     │
-│    {otp_code}, {validity_hours}, {partner_name}      │
-│                                        [Przywróć ↺]  │
-└──────────────────────────────────────────────────────┘
+Widoczność
+┌─────────────────────────────────────────┐
+│ ⭐ Tylko Admin     │ Wszyscy zalogowani │
+│     [×]            │     [ ]            │
+├────────────────────┼────────────────────┤
+│ Partnerzy          │ Klienci            │
+│     [ ]            │     [ ]            │
+├────────────────────┼────────────────────┤
+│ Specjaliści        │                    │
+│     [ ]            │                    │
+└─────────────────────────────────────────┘
 ```
 
-## Plik do edycji
+**Logika:**
+- Gdy zaznaczony "Tylko Admin" → odznacz wszystkie inne opcje
+- Gdy zaznaczona inna opcja → upewnij się że `visible_to_admin` = true (admini zawsze widzą)
+- Materiał widoczny tylko dla adminów: tylko `visible_to_admin = true`, pozostałe = false
 
-| Plik | Zmiany |
+### Zmiana 3: Wyświetlanie badge "Admin" w tabeli
+
+W kolumnie "Widoczność" tabeli materiałów:
+
+```text
+Widoczność
+─────────────
+┌─────────────────────┐
+│ ⭐ Admin            │  ← Nowy badge (żółty/złoty)
+│ Partner             │
+│ Klient              │
+└─────────────────────┘
+```
+
+## Pliki do edycji
+
+| Plik | Zmiana |
 |------|--------|
-| `src/components/admin/HealthyKnowledgeManagement.tsx` | Miniaturka pliku + edytor szablonu |
+| `src/pages/HealthyKnowledge.tsx` | Dialog podglądu z SecureMedia |
+| `src/components/admin/HealthyKnowledgeManagement.tsx` | Przełącznik "Tylko Admin" + badge w tabeli |
 
-## Szczegóły implementacji
+## Szczegóły techniczne
 
-### Miniaturka pliku - nowa funkcja pomocnicza
+### 1. Dialog podglądu materiału (HealthyKnowledge.tsx)
 
+**Nowy stan:**
 ```tsx
-const getFileThumbnail = () => {
-  if (!editingMaterial?.media_url) return null;
+const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
+```
+
+**Nowa funkcja handleViewMaterial:**
+```tsx
+const handleViewMaterial = (material: HealthyKnowledge) => {
+  setPreviewMaterial(material);
+  setPreviewDialogOpen(true);
   
-  const contentType = editingMaterial.content_type;
-  
-  if (contentType === 'image') {
-    return (
-      <img 
-        src={editingMaterial.media_url} 
-        alt="Podgląd" 
-        className="w-20 h-20 object-cover rounded-lg border"
-      />
-    );
-  }
-  
-  if (contentType === 'video') {
-    return (
-      <div className="w-20 h-20 bg-blue-500/10 rounded-lg border flex items-center justify-center">
-        <Play className="w-8 h-8 text-blue-500" />
-      </div>
-    );
-  }
-  
-  // Dla document/audio
-  return (
-    <div className="w-20 h-20 bg-muted rounded-lg border flex items-center justify-center">
-      <ContentTypeIcon type={contentType} className="w-8 h-8 text-muted-foreground" />
-    </div>
-  );
+  // Zwiększ licznik wyświetleń
+  supabase
+    .from('healthy_knowledge')
+    .update({ view_count: material.view_count + 1 })
+    .eq('id', material.id);
 };
 ```
 
-### Struktura sekcji pliku po zmianie
-
+**Dialog z SecureMedia:**
 ```tsx
-{/* File Upload */}
-{editingMaterial.content_type !== 'text' && (
-  <div className="space-y-2">
-    <Label>Plik</Label>
-    <div className="flex items-center gap-2">
-      <Input type="file" ... />
-      {uploading && <Loader2 />}
-    </div>
+<Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+  <DialogContent className="max-w-4xl max-h-[90vh]">
+    <DialogHeader>
+      <DialogTitle>{previewMaterial?.title}</DialogTitle>
+      <DialogDescription>{previewMaterial?.description}</DialogDescription>
+    </DialogHeader>
     
-    {/* Nowa sekcja: podgląd pliku */}
-    {editingMaterial.media_url && (
-      <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border mt-2">
-        {getFileThumbnail()}
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{editingMaterial.file_name}</p>
-          <p className="text-sm text-muted-foreground">
-            {editingMaterial.file_size ? `${(editingMaterial.file_size / 1024).toFixed(1)} KB` : ''}
-          </p>
+    {previewMaterial && (
+      <div className="space-y-4">
+        {/* Video/Audio/Image */}
+        {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
+          <SecureMedia
+            mediaUrl={previewMaterial.media_url}
+            mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
+            className="w-full rounded-lg"
+          />
+        )}
+        
+        {/* Text content */}
+        {previewMaterial.content_type === 'text' && previewMaterial.text_content && (
+          <div 
+            className="prose prose-sm dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: previewMaterial.text_content }}
+          />
+        )}
+        
+        {/* Document download link */}
+        {previewMaterial.content_type === 'document' && previewMaterial.media_url && (
+          <Button asChild>
+            <a href={previewMaterial.media_url} target="_blank" rel="noopener noreferrer">
+              <FileText className="w-4 h-4 mr-2" />
+              Otwórz dokument
+            </a>
+          </Button>
+        )}
+        
+        {/* Metadata */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          {previewMaterial.category && <Badge variant="outline">{previewMaterial.category}</Badge>}
+          {previewMaterial.duration_seconds && (
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {Math.floor(previewMaterial.duration_seconds / 60)} min
+            </span>
+          )}
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setEditingMaterial({
-            ...editingMaterial,
-            media_url: null,
-            file_name: null,
-            file_size: null,
-          })}
-        >
-          <Trash2 className="w-4 h-4 text-destructive" />
-        </Button>
       </div>
     )}
-  </div>
-)}
+  </DialogContent>
+</Dialog>
 ```
 
-### Edytor szablonu wiadomości
+### 2. Przełącznik "Tylko Admin" (HealthyKnowledgeManagement.tsx)
+
+**Lokalizacja:** Sekcja "Widoczność" (linie 724-768)
+
+**Nowy grid z 5 opcjami:**
+```tsx
+{/* Visibility */}
+<div className="space-y-3">
+  <Label className="text-base font-semibold">Widoczność</Label>
+  <div className="grid grid-cols-2 gap-4">
+    {/* NOWY: Tylko Admin */}
+    <div className="flex items-center justify-between col-span-2 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+      <div className="flex items-center gap-2">
+        <Star className="w-4 h-4 text-yellow-500" />
+        <Label>Tylko Admin</Label>
+      </div>
+      <Switch
+        checked={
+          editingMaterial.visible_to_admin === true &&
+          !editingMaterial.visible_to_everyone &&
+          !editingMaterial.visible_to_partner &&
+          !editingMaterial.visible_to_client &&
+          !editingMaterial.visible_to_specjalista
+        }
+        onCheckedChange={(v) => {
+          if (v) {
+            setEditingMaterial({
+              ...editingMaterial,
+              visible_to_admin: true,
+              visible_to_everyone: false,
+              visible_to_partner: false,
+              visible_to_client: false,
+              visible_to_specjalista: false,
+            });
+          } else {
+            setEditingMaterial({
+              ...editingMaterial,
+              visible_to_everyone: true,
+            });
+          }
+        }}
+      />
+    </div>
+    
+    {/* Reszta opcji (bez zmian) */}
+    <div className="flex items-center justify-between">
+      <Label>Wszyscy zalogowani</Label>
+      <Switch ... />
+    </div>
+    {/* ... Partner, Klient, Specjalista ... */}
+  </div>
+  <p className="text-xs text-muted-foreground">
+    💡 "Tylko Admin" ukrywa materiał przed wszystkimi innymi rolami.
+  </p>
+</div>
+```
+
+### 3. Badge "Admin" w tabeli (HealthyKnowledgeManagement.tsx)
+
+**Lokalizacja:** Kolumna "Widoczność" w tabeli (linie 415-421)
 
 ```tsx
-{editingMaterial.allow_external_share && (
-  <div className="space-y-4 pt-2">
-    {/* Istniejące pola: Ważność kodu + Max użyć */}
-    <div className="grid grid-cols-2 gap-4">...</div>
-    
-    {/* Nowy edytor szablonu */}
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <Label>Szablon wiadomości do udostępniania</Label>
-          <p className="text-xs text-muted-foreground">
-            Tekst kopiowany przy generowaniu kodu OTP
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setEditingMaterial({
-            ...editingMaterial,
-            share_message_template: DEFAULT_SHARE_MESSAGE_TEMPLATE,
-          })}
-        >
-          <RefreshCw className="w-3 h-3 mr-1" />
-          Przywróć
-        </Button>
-      </div>
-      <Textarea
-        value={editingMaterial.share_message_template || DEFAULT_SHARE_MESSAGE_TEMPLATE}
-        onChange={(e) => setEditingMaterial({
-          ...editingMaterial,
-          share_message_template: e.target.value,
-        })}
-        rows={8}
-        className="font-mono text-sm"
-      />
-      <p className="text-xs text-muted-foreground">
-        💡 Dostępne zmienne: {'{title}'}, {'{description}'}, {'{share_url}'}, 
-        {'{otp_code}'}, {'{validity_hours}'}, {'{partner_name}'}
-      </p>
-    </div>
+<TableCell>
+  <div className="flex flex-wrap gap-1">
+    {/* NOWY: Badge Admin - wyświetlaj gdy tylko admin ma dostęp */}
+    {material.visible_to_admin && 
+     !material.visible_to_everyone && 
+     !material.visible_to_partner && 
+     !material.visible_to_client && 
+     !material.visible_to_specjalista && (
+      <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+        <Star className="w-3 h-3 mr-1" />
+        Admin
+      </Badge>
+    )}
+    {material.visible_to_everyone && <Badge variant="secondary" className="text-xs">Wszyscy</Badge>}
+    {material.visible_to_partner && <Badge variant="secondary" className="text-xs">Partner</Badge>}
+    {material.visible_to_client && <Badge variant="secondary" className="text-xs">Klient</Badge>}
+    {material.visible_to_specjalista && <Badge variant="secondary" className="text-xs">Specjalista</Badge>}
   </div>
-)}
+</TableCell>
 ```
 
-## Wizualny efekt końcowy
+## Wymagane importy
 
-Po uploadzie pliku graficznego:
-```text
-Plik
-┌─────────────────────────────────────┐
-│ Wybierz plik  obrazek.jpg           │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐
-│ ┌──────┐  obrazek.jpg                       │
-│ │ 🖼️  │  125.5 KB               [🗑️]      │
-│ └──────┘                                    │
-└─────────────────────────────────────────────┘
+**HealthyKnowledge.tsx:**
+```tsx
+import { SecureMedia } from '@/components/SecureMedia';
 ```
 
-Po włączeniu udostępniania zewnętrznego:
-```text
-✓ Udostępnianie zewnętrzne
-
-┌─────────────────────────────────────────────┐
-│ Ważność kodu (godziny)  │  Max użyć kodu   │
-│ [24                   ] │  [3            ] │
-└─────────────────────────────────────────────┘
-
-Szablon wiadomości do udostępniania
-Tekst kopiowany przy generowaniu kodu OTP   [↺ Przywróć]
-
-┌─────────────────────────────────────────────┐
-│ Cześć!                                      │
-│                                             │
-│ Mam dla Ciebie ciekawy materiał: "{title}" │
-│ ...                                         │
-└─────────────────────────────────────────────┘
-
-💡 Zmienne: {title}, {description}, {share_url}...
+**HealthyKnowledgeManagement.tsx:**
+```tsx
+import { Star } from 'lucide-react'; // już zaimportowane (Star, StarOff)
 ```
 
-## Sekcja techniczna
+## Podsumowanie zmian
 
-### Linie do edycji
+| Element | Przed | Po |
+|---------|-------|-----|
+| Podgląd materiału | Toast "funkcja w przygotowaniu" | Dialog z odtwarzaczem SecureMedia |
+| Widoczność dla adminów | Brak opcji w UI | Przełącznik "Tylko Admin" z wyróżnieniem |
+| Badge w tabeli | Brak badge Admin | Złoty badge "Admin" z ikoną gwiazdki |
+| Typy obsługiwane | Brak | video, audio, image, document, text |
 
-| Zakres linii | Zmiana |
-|--------------|--------|
-| 640-664 | Rozbudowa sekcji upload pliku o miniaturkę |
-| 776-777 | Dodanie edytora szablonu po polach OTP |
+## Efekt końcowy
 
-### Import do sprawdzenia
-
-Import `DEFAULT_SHARE_MESSAGE_TEMPLATE` już istnieje (linia 27), więc nie trzeba dodawać.
-
+1. Użytkownik klika "Podgląd" → otwiera się dialog z odtwarzaczem wideo/audio lub podglądem obrazu/tekstu
+2. Admin może utworzyć materiał widoczny tylko dla adminów poprzez zaznaczenie "Tylko Admin"
+3. W tabeli materiałów widoczny jest badge "Admin" dla materiałów z ograniczonym dostępem
+4. Logika RLS w bazie już obsługuje `visible_to_admin` - nie wymaga zmian w backendzie
