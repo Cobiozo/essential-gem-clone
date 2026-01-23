@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge, CONTENT_TYPE_LABELS, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
@@ -244,27 +244,24 @@ const HealthyKnowledgePage: React.FC = () => {
                 {/* Thumbnail with inline player */}
                 <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                   {playingId === material.id && material.media_url ? (
-                    // Inline player
-                    material.content_type === 'video' ? (
-                      <video 
-                        src={material.media_url}
-                        controls
-                        autoPlay
-                        className="w-full h-full object-contain bg-black"
-                        onEnded={() => setPlayingId(null)}
+                    // Inline player using SecureMedia for signed URLs
+                    <div className="relative w-full h-full bg-black">
+                      <SecureMedia
+                        mediaUrl={material.media_url}
+                        mediaType={material.content_type as 'video' | 'audio'}
+                        className="w-full h-full object-contain"
                       />
-                    ) : material.content_type === 'audio' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/20 to-purple-500/5 p-2">
-                        <Music className="w-8 h-8 sm:w-12 sm:h-12 text-purple-500 mb-2" />
-                        <audio 
-                          src={material.media_url}
-                          controls
-                          autoPlay
-                          className="w-full"
-                          onEnded={() => setPlayingId(null)}
-                        />
-                      </div>
-                    ) : null
+                      {/* Close button */}
+                      <button
+                        className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPlayingId(null);
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   ) : (
                     <>
                       {/* Thumbnail */}
@@ -309,6 +306,17 @@ const HealthyKnowledgePage: React.FC = () => {
                             <Play className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                           </div>
                         </div>
+                      )}
+                      
+                      {/* Click overlay for other types - opens preview dialog */}
+                      {material.content_type !== 'video' && material.content_type !== 'audio' && (
+                        <div 
+                          className="absolute inset-0 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewMaterial(material);
+                          }}
+                        />
                       )}
                       
                       {/* Featured badge on thumbnail */}
