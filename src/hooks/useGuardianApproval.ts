@@ -20,11 +20,48 @@ export const useGuardianApproval = () => {
   const approveUser = useCallback(async (targetUserId: string): Promise<boolean> => {
     setLoading(true);
     try {
+      // Get current user info for guardian name
+      const { data: { user } } = await supabase.auth.getUser();
+      let guardianName = 'Twój opiekun';
+      
+      if (user) {
+        const { data: guardianProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (guardianProfile) {
+          guardianName = `${guardianProfile.first_name || ''} ${guardianProfile.last_name || ''}`.trim() || 'Twój opiekun';
+        }
+      }
+
       const { data, error } = await supabase.rpc('guardian_approve_user', {
         target_user_id: targetUserId
       });
 
       if (error) throw error;
+
+      // Send approval email notification
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-approval-email', {
+          body: {
+            userId: targetUserId,
+            approvalType: 'guardian',
+            guardianName: guardianName,
+            approverId: user?.id
+          }
+        });
+
+        if (emailError) {
+          console.error('Failed to send guardian approval email:', emailError);
+          // Don't fail the approval if email fails
+        } else {
+          console.log('Guardian approval email sent successfully');
+        }
+      } catch (emailErr) {
+        console.error('Exception sending guardian approval email:', emailErr);
+      }
 
       toast({
         title: 'Sukces',

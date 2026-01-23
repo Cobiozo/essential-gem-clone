@@ -78,6 +78,7 @@ serve(async (req) => {
   const results = {
     welcomeEmails: { processed: 0, success: 0, failed: 0 },
     trainingNotifications: { processed: 0, success: 0, failed: 0 },
+    trainingReminders: { processed: 0, success: 0, failed: 0 },
     retries: { processed: 0, success: 0, failed: 0 },
     webinarReminders24h: { processed: 0, success: 0, failed: 0 },
     webinarReminders1h: { processed: 0, success: 0, failed: 0 },
@@ -592,9 +593,65 @@ serve(async (req) => {
       }
     }
 
-    // 7. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success;
+    // 7. Process training reminders (for inactive users) - skip if stopped early
+    if (!results.stoppedEarly) {
+      console.log("[CRON] Finding training reminders due...");
+      
+      const { data: remindersDue, error: reminderError } = await supabase
+        .rpc("get_training_reminders_due");
+
+      if (reminderError) {
+        console.error("[CRON] Error fetching training reminders:", reminderError);
+      } else if (remindersDue && remindersDue.length > 0) {
+        console.log(`[CRON] Found ${remindersDue.length} training reminders to send`);
+        
+        for (const reminder of remindersDue) {
+          // Check timeout before processing
+          if (isTimeoutApproaching()) {
+            console.log("[CRON] Approaching timeout limit, stopping training reminders");
+            results.stoppedEarly = true;
+            break;
+          }
+          
+          // Add 1 second delay between emails (except first one)
+          if (results.trainingReminders.processed > 0) {
+            console.log("[CRON] Waiting 1 second before next training reminder...");
+            await delay(1000);
+          }
+          
+          results.trainingReminders.processed++;
+          try {
+            // Call send-training-reminder function
+            const { error: sendError } = await supabase.functions.invoke("send-training-reminder", {
+              body: {
+                userId: reminder.user_id,
+                moduleId: reminder.module_id,
+                daysInactive: reminder.days_inactive,
+                progressPercent: reminder.progress_percent,
+                assignmentId: reminder.assignment_id
+              }
+            });
+            
+            if (sendError) {
+              console.error(`[CRON] Failed to send training reminder to ${reminder.user_email}:`, sendError);
+              results.trainingReminders.failed++;
+            } else {
+              console.log(`[CRON] Sent training reminder to ${reminder.user_email} for module: ${reminder.module_title} (${reminder.days_inactive} days inactive, ${reminder.progress_percent}% complete)`);
+              results.trainingReminders.success++;
+            }
+          } catch (err) {
+            console.error(`[CRON] Exception sending training reminder:`, err);
+            results.trainingReminders.failed++;
+          }
+        }
+      } else {
+        console.log("[CRON] No training reminders due");
+      }
+    }
+
+    // 8. Update job log with results
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success;
     
     await supabase
       .from("cron_job_logs")

@@ -143,3 +143,9 @@ verify_jwt = false
 
 [functions.system-health-check]
 verify_jwt = false
+
+[functions.send-approval-email]
+verify_jwt = false
+
+[functions.send-training-reminder]
+verify_jwt = false
