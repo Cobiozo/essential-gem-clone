@@ -238,8 +238,11 @@ const HealthyKnowledgePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredMaterials.map((material) => (
               <Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
-                {/* Thumbnail/Cover Image */}
-                <div className="relative aspect-video bg-muted overflow-hidden">
+                {/* Thumbnail/Cover Image - Clickable */}
+                <div 
+                  className="relative aspect-video bg-muted overflow-hidden cursor-pointer"
+                  onClick={() => handleViewMaterial(material)}
+                >
                   {material.thumbnail_url ? (
                     <img 
                       src={material.thumbnail_url} 
