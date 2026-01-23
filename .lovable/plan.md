@@ -1,181 +1,188 @@
 
-# Plan: Obrazki flag zamiast emoji w selektorze języków
+# Plan: Klikalna legenda kalendarza z dynamicznym filtrowaniem
 
-## Problem
+## Cel
 
-Emoji flag (🇵🇱, 🇬🇧, 🇩🇪) nie wyświetlają się poprawnie - mogą być renderowane jako kody tekstowe (PL, GB, DE) w zależności od systemu operacyjnego i dostępnych fontów. Na screenie referencyjnym widać prawdziwe obrazki flag w stylu prostokątnym z zaokrąglonymi rogami.
+Legenda pod kalendarzem ma stać się interaktywna - kliknięcie na dany typ wydarzenia (np. "Webinar") powoduje wyświetlenie na kalendarzu TYLKO kropek dla tego typu wydarzeń. Ponowne kliknięcie wyłącza filtr (pokazuje wszystkie typy).
+
+## Aktualny stan
+
+W pliku `CalendarWidget.tsx` (linie 260-278) legenda jest statyczna:
+
+```tsx
+<div className="flex flex-wrap gap-3 pt-2 border-t">
+  <div className="flex items-center gap-1.5 text-xs">
+    <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+    <span className="text-muted-foreground">Webinar</span>
+  </div>
+  <!-- ... pozostałe typy -->
+</div>
+```
 
 ## Rozwiązanie
 
-Zamiast emoji Unicode użyć obrazków flag z publicznego CDN **flagcdn.com** lub **flagpack.xyz**. Te serwisy udostępniają flagi wszystkich krajów w formatach SVG i PNG.
+### 1. Nowy stan dla aktywnego filtra
 
-### Mapowanie kodów języków na kody krajów
-
-| Język | Kod języka | Kod kraju (ISO 3166-1) |
-|-------|------------|------------------------|
-| Polski | pl | PL |
-| English | en | GB |
-| Deutsch | de | DE |
-| Italiano | it | IT |
-| Español | es | ES |
-| Français | fr | FR |
-| Português | pt | PT |
-
-### Format URL dla flag
-
-```text
-https://flagcdn.com/w40/{kod_kraju_lowercase}.png
-https://flagcdn.com/h20/{kod_kraju_lowercase}.png
-```
-
-Przykłady:
-- 🇵🇱 → https://flagcdn.com/w40/pl.png
-- 🇬🇧 → https://flagcdn.com/w40/gb.png
-- 🇩🇪 → https://flagcdn.com/w40/de.png
-
-## Zmiany w plikach
-
-### 1. Modyfikacja `src/components/LanguageSelector.tsx`
-
-Dodanie funkcji mapującej kod języka na kod kraju i użycie tagów `<img>` zamiast emoji:
+Dodać stan `activeFilter` który przechowuje aktualnie wybrany typ wydarzenia (lub `null` gdy pokazujemy wszystkie):
 
 ```typescript
-// Mapowanie kodów języków na kody krajów (dla flag)
-const languageToCountry: Record<string, string> = {
-  'pl': 'pl',
-  'en': 'gb',
-  'de': 'de',
-  'it': 'it',
-  'es': 'es',
-  'fr': 'fr',
-  'pt': 'pt'
-};
+const [activeFilter, setActiveFilter] = useState<string | null>(null);
+```
 
-// Funkcja generująca URL flagi
-const getFlagUrl = (langCode: string): string => {
-  const countryCode = languageToCountry[langCode] || langCode;
-  return `https://flagcdn.com/w40/${countryCode}.png`;
+### 2. Konfiguracja legendy jako tablica
+
+Zamienić statyczny JSX na mapę obiektów dla łatwiejszego zarządzania:
+
+```typescript
+const legendItems = [
+  { type: 'webinar', color: 'bg-blue-500', label: 'Webinar' },
+  { type: 'team_training', color: 'bg-green-500', label: 'Spotkanie zespołu' },
+  { type: 'tripartite_meeting', color: 'bg-violet-500', label: 'Spotkanie trójstronne' },
+  { type: 'partner_consultation', color: 'bg-fuchsia-500', label: 'Konsultacje' }
+];
+```
+
+### 3. Filtrowanie wydarzeń
+
+Dodać `useMemo` który filtruje wydarzenia na podstawie `activeFilter`:
+
+```typescript
+const filteredEvents = useMemo(() => {
+  if (!activeFilter) return expandedEvents;
+  return expandedEvents.filter(event => {
+    if (activeFilter === 'team_training') {
+      return event.event_type === 'team_training' || event.event_type === 'meeting_public';
+    }
+    return event.event_type === activeFilter;
+  });
+}, [expandedEvents, activeFilter]);
+```
+
+### 4. Modyfikacja funkcji `getEventsForDay`
+
+Użyć `filteredEvents` zamiast `expandedEvents`:
+
+```typescript
+const getEventsForDay = (day: Date) => {
+  return filteredEvents.filter(event => 
+    isSameDay(new Date(event.start_time), day)
+  );
 };
 ```
 
-### 2. Komponent flagi
+### 5. Interaktywna legenda
 
-Zamienić span z emoji na img:
-
-```tsx
-// Zamiast:
-<span className="text-lg">{lang.flag_emoji}</span>
-
-// Użyć:
-<img 
-  src={getFlagUrl(lang.code)} 
-  alt={lang.name}
-  className="w-6 h-4 object-cover rounded-sm shadow-sm"
-/>
-```
-
-### 3. Styl flagi (jak na referencji)
-
-- Szerokość: 24px (w-6)
-- Wysokość: 16px (h-4)  
-- Zaokrąglone rogi: rounded-sm
-- Lekki cień: shadow-sm
-- Dopasowanie: object-cover
-
-### 4. Trigger - tylko flaga (jak na referencji)
-
-Na screenie widać że w trybie zamkniętym wyświetla się TYLKO flaga (bez nazwy języka). Lista rozwijana pokazuje flagę + nazwę:
+Zamienić statyczne `<div>` na klikalne przyciski z efektem wizualnym:
 
 ```tsx
-// Trigger - tylko flaga
-<SelectTrigger className="w-auto h-8 border-0 bg-transparent">
-  <SelectValue>
-    {selectedLanguage && (
-      <img 
-        src={getFlagUrl(selectedLanguage.code)} 
-        alt={selectedLanguage.name}
-        className="w-8 h-6 object-cover rounded shadow-sm"
-      />
+{legendItems.map((item) => (
+  <button
+    key={item.type}
+    onClick={() => setActiveFilter(
+      activeFilter === item.type ? null : item.type
     )}
-  </SelectValue>
-</SelectTrigger>
-
-// Lista - flaga + nazwa
-<SelectItem>
-  <span className="flex items-center gap-3">
-    <img src={getFlagUrl(lang.code)} className="w-6 h-4 rounded-sm" />
-    <span>{lang.native_name || lang.name}</span>
-  </span>
-</SelectItem>
+    className={cn(
+      "flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors cursor-pointer",
+      activeFilter === item.type 
+        ? "bg-muted ring-2 ring-primary" 
+        : "hover:bg-muted/50",
+      activeFilter && activeFilter !== item.type && "opacity-40"
+    )}
+  >
+    <div className={cn("w-2.5 h-2.5 rounded-full", item.color)} />
+    <span className={cn(
+      activeFilter === item.type ? "text-foreground font-medium" : "text-muted-foreground"
+    )}>
+      {item.label}
+    </span>
+  </button>
+))}
 ```
+
+### 6. Aktualizacja wybranych wydarzeń dnia
+
+Gdy aktywny jest filtr i użytkownik kliknie dzień, pokazać tylko przefiltrowane wydarzenia:
+
+```typescript
+// W handleDayClick
+const handleDayClick = (day: Date) => {
+  setSelectedDate(day);
+  setSelectedDayEvents(getEventsForDay(day));
+};
+
+// W useEffect - synchronizacja przy zmianie filtra
+useEffect(() => {
+  if (selectedDate) {
+    setSelectedDayEvents(getEventsForDay(selectedDate));
+  }
+}, [filteredEvents, selectedDate, activeFilter]);
+```
+
+## Zmiany w pliku
+
+**Plik: `src/components/dashboard/widgets/CalendarWidget.tsx`**
+
+| Sekcja | Zmiana |
+|--------|--------|
+| Linia ~24 | Dodanie `const [activeFilter, setActiveFilter] = useState<string \| null>(null)` |
+| Linia ~53-55 | Dodanie `filteredEvents` z `useMemo` |
+| Linia ~58-65 | Dodanie `activeFilter` do zależności useEffect |
+| Linia ~74-78 | Modyfikacja `getEventsForDay` aby używała `filteredEvents` |
+| Linia ~260-278 | Zamiana statycznej legendy na interaktywne przyciski |
+
+## Wizualne efekty
+
+| Stan | Wygląd elementu legendy |
+|------|-------------------------|
+| Brak filtra | Wszystkie elementy normalne |
+| Aktywny filtr | Wybrany element: tło + obramowanie, pogrubiony tekst |
+| Nieaktywny przy aktywnym filtrze | Przygaszony (opacity-40) |
 
 ## Sekcja techniczna
 
-### Pełna struktura komponentu
+### Pełna definicja legendItems
 
 ```typescript
-// Mapowanie język → kraj
-const languageToCountry: Record<string, string> = {
-  'pl': 'pl',
-  'en': 'gb', // angielski → Wielka Brytania
-  'de': 'de',
-  'it': 'it',
-  'es': 'es',
-  'fr': 'fr',
-  'pt': 'pt'
-};
-
-const getFlagUrl = (langCode: string): string => {
-  const countryCode = languageToCountry[langCode] || langCode;
-  return `https://flagcdn.com/w40/${countryCode}.png`;
-};
-
-// W komponencie:
-<SelectTrigger className="w-auto h-8 border-0 bg-transparent px-1">
-  <SelectValue>
-    {selectedLanguage && (
-      <img 
-        src={getFlagUrl(selectedLanguage.code)} 
-        alt={selectedLanguage.name}
-        className="w-8 h-5 object-cover rounded shadow-sm"
-      />
-    )}
-  </SelectValue>
-</SelectTrigger>
-
-<SelectContent align="end">
-  {languages.map((lang) => (
-    <SelectItem key={lang.code} value={lang.code}>
-      <span className="flex items-center gap-3">
-        <img 
-          src={getFlagUrl(lang.code)} 
-          alt={lang.name}
-          className="w-6 h-4 object-cover rounded-sm shadow-sm"
-        />
-        <span>{lang.native_name || lang.name}</span>
-      </span>
-    </SelectItem>
-  ))}
-</SelectContent>
+const legendItems = [
+  { 
+    type: 'webinar', 
+    color: 'bg-blue-500', 
+    label: t('events.types.webinar') || 'Webinar'
+  },
+  { 
+    type: 'team_training', 
+    color: 'bg-green-500', 
+    label: t('events.types.teamTraining') || 'Spotkanie zespołu'
+  },
+  { 
+    type: 'tripartite_meeting', 
+    color: 'bg-violet-500', 
+    label: t('events.types.tripartiteMeeting') || 'Spotkanie trójstronne'
+  },
+  { 
+    type: 'partner_consultation', 
+    color: 'bg-fuchsia-500', 
+    label: t('events.types.consultation') || 'Konsultacje'
+  }
+];
 ```
 
-### Usunięcie ikony Globe
+### Logika toggle filtra
 
-Na referencji nie ma ikony globusa - tylko sama flaga. Usunąć:
-```tsx
-// Usunąć:
-<Globe className="h-4 w-4 text-muted-foreground" />
+```typescript
+const handleLegendClick = (type: string) => {
+  setActiveFilter(prev => prev === type ? null : type);
+};
 ```
 
-## Podsumowanie zmian
+Kliknięcie tego samego typu ponownie → wyłączenie filtra (powrót do wszystkich).
 
-| Element | Było | Będzie |
-|---------|------|--------|
-| Trigger | Globe + emoji + nazwa | Tylko obrazek flagi |
-| Lista | emoji + nazwa | Obrazek flagi + nazwa |
-| Źródło flag | Unicode emoji | CDN flagcdn.com |
-| Styl flag | brak | zaokrąglone rogi + cień |
+### Mapowanie typów (dla "Spotkanie zespołu")
 
-## Plik do modyfikacji
+`team_training` i `meeting_public` są traktowane jako ten sam typ w legendzie (zielona kropka), więc filtr `team_training` obejmuje oba:
 
-- `src/components/LanguageSelector.tsx` - pełna przebudowa na obrazki flag
+```typescript
+if (activeFilter === 'team_training') {
+  return event.event_type === 'team_training' || event.event_type === 'meeting_public';
+}
+```
