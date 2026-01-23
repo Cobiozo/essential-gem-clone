@@ -39,6 +39,7 @@ import {
   Video,
   UserRound,
   Calculator,
+  Heart,
   icons as LucideIcons,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -247,6 +248,7 @@ export const DashboardSidebar: React.FC = () => {
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
+    { id: 'healthy-knowledge', icon: Heart, labelKey: 'Zdrowa Wiedza', path: '/zdrowa-wiedza' },
     { id: 'resources', icon: FolderOpen, labelKey: 'dashboard.menu.resources', path: '/knowledge' },
     { 
       id: 'pureContacts', 

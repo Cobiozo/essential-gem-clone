@@ -109,6 +109,8 @@ const EventGuestRegistration = lazyWithRetry(() => import("./pages/EventGuestReg
 const CommissionCalculatorPage = lazyWithRetry(() => import("./pages/CommissionCalculator"));
 const SpecialistCalculatorPage = lazyWithRetry(() => import("./pages/SpecialistCalculator"));
 const HtmlPage = lazyWithRetry(() => import("./pages/HtmlPage"));
+const HealthyKnowledge = lazyWithRetry(() => import("./pages/HealthyKnowledge"));
+const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKnowledgePublicPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -323,6 +325,8 @@ const AppContent = () => {
               <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />
               <Route path="/events/register/:eventId" element={<EventGuestRegistration />} />
               <Route path="/infolink/:slug" element={<InfoLinkPage />} />
+              <Route path="/zdrowa-wiedza" element={<HealthyKnowledge />} />
+              <Route path="/zdrowa-wiedza/:slug" element={<HealthyKnowledgePublicPage />} />
               <Route path="/page/:slug" element={<Page />} />
               <Route path="/html/:slug" element={<HtmlPage />} />
               <Route path="/calculator" element={<Navigate to="/calculator/influencer" replace />} />
