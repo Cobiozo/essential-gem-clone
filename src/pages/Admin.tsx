@@ -64,6 +64,7 @@ import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { HtmlPagesManagement } from '@/components/admin/HtmlPagesManagement';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
+import HealthyKnowledgeManagement from '@/components/admin/HealthyKnowledgeManagement';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
@@ -4406,6 +4407,10 @@ const Admin = () => {
 
           <TabsContent value="media-library">
             <AdminMediaLibrary mode="standalone" />
+          </TabsContent>
+
+          <TabsContent value="healthy-knowledge">
+            <HealthyKnowledgeManagement />
           </TabsContent>
         </Tabs>
       </div>
