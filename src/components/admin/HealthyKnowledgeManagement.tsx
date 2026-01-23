@@ -639,9 +639,9 @@ const HealthyKnowledgeManagement: React.FC = () => {
 
                 {/* File Upload */}
                 {editingMaterial.content_type !== 'text' && (
-                  <div>
+                  <div className="space-y-2">
                     <Label>Plik</Label>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2">
                       <Input
                         type="file"
                         onChange={handleFileUpload}
@@ -655,10 +655,51 @@ const HealthyKnowledgeManagement: React.FC = () => {
                       />
                       {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
                     </div>
-                    {editingMaterial.file_name && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Aktualny plik: {editingMaterial.file_name}
-                      </p>
+                    
+                    {/* File Preview with Thumbnail */}
+                    {editingMaterial.media_url && (
+                      <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+                        {/* Thumbnail */}
+                        {editingMaterial.content_type === 'image' ? (
+                          <img 
+                            src={editingMaterial.media_url} 
+                            alt="Podgląd" 
+                            className="w-20 h-20 object-cover rounded-lg border shadow-sm"
+                          />
+                        ) : editingMaterial.content_type === 'video' ? (
+                          <div className="w-20 h-20 bg-blue-500/10 rounded-lg border flex items-center justify-center">
+                            <Play className="w-8 h-8 text-blue-500" />
+                          </div>
+                        ) : (
+                          <div className="w-20 h-20 bg-muted rounded-lg border flex items-center justify-center">
+                            <ContentTypeIcon type={editingMaterial.content_type} className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
+                        
+                        {/* File info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{editingMaterial.file_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {editingMaterial.file_size ? `${(editingMaterial.file_size / 1024).toFixed(1)} KB` : 'Plik przesłany'}
+                          </p>
+                        </div>
+                        
+                        {/* Remove button */}
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          type="button"
+                          onClick={() => setEditingMaterial({
+                            ...editingMaterial,
+                            media_url: null,
+                            file_name: null,
+                            file_size: null,
+                          })}
+                          title="Usuń plik"
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -746,32 +787,70 @@ const HealthyKnowledgeManagement: React.FC = () => {
                 </div>
 
                 {editingMaterial.allow_external_share && (
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div>
-                      <Label>Ważność kodu (godziny)</Label>
-                      <Input
-                        type="number"
-                        value={editingMaterial.otp_validity_hours || 24}
-                        onChange={(e) => setEditingMaterial({
-                          ...editingMaterial,
-                          otp_validity_hours: parseInt(e.target.value) || 24,
-                        })}
-                        min={1}
-                        max={168}
-                      />
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Ważność kodu (godziny)</Label>
+                        <Input
+                          type="number"
+                          value={editingMaterial.otp_validity_hours || 24}
+                          onChange={(e) => setEditingMaterial({
+                            ...editingMaterial,
+                            otp_validity_hours: parseInt(e.target.value) || 24,
+                          })}
+                          min={1}
+                          max={168}
+                        />
+                      </div>
+                      <div>
+                        <Label>Max użyć kodu</Label>
+                        <Input
+                          type="number"
+                          value={editingMaterial.otp_max_sessions || 3}
+                          onChange={(e) => setEditingMaterial({
+                            ...editingMaterial,
+                            otp_max_sessions: parseInt(e.target.value) || 3,
+                          })}
+                          min={1}
+                          max={10}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label>Max użyć kodu</Label>
-                      <Input
-                        type="number"
-                        value={editingMaterial.otp_max_sessions || 3}
+                    
+                    {/* Share Message Template Editor */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Szablon wiadomości do udostępniania</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Tekst kopiowany przy generowaniu kodu OTP
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() => setEditingMaterial({
+                            ...editingMaterial,
+                            share_message_template: DEFAULT_SHARE_MESSAGE_TEMPLATE,
+                          })}
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Przywróć
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={editingMaterial.share_message_template || DEFAULT_SHARE_MESSAGE_TEMPLATE}
                         onChange={(e) => setEditingMaterial({
                           ...editingMaterial,
-                          otp_max_sessions: parseInt(e.target.value) || 3,
+                          share_message_template: e.target.value,
                         })}
-                        min={1}
-                        max={10}
+                        rows={8}
+                        className="font-mono text-sm"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        💡 Dostępne zmienne: {'{title}'}, {'{description}'}, {'{share_url}'}, {'{otp_code}'}, {'{validity_hours}'}, {'{partner_name}'}
+                      </p>
                     </div>
                   </div>
                 )}
