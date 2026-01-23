@@ -1,136 +1,181 @@
 
-# Plan: Dynamiczne przełączanie języków i wyświetlanie flag
+# Plan: Obrazki flag zamiast emoji w selektorze języków
 
 ## Problem
 
-Zmiana języka wymaga dwukrotnego kliknięcia (np. PL → EN → PL → EN) aby zadziałała. Dzieje się tak ponieważ:
-
-1. Gdy język jest już w cache (`loadedLanguages.has(langCode)`), funkcja `loadLanguageTranslations` wraca natychmiast
-2. Stan `dbTranslations` w kontekście nie jest aktualizowany
-3. Funkcja `t()` zależna od `dbTranslations` nie jest odświeżana bo referencja obiektu pozostaje taka sama
+Emoji flag (🇵🇱, 🇬🇧, 🇩🇪) nie wyświetlają się poprawnie - mogą być renderowane jako kody tekstowe (PL, GB, DE) w zależności od systemu operacyjnego i dostępnych fontów. Na screenie referencyjnym widać prawdziwe obrazki flag w stylu prostokątnym z zaokrąglonymi rogami.
 
 ## Rozwiązanie
 
-### 1. Modyfikacja LanguageContext.tsx - wymuszenie re-rendera
+Zamiast emoji Unicode użyć obrazków flag z publicznego CDN **flagcdn.com** lub **flagpack.xyz**. Te serwisy udostępniają flagi wszystkich krajów w formatach SVG i PNG.
 
-Zamiast polegać na zmianie referencji `dbTranslations`, dodać licznik wersji który wymusi re-render funkcji `t()` przy każdej zmianie języka:
+### Mapowanie kodów języków na kody krajów
 
-```typescript
-// Dodaj nowy state - licznik wersji
-const [translationVersion, setTranslationVersion] = useState(0);
+| Język | Kod języka | Kod kraju (ISO 3166-1) |
+|-------|------------|------------------------|
+| Polski | pl | PL |
+| English | en | GB |
+| Deutsch | de | DE |
+| Italiano | it | IT |
+| Español | es | ES |
+| Français | fr | FR |
+| Português | pt | PT |
 
-// W useEffect dla zmiany języka - zawsze inkrementuj wersję
-useEffect(() => {
-  const loadLangTranslations = async () => {
-    await loadLanguageTranslations(language);
-    const { translations: t } = await loadTranslationsCache(language);
-    setDbTranslations(t);
-    // KLUCZOWE: Wymuszenie re-rendera t() nawet gdy dbTranslations się nie zmienia
-    setTranslationVersion(v => v + 1);
-  };
-  loadLangTranslations();
-  // ...
-}, [language]);
+### Format URL dla flag
 
-// Dodaj translationVersion do zależności t()
-const t = useCallback((key: string): string => {
-  const dbValue = getTranslation(language, key, defaultLang);
-  if (dbValue) return dbValue;
-  // ...
-}, [language, defaultLang, dbTranslations, translationVersion]); // <-- dodane translationVersion
+```text
+https://flagcdn.com/w40/{kod_kraju_lowercase}.png
+https://flagcdn.com/h20/{kod_kraju_lowercase}.png
 ```
 
-### 2. Modyfikacja LanguageSelector.tsx - wyświetlanie flag
+Przykłady:
+- 🇵🇱 → https://flagcdn.com/w40/pl.png
+- 🇬🇧 → https://flagcdn.com/w40/gb.png
+- 🇩🇪 → https://flagcdn.com/w40/de.png
 
-Flagi są już pobierane z bazy danych (kolumna `flag_emoji`). Komponent już poprawnie wyświetla flagi - sprawdzę czy pobierane są prawidłowo z bazy.
+## Zmiany w plikach
 
-Obecny kod już używa `lang.flag_emoji` - wystarczy upewnić się że jest poprawnie renderowany:
+### 1. Modyfikacja `src/components/LanguageSelector.tsx`
+
+Dodanie funkcji mapującej kod języka na kod kraju i użycie tagów `<img>` zamiast emoji:
+
+```typescript
+// Mapowanie kodów języków na kody krajów (dla flag)
+const languageToCountry: Record<string, string> = {
+  'pl': 'pl',
+  'en': 'gb',
+  'de': 'de',
+  'it': 'it',
+  'es': 'es',
+  'fr': 'fr',
+  'pt': 'pt'
+};
+
+// Funkcja generująca URL flagi
+const getFlagUrl = (langCode: string): string => {
+  const countryCode = languageToCountry[langCode] || langCode;
+  return `https://flagcdn.com/w40/${countryCode}.png`;
+};
+```
+
+### 2. Komponent flagi
+
+Zamienić span z emoji na img:
 
 ```tsx
-// Trigger z flagą
-<SelectTrigger className="w-[140px] h-8 text-sm">
+// Zamiast:
+<span className="text-lg">{lang.flag_emoji}</span>
+
+// Użyć:
+<img 
+  src={getFlagUrl(lang.code)} 
+  alt={lang.name}
+  className="w-6 h-4 object-cover rounded-sm shadow-sm"
+/>
+```
+
+### 3. Styl flagi (jak na referencji)
+
+- Szerokość: 24px (w-6)
+- Wysokość: 16px (h-4)  
+- Zaokrąglone rogi: rounded-sm
+- Lekki cień: shadow-sm
+- Dopasowanie: object-cover
+
+### 4. Trigger - tylko flaga (jak na referencji)
+
+Na screenie widać że w trybie zamkniętym wyświetla się TYLKO flaga (bez nazwy języka). Lista rozwijana pokazuje flagę + nazwę:
+
+```tsx
+// Trigger - tylko flaga
+<SelectTrigger className="w-auto h-8 border-0 bg-transparent">
   <SelectValue>
     {selectedLanguage && (
-      <span className="flex items-center gap-2">
-        <span className="text-base">{selectedLanguage.flag_emoji}</span>
-        <span>{selectedLanguage.native_name || selectedLanguage.name}</span>
-      </span>
+      <img 
+        src={getFlagUrl(selectedLanguage.code)} 
+        alt={selectedLanguage.name}
+        className="w-8 h-6 object-cover rounded shadow-sm"
+      />
     )}
   </SelectValue>
 </SelectTrigger>
 
-// Lista z flagami
-{languages.map((lang) => (
-  <SelectItem key={lang.code} value={lang.code}>
-    <span className="flex items-center gap-2">
-      <span className="text-base">{lang.flag_emoji}</span>
-      <span>{lang.native_name || lang.name}</span>
-    </span>
-  </SelectItem>
-))}
+// Lista - flaga + nazwa
+<SelectItem>
+  <span className="flex items-center gap-3">
+    <img src={getFlagUrl(lang.code)} className="w-6 h-4 rounded-sm" />
+    <span>{lang.native_name || lang.name}</span>
+  </span>
+</SelectItem>
 ```
-
-## Zmiany w plikach
-
-| Plik | Zmiana |
-|------|--------|
-| `src/contexts/LanguageContext.tsx` | Dodanie `translationVersion` state + wymuszenie re-rendera |
-| `src/components/LanguageSelector.tsx` | Zwiększenie rozmiaru emoji flag dla lepszej widoczności |
 
 ## Sekcja techniczna
 
-### Logika wymuszenia re-rendera
+### Pełna struktura komponentu
 
-```text
-Użytkownik klika EN (pierwszy raz)
-  ↓
-setLanguage('en') wywołane
-  ↓
-useEffect wykrywa zmianę language
-  ↓
-loadLanguageTranslations('en') ładuje tłumaczenia
-  ↓
-setDbTranslations(t) - może być ten sam obiekt referencyjnie
-  ↓
-setTranslationVersion(v => v + 1) - ZAWSZE nowa wartość
-  ↓
-t() jest przeliczane (bo translationVersion się zmienił)
-  ↓
-Komponenty używające t() renderują nowe tłumaczenia
+```typescript
+// Mapowanie język → kraj
+const languageToCountry: Record<string, string> = {
+  'pl': 'pl',
+  'en': 'gb', // angielski → Wielka Brytania
+  'de': 'de',
+  'it': 'it',
+  'es': 'es',
+  'fr': 'fr',
+  'pt': 'pt'
+};
+
+const getFlagUrl = (langCode: string): string => {
+  const countryCode = languageToCountry[langCode] || langCode;
+  return `https://flagcdn.com/w40/${countryCode}.png`;
+};
+
+// W komponencie:
+<SelectTrigger className="w-auto h-8 border-0 bg-transparent px-1">
+  <SelectValue>
+    {selectedLanguage && (
+      <img 
+        src={getFlagUrl(selectedLanguage.code)} 
+        alt={selectedLanguage.name}
+        className="w-8 h-5 object-cover rounded shadow-sm"
+      />
+    )}
+  </SelectValue>
+</SelectTrigger>
+
+<SelectContent align="end">
+  {languages.map((lang) => (
+    <SelectItem key={lang.code} value={lang.code}>
+      <span className="flex items-center gap-3">
+        <img 
+          src={getFlagUrl(lang.code)} 
+          alt={lang.name}
+          className="w-6 h-4 object-cover rounded-sm shadow-sm"
+        />
+        <span>{lang.native_name || lang.name}</span>
+      </span>
+    </SelectItem>
+  ))}
+</SelectContent>
 ```
 
-### Zmiany w LanguageContext.tsx
+### Usunięcie ikony Globe
 
-Linie do modyfikacji:
-- Dodać nowy useState dla `translationVersion` (około linia 38)
-- Dodać `setTranslationVersion(v => v + 1)` w useEffect (linia 61)
-- Dodać `translationVersion` do zależności `useCallback` dla `t()` (linia 94)
-
-### Weryfikacja flag w bazie danych
-
-Baza już zawiera poprawne flagi:
-- 🇵🇱 Polski
-- 🇬🇧 English  
-- 🇩🇪 Deutsch
-- 🇮🇹 Włoski
-- 🇪🇸 Hiszpański
-- 🇫🇷 Francuski
-- 🇵🇹 Portugalski
-
-Komponenty już używają `flag_emoji` - są one poprawnie renderowane na screenshocie użytkownika (widoczne jako kody krajów: PL, GB, DE, IT, ES, FR, PT zamiast emoji).
-
-### Opcjonalna poprawa wyświetlania flag
-
-Jeśli flagi wyświetlają się jako kody (np. "PL" zamiast 🇵🇱), problem może być w foncie. Można dodać jawną deklarację fontu obsługującego emoji:
-
-```css
-.flag-emoji {
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-}
+Na referencji nie ma ikony globusa - tylko sama flaga. Usunąć:
+```tsx
+// Usunąć:
+<Globe className="h-4 w-4 text-muted-foreground" />
 ```
 
-## Podsumowanie
+## Podsumowanie zmian
 
-1. **Główna poprawka**: Dodanie `translationVersion` state który wymusza re-render funkcji `t()` przy każdej zmianie języka
-2. **Flagi**: Już działają - zwiększyć rozmiar dla lepszej widoczności
-3. **Alternatywa**: Jeśli flagi nadal nie działają, można użyć obrazków PNG zamiast emoji Unicode
+| Element | Było | Będzie |
+|---------|------|--------|
+| Trigger | Globe + emoji + nazwa | Tylko obrazek flagi |
+| Lista | emoji + nazwa | Obrazek flagi + nazwa |
+| Źródło flag | Unicode emoji | CDN flagcdn.com |
+| Styl flag | brak | zaokrąglone rogi + cień |
+
+## Plik do modyfikacji
+
+- `src/components/LanguageSelector.tsx` - pełna przebudowa na obrazki flag
