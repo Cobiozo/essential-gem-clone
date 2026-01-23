@@ -171,9 +171,13 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       if (document.hidden) {
         stopPolling();
       } else {
-        // Immediate fetch when tab becomes visible, then resume polling
-        fetchUnreadCount();
-        startPolling();
+        // Delay fetch when tab becomes visible to avoid disrupting UI during editing
+        setTimeout(() => {
+          if (!document.hidden) {
+            fetchUnreadCount();
+            startPolling();
+          }
+        }, 500);
       }
     };
 

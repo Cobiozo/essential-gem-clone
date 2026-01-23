@@ -98,13 +98,17 @@ export const useAdminPresence = (currentTab: string) => {
       }
     };
 
-    // Handle visibility change - pause/resume tracking
+    // Handle visibility change - pause/resume tracking with delay to prevent UI disruption
     const handleVisibilityChange = () => {
       isTabVisible = !document.hidden;
       
       if (isTabVisible && channelRef.current && mountedRef.current) {
-        // Resume tracking when tab becomes visible
-        trackPresence();
+        // Delay presence update to avoid immediate re-renders that could disrupt editing
+        setTimeout(() => {
+          if (mountedRef.current && channelRef.current && !document.hidden) {
+            trackPresence();
+          }
+        }, 500);
       }
     };
 

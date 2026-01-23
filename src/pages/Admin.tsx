@@ -277,13 +277,18 @@ const Admin = () => {
   });
   const [activeTab, setActiveTab] = useState("content");
   
+  // Editing mode flag - blocks background updates when admin is in edit dialog
+  const [isEditingMode, setIsEditingMode] = useState(false);
+  
   // Admin presence tracking
   const { admins, currentUserPresence, isConnected, updateActivity } = useAdminPresence(activeTab);
   
-  // Update presence when tab changes
+  // Update presence when tab changes (skip when in editing mode to prevent disruption)
   useEffect(() => {
-    updateActivity(activeTab);
-  }, [activeTab, updateActivity]);
+    if (!isEditingMode) {
+      updateActivity(activeTab);
+    }
+  }, [activeTab, updateActivity, isEditingMode]);
   const [editingItemTextMode, setEditingItemTextMode] = useState(false);
   const [editingItemTitleMode, setEditingItemTitleMode] = useState(false);
   const [newItemTextMode, setNewItemTextMode] = useState(false);
@@ -3632,7 +3637,7 @@ const Admin = () => {
 
               {/* Reflinks Management */}
               <div className="mb-8">
-                <ReflinksManagement />
+                <ReflinksManagement onEditingStateChange={setIsEditingMode} />
               </div>
               
             </TabsContent>

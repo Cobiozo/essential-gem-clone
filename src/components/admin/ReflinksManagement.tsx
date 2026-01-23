@@ -53,7 +53,11 @@ const availableRoles = [
   { value: 'client', label: 'Klient' },
 ];
 
-export const ReflinksManagement: React.FC = () => {
+interface ReflinksManagementProps {
+  onEditingStateChange?: (isEditing: boolean) => void;
+}
+
+export const ReflinksManagement: React.FC<ReflinksManagementProps> = ({ onEditingStateChange }) => {
   const { t } = useLanguage();
   const [reflinks, setReflinks] = useState<Reflink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,6 +118,12 @@ export const ReflinksManagement: React.FC = () => {
     fetchReflinks();
     fetchVisibilitySettings();
   }, []);
+
+  // Notify parent when editing state changes (dialog open/close)
+  useEffect(() => {
+    const isEditing = showAddDialog || editingReflink !== null;
+    onEditingStateChange?.(isEditing);
+  }, [showAddDialog, editingReflink, onEditingStateChange]);
 
   const fetchVisibilitySettings = async () => {
     const { data, error } = await supabase
