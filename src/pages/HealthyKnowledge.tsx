@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge, CONTENT_TYPE_LABELS, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
+import { SecureMedia } from '@/components/SecureMedia';
 
 const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
   const icons: Record<string, React.ReactNode> = {
@@ -43,6 +44,10 @@ const HealthyKnowledgePage: React.FC = () => {
   const [recipientName, setRecipientName] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [generating, setGenerating] = useState(false);
+  
+  // Preview dialog state
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
 
   useEffect(() => {
     fetchMaterials();
@@ -146,9 +151,20 @@ const HealthyKnowledgePage: React.FC = () => {
   };
 
   const handleViewMaterial = (material: HealthyKnowledge) => {
-    // For internal users, show content directly or navigate to detail view
-    // This could open a modal or navigate to a detail page
-    toast.info('Podgląd materiału - funkcja w przygotowaniu');
+    setPreviewMaterial(material);
+    setPreviewDialogOpen(true);
+    
+    // Increment view count
+    supabase
+      .from('healthy_knowledge')
+      .update({ view_count: material.view_count + 1 })
+      .eq('id', material.id)
+      .then(() => {
+        // Update local state
+        setMaterials(prev => prev.map(m => 
+          m.id === material.id ? { ...m, view_count: m.view_count + 1 } : m
+        ));
+      });
   };
 
   if (!user) {
@@ -381,6 +397,66 @@ const HealthyKnowledgePage: React.FC = () => {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{previewMaterial?.title}</DialogTitle>
+            {previewMaterial?.description && (
+              <DialogDescription>{previewMaterial.description}</DialogDescription>
+            )}
+          </DialogHeader>
+          
+          {previewMaterial && (
+            <div className="space-y-4">
+              {/* Video/Audio/Image */}
+              {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
+                <SecureMedia
+                  mediaUrl={previewMaterial.media_url}
+                  mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
+                  className="w-full rounded-lg"
+                />
+              )}
+              
+              {/* Text content */}
+              {previewMaterial.content_type === 'text' && previewMaterial.text_content && (
+                <div 
+                  className="prose prose-sm dark:prose-invert max-w-none p-4 bg-muted/50 rounded-lg"
+                  dangerouslySetInnerHTML={{ __html: previewMaterial.text_content }}
+                />
+              )}
+              
+              {/* Document download link */}
+              {previewMaterial.content_type === 'document' && previewMaterial.media_url && (
+                <Button asChild className="w-full">
+                  <a href={previewMaterial.media_url} target="_blank" rel="noopener noreferrer">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Otwórz dokument
+                  </a>
+                </Button>
+              )}
+              
+              {/* Metadata */}
+              <div className="flex items-center flex-wrap gap-4 text-sm text-muted-foreground pt-2 border-t">
+                {previewMaterial.category && (
+                  <Badge variant="outline">{previewMaterial.category}</Badge>
+                )}
+                {previewMaterial.duration_seconds && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {Math.floor(previewMaterial.duration_seconds / 60)} min
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Eye className="w-3 h-3" />
+                  {previewMaterial.view_count} wyświetleń
+                </span>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>
