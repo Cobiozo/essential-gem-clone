@@ -120,7 +120,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
   }, [slug]);
 
   const handleOtpSubmit = async () => {
-    if (otpValue.length !== 8) {
+    if (otpValue.length !== 6) {
       toast.error('Wprowadź pełny kod dostępu');
       return;
     }
