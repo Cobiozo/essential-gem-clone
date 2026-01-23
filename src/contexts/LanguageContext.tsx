@@ -36,6 +36,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [dbTranslations, setDbTranslations] = useState<TranslationsMap | null>(null);
   const [defaultLang, setDefaultLang] = useState<string>('pl');
+  const [translationVersion, setTranslationVersion] = useState(0);
 
   // Load database translations on mount
   useEffect(() => {
@@ -59,6 +60,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // loadTranslationsCache returns cached data if already loaded
       const { translations: t } = await loadTranslationsCache(language);
       setDbTranslations(t);
+      
+      // KLUCZOWE: Wymuszenie re-rendera t() nawet gdy dbTranslations się nie zmienia
+      setTranslationVersion(v => v + 1);
     };
     loadLangTranslations();
     
@@ -91,7 +95,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Return key as fallback
     return key;
-  }, [language, defaultLang, dbTranslations]);
+  }, [language, defaultLang, dbTranslations, translationVersion]);
 
   const contextValue: LanguageContextType = {
     language,
