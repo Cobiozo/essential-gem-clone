@@ -46,6 +46,9 @@ const HealthyKnowledgePage: React.FC = () => {
   // Preview dialog state
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
+  
+  // Inline playback state
+  const [playingId, setPlayingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMaterials();
@@ -235,51 +238,92 @@ const HealthyKnowledgePage: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
             {filteredMaterials.map((material) => (
               <Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
-                {/* Thumbnail/Cover Image - Clickable */}
-                <div 
-                  className="relative aspect-video bg-muted overflow-hidden cursor-pointer"
-                  onClick={() => handleViewMaterial(material)}
-                >
-                  {material.thumbnail_url ? (
-                    <img 
-                      src={material.thumbnail_url} 
-                      alt={material.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : material.content_type === 'image' && material.media_url ? (
-                    <img 
-                      src={material.media_url} 
-                      alt={material.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-                      <ContentTypeIcon type={material.content_type} className="w-16 h-16 text-muted-foreground/30" />
-                    </div>
-                  )}
-                  
-                  {/* Play overlay for video/audio */}
-                  {(material.content_type === 'video' || material.content_type === 'audio') && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="p-4 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
-                        <Play className="w-8 h-8 text-white" />
+                {/* Thumbnail with inline player */}
+                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                  {playingId === material.id && material.media_url ? (
+                    // Inline player
+                    material.content_type === 'video' ? (
+                      <video 
+                        src={material.media_url}
+                        controls
+                        autoPlay
+                        className="w-full h-full object-contain bg-black"
+                        onEnded={() => setPlayingId(null)}
+                      />
+                    ) : material.content_type === 'audio' ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/20 to-purple-500/5 p-2">
+                        <Music className="w-8 h-8 sm:w-12 sm:h-12 text-purple-500 mb-2" />
+                        <audio 
+                          src={material.media_url}
+                          controls
+                          autoPlay
+                          className="w-full"
+                          onEnded={() => setPlayingId(null)}
+                        />
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* Featured badge on thumbnail */}
-                  {material.is_featured && (
-                    <Badge className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-950">
-                      Wyróżnione
-                    </Badge>
+                    ) : null
+                  ) : (
+                    <>
+                      {/* Thumbnail */}
+                      {material.thumbnail_url ? (
+                        <img 
+                          src={material.thumbnail_url} 
+                          alt={material.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : material.content_type === 'image' && material.media_url ? (
+                        <img 
+                          src={material.media_url} 
+                          alt={material.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+                          <ContentTypeIcon type={material.content_type} className="w-10 h-10 sm:w-16 sm:h-16 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      
+                      {/* Play overlay for video/audio - starts inline playback */}
+                      {(material.content_type === 'video' || material.content_type === 'audio') && (
+                        <div 
+                          className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPlayingId(material.id);
+                            // Increment view count
+                            supabase
+                              .from('healthy_knowledge')
+                              .update({ view_count: material.view_count + 1 })
+                              .eq('id', material.id)
+                              .then(() => {
+                                setMaterials(prev => prev.map(m => 
+                                  m.id === material.id ? { ...m, view_count: m.view_count + 1 } : m
+                                ));
+                              });
+                          }}
+                        >
+                          <div className="p-2 sm:p-3 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
+                            <Play className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Featured badge on thumbnail */}
+                      {material.is_featured && (
+                        <Badge className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-yellow-500/90 text-yellow-950 text-[10px] sm:text-xs px-1 sm:px-2">
+                          Wyróżnione
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
 
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
+                <CardHeader className="p-2 sm:p-4 pb-1 sm:pb-2">
+                  {/* Content type badge - hidden on mobile */}
+                  <div className="hidden sm:flex items-center gap-2">
                     <div className={cn(
                       "p-1.5 rounded",
                       material.content_type === 'video' && "bg-blue-500/10 text-blue-500",
@@ -294,23 +338,23 @@ const HealthyKnowledgePage: React.FC = () => {
                       {CONTENT_TYPE_LABELS[material.content_type as keyof typeof CONTENT_TYPE_LABELS] || material.content_type}
                     </Badge>
                   </div>
-                  <CardTitle className="text-lg mt-2 line-clamp-2">
+                  <CardTitle className="text-xs sm:text-base font-medium line-clamp-1 sm:line-clamp-2 mt-0 sm:mt-2">
                     {material.title}
                   </CardTitle>
+                  {/* Description - hidden on mobile */}
                   {material.description && (
-                    <CardDescription className="line-clamp-2">
+                    <CardDescription className="hidden sm:block line-clamp-2 text-xs">
                       {material.description}
                     </CardDescription>
                   )}
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
+                <CardContent className="p-2 sm:p-4 pt-0">
+                  {/* Metadata - hidden on mobile */}
+                  <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground mb-3">
                     {material.category && (
-                      <span className="flex items-center gap-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {material.category}
-                        </Badge>
-                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        {material.category}
+                      </Badge>
                     )}
                     {material.duration_seconds && (
                       <span className="flex items-center gap-1">
@@ -324,24 +368,25 @@ const HealthyKnowledgePage: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="flex gap-2">
+                  {/* Buttons - icons only on mobile */}
+                  <div className="flex gap-1 sm:gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex-1"
+                      className="flex-1 h-7 sm:h-8 text-xs px-2 sm:px-3"
                       onClick={() => handleViewMaterial(material)}
                     >
-                      <Eye className="w-4 h-4 mr-1" />
-                      Podgląd
+                      <Eye className="w-3 h-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Podgląd</span>
                     </Button>
                     {canShare && material.allow_external_share && (
                       <Button 
                         size="sm" 
-                        className="flex-1"
+                        className="flex-1 h-7 sm:h-8 text-xs px-2 sm:px-3"
                         onClick={() => handleOpenShare(material)}
                       >
-                        <Share2 className="w-4 h-4 mr-1" />
-                        Udostępnij
+                        <Share2 className="w-3 h-3 sm:mr-1" />
+                        <span className="hidden sm:inline">Udostępnij</span>
                       </Button>
                     )}
                   </div>
