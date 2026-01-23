@@ -41,11 +41,13 @@ export const LanguageSelector: React.FC = () => {
     <div className="flex items-center gap-2">
       <Globe className="h-4 w-4 text-muted-foreground" />
       <Select value={language} onValueChange={(value) => setLanguage(value)}>
-        <SelectTrigger className="w-[140px] h-8 text-sm">
+        <SelectTrigger className="w-[160px] h-8 text-sm">
           <SelectValue>
             {selectedLanguage && (
               <span className="flex items-center gap-2">
-                <span>{selectedLanguage.flag_emoji}</span>
+                <span className="text-lg leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}>
+                  {selectedLanguage.flag_emoji}
+                </span>
                 <span>{selectedLanguage.native_name || selectedLanguage.name}</span>
               </span>
             )}
@@ -55,7 +57,9 @@ export const LanguageSelector: React.FC = () => {
           {languages.map((lang) => (
             <SelectItem key={lang.code} value={lang.code}>
               <span className="flex items-center gap-2">
-                <span>{lang.flag_emoji}</span>
+                <span className="text-lg leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}>
+                  {lang.flag_emoji}
+                </span>
                 <span>{lang.native_name || lang.name}</span>
               </span>
             </SelectItem>
