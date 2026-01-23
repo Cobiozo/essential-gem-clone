@@ -149,3 +149,12 @@ verify_jwt = false
 
 [functions.send-training-reminder]
 verify_jwt = false
+
+[functions.generate-hk-otp]
+verify_jwt = false
+
+[functions.validate-hk-otp]
+verify_jwt = false
+
+[functions.verify-hk-session]
+verify_jwt = false

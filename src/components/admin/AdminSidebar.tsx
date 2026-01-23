@@ -51,6 +51,7 @@ import {
   Calculator,
   MessageSquare,
   Images,
+  Heart,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -99,6 +100,7 @@ const SIDEBAR_KEYS = {
   mediaLibrary: 'admin.sidebar.mediaLibrary',
   htmlPages: 'admin.sidebar.htmlPages',
   specialistCalculator: 'admin.sidebar.specialistCalculator',
+  healthyKnowledge: 'admin.sidebar.healthyKnowledge',
 };
 
 interface AdminSidebarProps {
@@ -164,6 +166,7 @@ const navCategories: NavCategory[] = [
       { value: 'certificates', labelKey: 'certificates', icon: Award },
       { value: 'knowledge', labelKey: 'resources', icon: FolderOpen },
       { value: 'media-library', labelKey: 'mediaLibrary', icon: Images },
+      { value: 'healthy-knowledge', labelKey: 'healthyKnowledge', icon: Heart },
     ],
   },
   {
@@ -235,6 +238,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     specialistCalculator: 'Kalkulator Specjalistów',
     chatPermissions: 'Kierunki komunikacji',
     sidebarIcons: 'Ikony paska bocznego',
+    healthyKnowledge: 'Zdrowa Wiedza',
     systemHealth: 'Alerty systemowe',
     htmlPages: 'Strony HTML',
   };
