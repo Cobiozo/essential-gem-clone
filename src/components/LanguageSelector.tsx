@@ -1,29 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface LanguageOption {
   code: string;
   name: string;
   native_name: string | null;
-  flag_emoji: string;
 }
+
+// Mapowanie kodów języków na kody krajów (ISO 3166-1)
+const languageToCountry: Record<string, string> = {
+  'pl': 'pl',
+  'en': 'gb',
+  'de': 'de',
+  'it': 'it',
+  'es': 'es',
+  'fr': 'fr',
+  'pt': 'pt'
+};
+
+const getFlagUrl = (langCode: string): string => {
+  const countryCode = languageToCountry[langCode] || langCode;
+  return `https://flagcdn.com/w40/${countryCode}.png`;
+};
 
 export const LanguageSelector: React.FC = () => {
   const { language, setLanguage } = useLanguage();
   const [languages, setLanguages] = useState<LanguageOption[]>([
-    { code: 'pl', name: 'Polish', native_name: 'Polski', flag_emoji: '🇵🇱' },
-    { code: 'de', name: 'German', native_name: 'Deutsch', flag_emoji: '🇩🇪' },
-    { code: 'en', name: 'English', native_name: 'English', flag_emoji: '🇬🇧' }
+    { code: 'pl', name: 'Polish', native_name: 'Polski' },
+    { code: 'de', name: 'German', native_name: 'Deutsch' },
+    { code: 'en', name: 'English', native_name: 'English' }
   ]);
 
   useEffect(() => {
     const fetchLanguages = async () => {
       const { data, error } = await supabase
         .from('i18n_languages')
-        .select('code, name, native_name, flag_emoji')
+        .select('code, name, native_name')
         .eq('is_active', true)
         .order('position');
       
@@ -38,34 +52,32 @@ export const LanguageSelector: React.FC = () => {
   const selectedLanguage = languages.find(l => l.code === language);
 
   return (
-    <div className="flex items-center gap-2">
-      <Globe className="h-4 w-4 text-muted-foreground" />
-      <Select value={language} onValueChange={(value) => setLanguage(value)}>
-        <SelectTrigger className="w-[160px] h-8 text-sm">
-          <SelectValue>
-            {selectedLanguage && (
-              <span className="flex items-center gap-2">
-                <span className="text-lg leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}>
-                  {selectedLanguage.flag_emoji}
-                </span>
-                <span>{selectedLanguage.native_name || selectedLanguage.name}</span>
-              </span>
-            )}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {languages.map((lang) => (
-            <SelectItem key={lang.code} value={lang.code}>
-              <span className="flex items-center gap-2">
-                <span className="text-lg leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}>
-                  {lang.flag_emoji}
-                </span>
-                <span>{lang.native_name || lang.name}</span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={language} onValueChange={(value) => setLanguage(value)}>
+      <SelectTrigger className="w-auto h-8 border-0 bg-transparent px-2 hover:bg-accent/50">
+        <SelectValue>
+          {selectedLanguage && (
+            <img 
+              src={getFlagUrl(selectedLanguage.code)} 
+              alt={selectedLanguage.name}
+              className="w-8 h-5 object-cover rounded shadow-sm"
+            />
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent align="end">
+        {languages.map((lang) => (
+          <SelectItem key={lang.code} value={lang.code}>
+            <span className="flex items-center gap-3">
+              <img 
+                src={getFlagUrl(lang.code)} 
+                alt={lang.name}
+                className="w-6 h-4 object-cover rounded-sm shadow-sm"
+              />
+              <span>{lang.native_name || lang.name}</span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };
