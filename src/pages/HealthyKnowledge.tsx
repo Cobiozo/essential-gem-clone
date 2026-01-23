@@ -41,8 +41,6 @@ const HealthyKnowledgePage: React.FC = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<HealthyKnowledge | null>(null);
   const [shareMessage, setShareMessage] = useState('');
-  const [recipientName, setRecipientName] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState('');
   const [generating, setGenerating] = useState(false);
   
   // Preview dialog state
@@ -105,8 +103,6 @@ const HealthyKnowledgePage: React.FC = () => {
       .replace('{validity_hours}', String(material.otp_validity_hours || 24))
       .replace('{partner_name}', '[Twoje imię]');
     setShareMessage(previewMessage);
-    setRecipientName('');
-    setRecipientEmail('');
     setShareDialogOpen(true);
   };
 
@@ -124,8 +120,6 @@ const HealthyKnowledgePage: React.FC = () => {
       const response = await supabase.functions.invoke('generate-hk-otp', {
         body: {
           knowledge_id: selectedMaterial.id,
-          recipient_name: recipientName || null,
-          recipient_email: recipientEmail || null,
         },
       });
 
@@ -372,26 +366,6 @@ const HealthyKnowledgePage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">
                   Kod ważny przez {selectedMaterial.otp_validity_hours || 24} godzin
                 </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Imię odbiorcy (opcjonalnie)</label>
-                  <Input
-                    value={recipientName}
-                    onChange={(e) => setRecipientName(e.target.value)}
-                    placeholder="np. Jan"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Email odbiorcy (opcjonalnie)</label>
-                  <Input
-                    type="email"
-                    value={recipientEmail}
-                    onChange={(e) => setRecipientEmail(e.target.value)}
-                    placeholder="jan@example.com"
-                  />
-                </div>
               </div>
 
               <div>
