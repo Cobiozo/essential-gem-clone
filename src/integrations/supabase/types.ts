@@ -2368,6 +2368,184 @@ export type Database = {
           },
         ]
       }
+      healthy_knowledge: {
+        Row: {
+          allow_external_share: boolean | null
+          category: string | null
+          content_type: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          media_url: string | null
+          otp_max_sessions: number | null
+          otp_validity_hours: number | null
+          position: number | null
+          share_message_template: string | null
+          slug: string
+          tags: string[] | null
+          text_content: string | null
+          title: string
+          updated_at: string | null
+          view_count: number | null
+          visible_to_admin: boolean | null
+          visible_to_client: boolean | null
+          visible_to_everyone: boolean | null
+          visible_to_partner: boolean | null
+          visible_to_specjalista: boolean | null
+        }
+        Insert: {
+          allow_external_share?: boolean | null
+          category?: string | null
+          content_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          media_url?: string | null
+          otp_max_sessions?: number | null
+          otp_validity_hours?: number | null
+          position?: number | null
+          share_message_template?: string | null
+          slug: string
+          tags?: string[] | null
+          text_content?: string | null
+          title: string
+          updated_at?: string | null
+          view_count?: number | null
+          visible_to_admin?: boolean | null
+          visible_to_client?: boolean | null
+          visible_to_everyone?: boolean | null
+          visible_to_partner?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Update: {
+          allow_external_share?: boolean | null
+          category?: string | null
+          content_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          media_url?: string | null
+          otp_max_sessions?: number | null
+          otp_validity_hours?: number | null
+          position?: number | null
+          share_message_template?: string | null
+          slug?: string
+          tags?: string[] | null
+          text_content?: string | null
+          title?: string
+          updated_at?: string | null
+          view_count?: number | null
+          visible_to_admin?: boolean | null
+          visible_to_client?: boolean | null
+          visible_to_everyone?: boolean | null
+          visible_to_partner?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Relationships: []
+      }
+      hk_otp_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          is_invalidated: boolean | null
+          knowledge_id: string
+          partner_id: string
+          recipient_email: string | null
+          recipient_name: string | null
+          used_sessions: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          is_invalidated?: boolean | null
+          knowledge_id: string
+          partner_id: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          used_sessions?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          is_invalidated?: boolean | null
+          knowledge_id?: string
+          partner_id?: string
+          recipient_email?: string | null
+          recipient_name?: string | null
+          used_sessions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hk_otp_codes_knowledge_id_fkey"
+            columns: ["knowledge_id"]
+            isOneToOne: false
+            referencedRelation: "healthy_knowledge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hk_otp_sessions: {
+        Row: {
+          created_at: string | null
+          device_fingerprint: string | null
+          expires_at: string
+          id: string
+          last_activity_at: string | null
+          otp_code_id: string
+          session_token: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          expires_at: string
+          id?: string
+          last_activity_at?: string | null
+          otp_code_id: string
+          session_token: string
+        }
+        Update: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          expires_at?: string
+          id?: string
+          last_activity_at?: string | null
+          otp_code_id?: string
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hk_otp_sessions_otp_code_id_fkey"
+            columns: ["otp_code_id"]
+            isOneToOne: false
+            referencedRelation: "hk_otp_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       html_pages: {
         Row: {
           created_at: string
