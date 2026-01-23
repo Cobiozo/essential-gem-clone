@@ -642,26 +642,24 @@ const Admin = () => {
           } : user
         ));
 
-        // Send welcome email via SMTP
+        // Send admin approval email via SMTP (includes training modules list)
         if (userToApprove) {
           try {
-            const { error: emailError } = await supabase.functions.invoke('send-welcome-email', {
+            const { error: approvalEmailError } = await supabase.functions.invoke('send-approval-email', {
               body: {
                 userId: userId,
-                email: userToApprove.email,
-                firstName: userToApprove.first_name,
-                lastName: userToApprove.last_name,
-                role: userToApprove.role
+                approvalType: 'admin',
+                approverId: (await supabase.auth.getUser()).data.user?.id
               }
             });
             
-            if (emailError) {
-              console.error('Failed to send welcome email:', emailError);
+            if (approvalEmailError) {
+              console.error('Failed to send admin approval email:', approvalEmailError);
             } else {
-              console.log('Welcome email sent successfully to:', userToApprove.email);
+              console.log('Admin approval email sent successfully to:', userToApprove.email);
             }
           } catch (emailError) {
-            console.error('Failed to send welcome email:', emailError);
+            console.error('Failed to send admin approval email:', emailError);
           }
         }
         

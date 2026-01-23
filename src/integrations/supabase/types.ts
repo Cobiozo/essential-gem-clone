@@ -4528,8 +4528,11 @@ export type Database = {
           due_date: string | null
           id: string
           is_completed: boolean
+          last_activity_at: string | null
+          last_reminder_sent_at: string | null
           module_id: string
           notification_sent: boolean
+          reminder_count: number
           updated_at: string
           user_id: string
         }
@@ -4541,8 +4544,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           is_completed?: boolean
+          last_activity_at?: string | null
+          last_reminder_sent_at?: string | null
           module_id: string
           notification_sent?: boolean
+          reminder_count?: number
           updated_at?: string
           user_id: string
         }
@@ -4554,8 +4560,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           is_completed?: boolean
+          last_activity_at?: string | null
+          last_reminder_sent_at?: string | null
           module_id?: string
           notification_sent?: boolean
+          reminder_count?: number
           updated_at?: string
           user_id?: string
         }
@@ -4739,6 +4748,47 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "training_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_reminder_settings: {
+        Row: {
+          created_at: string | null
+          days_inactive: number
+          email_template_id: string | null
+          id: string
+          is_enabled: boolean
+          max_reminders: number
+          reminder_interval_days: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_inactive?: number
+          email_template_id?: string | null
+          id?: string
+          is_enabled?: boolean
+          max_reminders?: number
+          reminder_interval_days?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_inactive?: number
+          email_template_id?: string | null
+          id?: string
+          is_enabled?: boolean
+          max_reminders?: number
+          reminder_interval_days?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_reminder_settings_email_template_id_fkey"
+            columns: ["email_template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -5219,6 +5269,20 @@ export type Database = {
           assignment_id: string
           module_id: string
           module_title: string
+          user_email: string
+          user_first_name: string
+          user_id: string
+        }[]
+      }
+      get_training_reminders_due: {
+        Args: never
+        Returns: {
+          assignment_id: string
+          days_inactive: number
+          module_id: string
+          module_title: string
+          progress_percent: number
+          reminder_count: number
           user_email: string
           user_first_name: string
           user_id: string
