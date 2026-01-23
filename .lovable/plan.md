@@ -1,271 +1,334 @@
 
-# Plan: Naprawienie modułu "Zdrowa Wiedza" - podgląd materiałów i widoczność dla adminów
 
-## Zidentyfikowane problemy
+# Plan: System okładek (thumbnail) dla materiałów Zdrowa Wiedza
 
-1. **Brak podglądu wideo/materiałów** - przycisk "Podgląd" wyświetla tylko komunikat "funkcja w przygotowaniu" zamiast otwierać materiał
-2. **Brak grupy "Admin" w widoczności** - w formularzu edycji brakuje przełącznika dla adminów, mimo że kolumna `visible_to_admin` istnieje w bazie danych
-3. **Brak wyświetlania badge "Admin"** - w tabeli materiałów nie pokazuje się znacznik widoczności dla adminów
+## Problem
+
+Obecnie karty materiałów wyświetlają tylko ikonę typu (Play, FileText, itp.) zamiast wizualnego podglądu zawartości. Użytkownicy nie widzą co jest wewnątrz materiału przed kliknięciem.
 
 ## Proponowane rozwiązanie
 
-### Zmiana 1: Implementacja podglądu materiałów
+Dodanie pola `thumbnail_url` do tabeli i możliwości upload okładki przez admina, z wyświetlaniem jej na kartach materiałów.
 
-Zamiast wyświetlać toast "funkcja w przygotowaniu", otworzy się dialog z odtwarzaczem/podglądem wykorzystujący komponent `SecureMedia`:
+## Wizualny efekt końcowy
 
+**Karta materiału - PRZED:**
 ```text
-┌─────────────────────────────────────────────────┐
-│ Podgląd: TEST                              [X]  │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  ┌─────────────────────────────────────────┐   │
-│  │                                         │   │
-│  │          [▶ ODTWARZACZ WIDEO]           │   │
-│  │                                         │   │
-│  │     ────────────────○───────────────    │   │
-│  │     ▶  0:32 / 5:45           🔊  ⛶     │   │
-│  └─────────────────────────────────────────┘   │
-│                                                 │
-│  Webinary archiwalne  ·  5:45 min  ·  0 wyśw.  │
-└─────────────────────────────────────────────────┘
+┌────────────────────────────────┐
+│ [▶ Play]  Wideo                │
+│                                │
+│ TEST                           │
+│ testowy                        │
+│                                │
+│ [Podgląd]  [Udostępnij]        │
+└────────────────────────────────┘
 ```
 
-Obsługiwane typy:
-- **video** - SecureMedia z odtwarzaczem wideo
-- **audio** - SecureMedia z odtwarzaczem audio  
-- **image** - SecureMedia z podglądem obrazu
-- **document** - Link do otwarcia/pobrania PDF
-- **text** - Wyświetlenie treści HTML
-
-### Zmiana 2: Dodanie przełącznika "Tylko Admin"
-
-W sekcji "Widoczność" formularza edycji dodanie przełącznika:
-
+**Karta materiału - PO:**
 ```text
-Widoczność
-┌─────────────────────────────────────────┐
-│ ⭐ Tylko Admin     │ Wszyscy zalogowani │
-│     [×]            │     [ ]            │
-├────────────────────┼────────────────────┤
-│ Partnerzy          │ Klienci            │
-│     [ ]            │     [ ]            │
-├────────────────────┼────────────────────┤
-│ Specjaliści        │                    │
-│     [ ]            │                    │
-└─────────────────────────────────────────┘
+┌────────────────────────────────┐
+│ ┌────────────────────────────┐ │
+│ │                            │ │
+│ │      [OKŁADKA/THUMBNAIL]   │ │
+│ │           ▶                │ │
+│ │                            │ │
+│ └────────────────────────────┘ │
+│ [▶ Play]  Wideo   [Wyróżnione] │
+│                                │
+│ TEST                           │
+│ testowy                        │
+│                                │
+│ Kategoria · 5 min · 👁 1       │
+│                                │
+│ [Podgląd]  [Udostępnij]        │
+└────────────────────────────────┘
 ```
 
-**Logika:**
-- Gdy zaznaczony "Tylko Admin" → odznacz wszystkie inne opcje
-- Gdy zaznaczona inna opcja → upewnij się że `visible_to_admin` = true (admini zawsze widzą)
-- Materiał widoczny tylko dla adminów: tylko `visible_to_admin = true`, pozostałe = false
+## Zmiany do wprowadzenia
 
-### Zmiana 3: Wyświetlanie badge "Admin" w tabeli
+### 1. Migracja bazy danych
 
-W kolumnie "Widoczność" tabeli materiałów:
+Dodanie kolumny `thumbnail_url`:
+
+```sql
+ALTER TABLE public.healthy_knowledge
+ADD COLUMN thumbnail_url TEXT;
+
+COMMENT ON COLUMN healthy_knowledge.thumbnail_url IS 'URL okładki/miniatury materiału';
+```
+
+### 2. Aktualizacja typu TypeScript
+
+W `src/types/healthyKnowledge.ts`:
+
+```typescript
+export interface HealthyKnowledge {
+  // ... istniejące pola
+  thumbnail_url: string | null;  // ← NOWE
+  // ...
+}
+```
+
+### 3. Formularz admina - upload okładki
+
+W `src/components/admin/HealthyKnowledgeManagement.tsx` dodanie sekcji "Okładka" przed sekcją "Plik":
 
 ```text
-Widoczność
-─────────────
-┌─────────────────────┐
-│ ⭐ Admin            │  ← Nowy badge (żółty/złoty)
-│ Partner             │
-│ Klient              │
-└─────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ Okładka                                                      │
+│ ┌──────────────────────────────────────────────────────────┐ │
+│ │ [Wybierz plik]  (obraz JPG, PNG, WebP)                   │ │
+│ └──────────────────────────────────────────────────────────┘ │
+│                                                              │
+│ ┌──────────────────────┐                                     │
+│ │                      │                                     │
+│ │   [PODGLĄD OKŁADKI]  │  okładka-wideo.jpg                 │
+│ │                      │  125.5 KB              [🗑️ Usuń]   │
+│ │                      │                                     │
+│ └──────────────────────┘                                     │
+│                                                              │
+│ 💡 Jeśli nie ustawisz okładki, dla wideo użyjemy             │
+│    pierwszej klatki, dla dokumentów - pierwszej strony.      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 4. Wyświetlanie okładki na kartach materiałów
+
+W `src/pages/HealthyKnowledge.tsx` - dodanie elementu okładki powyżej nagłówka karty:
+
+Logika wyświetlania:
+1. Jeśli `thumbnail_url` istnieje → wyświetl obraz okładki
+2. Jeśli typ = `image` i brak thumbnail → wyświetl `media_url` jako okładkę
+3. Jeśli typ = `video` i brak thumbnail → placeholder z ikoną Play
+4. Dla pozostałych → placeholder z ikoną typu
+
+```tsx
+{/* Thumbnail/Cover Image */}
+<div className="relative aspect-video bg-muted rounded-t-lg overflow-hidden">
+  {material.thumbnail_url ? (
+    <img 
+      src={material.thumbnail_url} 
+      alt={material.title}
+      className="w-full h-full object-cover"
+    />
+  ) : material.content_type === 'image' && material.media_url ? (
+    <img 
+      src={material.media_url} 
+      alt={material.title}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+      <ContentTypeIcon type={material.content_type} className="w-12 h-12 text-muted-foreground/50" />
+    </div>
+  )}
+  
+  {/* Play overlay for video */}
+  {material.content_type === 'video' && (
+    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+      <div className="p-3 rounded-full bg-white/90 shadow-lg">
+        <Play className="w-6 h-6 text-blue-600" />
+      </div>
+    </div>
+  )}
+</div>
 ```
 
 ## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/pages/HealthyKnowledge.tsx` | Dialog podglądu z SecureMedia |
-| `src/components/admin/HealthyKnowledgeManagement.tsx` | Przełącznik "Tylko Admin" + badge w tabeli |
+| `supabase/migrations/xxx_add_thumbnail.sql` | Nowa migracja - kolumna `thumbnail_url` |
+| `src/types/healthyKnowledge.ts` | Dodanie pola `thumbnail_url` |
+| `src/components/admin/HealthyKnowledgeManagement.tsx` | Sekcja upload okładki + logika |
+| `src/pages/HealthyKnowledge.tsx` | Wyświetlanie okładki na kartach |
 
 ## Szczegóły techniczne
 
-### 1. Dialog podglądu materiału (HealthyKnowledge.tsx)
+### Migracja SQL
 
-**Nowy stan:**
-```tsx
-const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
+```sql
+-- Dodanie kolumny thumbnail_url
+ALTER TABLE public.healthy_knowledge
+ADD COLUMN thumbnail_url TEXT;
+
+-- Komentarz
+COMMENT ON COLUMN healthy_knowledge.thumbnail_url IS 'URL okładki/miniatury materiału (obraz)';
 ```
 
-**Nowa funkcja handleViewMaterial:**
-```tsx
-const handleViewMaterial = (material: HealthyKnowledge) => {
-  setPreviewMaterial(material);
-  setPreviewDialogOpen(true);
-  
-  // Zwiększ licznik wyświetleń
-  supabase
-    .from('healthy_knowledge')
-    .update({ view_count: material.view_count + 1 })
-    .eq('id', material.id);
+### Aktualizacja typu
+
+```typescript
+// src/types/healthyKnowledge.ts
+export interface HealthyKnowledge {
+  id: string;
+  title: string;
+  description: string | null;
+  slug: string;
+  content_type: ContentType;
+  media_url: string | null;
+  thumbnail_url: string | null;  // ← NOWE
+  text_content: string | null;
+  // ... reszta bez zmian
+}
+```
+
+### Funkcja upload okładki (w HealthyKnowledgeManagement.tsx)
+
+```typescript
+const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !editingMaterial) return;
+
+  // Walidacja - tylko obrazy
+  if (!file.type.startsWith('image/')) {
+    toast.error('Okładka musi być obrazem (JPG, PNG, WebP)');
+    return;
+  }
+
+  setUploading(true);
+  try {
+    const fileName = `thumbnails/${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage
+      .from('healthy-knowledge')
+      .upload(fileName, file, { upsert: true });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('healthy-knowledge')
+      .getPublicUrl(data.path);
+
+    setEditingMaterial({
+      ...editingMaterial,
+      thumbnail_url: publicUrl,
+    });
+
+    toast.success('Okładka przesłana');
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    toast.error('Błąd przesyłania okładki');
+  } finally {
+    setUploading(false);
+  }
 };
 ```
 
-**Dialog z SecureMedia:**
+### Sekcja okładki w formularzu
+
 ```tsx
-<Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-  <DialogContent className="max-w-4xl max-h-[90vh]">
-    <DialogHeader>
-      <DialogTitle>{previewMaterial?.title}</DialogTitle>
-      <DialogDescription>{previewMaterial?.description}</DialogDescription>
-    </DialogHeader>
-    
-    {previewMaterial && (
-      <div className="space-y-4">
-        {/* Video/Audio/Image */}
-        {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
-          <SecureMedia
-            mediaUrl={previewMaterial.media_url}
-            mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
-            className="w-full rounded-lg"
-          />
-        )}
-        
-        {/* Text content */}
-        {previewMaterial.content_type === 'text' && previewMaterial.text_content && (
-          <div 
-            className="prose prose-sm dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: previewMaterial.text_content }}
-          />
-        )}
-        
-        {/* Document download link */}
-        {previewMaterial.content_type === 'document' && previewMaterial.media_url && (
-          <Button asChild>
-            <a href={previewMaterial.media_url} target="_blank" rel="noopener noreferrer">
-              <FileText className="w-4 h-4 mr-2" />
-              Otwórz dokument
-            </a>
-          </Button>
-        )}
-        
-        {/* Metadata */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          {previewMaterial.category && <Badge variant="outline">{previewMaterial.category}</Badge>}
-          {previewMaterial.duration_seconds && (
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {Math.floor(previewMaterial.duration_seconds / 60)} min
-            </span>
-          )}
-        </div>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
-```
-
-### 2. Przełącznik "Tylko Admin" (HealthyKnowledgeManagement.tsx)
-
-**Lokalizacja:** Sekcja "Widoczność" (linie 724-768)
-
-**Nowy grid z 5 opcjami:**
-```tsx
-{/* Visibility */}
-<div className="space-y-3">
-  <Label className="text-base font-semibold">Widoczność</Label>
-  <div className="grid grid-cols-2 gap-4">
-    {/* NOWY: Tylko Admin */}
-    <div className="flex items-center justify-between col-span-2 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-      <div className="flex items-center gap-2">
-        <Star className="w-4 h-4 text-yellow-500" />
-        <Label>Tylko Admin</Label>
-      </div>
-      <Switch
-        checked={
-          editingMaterial.visible_to_admin === true &&
-          !editingMaterial.visible_to_everyone &&
-          !editingMaterial.visible_to_partner &&
-          !editingMaterial.visible_to_client &&
-          !editingMaterial.visible_to_specjalista
-        }
-        onCheckedChange={(v) => {
-          if (v) {
-            setEditingMaterial({
-              ...editingMaterial,
-              visible_to_admin: true,
-              visible_to_everyone: false,
-              visible_to_partner: false,
-              visible_to_client: false,
-              visible_to_specjalista: false,
-            });
-          } else {
-            setEditingMaterial({
-              ...editingMaterial,
-              visible_to_everyone: true,
-            });
-          }
-        }}
-      />
-    </div>
-    
-    {/* Reszta opcji (bez zmian) */}
-    <div className="flex items-center justify-between">
-      <Label>Wszyscy zalogowani</Label>
-      <Switch ... />
-    </div>
-    {/* ... Partner, Klient, Specjalista ... */}
+{/* Thumbnail Upload */}
+<div className="space-y-2">
+  <Label>Okładka (opcjonalnie)</Label>
+  <div className="flex items-center gap-2">
+    <Input
+      type="file"
+      onChange={handleThumbnailUpload}
+      disabled={uploading}
+      accept="image/*"
+    />
+    {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
   </div>
+  
+  {editingMaterial.thumbnail_url && (
+    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+      <img 
+        src={editingMaterial.thumbnail_url} 
+        alt="Okładka" 
+        className="w-32 h-20 object-cover rounded-lg border shadow-sm"
+      />
+      <div className="flex-1">
+        <p className="text-sm font-medium">Okładka ustawiona</p>
+      </div>
+      <Button 
+        variant="ghost" 
+        size="icon"
+        type="button"
+        onClick={() => setEditingMaterial({
+          ...editingMaterial,
+          thumbnail_url: null,
+        })}
+        title="Usuń okładkę"
+      >
+        <Trash2 className="w-4 h-4 text-destructive" />
+      </Button>
+    </div>
+  )}
+  
   <p className="text-xs text-muted-foreground">
-    💡 "Tylko Admin" ukrywa materiał przed wszystkimi innymi rolami.
+    Jeśli nie ustawisz okładki, dla obrazów zostanie użyty sam plik, 
+    dla pozostałych typów - ikona zastępcza.
   </p>
 </div>
 ```
 
-### 3. Badge "Admin" w tabeli (HealthyKnowledgeManagement.tsx)
-
-**Lokalizacja:** Kolumna "Widoczność" w tabeli (linie 415-421)
+### Karta z okładką (HealthyKnowledge.tsx)
 
 ```tsx
-<TableCell>
-  <div className="flex flex-wrap gap-1">
-    {/* NOWY: Badge Admin - wyświetlaj gdy tylko admin ma dostęp */}
-    {material.visible_to_admin && 
-     !material.visible_to_everyone && 
-     !material.visible_to_partner && 
-     !material.visible_to_client && 
-     !material.visible_to_specjalista && (
-      <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
-        <Star className="w-3 h-3 mr-1" />
-        Admin
+<Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
+  {/* Thumbnail/Cover */}
+  <div className="relative aspect-video bg-muted overflow-hidden">
+    {material.thumbnail_url ? (
+      <img 
+        src={material.thumbnail_url} 
+        alt={material.title}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      />
+    ) : material.content_type === 'image' && material.media_url ? (
+      <img 
+        src={material.media_url} 
+        alt={material.title}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+        <ContentTypeIcon type={material.content_type} className="w-16 h-16 text-muted-foreground/30" />
+      </div>
+    )}
+    
+    {/* Play overlay for video/audio */}
+    {(material.content_type === 'video' || material.content_type === 'audio') && (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="p-4 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
+          <Play className="w-8 h-8 text-white" />
+        </div>
+      </div>
+    )}
+    
+    {/* Featured badge */}
+    {material.is_featured && (
+      <Badge className="absolute top-2 right-2 bg-yellow-500/90 text-yellow-950">
+        Wyróżnione
       </Badge>
     )}
-    {material.visible_to_everyone && <Badge variant="secondary" className="text-xs">Wszyscy</Badge>}
-    {material.visible_to_partner && <Badge variant="secondary" className="text-xs">Partner</Badge>}
-    {material.visible_to_client && <Badge variant="secondary" className="text-xs">Klient</Badge>}
-    {material.visible_to_specjalista && <Badge variant="secondary" className="text-xs">Specjalista</Badge>}
   </div>
-</TableCell>
+  
+  <CardHeader className="pb-3">
+    {/* Type badge */}
+    <div className="flex items-center gap-2">
+      <div className={cn("p-1.5 rounded", ...)}>
+        <ContentTypeIcon type={material.content_type} className="w-3 h-3" />
+      </div>
+      <Badge variant="outline" className="text-xs">
+        {CONTENT_TYPE_LABELS[material.content_type]}
+      </Badge>
+    </div>
+    
+    <CardTitle className="text-lg mt-2 line-clamp-2">
+      {material.title}
+    </CardTitle>
+    ...
+  </CardHeader>
+  ...
+</Card>
 ```
 
-## Wymagane importy
-
-**HealthyKnowledge.tsx:**
-```tsx
-import { SecureMedia } from '@/components/SecureMedia';
-```
-
-**HealthyKnowledgeManagement.tsx:**
-```tsx
-import { Star } from 'lucide-react'; // już zaimportowane (Star, StarOff)
-```
-
-## Podsumowanie zmian
+## Podsumowanie
 
 | Element | Przed | Po |
 |---------|-------|-----|
-| Podgląd materiału | Toast "funkcja w przygotowaniu" | Dialog z odtwarzaczem SecureMedia |
-| Widoczność dla adminów | Brak opcji w UI | Przełącznik "Tylko Admin" z wyróżnieniem |
-| Badge w tabeli | Brak badge Admin | Złoty badge "Admin" z ikoną gwiazdki |
-| Typy obsługiwane | Brak | video, audio, image, document, text |
+| Karta materiału | Tylko ikona typu | Pełna okładka z obrazem |
+| Formularz admina | Brak opcji okładki | Upload z podglądem |
+| Baza danych | Brak pola | Nowa kolumna `thumbnail_url` |
+| Efekt hover | Brak | Powiększenie okładki + zmiana koloru przycisku Play |
 
-## Efekt końcowy
-
-1. Użytkownik klika "Podgląd" → otwiera się dialog z odtwarzaczem wideo/audio lub podglądem obrazu/tekstu
-2. Admin może utworzyć materiał widoczny tylko dla adminów poprzez zaznaczenie "Tylko Admin"
-3. W tabeli materiałów widoczny jest badge "Admin" dla materiałów z ograniczonym dostępem
-4. Logika RLS w bazie już obsługuje `visible_to_admin` - nie wymaga zmian w backendzie
