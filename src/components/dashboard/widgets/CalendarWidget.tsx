@@ -24,7 +24,16 @@ export const CalendarWidget: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<EventWithRegistration[]>([]);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const dateLocale = language === 'pl' ? pl : enUS;
+
+  // Legend items configuration
+  const legendItems = [
+    { type: 'webinar', color: 'bg-blue-500', label: 'Webinar' },
+    { type: 'team_training', color: 'bg-green-500', label: 'Spotkanie zespołu' },
+    { type: 'tripartite_meeting', color: 'bg-violet-500', label: 'Spotkanie trójstronne' },
+    { type: 'partner_consultation', color: 'bg-fuchsia-500', label: 'Konsultacje' }
+  ];
 
   // Copy webinar invitation to clipboard
   const handleCopyInvitation = (event: EventWithRegistration) => {
@@ -54,15 +63,26 @@ Zapisz się tutaj: ${inviteUrl}
     return expandEventsForCalendar(events);
   }, [events]);
 
-  // Sync selectedDayEvents when events change (for real-time updates)
+  // Filter events based on active legend filter
+  const filteredEvents = useMemo(() => {
+    if (!activeFilter) return expandedEvents;
+    return expandedEvents.filter(event => {
+      if (activeFilter === 'team_training') {
+        return event.event_type === 'team_training' || event.event_type === 'meeting_public';
+      }
+      return event.event_type === activeFilter;
+    });
+  }, [expandedEvents, activeFilter]);
+
+  // Sync selectedDayEvents when events or filter change (for real-time updates)
   useEffect(() => {
     if (selectedDate) {
-      const dayEvents = expandedEvents.filter(event => 
+      const dayEvents = filteredEvents.filter(event => 
         isSameDay(new Date(event.start_time), selectedDate)
       );
       setSelectedDayEvents(dayEvents);
     }
-  }, [expandedEvents, selectedDate]);
+  }, [filteredEvents, selectedDate, activeFilter]);
 
   const locale = language === 'pl' ? pl : enUS;
 
@@ -70,9 +90,9 @@ Zapisz się tutaj: ${inviteUrl}
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Get events for the current month
+  // Get events for the current month (uses filtered events)
   const getEventsForDay = (day: Date) => {
-    return expandedEvents.filter(event => 
+    return filteredEvents.filter(event => 
       isSameDay(new Date(event.start_time), day)
     );
   };
@@ -257,24 +277,28 @@ Zapisz się tutaj: ${inviteUrl}
           })}
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 pt-2 border-t">
-          <div className="flex items-center gap-1.5 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-muted-foreground">Webinar</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="text-muted-foreground">Spotkanie zespołu</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
-            <span className="text-muted-foreground">Spotkanie trójstronne</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-fuchsia-500" />
-            <span className="text-muted-foreground">Konsultacje</span>
-          </div>
+        {/* Interactive Legend */}
+        <div className="flex flex-wrap gap-2 pt-2 border-t">
+          {legendItems.map((item) => (
+            <button
+              key={item.type}
+              onClick={() => setActiveFilter(prev => prev === item.type ? null : item.type)}
+              className={cn(
+                "flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-all cursor-pointer",
+                activeFilter === item.type 
+                  ? "bg-muted ring-2 ring-primary" 
+                  : "hover:bg-muted/50",
+                activeFilter && activeFilter !== item.type && "opacity-40"
+              )}
+            >
+              <div className={cn("w-2.5 h-2.5 rounded-full", item.color)} />
+              <span className={cn(
+                activeFilter === item.type ? "text-foreground font-medium" : "text-muted-foreground"
+              )}>
+                {item.label}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Selected day events */}
