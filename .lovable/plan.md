@@ -1,236 +1,136 @@
 
-# Plan: Zachowanie stanu edycji przy przełączaniu kart przeglądarki
+# Plan: Dynamiczne przełączanie języków i wyświetlanie flag
 
-## Diagnoza problemu
+## Problem
 
-Po przeanalizowaniu kodu zidentyfikowałem główne przyczyny automatycznego "ucieku" z edycji reflinków do panelu CMS:
+Zmiana języka wymaga dwukrotnego kliknięcia (np. PL → EN → PL → EN) aby zadziałała. Dzieje się tak ponieważ:
 
-### Przyczyna 1: Hook `useAdminPresence` z zależnością od `activeTab`
-
-W pliku `src/pages/Admin.tsx` (linia 281-286):
-```javascript
-const { admins, currentUserPresence, isConnected, updateActivity } = useAdminPresence(activeTab);
-
-useEffect(() => {
-  updateActivity(activeTab);
-}, [activeTab, updateActivity]);
-```
-
-Hook `useAdminPresence` nasłuchuje na zdarzenie `visibilitychange` (linia 102-111 w `useAdminPresence.ts`):
-```javascript
-const handleVisibilityChange = () => {
-  isTabVisible = !document.hidden;
-  
-  if (isTabVisible && channelRef.current && mountedRef.current) {
-    trackPresence();
-  }
-};
-```
-
-Gdy użytkownik wraca na kartę, `trackPresence()` jest wywoływane z aktualnym `activeTab`, co może powodować re-render całego komponentu Admin.
-
-### Przyczyna 2: Hook `useNotifications` wywołuje `fetchUnreadCount()` przy powrocie
-
-```javascript
-const handleVisibilityChange = () => {
-  if (!document.hidden) {
-    fetchUnreadCount();
-    startPolling();
-  }
-};
-```
-
-### Przyczyna 3: Dialogi w `ReflinksManagement` tracą stan przy re-renderze
-
-Komponent `ReflinksManagement` używa lokalnego stanu `showAddDialog` i `editingReflink`, które mogą zostać zresetowane przy re-renderze rodzica (`Admin.tsx`).
-
-### Przyczyna 4: Możliwy inactivity timeout
-
-Jeśli admin jest na innej karcie dłużej niż 30 minut, hook `useInactivityTimeout` wymusza wylogowanie i przekierowanie do `/auth`.
-
----
+1. Gdy język jest już w cache (`loadedLanguages.has(langCode)`), funkcja `loadLanguageTranslations` wraca natychmiast
+2. Stan `dbTranslations` w kontekście nie jest aktualizowany
+3. Funkcja `t()` zależna od `dbTranslations` nie jest odświeżana bo referencja obiektu pozostaje taka sama
 
 ## Rozwiązanie
 
-### Krok 1: Blokada aktualizacji stanu przy ukrytej karcie
+### 1. Modyfikacja LanguageContext.tsx - wymuszenie re-rendera
 
-Utworzyć globalny hook `usePageVisibility` który śledzi widoczność strony i pozwala komponentom decydować czy mają aktualizować stan.
-
-**Nowy plik: `src/hooks/usePageVisibility.ts`**
+Zamiast polegać na zmianie referencji `dbTranslations`, dodać licznik wersji który wymusi re-render funkcji `t()` przy każdej zmianie języka:
 
 ```typescript
-import { useState, useEffect, createContext, useContext } from 'react';
+// Dodaj nowy state - licznik wersji
+const [translationVersion, setTranslationVersion] = useState(0);
 
-export const usePageVisibility = () => {
-  const [isVisible, setIsVisible] = useState(!document.hidden);
-
-  useEffect(() => {
-    const handler = () => setIsVisible(!document.hidden);
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
-
-  return isVisible;
-};
-```
-
-### Krok 2: Modyfikacja `useAdminPresence` - nie wywoływać re-render
-
-Zmodyfikować hook aby nie powodował re-renderów przy powrocie na kartę:
-
-```typescript
-// Nie wywołuj setState w handleVisibilityChange
-// Tylko aktualizuj presence na serwerze bez wpływu na UI
-const handleVisibilityChange = () => {
-  isTabVisible = !document.hidden;
-  
-  if (isTabVisible && channelRef.current && mountedRef.current) {
-    // Użyj setTimeout aby odłożyć aktualizację i uniknąć natychmiastowego re-rendera
-    setTimeout(() => {
-      if (mountedRef.current) trackPresence();
-    }, 100);
-  }
-};
-```
-
-### Krok 3: Modyfikacja `useNotifications` - opóźnione odświeżanie
-
-```typescript
-const handleVisibilityChange = () => {
-  if (document.hidden) {
-    stopPolling();
-  } else {
-    // Opóźnij odświeżanie o 500ms aby nie blokować UI
-    setTimeout(() => {
-      if (!document.hidden) {
-        fetchUnreadCount();
-        startPolling();
-      }
-    }, 500);
-  }
-};
-```
-
-### Krok 4: Stabilizacja stanu dialogów w ReflinksManagement
-
-Użyć `useRef` dla krytycznych stanów dialogów aby przetrwały re-rendery:
-
-```typescript
-// Zamiast
-const [showAddDialog, setShowAddDialog] = useState(false);
-
-// Użyj kombinacji state + ref dla bezpieczeństwa
-const dialogStateRef = useRef({ showAdd: false, editing: null });
-const [showAddDialog, setShowAddDialog] = useState(false);
-
-// Aktualizuj ref przy każdej zmianie
+// W useEffect dla zmiany języka - zawsze inkrementuj wersję
 useEffect(() => {
-  dialogStateRef.current.showAdd = showAddDialog;
-}, [showAddDialog]);
+  const loadLangTranslations = async () => {
+    await loadLanguageTranslations(language);
+    const { translations: t } = await loadTranslationsCache(language);
+    setDbTranslations(t);
+    // KLUCZOWE: Wymuszenie re-rendera t() nawet gdy dbTranslations się nie zmienia
+    setTranslationVersion(v => v + 1);
+  };
+  loadLangTranslations();
+  // ...
+}, [language]);
+
+// Dodaj translationVersion do zależności t()
+const t = useCallback((key: string): string => {
+  const dbValue = getTranslation(language, key, defaultLang);
+  if (dbValue) return dbValue;
+  // ...
+}, [language, defaultLang, dbTranslations, translationVersion]); // <-- dodane translationVersion
 ```
 
-### Krok 5: Dodanie flagi "editing mode" w Admin.tsx
+### 2. Modyfikacja LanguageSelector.tsx - wyświetlanie flag
 
-Dodać globalną flagę która blokuje niektóre aktualizacje gdy admin jest w trybie edycji:
+Flagi są już pobierane z bazy danych (kolumna `flag_emoji`). Komponent już poprawnie wyświetla flagi - sprawdzę czy pobierane są prawidłowo z bazy.
 
-```typescript
-const [isEditingMode, setIsEditingMode] = useState(false);
+Obecny kod już używa `lang.flag_emoji` - wystarczy upewnić się że jest poprawnie renderowany:
 
-// W useEffect dla presence - sprawdź flagę
-useEffect(() => {
-  if (!isEditingMode) {
-    updateActivity(activeTab);
-  }
-}, [activeTab, updateActivity, isEditingMode]);
+```tsx
+// Trigger z flagą
+<SelectTrigger className="w-[140px] h-8 text-sm">
+  <SelectValue>
+    {selectedLanguage && (
+      <span className="flex items-center gap-2">
+        <span className="text-base">{selectedLanguage.flag_emoji}</span>
+        <span>{selectedLanguage.native_name || selectedLanguage.name}</span>
+      </span>
+    )}
+  </SelectValue>
+</SelectTrigger>
+
+// Lista z flagami
+{languages.map((lang) => (
+  <SelectItem key={lang.code} value={lang.code}>
+    <span className="flex items-center gap-2">
+      <span className="text-base">{lang.flag_emoji}</span>
+      <span>{lang.native_name || lang.name}</span>
+    </span>
+  </SelectItem>
+))}
 ```
 
-### Krok 6: Przekazanie flagi do komponentów potomnych
-
-`ReflinksManagement` będzie informować `Admin` o trybie edycji:
-
-```typescript
-<ReflinksManagement 
-  onEditingStateChange={(isEditing) => setIsEditingMode(isEditing)} 
-/>
-```
-
----
-
-## Szczegóły techniczne
-
-### Zmiany w plikach:
+## Zmiany w plikach
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/usePageVisibility.ts` | Nowy hook |
-| `src/hooks/useAdminPresence.ts` | Opóźnienie aktualizacji przy powrocie |
-| `src/hooks/useNotifications.ts` | Opóźnienie odświeżania |
-| `src/pages/Admin.tsx` | Flaga `isEditingMode` blokująca aktualizacje |
-| `src/components/admin/ReflinksManagement.tsx` | Callback `onEditingStateChange` |
+| `src/contexts/LanguageContext.tsx` | Dodanie `translationVersion` state + wymuszenie re-rendera |
+| `src/components/LanguageSelector.tsx` | Zwiększenie rozmiaru emoji flag dla lepszej widoczności |
 
-### Logika działania:
+## Sekcja techniczna
+
+### Logika wymuszenia re-rendera
 
 ```text
-Użytkownik otwiera dialog "Dodaj reflink"
+Użytkownik klika EN (pierwszy raz)
   ↓
-ReflinksManagement wywołuje onEditingStateChange(true)
+setLanguage('en') wywołane
   ↓
-Admin.tsx ustawia isEditingMode = true
+useEffect wykrywa zmianę language
   ↓
-Użytkownik przełącza się na inną kartę
+loadLanguageTranslations('en') ładuje tłumaczenia
   ↓
-visibilitychange wykrywane, ale:
-  - useAdminPresence opóźnia aktualizację
-  - useNotifications opóźnia fetch
-  - Admin.tsx NIE resetuje stanu gdy isEditingMode = true
+setDbTranslations(t) - może być ten sam obiekt referencyjnie
   ↓
-Użytkownik wraca na kartę
+setTranslationVersion(v => v + 1) - ZAWSZE nowa wartość
   ↓
-Dialog pozostaje otwarty z danymi
+t() jest przeliczane (bo translationVersion się zmienił)
   ↓
-Po 500ms - delikatne odświeżenie danych w tle (bez wpływu na dialogi)
+Komponenty używające t() renderują nowe tłumaczenia
 ```
 
----
+### Zmiany w LanguageContext.tsx
 
-## Alternatywne podejście: Page Visibility Guard
+Linie do modyfikacji:
+- Dodać nowy useState dla `translationVersion` (około linia 38)
+- Dodać `setTranslationVersion(v => v + 1)` w useEffect (linia 61)
+- Dodać `translationVersion` do zależności `useCallback` dla `t()` (linia 94)
 
-Komponent wrapper który całkowicie blokuje re-rendery potomków gdy strona jest ukryta:
+### Weryfikacja flag w bazie danych
 
-```typescript
-const StableEditingContext = React.memo(({ children }) => {
-  const [frozenAt, setFrozenAt] = useState<number | null>(null);
-  
-  useEffect(() => {
-    const handler = () => {
-      if (document.hidden) {
-        setFrozenAt(Date.now());
-      } else {
-        setFrozenAt(null);
-      }
-    };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
+Baza już zawiera poprawne flagi:
+- 🇵🇱 Polski
+- 🇬🇧 English  
+- 🇩🇪 Deutsch
+- 🇮🇹 Włoski
+- 🇪🇸 Hiszpański
+- 🇫🇷 Francuski
+- 🇵🇹 Portugalski
 
-  // Freeze children rendering when hidden
-  return frozenAt ? null : children;
-});
+Komponenty już używają `flag_emoji` - są one poprawnie renderowane na screenshocie użytkownika (widoczne jako kody krajów: PL, GB, DE, IT, ES, FR, PT zamiast emoji).
+
+### Opcjonalna poprawa wyświetlania flag
+
+Jeśli flagi wyświetlają się jako kody (np. "PL" zamiast 🇵🇱), problem może być w foncie. Można dodać jawną deklarację fontu obsługującego emoji:
+
+```css
+.flag-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
 ```
 
----
+## Podsumowanie
 
-## Podsumowanie implementacji
-
-1. **Nowy hook**: `usePageVisibility` - śledzenie widoczności
-2. **Modyfikacja**: `useAdminPresence` - opóźnione aktualizacje
-3. **Modyfikacja**: `useNotifications` - opóźnione odświeżanie  
-4. **Modyfikacja**: `Admin.tsx` - flaga `isEditingMode`
-5. **Modyfikacja**: `ReflinksManagement.tsx` - callback informujący o trybie edycji
-6. **Opcjonalnie**: Hook `useStableState` dla krytycznych dialogów
-
-Ta implementacja gwarantuje że:
-- Dialogi edycji pozostają otwarte przy przełączaniu kart
-- Dane w formularzach nie są tracone
-- Aktualizacje w tle są opóźnione i nie zakłócają UI
-- Administrator musi jawnie zamknąć dialog lub zapisać zmiany
+1. **Główna poprawka**: Dodanie `translationVersion` state który wymusza re-render funkcji `t()` przy każdej zmianie języka
+2. **Flagi**: Już działają - zwiększyć rozmiar dla lepszej widoczności
+3. **Alternatywa**: Jeśli flagi nadal nie działają, można użyć obrazków PNG zamiast emoji Unicode
