@@ -77,7 +77,7 @@ const getInitials = (firstName: string | null, lastName: string | null): string 
 const sizeConfig = {
   small: {
     container: 'min-w-[140px] max-w-[180px] p-2',
-    avatar: 'w-7 h-7',
+    avatar: 'w-10 h-10',
     text: 'text-[10px]',
     nameText: 'text-xs',
     badge: 'text-[9px] px-1 py-0',
@@ -85,7 +85,7 @@ const sizeConfig = {
   },
   medium: {
     container: 'min-w-[160px] max-w-[200px] p-2.5',
-    avatar: 'w-8 h-8',
+    avatar: 'w-12 h-12',
     text: 'text-xs',
     nameText: 'text-sm',
     badge: 'text-[10px] px-1.5 py-0.5',
@@ -93,7 +93,7 @@ const sizeConfig = {
   },
   large: {
     container: 'min-w-[180px] max-w-[220px] p-3',
-    avatar: 'w-9 h-9',
+    avatar: 'w-14 h-14',
     text: 'text-sm',
     nameText: 'text-base',
     badge: 'text-xs px-2 py-0.5',
@@ -119,6 +119,7 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
 
   return (
     <div
+      data-org-node
       onClick={onClick}
       className={cn(
         'flex flex-col rounded-lg border-2 transition-all duration-300',
