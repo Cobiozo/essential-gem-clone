@@ -231,7 +231,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
                   <SecureMedia
                     mediaUrl={content.media_url}
                     mediaType={content.content_type}
-                    disableInteraction={true}
+                    disableInteraction={false}
                   />
                 </div>
               )}
