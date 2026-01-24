@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ChevronDown, ChevronRight, Users, ArrowUp, Star } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, ArrowUp, Star, ZoomIn, ZoomOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizationTreeNode, OrganizationMember } from '@/hooks/useOrganizationTree';
 import { OrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
@@ -109,6 +109,11 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
   settings,
   statistics,
 }) => {
+  const [zoom, setZoom] = useState(100);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 10, 150));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 10, 50));
+
   if (!tree) {
     return (
       <Card>
@@ -122,10 +127,33 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
   return (
     <Card>
       <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2">
-          <Users className="w-5 h-5" />
-          Struktura organizacji
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Struktura organizacji
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleZoomOut}
+              disabled={zoom <= 50}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[3rem] text-center">{zoom}%</span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleZoomIn}
+              disabled={zoom >= 150}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
         
         {/* Statistics */}
         {settings.show_statistics && (
@@ -148,7 +176,10 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
       
       <CardContent>
         <ScrollArea className="w-full">
-          <div className="min-w-max p-6">
+          <div 
+            className="min-w-max p-6 origin-top-left transition-transform duration-200"
+            style={{ transform: `scale(${zoom / 100})` }}
+          >
             {/* Upline section */}
             {settings.show_upline && upline && (
               <>
