@@ -3474,6 +3474,81 @@ export type Database = {
           },
         ]
       }
+      organization_tree_settings: {
+        Row: {
+          client_max_depth: number
+          created_at: string
+          default_view: string
+          graph_expandable: boolean
+          graph_node_size: string
+          graph_show_lines: boolean
+          id: string
+          is_enabled: boolean
+          max_depth: number
+          partner_max_depth: number
+          show_avatar: boolean
+          show_email: boolean
+          show_eq_id: boolean
+          show_phone: boolean
+          show_role_badge: boolean
+          show_statistics: boolean
+          show_upline: boolean
+          specjalista_max_depth: number
+          updated_at: string
+          visible_to_clients: boolean
+          visible_to_partners: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          client_max_depth?: number
+          created_at?: string
+          default_view?: string
+          graph_expandable?: boolean
+          graph_node_size?: string
+          graph_show_lines?: boolean
+          id?: string
+          is_enabled?: boolean
+          max_depth?: number
+          partner_max_depth?: number
+          show_avatar?: boolean
+          show_email?: boolean
+          show_eq_id?: boolean
+          show_phone?: boolean
+          show_role_badge?: boolean
+          show_statistics?: boolean
+          show_upline?: boolean
+          specjalista_max_depth?: number
+          updated_at?: string
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          client_max_depth?: number
+          created_at?: string
+          default_view?: string
+          graph_expandable?: boolean
+          graph_node_size?: string
+          graph_show_lines?: boolean
+          id?: string
+          is_enabled?: boolean
+          max_depth?: number
+          partner_max_depth?: number
+          show_avatar?: boolean
+          show_email?: boolean
+          show_eq_id?: boolean
+          show_phone?: boolean
+          show_role_badge?: boolean
+          show_statistics?: boolean
+          show_upline?: boolean
+          specjalista_max_depth?: number
+          updated_at?: string
+          visible_to_clients?: boolean
+          visible_to_partners?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
       page_settings: {
         Row: {
           app_base_url: string | null
@@ -5478,6 +5553,21 @@ export type Database = {
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
+      get_organization_tree: {
+        Args: { p_max_depth?: number; p_root_eq_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          eq_id: string
+          first_name: string
+          id: string
+          last_name: string
+          level: number
+          phone_number: string
+          role: string
+          upline_eq_id: string
+        }[]
+      }
       get_reflink_validity_days: { Args: never; Returns: number }
       get_retryable_failed_emails: {
         Args: never

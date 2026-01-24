@@ -113,3 +113,22 @@ export interface TeamMapNode {
   upline_eq_id: string | null;
   children: TeamMapNode[];
 }
+
+// For organization tree visualization
+export interface OrganizationMember {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  eq_id: string | null;
+  upline_eq_id: string | null;
+  role: string | null;
+  avatar_url: string | null;
+  email: string | null;
+  phone_number: string | null;
+  level: number;
+}
+
+export interface OrganizationTreeNode extends OrganizationMember {
+  children: OrganizationTreeNode[];
+  childCount: number;
+}
