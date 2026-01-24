@@ -1,168 +1,249 @@
 
-# Plan: Naprawa dwóch problemów - nawigacja do zasobu i timer OTP InfoLink
 
-## Problem 1: ResourcesWidget nie pokazuje konkretnego zasobu
+# Plan: Naprawa systemu szkoleń - zatwierdzanie, walidacja i przyciski awaryjne
+
+## Problem 1: Przycisk "Zatwierdź" moduł nie działa prawidłowo
 
 ### Diagnoza
-W `ResourcesWidget.tsx` (linie 136, 142):
-```tsx
-onClick={() => navigate('/knowledge')}
-```
+Funkcja `approveModuleCompletion` (linie 662-741 w TrainingManagement.tsx) wygląda poprawnie - wykonuje upsert dla wszystkich lekcji i aktualizuje assignment. Jednak może być problem z odświeżaniem widoku lub warunkiem wyświetlania przycisku.
 
-Nawigacja kieruje tylko do strony `/knowledge` bez parametru identyfikującego zasób. Strona `KnowledgeCenter.tsx` nie obsługuje żadnych query params do podświetlenia konkretnego zasobu.
+**Znaleziony błąd**: Przycisk "Zatwierdź" jest widoczny TYLKO gdy `progress_percentage < 100` (linia 1325). Oznacza to, że gdy użytkownik ma wszystkie lekcje ukończone (100%), ale `is_completed = false`, przycisk nie jest widoczny!
 
 ### Rozwiązanie
+Zmienić warunek wyświetlania przycisku "Zatwierdź" na poziomie modułu:
+- Pokazuj przycisk gdy `is_completed = false` (niezależnie od postępu)
+- Zmienić tekst tooltip w zależności od kontekstu
 
-**Krok 1: Zmiana ResourcesWidget.tsx**
-
-Dodać przekazywanie ID zasobu jako query param:
 ```tsx
-onClick={() => navigate(`/knowledge?highlight=${resource.id}`)}
+// Zmiana warunku z:
+{module.progress_percentage < 100 && (
+// Na:
+{!module.is_completed && (
 ```
 
-**Krok 2: Zmiana KnowledgeCenter.tsx**
-
-Dodać obsługę query param `highlight`:
-- Import `useSearchParams` z react-router-dom
-- Odczytać parametr `highlight` z URL
-- Po załadowaniu zasobów, automatycznie przewinąć do podświetlonego zasobu
-- Dodać efekt wizualny (animacja ring/pulse) dla podświetlonego zasobu
-
-Kod do dodania:
-```tsx
-import { useSearchParams } from 'react-router-dom';
-
-// W komponencie:
-const [searchParams] = useSearchParams();
-const highlightedResourceId = searchParams.get('highlight');
-
-// useEffect do scrollowania:
-useEffect(() => {
-  if (highlightedResourceId && !loading) {
-    const element = document.getElementById(`resource-${highlightedResourceId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
-}, [highlightedResourceId, loading]);
-
-// W renderResourceCard dodać id i podświetlenie:
-<Card 
-  key={resource.id} 
-  id={`resource-${resource.id}`}
-  className={`hover:shadow-md transition-shadow ${
-    highlightedResourceId === resource.id 
-      ? 'ring-2 ring-primary animate-pulse' 
-      : ''
-  }`}
->
+Dodatkowo dodać pole `is_completed` do interface `UserProgress.modules`:
+```typescript
+modules: {
+  module_id: string;
+  module_title: string;
+  is_completed: boolean;  // DODAĆ
+  // ...
+}[]
 ```
 
 ---
 
-## Problem 2: Timer OTP w InfoLink liczy od momentu generacji zamiast od pierwszego użycia
+## Problem 2: Certyfikaty generowane bez walidacji ukończenia (KRYTYCZNE)
 
 ### Diagnoza
+Hook `useCertificateGeneration.ts` NIE sprawdza czy wszystkie lekcje są ukończone przed generowaniem PDF i zapisem certyfikatu. To pozwala na wydawanie certyfikatów dla niekompletnych szkoleń.
 
-**Obecny stan:**
-- Tabela `infolink_otp_codes` NIE MA kolumny `first_used_at` (jest tylko w `hk_otp_codes`)
-- Kolumny: `id, reflink_id, partner_id, code, expires_at, is_invalidated, used_sessions, created_at`
-- Timer w `CombinedOtpCodesWidget` liczy czas do `expires_at` (który jest obliczany przy generacji: created_at + validity hours)
+Przykład z bazy danych:
+- Jacek Jakubowski ma certyfikat SPRZEDAŻOWE, ale ukończył tylko 6/8 lekcji (75%)
+- Urszula Kamińska dostała dzisiaj certyfikat BIZNESOWE mimo 60% postępu
 
-**Różnica z Zdrowa Wiedza:**
-- `hk_otp_codes` MA kolumnę `first_used_at` 
-- Timer liczy: `first_used_at + validity hours`
-- Kod może czekać 7 dni na użycie, a potem dostęp trwa 24h
+### Rozwiązanie
+Dodać walidację ukończenia w `useCertificateGeneration.ts` (przed linią 63):
 
-**Wymagane zachowanie dla InfoLink:**
-- Kod powinien mieć okres oczekiwania (np. 7 dni na aktywację)
-- Timer dostępu startuje od pierwszego użycia kodu (pierwsza sesja)
+```typescript
+// 1.5 VALIDATE - Check if all lessons are completed
+console.log('Step 1.5: Validating lesson completion...');
+const { data: lessons } = await supabase
+  .from('training_lessons')
+  .select('id')
+  .eq('module_id', moduleId)
+  .eq('is_active', true);
+
+const { data: progress } = await supabase
+  .from('training_progress')
+  .select('lesson_id')
+  .eq('user_id', userId)
+  .eq('is_completed', true);
+
+const completedLessonIds = new Set(progress?.map(p => p.lesson_id) || []);
+const allCompleted = lessons?.every(l => completedLessonIds.has(l.id));
+
+if (!allCompleted && !forceRegenerate) {
+  console.log('❌ Not all lessons completed:', completedLessonIds.size, '/', lessons?.length);
+  return {
+    success: false,
+    error: `Nie ukończono wszystkich lekcji (${completedLessonIds.size}/${lessons?.length || 0}). Ukończ szkolenie przed generowaniem certyfikatu.`
+  };
+}
+console.log('✅ All lessons completed or force regenerate enabled');
+```
+
+---
+
+## Problem 3: Brak przycisku zatwierdzania przy każdej lekcji
+
+### Diagnoza
+Obecnie przy każdej lekcji jest tylko przycisk "Resetuj lekcję" (linie 1403-1417). Admin potrzebuje również przycisku "Zatwierdź" do awaryjnego zatwierdzania pojedynczych lekcji.
 
 ### Rozwiązanie
 
-**Krok 1: Migracja bazy danych**
+#### Krok 1: Dodać nową funkcję `approveLessonProgress`
 
-Dodać kolumnę `first_used_at` do tabeli `infolink_otp_codes`:
-```sql
-ALTER TABLE infolink_otp_codes 
-ADD COLUMN first_used_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
-```
-
-**Krok 2: Zmiana validate-infolink-otp Edge Function**
-
-Przy pierwszym użyciu kodu (gdy `used_sessions = 0`), ustawić `first_used_at`:
 ```typescript
-// Po walidacji kodu, przed incrementem used_sessions:
-const isFirstUse = otpRecord.used_sessions === 0;
+const approveLessonProgress = async (
+  userId: string, 
+  lessonId: string, 
+  lessonTitle: string,
+  moduleId: string
+) => {
+  const key = `approve-lesson-${userId}-${lessonId}`;
+  setResettingProgress(key);
 
-// Przy update:
-await supabase
-  .from('infolink_otp_codes')
-  .update({ 
-    used_sessions: otpRecord.used_sessions + 1,
-    ...(isFirstUse && { first_used_at: new Date().toISOString() })
-  })
-  .eq('id', otpRecord.id);
+  try {
+    // Pobierz min_time_seconds dla lekcji
+    const { data: lessonData } = await supabase
+      .from('training_lessons')
+      .select('min_time_seconds')
+      .eq('id', lessonId)
+      .single();
 
-// Obliczanie expiry sesji - od pierwszego użycia:
-const firstUseTime = isFirstUse 
-  ? new Date() 
-  : new Date(otpRecord.first_used_at);
-const sessionExpiresAt = new Date(firstUseTime.getTime() + validityHours * 60 * 60 * 1000);
-```
+    // Upsert postępu jako ukończony
+    const { error } = await supabase
+      .from('training_progress')
+      .upsert({
+        user_id: userId,
+        lesson_id: lessonId,
+        is_completed: true,
+        time_spent_seconds: lessonData?.min_time_seconds || 300,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, { 
+        onConflict: 'user_id,lesson_id' 
+      });
 
-**Krok 3: Zmiana generate-infolink-otp Edge Function**
+    if (error) throw error;
 
-Zmienić `expires_at` na dłuższy okres oczekiwania (7 dni):
-```typescript
-// PRZED (linia 134):
-const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+    toast({
+      title: "Lekcja zatwierdzona",
+      description: `Lekcja "${lessonTitle}" została oznaczona jako ukończona.`
+    });
 
-// PO - 7 dni na aktywację kodu:
-const activationPeriodDays = 7;
-const expiresAt = new Date(Date.now() + activationPeriodDays * 24 * 60 * 60 * 1000);
-```
-
-**Krok 4: Zmiana CombinedOtpCodesWidget**
-
-Zmienić komponent `InfoLinkLiveCountdown` aby liczył od `first_used_at`:
-```tsx
-const InfoLinkLiveCountdown: React.FC<{ 
-  firstUsedAt: string | null;
-  validityHours: number;
-}> = ({ firstUsedAt, validityHours }) => {
-  // Logika identyczna jak HkLiveCountdown
-  // Jeśli firstUsedAt === null -> "Oczekuje na użycie"
-  // Jeśli jest firstUsedAt -> liczyć first_used_at + validityHours
+    await fetchUserProgress();
+  } catch (error) {
+    console.error('Error approving lesson:', error);
+    toast({
+      title: "Błąd",
+      description: "Nie udało się zatwierdzić lekcji.",
+      variant: "destructive"
+    });
+  } finally {
+    setResettingProgress(null);
+  }
 };
 ```
 
-Zmienić zapytanie w `fetchInfoLinkCodes` aby pobierać `first_used_at`:
+#### Krok 2: Dodać przycisk przy każdej nieukończonej lekcji
+
+Zmodyfikować UI przy lekcji (linie 1399-1418) - dodać minimalistyczny przycisk "✓" przed przyciskiem "Resetuj":
+
 ```tsx
-.select(`
-  id, code, expires_at, used_sessions, created_at, first_used_at,
-  reflink:reflinks(id, title, otp_max_sessions, otp_validity_hours),
-  infolink_sessions(expires_at)
-`)
+<div className="flex items-center gap-1 shrink-0">
+  <span className="text-xs text-muted-foreground">
+    {formatTime(lesson.time_spent_seconds)}
+  </span>
+  
+  {/* Przycisk zatwierdzenia - tylko dla nieukończonych lekcji */}
+  {!lesson.is_completed && (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+      onClick={() => approveLessonProgress(
+        progressUser.user_id, 
+        lesson.lesson_id, 
+        lesson.lesson_title,
+        module.module_id
+      )}
+      disabled={resettingProgress === `approve-lesson-${progressUser.user_id}-${lesson.lesson_id}`}
+      title="Zatwierdź ukończenie lekcji"
+    >
+      <CheckCircle className="h-3.5 w-3.5" />
+    </Button>
+  )}
+  
+  {/* Przycisk resetowania */}
+  <Button
+    size="sm"
+    variant="ghost"
+    className="h-6 px-2 text-xs gap-1"
+    onClick={() => resetLessonProgress(progressUser.user_id, lesson.lesson_id, lesson.lesson_title)}
+    disabled={isResettingLesson}
+    title="Usuwa postęp użytkownika w tej lekcji"
+  >
+    <RotateCcw className="h-3 w-3" />
+    <span className="hidden md:inline">Resetuj</span>
+  </Button>
+</div>
+```
+
+---
+
+## Problem 4: Naprawa istniejących danych w bazie
+
+### Migracja SQL - naprawić flagi is_completed
+
+```sql
+-- 1. Napraw training_assignments gdzie wszystkie lekcje są ukończone
+WITH completed_modules AS (
+  SELECT 
+    ta.user_id,
+    ta.module_id,
+    COUNT(DISTINCT tl.id) as total_lessons,
+    COUNT(DISTINCT CASE WHEN tp.is_completed THEN tl.id END) as completed_lessons
+  FROM training_assignments ta
+  JOIN training_lessons tl ON tl.module_id = ta.module_id AND tl.is_active = true
+  LEFT JOIN training_progress tp ON tp.lesson_id = tl.id AND tp.user_id = ta.user_id
+  WHERE ta.is_completed = false
+  GROUP BY ta.user_id, ta.module_id
+  HAVING COUNT(DISTINCT tl.id) = COUNT(DISTINCT CASE WHEN tp.is_completed THEN tl.id END)
+    AND COUNT(DISTINCT tl.id) > 0
+)
+UPDATE training_assignments ta
+SET 
+  is_completed = true,
+  completed_at = NOW()
+FROM completed_modules cm
+WHERE ta.user_id = cm.user_id 
+  AND ta.module_id = cm.module_id
+  AND ta.is_completed = false;
 ```
 
 ---
 
 ## Szczegóły techniczne zmian
 
-| Plik | Typ zmiany | Opis |
-|------|------------|------|
-| `src/components/dashboard/widgets/ResourcesWidget.tsx` | Modyfikacja | Dodanie `?highlight=ID` do nawigacji |
-| `src/pages/KnowledgeCenter.tsx` | Modyfikacja | Obsługa query param, scroll i podświetlenie |
-| `infolink_otp_codes` (baza) | Migracja | Dodanie kolumny `first_used_at` |
-| `supabase/functions/generate-infolink-otp/index.ts` | Modyfikacja | expires_at = 7 dni |
-| `supabase/functions/validate-infolink-otp/index.ts` | Modyfikacja | Ustawianie first_used_at przy pierwszym użyciu |
-| `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx` | Modyfikacja | Timer z first_used_at zamiast expires_at |
+| Plik | Zmiana |
+|------|--------|
+| `src/hooks/useCertificateGeneration.ts` | Dodanie walidacji ukończenia wszystkich lekcji (linie 62-78) |
+| `src/components/admin/TrainingManagement.tsx` | Dodanie funkcji `approveLessonProgress` (nowa, ~30 linii) |
+| `src/components/admin/TrainingManagement.tsx` | Dodanie przycisku zatwierdzania przy każdej lekcji (linie 1399-1402) |
+| `src/components/admin/TrainingManagement.tsx` | Zmiana warunku wyświetlania przycisku "Zatwierdź" moduł (linia 1325) |
+| `src/components/admin/TrainingManagement.tsx` | Dodanie pola `is_completed` do interface i fetchUserProgress |
+| Baza danych (migracja) | Skrypt naprawiający is_completed dla przypisań z 100% postępem |
 
 ---
 
-## Wpływ na istniejące dane
+## Oczekiwany efekt
 
-- Istniejące kody OTP InfoLink będą miały `first_used_at = NULL`
-- Dla kodów gdzie `used_sessions > 0`, można opcjonalnie ustawić `first_used_at = created_at` (migracja danych)
-- Nowe kody będą działać poprawnie z nową logiką
+1. **Przycisk "Zatwierdź" przy module** - widoczny gdy `is_completed = false`, nie tylko przy < 100%
+2. **Przycisk "✓" przy każdej nieukończonej lekcji** - minimalistyczny zielony przycisk
+3. **Walidacja przed certyfikatem** - blokuje generowanie gdy nie wszystkie lekcje ukończone
+4. **Naprawione dane** - 78 przypisań z 100% postępem otrzyma `is_completed = true`
+
+---
+
+## Wizualizacja UI po zmianach
+
+```text
+SPRZEDAŻOWE                    75%  [✓ Zatwierdź] [↻ Resetuj szkolenie]
+├─ Lekcja 1 ✅ ukończona       5:30                [↻ Resetuj]
+├─ Lekcja 2 ✅ ukończona       3:45                [↻ Resetuj]
+├─ Lekcja 3 ○ nieukończona     0:00  [✓]          [↻ Resetuj]
+└─ Lekcja 4 ○ nieukończona     0:00  [✓]          [↻ Resetuj]
+```
+
