@@ -1120,22 +1120,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     }
     
     return (
-      <video
-        ref={videoRefCallback}
-        {...securityProps}
-        src={signedUrl}
-        controls
-        controlsList="nodownload"
-        className={`w-full h-full object-contain rounded-lg ${className || ''}`}
-        preload="metadata"
-        playsInline
-        // @ts-ignore - webkit-playsinline for older iOS
-        webkit-playsinline="true"
-        // Only use crossOrigin for Supabase storage URLs (which support CORS)
-        {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
-      >
-        Twoja przeglądarka nie obsługuje odtwarzania wideo.
-      </video>
+      <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
+        <video
+          ref={videoRefCallback}
+          {...securityProps}
+          src={signedUrl}
+          controls
+          controlsList="nodownload"
+          className="absolute inset-0 w-full h-full object-contain rounded-lg"
+          preload="metadata"
+          playsInline
+          // @ts-ignore - webkit-playsinline for older iOS
+          webkit-playsinline="true"
+          // Only use crossOrigin for Supabase storage URLs (which support CORS)
+          {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+        >
+          Twoja przeglądarka nie obsługuje odtwarzania wideo.
+        </video>
+      </div>
     );
   }
 
