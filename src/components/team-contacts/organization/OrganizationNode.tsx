@@ -13,6 +13,9 @@ interface OrganizationNodeProps {
   isUpline?: boolean;
   size?: 'small' | 'medium' | 'large';
   onClick?: () => void;
+  isOnPath?: boolean;
+  isSelected?: boolean;
+  hasFocus?: boolean;
 }
 
 const getRoleConfig = (role: string | null) => {
@@ -73,28 +76,28 @@ const getInitials = (firstName: string | null, lastName: string | null): string 
 
 const sizeConfig = {
   small: {
-    container: 'min-w-[200px] p-3',
-    avatar: 'w-10 h-10',
+    container: 'min-w-[140px] max-w-[180px] p-2',
+    avatar: 'w-7 h-7',
+    text: 'text-[10px]',
+    nameText: 'text-xs',
+    badge: 'text-[9px] px-1 py-0',
+    infoText: 'text-[9px]',
+  },
+  medium: {
+    container: 'min-w-[160px] max-w-[200px] p-2.5',
+    avatar: 'w-8 h-8',
     text: 'text-xs',
     nameText: 'text-sm',
     badge: 'text-[10px] px-1.5 py-0.5',
     infoText: 'text-[10px]',
   },
-  medium: {
-    container: 'min-w-[240px] p-4',
-    avatar: 'w-12 h-12',
+  large: {
+    container: 'min-w-[180px] max-w-[220px] p-3',
+    avatar: 'w-9 h-9',
     text: 'text-sm',
     nameText: 'text-base',
     badge: 'text-xs px-2 py-0.5',
     infoText: 'text-xs',
-  },
-  large: {
-    container: 'min-w-[280px] p-5',
-    avatar: 'w-14 h-14',
-    text: 'text-base',
-    nameText: 'text-lg',
-    badge: 'text-sm px-2.5 py-1',
-    infoText: 'text-sm',
   },
 };
 
@@ -105,6 +108,9 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
   isUpline = false,
   size = 'medium',
   onClick,
+  isOnPath = false,
+  isSelected = false,
+  hasFocus = false,
 }) => {
   const roleConfig = getRoleConfig(node.role);
   const sizes = sizeConfig[size];
@@ -115,49 +121,46 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
     <div
       onClick={onClick}
       className={cn(
-        'flex flex-col rounded-xl border-2 transition-all duration-200',
+        'flex flex-col rounded-lg border-2 transition-all duration-300',
         sizes.container,
         roleConfig.bgColor,
         roleConfig.borderColor,
         isRoot && 'ring-2 ring-primary ring-offset-2',
         isUpline && 'opacity-75',
-        onClick && 'cursor-pointer hover:shadow-lg hover:scale-105'
+        isSelected && 'ring-2 ring-primary ring-offset-2 shadow-lg',
+        hasFocus && !isOnPath && 'scale-90 opacity-50',
+        onClick && 'cursor-pointer hover:shadow-md hover:scale-[1.02]'
       )}
     >
-      {/* Main content - two columns */}
-      <div className="flex gap-3">
-        {/* Left column - Avatar */}
+      {/* Header row - Avatar + Name */}
+      <div className="flex items-center gap-2">
         {settings.show_avatar && (
           <div className="relative flex-shrink-0">
-            <Avatar className={cn(sizes.avatar, 'border-2', roleConfig.borderColor)}>
+            <Avatar className={cn(sizes.avatar, 'border', roleConfig.borderColor)}>
               {node.avatar_url ? (
                 <AvatarImage src={node.avatar_url} alt={fullName} />
               ) : null}
-              <AvatarFallback className={cn(roleConfig.avatarBg, roleConfig.textColor, 'font-semibold')}>
+              <AvatarFallback className={cn(roleConfig.avatarBg, roleConfig.textColor, 'font-semibold text-[10px]')}>
                 {initials}
               </AvatarFallback>
             </Avatar>
             {isRoot && (
-              <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5">
-                <Star className="w-3 h-3" />
+              <div className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground rounded-full p-0.5">
+                <Star className="w-2 h-2" />
               </div>
             )}
           </div>
         )}
 
-        {/* Right column - Info */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center">
-          {/* Name */}
-          <div className={cn('font-semibold truncate', sizes.nameText)}>
+        <div className="flex-1 min-w-0">
+          <div className={cn('font-semibold truncate leading-tight', sizes.nameText)}>
             {fullName}
           </div>
-
-          {/* Role Badge */}
           {settings.show_role_badge && (
             <Badge
               variant="secondary"
               className={cn(
-                'mt-1 w-fit',
+                'mt-0.5',
                 sizes.badge,
                 roleConfig.badgeColor,
                 'text-white'
@@ -166,38 +169,40 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
               {roleConfig.label}
             </Badge>
           )}
-
-          {/* Additional info - EQID, Email, Phone */}
-          <div className="mt-2 space-y-0.5">
-            {settings.show_eq_id && node.eq_id && (
-              <div className={cn('text-muted-foreground font-mono', sizes.infoText)}>
-                ID: {node.eq_id}
-              </div>
-            )}
-            {settings.show_email && node.email && (
-              <div className={cn('flex items-center gap-1 text-muted-foreground truncate', sizes.infoText)}>
-                <Mail className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{node.email}</span>
-              </div>
-            )}
-            {settings.show_phone && node.phone_number && (
-              <div className={cn('flex items-center gap-1 text-muted-foreground', sizes.infoText)}>
-                <Phone className="w-3 h-3 flex-shrink-0" />
-                <span>{node.phone_number}</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
+
+      {/* Info section - EQID, Email, Phone */}
+      {(settings.show_eq_id || settings.show_email || settings.show_phone) && (
+        <div className="mt-1.5 space-y-0.5 border-t border-current/10 pt-1.5">
+          {settings.show_eq_id && node.eq_id && (
+            <div className={cn('text-muted-foreground font-mono', sizes.infoText)}>
+              EQID: {node.eq_id}
+            </div>
+          )}
+          {settings.show_email && node.email && (
+            <div className={cn('flex items-center gap-1 text-muted-foreground truncate', sizes.infoText)}>
+              <Mail className="w-2.5 h-2.5 flex-shrink-0" />
+              <span className="truncate">{node.email}</span>
+            </div>
+          )}
+          {settings.show_phone && node.phone_number && (
+            <div className={cn('flex items-center gap-1 text-muted-foreground', sizes.infoText)}>
+              <Phone className="w-2.5 h-2.5 flex-shrink-0" />
+              <span>{node.phone_number}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Footer - Child count */}
       {settings.show_statistics && node.childCount > 0 && (
         <div className={cn(
-          'mt-3 pt-2 border-t border-current/10 flex items-center justify-center gap-1.5 text-muted-foreground',
+          'mt-1.5 pt-1.5 border-t border-current/10 flex items-center justify-center gap-1 text-muted-foreground',
           sizes.infoText
         )}>
-          <Users className="w-3.5 h-3.5" />
-          <span className="font-medium">+{node.childCount} osób w strukturze</span>
+          <Users className="w-3 h-3" />
+          <span className="font-medium">+{node.childCount}</span>
         </div>
       )}
     </div>
