@@ -22,35 +22,26 @@ serve(async (req) => {
       );
     }
 
-    // Client for user authentication
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
-
-    // Admin client for storage operations (private bucket)
+    // Admin client for storage and DB operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get the authenticated user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Verify JWT using getClaims (recommended for edge functions)
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAdmin.auth.getClaims(token);
     
-    if (userError || !user) {
-      console.error('Auth error:', userError);
+    if (claimsError || !claimsData?.claims) {
+      console.error('Auth claims error:', claimsError);
       return new Response(
         JSON.stringify({ error: 'Sesja wygasła. Zaloguj się ponownie.', sessionExpired: true }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Authenticated user:', user.id);
+    const userId = claimsData.claims.sub as string;
+    console.log('Authenticated user:', userId);
 
     const { certificateId } = await req.json();
 
@@ -82,13 +73,13 @@ serve(async (req) => {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     const isAdmin = profile?.role === 'admin';
     
-    if (certificate.user_id !== user.id && !isAdmin) {
-      console.error('Unauthorized access attempt by:', user.id);
+    if (certificate.user_id !== userId && !isAdmin) {
+      console.error('Unauthorized access attempt by:', userId);
       return new Response(
         JSON.stringify({ error: 'Unauthorized access to certificate' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
