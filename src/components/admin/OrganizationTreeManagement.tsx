@@ -103,6 +103,23 @@ export const OrganizationTreeManagement: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between py-2">
                 <div>
+                  <Label className="flex items-center gap-2">
+                    Administratorzy
+                    <Badge variant="outline" className="text-xs">zawsze aktywne</Badge>
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Administratorzy zawsze mają pełny dostęp do struktury
+                  </p>
+                </div>
+                <Switch
+                  checked={true}
+                  disabled={true}
+                  className="opacity-50"
+                />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between py-2">
+                <div>
                   <Label>Klienci</Label>
                   <p className="text-sm text-muted-foreground">
                     Czy klienci mogą widzieć swoją strukturę
