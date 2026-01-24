@@ -1,88 +1,83 @@
 
-# Naprawa błędu React #310 w TrainingModule
+# Naprawa błędu React #310 - useCallback po early returns
 
-## Zdiagnozowany problem
+## Problem
 
-**Błąd**: React Error #310 ("Rendered fewer hooks than expected")
+Błąd: **"Rendered more hooks than during the previous render"**
 
-**Przyczyna**: Hook `useLessonNotes` jest wywoływany WARUNKOWO - po instrukcjach `if/return`:
+Przyczyna: W `TrainingModule.tsx` po naprawie hooka `useLessonNotes`, pozostały dwa hooki `useCallback` (linie 1093-1108) **PO** instrukcjach `if/return`:
 
 ```tsx
-// Linia 1018-1043: Early return podczas ładowania
+// Linia 1041-1065: Early return podczas ładowania
 if (loading) {
-  return (...);  // ❌ Hook poniżej NIE jest wywoływany
+  return (...);  // ❌ Tu komponenty się zatrzymują przy pierwszym renderze
 }
 
-// Linia 1045-1064: Early return gdy brak modułu
+// Linia 1067-1086: Early return gdy brak modułu
 if (!module || lessons.length === 0) {
-  return (...);  // ❌ Hook poniżej NIE jest wywoływany
+  return (...);  // ❌ Tu też
 }
 
-// Linia 1071-1079: Hook wywoływany WARUNKOWO
-const { notes, noteMarkers, ... } = useLessonNotes(currentLesson?.id, user?.id);
+// Linia 1093-1101: HOOK PO EARLY RETURN!
+const handleNoteMarkerClick = useCallback(...);  // ❌ Niezawołany przy loading=true
+
+// Linia 1104-1108: HOOK PO EARLY RETURN!
+const handleSeekToTime = useCallback(...);  // ❌ Niezawołany przy loading=true
 ```
 
-To narusza **Zasady Hooków React** - hooki muszą być wywoływane bezwarunkowo na każdym renderze.
+To narusza zasady React - liczba hooków musi być taka sama przy każdym renderze.
 
 ---
 
 ## Rozwiązanie
 
-Przenieść wywołanie `useLessonNotes` NA POCZĄTEK komponentu, przed wszystkie instrukcje `if/return`:
+Przenieść `handleNoteMarkerClick` i `handleSeekToTime` na **początek komponentu** (po linii 115, obok `formatNoteTime`):
 
 ```tsx
-const TrainingModule = () => {
-  const { moduleId } = useParams<{ moduleId: string }>();
-  const [module, setModule] = useState<TrainingModule | null>(null);
-  // ... inne useState i useRef
-  
-  const currentLesson = lessons[currentLessonIndex];
-  
-  // ✅ Hook BEZWARUNKOWO na początku komponentu
-  const {
-    notes,
-    noteMarkers,
-    addNote,
-    updateNote,
-    deleteNote,
-    exportNotes,
-    getNoteById
-  } = useLessonNotes(currentLesson?.id, user?.id);
-  
-  // ... reszta useEffect i logiki
-  
-  // Teraz bezpieczne early returns
-  if (loading) {
-    return (...);
+// Linia ~96-115: Istniejące hooki
+const currentLesson = lessons[currentLessonIndex];
+
+const { notes, noteMarkers, ... } = useLessonNotes(currentLesson?.id, user?.id);
+
+const formatNoteTime = (seconds: number) => { ... };
+
+// ✅ DODAĆ TUTAJ (przed wszelkimi early returns):
+const handleNoteMarkerClick = useCallback((noteId: string) => {
+  const note = getNoteById(noteId);
+  if (note) {
+    toast({
+      title: `Notatka (${formatNoteTime(note.video_timestamp_seconds)})`,
+      description: note.content
+    });
   }
-  
-  if (!module || lessons.length === 0) {
-    return (...);
+}, [getNoteById, toast]);
+
+const handleSeekToTime = useCallback((seconds: number) => {
+  // Pobierz isLessonCompleted wewnątrz callbacka zamiast z dependency
+  const currentProgress = progress[currentLesson?.id];
+  const completed = currentProgress?.is_completed || false;
+  if (seekToTimeRef.current && completed) {
+    seekToTimeRef.current(seconds);
   }
-  
-  // ... reszta renderowania
-};
+}, [progress, currentLesson?.id]);
 ```
+
+I usunąć duplikaty z linii 1092-1108.
 
 ---
 
 ## Szczegóły techniczne
 
-| Plik | Zmiana |
-|------|--------|
-| `src/pages/TrainingModule.tsx` | Przeniesienie hooka `useLessonNotes` przed wszystkie instrukcje `return` |
-
-### Kroki:
-1. Przenieść definicję `currentLesson` wyżej (przed early returns)
-2. Przenieść wywołanie `useLessonNotes` tuż po wszystkich hookach useState/useRef (linia ~95)
-3. Przenieść powiązane funkcje pomocnicze (`handleNoteMarkerClick`, `formatNoteTime`, `handleSeekToTime`) również wyżej
+| Linia | Zmiana |
+|-------|--------|
+| ~115 | Dodać `handleNoteMarkerClick` i `handleSeekToTime` |
+| 1088-1108 | Usunąć stare definicje tych callbacków |
 
 ---
 
 ## Oczekiwany efekt
 
-Po naprawie:
-- Szkolenia będą się prawidłowo ładować
+- Wszystkie hooki wywoływane bezwarunkowo przy każdym renderze
 - Błąd React #310 zniknie
-- System notatek będzie działać poprawnie
-- Aplikacja będzie stabilna
+- Szkolenia będą działać poprawnie
+- System notatek będzie funkcjonować bez przeszkód
