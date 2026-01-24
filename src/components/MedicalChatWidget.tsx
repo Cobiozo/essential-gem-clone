@@ -988,7 +988,7 @@ Provide a structured summary:`;
         onClick={() => setIsOpen(!isOpen)}
         className="fixed z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
         style={{
-          bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 4.5rem)',
+          bottom: 'calc(max(4rem, env(safe-area-inset-bottom, 0px) + 3rem) + 4.5rem)',
           right: 'max(1rem, env(safe-area-inset-right, 0px))'
         }}
         aria-label={getTranslation('title')}
@@ -1005,7 +1005,7 @@ Provide a structured summary:`;
         <div 
           className="fixed z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-12rem)] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden"
           style={{
-            bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 9rem)',
+            bottom: 'calc(max(4rem, env(safe-area-inset-bottom, 0px) + 3rem) + 9rem)',
             right: 'max(1rem, env(safe-area-inset-right, 0px))'
           }}
         >

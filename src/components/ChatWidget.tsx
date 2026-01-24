@@ -58,7 +58,7 @@ export function ChatWidget() {
           isOpen && "rotate-90"
         )}
         style={{
-          bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
+          bottom: 'max(4rem, calc(env(safe-area-inset-bottom, 0px) + 3rem))',
           right: 'max(1rem, env(safe-area-inset-right, 0px))'
         }}
         size="icon"
@@ -77,7 +77,7 @@ export function ChatWidget() {
             "animate-in slide-in-from-bottom-5 duration-300"
           )}
           style={{
-            bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 0px)) + 4.5rem)',
+            bottom: 'calc(max(4rem, env(safe-area-inset-bottom, 0px) + 3rem) + 4.5rem)',
             right: 'max(1rem, env(safe-area-inset-right, 0px))'
           }}
         >
