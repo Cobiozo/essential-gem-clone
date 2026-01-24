@@ -33,6 +33,8 @@ interface SecureMediaProps {
   noteMarkers?: NoteMarker[];
   onNoteMarkerClick?: (noteId: string) => void;
   seekToTimeRef?: React.MutableRefObject<((time: number) => void) | null>;
+  // External pause request (e.g., when notes dialog opens)
+  pauseRequested?: boolean;
 }
 
 // YouTube URL detection and ID extraction
@@ -64,7 +66,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   initialTime = 0,
   noteMarkers,
   onNoteMarkerClick,
-  seekToTimeRef
+  seekToTimeRef,
+  pauseRequested = false
 }) => {
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
@@ -468,6 +471,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       window.removeEventListener('offline', updateNetworkQuality);
     };
   }, []);
+
+  // External pause request (e.g., when notes dialog opens)
+  useEffect(() => {
+    if (pauseRequested && videoRef.current && !videoRef.current.paused) {
+      console.log('[SecureMedia] External pause requested (notes dialog)');
+      videoRef.current.pause();
+    }
+  }, [pauseRequested]);
 
   // NOTE: Removed the useEffect that synced lastValidTimeRef with initialTime
   // This was causing issues because initialTime could change during playback

@@ -355,7 +355,8 @@ const TrainingModule = () => {
     const isLessonCompleted = progress[currentLesson?.id]?.is_completed;
     
     // Only run timer for non-video lessons that are not completed
-    if (hasVideo || isLessonCompleted) {
+    // Also stop timer when notes dialog is open
+    if (hasVideo || isLessonCompleted || isNotesDialogOpen) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
@@ -371,7 +372,7 @@ const TrainingModule = () => {
         clearInterval(timerRef.current);
       }
     };
-  }, [currentLessonIndex, lessons, progress]);
+  }, [currentLessonIndex, lessons, progress, isNotesDialogOpen]);
 
   // Preload następnej lekcji wideo dla płynniejszego przejścia
   useEffect(() => {
@@ -1279,6 +1280,7 @@ const TrainingModule = () => {
                       noteMarkers={noteMarkers}
                       onNoteMarkerClick={handleNoteMarkerClick}
                       seekToTimeRef={seekToTimeRef}
+                      pauseRequested={isNotesDialogOpen}
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
                       <div className="bg-green-50 dark:bg-green-950/30 border-t border-green-200 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
