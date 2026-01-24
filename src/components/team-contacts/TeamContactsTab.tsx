@@ -7,11 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { useGuardianApproval } from '@/hooks/useGuardianApproval';
+import { useOrganizationTree } from '@/hooks/useOrganizationTree';
 import { TeamContactsTable } from './TeamContactsTable';
 import { TeamContactAccordion } from './TeamContactAccordion';
 import { TeamContactForm } from './TeamContactForm';
@@ -20,6 +21,7 @@ import { TeamContactFilters } from './TeamContactFilters';
 import { TeamContactExport } from './TeamContactExport';
 import { TeamMap } from './TeamMap';
 import { SpecialistSearch } from './SpecialistSearch';
+import { OrganizationChart, OrganizationList } from './organization';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
@@ -62,6 +64,7 @@ export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
+  const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
   
   // Clients only see the specialist search tab, not private/team contacts
@@ -73,8 +76,9 @@ export const TeamContactsTab: React.FC = () => {
   const [editingContact, setEditingContact] = useState<TeamContact | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [viewMode, setViewMode] = useState<'accordion' | 'table' | 'map'>('accordion');
+  const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
-  const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
+  const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -91,8 +95,17 @@ export const TeamContactsTab: React.FC = () => {
       setActiveTab('private');
     } else if (subTab === 'search') {
       setActiveTab('search');
+    } else if (subTab === 'structure') {
+      setActiveTab('structure');
     }
   }, [location.search]);
+
+  // Update structure view mode when settings load
+  useEffect(() => {
+    if (treeSettings?.default_view) {
+      setStructureViewMode(treeSettings.default_view);
+    }
+  }, [treeSettings?.default_view]);
 
   // Fetch pending approvals for guardian
   const fetchPendingApprovals = async () => {
@@ -190,11 +203,11 @@ export const TeamContactsTab: React.FC = () => {
   const isPrivateTab = activeTab === 'private';
 
   // Calculate visible tabs count for grid
-  const visibleTabsCount = (clientOnlyView ? 0 : 2) + (canSearchSpecialists ? 1 : 0);
+  const visibleTabsCount = (clientOnlyView ? 0 : 2) + (canSearchSpecialists ? 1 : 0) + (canAccessTree() ? 1 : 0);
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'team' | 'search')} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'team' | 'search' | 'structure')} className="space-y-4">
         <TabsList className={`grid w-full lg:w-auto lg:inline-flex`} style={{ gridTemplateColumns: `repeat(${visibleTabsCount}, minmax(0, 1fr))` }}>
           {!clientOnlyView && (
             <TabsTrigger value="private" className="flex items-center gap-2">
@@ -220,6 +233,13 @@ export const TeamContactsTab: React.FC = () => {
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline">Szukaj specjalisty</span>
               <span className="sm:hidden">Szukaj</span>
+            </TabsTrigger>
+          )}
+          {canAccessTree() && (
+            <TabsTrigger value="structure" className="flex items-center gap-2">
+              <TreePine className="w-4 h-4" />
+              <span className="hidden sm:inline">Struktura</span>
+              <span className="sm:hidden">Struktura</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -549,6 +569,59 @@ export const TeamContactsTab: React.FC = () => {
                 <SpecialistSearch />
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* Structure Tab */}
+        {canAccessTree() && treeSettings && (
+          <TabsContent value="structure">
+            <div className="space-y-4">
+              {/* View Toggle */}
+              <div className="flex justify-end">
+                <div className="flex border rounded-md overflow-hidden">
+                  <Button
+                    variant={structureViewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setStructureViewMode('list')}
+                    className="rounded-none"
+                  >
+                    <List className="w-4 h-4 mr-2" />
+                    Lista
+                  </Button>
+                  <Button
+                    variant={structureViewMode === 'graph' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setStructureViewMode('graph')}
+                    className="rounded-none"
+                  >
+                    <TreePine className="w-4 h-4 mr-2" />
+                    Graf
+                  </Button>
+                </div>
+              </div>
+
+              {treeLoading ? (
+                <Card>
+                  <CardContent className="flex items-center justify-center h-64">
+                    <p className="text-muted-foreground">Ładowanie struktury...</p>
+                  </CardContent>
+                </Card>
+              ) : structureViewMode === 'graph' ? (
+                <OrganizationChart
+                  tree={tree}
+                  upline={upline}
+                  settings={treeSettings}
+                  statistics={statistics}
+                />
+              ) : (
+                <OrganizationList
+                  tree={tree}
+                  upline={upline}
+                  settings={treeSettings}
+                  statistics={statistics}
+                />
+              )}
+            </div>
           </TabsContent>
         )}
       </Tabs>
