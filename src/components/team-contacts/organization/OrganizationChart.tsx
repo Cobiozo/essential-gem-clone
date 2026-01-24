@@ -29,6 +29,7 @@ interface TreeBranchProps {
   highlightedPath: string[];
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string) => void;
+  animationKey: number;
 }
 
 // Helper function to create smooth curved SVG path
@@ -66,6 +67,7 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
   highlightedPath,
   selectedNodeId,
   onNodeClick,
+  animationKey,
 }) => {
   const [isExpanded, setIsExpanded] = useState(level < 2);
   const hasChildren = node.children.length > 0;
@@ -144,26 +146,24 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
               {node.children.map((child, index) => {
                 const childIsOnPath = highlightedPath.includes(child.id);
                 const childX = index * (nodeWidth + gap) + nodeWidth / 2;
-                const isHighlighted = (isOnPath || childIsOnPath) && hasFocus;
+                // Linia jest podświetlona TYLKO gdy OBA węzły (rodzic i dziecko) są na ścieżce
+                const isHighlighted = isOnPath && childIsOnPath && hasFocus;
                 
                 return (
                   <path
-                    key={child.id}
+                    key={`${child.id}-${isHighlighted ? animationKey : 'static'}`}
                     d={createCurvePath(centerX, 0, childX, 48, 14)}
                     className={cn(
-                      "tree-connector fill-none transition-all duration-300",
+                      "fill-none",
                       isHighlighted 
-                        ? "stroke-primary" 
+                        ? "stroke-primary tree-connector-highlight" 
                         : hasFocus 
                           ? "stroke-border/40" 
-                          : "stroke-border"
+                          : "stroke-border tree-connector"
                     )}
                     strokeWidth={isHighlighted ? 3 : 2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{
-                      animationDelay: `${index * 0.08}s`
-                    }}
                   />
                 );
               })}
@@ -181,6 +181,7 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
                   highlightedPath={highlightedPath}
                   selectedNodeId={selectedNodeId}
                   onNodeClick={onNodeClick}
+                  animationKey={animationKey}
                 />
               </div>
             ))}
@@ -211,6 +212,7 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
   const [zoom, setZoom] = useState(100);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
+  const [animationKey, setAnimationKey] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -228,6 +230,7 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
       setSelectedNodeId(nodeId);
       const path = findPathToNode(tree, nodeId);
       setHighlightedPath(path || []);
+      setAnimationKey(prev => prev + 1); // Wymusza ponowną animację rysowania
     }
   }, [tree, selectedNodeId]);
 
@@ -403,6 +406,7 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
                 highlightedPath={highlightedPath}
                 selectedNodeId={selectedNodeId}
                 onNodeClick={handleNodeClick}
+                animationKey={animationKey}
               />
             </div>
           </div>
