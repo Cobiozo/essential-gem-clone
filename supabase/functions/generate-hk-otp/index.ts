@@ -122,9 +122,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Calculate expiration
+    // Calculate expiration - code has 7 days to be first used
+    // Access timer only starts when code is first used (in validate-hk-otp)
     const validityHours = knowledge.otp_validity_hours || 24;
-    const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+    const maxCodeLifetimeDays = 7;
+    const expiresAt = new Date(Date.now() + maxCodeLifetimeDays * 24 * 60 * 60 * 1000);
 
     // Create OTP code record
     const { data: newCode, error: insertError } = await supabaseAdmin
@@ -172,7 +174,7 @@ Wejdź na link poniżej i użyj kodu dostępu:
 🔗 Link: {share_url}
 🔑 Kod dostępu: {otp_code}
 
-⏰ Kod ważny przez {validity_hours} godzin.
+⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.
 
 Pozdrawiam,
 {partner_name}`;

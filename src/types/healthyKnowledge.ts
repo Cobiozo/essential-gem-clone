@@ -45,11 +45,13 @@ export interface HkOtpCode {
   recipient_name: string | null;
   recipient_email: string | null;
   created_at: string;
+  // First use tracking - timer starts from this moment
+  first_used_at: string | null;
   // Soft-delete for user
   is_deleted_by_user: boolean;
   deleted_by_user_at: string | null;
   // Relations - partial for queries
-  healthy_knowledge?: Partial<HealthyKnowledge> & { id: string; title: string; slug: string };
+  healthy_knowledge?: Partial<HealthyKnowledge> & { id: string; title: string; slug: string; otp_validity_hours?: number };
   partner?: { first_name: string; last_name: string; email: string; role?: string };
   // Computed for widget
   first_session_expires_at?: string | null;
