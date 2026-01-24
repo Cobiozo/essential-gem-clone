@@ -141,11 +141,11 @@ export const DashboardFooterSection: React.FC = () => {
         </div>
         <span>© {new Date().getFullYear()} Pure Life. {t('footer.allRightsReserved')}</span>
         <div className="flex gap-4">
-          <a href="/page/polityka-prywatnosci" className="hover:text-primary transition-colors">
+          <a href="/html/polityka-prywatnosci" className="hover:text-primary transition-colors">
             {t('footer.privacyPolicy')}
           </a>
           <span>•</span>
-          <a href="/page/regulamin" className="hover:text-primary transition-colors">
+          <a href="/html/regulamin" className="hover:text-primary transition-colors">
             {t('footer.terms')}
           </a>
         </div>

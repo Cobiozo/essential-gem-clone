@@ -22,11 +22,11 @@ const Footer = () => {
           
           {/* Links */}
           <div className="flex items-center gap-4 text-sm">
-            <a href="#" className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors">
+            <a href="/html/polityka-prywatnosci" className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors">
               {t('footer.privacyPolicy')}
             </a>
             <span className="text-foreground/30 dark:text-foreground/40">•</span>
-            <a href="#" className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors">
+            <a href="/html/regulamin" className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors">
               {t('footer.terms')}
             </a>
           </div>
