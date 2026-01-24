@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find valid OTP code
+    // Find valid OTP code (check expires_at > now for codes not yet used, or first_used_at is set)
     const { data: otpCodeRecord, error: otpError } = await supabase
       .from('hk_otp_codes')
       .select('*')
@@ -82,13 +82,41 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get validity hours from knowledge
+    const validityHours = knowledge.otp_validity_hours || 24;
+    
+    // If this is the first use, set first_used_at and recalculate expires_at
+    let effectiveExpiresAt: Date;
+    
+    if (!otpCodeRecord.first_used_at) {
+      // First use - start the access timer now
+      const accessExpiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+      
+      // Update OTP record with first_used_at and new expires_at
+      const { error: updateError } = await supabase
+        .from('hk_otp_codes')
+        .update({ 
+          first_used_at: new Date().toISOString(),
+          expires_at: accessExpiresAt.toISOString()
+        })
+        .eq('id', otpCodeRecord.id);
+      
+      if (updateError) {
+        console.error('Error updating first_used_at:', updateError);
+      }
+      
+      effectiveExpiresAt = accessExpiresAt;
+      console.log(`First use of HK OTP ${normalizedCode}, access expires at ${accessExpiresAt.toISOString()}`);
+    } else {
+      // Code was already used - use existing expires_at
+      effectiveExpiresAt = new Date(otpCodeRecord.expires_at);
+    }
+
     // Generate session token
     const sessionToken = generateSessionToken();
     
-    // Session expires at OTP expiry or 24h from now, whichever is earlier
-    const otpExpiry = new Date(otpCodeRecord.expires_at);
-    const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const expiresAt = otpExpiry < sessionExpiry ? otpExpiry : sessionExpiry;
+    // Session expires at the effective expiry time
+    const expiresAt = effectiveExpiresAt;
 
     // Create session
     const { error: sessionError } = await supabase
@@ -122,7 +150,7 @@ Deno.serve(async (req) => {
 
     const remainingSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
 
-    console.log(`Validated HK OTP ${normalizedCode} for knowledge ${knowledge.slug}, session created`);
+    console.log(`Validated HK OTP ${normalizedCode} for knowledge ${knowledge.slug}, session created, expires in ${remainingSeconds}s`);
 
     return new Response(
       JSON.stringify({

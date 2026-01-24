@@ -13,14 +13,29 @@ import { HkOtpCode } from '@/types/healthyKnowledge';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
-// Live countdown component
-const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
+// Live countdown component - starts from first use, not generation
+const LiveCountdown: React.FC<{ expiresAt: string; firstUsedAt: string | null; validityHours?: number }> = ({ 
+  expiresAt, 
+  firstUsedAt,
+  validityHours = 24 
+}) => {
   const [timeLeft, setTimeLeft] = useState('');
   const [isExpired, setIsExpired] = useState(false);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
+      
+      // If code hasn't been used yet, show "Oczekuje"
+      if (!firstUsedAt) {
+        setIsPending(true);
+        setIsExpired(false);
+        setTimeLeft('');
+        return;
+      }
+      
+      setIsPending(false);
       const expiry = new Date(expiresAt);
       const diff = expiry.getTime() - now.getTime();
 
@@ -44,7 +59,16 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [expiresAt]);
+  }, [expiresAt, firstUsedAt]);
+
+  if (isPending) {
+    return (
+      <span className="text-muted-foreground text-sm flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        Oczekuje ({validityHours}h)
+      </span>
+    );
+  }
 
   if (isExpired) {
     return <span className="text-muted-foreground">Wygasł</span>;
@@ -69,7 +93,7 @@ const MyHkCodesHistory: React.FC = () => {
         .from('hk_otp_codes')
         .select(`
           *,
-          healthy_knowledge (id, title, slug, otp_max_sessions)
+          healthy_knowledge (id, title, slug, otp_max_sessions, otp_validity_hours)
         `)
         .eq('partner_id', user.id)
         .eq('is_deleted_by_user', false)
@@ -98,9 +122,20 @@ const MyHkCodesHistory: React.FC = () => {
     if (code.is_invalidated) {
       return { label: 'Unieważniony', variant: 'destructive' as const, icon: XCircle };
     }
+    
+    // If not used yet, check if the code itself has expired (7-day window)
+    if (!code.first_used_at) {
+      if (isPast(new Date(code.expires_at))) {
+        return { label: 'Niewykorzystany', variant: 'secondary' as const, icon: AlertCircle };
+      }
+      return { label: 'Oczekuje', variant: 'outline' as const, icon: Clock };
+    }
+    
+    // Code was used - check if access has expired
     if (isPast(new Date(code.expires_at))) {
       return { label: 'Wygasły', variant: 'secondary' as const, icon: AlertCircle };
     }
+    
     const maxSessions = code.healthy_knowledge?.otp_max_sessions || 3;
     if (code.used_sessions >= maxSessions) {
       return { label: 'Wykorzystany', variant: 'outline' as const, icon: CheckCircle };
@@ -110,7 +145,15 @@ const MyHkCodesHistory: React.FC = () => {
 
   const isCodeActive = (code: HkOtpCode) => {
     if (code.is_invalidated) return false;
+    
+    // If not used yet, code is still active if within 7-day window
+    if (!code.first_used_at) {
+      return !isPast(new Date(code.expires_at));
+    }
+    
+    // If used, check if access has expired
     if (isPast(new Date(code.expires_at))) return false;
+    
     const maxSessions = code.healthy_knowledge?.otp_max_sessions || 3;
     if (code.used_sessions >= maxSessions) return false;
     return true;
@@ -252,7 +295,11 @@ const MyHkCodesHistory: React.FC = () => {
                           {code.recipient_name || code.recipient_email || '-'}
                         </TableCell>
                         <TableCell>
-                          <LiveCountdown expiresAt={code.expires_at} />
+                          <LiveCountdown 
+                            expiresAt={code.expires_at} 
+                            firstUsedAt={code.first_used_at}
+                            validityHours={code.healthy_knowledge?.otp_validity_hours}
+                          />
                         </TableCell>
                         <TableCell>
                           <span className={code.used_sessions >= maxSessions ? 'text-orange-500' : ''}>

@@ -2470,6 +2470,7 @@ export type Database = {
           created_at: string | null
           deleted_by_user_at: string | null
           expires_at: string
+          first_used_at: string | null
           id: string
           is_deleted_by_user: boolean | null
           is_invalidated: boolean | null
@@ -2484,6 +2485,7 @@ export type Database = {
           created_at?: string | null
           deleted_by_user_at?: string | null
           expires_at: string
+          first_used_at?: string | null
           id?: string
           is_deleted_by_user?: boolean | null
           is_invalidated?: boolean | null
@@ -2498,6 +2500,7 @@ export type Database = {
           created_at?: string | null
           deleted_by_user_at?: string | null
           expires_at?: string
+          first_used_at?: string | null
           id?: string
           is_deleted_by_user?: boolean | null
           is_invalidated?: boolean | null
