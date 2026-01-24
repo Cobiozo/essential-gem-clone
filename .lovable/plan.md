@@ -1,160 +1,176 @@
 
-# Plan: Naprawa Zdrowa Wiedza - czas dostępu od pierwszego użycia
+# Plan: Połączenie widżetów OTP w jeden spójny komponent
 
-## Zdiagnozowane problemy
+## Analiza obecnego stanu
 
-### Problem 1: Wideo się nie wczytuje
-Na zrzucie ekranu widać błąd "Edge Function returned a non-2xx status code" podczas walidacji kodu OTP. Logi pokazują:
-```
-ERROR Invalid OTP code: { code: "PGRST116", details: "The result contains 0 rows" }
-```
-Oznacza to, że kod OTP nie został znaleziony w bazie lub został źle wprowadzony. Może to wynikać z:
-- Błędnego wpisania kodu (np. zamiana liter)
-- Kodu, który już wygasł (timer liczy od generowania, nie od użycia)
+### Obecne widżety na dashboardzie (widoczne na zrzucie)
+Na ekranie widać dwa osobne kafelki:
+1. **"Aktywne kody OTP"** - dla InfoLinks (kody PL-XXXX-XX)
+2. **"Aktywne kody ZW"** - dla Zdrowa Wiedza (kody ZW-XXXX-XX)
 
-### Problem 2: Czas zaczyna się odliczać od wygenerowania kodu
-Obecna logika w `generate-hk-otp`:
-```typescript
-// Linia 126-127: Czas wygaśnięcia ustawiany przy GENEROWANIU
-const validityHours = knowledge.otp_validity_hours || 24;
-const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
-```
-
-A w `validate-hk-otp`:
-```typescript
-// Linia 89-91: Sesja bierze expires_at z kodu OTP
-const otpExpiry = new Date(otpCodeRecord.expires_at);
-const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-const expiresAt = otpExpiry < sessionExpiry ? otpExpiry : sessionExpiry;
-```
-
-**Oczekiwane zachowanie (jak InfoLink):** Timer zaczyna się od momentu pierwszego użycia kodu, nie od jego wygenerowania.
+### Problem
+- Za dużo kafelków na dashboardzie
+- Różny wygląd obu widżetów (niespójny design)
+- Nazewnictwo nie jest jasne ("OTP" vs "ZW")
 
 ---
 
-## Rozwiązanie wzorowane na InfoLink
+## Proponowane rozwiązanie
 
-### Krok 1: Rozszerzenie tabeli `hk_otp_codes`
+### Nowy połączony widżet: **"Kody dostępu OTP"**
 
-Nowa kolumna do śledzenia pierwszego użycia:
+Jeden widżet z **zakładkami** (Tabs) pozwalający przełączać między:
+- **InfoLinki** (kody PL-XXXX-XX)  
+- **Zdrowa Wiedza** (kody ZW-XXXX-XX)
 
-```sql
-ALTER TABLE hk_otp_codes 
-ADD COLUMN first_used_at TIMESTAMPTZ DEFAULT NULL;
-```
-
-### Krok 2: Modyfikacja `generate-hk-otp`
-
-Zmiana logiki - `expires_at` będzie teraz oznaczać **maksymalny termin ważności kodu** (np. 7 dni), a nie czas dostępu do materiału:
-
-```typescript
-// PRZED (linia 126-127):
-const validityHours = knowledge.otp_validity_hours || 24;
-const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
-
-// PO: Kod ma 7 dni na pierwsze użycie
-const maxCodeLifetimeDays = 7;
-const codeExpiresAt = new Date(Date.now() + maxCodeLifetimeDays * 24 * 60 * 60 * 1000);
-```
-
-### Krok 3: Modyfikacja `validate-hk-otp` (kluczowa zmiana)
-
-Wzorując się na `validate-infolink-otp`, timer startuje od momentu użycia:
-
-```typescript
-// Pobierz validity_hours z materiału
-const validityHours = knowledge.otp_validity_hours || 24;
-
-// Jeśli kod użyty pierwszy raz - ustaw first_used_at i oblicz expires_at
-if (!otpCodeRecord.first_used_at) {
-  const accessExpiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
-  
-  // Zaktualizuj rekord OTP - ustaw first_used_at i nowy expires_at
-  await supabase
-    .from('hk_otp_codes')
-    .update({ 
-      first_used_at: new Date().toISOString(),
-      expires_at: accessExpiresAt.toISOString()
-    })
-    .eq('id', otpCodeRecord.id);
-  
-  // Użyj nowego expires_at dla sesji
-  otpCodeRecord.expires_at = accessExpiresAt.toISOString();
-}
-
-// Teraz oblicz expires_at sesji na podstawie zaktualizowanego OTP
-const otpExpiry = new Date(otpCodeRecord.expires_at);
-const sessionFromNow = new Date(Date.now() + validityHours * 60 * 60 * 1000);
-const expiresAt = sessionFromNow < otpExpiry ? sessionFromNow : otpExpiry;
-```
-
-### Krok 4: Aktualizacja komponentów historii
-
-Komponent `MyHkCodesHistory.tsx` powinien pokazywać:
-- Przed użyciem: "Oczekuje na użycie" (kod ważny 7 dni)
-- Po użyciu: Odliczanie od `first_used_at` + `otp_validity_hours`
-
----
-
-## Przepływ po zmianach
+Każda zakładka pokazuje liczbę aktywnych kodów w badge.
 
 ```text
-Partner generuje kod ZW-AB12-CD
-        ↓
-Kod ma 7 dni na pierwsze użycie (expires_at = +7 dni)
-first_used_at = NULL
-        ↓
-Odbiorca wchodzi i wpisuje kod (dzień 2)
-        ↓
-validate-hk-otp:
-  - Sprawdza czy first_used_at == NULL
-  - TAK → ustawia first_used_at = NOW
-  - Oblicza expires_at = NOW + 24h (lub otp_validity_hours)
-        ↓
-Timer zaczyna odliczać: 24:00:00, 23:59:59...
-        ↓
-Kolejne sesje (ten sam kod) → używają tego samego expires_at
+┌─────────────────────────────────────────────┐
+│ 🔑 Kody dostępu OTP                         │
+├─────────────────────────────────────────────┤
+│  [InfoLinki (3)]    [Zdrowa Wiedza (2)]     │
+├─────────────────────────────────────────────┤
+│ PL-79TW-9J                    ⬜ Oczekuje   │
+│ SZANSA BIZNESOWA DLA PARTNERA               │
+│ 🕐 Oczekuje na użycie    👥 0/2 sesji       │
+├─────────────────────────────────────────────┤
+│ PL-7MQV-NV                    🟢 Użyty      │
+│ SZANSA BIZNESOWA DLA PARTNERA               │
+│ 🕐 3:24:46               👥 1/2 sesji       │
+└─────────────────────────────────────────────┘
 ```
 
 ---
 
-## Szczegółowe zmiany w plikach
+## Szczegóły implementacji
 
-### 1. Migracja bazy danych
-- Dodanie kolumny `first_used_at` do `hk_otp_codes`
+### 1. Nowy plik: `CombinedOtpCodesWidget.tsx`
 
-### 2. `supabase/functions/generate-hk-otp/index.ts`
-- Zmiana `expires_at` na 7 dni (czas na pierwsze użycie)
-- Dodanie informacji w wiadomości że "kod aktywuje się przy pierwszym użyciu"
+Zastąpi oba istniejące widżety jednym komponentem.
 
-### 3. `supabase/functions/validate-hk-otp/index.ts`
-- Sprawdzenie `first_used_at` - jeśli NULL to pierwsze użycie
-- Aktualizacja `first_used_at` i przeliczenie `expires_at` na podstawie `otp_validity_hours`
-- Obliczenie czasu sesji od NOW (jak InfoLink)
+**Struktura komponentu:**
+```text
+CombinedOtpCodesWidget
+├── SharedLiveCountdown (wspólny komponent countdown)
+├── Tabs (Radix UI)
+│   ├── TabsList
+│   │   ├── TabsTrigger "InfoLinki" + Badge(count)
+│   │   └── TabsTrigger "Zdrowa Wiedza" + Badge(count)
+│   ├── TabsContent "infolinks"
+│   │   └── CodesList (lista kodów InfoLink)
+│   └── TabsContent "zdrowa-wiedza"
+│       └── CodesList (lista kodów HK)
+└── EmptyState (gdy brak kodów w obu kategoriach)
+```
 
-### 4. `src/types/healthyKnowledge.ts`
-- Dodanie pola `first_used_at` do interfejsu `HkOtpCode`
+### 2. Ujednolicony wygląd każdego kodu
 
-### 5. `src/components/healthy-knowledge/MyHkCodesHistory.tsx`
-- Wyświetlanie statusu "Oczekuje na użycie" lub odliczania
-- Pokazanie kiedy kod został użyty pierwszy raz
+Oba typy kodów będą miały identyczny layout:
+- Kod w font-mono (np. PL-79TW-9J lub ZW-4AV7-6J)
+- Tytuł materiału/linku
+- Status badge: Oczekuje / Użyty (X/Y) / Wyczerpany
+- Timer: "Oczekuje na użycie" lub countdown
+- Sesje: X/Y sesji
+- Przycisk kopiowania
+
+### 3. Zmiany w Dashboard.tsx
+
+```typescript
+// PRZED:
+const ActiveOtpCodesWidget = lazy(() => ...);
+const ActiveHkCodesWidget = lazy(() => ...);
+
+// Renderowanie w dwóch miejscach
+
+// PO:
+const CombinedOtpCodesWidget = lazy(() => 
+  import('@/components/dashboard/widgets/CombinedOtpCodesWidget')
+);
+
+// Jedno renderowanie
+```
+
+### 4. Usunięcie starych widżetów
+
+Pliki do usunięcia:
+- `ActiveOtpCodesWidget.tsx`
+- `ActiveHkCodesWidget.tsx`
 
 ---
 
-## Podsumowanie zmian
+## Szczegółowa specyfikacja UI
 
-| Element | Przed | Po |
-|---------|-------|-----|
-| `expires_at` przy generowaniu | +24h od generowania | +7 dni (czas na pierwsze użycie) |
-| Timer startu | Od wygenerowania kodu | Od pierwszego użycia kodu |
-| `first_used_at` | Nie istnieje | Zapisuje moment pierwszego użycia |
-| Widok historii | Pokazuje expires_at | Pokazuje "Oczekuje" lub timer od użycia |
+### Nazewnictwo zakładek
+| Obecne | Nowe |
+|--------|------|
+| "Aktywne kody OTP" | Tab: "InfoLinki" |
+| "Aktywne kody ZW" | Tab: "Zdrowa Wiedza" |
+
+### Wspólny header widżetu
+```text
+🔑 Kody dostępu OTP
+```
+Prosty tytuł bez opisu (opis niepotrzebny przy zakładkach).
+
+### Statusy kodów (ujednolicone)
+| Status | Badge | Kolor |
+|--------|-------|-------|
+| Nieużyty | "Oczekuje" | outline (szary) |
+| Użyty (aktywny) | "Użyty (1/3)" | green-500 |
+| Wyczerpany sesje | "Wyczerpany" | secondary (szary) |
+
+### Countdown timer
+- **Przed użyciem:** "Oczekuje na użycie" (tekst italic)
+- **Po użyciu:** "3:24:46" (countdown z tabular-nums)
+
+---
+
+## Lista plików do modyfikacji
+
+| Plik | Akcja | Opis |
+|------|-------|------|
+| `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx` | Utworzenie | Nowy połączony widżet |
+| `src/pages/Dashboard.tsx` | Modyfikacja | Zamiana dwóch widżetów na jeden |
+| `src/components/dashboard/widgets/ActiveOtpCodesWidget.tsx` | Usunięcie | Zastąpiony nowym |
+| `src/components/dashboard/widgets/ActiveHkCodesWidget.tsx` | Usunięcie | Zastąpiony nowym |
 
 ---
 
 ## Korzyści
 
-1. **Partner może wygenerować kod z wyprzedzeniem** - np. przed spotkaniem
-2. **Odbiorca ma pełne 24h od momentu użycia** - nie traci czasu przed otwarciem linku
-3. **Spójność z InfoLink** - oba moduły działają tak samo
-4. **Lepsza komunikacja** - historia kodów pokazuje kiedy kod został użyty
+1. **Mniej kafelków** - jeden widżet zamiast dwóch
+2. **Spójny design** - identyczny wygląd dla obu typów kodów
+3. **Lepsze nazewnictwo** - "InfoLinki" i "Zdrowa Wiedza" zamiast "OTP" i "ZW"
+4. **Widoczność** - badge na zakładkach pokazuje ile kodów jest aktywnych
+5. **Zachowana funkcjonalność** - kopiowanie, countdown, statusy działają jak wcześniej
+
+---
+
+## Detale techniczne
+
+### Shared LiveCountdown
+Jeden komponent countdown używany dla obu typów kodów:
+- Visibility API (pause gdy tab niewidoczny)
+- tabular-nums dla stabilnych wymiarów
+- Format: `H:MM:SS` lub `MM:SS`
+
+### Fetching danych
+- Oba zapytania wykonywane równolegle przy mount
+- Polling co 60s (tylko gdy tab widoczny)
+- Realtime subscription dla zmian
+- Event listeners: `otpCodeGenerated`, `hkOtpCodeGenerated`
+
+### Stan gdy brak kodów
+- Jeśli brak kodów w obu kategoriach → widżet się nie renderuje (return null)
+- Jeśli brak w jednej kategorii → pusta lista z komunikatem w tej zakładce
+
+---
+
+## Podsumowanie zmian
+
+Po implementacji:
+- Dashboard będzie miał **o jeden kafelek mniej**
+- Kody OTP dla InfoLinków i Zdrowa Wiedza będą w **jednym spójnym widżecie**
+- Nazewnictwo będzie **czytelniejsze** (zakładki "InfoLinki" i "Zdrowa Wiedza")
+- Design będzie **ujednolicony** i zgodny z resztą aplikacji
