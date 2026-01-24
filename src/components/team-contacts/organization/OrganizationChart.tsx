@@ -133,9 +133,9 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
         <div className="relative mt-8">
           {/* SVG Connectors overlay */}
           {settings.graph_show_lines && (
-            <svg 
-              className="absolute pointer-events-none overflow-visible"
-              style={{ 
+          <svg 
+            className="absolute pointer-events-none overflow-visible z-10"
+            style={{
                 width: totalWidth,
                 height: 48,
                 left: '50%',
