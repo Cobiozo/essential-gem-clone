@@ -134,13 +134,13 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
           {/* SVG Connectors overlay */}
           {settings.graph_show_lines && (
           <svg 
-            className="absolute pointer-events-none overflow-visible z-10"
+            className="absolute pointer-events-none overflow-visible"
             style={{
                 width: totalWidth,
-                height: 48,
+                height: 32,
                 left: '50%',
                 transform: 'translateX(-50%)',
-                top: -24,
+                top: -32,
               }}
             >
               {node.children.map((child, index) => {
@@ -152,7 +152,7 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
                 return (
                   <path
                     key={`${child.id}-${isHighlighted ? animationKey : 'static'}`}
-                    d={createCurvePath(centerX, 0, childX, 48, 14)}
+                    d={createCurvePath(centerX, 0, childX, 32, 14)}
                     className={cn(
                       "fill-none",
                       isHighlighted 
