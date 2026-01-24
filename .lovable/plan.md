@@ -1,123 +1,117 @@
 
-# Naprawa: Wideo i timer nie zatrzymują się przy otwarciu dialogu notatek
+
+# Naprawa: Markery notatek niewidoczne na timeline ukończonej lekcji
 
 ## Zdiagnozowany problem
 
-Użytkownik zgłasza, że po otwarciu okna notatek:
-1. **Wideo nie zatrzymuje się** - kontynuuje odtwarzanie w tle
-2. **Timer nie zatrzymuje się** - czas lekcji jest nadal naliczany
+Notatki są zapisywane poprawnie w bazie (potwierdzono: `lesson_id: 7ca6e11b...`, `video_timestamp_seconds: 2`), ale **markery (czerwone kropki) nie pojawiają się na linii czasu**.
 
-**Przyczyna**: Brak powiązania między stanem dialogu (`isNotesDialogOpen`) a logiką odtwarzania wideo i timerem.
+### Przyczyna
+W pliku `SecureMedia.tsx` istnieją dwa różne tryby renderowania wideo:
+
+| Tryb | Warunek | Player | Markery |
+|------|---------|--------|---------|
+| Nieukończona lekcja | `disableInteraction = true` | Custom player + `VideoControls` | ✅ Widoczne |
+| **Ukończona lekcja** | `disableInteraction = false` | Natywny `<video controls>` | ❌ **Niewidoczne** |
+
+Gdy lekcja jest ukończona, używany jest natywny element `<video>` z atrybutem `controls` (linie 1169-1188), który **nie zawiera komponentu `VideoControls`**, więc markery notatek nigdy nie są renderowane.
 
 ---
 
 ## Rozwiązanie
 
-### 1. Dodać pausowanie wideo przy otwarciu dialogu notatek
+Zmienić widok ukończonej lekcji (linie 1169-1188), aby również używał customowego playera z komponentem `VideoControls`, który renderuje markery notatek.
 
-W `SecureMedia.tsx` dodać nową właściwość `pauseRequested` oraz useEffect, który pauzuje wideo gdy ta flaga jest `true`:
-
-```tsx
-// SecureMedia.tsx - nowy prop
-interface SecureMediaProps {
-  // ... istniejące propsy
-  pauseRequested?: boolean;  // NOWY: żądanie pauzowania z zewnątrz
-}
-
-// useEffect reagujący na pauseRequested
-useEffect(() => {
-  if (pauseRequested && videoRef.current && !videoRef.current.paused) {
-    console.log('[SecureMedia] External pause requested (notes dialog)');
-    videoRef.current.pause();
-  }
-}, [pauseRequested]);
-```
-
-### 2. Przekazać stan dialogu do SecureMedia
-
-W `TrainingModule.tsx` przekazać `isNotesDialogOpen` jako `pauseRequested`:
-
-```tsx
-<SecureMedia 
-  key={currentLesson.id}
-  // ... pozostałe propsy
-  pauseRequested={isNotesDialogOpen}  // NOWY
-/>
-```
-
-### 3. Zatrzymać timer lekcji tekstowej gdy dialog jest otwarty
-
-W `TrainingModule.tsx` dodać warunek `isNotesDialogOpen` do useEffect obsługującego timer:
-
-```tsx
-// Istniejący useEffect z timerem (linie 352-374)
-useEffect(() => {
-  const currentLesson = lessons[currentLessonIndex];
-  const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-  const isLessonCompleted = progress[currentLesson?.id]?.is_completed;
-  
-  // NOWY WARUNEK: zatrzymaj timer gdy dialog notatek jest otwarty
-  if (hasVideo || isLessonCompleted || isNotesDialogOpen) {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    return;
-  }
-
-  timerRef.current = setInterval(() => {
-    setTextLessonTime(prev => prev + 1);
-  }, 1000);
-  
-  return () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-  };
-}, [currentLessonIndex, lessons, progress, isNotesDialogOpen]); // DODAĆ do dependencies
-```
-
----
-
-## Szczegóły techniczne
+### Szczegóły techniczne
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Dodać prop `pauseRequested` i useEffect do pauzowania |
-| `src/pages/TrainingModule.tsx` | Przekazać `pauseRequested={isNotesDialogOpen}` do SecureMedia |
-| `src/pages/TrainingModule.tsx` | Dodać `isNotesDialogOpen` do warunku timera lekcji tekstowej |
+| `src/components/SecureMedia.tsx` | Zamienić natywny `<video controls>` na custom player z `VideoControls` dla ukończonych lekcji |
+
+### Przed (linie 1169-1188):
+```tsx
+return (
+  <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
+    <video
+      ref={videoRefCallback}
+      src={signedUrl}
+      controls                    // ← Natywne kontrolki bez markerów
+      controlsList="nodownload"
+      className="..."
+    />
+  </div>
+);
+```
+
+### Po:
+```tsx
+return (
+  <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
+    <div className="relative w-full h-full">
+      <video
+        ref={videoRefCallback}
+        src={signedUrl}
+        className="..."
+      />
+    </div>
+    <VideoControls 
+      isPlaying={isPlaying}
+      currentTime={currentTime}
+      duration={duration}
+      onPlayPause={handlePlayPause}
+      onRewind={handleRewind}
+      isFullscreen={isFullscreen}
+      onFullscreen={handleFullscreen}
+      noteMarkers={noteMarkers}              // ← Markery notatek
+      onNoteMarkerClick={onNoteMarkerClick}  // ← Obsługa kliknięcia
+    />
+  </div>
+);
+```
 
 ---
 
-## Diagram przepływu
+## Diagram przed/po
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                    TrainingModule                       │
-│                                                         │
-│  [Przycisk Notatki] ──onClick──> setIsNotesDialogOpen   │
-│                                       │                 │
-│                                       ▼                 │
-│  ┌─────────────────────────────────────────────┐       │
-│  │ isNotesDialogOpen = true                    │       │
-│  └───────────────┬─────────────────────────────┘       │
-│                  │                                      │
-│       ┌──────────┴──────────┐                          │
-│       ▼                     ▼                          │
-│  SecureMedia           Timer useEffect                 │
-│  pauseRequested=true   if (isNotesDialogOpen)          │
-│       │                     │                          │
-│       ▼                     ▼                          │
-│  video.pause()         clearInterval(timerRef)         │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+PRZED (ukończona lekcja):
+┌──────────────────────────────────────────┐
+│  <video controls>                        │
+│  ┌──────────────────────────────────────┐│
+│  │ Natywne kontrolki przeglądarki      ││
+│  │ (bez markerów notatek)              ││
+│  └──────────────────────────────────────┘│
+└──────────────────────────────────────────┘
+
+PO (ukończona lekcja):
+┌──────────────────────────────────────────┐
+│  <video>                                 │
+│  ┌──────────────────────────────────────┐│
+│  │ VideoControls                        ││
+│  │ ┌──────────────────────────────────┐ ││
+│  │ │ Progress bar + czerwone markery  │ ││
+│  │ │       ●      ●          ●       │ ││
+│  │ └──────────────────────────────────┘ ││
+│  └──────────────────────────────────────┘│
+└──────────────────────────────────────────┘
 ```
+
+---
+
+## Kroki implementacji
+
+1. Zlokalizować sekcję renderowania dla ukończonej lekcji (linie 1135-1188)
+2. Zamienić natywny `<video controls>` na:
+   - Wideo bez `controls`
+   - Komponent `VideoControls` z pełnym zestawem propsów (markery, fullscreen, play/pause)
+3. Dodać obsługę zdarzeń wideo (play, pause, timeupdate) jeśli brakuje
 
 ---
 
 ## Oczekiwany efekt
 
-Po wdrożeniu:
-- Wideo automatycznie zatrzyma się po otwarciu dialogu notatek
-- Timer lekcji tekstowej zatrzyma się gdy dialog jest otwarty
-- Po zamknięciu dialogu użytkownik może wznowić odtwarzanie ręcznie
-- Timestamp notatki zostanie prawidłowo zapisany (czas zatrzymania)
+- Czerwone markery notatek będą widoczne na timeline dla ukończonych lekcji
+- Kliknięcie markera pokaże toast z treścią notatki
+- Kontrolki odtwarzania pozostaną funkcjonalne (play/pause, seek, fullscreen)
+- Spójne UX między nieukończonymi i ukończonymi lekcjami
+
