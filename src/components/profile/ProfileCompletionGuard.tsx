@@ -30,6 +30,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/auth',       // Panel logowania
     '/page/',      // Strony CMS - publiczne
     '/infolink/',  // InfoLink pages are public (OTP protected)
+    '/zdrowa-wiedza/', // Zdrowa Wiedza public pages (OTP protected)
     '/events/register/', // Guest registration pages
   ];
   
