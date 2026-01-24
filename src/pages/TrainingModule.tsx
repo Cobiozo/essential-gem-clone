@@ -19,11 +19,14 @@ import {
   File,
   ExternalLink,
   Link,
-  Download
+  Download,
+  StickyNote
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SecureMedia } from "@/components/SecureMedia";
 import { LessonActionButton } from "@/types/training";
+import { useLessonNotes } from "@/hooks/useLessonNotes";
+import { LessonNotesDialog } from "@/components/training/LessonNotesDialog";
 
 interface TrainingModule {
   id: string;
@@ -85,8 +88,10 @@ const TrainingModule = () => {
   // Refs to prevent race conditions during lesson transitions
   const currentLessonIdRef = useRef<string | null>(null);
   const isTransitioningRef = useRef<boolean>(false);
-
-  // Funkcja walidacji UUID
+  
+  // Notes dialog state
+  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
+  const seekToTimeRef = useRef<((time: number) => void) | null>(null);
   const isValidUUID = (str: string): boolean => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return uuidRegex.test(str);
@@ -1062,6 +1067,42 @@ const TrainingModule = () => {
   const currentProgress = progress[currentLesson?.id];
   const isLessonCompleted = currentProgress?.is_completed || false;
   
+  // Notes hook - must be called unconditionally
+  const {
+    notes,
+    noteMarkers,
+    addNote,
+    updateNote,
+    deleteNote,
+    exportNotes,
+    getNoteById
+  } = useLessonNotes(currentLesson?.id, user?.id);
+  
+  // Handle note marker click on timeline
+  const handleNoteMarkerClick = useCallback((noteId: string) => {
+    const note = getNoteById(noteId);
+    if (note) {
+      toast({
+        title: `Notatka (${formatNoteTime(note.video_timestamp_seconds)})`,
+        description: note.content
+      });
+    }
+  }, [getNoteById, toast]);
+  
+  // Helper to format time for notes
+  const formatNoteTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  // Handle seek to time from notes dialog
+  const handleSeekToTime = useCallback((seconds: number) => {
+    if (seekToTimeRef.current && isLessonCompleted) {
+      seekToTimeRef.current(seconds);
+    }
+  }, [isLessonCompleted]);
+  
   // Determine effective time based on lesson type
   const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
   const effectiveTimeSpent = hasVideo ? Math.floor(videoPosition) : textLessonTime;
@@ -1178,9 +1219,28 @@ const TrainingModule = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>{currentLesson.title}</CardTitle>
-                  <Badge variant={isLessonCompleted ? "default" : "secondary"}>
-                    {isLessonCompleted ? "Ukończone" : "W trakcie"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {/* Notes button - only for video lessons */}
+                    {hasVideo && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsNotesDialogOpen(true)}
+                        className="flex items-center gap-1.5"
+                      >
+                        <StickyNote className="h-4 w-4" />
+                        Notatki
+                        {notes.length > 0 && (
+                          <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                            {notes.length}
+                          </Badge>
+                        )}
+                      </Button>
+                    )}
+                    <Badge variant={isLessonCompleted ? "default" : "secondary"}>
+                      {isLessonCompleted ? "Ukończone" : "W trakcie"}
+                    </Badge>
+                  </div>
                 </div>
                 
                 {(currentLesson.min_time_seconds > 0 || hasVideo) && (
@@ -1210,6 +1270,9 @@ const TrainingModule = () => {
                       onDurationChange={handleDurationChange}
                       initialTime={positionLoaded ? (progress[currentLesson?.id]?.video_position_seconds || 0) : 0}
                       className="w-full max-h-96 object-contain"
+                      noteMarkers={noteMarkers}
+                      onNoteMarkerClick={handleNoteMarkerClick}
+                      seekToTimeRef={seekToTimeRef}
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
                       <div className="bg-green-50 dark:bg-green-950/30 border-t border-green-200 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
@@ -1218,6 +1281,21 @@ const TrainingModule = () => {
                     )}
                   </div>
                 )}
+
+                {/* Notes Dialog */}
+                <LessonNotesDialog
+                  open={isNotesDialogOpen}
+                  onOpenChange={setIsNotesDialogOpen}
+                  lessonTitle={currentLesson.title}
+                  currentVideoTime={videoPosition}
+                  isLessonCompleted={isLessonCompleted}
+                  notes={notes}
+                  onAddNote={addNote}
+                  onUpdateNote={updateNote}
+                  onDeleteNote={deleteNote}
+                  onExportNotes={exportNotes}
+                  onSeekToTime={handleSeekToTime}
+                />
 
                 {currentLesson.content && (
                   <div className="prose dark:prose-invert max-w-none">

@@ -14,6 +14,11 @@ import {
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
 
+interface NoteMarker {
+  id: string;
+  timestamp: number;
+}
+
 interface SecureMediaProps {
   mediaUrl: string;
   mediaType: 'image' | 'video' | 'document' | 'audio' | 'other';
@@ -24,6 +29,10 @@ interface SecureMediaProps {
   onTimeUpdate?: (currentTime: number) => void;
   onDurationChange?: (duration: number) => void;
   initialTime?: number;
+  // Notes integration
+  noteMarkers?: NoteMarker[];
+  onNoteMarkerClick?: (noteId: string) => void;
+  seekToTimeRef?: React.MutableRefObject<((time: number) => void) | null>;
 }
 
 // YouTube URL detection and ID extraction
@@ -52,7 +61,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   onPlayStateChange,
   onTimeUpdate,
   onDurationChange,
-  initialTime = 0
+  initialTime = 0,
+  noteMarkers,
+  onNoteMarkerClick,
+  seekToTimeRef
 }) => {
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
@@ -152,6 +164,27 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       isSeekingRef.current = false;
     }, 300);
   }, [videoElement]);
+
+  // Seek to specific time (for completed lessons - jumping to note timestamps)
+  const seekToTime = useCallback((time: number) => {
+    if (!videoElement || disableInteraction) return; // Only allow when lesson is completed
+    const safeTime = Math.max(0, Math.min(time, duration));
+    console.log('[SecureMedia] Seeking to note timestamp:', { time: safeTime });
+    isSeekingRef.current = true;
+    videoElement.currentTime = safeTime;
+    lastValidTimeRef.current = safeTime;
+    setCurrentTime(safeTime);
+    setTimeout(() => {
+      isSeekingRef.current = false;
+    }, 300);
+  }, [videoElement, duration, disableInteraction]);
+
+  // Expose seekToTime via ref for external components
+  useEffect(() => {
+    if (seekToTimeRef) {
+      seekToTimeRef.current = !disableInteraction ? seekToTime : null;
+    }
+  }, [seekToTimeRef, seekToTime, disableInteraction]);
 
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
@@ -1080,6 +1113,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             connectionType={connectionDetails.type}
             downlink={connectionDetails.downlink}
             rtt={connectionDetails.rtt}
+            // Note markers
+            noteMarkers={noteMarkers}
+            onNoteMarkerClick={onNoteMarkerClick}
           />
         </div>
       );

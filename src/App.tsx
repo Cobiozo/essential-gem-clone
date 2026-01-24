@@ -303,23 +303,18 @@ const AppContent = () => {
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               <Route path="/" element={
-                // Clients stay on classic view, Partners/Specialists go to modern dashboard
-                isClient ? <Index /> :
-                (isPartner || isSpecjalista) ? <Navigate to="/dashboard" replace /> :
-                (user && isModern) ? <Navigate to="/dashboard" replace /> : <Index />
+                // All authenticated users go to modern dashboard
+                user ? <Navigate to="/dashboard" replace /> : <Index />
               } />
               <Route path="/auth" element={
-                user ? <Navigate to={(isPartner || isSpecjalista) ? '/dashboard' : (isModern ? '/dashboard' : '/')} replace /> : <Auth />
+                user ? <Navigate to="/dashboard" replace /> : <Auth />
               } />
               <Route path="/admin" element={<Admin />} />
               <Route path="/my-account" element={<MyAccount />} />
               <Route path="/training" element={<Training />} />
               <Route path="/training/:moduleId" element={<TrainingModule />} />
               <Route path="/knowledge" element={<KnowledgeCenter />} />
-              <Route path="/dashboard" element={
-                // Clients cannot access modern dashboard
-                isClient ? <Navigate to="/" replace /> : <Dashboard />
-              } />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/events/individual-meetings" element={<IndividualMeetingsPage />} />
               <Route path="/events/webinars" element={<WebinarsPage />} />
               <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />
