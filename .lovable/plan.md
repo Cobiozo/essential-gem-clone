@@ -1,150 +1,60 @@
 
-# Rozbudowa widżetu zespołu i zmiana kafelków struktury organizacji
+# Ulepszenie struktury organizacji - kompaktowy design i interakcje
 
-## Zakres zmian
+## Wymagane zmiany
 
-1. **Widżet Zespołu na dashboardzie** - dodanie przycisku "Struktura" obok "Zarządzaj"
-2. **Kontrolki zoom** - dodanie przycisków powiększania/pomniejszania całego grafu
-3. **Nowy layout kafelków** - szerszy prostokąt z dwukolumnowym układem
+### 1. Kompaktowy design kafelków (OrganizationNode)
+**Problem**: Za dużo zmarnowanej przestrzeni wokół avatara i danych.
 
----
-
-## 1. Przycisk "Struktura" w widżecie zespołu
-
-### Plik: `src/components/dashboard/widgets/TeamContactsWidget.tsx`
-
-Dodanie drugiego przycisku obok "Zarządzaj", który nawiguje bezpośrednio do zakładki struktury w widoku grafu:
-
+**Rozwiązanie - nowy układ inspirowany referencją**:
 ```text
-┌────────────────────────────────────────┐
-│  👥 Zespół    [Struktura] [Zarządzaj →]│
-│  ─────────────────────────────────────│
-│  Łączna liczba kontaktów          3   │
-│  ...                                   │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  [SS]  Sebastian Snopek             │
+│        [Partner]                    │
+│        EQID: 121118999              │
+│        📧 email@example.com         │
+│        📞 +48 506145844             │
+├─────────────────────────────────────┤
+│            👥 +4                    │
+└─────────────────────────────────────┘
 ```
 
-**Zmiany:**
-- Import ikony `TreePine` z lucide-react
-- Dodanie przycisku "Struktura" z nawigacją do `/my-account?tab=team-contacts&subTab=structure`
-- Warunek dostępu: przycisk widoczny tylko gdy `canAccessTree()` zwraca true
+- Zmniejszenie paddingu: `p-2` zamiast `p-3/p-4/p-5`
+- Mniejszy avatar inline z imieniem: `w-8 h-8`
+- Zmiana "ID:" na "EQID:"
+- Zredukowana szerokość: `min-w-[160px]` zamiast `min-w-[200-280px]`
+- Dane w jednej zwartej kolumnie
 
----
+### 2. Auto-fit zoom do ilości użytkowników
+**Problem**: Przy 100% nie widać wszystkiego.
 
-## 2. Kontrolki Zoom dla grafu organizacji
+**Rozwiązanie**:
+- Obliczanie początkowego zoom na podstawie liczby dzieci pierwszego poziomu
+- Formuła: `initialZoom = Math.min(100, Math.floor(viewportWidth / (childCount * nodeWidth)))`
+- Usunięcie dolnego limitu 50% - umożliwienie pomniejszenia do 30%
 
-### Plik: `src/components/team-contacts/organization/OrganizationChart.tsx`
+### 3. Pan/Drag (chwyć i przesuń)
+**Implementacja**:
+- State: `isDragging`, `dragStart`, `scrollPosition`
+- Obsługa `onMouseDown`, `onMouseMove`, `onMouseUp`
+- Styl kursora: `cursor-grab` / `cursor-grabbing`
+- Przesuwanie kontenera za pomocą `scrollLeft`/`scrollTop`
 
-Dodanie stanu `zoom` (skala 50%-150%) i przycisków + / - w nagłówku karty:
+### 4. Lepsze linie łączące
+**Problem**: Linie są za mało widoczne (obecnie `bg-border` i `w-0.5`).
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  👥 Struktura organizacji           [ 🔍- ] 100% [ 🔍+ ]        │
-│  ─────────────────────────────────────────────────────────────  │
-│                       (tree content at scale)                   │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Rozwiązanie**:
+- Grubsze linie: `w-1` (4px) zamiast `w-0.5` (2px)
+- Bardziej widoczny kolor: `bg-border/80` lub dedykowany kolor
+- Zaokrąglone zakończenia linii
 
-**Implementacja:**
-- `const [zoom, setZoom] = useState(100)`
-- Przyciski `ZoomIn` i `ZoomOut` z lucide-react
-- CSS transform na kontenerze drzewa: `transform: scale(${zoom / 100})`
-- Zakres: 50% - 150%, krok: 10%
-
----
-
-## 3. Nowy layout kafelków OrganizationNode
-
-### Obecny layout (pionowy):
-```text
-┌─────────────────┐
-│    [AVATAR]     │
-│    Sebastian    │
-│     Snopek      │
-│   [Partner]     │
-│   121118999     │
-│    👤 +4        │
-└─────────────────┘
-```
-
-### Nowy layout (szerszy, dwukolumnowy):
-```text
-┌─────────────────────────────────────────────┐
-│  ┌────────┐  │  Sebastian Snopek            │
-│  │ AVATAR │  │  [Partner]                   │
-│  │   SS   │  │                              │
-│  └────────┘  │  121118999                   │
-│              │  email@example.com           │
-│──────────────┴──────────────────────────────│
-│            [ ▼ ]  👤 +4                     │
-└─────────────────────────────────────────────┘
-```
-
-### Plik: `src/components/team-contacts/organization/OrganizationNode.tsx`
-
-**Zmiany struktury:**
-1. Zmiana z `flex-col` na dwukolumnowy grid/flex layout
-2. Lewa kolumna: Avatar z inicjałami
-3. Prawa kolumna: Imię+nazwisko, rola (badge), dane dodatkowe (EQID, email, telefon - kontrolowane przez admin)
-4. Dolny pasek: Przycisk rozwijania + licznik użytkowników w strukturze
-
-**Nowa konfiguracja rozmiarów:**
-```typescript
-const sizeConfig = {
-  small: {
-    container: 'min-w-[180px] p-3',
-    avatar: 'w-12 h-12',
-    text: 'text-xs',
-    badge: 'text-[10px] px-1.5 py-0.5',
-  },
-  medium: {
-    container: 'min-w-[220px] p-4',
-    avatar: 'w-14 h-14',
-    text: 'text-sm',
-    badge: 'text-xs px-2 py-0.5',
-  },
-  large: {
-    container: 'min-w-[280px] p-5',
-    avatar: 'w-16 h-16',
-    text: 'text-base',
-    badge: 'text-sm px-2.5 py-1',
-  },
-};
-```
-
----
-
-## Szczegóły techniczne
-
-### Plik 1: `src/components/dashboard/widgets/TeamContactsWidget.tsx`
-
-**Zmiany:**
-- Dodanie hooka `useOrganizationTreeSettings`
-- Import `TreePine` icon
-- Dodanie przycisku "Struktura" przed "Zarządzaj"
-- Warunek widoczności: `canAccessTree() && treeSettings?.is_enabled`
-
-### Plik 2: `src/components/team-contacts/organization/OrganizationChart.tsx`
-
-**Zmiany:**
-- Import `ZoomIn`, `ZoomOut` z lucide-react
-- Dodanie stanu: `const [zoom, setZoom] = useState(100)`
-- Przyciski zoom w nagłówku CardHeader
-- Transform na kontenerze drzewa w ScrollArea
-
-### Plik 3: `src/components/team-contacts/organization/OrganizationNode.tsx`
-
-**Zmiany:**
-- Całkowita przebudowa layoutu komponentu
-- Dwukolumnowy układ: avatar | dane
-- Dolny pasek z licznikiem dzieci przy ikonie rozwijania
-- Zachowanie wszystkich warunków widoczności z settings (show_eq_id, show_email, show_phone, show_role_badge, show_avatar, show_statistics)
-
-### Plik 4: `src/components/team-contacts/organization/OrganizationChart.tsx` (TreeBranch)
-
-**Zmiany:**
-- Przeniesienie licznika dzieci do OrganizationNode (dolny pasek)
-- Bez zmian logiki rozwijania/zwijania
+### 5. Podświetlanie ścieżki przy kliknięciu
+**Nowa funkcjonalność**:
+- State: `selectedNodeId` i `highlightedPath: string[]`
+- Kliknięcie w węzeł → obliczenie ścieżki od roota do wybranego węzła
+- Linie na ścieżce: grubsze (`w-1.5`) i kolorowe (`bg-primary`)
+- Węzły na ścieżce: normalna skala
+- Pozostałe węzły: `scale-90 opacity-60` (zmniejszone i przyciemnione)
 
 ---
 
@@ -152,14 +62,163 @@ const sizeConfig = {
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/widgets/TeamContactsWidget.tsx` | Dodanie przycisku "Struktura" z nawigacją |
-| `src/components/team-contacts/organization/OrganizationChart.tsx` | Dodanie kontrolek zoom (+/-) i transform scale |
-| `src/components/team-contacts/organization/OrganizationNode.tsx` | Nowy dwukolumnowy layout kafelka |
+| `src/components/team-contacts/organization/OrganizationNode.tsx` | Kompaktowy layout, zmiana "ID" na "EQID" |
+| `src/components/team-contacts/organization/OrganizationChart.tsx` | Auto-fit zoom, drag/pan, podświetlanie ścieżki, grubsze linie |
+
+---
+
+## Szczegóły techniczne
+
+### OrganizationNode.tsx - Kompaktowy design
+
+**Nowa konfiguracja rozmiarów**:
+```typescript
+const sizeConfig = {
+  small: {
+    container: 'min-w-[140px] max-w-[180px] p-2',
+    avatar: 'w-7 h-7',
+    text: 'text-[10px]',
+    nameText: 'text-xs',
+    badge: 'text-[9px] px-1 py-0',
+    infoText: 'text-[9px]',
+  },
+  medium: {
+    container: 'min-w-[160px] max-w-[200px] p-2.5',
+    avatar: 'w-8 h-8',
+    text: 'text-xs',
+    nameText: 'text-sm',
+    badge: 'text-[10px] px-1.5 py-0.5',
+    infoText: 'text-[10px]',
+  },
+  large: {
+    container: 'min-w-[180px] max-w-[220px] p-3',
+    avatar: 'w-9 h-9',
+    text: 'text-sm',
+    nameText: 'text-base',
+    badge: 'text-xs px-2 py-0.5',
+    infoText: 'text-xs',
+  },
+};
+```
+
+**Zmiana etykiety**:
+```typescript
+// Linia 174 - zmiana "ID:" na "EQID:"
+EQID: {node.eq_id}
+```
+
+### OrganizationChart.tsx - Główne zmiany
+
+**1. State dla ścieżki i drag**:
+```typescript
+const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
+const [isDragging, setIsDragging] = useState(false);
+const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+const scrollContainerRef = useRef<HTMLDivElement>(null);
+```
+
+**2. Funkcja znajdowania ścieżki**:
+```typescript
+const findPathToNode = (root: OrganizationTreeNode, targetId: string, path: string[] = []): string[] | null => {
+  const currentPath = [...path, root.id];
+  if (root.id === targetId) return currentPath;
+  for (const child of root.children) {
+    const result = findPathToNode(child, targetId, currentPath);
+    if (result) return result;
+  }
+  return null;
+};
+```
+
+**3. Obsługa kliknięcia węzła**:
+```typescript
+const handleNodeClick = (nodeId: string) => {
+  if (selectedNodeId === nodeId) {
+    setSelectedNodeId(null);
+    setHighlightedPath([]);
+  } else {
+    setSelectedNodeId(nodeId);
+    const path = findPathToNode(tree, nodeId);
+    setHighlightedPath(path || []);
+  }
+};
+```
+
+**4. Drag handlers**:
+```typescript
+const handleMouseDown = (e: React.MouseEvent) => {
+  if (!scrollContainerRef.current) return;
+  setIsDragging(true);
+  setDragStart({
+    x: e.clientX + scrollContainerRef.current.scrollLeft,
+    y: e.clientY + scrollContainerRef.current.scrollTop,
+  });
+};
+
+const handleMouseMove = (e: React.MouseEvent) => {
+  if (!isDragging || !scrollContainerRef.current) return;
+  scrollContainerRef.current.scrollLeft = dragStart.x - e.clientX;
+  scrollContainerRef.current.scrollTop = dragStart.y - e.clientY;
+};
+
+const handleMouseUp = () => setIsDragging(false);
+```
+
+**5. Auto-fit zoom przy montowaniu**:
+```typescript
+useEffect(() => {
+  if (tree && tree.children.length > 0) {
+    const childCount = tree.children.length;
+    const estimatedWidth = childCount * 180 + (childCount - 1) * 16;
+    const viewportWidth = window.innerWidth - 100;
+    const autoZoom = Math.min(100, Math.floor((viewportWidth / estimatedWidth) * 100));
+    setZoom(Math.max(30, autoZoom)); // Minimum 30%
+  }
+}, [tree]);
+```
+
+**6. Przekazanie props do TreeBranch**:
+```typescript
+<TreeBranch
+  node={tree}
+  settings={settings}
+  level={0}
+  isRoot
+  highlightedPath={highlightedPath}
+  selectedNodeId={selectedNodeId}
+  onNodeClick={handleNodeClick}
+/>
+```
+
+**7. TreeBranch - obsługa podświetlania**:
+```typescript
+const isOnPath = highlightedPath.includes(node.id);
+const isSelected = selectedNodeId === node.id;
+const hasFocus = highlightedPath.length > 0;
+
+// Na węźle:
+<div className={cn(
+  'transition-all duration-300',
+  hasFocus && !isOnPath && 'scale-90 opacity-50',
+  isSelected && 'ring-2 ring-primary ring-offset-2'
+)}>
+
+// Na liniach:
+<div className={cn(
+  'absolute left-1/2 -top-6 h-6 transition-all duration-300',
+  isOnPath ? 'w-1 bg-primary' : 'w-0.5 bg-border'
+)} />
+```
 
 ---
 
 ## Oczekiwany rezultat
 
-1. W widżecie "Zespół" na dashboardzie widoczny nowy przycisk "Struktura" obok "Zarządzaj"
-2. W widoku grafu struktury - kontrolki powiększania/pomniejszania widoku
-3. Kafelki w grafie mają nowy, szerszy layout z dwoma kolumnami i informacjami u podstawy
+1. **Kompaktowe kafelki** - mniej pustej przestrzeni, czytelne dane
+2. **"EQID:"** zamiast "ID:"
+3. **Auto-zoom** - widok dopasowuje się do ilości pierwszego poziomu
+4. **Drag & Pan** - możliwość przeciągania drzewa myszką
+5. **Widoczne linie** - grubsze, lepiej kontrastujące
+6. **Podświetlanie ścieżki** - kliknięcie w użytkownika wyróżnia całą linię od roota
+
