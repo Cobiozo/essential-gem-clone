@@ -224,13 +224,22 @@ const TrainingModule = () => {
                   if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
                     console.log(`[TrainingModule] Syncing localStorage backup for lesson: ${lesson.title}`);
                     
+                    // PROTECTION: Never reset completed lessons - once true, always true
+                    const wasCompletedInDb = progressMap[lesson.id]?.is_completed;
+                    const backupCompleted = backup.is_completed || false;
+                    const finalCompleted = wasCompletedInDb || backupCompleted;
+                    
+                    if (wasCompletedInDb && !backupCompleted) {
+                      console.log(`[TrainingModule] Protecting completed status for: ${lesson.title}`);
+                    }
+                    
                     const { error } = await supabase.from('training_progress').upsert({
                       user_id: user.id,
                       lesson_id: lesson.id,
                       time_spent_seconds: backup.time_spent_seconds || 0,
                       video_position_seconds: backup.video_position_seconds || 0,
-                      is_completed: backup.is_completed || false,
-                      completed_at: backup.is_completed ? new Date().toISOString() : null
+                      is_completed: finalCompleted,
+                      completed_at: finalCompleted ? (progressMap[lesson.id]?.completed_at || new Date().toISOString()) : null
                     }, {
                       onConflict: 'user_id,lesson_id'
                     });
@@ -242,9 +251,9 @@ const TrainingModule = () => {
                         lesson_id: lesson.id,
                         time_spent_seconds: backup.time_spent_seconds || 0,
                         video_position_seconds: backup.video_position_seconds || 0,
-                        is_completed: backup.is_completed || false,
+                        is_completed: finalCompleted,
                         started_at: progressMap[lesson.id]?.started_at || new Date().toISOString(),
-                        completed_at: backup.is_completed ? new Date().toISOString() : null
+                        completed_at: finalCompleted ? (progressMap[lesson.id]?.completed_at || new Date().toISOString()) : null
                       };
                       localStorage.removeItem(backupKey);
                       console.log(`[TrainingModule] Backup synced successfully for: ${lesson.title}`);
@@ -414,6 +423,13 @@ const TrainingModule = () => {
       const currentLesson = lessons[currentLessonIndex];
       if (!user || !currentLesson) return;
 
+      // PROTECTION: Never overwrite completed lessons - completion is irreversible
+      const wasAlreadyCompleted = progress[currentLesson.id]?.is_completed;
+      if (wasAlreadyCompleted) {
+        console.log('[TrainingModule] Skipping beforeunload save for already completed lesson:', currentLesson.title);
+        return;
+      }
+
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     const currentVideoPos = videoPositionRef.current;
     const currentVideoDuration = videoDurationRef.current;
@@ -470,7 +486,7 @@ const TrainingModule = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user, lessons, currentLessonIndex, textLessonTime]);
+  }, [user, lessons, currentLessonIndex, textLessonTime, progress]);
 
   // Ref to hold latest saveProgressWithPosition function (for stable callbacks)
   const saveProgressRef = useRef<() => Promise<boolean | void>>();
@@ -734,6 +750,13 @@ const TrainingModule = () => {
     
     return () => {
       if (lessonId && user) {
+        // PROTECTION: Never overwrite completed lessons - completion is irreversible
+        const wasAlreadyCompleted = progressRef.current[lessonId]?.is_completed;
+        if (wasAlreadyCompleted) {
+          console.log('[TrainingModule] Skipping unmount save for already completed lesson');
+          return;
+        }
+        
         const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
         const currentVideoDuration = videoDurationRef.current;
         const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
