@@ -269,6 +269,21 @@ All colors MUST be HSL.
     transform: scale(var(--hover-scale, 1));
     opacity: var(--hover-opacity, 1);
   }
+  
+  /* Tree connector drawing animation */
+  @keyframes draw-connector {
+    from {
+      stroke-dashoffset: 200;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  
+  .tree-connector {
+    stroke-dasharray: 200;
+    animation: draw-connector 0.6s ease-out forwards;
+  }
 }
 
 /* Fix dark mode text visibility for CMS content with hardcoded black colors */

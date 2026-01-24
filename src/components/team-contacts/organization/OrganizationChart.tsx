@@ -31,6 +31,33 @@ interface TreeBranchProps {
   onNodeClick: (nodeId: string) => void;
 }
 
+// Helper function to create smooth curved SVG path
+const createCurvePath = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  curveRadius: number = 12
+): string => {
+  const midY = startY + (endY - startY) / 2;
+  const direction = Math.sign(endX - startX) || 0;
+  
+  if (direction === 0) {
+    // Straight vertical line
+    return `M ${startX} ${startY} L ${endX} ${endY}`;
+  }
+  
+  // Curved path with rounded corners
+  return `
+    M ${startX} ${startY}
+    V ${midY - curveRadius}
+    Q ${startX} ${midY}, ${startX + direction * curveRadius} ${midY}
+    H ${endX - direction * curveRadius}
+    Q ${endX} ${midY}, ${endX} ${midY + curveRadius}
+    V ${endY}
+  `.trim().replace(/\s+/g, ' ');
+};
+
 const TreeBranch: React.FC<TreeBranchProps> = ({ 
   node, 
   settings, 
@@ -42,6 +69,7 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(level < 2);
   const hasChildren = node.children.length > 0;
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const isOnPath = highlightedPath.includes(node.id);
   const isSelected = selectedNodeId === node.id;
@@ -56,8 +84,15 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
     setIsExpanded(!isExpanded);
   };
 
+  // Calculate SVG paths for children connectors
+  const childCount = node.children.length;
+  const nodeWidth = settings.graph_node_size === 'small' ? 160 : settings.graph_node_size === 'medium' ? 180 : 200;
+  const gap = 16;
+  const totalWidth = childCount * nodeWidth + (childCount - 1) * gap;
+  const centerX = totalWidth / 2;
+
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center" ref={containerRef}>
       {/* Node */}
       <div className="relative">
         <OrganizationNode
@@ -91,57 +126,64 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
         )}
       </div>
 
-      {/* Children */}
+      {/* Children with SVG connectors */}
       {hasChildren && isExpanded && (
         <div className="relative mt-8">
-          {/* Vertical line from parent to horizontal connector */}
+          {/* SVG Connectors overlay */}
           {settings.graph_show_lines && (
-            <div className={cn(
-              "absolute left-1/2 -top-6 h-6 -translate-x-1/2 rounded-full transition-all duration-300",
-              isOnPath && hasFocus ? "w-1 bg-primary" : "w-0.5 bg-border"
-            )} />
+            <svg 
+              className="absolute pointer-events-none overflow-visible"
+              style={{ 
+                width: totalWidth,
+                height: 48,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                top: -24,
+              }}
+            >
+              {node.children.map((child, index) => {
+                const childIsOnPath = highlightedPath.includes(child.id);
+                const childX = index * (nodeWidth + gap) + nodeWidth / 2;
+                const isHighlighted = (isOnPath || childIsOnPath) && hasFocus;
+                
+                return (
+                  <path
+                    key={child.id}
+                    d={createCurvePath(centerX, 0, childX, 48, 14)}
+                    className={cn(
+                      "tree-connector fill-none transition-all duration-300",
+                      isHighlighted 
+                        ? "stroke-primary" 
+                        : hasFocus 
+                          ? "stroke-border/40" 
+                          : "stroke-border"
+                    )}
+                    strokeWidth={isHighlighted ? 3 : 2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      animationDelay: `${index * 0.08}s`
+                    }}
+                  />
+                );
+              })}
+            </svg>
           )}
           
-          {/* Children row with horizontal connector */}
-          <div className="flex gap-4 justify-center relative">
-            {/* Horizontal line spanning from first to last child */}
-            {settings.graph_show_lines && node.children.length > 1 && (
-              <div 
-                className={cn(
-                  "absolute -top-2 h-0.5 rounded-full transition-all duration-300",
-                  hasFocus ? "bg-border/60" : "bg-border"
-                )}
-                style={{
-                  left: `calc(50% / ${node.children.length})`,
-                  right: `calc(50% / ${node.children.length})`,
-                }}
-              />
-            )}
-            
-            {node.children.map((child) => {
-              const childIsOnPath = highlightedPath.includes(child.id);
-              return (
-                <div key={child.id} className="relative flex flex-col items-center">
-                  {/* Vertical line from horizontal bar to child */}
-                  {settings.graph_show_lines && (
-                    <div className={cn(
-                      "absolute left-1/2 -top-2 h-4 -translate-x-1/2 rounded-full transition-all duration-300",
-                      childIsOnPath && hasFocus ? "w-1 bg-primary" : "w-0.5 bg-border"
-                    )} />
-                  )}
-                  <div className="pt-2">
-                    <TreeBranch
-                      node={child}
-                      settings={settings}
-                      level={level + 1}
-                      highlightedPath={highlightedPath}
-                      selectedNodeId={selectedNodeId}
-                      onNodeClick={onNodeClick}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          {/* Children nodes */}
+          <div className="flex gap-4 justify-center">
+            {node.children.map((child) => (
+              <div key={child.id} className="flex flex-col items-center">
+                <TreeBranch
+                  node={child}
+                  settings={settings}
+                  level={level + 1}
+                  highlightedPath={highlightedPath}
+                  selectedNodeId={selectedNodeId}
+                  onNodeClick={onNodeClick}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
