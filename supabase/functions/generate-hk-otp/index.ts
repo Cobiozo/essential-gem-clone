@@ -148,8 +148,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate share URL
-    const shareUrl = `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/zdrowa-wiedza/${knowledge.slug}`;
+    // Get base URL from page_settings
+    const { data: settingsData } = await supabaseAdmin
+      .from('page_settings')
+      .select('app_base_url')
+      .limit(1)
+      .maybeSingle();
+
+    const baseUrl = settingsData?.app_base_url || 'https://purelife.info.pl';
+
+    // Generate share URL with proper domain
+    const shareUrl = `${baseUrl}/zdrowa-wiedza/${knowledge.slug}`;
     
     // Use custom template or default
     const template = knowledge.share_message_template || `Cześć!
