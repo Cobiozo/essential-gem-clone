@@ -1,110 +1,114 @@
 
 # Plan: Naprawa widoczności kontrolek wideo w Zdrowa Wiedza
 
-## Zdiagnozowany problem
+## Diagnoza problemu
 
-### Symptomy
-- Wideo wyświetla się (widoczna klatka obrazu)
-- Brak natywnych kontrolek przeglądarki (play/pause, pasek postępu, głośność)
-- Timer dostępu widoczny (23:59:33)
+### Co widzę na screenshotach użytkownika
 
-### Przyczyna
-W `HealthyKnowledgePublicPage.tsx` (linia 230):
+**Screenshot 1:** Pokazuje panel sterowania z "Odtwórz", "-10s", "Napraw", "Pomoc" oraz komunikat "Przygotowuję wideo do odtwarzania..." i "Podczas pierwszego oglądania możesz tylko cofać wideo"
 
+**Screenshot 2:** Pokazuje wideo odtwarzające się (widoczna klatka), ale BEZ żadnych kontrolek
+
+### Analiza
+
+Problem polega na tym, że choć kod źródłowy ma `disableInteraction={false}`, to użytkownik widzi elementy z trybu restrykcyjnego. Może to oznaczać:
+
+1. **Cache przeglądarki** - stara wersja kodu nadal jest aktywna
+2. **Problem z CSS** - kontrolki natywne są ukryte przez stylowanie
+
+Na drugim screenshocie wideo ODTWARZA SIĘ ale bez kontrolek - to sugeruje że natywne kontrolki HTML5 `<video controls>` nie są widoczne.
+
+### Przyczyna techniczna
+
+W `SecureMedia.tsx` (linia 1129):
 ```tsx
-<div className="aspect-video bg-black rounded-lg overflow-hidden">
-  <SecureMedia ... />
-</div>
+className={`w-full h-full object-contain rounded-lg ${className || ''}`}
 ```
 
-Problem stanowi kombinacja:
-1. **`overflow-hidden`** - ucina wszystko co wychodzi poza kontener
-2. **`aspect-video`** - wymusza proporcje 16:9 z określoną wysokością
-3. **SecureMedia renderuje `<video>` z `h-auto`** - wysokość dopasowuje się do treści
-
-Natywne kontrolki przeglądarki są renderowane NA DOLE elementu `<video>`. Jeśli wideo jest wyższe niż kontener (lub dokładnie równe), kontrolki są "ucięte" przez `overflow-hidden`.
-
-Dodatkowo w `SecureMedia.tsx` linia 1129:
-```tsx
-className={`w-full h-auto rounded-lg ${className || ''}`}
-```
-
-Klasa `h-auto` pozwala wysokości być dynamiczną, ale to powoduje że kontrolki mogą wychodzić poza `aspect-video` kontener.
+Połączenie `h-full` z kontenerem `aspect-video` powoduje problem - `aspect-video` daje proporcje 16:9, ale wysokość elementu wideo z `h-full` może powodować że kontrolki wypadają poza widoczny obszar lub są renderowane w nieoczekiwanym miejscu.
 
 ---
 
 ## Rozwiązanie
 
-### Zmiana 1: HealthyKnowledgePublicPage.tsx
+### Zmiana 1: SecureMedia.tsx - uproszczone stylowanie dla trybu nierestrykcyjnego
 
-Zmienić kontener wideo tak, aby nie ucinał kontrolek:
-
-```tsx
-// PRZED (linia 230):
-<div className="aspect-video bg-black rounded-lg overflow-hidden">
-
-// PO:
-<div className="aspect-video bg-black rounded-lg">
-```
-
-Usunięcie `overflow-hidden` pozwoli natywnym kontrolkom być widocznymi.
-
-### Zmiana 2: SecureMedia.tsx (dodatkowe zabezpieczenie)
-
-Aby wideo idealnie wypełniało kontener, zmodyfikować klasę w trybie `disableInteraction=false`:
+Zmiana klasy wideo tak, aby używało `aspect-video` wewnętrznie i nie polegało na wysokości rodzica:
 
 ```tsx
-// PRZED (linia 1129):
-className={`w-full h-auto rounded-lg ${className || ''}`}
-
-// PO:
-className={`w-full h-full object-contain rounded-lg ${className || ''}`}
+// Linia 1122-1139, tryb disableInteraction={false}
+return (
+  <div className="relative w-full aspect-video bg-black rounded-lg">
+    <video
+      ref={videoRefCallback}
+      {...securityProps}
+      src={signedUrl}
+      controls
+      controlsList="nodownload"
+      className="absolute inset-0 w-full h-full object-contain rounded-lg"
+      preload="metadata"
+      playsInline
+      webkit-playsinline="true"
+      {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+    >
+      Twoja przeglądarka nie obsługuje odtwarzania wideo.
+    </video>
+  </div>
+);
 ```
 
-- `h-full` - wysokość 100% rodzica
-- `object-contain` - zachowanie proporcji wewnątrz kontenera
+Kluczowe zmiany:
+- Owinięcie w `<div>` z `relative`, `aspect-video`, `bg-black`
+- Wideo z `absolute inset-0` wypełniające kontener
+- Kontrolki natywne będą zawsze widoczne wewnątrz tego kontenera
+
+### Zmiana 2: HealthyKnowledgePublicPage.tsx - usunięcie podwójnego aspect-video
+
+Ponieważ SecureMedia teraz samo zarządza proporcjami, kontener zewnętrzny nie potrzebuje `aspect-video`:
+
+```tsx
+// Linia 230
+<div className="bg-black rounded-lg">
+  <SecureMedia
+    mediaUrl={content.media_url}
+    mediaType={content.content_type}
+    disableInteraction={false}
+  />
+</div>
+```
 
 ---
 
-## Szczegóły zmian
+## Szczegóły techniczne
 
 | Plik | Linia | Zmiana |
 |------|-------|--------|
-| `src/pages/HealthyKnowledgePublicPage.tsx` | 230 | Usunięcie `overflow-hidden` z kontenera wideo |
-| `src/components/SecureMedia.tsx` | 1129 | Zmiana `h-auto` na `h-full object-contain` |
+| `src/components/SecureMedia.tsx` | 1122-1139 | Owinięcie `<video>` w `<div>` z prawidłowymi klasami CSS |
+| `src/pages/HealthyKnowledgePublicPage.tsx` | 230 | Usunięcie `aspect-video` (bo SecureMedia je zapewnia) |
 
 ---
 
-## Dlaczego to bezpieczne
+## Dlaczego to zadziała
 
-1. **Zmiana w HK stronie** - dotyczy tylko zewnętrznej strony Zdrowa Wiedza, nie wpływa na szkolenia ani inne moduły
-2. **Zmiana w SecureMedia** - dotyczy tylko trybu `disableInteraction=false` (linia 1122-1139), tryb restrykcyjny dla szkoleń używa innego renderu (linie 989-1086)
-3. **`object-contain`** - zachowuje oryginalne proporcje wideo, nie rozciąga obrazu
-
----
-
-## Przepływ po zmianach
-
-```
-Użytkownik wpisuje kod OTP
-        ↓
-validate-hk-otp generuje signed URL ✓
-        ↓
-SecureMedia używa signed URL bezpośrednio ✓
-        ↓
-Wideo renderuje się w kontenerze aspect-video
-        ↓
-h-full wypełnia kontener, kontrolki widoczne na dole
-        ↓
-✅ Użytkownik widzi pełne kontrolki (play, seek, volume, fullscreen)
-```
+1. **Kontrola proporcji wewnątrz SecureMedia** - komponent sam zarządza swoim układem
+2. **`absolute inset-0`** - wideo wypełnia cały kontener, kontrolki są WEWNĄTRZ
+3. **Brak konfliktów CSS** - żadnych podwójnych proporcji ani nakładających się kontenerów
 
 ---
 
-## Podsumowanie
+## Wpływ na inne moduły
 
-Dwie małe zmiany CSS naprawią problem:
-- Usunięcie `overflow-hidden` które ucina kontrolki
-- Zmiana `h-auto` na `h-full object-contain` dla prawidłowego dopasowania
+| Moduł | Wpływ |
+|-------|-------|
+| Szkolenia | ❌ Brak - używają trybu `disableInteraction={true}` (linie 988-1086), ta zmiana nie dotyczy tego trybu |
+| Wewnętrzny dashboard | ❌ Brak - zalogowani użytkownicy mają swoje uprawnienia |
+| InfoLinki | ❌ Brak - nie używają SecureMedia dla wideo |
 
-Wideo będzie miało pełne natywne kontrolki przeglądarki: play/pause, przewijanie, głośność, pełny ekran.
+---
+
+## Efekt końcowy
+
+Po wdrożeniu zmian użytkownik zewnętrzny (z kodem OTP) zobaczy:
+- Wideo wypełniające kontener z zachowaniem proporcji
+- Natywne kontrolki przeglądarki: play/pause, pasek postępu, głośność, pełny ekran, prędkość
+- Timer dostępu nadal widoczny nad wideo
