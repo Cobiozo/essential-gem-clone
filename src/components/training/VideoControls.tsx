@@ -4,11 +4,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
-interface NoteMarker {
-  id: string;
-  timestamp: number;
-}
-
 interface VideoControlsProps {
   isPlaying: boolean;
   currentTime: number;
@@ -35,9 +30,6 @@ interface VideoControlsProps {
   connectionType?: string;
   downlink?: number;
   rtt?: number;
-  // NEW: Note markers
-  noteMarkers?: NoteMarker[];
-  onNoteMarkerClick?: (noteId: string) => void;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -61,9 +53,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   bufferedAheadSeconds = 0,
   connectionType,
   downlink,
-  rtt,
-  noteMarkers,
-  onNoteMarkerClick
+  rtt
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -216,23 +206,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             {/* Playback progress (foreground layer) */}
             <Progress value={progressPercentage} className="h-2 relative z-10" />
             
-            {/* Note markers (red dots on timeline) */}
-            {noteMarkers && noteMarkers.length > 0 && duration > 0 && (
-              <div className="absolute inset-0 pointer-events-none">
-                {noteMarkers.map(marker => (
-                  <button
-                    key={marker.id}
-                    className="absolute w-3 h-3 bg-red-500 rounded-full -top-0.5 transform -translate-x-1/2 cursor-pointer hover:scale-125 transition-transform z-20 pointer-events-auto shadow-sm"
-                    style={{ left: `${(marker.timestamp / duration) * 100}%` }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNoteMarkerClick?.(marker.id);
-                    }}
-                    title="Kliknij, aby zobaczyć notatkę"
-                  />
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
