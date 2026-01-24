@@ -1126,7 +1126,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         src={signedUrl}
         controls
         controlsList="nodownload"
-        className={`w-full h-auto rounded-lg ${className || ''}`}
+        className={`w-full h-full object-contain rounded-lg ${className || ''}`}
         preload="metadata"
         playsInline
         // @ts-ignore - webkit-playsinline for older iOS

@@ -227,7 +227,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
             <CardContent className="p-6">
               {/* Video/Audio */}
               {(content.content_type === 'video' || content.content_type === 'audio') && content.media_url && (
-                <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <div className="aspect-video bg-black rounded-lg">
                   <SecureMedia
                     mediaUrl={content.media_url}
                     mediaType={content.content_type}
