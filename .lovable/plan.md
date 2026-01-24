@@ -1,83 +1,123 @@
 
-# Naprawa błędu React #310 - useCallback po early returns
+# Naprawa: Wideo i timer nie zatrzymują się przy otwarciu dialogu notatek
 
-## Problem
+## Zdiagnozowany problem
 
-Błąd: **"Rendered more hooks than during the previous render"**
+Użytkownik zgłasza, że po otwarciu okna notatek:
+1. **Wideo nie zatrzymuje się** - kontynuuje odtwarzanie w tle
+2. **Timer nie zatrzymuje się** - czas lekcji jest nadal naliczany
 
-Przyczyna: W `TrainingModule.tsx` po naprawie hooka `useLessonNotes`, pozostały dwa hooki `useCallback` (linie 1093-1108) **PO** instrukcjach `if/return`:
-
-```tsx
-// Linia 1041-1065: Early return podczas ładowania
-if (loading) {
-  return (...);  // ❌ Tu komponenty się zatrzymują przy pierwszym renderze
-}
-
-// Linia 1067-1086: Early return gdy brak modułu
-if (!module || lessons.length === 0) {
-  return (...);  // ❌ Tu też
-}
-
-// Linia 1093-1101: HOOK PO EARLY RETURN!
-const handleNoteMarkerClick = useCallback(...);  // ❌ Niezawołany przy loading=true
-
-// Linia 1104-1108: HOOK PO EARLY RETURN!
-const handleSeekToTime = useCallback(...);  // ❌ Niezawołany przy loading=true
-```
-
-To narusza zasady React - liczba hooków musi być taka sama przy każdym renderze.
+**Przyczyna**: Brak powiązania między stanem dialogu (`isNotesDialogOpen`) a logiką odtwarzania wideo i timerem.
 
 ---
 
 ## Rozwiązanie
 
-Przenieść `handleNoteMarkerClick` i `handleSeekToTime` na **początek komponentu** (po linii 115, obok `formatNoteTime`):
+### 1. Dodać pausowanie wideo przy otwarciu dialogu notatek
+
+W `SecureMedia.tsx` dodać nową właściwość `pauseRequested` oraz useEffect, który pauzuje wideo gdy ta flaga jest `true`:
 
 ```tsx
-// Linia ~96-115: Istniejące hooki
-const currentLesson = lessons[currentLessonIndex];
+// SecureMedia.tsx - nowy prop
+interface SecureMediaProps {
+  // ... istniejące propsy
+  pauseRequested?: boolean;  // NOWY: żądanie pauzowania z zewnątrz
+}
 
-const { notes, noteMarkers, ... } = useLessonNotes(currentLesson?.id, user?.id);
-
-const formatNoteTime = (seconds: number) => { ... };
-
-// ✅ DODAĆ TUTAJ (przed wszelkimi early returns):
-const handleNoteMarkerClick = useCallback((noteId: string) => {
-  const note = getNoteById(noteId);
-  if (note) {
-    toast({
-      title: `Notatka (${formatNoteTime(note.video_timestamp_seconds)})`,
-      description: note.content
-    });
+// useEffect reagujący na pauseRequested
+useEffect(() => {
+  if (pauseRequested && videoRef.current && !videoRef.current.paused) {
+    console.log('[SecureMedia] External pause requested (notes dialog)');
+    videoRef.current.pause();
   }
-}, [getNoteById, toast]);
-
-const handleSeekToTime = useCallback((seconds: number) => {
-  // Pobierz isLessonCompleted wewnątrz callbacka zamiast z dependency
-  const currentProgress = progress[currentLesson?.id];
-  const completed = currentProgress?.is_completed || false;
-  if (seekToTimeRef.current && completed) {
-    seekToTimeRef.current(seconds);
-  }
-}, [progress, currentLesson?.id]);
+}, [pauseRequested]);
 ```
 
-I usunąć duplikaty z linii 1092-1108.
+### 2. Przekazać stan dialogu do SecureMedia
+
+W `TrainingModule.tsx` przekazać `isNotesDialogOpen` jako `pauseRequested`:
+
+```tsx
+<SecureMedia 
+  key={currentLesson.id}
+  // ... pozostałe propsy
+  pauseRequested={isNotesDialogOpen}  // NOWY
+/>
+```
+
+### 3. Zatrzymać timer lekcji tekstowej gdy dialog jest otwarty
+
+W `TrainingModule.tsx` dodać warunek `isNotesDialogOpen` do useEffect obsługującego timer:
+
+```tsx
+// Istniejący useEffect z timerem (linie 352-374)
+useEffect(() => {
+  const currentLesson = lessons[currentLessonIndex];
+  const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+  const isLessonCompleted = progress[currentLesson?.id]?.is_completed;
+  
+  // NOWY WARUNEK: zatrzymaj timer gdy dialog notatek jest otwarty
+  if (hasVideo || isLessonCompleted || isNotesDialogOpen) {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    return;
+  }
+
+  timerRef.current = setInterval(() => {
+    setTextLessonTime(prev => prev + 1);
+  }, 1000);
+  
+  return () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+  };
+}, [currentLessonIndex, lessons, progress, isNotesDialogOpen]); // DODAĆ do dependencies
+```
 
 ---
 
 ## Szczegóły techniczne
 
-| Linia | Zmiana |
-|-------|--------|
-| ~115 | Dodać `handleNoteMarkerClick` i `handleSeekToTime` |
-| 1088-1108 | Usunąć stare definicje tych callbacków |
+| Plik | Zmiana |
+|------|--------|
+| `src/components/SecureMedia.tsx` | Dodać prop `pauseRequested` i useEffect do pauzowania |
+| `src/pages/TrainingModule.tsx` | Przekazać `pauseRequested={isNotesDialogOpen}` do SecureMedia |
+| `src/pages/TrainingModule.tsx` | Dodać `isNotesDialogOpen` do warunku timera lekcji tekstowej |
+
+---
+
+## Diagram przepływu
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                    TrainingModule                       │
+│                                                         │
+│  [Przycisk Notatki] ──onClick──> setIsNotesDialogOpen   │
+│                                       │                 │
+│                                       ▼                 │
+│  ┌─────────────────────────────────────────────┐       │
+│  │ isNotesDialogOpen = true                    │       │
+│  └───────────────┬─────────────────────────────┘       │
+│                  │                                      │
+│       ┌──────────┴──────────┐                          │
+│       ▼                     ▼                          │
+│  SecureMedia           Timer useEffect                 │
+│  pauseRequested=true   if (isNotesDialogOpen)          │
+│       │                     │                          │
+│       ▼                     ▼                          │
+│  video.pause()         clearInterval(timerRef)         │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Oczekiwany efekt
 
-- Wszystkie hooki wywoływane bezwarunkowo przy każdym renderze
-- Błąd React #310 zniknie
-- Szkolenia będą działać poprawnie
-- System notatek będzie funkcjonować bez przeszkód
+Po wdrożeniu:
+- Wideo automatycznie zatrzyma się po otwarciu dialogu notatek
+- Timer lekcji tekstowej zatrzyma się gdy dialog jest otwarty
+- Po zamknięciu dialogu użytkownik może wznowić odtwarzanie ręcznie
+- Timestamp notatki zostanie prawidłowo zapisany (czas zatrzymania)
