@@ -114,6 +114,26 @@ const TrainingModule = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
   
+  // Handle note marker click on timeline - MUST be before any conditional returns
+  const handleNoteMarkerClick = useCallback((noteId: string) => {
+    const note = getNoteById(noteId);
+    if (note) {
+      toast({
+        title: `Notatka (${formatNoteTime(note.video_timestamp_seconds)})`,
+        description: note.content
+      });
+    }
+  }, [getNoteById, toast]);
+  
+  // Handle seek to time from notes dialog - MUST be before any conditional returns
+  const handleSeekToTime = useCallback((seconds: number) => {
+    const currentProgress = progress[currentLesson?.id];
+    const completed = currentProgress?.is_completed || false;
+    if (seekToTimeRef.current && completed) {
+      seekToTimeRef.current(seconds);
+    }
+  }, [progress, currentLesson?.id]);
+  
   const isValidUUID = (str: string): boolean => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return uuidRegex.test(str);
@@ -1088,24 +1108,6 @@ const TrainingModule = () => {
   // currentLesson already defined at top level for hooks
   const currentProgress = progress[currentLesson?.id];
   const isLessonCompleted = currentProgress?.is_completed || false;
-  
-  // Handle note marker click on timeline
-  const handleNoteMarkerClick = useCallback((noteId: string) => {
-    const note = getNoteById(noteId);
-    if (note) {
-      toast({
-        title: `Notatka (${formatNoteTime(note.video_timestamp_seconds)})`,
-        description: note.content
-      });
-    }
-  }, [getNoteById, toast]);
-  
-  // Handle seek to time from notes dialog
-  const handleSeekToTime = useCallback((seconds: number) => {
-    if (seekToTimeRef.current && isLessonCompleted) {
-      seekToTimeRef.current(seconds);
-    }
-  }, [isLessonCompleted]);
   
   // Determine effective time based on lesson type
   const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
