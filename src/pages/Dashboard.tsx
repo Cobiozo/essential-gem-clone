@@ -15,9 +15,8 @@ const InfoLinksWidget = lazy(() => import('@/components/dashboard/widgets/InfoLi
 const CalendarWidget = lazy(() => import('@/components/dashboard/widgets/CalendarWidget'));
 const MyMeetingsWidget = lazy(() => import('@/components/dashboard/widgets/MyMeetingsWidget'));
 const DashboardFooterSection = lazy(() => import('@/components/dashboard/widgets/DashboardFooterSection'));
-const ActiveOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/ActiveOtpCodesWidget'));
+const CombinedOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/CombinedOtpCodesWidget'));
 const HealthyKnowledgeWidget = lazy(() => import('@/components/dashboard/widgets/HealthyKnowledgeWidget'));
-const ActiveHkCodesWidget = lazy(() => import('@/components/dashboard/widgets/ActiveHkCodesWidget'));
 const ActiveUsersWidget = lazy(() => import('@/components/dashboard/widgets/ActiveUsersWidget'));
 
 // Skeleton fallback for widgets during lazy load
@@ -100,9 +99,9 @@ const Dashboard: React.FC = () => {
             <NotificationsWidget />
           </Suspense>
 
-          {/* Active OTP Codes for partners */}
+          {/* Combined OTP Codes Widget - for partners/admins */}
           <Suspense fallback={<WidgetSkeleton />}>
-            <ActiveOtpCodesWidget />
+            <CombinedOtpCodesWidget />
           </Suspense>
 
           {/* Remaining widgets flow naturally */}
@@ -122,11 +121,6 @@ const Dashboard: React.FC = () => {
           {/* Healthy Knowledge Widget */}
           <Suspense fallback={<WidgetSkeleton />}>
             <HealthyKnowledgeWidget />
-          </Suspense>
-          
-          {/* Active HK Codes Widget - for partners */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <ActiveHkCodesWidget />
           </Suspense>
           
           {/* Active Users Widget - only visible to admins */}
