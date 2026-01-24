@@ -1166,24 +1166,43 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       );
     }
     
+    // Custom player with VideoControls for completed lessons (to show note markers)
     return (
-      <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
+      <div 
+        ref={containerRef}
+        className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}
+      >
         <video
           ref={videoRefCallback}
           {...securityProps}
           src={signedUrl}
-          controls
           controlsList="nodownload"
-          className="absolute inset-0 w-full h-full object-contain rounded-lg"
+          className="absolute inset-0 w-full h-full object-contain rounded-lg cursor-pointer"
           preload="metadata"
           playsInline
           // @ts-ignore - webkit-playsinline for older iOS
           webkit-playsinline="true"
+          onClick={handlePlayPause}
           // Only use crossOrigin for Supabase storage URLs (which support CORS)
           {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
         >
           Twoja przeglądarka nie obsługuje odtwarzania wideo.
         </video>
+        <VideoControls 
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          onPlayPause={handlePlayPause}
+          onRewind={handleRewind}
+          isFullscreen={isFullscreen}
+          onFullscreen={handleFullscreen}
+          isBuffering={isBuffering}
+          bufferProgress={bufferProgress}
+          bufferedRanges={bufferedRanges}
+          networkQuality={networkQuality}
+          noteMarkers={noteMarkers}
+          onNoteMarkerClick={onNoteMarkerClick}
+        />
       </div>
     );
   }
