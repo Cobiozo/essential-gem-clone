@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
@@ -33,6 +34,10 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
 
 export default function KnowledgeCenter() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const highlightedResourceId = searchParams.get('highlight');
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const [resources, setResources] = useState<KnowledgeResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,6 +59,41 @@ export default function KnowledgeCenter() {
     fetchResources();
     fetchSiteLogo();
   }, []);
+
+  // Scroll to highlighted resource when loaded
+  useEffect(() => {
+    if (highlightedResourceId && !loading && resources.length > 0) {
+      // Determine if it's document or graphic and switch tab if needed
+      const resource = resources.find(r => r.id === highlightedResourceId);
+      if (resource) {
+        if (resource.resource_type === 'image') {
+          setMainTab('graphics');
+        } else {
+          setMainTab('documents');
+        }
+      }
+      
+      // Small delay to allow tab switch and render
+      setTimeout(() => {
+        const element = document.getElementById(`resource-${highlightedResourceId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-primary', 'animate-pulse');
+          
+          // Remove highlight after 3 seconds
+          highlightTimeoutRef.current = setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-primary', 'animate-pulse');
+          }, 3000);
+        }
+      }, 100);
+    }
+    
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, [highlightedResourceId, loading, resources]);
 
   const fetchSiteLogo = async () => {
     const { data } = await supabase
@@ -259,7 +299,11 @@ export default function KnowledgeCenter() {
 
   // Render resource card for documents
   const renderResourceCard = (resource: KnowledgeResource, isGrid: boolean = false) => (
-    <Card key={resource.id} className={`hover:shadow-md transition-shadow ${isGrid ? 'h-full' : ''}`}>
+    <Card 
+      key={resource.id} 
+      id={`resource-${resource.id}`}
+      className={`hover:shadow-md transition-all duration-300 ${isGrid ? 'h-full' : ''}`}
+    >
       <CardContent className="p-4">
         <div className={isGrid ? "flex flex-col h-full" : "flex flex-col sm:flex-row sm:items-center gap-4"}>
           <div className={`flex items-start gap-3 ${isGrid ? 'mb-3' : 'flex-1 min-w-0'}`}>

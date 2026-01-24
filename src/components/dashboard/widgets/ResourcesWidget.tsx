@@ -133,13 +133,13 @@ export const ResourcesWidget: React.FC = () => {
               >
                 <div 
                   className="p-2 rounded-lg bg-primary/10 cursor-pointer"
-                  onClick={() => navigate('/knowledge')}
+                  onClick={() => navigate(`/knowledge?highlight=${resource.id}`)}
                 >
                   <Icon className="h-4 w-4 text-primary" />
                 </div>
                 <div 
                   className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => navigate('/knowledge')}
+                  onClick={() => navigate(`/knowledge?highlight=${resource.id}`)}
                 >
                   <p className="text-sm font-medium text-foreground truncate">
                     {resource.title}
