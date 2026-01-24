@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { OrganizationTreeNode } from '@/hooks/useOrganizationTree';
 import { OrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
-import { Users, Star } from 'lucide-react';
+import { Users, Star, Mail, Phone } from 'lucide-react';
 
 interface OrganizationNodeProps {
   node: OrganizationTreeNode;
@@ -73,22 +73,28 @@ const getInitials = (firstName: string | null, lastName: string | null): string 
 
 const sizeConfig = {
   small: {
-    container: 'w-24 p-2',
+    container: 'min-w-[200px] p-3',
     avatar: 'w-10 h-10',
     text: 'text-xs',
+    nameText: 'text-sm',
     badge: 'text-[10px] px-1.5 py-0.5',
+    infoText: 'text-[10px]',
   },
   medium: {
-    container: 'w-32 p-3',
-    avatar: 'w-14 h-14',
+    container: 'min-w-[240px] p-4',
+    avatar: 'w-12 h-12',
     text: 'text-sm',
+    nameText: 'text-base',
     badge: 'text-xs px-2 py-0.5',
+    infoText: 'text-xs',
   },
   large: {
-    container: 'w-40 p-4',
-    avatar: 'w-16 h-16',
+    container: 'min-w-[280px] p-5',
+    avatar: 'w-14 h-14',
     text: 'text-base',
+    nameText: 'text-lg',
     badge: 'text-sm px-2.5 py-1',
+    infoText: 'text-sm',
   },
 };
 
@@ -103,12 +109,13 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
   const roleConfig = getRoleConfig(node.role);
   const sizes = sizeConfig[size];
   const initials = getInitials(node.first_name, node.last_name);
+  const fullName = `${node.first_name || 'Brak'} ${node.last_name || 'danych'}`.trim();
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        'flex flex-col items-center rounded-xl border-2 transition-all duration-200',
+        'flex flex-col rounded-xl border-2 transition-all duration-200',
         sizes.container,
         roleConfig.bgColor,
         roleConfig.borderColor,
@@ -117,60 +124,80 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
         onClick && 'cursor-pointer hover:shadow-lg hover:scale-105'
       )}
     >
-      {/* Avatar */}
-      {settings.show_avatar && (
-        <div className="relative">
-          <Avatar className={cn(sizes.avatar, 'border-2', roleConfig.borderColor)}>
-            {node.avatar_url ? (
-              <AvatarImage src={node.avatar_url} alt={`${node.first_name} ${node.last_name}`} />
-            ) : null}
-            <AvatarFallback className={cn(roleConfig.avatarBg, roleConfig.textColor, 'font-semibold')}>
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          {isRoot && (
-            <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5">
-              <Star className="w-3 h-3" />
-            </div>
+      {/* Main content - two columns */}
+      <div className="flex gap-3">
+        {/* Left column - Avatar */}
+        {settings.show_avatar && (
+          <div className="relative flex-shrink-0">
+            <Avatar className={cn(sizes.avatar, 'border-2', roleConfig.borderColor)}>
+              {node.avatar_url ? (
+                <AvatarImage src={node.avatar_url} alt={fullName} />
+              ) : null}
+              <AvatarFallback className={cn(roleConfig.avatarBg, roleConfig.textColor, 'font-semibold')}>
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            {isRoot && (
+              <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5">
+                <Star className="w-3 h-3" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Right column - Info */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          {/* Name */}
+          <div className={cn('font-semibold truncate', sizes.nameText)}>
+            {fullName}
+          </div>
+
+          {/* Role Badge */}
+          {settings.show_role_badge && (
+            <Badge
+              variant="secondary"
+              className={cn(
+                'mt-1 w-fit',
+                sizes.badge,
+                roleConfig.badgeColor,
+                'text-white'
+              )}
+            >
+              {roleConfig.label}
+            </Badge>
           )}
+
+          {/* Additional info - EQID, Email, Phone */}
+          <div className="mt-2 space-y-0.5">
+            {settings.show_eq_id && node.eq_id && (
+              <div className={cn('text-muted-foreground font-mono', sizes.infoText)}>
+                ID: {node.eq_id}
+              </div>
+            )}
+            {settings.show_email && node.email && (
+              <div className={cn('flex items-center gap-1 text-muted-foreground truncate', sizes.infoText)}>
+                <Mail className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{node.email}</span>
+              </div>
+            )}
+            {settings.show_phone && node.phone_number && (
+              <div className={cn('flex items-center gap-1 text-muted-foreground', sizes.infoText)}>
+                <Phone className="w-3 h-3 flex-shrink-0" />
+                <span>{node.phone_number}</span>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Name */}
-      <div className={cn('mt-2 text-center font-medium truncate w-full', sizes.text)}>
-        {node.first_name || 'Brak'}
-      </div>
-      <div className={cn('text-center text-muted-foreground truncate w-full', sizes.text)}>
-        {node.last_name || 'danych'}
       </div>
 
-      {/* Role Badge */}
-      {settings.show_role_badge && (
-        <Badge
-          variant="secondary"
-          className={cn(
-            'mt-1',
-            sizes.badge,
-            roleConfig.badgeColor,
-            'text-white'
-          )}
-        >
-          {roleConfig.label}
-        </Badge>
-      )}
-
-      {/* EQ ID */}
-      {settings.show_eq_id && node.eq_id && (
-        <div className={cn('mt-1 text-muted-foreground', sizes.text === 'text-xs' ? 'text-[10px]' : 'text-xs')}>
-          {node.eq_id}
-        </div>
-      )}
-
-      {/* Child count */}
+      {/* Footer - Child count */}
       {settings.show_statistics && node.childCount > 0 && (
-        <div className={cn('mt-1 flex items-center gap-1 text-muted-foreground', sizes.text === 'text-xs' ? 'text-[10px]' : 'text-xs')}>
-          <Users className="w-3 h-3" />
-          <span>+{node.childCount}</span>
+        <div className={cn(
+          'mt-3 pt-2 border-t border-current/10 flex items-center justify-center gap-1.5 text-muted-foreground',
+          sizes.infoText
+        )}>
+          <Users className="w-3.5 h-3.5" />
+          <span className="font-medium">+{node.childCount} osób w strukturze</span>
         </div>
       )}
     </div>

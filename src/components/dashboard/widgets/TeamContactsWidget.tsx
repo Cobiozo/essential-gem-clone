@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Users, ArrowRight, UserPlus, Mail, Phone } from 'lucide-react';
+import { Users, ArrowRight, UserPlus, Mail, Phone, Network } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
 
 interface TeamMember {
   id: string;
@@ -34,6 +35,7 @@ export const TeamContactsWidget: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<TeamMember | null>(null);
+  const { canAccessTree } = useOrganizationTreeSettings();
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -100,10 +102,23 @@ export const TeamContactsWidget: React.FC = () => {
             <Users className="h-4 w-4 text-primary" />
             {t('dashboard.team')}
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=team-contacts')} className="text-xs">
-            {t('dashboard.manage')}
-            <ArrowRight className="h-3 w-3 ml-1" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {canAccessTree() && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/my-account?tab=team-contacts&subTab=structure')} 
+                className="text-xs"
+              >
+                <Network className="h-3 w-3 mr-1" />
+                Struktura
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=team-contacts')} className="text-xs">
+              {t('dashboard.manage')}
+              <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Stats */}
