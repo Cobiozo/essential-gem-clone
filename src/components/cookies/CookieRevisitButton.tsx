@@ -25,7 +25,7 @@ export function CookieRevisitButton({ bannerSettings, onClick }: CookieRevisitBu
   }, [isMinimized, isHovered]);
 
   const positionClasses: Record<string, string> = {
-    'bottom-left': 'fixed bottom-2 left-2 sm:bottom-4 sm:left-4',
+    'bottom-left': 'fixed bottom-16 left-2 sm:bottom-20 sm:left-4',
     'bottom-center': 'fixed bottom-2 left-1/2 -translate-x-1/2 sm:bottom-4',
     'bottom-right': 'fixed bottom-2 right-2 sm:bottom-4 sm:right-4',
   };

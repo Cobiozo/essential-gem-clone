@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Users, Check, Mail, HelpCircle } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import dropletIcon from '@/assets/pure-life-droplet.png';
+import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -125,10 +125,10 @@ export const DashboardFooterSection: React.FC = () => {
             {settings?.contact_email_label || t('footer.emailSupport')}
           </span>
           <a 
-            href={`mailto:${settings?.contact_email_address || 'kontakt@purelife.info.pl'}`}
+            href={`mailto:${settings?.contact_email_address || 'support@purelife.info.pl'}`}
             className="text-primary hover:underline text-sm"
           >
-            {settings?.contact_email_address || 'kontakt@purelife.info.pl'}
+            {settings?.contact_email_address || 'support@purelife.info.pl'}
           </a>
         </div>
       </section>
@@ -136,7 +136,7 @@ export const DashboardFooterSection: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-border pt-4 pb-2 flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
         <div className="flex items-center gap-2">
-          <img src={dropletIcon} alt="" className="w-5 h-5" />
+          <img src={pureLifeLogo} alt="Pure Life" className="w-6 h-6 object-contain" />
           <span className="text-primary font-bold">PURE LIFE</span>
         </div>
         <span>© {new Date().getFullYear()} Pure Life. {t('footer.allRightsReserved')}</span>
