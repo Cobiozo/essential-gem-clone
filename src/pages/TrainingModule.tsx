@@ -92,6 +92,28 @@ const TrainingModule = () => {
   // Notes dialog state
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const seekToTimeRef = useRef<((time: number) => void) | null>(null);
+  
+  // Get current lesson for notes hook (must be before any conditional returns)
+  const currentLesson = lessons[currentLessonIndex];
+  
+  // Notes hook - MUST be called unconditionally at the top level
+  const {
+    notes,
+    noteMarkers,
+    addNote,
+    updateNote,
+    deleteNote,
+    exportNotes,
+    getNoteById
+  } = useLessonNotes(currentLesson?.id, user?.id);
+  
+  // Helper to format time for notes
+  const formatNoteTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
   const isValidUUID = (str: string): boolean => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return uuidRegex.test(str);
@@ -1063,20 +1085,9 @@ const TrainingModule = () => {
     );
   }
 
-  const currentLesson = lessons[currentLessonIndex];
+  // currentLesson already defined at top level for hooks
   const currentProgress = progress[currentLesson?.id];
   const isLessonCompleted = currentProgress?.is_completed || false;
-  
-  // Notes hook - must be called unconditionally
-  const {
-    notes,
-    noteMarkers,
-    addNote,
-    updateNote,
-    deleteNote,
-    exportNotes,
-    getNoteById
-  } = useLessonNotes(currentLesson?.id, user?.id);
   
   // Handle note marker click on timeline
   const handleNoteMarkerClick = useCallback((noteId: string) => {
@@ -1088,13 +1099,6 @@ const TrainingModule = () => {
       });
     }
   }, [getNoteById, toast]);
-  
-  // Helper to format time for notes
-  const formatNoteTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
   
   // Handle seek to time from notes dialog
   const handleSeekToTime = useCallback((seconds: number) => {
