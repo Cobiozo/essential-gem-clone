@@ -94,6 +94,33 @@ Deno.serve(async (req) => {
 
     const remainingSeconds = Math.floor((new Date(session.expires_at).getTime() - Date.now()) / 1000);
 
+    // Generate signed URL for private bucket (server-side with service role)
+    let signedMediaUrl = knowledge.media_url;
+
+    if (knowledge.media_url?.includes('supabase.co') && knowledge.media_url.includes('/storage/v1/object/')) {
+      try {
+        const urlObj = new URL(knowledge.media_url);
+        const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
+        
+        if (pathMatch) {
+          const [, bucket, filePath] = pathMatch;
+          
+          const { data: signedData, error: signError } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(decodeURIComponent(filePath), 7200);
+          
+          if (!signError && signedData?.signedUrl) {
+            signedMediaUrl = signedData.signedUrl;
+            console.log(`Generated signed URL for verify-session: ${bucket}/${filePath.substring(0, 30)}...`);
+          } else {
+            console.warn('Failed to generate signed URL:', signError);
+          }
+        }
+      } catch (urlError) {
+        console.error('Error signing media URL:', urlError);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         valid: true,
@@ -104,7 +131,7 @@ Deno.serve(async (req) => {
           title: knowledge.title,
           description: knowledge.description,
           content_type: knowledge.content_type,
-          media_url: knowledge.media_url,
+          media_url: signedMediaUrl,
           text_content: knowledge.text_content,
           duration_seconds: knowledge.duration_seconds,
         }

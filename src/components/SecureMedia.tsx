@@ -229,6 +229,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     const getSignedUrl = async () => {
       try {
+        // Check if URL is already signed (from edge function - e.g., HK OTP access)
+        if (mediaUrl.includes('/storage/v1/object/sign/')) {
+          console.log('[SecureMedia] Using pre-signed URL from server');
+          if (mounted) {
+            setSignedUrl(mediaUrl);
+            setLoading(false);
+            // Set expiry time for refresh (assume 2 hours from now minus buffer)
+            setUrlExpiryTime(Date.now() + 7000000);
+            isSupabaseUrlRef.current = true;
+          }
+          return;
+        }
+
         if (mediaUrl.includes('supabase.co')) {
           isSupabaseUrlRef.current = true;
           const urlObj = new URL(mediaUrl);
