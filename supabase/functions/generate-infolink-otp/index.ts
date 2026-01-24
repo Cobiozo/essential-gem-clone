@@ -129,9 +129,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Calculate expiry time
-    const validityHours = reflink.otp_validity_hours || 24;
-    const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+    // Calculate expiry time - 7 days activation window (code can wait before being used)
+    const activationPeriodDays = 7;
+    const expiresAt = new Date(Date.now() + activationPeriodDays * 24 * 60 * 60 * 1000);
 
     // Insert OTP code
     const { data: otpRecord, error: insertError } = await supabaseAdmin

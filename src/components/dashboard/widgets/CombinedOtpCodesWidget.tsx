@@ -17,7 +17,7 @@ interface InfoLinkCode {
   is_invalidated: boolean;
   used_sessions: number;
   created_at: string;
-  first_session_expires_at?: string | null;
+  first_used_at?: string | null;
   reflink?: {
     id: string;
     title: string;
@@ -89,20 +89,28 @@ const HkLiveCountdown: React.FC<{
   return <span className="font-mono text-xs tabular-nums">{timeLeft}</span>;
 };
 
-// InfoLink countdown (timer from session creation or expires_at)
+// InfoLink countdown (timer from first_used_at + validity hours, same as HK)
 const InfoLinkLiveCountdown: React.FC<{ 
-  expiresAt: string;
-  isUsed: boolean;
-}> = ({ expiresAt, isUsed }) => {
+  firstUsedAt: string | null;
+  validityHours?: number;
+}> = ({ firstUsedAt, validityHours = 24 }) => {
   const [timeLeft, setTimeLeft] = useState('');
 
   useEffect(() => {
     const updateCountdown = () => {
       if (document.hidden) return;
       
+      // If not used yet, show waiting status
+      if (!firstUsedAt) {
+        setTimeLeft('');
+        return;
+      }
+
+      // Calculate expiry from first use
+      const firstUse = new Date(firstUsedAt).getTime();
+      const accessExpiry = firstUse + (validityHours * 60 * 60 * 1000);
       const now = new Date().getTime();
-      const expiry = new Date(expiresAt).getTime();
-      const diff = expiry - now;
+      const diff = accessExpiry - now;
 
       if (diff <= 0) {
         setTimeLeft('Wygasł');
@@ -134,9 +142,9 @@ const InfoLinkLiveCountdown: React.FC<{
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [expiresAt]);
+  }, [firstUsedAt, validityHours]);
 
-  if (!isUsed) {
+  if (!firstUsedAt) {
     return <span className="text-xs text-muted-foreground italic">Oczekuje na użycie</span>;
   }
 
@@ -159,7 +167,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
       const { data, error } = await supabase
         .from('infolink_otp_codes')
         .select(`
-          id, code, expires_at, used_sessions, created_at,
+          id, code, expires_at, used_sessions, created_at, first_used_at,
           reflink:reflinks(id, title, otp_max_sessions, otp_validity_hours),
           infolink_sessions(expires_at)
         `)
@@ -171,21 +179,17 @@ export const CombinedOtpCodesWidget: React.FC = () => {
 
       if (error) throw error;
       
-      // Calculate first_session_expires_at for each code
-      const codesWithSession = (data || []).map((code: any) => {
-        const sessions = code.infolink_sessions || [];
-        const firstSession = sessions.length > 0 
-          ? sessions.reduce((earliest: any, s: any) => 
-              !earliest || new Date(s.expires_at) < new Date(earliest.expires_at) ? s : earliest
-            , null)
-          : null;
-        return {
-          ...code,
-          first_session_expires_at: firstSession?.expires_at || null
-        };
+      // Filter only active codes (not expired based on first_used_at + validity)
+      const activeCodes = (data || []).filter((code: any) => {
+        if (!code.first_used_at) return true; // Not used yet - still active
+        const reflink = code.reflink;
+        const validityHours = reflink?.otp_validity_hours || 24;
+        const firstUse = new Date(code.first_used_at).getTime();
+        const accessExpiry = firstUse + (validityHours * 60 * 60 * 1000);
+        return Date.now() < accessExpiry;
       });
       
-      setInfoLinkCodes(codesWithSession);
+      setInfoLinkCodes(activeCodes as InfoLinkCode[]);
     } catch (error) {
       console.error('Error fetching InfoLink OTP codes:', error);
     }
@@ -321,9 +325,21 @@ export const CombinedOtpCodesWidget: React.FC = () => {
 
   // Get status for InfoLink codes
   const getInfoLinkCodeStatus = (code: InfoLinkCode) => {
-    const maxSessions = code.reflink?.otp_max_sessions || 1;
-    const isUsed = code.used_sessions > 0;
+    const reflink = code.reflink;
+    const maxSessions = reflink?.otp_max_sessions || 1;
+    const validityHours = reflink?.otp_validity_hours || 24;
+    
+    const isUsed = code.used_sessions > 0 || code.first_used_at !== null;
     const isExhausted = code.used_sessions >= maxSessions;
+    
+    // Check if expired (after first use + validity hours)
+    if (code.first_used_at) {
+      const firstUse = new Date(code.first_used_at).getTime();
+      const accessExpiry = firstUse + (validityHours * 60 * 60 * 1000);
+      if (Date.now() > accessExpiry) {
+        return { label: 'Wygasł', variant: 'secondary' as const, icon: XCircle };
+      }
+    }
     
     if (isExhausted) {
       return { label: 'Wyczerpany', variant: 'secondary' as const, icon: XCircle };
@@ -376,9 +392,9 @@ export const CombinedOtpCodesWidget: React.FC = () => {
               infoLinkCodes.map((code) => {
                 const status = getInfoLinkCodeStatus(code);
                 const StatusIcon = status.icon;
-                const maxSessions = code.reflink?.otp_max_sessions || 1;
-                const isUsed = code.used_sessions > 0;
-                const sessionExpiry = code.first_session_expires_at || code.expires_at;
+                const reflink = code.reflink;
+                const maxSessions = reflink?.otp_max_sessions || 1;
+                const validityHours = reflink?.otp_validity_hours || 24;
                 
                 return (
                   <div 
@@ -413,8 +429,8 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           <InfoLinkLiveCountdown 
-                            expiresAt={sessionExpiry}
-                            isUsed={isUsed}
+                            firstUsedAt={code.first_used_at || null}
+                            validityHours={validityHours}
                           />
                         </div>
                         <div className="flex items-center gap-1">

@@ -2805,6 +2805,7 @@ export type Database = {
           code: string
           created_at: string | null
           expires_at: string
+          first_used_at: string | null
           id: string
           is_invalidated: boolean | null
           partner_id: string
@@ -2815,6 +2816,7 @@ export type Database = {
           code: string
           created_at?: string | null
           expires_at: string
+          first_used_at?: string | null
           id?: string
           is_invalidated?: boolean | null
           partner_id: string
@@ -2825,6 +2827,7 @@ export type Database = {
           code?: string
           created_at?: string | null
           expires_at?: string
+          first_used_at?: string | null
           id?: string
           is_invalidated?: boolean | null
           partner_id?: string

@@ -98,12 +98,16 @@ Deno.serve(async (req) => {
     // Get validity hours from reflink
     const validityHours = reflink.otp_validity_hours || 24;
     
-    // Session expires X hours from NOW (when code is used), not from code generation
-    const sessionFromNow = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+    // Determine if this is the first use
+    const isFirstUse = otpRecord.used_sessions === 0;
     
-    // But session cannot outlive the OTP code itself (safety check)
-    const otpExpiresAt = new Date(otpRecord.expires_at);
-    const sessionExpiresAt = sessionFromNow < otpExpiresAt ? sessionFromNow : otpExpiresAt;
+    // Calculate session expiry based on first use time (not code generation)
+    // If first use: start timer from NOW
+    // If subsequent use: start timer from original first_used_at
+    const firstUseTime = isFirstUse 
+      ? new Date() 
+      : new Date(otpRecord.first_used_at);
+    const sessionExpiresAt = new Date(firstUseTime.getTime() + validityHours * 60 * 60 * 1000);
 
     // Create session
     const { data: session, error: sessionError } = await supabase
@@ -125,10 +129,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Increment used_sessions counter
+    // Increment used_sessions counter and set first_used_at on first use
     await supabase
       .from('infolink_otp_codes')
-      .update({ used_sessions: otpRecord.used_sessions + 1 })
+      .update({ 
+        used_sessions: otpRecord.used_sessions + 1,
+        ...(isFirstUse && { first_used_at: new Date().toISOString() })
+      })
       .eq('id', otpRecord.id);
 
     // Calculate remaining time
