@@ -1,88 +1,176 @@
 
-# Dodanie opcji "Admin" do sekcji Dostęp do funkcji
+# Stabilizacja Widoku Struktury Organizacji
 
 ## Problem
-W sekcji "Dostęp do funkcji" panelu struktury organizacji brakuje pozycji dla administratora. Widoczne są tylko:
-- Klienci
-- Partnerzy
-- Specjaliści
+Widok "Struktura" ciągle mruga i pokazuje "Ładowanie struktury..." w nieskończoność. Jest to spowodowane **pętlą nieskończonych odświeżeń**.
+
+## Diagnoza techniczna
+
+```text
+Pętla błędu:
+1. useOrganizationTreeSettings tworzy funkcje canAccessTree() i getMaxDepthForRole()
+2. Te funkcje NIE są memoizowane (brak useCallback)
+3. Każdy render tworzy NOWE referencje funkcji
+4. useOrganizationTree używa tych funkcji w zależnościach fetchTree (useCallback)
+5. fetchTree zmienia się → useEffect wywołuje fetchTree()
+6. fetchTree ustawia setLoading(true) → re-render → powtórz od kroku 1
+```
 
 ## Rozwiązanie
 
-### Podejście A: Dodać nieaktywny switch dla admina (informacyjny)
-Admin zawsze ma dostęp (zgodnie z logiką w `canAccessTree()`), więc switch będzie zawsze włączony i zablokowany (disabled). Służy jako informacja wizualna dla admina.
+### 1. Memoizacja funkcji w `useOrganizationTreeSettings.ts`
 
-### Podejście B: Dodać aktywny switch z nową kolumną w bazie
-Dodanie kolumny `visible_to_admin` do tabeli i pozwolenie na wyłączenie dostępu adminom (co wydaje się niepraktyczne).
+Zmiana funkcji `canAccessTree` i `getMaxDepthForRole` na memoizowane wersje z `useCallback`:
 
-**Rekomendacja**: Podejście A - informacyjny switch z wyjaśnieniem
+```typescript
+// PRZED (powoduje pętlę):
+const canAccessTree = (): boolean => {
+  if (!settings || !settings.is_enabled) return false;
+  // ...
+};
 
-## Zmiany do wykonania
-
-### Plik: `src/components/admin/OrganizationTreeManagement.tsx`
-
-Dodanie nowej pozycji na początku listy w sekcji "Dostęp do funkcji" (przed linią 104):
-
-```tsx
-<div className="flex items-center justify-between py-2">
-  <div>
-    <Label className="flex items-center gap-2">
-      Administratorzy
-      <Badge variant="outline" className="text-xs">zawsze aktywne</Badge>
-    </Label>
-    <p className="text-sm text-muted-foreground">
-      Administratorzy zawsze mają pełny dostęp do struktury
-    </p>
-  </div>
-  <Switch
-    checked={true}
-    disabled={true}
-    className="opacity-50"
-  />
-</div>
-<Separator />
+// PO (stabilne):
+const canAccessTree = useCallback((): boolean => {
+  if (!settings || !settings.is_enabled) return false;
+  // ...
+}, [settings, userRole?.role]);
 ```
 
-### Opcjonalnie: Dodać też w parametrach drzewa
+### 2. Dodanie `useRef` do śledzenia stanu inicjalizacji w `useOrganizationTree.ts`
 
-W sekcji "Maksymalna głębokość per rola" (linia 254) dodać badge dla admina:
+Zapobiegnie to wielokrotnemu wywołaniu fetch podczas inicjalizacji:
 
-```tsx
-<div className="space-y-2">
-  <div className="flex items-center gap-2">
-    <Badge className="bg-red-500">Admin</Badge>
-    <span className="text-xs text-muted-foreground">(pełna głębokość)</span>
-  </div>
-  <Input
-    type="number"
-    value={localSettings.max_depth ?? 10}
-    disabled={true}
-    className="opacity-50"
-  />
-</div>
+```typescript
+const hasFetchedRef = useRef(false);
+
+useEffect(() => {
+  if (!hasFetchedRef.current && profile?.eq_id && !settingsLoading) {
+    hasFetchedRef.current = true;
+    fetchTree();
+  }
+}, [profile?.eq_id, settingsLoading, fetchTree]);
 ```
 
-## Efekt wizualny
+### 3. Usunięcie niestabilnych zależności z `useCallback`
 
-```
-▼ Dostęp do funkcji
-┌──────────────────────────────────────────────────────────────────┐
-│  Administratorzy    [zawsze aktywne]                       [ON] │  ← NOWE
-│  Administratorzy zawsze mają pełny dostęp do struktury          │
-├──────────────────────────────────────────────────────────────────┤
-│  Klienci                                                  [OFF] │
-│  Czy klienci mogą widzieć swoją strukturę                       │
-├──────────────────────────────────────────────────────────────────┤
-│  Partnerzy                                                 [ON] │
-│  Czy partnerzy mogą widzieć swoją organizację                   │
-├──────────────────────────────────────────────────────────────────┤
-│  Specjaliści                                               [ON] │
-│  Czy specjaliści mogą widzieć strukturę                         │
-└──────────────────────────────────────────────────────────────────┘
+W `useOrganizationTree.ts`, funkcje `canAccessTree` i `getMaxDepthForRole` będą wywoływane wewnątrz callbacka bez dodawania ich do zależności (używając zamknięcia):
+
+```typescript
+const fetchTree = useCallback(async () => {
+  if (!profile?.eq_id || settingsLoading) return;
+  
+  // Wywołaj funkcje wewnątrz - nie jako zależności
+  if (!canAccessTree()) {
+    setLoading(false);
+    return;
+  }
+  
+  const maxDepth = getMaxDepthForRole();
+  // ...
+}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings?.show_upline]);
+// ^ Usunięto: canAccessTree, getMaxDepthForRole z zależności
 ```
 
 ## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/OrganizationTreeManagement.tsx` | Dodanie wiersza "Administratorzy" z disabled switch + badge informacyjny |
+| `src/hooks/useOrganizationTreeSettings.ts` | Dodanie `useCallback` do `canAccessTree` i `getMaxDepthForRole` |
+| `src/hooks/useOrganizationTree.ts` | Dodanie `useRef` dla kontroli inicjalizacji + usunięcie niestabilnych zależności |
+
+## Oczekiwany rezultat
+
+- Widok ładuje się **tylko raz** przy wejściu na zakładkę
+- Brak mrugania i nieskończonego "Ładowanie struktury..."
+- Dane wyświetlają się stabilnie po jednorazowym pobraniu
+
+## Szczegóły techniczne
+
+### Zmiana w `useOrganizationTreeSettings.ts`:
+
+```typescript
+import { useState, useEffect, useCallback } from 'react';
+
+// ...
+
+const canAccessTree = useCallback((): boolean => {
+  if (!settings || !settings.is_enabled) return false;
+  
+  const role = userRole?.role;
+  if (!role) return false;
+  
+  if (role === 'admin') return true;
+  if (role === 'partner' && settings.visible_to_partners) return true;
+  if (role === 'specjalista' && settings.visible_to_specjalista) return true;
+  if (role === 'client' && settings.visible_to_clients) return true;
+  
+  return false;
+}, [settings, userRole?.role]);
+
+const getMaxDepthForRole = useCallback((): number => {
+  if (!settings) return 0;
+  
+  const role = userRole?.role;
+  if (!role) return 0;
+  
+  if (role === 'admin') return settings.max_depth;
+  if (role === 'partner') return settings.partner_max_depth;
+  if (role === 'specjalista') return settings.specjalista_max_depth;
+  if (role === 'client') return settings.client_max_depth;
+  
+  return 0;
+}, [settings, userRole?.role]);
+```
+
+### Zmiana w `useOrganizationTree.ts`:
+
+```typescript
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+
+// ...
+
+const hasFetchedRef = useRef(false);
+
+const fetchTree = useCallback(async () => {
+  if (!profile?.eq_id || settingsLoading) return;
+  
+  if (!canAccessTree()) {
+    setLoading(false);
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    const maxDepth = getMaxDepthForRole();
+    // ... reszta kodu bez zmian
+  }
+}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings?.show_upline, canAccessTree, getMaxDepthForRole]);
+
+useEffect(() => {
+  // Pobierz tylko raz po załadowaniu ustawień
+  if (!settingsLoading && profile?.eq_id && !hasFetchedRef.current) {
+    hasFetchedRef.current = true;
+    fetchTree();
+  }
+}, [settingsLoading, profile?.eq_id, fetchTree]);
+```
+
+Alternatywnie, można użyć prostszego podejścia z pojedynczym `useEffect` który sprawdza wszystkie warunki:
+
+```typescript
+useEffect(() => {
+  if (!profile?.eq_id || settingsLoading) return;
+  
+  const loadData = async () => {
+    if (!canAccessTree()) {
+      setLoading(false);
+      return;
+    }
+    // ... fetch logic
+  };
+  
+  loadData();
+}, [profile?.eq_id, settingsLoading]); // Minimalne zależności
+```
