@@ -280,9 +280,15 @@ All colors MUST be HSL.
     }
   }
   
+  /* Statyczne linie - bez animacji */
   .tree-connector {
+    /* Brak animacji dla zwykłych linii */
+  }
+  
+  /* Animacja rysowania TYLKO dla podświetlonej ścieżki */
+  .tree-connector-highlight {
     stroke-dasharray: 200;
-    animation: draw-connector 0.6s ease-out forwards;
+    animation: draw-connector 0.8s ease-out forwards;
   }
 }
 
