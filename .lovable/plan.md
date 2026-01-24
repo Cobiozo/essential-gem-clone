@@ -1,176 +1,84 @@
 
-# Plan: Połączenie widżetów OTP w jeden spójny komponent
+# Plan: Naprawa odtwarzania wideo w Zdrowa Wiedza
 
-## Analiza obecnego stanu
+## Zdiagnozowany problem
 
-### Obecne widżety na dashboardzie (widoczne na zrzucie)
-Na ekranie widać dwa osobne kafelki:
-1. **"Aktywne kody OTP"** - dla InfoLinks (kody PL-XXXX-XX)
-2. **"Aktywne kody ZW"** - dla Zdrowa Wiedza (kody ZW-XXXX-XX)
-
-### Problem
-- Za dużo kafelków na dashboardzie
-- Różny wygląd obu widżetów (niespójny design)
-- Nazewnictwo nie jest jasne ("OTP" vs "ZW")
-
----
-
-## Proponowane rozwiązanie
-
-### Nowy połączony widżet: **"Kody dostępu OTP"**
-
-Jeden widżet z **zakładkami** (Tabs) pozwalający przełączać między:
-- **InfoLinki** (kody PL-XXXX-XX)  
-- **Zdrowa Wiedza** (kody ZW-XXXX-XX)
-
-Każda zakładka pokazuje liczbę aktywnych kodów w badge.
-
-```text
-┌─────────────────────────────────────────────┐
-│ 🔑 Kody dostępu OTP                         │
-├─────────────────────────────────────────────┤
-│  [InfoLinki (3)]    [Zdrowa Wiedza (2)]     │
-├─────────────────────────────────────────────┤
-│ PL-79TW-9J                    ⬜ Oczekuje   │
-│ SZANSA BIZNESOWA DLA PARTNERA               │
-│ 🕐 Oczekuje na użycie    👥 0/2 sesji       │
-├─────────────────────────────────────────────┤
-│ PL-7MQV-NV                    🟢 Użyty      │
-│ SZANSA BIZNESOWA DLA PARTNERA               │
-│ 🕐 3:24:46               👥 1/2 sesji       │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## Szczegóły implementacji
-
-### 1. Nowy plik: `CombinedOtpCodesWidget.tsx`
-
-Zastąpi oba istniejące widżety jednym komponentem.
-
-**Struktura komponentu:**
-```text
-CombinedOtpCodesWidget
-├── SharedLiveCountdown (wspólny komponent countdown)
-├── Tabs (Radix UI)
-│   ├── TabsList
-│   │   ├── TabsTrigger "InfoLinki" + Badge(count)
-│   │   └── TabsTrigger "Zdrowa Wiedza" + Badge(count)
-│   ├── TabsContent "infolinks"
-│   │   └── CodesList (lista kodów InfoLink)
-│   └── TabsContent "zdrowa-wiedza"
-│       └── CodesList (lista kodów HK)
-└── EmptyState (gdy brak kodów w obu kategoriach)
-```
-
-### 2. Ujednolicony wygląd każdego kodu
-
-Oba typy kodów będą miały identyczny layout:
-- Kod w font-mono (np. PL-79TW-9J lub ZW-4AV7-6J)
-- Tytuł materiału/linku
-- Status badge: Oczekuje / Użyty (X/Y) / Wyczerpany
-- Timer: "Oczekuje na użycie" lub countdown
-- Sesje: X/Y sesji
-- Przycisk kopiowania
-
-### 3. Zmiany w Dashboard.tsx
+### Przyczyna
+W pliku `HealthyKnowledgePublicPage.tsx` (linia 234) wideo jest wyświetlane z ustawieniem `disableInteraction={true}`:
 
 ```typescript
-// PRZED:
-const ActiveOtpCodesWidget = lazy(() => ...);
-const ActiveHkCodesWidget = lazy(() => ...);
-
-// Renderowanie w dwóch miejscach
-
-// PO:
-const CombinedOtpCodesWidget = lazy(() => 
-  import('@/components/dashboard/widgets/CombinedOtpCodesWidget')
-);
-
-// Jedno renderowanie
+<SecureMedia
+  mediaUrl={content.media_url}
+  mediaType={content.content_type}
+  disableInteraction={true}  // ← To powoduje problem
+/>
 ```
 
-### 4. Usunięcie starych widżetów
+To ustawienie włącza **tryb restrykcyjny**, który:
+- Zastępuje natywne kontrolki przeglądarki własnym komponentem `VideoControls`
+- Blokuje przewijanie do przodu (tylko cofanie dozwolone)
+- Używa skomplikowanej logiki buforowania, która "zawiesza się" na "Przygotowuję wideo do odtwarzania..."
+- Wyświetla komunikat "Podczas pierwszego oglądania możesz tylko cofać wideo"
 
-Pliki do usunięcia:
-- `ActiveOtpCodesWidget.tsx`
-- `ActiveHkCodesWidget.tsx`
+### Oczekiwane zachowanie
+Użytkownik zewnętrzny po wpisaniu kodu OTP powinien mieć **pełną kontrolę** nad wideo:
+- Odtwarzanie/pauza
+- Przewijanie w dowolnym kierunku
+- Regulacja głośności
+- Tryb pełnoekranowy
 
 ---
 
-## Szczegółowa specyfikacja UI
+## Rozwiązanie
 
-### Nazewnictwo zakładek
-| Obecne | Nowe |
-|--------|------|
-| "Aktywne kody OTP" | Tab: "InfoLinki" |
-| "Aktywne kody ZW" | Tab: "Zdrowa Wiedza" |
+### Zmiana w `HealthyKnowledgePublicPage.tsx`
 
-### Wspólny header widżetu
-```text
-🔑 Kody dostępu OTP
+Usunięcie lub zmiana `disableInteraction={true}` na `disableInteraction={false}`:
+
+```typescript
+// Przed (linia 231-236):
+<SecureMedia
+  mediaUrl={content.media_url}
+  mediaType={content.content_type}
+  disableInteraction={true}
+/>
+
+// Po:
+<SecureMedia
+  mediaUrl={content.media_url}
+  mediaType={content.content_type}
+  disableInteraction={false}
+/>
 ```
-Prosty tytuł bez opisu (opis niepotrzebny przy zakładkach).
 
-### Statusy kodów (ujednolicone)
-| Status | Badge | Kolor |
-|--------|-------|-------|
-| Nieużyty | "Oczekuje" | outline (szary) |
-| Użyty (aktywny) | "Użyty (1/3)" | green-500 |
-| Wyczerpany sesje | "Wyczerpany" | secondary (szary) |
-
-### Countdown timer
-- **Przed użyciem:** "Oczekuje na użycie" (tekst italic)
-- **Po użyciu:** "3:24:46" (countdown z tabular-nums)
+To spowoduje użycie **trybu nierestrykcyjnego** (linie 1109-1126 w SecureMedia.tsx), który renderuje standardowy element `<video controls>` z natywnymi kontrolkami przeglądarki.
 
 ---
 
-## Lista plików do modyfikacji
+## Bezpieczeństwo zmian
 
-| Plik | Akcja | Opis |
-|------|-------|------|
-| `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx` | Utworzenie | Nowy połączony widżet |
-| `src/pages/Dashboard.tsx` | Modyfikacja | Zamiana dwóch widżetów na jeden |
-| `src/components/dashboard/widgets/ActiveOtpCodesWidget.tsx` | Usunięcie | Zastąpiony nowym |
-| `src/components/dashboard/widgets/ActiveHkCodesWidget.tsx` | Usunięcie | Zastąpiony nowym |
+| Aspekt | Status |
+|--------|--------|
+| Wpływ na inne moduły | ❌ Brak - zmiana tylko w publicznej stronie ZW |
+| Wpływ na szkolenia | ❌ Brak - szkolenia używają własnej logiki z restricted mode |
+| Wpływ na InfoLinki | ❌ Brak - InfoLinki nie używają SecureMedia |
+| Zachowane zabezpieczenia | ✅ Blokada prawego przycisku myszy, blokada pobierania |
 
----
-
-## Korzyści
-
-1. **Mniej kafelków** - jeden widżet zamiast dwóch
-2. **Spójny design** - identyczny wygląd dla obu typów kodów
-3. **Lepsze nazewnictwo** - "InfoLinki" i "Zdrowa Wiedza" zamiast "OTP" i "ZW"
-4. **Widoczność** - badge na zakładkach pokazuje ile kodów jest aktywnych
-5. **Zachowana funkcjonalność** - kopiowanie, countdown, statusy działają jak wcześniej
-
----
-
-## Detale techniczne
-
-### Shared LiveCountdown
-Jeden komponent countdown używany dla obu typów kodów:
-- Visibility API (pause gdy tab niewidoczny)
-- tabular-nums dla stabilnych wymiarów
-- Format: `H:MM:SS` lub `MM:SS`
-
-### Fetching danych
-- Oba zapytania wykonywane równolegle przy mount
-- Polling co 60s (tylko gdy tab widoczny)
-- Realtime subscription dla zmian
-- Event listeners: `otpCodeGenerated`, `hkOtpCodeGenerated`
-
-### Stan gdy brak kodów
-- Jeśli brak kodów w obu kategoriach → widżet się nie renderuje (return null)
-- Jeśli brak w jednej kategorii → pusta lista z komunikatem w tej zakładce
+### Dlaczego to jest bezpieczne?
+1. Zmiana dotyczy TYLKO strony publicznej Zdrowa Wiedza (`HealthyKnowledgePublicPage.tsx`)
+2. Moduły szkoleniowe (`TrainingLesson`, `TrainingView`) mają własną logikę i pozostają bez zmian
+3. Podstawowe zabezpieczenia `SecureMedia` (blokada context menu, controlsList="nodownload") pozostają aktywne
 
 ---
 
 ## Podsumowanie zmian
 
-Po implementacji:
-- Dashboard będzie miał **o jeden kafelek mniej**
-- Kody OTP dla InfoLinków i Zdrowa Wiedza będą w **jednym spójnym widżecie**
-- Nazewnictwo będzie **czytelniejsze** (zakładki "InfoLinki" i "Zdrowa Wiedza")
-- Design będzie **ujednolicony** i zgodny z resztą aplikacji
+| Plik | Zmiana |
+|------|--------|
+| `src/pages/HealthyKnowledgePublicPage.tsx` | Zmiana `disableInteraction={true}` na `disableInteraction={false}` (linia 234) |
+
+### Efekt po zmianach
+- Wideo będzie ładować się prawidłowo
+- Użytkownik będzie miał pełne kontrolki (play/pause, seek, fullscreen)
+- Komunikat o ograniczeniach przewijania zniknie
+- Timer dostępu będzie nadal działał poprawnie
