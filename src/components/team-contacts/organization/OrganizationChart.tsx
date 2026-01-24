@@ -93,50 +93,52 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
 
       {/* Children */}
       {hasChildren && isExpanded && (
-        <div className="relative mt-6">
-          {/* Vertical line from parent */}
+        <div className="relative mt-8">
+          {/* Vertical line from parent to horizontal connector */}
           {settings.graph_show_lines && (
             <div className={cn(
-              "absolute left-1/2 -top-4 h-4 -translate-x-1/2 rounded-full transition-all duration-300",
+              "absolute left-1/2 -top-6 h-6 -translate-x-1/2 rounded-full transition-all duration-300",
               isOnPath && hasFocus ? "w-1 bg-primary" : "w-0.5 bg-border"
             )} />
           )}
           
-          {/* Horizontal line connecting children */}
-          {settings.graph_show_lines && node.children.length > 1 && (
-            <div 
-              className={cn(
-                "absolute -top-0 rounded-full transition-all duration-300",
-                hasFocus ? "h-0.5 bg-border/50" : "h-0.5 bg-border"
-              )}
-              style={{
-                left: `calc(50% / ${node.children.length})`,
-                right: `calc(50% / ${node.children.length})`,
-              }}
-            />
-          )}
-          
-          {/* Children nodes */}
-          <div className="flex gap-3 justify-center">
+          {/* Children row with horizontal connector */}
+          <div className="flex gap-4 justify-center relative">
+            {/* Horizontal line spanning from first to last child */}
+            {settings.graph_show_lines && node.children.length > 1 && (
+              <div 
+                className={cn(
+                  "absolute -top-2 h-0.5 rounded-full transition-all duration-300",
+                  hasFocus ? "bg-border/60" : "bg-border"
+                )}
+                style={{
+                  left: `calc(50% / ${node.children.length})`,
+                  right: `calc(50% / ${node.children.length})`,
+                }}
+              />
+            )}
+            
             {node.children.map((child) => {
               const childIsOnPath = highlightedPath.includes(child.id);
               return (
                 <div key={child.id} className="relative flex flex-col items-center">
-                  {/* Vertical line to child */}
+                  {/* Vertical line from horizontal bar to child */}
                   {settings.graph_show_lines && (
                     <div className={cn(
-                      "absolute left-1/2 -top-2 h-2 -translate-x-1/2 rounded-full transition-all duration-300",
+                      "absolute left-1/2 -top-2 h-4 -translate-x-1/2 rounded-full transition-all duration-300",
                       childIsOnPath && hasFocus ? "w-1 bg-primary" : "w-0.5 bg-border"
                     )} />
                   )}
-                  <TreeBranch
-                    node={child}
-                    settings={settings}
-                    level={level + 1}
-                    highlightedPath={highlightedPath}
-                    selectedNodeId={selectedNodeId}
-                    onNodeClick={onNodeClick}
-                  />
+                  <div className="pt-2">
+                    <TreeBranch
+                      node={child}
+                      settings={settings}
+                      level={level + 1}
+                      highlightedPath={highlightedPath}
+                      selectedNodeId={selectedNodeId}
+                      onNodeClick={onNodeClick}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -186,6 +188,15 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
       setHighlightedPath(path || []);
     }
   }, [tree, selectedNodeId]);
+
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Reset only if clicked on background, not on a node
+    if (!target.closest('[data-org-node]')) {
+      setSelectedNodeId(null);
+      setHighlightedPath([]);
+    }
+  }, []);
 
   // Auto-fit zoom based on first level children
   useEffect(() => {
@@ -305,6 +316,7 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
           <div 
             className="min-w-max origin-top-left transition-transform duration-200"
             style={{ transform: `scale(${zoom / 100})` }}
+            onClick={handleContainerClick}
           >
             {/* Upline section */}
             {settings.show_upline && upline && (
