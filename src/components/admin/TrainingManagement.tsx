@@ -127,6 +127,7 @@ interface UserProgress {
   modules: {
     module_id: string;
     module_title: string;
+    is_completed: boolean;
     assigned_at: string;
     total_lessons: number;
     completed_lessons: number;
@@ -437,6 +438,7 @@ const TrainingManagement = () => {
           user_id,
           module_id,
           assigned_at,
+          is_completed,
           profiles!training_assignments_user_id_fkey (
             email,
             first_name,
@@ -535,6 +537,7 @@ const TrainingManagement = () => {
         userProgressMap[userId].modules.push({
           module_id: moduleId,
           module_title: module.title,
+          is_completed: assignment.is_completed || false,
           assigned_at: assignment.assigned_at,
           total_lessons: totalLessons,
           completed_lessons: userCompletedLessons,
@@ -651,6 +654,57 @@ const TrainingManagement = () => {
       toast({
         title: "Błąd",
         description: "Nie udało się zresetować lekcji.",
+        variant: "destructive"
+      });
+    } finally {
+      setResettingProgress(null);
+    }
+  };
+
+  // Approve single lesson completion (admin emergency override)
+  const approveLessonProgress = async (
+    userId: string, 
+    lessonId: string, 
+    lessonTitle: string
+  ) => {
+    const key = `approve-lesson-${userId}-${lessonId}`;
+    setResettingProgress(key);
+
+    try {
+      // Get min_time_seconds for the lesson
+      const { data: lessonData } = await supabase
+        .from('training_lessons')
+        .select('min_time_seconds')
+        .eq('id', lessonId)
+        .single();
+
+      // Upsert progress as completed
+      const { error } = await supabase
+        .from('training_progress')
+        .upsert({
+          user_id: userId,
+          lesson_id: lessonId,
+          is_completed: true,
+          time_spent_seconds: lessonData?.min_time_seconds || 300,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'user_id,lesson_id' 
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Lekcja zatwierdzona",
+        description: `Lekcja "${lessonTitle}" została oznaczona jako ukończona.`
+      });
+
+      await fetchUserProgress();
+    } catch (error) {
+      console.error('Error approving lesson:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się zatwierdzić lekcji.",
         variant: "destructive"
       });
     } finally {
@@ -1321,8 +1375,8 @@ const TrainingManagement = () => {
                                     <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"} className="text-xs">
                                       {module.progress_percentage}%
                                     </Badge>
-                                    {/* Approve button - visible when progress < 100% */}
-                                    {module.progress_percentage < 100 && (
+                                    {/* Approve button - visible when module is_completed = false */}
+                                    {!module.is_completed && (
                                       <Button
                                         size="sm"
                                         variant="outline"
@@ -1334,7 +1388,9 @@ const TrainingManagement = () => {
                                           `${progressUser.first_name} ${progressUser.last_name}`.trim() || progressUser.email
                                         )}
                                         disabled={approvingModule === `approve-${progressUser.user_id}-${module.module_id}`}
-                                        title="Zatwierdź ukończenie szkolenia niezależnie od postępu"
+                                        title={module.progress_percentage === 100 
+                                          ? "Zatwierdź ukończenie szkolenia (wszystkie lekcje ukończone)" 
+                                          : "Zatwierdź ukończenie szkolenia niezależnie od postępu"}
                                       >
                                         {approvingModule === `approve-${progressUser.user_id}-${module.module_id}` ? (
                                           <CheckCircle className="h-3 w-3 animate-spin" />
@@ -1373,7 +1429,9 @@ const TrainingManagement = () => {
                                 <CollapsibleContent className="mt-3 pt-3 border-t space-y-2">
                                   {module.lessons.map((lesson) => {
                                     const lessonKey = `lesson-${progressUser.user_id}-${lesson.lesson_id}`;
+                                    const approveKey = `approve-lesson-${progressUser.user_id}-${lesson.lesson_id}`;
                                     const isResettingLesson = resettingProgress === lessonKey;
+                                    const isApprovingLesson = resettingProgress === approveKey;
                                     const formatTime = (seconds: number) => {
                                       const mins = Math.floor(seconds / 60);
                                       const secs = seconds % 60;
@@ -1396,10 +1454,31 @@ const TrainingManagement = () => {
                                           )}
                                           <span className="truncate">{lesson.lesson_title}</span>
                                         </div>
-                                        <div className="flex items-center gap-2 shrink-0">
+                                        <div className="flex items-center gap-1 shrink-0">
                                           <span className="text-xs text-muted-foreground">
                                             {formatTime(lesson.time_spent_seconds)}
                                           </span>
+                                          {/* Approve button - only for incomplete lessons */}
+                                          {!lesson.is_completed && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                              onClick={() => approveLessonProgress(
+                                                progressUser.user_id, 
+                                                lesson.lesson_id, 
+                                                lesson.lesson_title
+                                              )}
+                                              disabled={isApprovingLesson}
+                                              title="Zatwierdź ukończenie lekcji"
+                                            >
+                                              {isApprovingLesson ? (
+                                                <CheckCircle className="h-3.5 w-3.5 animate-spin" />
+                                              ) : (
+                                                <CheckCircle className="h-3.5 w-3.5" />
+                                              )}
+                                            </Button>
+                                          )}
                                           <Button
                                             size="sm"
                                             variant="ghost"
@@ -1413,7 +1492,7 @@ const TrainingManagement = () => {
                                             ) : (
                                               <RotateCcw className="h-3 w-3" />
                                             )}
-                                            <span className="hidden md:inline">Resetuj lekcję</span>
+                                            <span className="hidden md:inline">Resetuj</span>
                                           </Button>
                                         </div>
                                       </div>

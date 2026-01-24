@@ -60,6 +60,40 @@ export const useCertificateGeneration = () => {
         }
       }
 
+      // 1.5 VALIDATE - Check if all lessons are completed
+      console.log('Step 1.5: Validating lesson completion...');
+      const { data: moduleLessons, error: lessonsValidationError } = await supabase
+        .from('training_lessons')
+        .select('id')
+        .eq('module_id', moduleId)
+        .eq('is_active', true);
+
+      if (lessonsValidationError) {
+        console.warn('Warning: Could not fetch lessons for validation:', lessonsValidationError);
+      }
+
+      const { data: userProgress, error: progressValidationError } = await supabase
+        .from('training_progress')
+        .select('lesson_id')
+        .eq('user_id', userId)
+        .eq('is_completed', true);
+
+      if (progressValidationError) {
+        console.warn('Warning: Could not fetch progress for validation:', progressValidationError);
+      }
+
+      const completedLessonIds = new Set(userProgress?.map(p => p.lesson_id) || []);
+      const allLessonsCompleted = moduleLessons?.every(l => completedLessonIds.has(l.id)) ?? true;
+
+      if (!allLessonsCompleted && !forceRegenerate) {
+        console.log('❌ Not all lessons completed:', completedLessonIds.size, '/', moduleLessons?.length);
+        return {
+          success: false,
+          error: `Nie ukończono wszystkich lekcji (${completedLessonIds.size}/${moduleLessons?.length || 0}). Ukończ szkolenie przed generowaniem certyfikatu.`
+        };
+      }
+      console.log('✅ All lessons completed or force regenerate enabled');
+
       // 2. Get user profile with extended fields
       console.log('Step 1: Fetching user profile...');
       const { data: profile, error: profileError } = await supabase
