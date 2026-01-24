@@ -1,62 +1,74 @@
 
-
-# Naprawa widoczności linii łączących - problem z z-index
+# Naprawa linii wchodzących na kafelki węzłów
 
 ## Problem
 
-Linie SVG są zasłaniane przez kafelki węzłów. Na screenshocie widać, że linia od "Sebastian Snopek (Partner)" do "Sebastian Snopek (Klient)" jest ucięta/zasłonięta przez kafelek dziecka.
+Linie SVG są renderowane z `z-10`, co powoduje że przechodzą PRZEZ kafelki węzłów zamiast kończyć się NA GÓRZE kafelków. Na screenshocie widać, że żółta linia przechodzi przez imiona "Grzegorz Latocha" i "Jolanta Szast".
 
-**Przyczyna:** SVG jest renderowane z `top: -24` ale nie ma ustawionego `z-index`, więc węzły dzieci (renderowane później w DOM) przykrywają linie.
-
----
+**Przyczyna:**
+- SVG jest pozycjonowane z `top: -24px`
+- Ścieżka kończy się na `endY: 48px` (czyli 24px od początku kontenera dzieci)
+- Ale węzły dzieci zaczynają się w tym samym kontenerze, więc linia wchodzi na kafelek
 
 ## Rozwiązanie
 
-Dodanie odpowiedniego `z-index` do elementu SVG, aby linie były renderowane NAD węzłami dzieci.
+Zmiana z-index SVG z `z-10` na `z-0` (lub usunięcie), oraz umieszczenie SVG ZA węzłami (nie nad nimi). Linie powinny być tłem, a węzły powinny je przykrywać.
 
-### Plik: `OrganizationChart.tsx`
-
-**Zmiana w linii 137:**
-
-```typescript
-// PRZED:
-<svg 
-  className="absolute pointer-events-none overflow-visible"
-  style={{ 
-    width: totalWidth,
-    height: 48,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    top: -24,
-  }}
->
-
-// PO:
-<svg 
-  className="absolute pointer-events-none overflow-visible z-10"
-  style={{ 
-    width: totalWidth,
-    height: 48,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    top: -24,
-  }}
->
-```
-
-Dodanie `z-10` (z-index: 10) sprawi, że linie SVG będą zawsze widoczne ponad węzłami.
+Dodatkowo: skrócenie ścieżki `endY` tak, aby linia kończyła się dokładnie na granicy górnej krawędzi kafelka.
 
 ---
 
-## Plik do modyfikacji
+## Szczegóły techniczne
+
+### Plik: `OrganizationChart.tsx`
+
+**Zmiana 1: Zmiana z-index SVG (linia 137)**
+
+```typescript
+// PRZED:
+className="absolute pointer-events-none overflow-visible z-10"
+
+// PO:
+className="absolute pointer-events-none overflow-visible"
+```
+
+Usunięcie `z-10` sprawi, że SVG będzie za węzłami (z-index domyślny).
+
+**Zmiana 2: Skrócenie wysokości ścieżki**
+
+Zmiana parametru `endY` w `createCurvePath` z 48 na 32 (lub odpowiednio dopasowane do `mt-8`):
+
+```typescript
+// PRZED (linia 155):
+d={createCurvePath(centerX, 0, childX, 48, 14)}
+
+// PO:
+d={createCurvePath(centerX, 0, childX, 32, 14)}
+```
+
+I dostosowanie wysokości SVG:
+```typescript
+// PRZED:
+height: 48,
+top: -24,
+
+// PO:
+height: 32,
+top: -24,
+```
+
+To sprawi że linia kończy się dokładnie na górnej krawędzi kontenera dzieci, nie wchodząc na kafelki.
+
+---
+
+## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/team-contacts/organization/OrganizationChart.tsx` | Dodanie `z-10` do SVG overlay |
+| `src/components/team-contacts/organization/OrganizationChart.tsx` | Usunięcie z-10, skrócenie wysokości ścieżki SVG |
 
 ---
 
 ## Oczekiwany rezultat
 
-Linia łącząca węzeł rodzica z węzłem dziecka będzie w pełni widoczna, nie będzie zasłaniana przez kafelki węzłów.
-
+Linie łączące będą kończyć się dokładnie nad górną krawędzią kafelków węzłów, nie wchodząc na ich zawartość (imię, nazwisko, badge).
