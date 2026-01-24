@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -113,7 +113,7 @@ export const useOrganizationTreeSettings = () => {
   };
 
   // Check if user can access the organization tree
-  const canAccessTree = (): boolean => {
+  const canAccessTree = useCallback((): boolean => {
     if (!settings || !settings.is_enabled) return false;
     
     const role = userRole?.role;
@@ -125,10 +125,10 @@ export const useOrganizationTreeSettings = () => {
     if (role === 'client' && settings.visible_to_clients) return true;
     
     return false;
-  };
+  }, [settings, userRole?.role]);
 
   // Get max depth for current user's role
-  const getMaxDepthForRole = (): number => {
+  const getMaxDepthForRole = useCallback((): number => {
     if (!settings) return 0;
     
     const role = userRole?.role;
@@ -140,7 +140,7 @@ export const useOrganizationTreeSettings = () => {
     if (role === 'client') return settings.client_max_depth;
     
     return 0;
-  };
+  }, [settings, userRole?.role]);
 
   useEffect(() => {
     fetchSettings();

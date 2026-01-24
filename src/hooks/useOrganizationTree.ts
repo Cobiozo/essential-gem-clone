@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationTreeSettings } from './useOrganizationTreeSettings';
@@ -29,6 +29,7 @@ export const useOrganizationTree = () => {
   const [upline, setUpline] = useState<OrganizationMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
 
   const fetchTree = useCallback(async () => {
     if (!profile?.eq_id || settingsLoading) return;
@@ -173,8 +174,12 @@ export const useOrganizationTree = () => {
   }, [treeData]);
 
   useEffect(() => {
-    fetchTree();
-  }, [fetchTree]);
+    // Fetch only once after settings are loaded
+    if (!settingsLoading && profile?.eq_id && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchTree();
+    }
+  }, [settingsLoading, profile?.eq_id, fetchTree]);
 
   return {
     tree,
