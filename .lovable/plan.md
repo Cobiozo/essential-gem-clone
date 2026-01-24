@@ -1,114 +1,168 @@
 
-# Plan: Naprawa widoczności kontrolek wideo w Zdrowa Wiedza
+# Plan: Naprawa dwóch problemów - nawigacja do zasobu i timer OTP InfoLink
 
-## Diagnoza problemu
+## Problem 1: ResourcesWidget nie pokazuje konkretnego zasobu
 
-### Co widzę na screenshotach użytkownika
-
-**Screenshot 1:** Pokazuje panel sterowania z "Odtwórz", "-10s", "Napraw", "Pomoc" oraz komunikat "Przygotowuję wideo do odtwarzania..." i "Podczas pierwszego oglądania możesz tylko cofać wideo"
-
-**Screenshot 2:** Pokazuje wideo odtwarzające się (widoczna klatka), ale BEZ żadnych kontrolek
-
-### Analiza
-
-Problem polega na tym, że choć kod źródłowy ma `disableInteraction={false}`, to użytkownik widzi elementy z trybu restrykcyjnego. Może to oznaczać:
-
-1. **Cache przeglądarki** - stara wersja kodu nadal jest aktywna
-2. **Problem z CSS** - kontrolki natywne są ukryte przez stylowanie
-
-Na drugim screenshocie wideo ODTWARZA SIĘ ale bez kontrolek - to sugeruje że natywne kontrolki HTML5 `<video controls>` nie są widoczne.
-
-### Przyczyna techniczna
-
-W `SecureMedia.tsx` (linia 1129):
+### Diagnoza
+W `ResourcesWidget.tsx` (linie 136, 142):
 ```tsx
-className={`w-full h-full object-contain rounded-lg ${className || ''}`}
+onClick={() => navigate('/knowledge')}
 ```
 
-Połączenie `h-full` z kontenerem `aspect-video` powoduje problem - `aspect-video` daje proporcje 16:9, ale wysokość elementu wideo z `h-full` może powodować że kontrolki wypadają poza widoczny obszar lub są renderowane w nieoczekiwanym miejscu.
+Nawigacja kieruje tylko do strony `/knowledge` bez parametru identyfikującego zasób. Strona `KnowledgeCenter.tsx` nie obsługuje żadnych query params do podświetlenia konkretnego zasobu.
 
----
+### Rozwiązanie
 
-## Rozwiązanie
+**Krok 1: Zmiana ResourcesWidget.tsx**
 
-### Zmiana 1: SecureMedia.tsx - uproszczone stylowanie dla trybu nierestrykcyjnego
-
-Zmiana klasy wideo tak, aby używało `aspect-video` wewnętrznie i nie polegało na wysokości rodzica:
-
+Dodać przekazywanie ID zasobu jako query param:
 ```tsx
-// Linia 1122-1139, tryb disableInteraction={false}
-return (
-  <div className="relative w-full aspect-video bg-black rounded-lg">
-    <video
-      ref={videoRefCallback}
-      {...securityProps}
-      src={signedUrl}
-      controls
-      controlsList="nodownload"
-      className="absolute inset-0 w-full h-full object-contain rounded-lg"
-      preload="metadata"
-      playsInline
-      webkit-playsinline="true"
-      {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
-    >
-      Twoja przeglądarka nie obsługuje odtwarzania wideo.
-    </video>
-  </div>
-);
+onClick={() => navigate(`/knowledge?highlight=${resource.id}`)}
 ```
 
-Kluczowe zmiany:
-- Owinięcie w `<div>` z `relative`, `aspect-video`, `bg-black`
-- Wideo z `absolute inset-0` wypełniające kontener
-- Kontrolki natywne będą zawsze widoczne wewnątrz tego kontenera
+**Krok 2: Zmiana KnowledgeCenter.tsx**
 
-### Zmiana 2: HealthyKnowledgePublicPage.tsx - usunięcie podwójnego aspect-video
+Dodać obsługę query param `highlight`:
+- Import `useSearchParams` z react-router-dom
+- Odczytać parametr `highlight` z URL
+- Po załadowaniu zasobów, automatycznie przewinąć do podświetlonego zasobu
+- Dodać efekt wizualny (animacja ring/pulse) dla podświetlonego zasobu
 
-Ponieważ SecureMedia teraz samo zarządza proporcjami, kontener zewnętrzny nie potrzebuje `aspect-video`:
-
+Kod do dodania:
 ```tsx
-// Linia 230
-<div className="bg-black rounded-lg">
-  <SecureMedia
-    mediaUrl={content.media_url}
-    mediaType={content.content_type}
-    disableInteraction={false}
-  />
-</div>
+import { useSearchParams } from 'react-router-dom';
+
+// W komponencie:
+const [searchParams] = useSearchParams();
+const highlightedResourceId = searchParams.get('highlight');
+
+// useEffect do scrollowania:
+useEffect(() => {
+  if (highlightedResourceId && !loading) {
+    const element = document.getElementById(`resource-${highlightedResourceId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}, [highlightedResourceId, loading]);
+
+// W renderResourceCard dodać id i podświetlenie:
+<Card 
+  key={resource.id} 
+  id={`resource-${resource.id}`}
+  className={`hover:shadow-md transition-shadow ${
+    highlightedResourceId === resource.id 
+      ? 'ring-2 ring-primary animate-pulse' 
+      : ''
+  }`}
+>
 ```
 
 ---
 
-## Szczegóły techniczne
+## Problem 2: Timer OTP w InfoLink liczy od momentu generacji zamiast od pierwszego użycia
 
-| Plik | Linia | Zmiana |
-|------|-------|--------|
-| `src/components/SecureMedia.tsx` | 1122-1139 | Owinięcie `<video>` w `<div>` z prawidłowymi klasami CSS |
-| `src/pages/HealthyKnowledgePublicPage.tsx` | 230 | Usunięcie `aspect-video` (bo SecureMedia je zapewnia) |
+### Diagnoza
+
+**Obecny stan:**
+- Tabela `infolink_otp_codes` NIE MA kolumny `first_used_at` (jest tylko w `hk_otp_codes`)
+- Kolumny: `id, reflink_id, partner_id, code, expires_at, is_invalidated, used_sessions, created_at`
+- Timer w `CombinedOtpCodesWidget` liczy czas do `expires_at` (który jest obliczany przy generacji: created_at + validity hours)
+
+**Różnica z Zdrowa Wiedza:**
+- `hk_otp_codes` MA kolumnę `first_used_at` 
+- Timer liczy: `first_used_at + validity hours`
+- Kod może czekać 7 dni na użycie, a potem dostęp trwa 24h
+
+**Wymagane zachowanie dla InfoLink:**
+- Kod powinien mieć okres oczekiwania (np. 7 dni na aktywację)
+- Timer dostępu startuje od pierwszego użycia kodu (pierwsza sesja)
+
+### Rozwiązanie
+
+**Krok 1: Migracja bazy danych**
+
+Dodać kolumnę `first_used_at` do tabeli `infolink_otp_codes`:
+```sql
+ALTER TABLE infolink_otp_codes 
+ADD COLUMN first_used_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+```
+
+**Krok 2: Zmiana validate-infolink-otp Edge Function**
+
+Przy pierwszym użyciu kodu (gdy `used_sessions = 0`), ustawić `first_used_at`:
+```typescript
+// Po walidacji kodu, przed incrementem used_sessions:
+const isFirstUse = otpRecord.used_sessions === 0;
+
+// Przy update:
+await supabase
+  .from('infolink_otp_codes')
+  .update({ 
+    used_sessions: otpRecord.used_sessions + 1,
+    ...(isFirstUse && { first_used_at: new Date().toISOString() })
+  })
+  .eq('id', otpRecord.id);
+
+// Obliczanie expiry sesji - od pierwszego użycia:
+const firstUseTime = isFirstUse 
+  ? new Date() 
+  : new Date(otpRecord.first_used_at);
+const sessionExpiresAt = new Date(firstUseTime.getTime() + validityHours * 60 * 60 * 1000);
+```
+
+**Krok 3: Zmiana generate-infolink-otp Edge Function**
+
+Zmienić `expires_at` na dłuższy okres oczekiwania (7 dni):
+```typescript
+// PRZED (linia 134):
+const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
+
+// PO - 7 dni na aktywację kodu:
+const activationPeriodDays = 7;
+const expiresAt = new Date(Date.now() + activationPeriodDays * 24 * 60 * 60 * 1000);
+```
+
+**Krok 4: Zmiana CombinedOtpCodesWidget**
+
+Zmienić komponent `InfoLinkLiveCountdown` aby liczył od `first_used_at`:
+```tsx
+const InfoLinkLiveCountdown: React.FC<{ 
+  firstUsedAt: string | null;
+  validityHours: number;
+}> = ({ firstUsedAt, validityHours }) => {
+  // Logika identyczna jak HkLiveCountdown
+  // Jeśli firstUsedAt === null -> "Oczekuje na użycie"
+  // Jeśli jest firstUsedAt -> liczyć first_used_at + validityHours
+};
+```
+
+Zmienić zapytanie w `fetchInfoLinkCodes` aby pobierać `first_used_at`:
+```tsx
+.select(`
+  id, code, expires_at, used_sessions, created_at, first_used_at,
+  reflink:reflinks(id, title, otp_max_sessions, otp_validity_hours),
+  infolink_sessions(expires_at)
+`)
+```
 
 ---
 
-## Dlaczego to zadziała
+## Szczegóły techniczne zmian
 
-1. **Kontrola proporcji wewnątrz SecureMedia** - komponent sam zarządza swoim układem
-2. **`absolute inset-0`** - wideo wypełnia cały kontener, kontrolki są WEWNĄTRZ
-3. **Brak konfliktów CSS** - żadnych podwójnych proporcji ani nakładających się kontenerów
-
----
-
-## Wpływ na inne moduły
-
-| Moduł | Wpływ |
-|-------|-------|
-| Szkolenia | ❌ Brak - używają trybu `disableInteraction={true}` (linie 988-1086), ta zmiana nie dotyczy tego trybu |
-| Wewnętrzny dashboard | ❌ Brak - zalogowani użytkownicy mają swoje uprawnienia |
-| InfoLinki | ❌ Brak - nie używają SecureMedia dla wideo |
+| Plik | Typ zmiany | Opis |
+|------|------------|------|
+| `src/components/dashboard/widgets/ResourcesWidget.tsx` | Modyfikacja | Dodanie `?highlight=ID` do nawigacji |
+| `src/pages/KnowledgeCenter.tsx` | Modyfikacja | Obsługa query param, scroll i podświetlenie |
+| `infolink_otp_codes` (baza) | Migracja | Dodanie kolumny `first_used_at` |
+| `supabase/functions/generate-infolink-otp/index.ts` | Modyfikacja | expires_at = 7 dni |
+| `supabase/functions/validate-infolink-otp/index.ts` | Modyfikacja | Ustawianie first_used_at przy pierwszym użyciu |
+| `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx` | Modyfikacja | Timer z first_used_at zamiast expires_at |
 
 ---
 
-## Efekt końcowy
+## Wpływ na istniejące dane
 
-Po wdrożeniu zmian użytkownik zewnętrzny (z kodem OTP) zobaczy:
-- Wideo wypełniające kontener z zachowaniem proporcji
-- Natywne kontrolki przeglądarki: play/pause, pasek postępu, głośność, pełny ekran, prędkość
-- Timer dostępu nadal widoczny nad wideo
+- Istniejące kody OTP InfoLink będą miały `first_used_at = NULL`
+- Dla kodów gdzie `used_sessions > 0`, można opcjonalnie ustawić `first_used_at = created_at` (migracja danych)
+- Nowe kody będą działać poprawnie z nową logiką
