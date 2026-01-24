@@ -16,8 +16,9 @@ import { toast } from 'sonner';
 import { 
   Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, Upload, 
   Loader2, FileText, Play, Image, Music, Type, Share2, 
-  Star, StarOff, MoreHorizontal, RefreshCw
+  Star, StarOff, MoreHorizontal, RefreshCw, BarChart3
 } from 'lucide-react';
+import HkStatisticsPanel from './HkStatisticsPanel';
 import { cn } from '@/lib/utils';
 import { 
   HealthyKnowledge, 
@@ -340,6 +341,10 @@ const HealthyKnowledgeManagement: React.FC = () => {
         <TabsList>
           <TabsTrigger value="materials">Materiały ({materials.length})</TabsTrigger>
           <TabsTrigger value="codes">Kody OTP</TabsTrigger>
+          <TabsTrigger value="statistics">
+            <BarChart3 className="w-4 h-4 mr-1" />
+            Statystyki
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="materials" className="space-y-4">
@@ -560,6 +565,10 @@ const HealthyKnowledgeManagement: React.FC = () => {
               </Table>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="statistics" className="space-y-4">
+          <HkStatisticsPanel />
         </TabsContent>
       </Tabs>
 

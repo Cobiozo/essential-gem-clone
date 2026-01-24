@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -32,6 +32,7 @@ import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
+import MyHkCodesHistory from '@/components/healthy-knowledge/MyHkCodesHistory';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
@@ -208,6 +209,9 @@ const MyAccount = () => {
   const showProfileForm = profileIncomplete || isEditingProfile || (!isComplete && profileNotCompleted);
   const mustCompleteProfile = forceComplete || (!isComplete && profileNotCompleted);
   
+  // Check if user is admin
+  const isUserAdmin = userRole?.role === 'admin';
+  
   // Visible tabs based on existing visibility settings
   const visibleTabs = useMemo(() => ({
     profile: true,
@@ -218,10 +222,11 @@ const MyAccount = () => {
     notifications: true,
     preferences: dailySignalVisible,
     aiCompass: aiCompassVisible,
+    hkCodes: isPartner || isUserAdmin, // NEW: Healthy Knowledge codes history
     reflinks: canGenerateReflinks,
     individualMeetings: leaderPermission?.individual_meetings_enabled || false,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, leaderPermission]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, leaderPermission, isUserAdmin]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -576,6 +581,12 @@ const MyAccount = () => {
                 <TabsTrigger value="security" disabled={mustCompleteProfile}>
                   <Key className="w-4 h-4 mr-2" />
                   {t('myAccount.security')}
+                </TabsTrigger>
+              )}
+              {visibleTabs.hkCodes && (
+                <TabsTrigger value="hk-codes" disabled={mustCompleteProfile}>
+                  <Heart className="w-4 h-4 mr-2" />
+                  Moje kody ZW
                 </TabsTrigger>
               )}
               {visibleTabs.reflinks && (
@@ -1025,6 +1036,12 @@ const MyAccount = () => {
             </CardContent>
           </Card>
             </TabsContent>
+
+            {visibleTabs.hkCodes && (
+              <TabsContent value="hk-codes" className="mt-6">
+                <MyHkCodesHistory />
+              </TabsContent>
+            )}
 
             {visibleTabs.reflinks && (
               <TabsContent value="reflinks" className="mt-6">

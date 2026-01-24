@@ -45,9 +45,12 @@ export interface HkOtpCode {
   recipient_name: string | null;
   recipient_email: string | null;
   created_at: string;
-  // Relations
-  healthy_knowledge?: HealthyKnowledge;
-  partner?: { first_name: string; last_name: string; email: string };
+  // Soft-delete for user
+  is_deleted_by_user: boolean;
+  deleted_by_user_at: string | null;
+  // Relations - partial for queries
+  healthy_knowledge?: Partial<HealthyKnowledge> & { id: string; title: string; slug: string };
+  partner?: { first_name: string; last_name: string; email: string; role?: string };
   // Computed for widget
   first_session_expires_at?: string | null;
 }

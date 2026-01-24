@@ -2468,8 +2468,10 @@ export type Database = {
         Row: {
           code: string
           created_at: string | null
+          deleted_by_user_at: string | null
           expires_at: string
           id: string
+          is_deleted_by_user: boolean | null
           is_invalidated: boolean | null
           knowledge_id: string
           partner_id: string
@@ -2480,8 +2482,10 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string | null
+          deleted_by_user_at?: string | null
           expires_at: string
           id?: string
+          is_deleted_by_user?: boolean | null
           is_invalidated?: boolean | null
           knowledge_id: string
           partner_id: string
@@ -2492,8 +2496,10 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string | null
+          deleted_by_user_at?: string | null
           expires_at?: string
           id?: string
+          is_deleted_by_user?: boolean | null
           is_invalidated?: boolean | null
           knowledge_id?: string
           partner_id?: string
