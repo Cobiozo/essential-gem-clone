@@ -1,176 +1,165 @@
 
-# Stabilizacja Widoku Struktury Organizacji
+# Rozbudowa widżetu zespołu i zmiana kafelków struktury organizacji
 
-## Problem
-Widok "Struktura" ciągle mruga i pokazuje "Ładowanie struktury..." w nieskończoność. Jest to spowodowane **pętlą nieskończonych odświeżeń**.
+## Zakres zmian
 
-## Diagnoza techniczna
+1. **Widżet Zespołu na dashboardzie** - dodanie przycisku "Struktura" obok "Zarządzaj"
+2. **Kontrolki zoom** - dodanie przycisków powiększania/pomniejszania całego grafu
+3. **Nowy layout kafelków** - szerszy prostokąt z dwukolumnowym układem
+
+---
+
+## 1. Przycisk "Struktura" w widżecie zespołu
+
+### Plik: `src/components/dashboard/widgets/TeamContactsWidget.tsx`
+
+Dodanie drugiego przycisku obok "Zarządzaj", który nawiguje bezpośrednio do zakładki struktury w widoku grafu:
 
 ```text
-Pętla błędu:
-1. useOrganizationTreeSettings tworzy funkcje canAccessTree() i getMaxDepthForRole()
-2. Te funkcje NIE są memoizowane (brak useCallback)
-3. Każdy render tworzy NOWE referencje funkcji
-4. useOrganizationTree używa tych funkcji w zależnościach fetchTree (useCallback)
-5. fetchTree zmienia się → useEffect wywołuje fetchTree()
-6. fetchTree ustawia setLoading(true) → re-render → powtórz od kroku 1
+┌────────────────────────────────────────┐
+│  👥 Zespół    [Struktura] [Zarządzaj →]│
+│  ─────────────────────────────────────│
+│  Łączna liczba kontaktów          3   │
+│  ...                                   │
+└────────────────────────────────────────┘
 ```
 
-## Rozwiązanie
+**Zmiany:**
+- Import ikony `TreePine` z lucide-react
+- Dodanie przycisku "Struktura" z nawigacją do `/my-account?tab=team-contacts&subTab=structure`
+- Warunek dostępu: przycisk widoczny tylko gdy `canAccessTree()` zwraca true
 
-### 1. Memoizacja funkcji w `useOrganizationTreeSettings.ts`
+---
 
-Zmiana funkcji `canAccessTree` i `getMaxDepthForRole` na memoizowane wersje z `useCallback`:
+## 2. Kontrolki Zoom dla grafu organizacji
 
+### Plik: `src/components/team-contacts/organization/OrganizationChart.tsx`
+
+Dodanie stanu `zoom` (skala 50%-150%) i przycisków + / - w nagłówku karty:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  👥 Struktura organizacji           [ 🔍- ] 100% [ 🔍+ ]        │
+│  ─────────────────────────────────────────────────────────────  │
+│                       (tree content at scale)                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Implementacja:**
+- `const [zoom, setZoom] = useState(100)`
+- Przyciski `ZoomIn` i `ZoomOut` z lucide-react
+- CSS transform na kontenerze drzewa: `transform: scale(${zoom / 100})`
+- Zakres: 50% - 150%, krok: 10%
+
+---
+
+## 3. Nowy layout kafelków OrganizationNode
+
+### Obecny layout (pionowy):
+```text
+┌─────────────────┐
+│    [AVATAR]     │
+│    Sebastian    │
+│     Snopek      │
+│   [Partner]     │
+│   121118999     │
+│    👤 +4        │
+└─────────────────┘
+```
+
+### Nowy layout (szerszy, dwukolumnowy):
+```text
+┌─────────────────────────────────────────────┐
+│  ┌────────┐  │  Sebastian Snopek            │
+│  │ AVATAR │  │  [Partner]                   │
+│  │   SS   │  │                              │
+│  └────────┘  │  121118999                   │
+│              │  email@example.com           │
+│──────────────┴──────────────────────────────│
+│            [ ▼ ]  👤 +4                     │
+└─────────────────────────────────────────────┘
+```
+
+### Plik: `src/components/team-contacts/organization/OrganizationNode.tsx`
+
+**Zmiany struktury:**
+1. Zmiana z `flex-col` na dwukolumnowy grid/flex layout
+2. Lewa kolumna: Avatar z inicjałami
+3. Prawa kolumna: Imię+nazwisko, rola (badge), dane dodatkowe (EQID, email, telefon - kontrolowane przez admin)
+4. Dolny pasek: Przycisk rozwijania + licznik użytkowników w strukturze
+
+**Nowa konfiguracja rozmiarów:**
 ```typescript
-// PRZED (powoduje pętlę):
-const canAccessTree = (): boolean => {
-  if (!settings || !settings.is_enabled) return false;
-  // ...
+const sizeConfig = {
+  small: {
+    container: 'min-w-[180px] p-3',
+    avatar: 'w-12 h-12',
+    text: 'text-xs',
+    badge: 'text-[10px] px-1.5 py-0.5',
+  },
+  medium: {
+    container: 'min-w-[220px] p-4',
+    avatar: 'w-14 h-14',
+    text: 'text-sm',
+    badge: 'text-xs px-2 py-0.5',
+  },
+  large: {
+    container: 'min-w-[280px] p-5',
+    avatar: 'w-16 h-16',
+    text: 'text-base',
+    badge: 'text-sm px-2.5 py-1',
+  },
 };
-
-// PO (stabilne):
-const canAccessTree = useCallback((): boolean => {
-  if (!settings || !settings.is_enabled) return false;
-  // ...
-}, [settings, userRole?.role]);
 ```
 
-### 2. Dodanie `useRef` do śledzenia stanu inicjalizacji w `useOrganizationTree.ts`
+---
 
-Zapobiegnie to wielokrotnemu wywołaniu fetch podczas inicjalizacji:
+## Szczegóły techniczne
 
-```typescript
-const hasFetchedRef = useRef(false);
+### Plik 1: `src/components/dashboard/widgets/TeamContactsWidget.tsx`
 
-useEffect(() => {
-  if (!hasFetchedRef.current && profile?.eq_id && !settingsLoading) {
-    hasFetchedRef.current = true;
-    fetchTree();
-  }
-}, [profile?.eq_id, settingsLoading, fetchTree]);
-```
+**Zmiany:**
+- Dodanie hooka `useOrganizationTreeSettings`
+- Import `TreePine` icon
+- Dodanie przycisku "Struktura" przed "Zarządzaj"
+- Warunek widoczności: `canAccessTree() && treeSettings?.is_enabled`
 
-### 3. Usunięcie niestabilnych zależności z `useCallback`
+### Plik 2: `src/components/team-contacts/organization/OrganizationChart.tsx`
 
-W `useOrganizationTree.ts`, funkcje `canAccessTree` i `getMaxDepthForRole` będą wywoływane wewnątrz callbacka bez dodawania ich do zależności (używając zamknięcia):
+**Zmiany:**
+- Import `ZoomIn`, `ZoomOut` z lucide-react
+- Dodanie stanu: `const [zoom, setZoom] = useState(100)`
+- Przyciski zoom w nagłówku CardHeader
+- Transform na kontenerze drzewa w ScrollArea
 
-```typescript
-const fetchTree = useCallback(async () => {
-  if (!profile?.eq_id || settingsLoading) return;
-  
-  // Wywołaj funkcje wewnątrz - nie jako zależności
-  if (!canAccessTree()) {
-    setLoading(false);
-    return;
-  }
-  
-  const maxDepth = getMaxDepthForRole();
-  // ...
-}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings?.show_upline]);
-// ^ Usunięto: canAccessTree, getMaxDepthForRole z zależności
-```
+### Plik 3: `src/components/team-contacts/organization/OrganizationNode.tsx`
+
+**Zmiany:**
+- Całkowita przebudowa layoutu komponentu
+- Dwukolumnowy układ: avatar | dane
+- Dolny pasek z licznikiem dzieci przy ikonie rozwijania
+- Zachowanie wszystkich warunków widoczności z settings (show_eq_id, show_email, show_phone, show_role_badge, show_avatar, show_statistics)
+
+### Plik 4: `src/components/team-contacts/organization/OrganizationChart.tsx` (TreeBranch)
+
+**Zmiany:**
+- Przeniesienie licznika dzieci do OrganizationNode (dolny pasek)
+- Bez zmian logiki rozwijania/zwijania
+
+---
 
 ## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useOrganizationTreeSettings.ts` | Dodanie `useCallback` do `canAccessTree` i `getMaxDepthForRole` |
-| `src/hooks/useOrganizationTree.ts` | Dodanie `useRef` dla kontroli inicjalizacji + usunięcie niestabilnych zależności |
+| `src/components/dashboard/widgets/TeamContactsWidget.tsx` | Dodanie przycisku "Struktura" z nawigacją |
+| `src/components/team-contacts/organization/OrganizationChart.tsx` | Dodanie kontrolek zoom (+/-) i transform scale |
+| `src/components/team-contacts/organization/OrganizationNode.tsx` | Nowy dwukolumnowy layout kafelka |
+
+---
 
 ## Oczekiwany rezultat
 
-- Widok ładuje się **tylko raz** przy wejściu na zakładkę
-- Brak mrugania i nieskończonego "Ładowanie struktury..."
-- Dane wyświetlają się stabilnie po jednorazowym pobraniu
-
-## Szczegóły techniczne
-
-### Zmiana w `useOrganizationTreeSettings.ts`:
-
-```typescript
-import { useState, useEffect, useCallback } from 'react';
-
-// ...
-
-const canAccessTree = useCallback((): boolean => {
-  if (!settings || !settings.is_enabled) return false;
-  
-  const role = userRole?.role;
-  if (!role) return false;
-  
-  if (role === 'admin') return true;
-  if (role === 'partner' && settings.visible_to_partners) return true;
-  if (role === 'specjalista' && settings.visible_to_specjalista) return true;
-  if (role === 'client' && settings.visible_to_clients) return true;
-  
-  return false;
-}, [settings, userRole?.role]);
-
-const getMaxDepthForRole = useCallback((): number => {
-  if (!settings) return 0;
-  
-  const role = userRole?.role;
-  if (!role) return 0;
-  
-  if (role === 'admin') return settings.max_depth;
-  if (role === 'partner') return settings.partner_max_depth;
-  if (role === 'specjalista') return settings.specjalista_max_depth;
-  if (role === 'client') return settings.client_max_depth;
-  
-  return 0;
-}, [settings, userRole?.role]);
-```
-
-### Zmiana w `useOrganizationTree.ts`:
-
-```typescript
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-
-// ...
-
-const hasFetchedRef = useRef(false);
-
-const fetchTree = useCallback(async () => {
-  if (!profile?.eq_id || settingsLoading) return;
-  
-  if (!canAccessTree()) {
-    setLoading(false);
-    return;
-  }
-
-  try {
-    setLoading(true);
-    setError(null);
-
-    const maxDepth = getMaxDepthForRole();
-    // ... reszta kodu bez zmian
-  }
-}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings?.show_upline, canAccessTree, getMaxDepthForRole]);
-
-useEffect(() => {
-  // Pobierz tylko raz po załadowaniu ustawień
-  if (!settingsLoading && profile?.eq_id && !hasFetchedRef.current) {
-    hasFetchedRef.current = true;
-    fetchTree();
-  }
-}, [settingsLoading, profile?.eq_id, fetchTree]);
-```
-
-Alternatywnie, można użyć prostszego podejścia z pojedynczym `useEffect` który sprawdza wszystkie warunki:
-
-```typescript
-useEffect(() => {
-  if (!profile?.eq_id || settingsLoading) return;
-  
-  const loadData = async () => {
-    if (!canAccessTree()) {
-      setLoading(false);
-      return;
-    }
-    // ... fetch logic
-  };
-  
-  loadData();
-}, [profile?.eq_id, settingsLoading]); // Minimalne zależności
-```
+1. W widżecie "Zespół" na dashboardzie widoczny nowy przycisk "Struktura" obok "Zarządzaj"
+2. W widoku grafu struktury - kontrolki powiększania/pomniejszania widoku
+3. Kafelki w grafie mają nowy, szerszy layout z dwoma kolumnami i informacjami u podstawy
