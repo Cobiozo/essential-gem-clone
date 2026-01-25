@@ -1,158 +1,216 @@
 
-# Plan: Automatyczne otwieranie dropdown avatara dla kroków 11 i 12
+# Plan: Naprawa auto-wylogowania + ograniczenie automatycznego samouczka
 
-## Problem
-Dla kroków 11 (Moje Konto) i 12 (Panel narzędziowy) samouczka, menu rozwijane avatara w prawym górnym rogu powinno się automatycznie otworzyć, aby podświetlić elementy "Moje konto" i "Panel narzędziowy". Obecnie:
-- `TourOverlay` wywołuje `onDropdownToggle(true)` gdy krok wymaga otwartego dropdown
-- Ale callback nie jest podłączony - `OnboardingTour` w Dashboard.tsx nie ma przekazanych propsów
-- `DashboardTopbar` używa niekontrolowanego `DropdownMenu` bez zewnętrznego stanu
+## Część A: Naprawa auto-wylogowania podczas odtwarzania wideo
 
----
+### Zidentyfikowane problemy
 
-## Rozwiązanie
+1. **Brak świadomości o odtwarzaniu wideo** - `useInactivityTimeout` nasłuchuje tylko na fizyczne interakcje użytkownika (click, scroll, keydown), ale nie wie że wideo jest odtwarzane
+2. **Wylogowanie mimo aktywności** - `handleVisibilityChange` może wylogować zbyt wcześnie przy przełączaniu kart
 
-### Architektura przepływu danych
+### Rozwiązanie: Event-based video activity
 
-```text
-Dashboard.tsx
-     │
-     ├── DashboardLayout
-     │        │
-     │        └── DashboardTopbar
-     │                 │
-     │                 └── DropdownMenu (kontrolowany przez isUserMenuOpen)
-     │
-     └── OnboardingTour
-              │
-              └── TourOverlay (wywołuje onDropdownToggle)
-```
+Komponent `SecureMedia` będzie emitować niestandardowe zdarzenia DOM (`video-activity`), które `useInactivityTimeout` będzie nasłuchiwać i resetować timer.
 
-Musimy przekazać callback z `DashboardTopbar` przez `DashboardLayout` do `OnboardingTour`.
+#### Modyfikacje w `src/components/SecureMedia.tsx`
 
----
-
-## Szczegóły implementacji
-
-### Krok 1: Modyfikacja `DashboardTopbar.tsx`
-
-Dodać kontrolowany stan dla dropdown menu avatara:
+Dodać emisję zdarzeń aktywności podczas odtwarzania wideo:
 
 ```typescript
-interface DashboardTopbarProps {
-  title?: string;
-  isUserMenuOpen?: boolean;
-  onUserMenuOpenChange?: (open: boolean) => void;
-}
+// Nowy ref do throttlingu emisji
+const lastActivityEmitRef = useRef<number>(0);
 
-// W komponencie:
-const [internalOpen, setInternalOpen] = useState(false);
-const isOpen = isUserMenuOpen !== undefined ? isUserMenuOpen : internalOpen;
-const handleOpenChange = (open: boolean) => {
-  setInternalOpen(open);
-  onUserMenuOpenChange?.(open);
+// W handlePlay:
+const handlePlay = () => {
+  setIsPlaying(true);
+  onPlayStateChangeRef.current?.(true);
+  
+  // Informuj system o aktywności wideo
+  window.dispatchEvent(new CustomEvent('video-activity', { 
+    detail: { type: 'play' } 
+  }));
 };
 
-// W DropdownMenu:
-<DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
-```
-
-Dodać również atrybut `data-tour="user-avatar"` do przycisku avatara.
-
----
-
-### Krok 2: Modyfikacja `DashboardLayout.tsx`
-
-Przekazać propsy do `DashboardTopbar`:
-
-```typescript
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-  title?: string;
-  isUserMenuOpen?: boolean;
-  onUserMenuOpenChange?: (open: boolean) => void;
-}
-
-// W komponencie:
-<DashboardTopbar 
-  title={title} 
-  isUserMenuOpen={isUserMenuOpen}
-  onUserMenuOpenChange={onUserMenuOpenChange}
-/>
-```
-
----
-
-### Krok 3: Modyfikacja `Dashboard.tsx`
-
-Dodać stan do zarządzania dropdown i przekazać callback do `OnboardingTour`:
-
-```typescript
-const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-const handleDropdownToggle = useCallback((open: boolean) => {
-  setIsUserMenuOpen(open);
-}, []);
-
-// W render:
-<DashboardLayout 
-  title={t('dashboard.menu.dashboard')}
-  isUserMenuOpen={isUserMenuOpen}
-  onUserMenuOpenChange={setIsUserMenuOpen}
->
-  {/* ... widgets ... */}
+// W handleTimeUpdate (throttled - co 10 sekund):
+const handleTimeUpdate = () => {
+  // ... istniejący kod ...
   
-  <OnboardingTour onDropdownToggle={handleDropdownToggle} />
-</DashboardLayout>
+  // Throttled: emituj zdarzenie co ~10 sekund podczas odtwarzania
+  const now = Date.now();
+  if (now - lastActivityEmitRef.current >= 10000) {
+    lastActivityEmitRef.current = now;
+    window.dispatchEvent(new CustomEvent('video-activity', { 
+      detail: { type: 'timeupdate' } 
+    }));
+  }
+};
+```
+
+#### Modyfikacje w `src/hooks/useInactivityTimeout.ts`
+
+Dodać nasłuchiwanie na zdarzenia wideo:
+
+```typescript
+// NOWE: Obsługa aktywności wideo (bez throttlingu - już throttled w SecureMedia)
+const handleVideoActivity = () => {
+  console.log('[useInactivityTimeout] Video activity detected, resetting timer');
+  resetTimer();
+};
+
+// W sekcji event listeners:
+window.addEventListener('video-activity', handleVideoActivity);
+
+// W cleanup:
+window.removeEventListener('video-activity', handleVideoActivity);
+
+// W handleVisibilityChange - dodać bufor 1 minuty:
+const handleVisibilityChange = () => {
+  if (!document.hidden) {
+    const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+    
+    // Dodaj bufor 1 minuty dla bezpieczeństwa
+    const timeoutWithBuffer = INACTIVITY_TIMEOUT_MS + 60000;
+    
+    if (timeSinceLastActivity >= timeoutWithBuffer) {
+      handleLogout();
+    } else {
+      resetTimer();
+    }
+  }
+};
 ```
 
 ---
 
-## Pliki do modyfikacji
+## Część B: Ograniczenie automatycznego samouczka
+
+### Obecna logika
+
+Samouczek wyświetla się gdy:
+- `isFreshLogin === true` (świeże logowanie)
+- `tutorial_completed !== true`
+- `tutorial_skipped !== true`
+
+### Problem
+
+`isFreshLogin` jest ustawiany przy KAŻDYM logowaniu, więc samouczek pokazuje się za każdym razem dla użytkowników którzy go wcześniej nie ukończyli.
+
+### Rozwiązanie
+
+Zmienić logikę tak, aby samouczek automatycznie wyświetlał się **tylko raz** - podczas **pierwszego logowania** po rejestracji i zatwierdzeniu przez admina.
+
+#### Modyfikacje w `src/hooks/useOnboardingTour.ts`
+
+```typescript
+useEffect(() => {
+  const checkTutorialStatus = async () => {
+    if (!user || !profile) return;
+
+    const tutorialCompleted = (profile as any)?.tutorial_completed;
+    const tutorialSkipped = (profile as any)?.tutorial_skipped;
+    const tutorialShownOnce = (profile as any)?.tutorial_shown_once;
+
+    // NOWA LOGIKA: Pokazuj automatycznie TYLKO jeśli:
+    // 1. Jest to pierwsze świeże logowanie (isFreshLogin)
+    // 2. Samouczek nie był jeszcze pokazany automatycznie (tutorial_shown_once !== true)
+    // 3. Samouczek nie został ukończony ani pominięty
+    if (isFreshLogin && !tutorialShownOnce && !tutorialCompleted && !tutorialSkipped) {
+      setTimeout(() => {
+        setShowWelcomeDialog(true);
+      }, 1000);
+      
+      // Oznacz że samouczek był już raz automatycznie pokazany
+      await supabase
+        .from('profiles')
+        .update({ tutorial_shown_once: true })
+        .eq('id', user.id);
+    }
+  };
+
+  checkTutorialStatus();
+}, [user, profile, isFreshLogin]);
+```
+
+#### Dodanie kolumny w bazie danych
+
+Dodać kolumnę `tutorial_shown_once` (boolean, default false) do tabeli `profiles`:
+
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tutorial_shown_once boolean DEFAULT false;
+```
+
+---
+
+## Część C: Ikonka "i" do ręcznego uruchomienia samouczka
+
+### Lokalizacja
+
+Ikonka będzie umieszczona w topbarze, obok `ThemeSelector` (przycisk zmiany motywu jasnego/ciemnego).
+
+### Modyfikacje w `src/components/dashboard/DashboardTopbar.tsx`
+
+Dodać nowy przycisk z ikonką `Info` (z lucide-react):
+
+```typescript
+import { Info } from 'lucide-react';
+
+// W sekcji Right side - Actions, przed ThemeSelector:
+{/* Tutorial help button */}
+<Button
+  variant="ghost"
+  size="icon"
+  onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
+  className="h-9 w-9"
+  title="Samouczek"
+  data-tour="tutorial-button"
+>
+  <Info className="h-4 w-4" />
+</Button>
+```
+
+#### Kolejność przycisków w topbarze po zmianie:
+
+1. Classic view toggle (tylko admin)
+2. Notifications (dzwonek)
+3. Language selector
+4. **Tutorial button (NOWY - ikonka "i")**
+5. Theme selector
+6. User avatar dropdown
+
+---
+
+## Podsumowanie plików do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/DashboardTopbar.tsx` | Dodanie kontrolowanego stanu dropdown z propsami `isUserMenuOpen` i `onUserMenuOpenChange` |
-| `src/components/dashboard/DashboardLayout.tsx` | Przekazanie propsów dropdown do `DashboardTopbar` |
-| `src/pages/Dashboard.tsx` | Dodanie stanu `isUserMenuOpen` i przekazanie `onDropdownToggle` do `OnboardingTour` |
+| `src/components/SecureMedia.tsx` | Dodanie emisji zdarzenia `video-activity` w handlePlay i handleTimeUpdate (throttled co 10s) |
+| `src/hooks/useInactivityTimeout.ts` | Nasłuchiwanie `video-activity` + bufor 1 min w handleVisibilityChange |
+| `src/hooks/useOnboardingTour.ts` | Nowa logika: samouczek automatycznie tylko raz (sprawdzanie `tutorial_shown_once`) |
+| `src/components/dashboard/DashboardTopbar.tsx` | Dodanie przycisku "i" do uruchamiania samouczka |
 
 ---
 
-## Diagram przepływu
+## Migracja bazy danych
 
-```text
-KROK 11 SAMOUCZKA (Moje Konto)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dodanie nowej kolumny do tabeli `profiles`:
 
-1. TourOverlay wykrywa step.requiresDropdownOpen = true
-                    │
-                    ▼
-2. Wywołuje onDropdownToggle(true)
-                    │
-                    ▼
-3. Dashboard otrzymuje callback → setIsUserMenuOpen(true)
-                    │
-                    ▼
-4. DashboardLayout przekazuje isUserMenuOpen=true do DashboardTopbar
-                    │
-                    ▼
-5. DropdownMenu otwiera się automatycznie
-                    │
-                    ▼
-6. Element [data-tour="user-menu-account"] staje się widoczny
-                    │
-                    ▼
-7. TourOverlay podświetla element i pokazuje tooltip
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tutorial_shown_once boolean DEFAULT false;
 ```
 
 ---
 
 ## Oczekiwany rezultat
 
-1. Gdy samouczek dochodzi do kroku 11 (Moje Konto), avatar dropdown automatycznie się otwiera
-2. Element "Moje konto" w menu jest podświetlony ramką i tooltip wyjaśnia funkcję
-3. Gdy użytkownik klika "Dalej", dropdown pozostaje otwarty dla kroku 12
-4. Element "Panel narzędziowy" jest podświetlony
-5. Gdy użytkownik przechodzi do kroku 13, dropdown automatycznie się zamyka
-6. Użytkownik może też ręcznie zamknąć/otworzyć dropdown podczas samouczka
+### Auto-wylogowanie:
+1. Timer nieaktywności jest resetowany co ~10 sekund podczas oglądania wideo
+2. Użytkownik nie zobaczy ostrzeżenia o wylogowaniu podczas szkolenia
+3. Po zatrzymaniu wideo standardowy timer 30 minut rozpoczyna odliczanie
+4. Bufor 1 minuty przy powrocie do karty zapobiega nagłym wylogowaniom
+
+### Samouczek:
+1. Samouczek automatycznie pojawia się **tylko raz** - podczas pierwszego logowania po rejestracji i zatwierdzeniu
+2. Przy kolejnych logowaniach samouczek się NIE pojawia automatycznie
+3. Użytkownik może w dowolnym momencie uruchomić samouczek klikając ikonkę "i" obok przełącznika motywu
+4. Ikonka "i" w kółeczku jest widoczna dla wszystkich użytkowników
+5. Kliknięcie ikonki otwiera dialog powitalny samouczka
