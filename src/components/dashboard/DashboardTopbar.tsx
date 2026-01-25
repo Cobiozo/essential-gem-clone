@@ -26,14 +26,28 @@ import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 
 interface DashboardTopbarProps {
   title?: string;
+  isUserMenuOpen?: boolean;
+  onUserMenuOpenChange?: (open: boolean) => void;
 }
 
-export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
+export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ 
+  title,
+  isUserMenuOpen,
+  onUserMenuOpenChange,
+}) => {
   const navigate = useNavigate();
   const { profile, signOut, isAdmin } = useAuth();
   const { t } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Controlled/uncontrolled pattern for dropdown
+  const isOpen = isUserMenuOpen !== undefined ? isUserMenuOpen : internalOpen;
+  const handleOpenChange = (open: boolean) => {
+    setInternalOpen(open);
+    onUserMenuOpenChange?.(open);
+  };
 
   const handleSwitchToClassic = () => {
     setViewMode('classic');
@@ -88,9 +102,9 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
         <ThemeSelector />
 
         {/* User dropdown */}
-        <DropdownMenu>
+        <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-tour="user-avatar">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={avatarUrl} alt={fullName} />
                 <AvatarFallback className="bg-primary/10 text-primary text-sm">
