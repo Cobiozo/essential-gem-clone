@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { GraduationCap, SkipForward } from 'lucide-react';
 
 interface TourWelcomeDialogProps {
@@ -22,8 +21,6 @@ export const TourWelcomeDialog: React.FC<TourWelcomeDialogProps> = ({
   onStart,
   onSkip,
 }) => {
-  const { t } = useLanguage();
-
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" hideCloseButton>
@@ -32,16 +29,16 @@ export const TourWelcomeDialog: React.FC<TourWelcomeDialogProps> = ({
             <GraduationCap className="h-8 w-8 text-primary" />
           </div>
           <DialogTitle className="text-2xl">
-            {t('onboarding.dialog.welcomeTitle')}
+            Witaj w Pure Life!
           </DialogTitle>
           <DialogDescription className="text-base">
-            {t('onboarding.dialog.welcomeDescription')}
+            Przygotowaliśmy dla Ciebie krótki przewodnik po platformie.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button onClick={onStart} className="w-full" size="lg">
             <GraduationCap className="mr-2 h-4 w-4" />
-            {t('onboarding.dialog.startButton')}
+            Rozpocznij samouczek
           </Button>
           <Button
             onClick={onSkip}
@@ -49,7 +46,7 @@ export const TourWelcomeDialog: React.FC<TourWelcomeDialogProps> = ({
             className="w-full text-muted-foreground"
           >
             <SkipForward className="mr-2 h-4 w-4" />
-            {t('onboarding.dialog.skipButton')}
+            Pomiń - znam platformę
           </Button>
         </DialogFooter>
       </DialogContent>

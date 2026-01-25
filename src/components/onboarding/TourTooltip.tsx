@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { TourStep } from './tourSteps';
 
@@ -25,8 +24,6 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
   onPrev,
   onSkip,
 }) => {
-  const { t } = useLanguage();
-
   const tooltipPosition = useMemo(() => {
     const tooltipWidth = 320;
     const tooltipHeight = 200;
@@ -78,7 +75,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">
-            {t(step.titleKey)}
+            {step.title}
           </CardTitle>
           <Button
             variant="ghost"
@@ -91,14 +88,14 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>
-            {t('onboarding.navigation.step')} {currentStep + 1} {t('onboarding.navigation.of')} {totalSteps}
+            Krok {currentStep + 1} z {totalSteps}
           </span>
         </div>
         <Progress value={progress} className="h-1" />
       </CardHeader>
       <CardContent className="pb-4">
         <p className="text-sm text-muted-foreground leading-relaxed">
-          {t(step.descriptionKey)}
+          {step.description}
         </p>
       </CardContent>
       <CardFooter className="flex justify-between gap-2 pt-0">
@@ -110,14 +107,14 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
           className="flex-1"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
-          {t('onboarding.navigation.previous')}
+          Wstecz
         </Button>
         <Button
           size="sm"
           onClick={onNext}
           className="flex-1"
         >
-          {isLastStep ? t('onboarding.navigation.finish') : t('onboarding.navigation.next')}
+          {isLastStep ? 'Zakończ' : 'Dalej'}
           {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
         </Button>
       </CardFooter>

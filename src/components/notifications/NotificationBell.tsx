@@ -46,7 +46,8 @@ export const NotificationBell: React.FC = () => {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <div data-tour="notifications-bell">
+      <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5" />
@@ -123,6 +124,7 @@ export const NotificationBell: React.FC = () => {
           )}
         </ScrollArea>
       </PopoverContent>
-    </Popover>
+      </Popover>
+    </div>
   );
 };
