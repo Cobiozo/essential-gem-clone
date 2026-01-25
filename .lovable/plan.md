@@ -1,406 +1,401 @@
 
-# Plan: Reorganizacja ustawień spotkań indywidualnych - osobne harmonogramy dla każdego typu
+
+# Plan: Kompaktowy układ dwukolumnowy dla ustawień spotkań
 
 ## Cel
 
-Przeprojektowanie formularza ustawień spotkań indywidualnych tak, aby:
-- **Spotkania trójstronne** i **Konsultacje dla partnerów** miały osobne harmonogramy dostępności (dni tygodnia i godziny)
-- Każdy typ miał własny czas trwania, wyjątki dat i ustawienia
-- Nadal działało wzajemne wykluczanie godzin między typami (już zaimplementowane)
+Przeprojektowanie interfejsu tak, aby oba typy spotkań (Trójstronne i Konsultacje) były widoczne obok siebie na jednym ekranie, co pozwoli na szybsze i łatwiejsze zarządzanie harmonogramami.
 
 ---
 
-## Obecny stan
+## Proponowana struktura wizualna
 
 ```text
-┌─────────────────────────────────────────────────┐
-│ Spotkania indywidualne                          │
-│ ─────────────────────────────────────────────── │
-│ Jeden wspólny harmonogram dla wszystkich typów  │
-│                                                 │
-│ • Ustawienia wspólne (booking mode, zoom link)  │
-│ • Godziny tygodniowe (Pn-Pt 9-17)              │
-│ • Wyjątki dat                                   │
-│ • Typy spotkań (accordion z tytułem/opisem)     │
-└─────────────────────────────────────────────────┘
-```
-
-**Problem:** Tabela `leader_availability` nie ma kolumny `meeting_type`, więc wszystkie sloty są wspólne.
-
----
-
-## Proponowana struktura
-
-```text
-┌───────────────────────────────────────────────────────────────────┐
-│ Spotkania indywidualne                                            │
-├───────────────────────────────────────────────────────────────────┤
-│ [Ustawienia] [Historia]                                           │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│ ┌─────────────────────────────────────────────────────────────┐  │
-│ │ Ustawienia wspólne                                          │  │
-│ │ • Sposób rezerwacji (wbudowany / Calendly)                 │  │
-│ │ • Link do spotkania (Zoom)                                 │  │
-│ │ • Google Calendar info                                      │  │
-│ └─────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│ ┌─────────────────────────────────────────────────────────────┐  │
-│ │ 👥 Spotkanie trójstronne                          [włączone]│  │
-│ │ ──────────────────────────────────────────────────────────  │  │
-│ │ • Czas trwania: [30 min ▼]                                  │  │
-│ │ • Tytuł, opis, obrazek                                      │  │
-│ │                                                             │  │
-│ │ [Godziny tygodniowe] [Wyjątki dat]                         │  │
-│ │ ┌───────────────────────────────────────┐                  │  │
-│ │ │ (Nd) [Pn] (Wt) [Śr] (Cz) (Pt) (Sb)   │                  │  │
-│ │ │ Poniedziałek: 09:00 — 12:00          │                  │  │
-│ │ │ Środa:        10:00 — 14:00          │                  │  │
-│ │ └───────────────────────────────────────┘                  │  │
-│ └─────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│ ┌─────────────────────────────────────────────────────────────┐  │
-│ │ 👤 Konsultacje dla partnerów                    [włączone]│  │
-│ │ ──────────────────────────────────────────────────────────  │  │
-│ │ • Czas trwania: [60 min ▼]                                  │  │
-│ │ • Tytuł, opis, obrazek                                      │  │
-│ │                                                             │  │
-│ │ [Godziny tygodniowe] [Wyjątki dat]                         │  │
-│ │ ┌───────────────────────────────────────┐                  │  │
-│ │ │ (Nd) (Pn) [Wt] (Śr) [Cz] [Pt] (Sb)   │                  │  │
-│ │ │ Wtorek:  14:00 — 18:00               │                  │  │
-│ │ │ Czwartek: 14:00 — 18:00              │                  │  │
-│ │ │ Piątek:   09:00 — 12:00              │                  │  │
-│ │ └───────────────────────────────────────┘                  │  │
-│ └─────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│                                      [Zapisz wszystkie ustawienia]│
-└───────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ 📅 Spotkania indywidualne                    [Ustawienia] [Historia]           │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ Ustawienia wspólne                                                             │
+│ ┌──────────────────────────────┐ ┌──────────────────────────────────────────┐ │
+│ │ ● Wbudowany harmonogram      │ │ 🔗 Link do spotkania (Zoom/Meet)         │ │
+│ │ ○ Zewnętrzny (Calendly)      │ │ [https://zoom.us/j/...]                  │ │
+│ └──────────────────────────────┘ └──────────────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│ ┌───────────────────────────────────┐  ┌───────────────────────────────────┐  │
+│ │ 👥 SPOTKANIE TRÓJSTRONNE     [✓] │  │ 👤 KONSULTACJE DLA PARTNERÓW [✓] │  │
+│ ├───────────────────────────────────┤  ├───────────────────────────────────┤  │
+│ │ ⏱ 60 min ▼                       │  │ ⏱ 30 min ▼                       │  │
+│ │                                   │  │                                   │  │
+│ │ Tytuł: [Spotkanie trójstronne]   │  │ Tytuł: [Konsultacje dla...]      │  │
+│ │ Obrazek: [Upload] [URL] [Bibl.]  │  │ Obrazek: [Upload] [URL] [Bibl.]  │  │
+│ │                                   │  │                                   │  │
+│ │ [Godziny] [Wyjątki]              │  │ [Godziny] [Wyjątki]              │  │
+│ │ ┌─────────────────────────────┐  │  │ ┌─────────────────────────────┐  │  │
+│ │ │ Nd Pn Wt Śr Cz Pt Sb       │  │  │ │ Nd Pn Wt Śr Cz Pt Sb       │  │  │
+│ │ │    ●     ●                 │  │  │ │       ●     ●  ●           │  │  │
+│ │ │                             │  │  │ │                             │  │  │
+│ │ │ Pn: 09:00 — 12:00 [+]      │  │  │ │ Wt: 14:00 — 18:00 [+]      │  │  │
+│ │ │ Śr: 10:00 — 14:00 [+]      │  │  │ │ Cz: 14:00 — 18:00 [+]      │  │  │
+│ │ │                             │  │  │ │ Pt: 09:00 — 12:00 [+]      │  │  │
+│ │ │ 📊 2 dni • 60min           │  │  │ │ 📊 3 dni • 30min           │  │  │
+│ │ └─────────────────────────────┘  │  │ └─────────────────────────────┘  │  │
+│ └───────────────────────────────────┘  └───────────────────────────────────┘  │
+│                                                                                │
+│                                                    [💾 Zapisz wszystkie]       │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Zmiany w bazie danych
+## Kluczowe zmiany w komponencie `MeetingTypeCard`
 
-### Migracja SQL
+### 1. Kompaktowa wersja karty
 
-```sql
--- Dodanie kolumny meeting_type do leader_availability
-ALTER TABLE leader_availability 
-ADD COLUMN IF NOT EXISTS meeting_type text DEFAULT 'both';
+Stworzenie nowej właściwości `compact` dla komponentu, która:
+- Zmniejsza padding i marginesy
+- Ukrywa pole "Opis" (textarea) - można je pokazać w tooltipie lub modalu
+- Zmniejsza wysokość nagłówków i inputów
+- Kompaktuje wizualnie `WorkingHoursScheduler`
 
--- Komentarz wyjaśniający
-COMMENT ON COLUMN leader_availability.meeting_type IS 
-  'Typ spotkania: tripartite, consultation, lub both (dla wstecznej kompatybilności)';
+### 2. Kompaktowy `WorkingHoursScheduler`
 
--- Indeks dla szybszego wyszukiwania
-CREATE INDEX IF NOT EXISTS idx_leader_availability_meeting_type 
-ON leader_availability(meeting_type);
-```
-
-**Wartości kolumny `meeting_type`:**
-- `tripartite` - harmonogram tylko dla spotkań trójstronnych
-- `consultation` - harmonogram tylko dla konsultacji
-- `both` - (domyślna) dla istniejących rekordów - działa dla obu typów
+Nowa wersja harmonogramu z mniejszymi elementami:
+- Mniejsze kółka dni tygodnia (w-8 h-8 zamiast w-10 h-10)
+- Węższe inputy czasu (w-24 zamiast w-28)
+- Mniejsza czcionka
+- Ukrycie checkboxa "Użyj tych samych godzin" (opcjonalne rozwinięcie)
 
 ---
 
-## Zmiany w komponentach
+## Zmiany w plikach
 
-### 1. Rozszerzenie typów `MeetingTypeSettings`
+### Plik: `src/components/events/MeetingTypeCard.tsx`
+
+Modyfikacje:
+- Dodanie props `compact?: boolean`
+- Warunkowe ukrywanie pola Opis gdy `compact=true`
+- Zmniejszenie paddingu i spacing gdy compact
+- Mniejsze nagłówki i ikony
 
 ```typescript
-interface MeetingTypeSettings {
-  title: string;
-  description: string;
-  image_url: string;
-  is_active: boolean;
-  slot_duration: number;           // NOWE - osobny czas trwania
-  weeklySchedule: WeeklySchedule;  // NOWE - osobny harmonogram
-  dateExceptions: DateException[]; // NOWE - osobne wyjątki
-}
-```
-
-### 2. Przebudowa `UnifiedMeetingSettingsForm.tsx`
-
-**Struktura komponentu:**
-
-```typescript
-// Ustawienia wspólne
-const [zoomLink, setZoomLink] = useState('');
-const [bookingMode, setBookingMode] = useState<'internal' | 'external'>('internal');
-const [externalCalendlyUrl, setExternalCalendlyUrl] = useState('');
-
-// Ustawienia per typ spotkania (zamiast wspólnego harmonogramu)
-const [tripartiteSettings, setTripartiteSettings] = useState<MeetingTypeSettings>({
-  title: 'Spotkanie trójstronne',
-  description: '',
-  image_url: '',
-  is_active: true,
-  slot_duration: 60,
-  weeklySchedule: getDefaultSchedule(),
-  dateExceptions: [],
-});
-
-const [consultationSettings, setConsultationSettings] = useState<MeetingTypeSettings>({
-  title: 'Konsultacje dla partnerów',
-  description: '',
-  image_url: '',
-  is_active: true,
-  slot_duration: 60,
-  weeklySchedule: getDefaultSchedule(),
-  dateExceptions: [],
-});
-```
-
-### 3. Nowy komponent `MeetingTypeCard`
-
-Reużywalny komponent dla każdego typu spotkania:
-
-```tsx
 interface MeetingTypeCardProps {
   type: 'tripartite' | 'consultation';
   settings: MeetingTypeSettings;
   onSettingsChange: (settings: MeetingTypeSettings) => void;
   icon: React.ReactNode;
   title: string;
-  color: string;
+  colorClass?: string;
+  compact?: boolean;  // NOWE
 }
+```
 
-const MeetingTypeCard: React.FC<MeetingTypeCardProps> = ({ ... }) => {
+### Plik: `src/components/events/WorkingHoursScheduler.tsx`
+
+Modyfikacje:
+- Dodanie props `compact?: boolean`
+- Mniejsze elementy UI gdy compact
+- Ukrycie checkboxa "Użyj tych samych godzin" za collapsible
+
+### Plik: `src/components/events/UnifiedMeetingSettingsForm.tsx`
+
+Modyfikacje:
+- Zmiana layoutu z `space-y-4` na `grid grid-cols-1 lg:grid-cols-2 gap-4`
+- Przekazanie `compact={true}` do obu `MeetingTypeCard`
+- Kompaktowe ustawienia wspólne (jedna linia zamiast dwóch kart)
+
+---
+
+## Sekcja techniczna
+
+### Zmiana w UnifiedMeetingSettingsForm.tsx (linie 547-568)
+
+Obecny kod:
+```tsx
+{bookingMode === 'internal' && (
+  <div className="space-y-4">
+    <MeetingTypeCard ... />
+    <MeetingTypeCard ... />
+  </div>
+)}
+```
+
+Nowy kod:
+```tsx
+{bookingMode === 'internal' && (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <MeetingTypeCard
+      type="tripartite"
+      title="Spotkanie trójstronne"
+      icon={<Users className="h-4 w-4" />}
+      colorClass="text-violet-500"
+      settings={tripartiteSettings}
+      onSettingsChange={setTripartiteSettings}
+      compact
+    />
+    
+    <MeetingTypeCard
+      type="consultation"
+      title="Konsultacje dla partnerów"
+      icon={<UserRound className="h-4 w-4" />}
+      colorClass="text-fuchsia-500"
+      settings={consultationSettings}
+      onSettingsChange={setConsultationSettings}
+      compact
+    />
+  </div>
+)}
+```
+
+### Zmiana w MeetingTypeCard.tsx
+
+```tsx
+export const MeetingTypeCard: React.FC<MeetingTypeCardProps> = ({
+  type,
+  settings,
+  onSettingsChange,
+  icon,
+  title,
+  colorClass = 'text-primary',
+  compact = false,  // NOWE
+}) => {
   return (
-    <Card>
-      <CardHeader>
+    <Card className={cn("border-2", compact && "border")}>
+      <CardHeader className={cn("pb-3", compact && "pb-2 px-3 pt-3")}>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            {icon}
+          <CardTitle className={cn(
+            "flex items-center gap-2",
+            compact ? "text-sm" : "text-base"
+          )}>
+            <span className={colorClass}>{icon}</span>
             {title}
           </CardTitle>
-          <Switch checked={settings.is_active} onCheckedChange={...} />
+          <Switch
+            checked={settings.is_active}
+            onCheckedChange={(checked) => updateField('is_active', checked)}
+          />
         </div>
       </CardHeader>
-      <CardContent>
-        {/* Czas trwania */}
-        <Select value={settings.slot_duration.toString()} ... />
-        
-        {/* Tytuł, opis, obrazek */}
-        <Input value={settings.title} ... />
-        <Textarea value={settings.description} ... />
-        <MediaUpload currentMediaUrl={settings.image_url} ... />
-        
-        {/* Tabs: Godziny tygodniowe / Wyjątki */}
-        <Tabs>
-          <TabsContent value="weekly">
-            <WorkingHoursScheduler
-              initialSchedule={settings.weeklySchedule}
-              onScheduleChange={(schedule) => 
-                onSettingsChange({...settings, weeklySchedule: schedule})
-              }
-              slotDuration={settings.slot_duration}
-            />
-          </TabsContent>
-          <TabsContent value="exceptions">
-            <DateExceptionsManager
-              exceptions={settings.dateExceptions}
-              onExceptionsChange={(exceptions) =>
-                onSettingsChange({...settings, dateExceptions: exceptions})
-              }
-            />
-          </TabsContent>
-        </Tabs>
+
+      {settings.is_active && (
+        <CardContent className={cn("space-y-4", compact && "space-y-3 px-3 pb-3")}>
+          {/* Duration - kompaktowe */}
+          <div className="flex items-center gap-2">
+            <Clock className={cn("h-3.5 w-3.5", compact && "h-3 w-3")} />
+            <Label className={cn("text-sm", compact && "text-xs")}>Czas trwania</Label>
+            <Select
+              value={settings.slot_duration.toString()}
+              onValueChange={(value) => updateField('slot_duration', parseInt(value))}
+            >
+              <SelectTrigger className={cn("h-9 w-32", compact && "h-7 w-24 text-xs")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SLOT_DURATIONS.map((d) => (
+                  <SelectItem key={d.value} value={d.value.toString()}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Title & Image - w jednej linii */}
+          <div className={cn(
+            "grid gap-3",
+            compact ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2 gap-4"
+          )}>
+            <div className="space-y-1">
+              <Label className={cn("text-sm", compact && "text-xs")}>Tytuł</Label>
+              <Input
+                value={settings.title}
+                onChange={(e) => updateField('title', e.target.value)}
+                placeholder="Nazwa spotkania"
+                className={cn("h-9", compact && "h-7 text-sm")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className={cn("text-sm", compact && "text-xs")}>Obrazek</Label>
+              <MediaUpload
+                onMediaUploaded={(url) => updateField('image_url', url)}
+                currentMediaUrl={settings.image_url}
+                currentMediaType="image"
+                allowedTypes={['image']}
+                compact
+              />
+            </div>
+          </div>
+
+          {/* Opis - ukryty w trybie compact, pokazany jako collapsible */}
+          {!compact && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">Opis</Label>
+              <Textarea ... />
+            </div>
+          )}
+
+          {/* Schedule Tabs - kompaktowe */}
+          <Tabs defaultValue="weekly" className={cn("space-y-3", compact && "space-y-2")}>
+            <TabsList className={cn("grid w-full grid-cols-2", compact && "h-8")}>
+              <TabsTrigger 
+                value="weekly" 
+                className={cn("flex items-center gap-2", compact && "text-xs py-1")}
+              >
+                <Clock className={cn("h-3.5 w-3.5", compact && "h-3 w-3")} />
+                Godziny
+              </TabsTrigger>
+              <TabsTrigger 
+                value="exceptions" 
+                className={cn("flex items-center gap-2", compact && "text-xs py-1")}
+              >
+                <CalendarOff className={cn("h-3.5 w-3.5", compact && "h-3 w-3")} />
+                Wyjątki
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="weekly">
+              <WorkingHoursScheduler
+                initialSchedule={settings.weeklySchedule}
+                onScheduleChange={(schedule) => updateField('weeklySchedule', schedule)}
+                slotDuration={settings.slot_duration}
+                compact={compact}  // NOWE
+              />
+            </TabsContent>
+            ...
+          </Tabs>
+        </CardContent>
+      )}
+    </Card>
+  );
+};
+```
+
+### Zmiana w WorkingHoursScheduler.tsx
+
+```tsx
+interface WorkingHoursSchedulerProps {
+  initialSchedule?: WeeklySchedule;
+  onScheduleChange: (schedule: WeeklySchedule) => void;
+  slotDuration: number;
+  isSaving?: boolean;
+  compact?: boolean;  // NOWE
+}
+
+export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
+  initialSchedule,
+  onScheduleChange,
+  slotDuration,
+  isSaving = false,
+  compact = false,  // NOWE
+}) => {
+  // ...
+
+  return (
+    <Card className={compact ? "border-0 shadow-none" : ""}>
+      <CardHeader className={cn("pb-4", compact && "pb-2 px-0 pt-0")}>
+        <CardTitle className={cn(
+          "flex items-center gap-2",
+          compact ? "text-sm" : "text-lg"
+        )}>
+          <Clock className={cn("h-5 w-5", compact && "h-4 w-4")} />
+          Godziny pracy
+        </CardTitle>
+      </CardHeader>
+      <CardContent className={cn("space-y-6", compact && "space-y-3 px-0 pb-0")}>
+        {/* Day toggles - mniejsze w trybie compact */}
+        <div className="flex flex-wrap gap-1.5 justify-center">
+          {DAYS_OF_WEEK.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => toggleDay(value)}
+              className={cn(
+                'rounded-full text-sm font-medium transition-all',
+                compact ? 'w-7 h-7 text-xs' : 'w-10 h-10',
+                schedule[value].enabled
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* "Same hours" checkbox - ukryty w compact */}
+        {!compact && (
+          <div className="flex items-center gap-2">
+            <Checkbox ... />
+          </div>
+        )}
+
+        {/* Day schedules - kompaktowe inputy */}
+        <div className={cn("space-y-4", compact && "space-y-2")}>
+          {DAYS_OF_WEEK.filter(({ value }) => schedule[value].enabled).map(({ value: dayOfWeek, fullLabel }) => (
+            <div key={dayOfWeek} className={cn("space-y-2", compact && "space-y-1")}>
+              <Label className={cn("font-medium", compact && "text-xs")}>{fullLabel}</Label>
+              {schedule[dayOfWeek].ranges.map((range, rangeIndex) => (
+                <div key={rangeIndex} className="flex items-center gap-1.5">
+                  <Input
+                    type="time"
+                    value={range.start}
+                    onChange={(e) => updateTimeRange(dayOfWeek, rangeIndex, 'start', e.target.value)}
+                    className={cn("w-28", compact && "w-20 h-7 text-xs")}
+                  />
+                  <span className="text-muted-foreground text-xs">—</span>
+                  <Input
+                    type="time"
+                    value={range.end}
+                    onChange={(e) => updateTimeRange(dayOfWeek, rangeIndex, 'end', e.target.value)}
+                    className={cn("w-28", compact && "w-20 h-7 text-xs")}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => addTimeRange(dayOfWeek)}
+                    className={cn("h-8 w-8", compact && "h-6 w-6")}
+                  >
+                    <Plus className={cn("h-4 w-4", compact && "h-3 w-3")} />
+                  </Button>
+                  {/* ... remove button ... */}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Summary - kompaktowe */}
+        {enabledDaysCount > 0 && (
+          <div className={cn(
+            "bg-muted/50 rounded-lg p-4 text-sm",
+            compact && "p-2 text-xs rounded"
+          )}>
+            <p className="text-muted-foreground">
+              {enabledDaysCount} dni • {slotDuration} min
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 };
 ```
 
-### 4. Aktualizacja logiki zapisu
-
-**Wczytywanie danych:**
-```typescript
-// Load weekly availability grouped by meeting_type
-const { data: weeklyData } = await supabase
-  .from('leader_availability')
-  .select('day_of_week, start_time, end_time, slot_duration_minutes, meeting_type')
-  .eq('leader_user_id', user.id)
-  .not('day_of_week', 'is', null)
-  .eq('is_active', true);
-
-// Rozdziel na typy
-const tripartiteSchedule = buildScheduleFromData(
-  weeklyData?.filter(d => d.meeting_type === 'tripartite' || d.meeting_type === 'both')
-);
-const consultationSchedule = buildScheduleFromData(
-  weeklyData?.filter(d => d.meeting_type === 'consultation' || d.meeting_type === 'both')
-);
-```
-
-**Zapisywanie danych:**
-```typescript
-// Delete old availability for this user
-await supabase
-  .from('leader_availability')
-  .delete()
-  .eq('leader_user_id', user.id)
-  .not('day_of_week', 'is', null);
-
-// Insert tripartite schedule
-const tripartiteInsertData = buildInsertData(
-  tripartiteSettings.weeklySchedule,
-  'tripartite',
-  tripartiteSettings.slot_duration
-);
-
-// Insert consultation schedule
-const consultationInsertData = buildInsertData(
-  consultationSettings.weeklySchedule,
-  'consultation',
-  consultationSettings.slot_duration
-);
-
-await supabase
-  .from('leader_availability')
-  .insert([...tripartiteInsertData, ...consultationInsertData]);
-```
-
-### 5. Aktualizacja `PartnerMeetingBooking.tsx`
-
-Filtrowanie dostępności według typu spotkania:
-
-```typescript
-// Load weekly schedule filtered by meeting type
-const { data: weeklyRanges } = await supabase
-  .from('leader_availability')
-  .select('day_of_week, start_time, end_time, slot_duration_minutes, timezone')
-  .eq('leader_user_id', partnerId)
-  .eq('day_of_week', dayOfWeek)
-  .in('meeting_type', [meetingType === 'tripartite' ? 'tripartite' : 'consultation', 'both'])
-  .eq('is_active', true);
-```
-
 ---
 
-## Pliki do modyfikacji
+## Responsywność
 
-| Plik | Zmiana |
-|------|--------|
-| `supabase/migrations/[timestamp]_add_meeting_type_to_availability.sql` | **NOWY** - dodanie kolumny `meeting_type` |
-| `src/integrations/supabase/types.ts` | Automatyczna aktualizacja po migracji |
-| `src/components/events/UnifiedMeetingSettingsForm.tsx` | Przebudowa UI z osobnymi harmonogramami per typ |
-| `src/components/events/MeetingTypeCard.tsx` | **NOWY** - reużywalny komponent dla typu spotkania |
-| `src/components/events/PartnerMeetingBooking.tsx` | Filtrowanie dostępności według `meeting_type` |
+- **Desktop (lg+)**: Dwie kolumny obok siebie
+- **Tablet/Mobile**: Jedna kolumna, karty jedna pod drugą
 
----
-
-## Mechanizm wykluczania - bez zmian
-
-Istniejąca logika w `PartnerMeetingBooking.tsx` (linie 259-325) już sprawdza obie typy spotkań:
-
-```typescript
-.in('event_type', ['tripartite_meeting', 'partner_consultation'])
-```
-
-To zapewnia, że rezerwacja jednego typu blokuje ten sam czas dla drugiego typu. Ta część pozostaje bez zmian.
+Klasa `grid grid-cols-1 lg:grid-cols-2` zapewnia automatyczne dostosowanie.
 
 ---
 
 ## Korzyści
 
-1. **Elastyczność** - partner może ustawić spotkania trójstronne w poniedziałki i środy, a konsultacje we wtorki i czwartki
-2. **Różne czasy trwania** - 30 min dla trójstronnych, 60 min dla konsultacji
-3. **Spójność** - nadal działa wzajemne blokowanie czasów
-4. **Wsteczna kompatybilność** - istniejące rekordy z `meeting_type = 'both'` działają dla obu typów
-
----
-
-## Sekcja techniczna
-
-### Migracja bazy danych
-
-```sql
--- Dodanie kolumny meeting_type
-ALTER TABLE leader_availability 
-ADD COLUMN IF NOT EXISTS meeting_type text DEFAULT 'both';
-
--- Komentarz
-COMMENT ON COLUMN leader_availability.meeting_type IS 
-  'Typ spotkania: tripartite, consultation, lub both';
-
--- Indeks
-CREATE INDEX IF NOT EXISTS idx_leader_availability_meeting_type 
-ON leader_availability(meeting_type);
-
--- Dodanie kolumny do date exceptions jeśli potrzebna
-ALTER TABLE leader_availability_exceptions
-ADD COLUMN IF NOT EXISTS meeting_type text DEFAULT 'both';
-```
-
-### Struktura interfejsu MeetingTypeSettings
-
-```typescript
-interface MeetingTypeSettings {
-  title: string;
-  description: string;
-  image_url: string;
-  is_active: boolean;
-  slot_duration: number;
-  weeklySchedule: WeeklySchedule;
-  dateExceptions: DateException[];
-}
-```
-
-### Funkcja budująca dane do inserta
-
-```typescript
-const buildInsertData = (
-  schedule: WeeklySchedule, 
-  meetingType: 'tripartite' | 'consultation',
-  slotDuration: number
-) => {
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const insertData: any[] = [];
-  
-  Object.entries(schedule).forEach(([dayStr, daySchedule]) => {
-    if (daySchedule.enabled) {
-      daySchedule.ranges.forEach(range => {
-        insertData.push({
-          leader_user_id: user.id,
-          day_of_week: parseInt(dayStr),
-          specific_date: null,
-          start_time: range.start,
-          end_time: range.end,
-          is_active: true,
-          slot_duration_minutes: slotDuration,
-          timezone,
-          meeting_type: meetingType, // NOWE
-        });
-      });
-    }
-  });
-  
-  return insertData;
-};
-```
-
-### Zmiana w PartnerMeetingBooking.tsx
-
-**Linie 240-250 - filtrowanie według typu:**
-```typescript
-// Mapowanie event_type na meeting_type w leader_availability
-const availabilityMeetingType = meetingType === 'tripartite' 
-  ? 'tripartite' 
-  : 'consultation';
-
-const { data: weeklyRanges } = await supabase
-  .from('leader_availability')
-  .select('day_of_week, start_time, end_time, slot_duration_minutes, timezone')
-  .eq('leader_user_id', partnerId)
-  .eq('day_of_week', dayOfWeek)
-  .in('meeting_type', [availabilityMeetingType, 'both'])  // Filtruj według typu LUB 'both'
-  .eq('is_active', true);
-```
-
-### Aktualizacja WorkingHoursScheduler
-
-Komponent pozostaje bez zmian - będzie używany dwukrotnie (raz dla każdego typu) z różnymi props.
+1. **Widoczność** - oba typy spotkań widoczne na jednym ekranie
+2. **Szybkie porównanie** - łatwe sprawdzenie różnic między typami
+3. **Mniej scrollowania** - kompaktowy układ zmniejsza potrzebę przewijania
+4. **Zachowana funkcjonalność** - wszystkie opcje nadal dostępne
+5. **Responsywność** - na mniejszych ekranach powrót do układu pionowego
 
