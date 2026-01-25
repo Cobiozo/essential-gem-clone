@@ -1,252 +1,231 @@
 
-# Kompleksowy plan samouczka (Onboarding Tutorial) dla platformy Pure Life
 
-## Analiza aktualnego stanu
+# Plan: Podfoldery językowe dla Dokumentów Edukacyjnych
 
-### Istniejące kroki samouczka (14 kroków)
-Obecnie samouczek obejmuje następujące elementy:
+## Cel
 
-| # | ID | Element | Widoczność |
-|---|-----|---------|------------|
-| 1 | welcome-widget | Widget powitalny | Wszyscy |
-| 2 | sidebar | Menu nawigacyjne | Wszyscy |
-| 3 | training | Akademia/Szkolenia | Wszyscy |
-| 4 | calendar | Kalendarz i Spotkania | Wszyscy |
-| 5 | notifications | Powiadomienia (dzwonek) | Wszyscy |
-| 6 | resources | Zasoby/Biblioteka | Wszyscy |
-| 7 | pure-kontakty | PureKontakty | Partner, Specjalista, Admin |
-| 8 | pure-linki | PureLinki | Partner, Specjalista, Admin |
-| 9 | info-linki | InfoLinki | Partner, Specjalista, Admin |
-| 10 | zdrowa-wiedza | Zdrowa Wiedza | Partner, Specjalista, Admin |
-| 11 | my-account | Moje Konto | Wszyscy |
-| 12 | tool-panel | Panel narzędziowy | Wszyscy |
-| 13 | support | Wsparcie techniczne | Wszyscy |
-| 14 | footer | Stopka z kontaktem | Wszyscy |
-
-### Elementy BRAKUJĄCE w samouczku
-
-Na dashboardzie istnieją widgety i elementy interaktywne, które NIE są uwzględnione w samouczku:
-
-**Widgety dashboardowe:**
-- Moje Spotkania (MyMeetingsWidget) - lista zaplanowanych wydarzeń użytkownika
-- Postęp Szkolenia (TrainingProgressWidget) - pasek postępu modułów
-- Widget Powiadomień (NotificationsWidget) - widget (nie tylko dzwonek)
-- Widget Kodów OTP (CombinedOtpCodesWidget) - dla partnerów/adminów
-- Widget Zasobów (ResourcesWidget) - najnowsze zasoby
-- Widget Kontaktów Zespołowych (TeamContactsWidget) - kontakty zespołu
-- Widget PureLinków (ReflinksWidget) - linki polecające
-- Widget InfoLinków (InfoLinksWidget) - linki informacyjne
-- Widget Zdrowa Wiedza (HealthyKnowledgeWidget) - materiały zdrowotne
-- Widget Aktywnych Użytkowników (ActiveUsersWidget) - tylko admin
-
-**Elementy paska górnego (Topbar):**
-- Przycisk samouczka (ikonka pomocy)
-- Selektor języka (LanguageSelector)
-- Selektor motywu (ThemeSelector)
-- Avatar użytkownika i menu rozwijane
-- Synchronizacja Google Calendar (w dropdown)
-
-**Elementy sidebara:**
-- Dashboard (główny link)
-- Aktualności
-- Wydarzenia (i submenu: Webinary, Spotkania zespołu, Spotkania indywidualne)
-- Chat/Komunikacja
-- Społeczność
-- Ustawienia
-- Kalkulator (dla uprawnionych)
-- Panel Administracyjny (dla adminów)
+Umożliwić organizację dokumentów edukacyjnych według języka (7 języków: PL, EN, DE, IT, ES, FR, PT), aby admin mógł wrzucać dokumenty do odpowiednich podfolderów językowych, a użytkownicy widzieli tylko dokumenty w swoim wybranym języku.
 
 ---
 
-## Proponowany plan rozszerzonego samouczka
+## Aktualny stan
 
-### Struktura: 22 kroki dla pełnej wersji (Partner/Specjalista/Admin)
+### Struktura danych `knowledge_resources`
+- Dokumenty przechowywane w tabeli `knowledge_resources`
+- Brak pola `language_code` - wszystkie dokumenty traktowane jako uniwersalne
+- Kategorie: Dokumenty firmowe, Materiały szkoleniowe, Formularze, Instrukcje, Prezentacje, itd.
+- 15 dokumentów edukacyjnych w systemie (głównie PDF)
 
-Samouczek podzielony na logiczne sekcje, prowadzące użytkownika przez interfejs:
+### Języki w systemie
+Tabela `i18n_languages` zawiera 7 aktywnych języków:
+- PL (Polski), EN (English), DE (German), IT (Italian), ES (Spanish), FR (French), PT (Portuguese)
+
+---
+
+## Rozwiązanie
+
+### 1. Dodanie kolumny `language_code` do tabeli `knowledge_resources`
+
+```sql
+ALTER TABLE knowledge_resources 
+ADD COLUMN language_code TEXT DEFAULT 'pl';
+```
+
+**Uwagi:**
+- Domyślna wartość `'pl'` - istniejące dokumenty będą traktowane jako polskie
+- Wartość `'all'` lub `NULL` oznacza dokument uniwersalny (widoczny we wszystkich językach)
+
+### 2. Aktualizacja typów TypeScript
+
+W pliku `src/types/knowledge.ts`:
+```typescript
+export interface KnowledgeResource {
+  // ... istniejące pola
+  language_code: string | null; // NOWE: 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt' lub null (wszystkie)
+}
+```
+
+### 3. Panel Admina - nowy selektor języka
+
+W `KnowledgeResourcesManagement.tsx`:
+
+**A) Dodanie pola wyboru języka w formularzu edycji:**
+- Nowy selektor "Język dokumentu" w zakładce "Podstawowe"
+- Opcje: "Wszystkie języki" + 7 języków z flagami
+- Pozycja: obok selektora kategorii
+
+**B) Dodanie filtra językowego na liście zasobów:**
+- Nowy dropdown "Filtruj wg języka" obok filtra kategorii
+- Pozwala adminowi szybko zobaczyć dokumenty w konkretnym języku
+
+**C) Wizualna identyfikacja języka:**
+- Badge z kodem języka i flagą przy każdym dokumencie na liście
+
+### 4. Widok użytkownika - filtrowanie wg języka
+
+W `KnowledgeCenter.tsx`:
+
+**A) Automatyczne filtrowanie:**
+- Dokumenty wyświetlane zgodnie z językiem wybranym przez użytkownika (z `LanguageSelector`)
+- Dokumenty oznaczone jako "Wszystkie języki" widoczne zawsze
+
+**B) Ręczny filtr językowy (opcjonalnie):**
+- Dropdown pozwalający użytkownikowi wybrać inny język
+- Przydatne gdy ktoś chce pobrać dokument w konkretnym języku
+
+---
+
+## Diagram struktury podfolderów
 
 ```text
-WPROWADZENIE
-    │
-    ├── 1. Widget Powitalny (zegar, strefa czasowa)
-    │
-NAWIGACJA GŁÓWNA
-    │
-    ├── 2. Menu boczne (sidebar) - ogólne wprowadzenie
-    ├── 3. Dashboard - główny link
-    │
-WIDGETY DASHBOARDOWE
-    │
-    ├── 4. Kalendarz - przeglądanie wydarzeń
-    ├── 5. Moje Spotkania - zaplanowane spotkania
-    ├── 6. Postęp Szkolenia - śledzenie nauki
-    ├── 7. Widget Powiadomień - ostatnie powiadomienia
-    ├── 8. Widget Kodów OTP - (Partner/Admin) aktywne kody
-    ├── 9. Widget Zasobów - najnowsze materiały
-    ├── 10. Widget Kontaktów - zespół i kontakty
-    │
-MENU FUNKCJI
-    │
-    ├── 11. Akademia/Szkolenia - moduły szkoleniowe
-    ├── 12. Zdrowa Wiedza - (Partner+) materiały edukacyjne
-    ├── 13. Zasoby/Biblioteka - dokumenty i pliki
-    ├── 14. PureKontakty - (Partner+) zarządzanie kontaktami
-    ├── 15. PureLinki - (Partner+) linki polecające
-    ├── 16. InfoLinki - (Partner+) linki z OTP
-    ├── 17. Aktualności - news i ogłoszenia
-    ├── 18. Wydarzenia - webinary, spotkania zespołu
-    │
-PASEK GÓRNY I USTAWIENIA
-    │
-    ├── 19. Dzwonek Powiadomień - alert o nowych
-    ├── 20. Przycisk Samouczka - ponowne uruchomienie
-    ├── 21. Selektor Języka - zmiana języka
-    ├── 22. Selektor Motywu - tryb jasny/ciemny
-    ├── 23. Avatar i Menu Użytkownika - dostęp do profilu
-    │       │
-    │       ├── 23a. Moje Konto - ustawienia profilu
-    │       ├── 23b. Panel Narzędziowy - czyszczenie cache
-    │       └── 23c. Synchronizacja API - Google Calendar
-    │
-    ├── 24. Wsparcie Techniczne - zgłaszanie problemów
-    │
-STOPKA
-    │
-    └── 25. Sekcja Stopki - cytat dnia, kontakt, regulamin
+📁 Dokumenty edukacyjne
+│
+├── 🇵🇱 Polski (PL)
+│   ├── Dokumenty firmowe
+│   │   └── Regulamin.pdf
+│   ├── Materiały szkoleniowe
+│   │   └── Przewodnik_startowy.pdf
+│   └── Formularze
+│       └── Wniosek_o_e-book.pdf
+│
+├── 🇬🇧 English (EN)
+│   ├── Dokumenty firmowe
+│   │   └── Terms_and_Conditions.pdf
+│   └── Materiały szkoleniowe
+│       └── Getting_Started_Guide.pdf
+│
+├── 🇩🇪 Deutsch (DE)
+│   └── Materiały szkoleniowe
+│       └── Einführungshandbuch.pdf
+│
+├── 🇮🇹 Italiano (IT)
+│   └── ...
+│
+├── 🇪🇸 Español (ES)
+│   └── ...
+│
+├── 🇫🇷 Français (FR)
+│   └── ...
+│
+├── 🇵🇹 Português (PT)
+│   └── ...
+│
+└── 🌐 Wszystkie języki (uniwersalne)
+    └── Logo_guidelines.pdf
 ```
 
 ---
 
-## Szczegółowa specyfikacja nowych kroków
+## Zmiany w plikach
 
-### Nowe kroki do dodania w `tourSteps.ts`:
+### Baza danych (migracja SQL)
+| Zmiana | Opis |
+|--------|------|
+| `ALTER TABLE` | Dodanie kolumny `language_code TEXT DEFAULT 'pl'` |
+| Aktualizacja RLS | Brak zmian (używa istniejących reguł widoczności) |
 
-| ID | targetSelector | Tytuł | Opis | Pozycja | Role | Uwagi |
-|----|----------------|-------|------|---------|------|-------|
-| `my-meetings-widget` | `[data-tour="my-meetings-widget"]` | Twoje Spotkania | Lista Twoich nadchodzących spotkań. Gdy zbliża się czas, pojawi się przycisk WEJDŹ z pulsującą kropką. | bottom | Wszyscy | scrollTo |
-| `training-widget` | `[data-tour="training-widget"]` | Postęp Szkolenia | Widget pokazuje Twój postęp w modułach szkoleniowych. Kliknij moduł, aby kontynuować naukę. | bottom | Wszyscy | |
-| `notifications-widget` | `[data-tour="notifications-widget"]` | Ostatnie Powiadomienia | Widget wyświetla 4 najnowsze powiadomienia. Kliknij, aby zobaczyć szczegóły lub przejść do pełnej listy. | bottom | Wszyscy | |
-| `otp-codes-widget` | `[data-tour="otp-codes-widget"]` | Kody Dostępu OTP | Podgląd aktywnych kodów OTP dla InfoLinków i Zdrowej Wiedzy. Skopiuj kod jednym kliknięciem i udostępnij odbiorcy. | bottom | Partner, Admin | |
-| `resources-widget` | `[data-tour="resources-widget"]` | Najnowsze Zasoby | Szybki dostęp do najnowszych materiałów. Możesz kopiować linki, pobierać pliki lub przejść do biblioteki. | bottom | Wszyscy | |
-| `team-contacts-widget` | `[data-tour="team-contacts-widget"]` | Kontakty Zespołowe | Podgląd Twoich kontaktów prywatnych i zespołowych. Kliknij, aby zobaczyć pełną listę i dodać nowe kontakty. | bottom | Partner, Specjalista, Admin | |
-| `reflinks-widget` | `[data-tour="reflinks-widget"]` | PureLinki | Widget pokazuje Twoje linki polecające. Kopiuj i udostępniaj, aby zapraszać nowe osoby do platformy. | bottom | Partner, Specjalista, Admin | |
-| `infolinks-widget` | `[data-tour="infolinks-widget"]` | InfoLinki | Generuj kody OTP dla chronionych treści. Odbiorca wpisuje kod, aby uzyskać czasowy dostęp do materiałów. | bottom | Partner, Specjalista, Admin | |
-| `healthy-knowledge-widget` | `[data-tour="healthy-knowledge-widget"]` | Zdrowa Wiedza | Materiały edukacyjne o zdrowiu. Możesz je przeglądać i udostępniać innym za pomocą kodów OTP. | bottom | Partner, Specjalista, Admin | |
-| `active-users-widget` | `[data-tour="active-users-widget"]` | Aktywni Użytkownicy | Statystyki aktywności użytkowników platformy. Widoczne tylko dla administratorów. | bottom | Admin | |
-| `menu-dashboard` | `[data-tour="menu-dashboard"]` | Strona Główna | Kliknij tutaj, aby wrócić do głównego pulpitu z widgetami. | right | Wszyscy | |
-| `menu-news` | `[data-tour="menu-news"]` | Aktualności | Przeglądaj najnowsze wiadomości, ogłoszenia i informacje od zespołu Pure Life. | right | Wszyscy | |
-| `menu-events` | `[data-tour="menu-events"]` | Wydarzenia | Tutaj znajdziesz webinary, spotkania zespołu i spotkania indywidualne. Zapisuj się i uczestniczyć online. | right | Wszyscy | |
-| `menu-chat` | `[data-tour="menu-chat"]` | Chat / Komunikacja | Wysyłaj i odbieraj wiadomości od zespołu. Tutaj znajdziesz również AI Kompas jeśli jest włączony. | right | Wszyscy | |
-| `menu-community` | `[data-tour="menu-community"]` | Społeczność | Linki do grup społecznościowych - WhatsApp, Facebook i inne kanały komunikacji zespołowej. | right | Wszyscy | |
-| `menu-settings` | `[data-tour="menu-settings"]` | Ustawienia | Przejdź do ustawień profilu, preferencji powiadomień i innych opcji konfiguracyjnych. | right | Wszyscy | |
-| `menu-calculator` | `[data-tour="menu-calculator"]` | Kalkulator | Narzędzie kalkulacyjne dla influencerów i specjalistów. Oblicz potencjalne zarobki i strukturę zespołu. | right | Uprawnieni | |
-| `menu-admin` | `[data-tour="menu-admin"]` | Panel Administracyjny | Pełna kontrola nad platformą - użytkownicy, szkolenia, zasoby, powiadomienia i ustawienia systemowe. | right | Admin | |
-| `tutorial-button` | `[data-tour="tutorial-button"]` | Przycisk Samouczka | Kliknij tę ikonkę pomocy w dowolnym momencie, aby ponownie uruchomić samouczek. | bottom | Wszyscy | |
-| `language-selector` | `[data-tour="language-selector"]` | Wybór Języka | Zmień język interfejsu platformy. Dostępne języki: Polski i Angielski. | bottom | Wszyscy | |
-| `theme-selector` | `[data-tour="theme-selector"]` | Motyw Kolorystyczny | Przełącz między trybem jasnym, ciemnym lub automatycznym (zgodnym z ustawieniami systemu). | bottom | Wszyscy | |
-| `api-sync` | `[data-tour="user-menu-api"]` | Synchronizacja API | Połącz swój Google Calendar, aby automatycznie synchronizować wydarzenia z platformą. | left | Wszyscy | requiresDropdownOpen |
-
----
-
-## Pliki do modyfikacji
-
-### 1. Dodanie atrybutów `data-tour` do widgetów
+### Frontend
 
 | Plik | Zmiana |
 |------|--------|
-| `MyMeetingsWidget.tsx` | Dodaj `data-tour="my-meetings-widget"` do Card |
-| `TrainingProgressWidget.tsx` | Dodaj `data-tour="training-widget"` do Card |
-| `NotificationsWidget.tsx` | Dodaj `data-tour="notifications-widget"` do Card |
-| `CombinedOtpCodesWidget.tsx` | Dodaj `data-tour="otp-codes-widget"` do Card |
-| `ResourcesWidget.tsx` | Dodaj `data-tour="resources-widget"` do Card |
-| `TeamContactsWidget.tsx` | Dodaj `data-tour="team-contacts-widget"` do Card |
-| `ReflinksWidget.tsx` | Dodaj `data-tour="reflinks-widget"` do Card |
-| `InfoLinksWidget.tsx` | Dodaj `data-tour="infolinks-widget"` do Card |
-| `HealthyKnowledgeWidget.tsx` | Dodaj `data-tour="healthy-knowledge-widget"` do Card |
-| `ActiveUsersWidget.tsx` | Dodaj `data-tour="active-users-widget"` do Card |
-
-### 2. Dodanie atrybutów do Topbar
-
-| Plik | Zmiana |
-|------|--------|
-| `DashboardTopbar.tsx` | Dodaj `data-tour="language-selector"` do LanguageSelector |
-| `DashboardTopbar.tsx` | Dodaj `data-tour="theme-selector"` do ThemeSelector |
-| `LanguageSelector.tsx` | Opakuj w div z `data-tour="language-selector"` |
-| `ThemeSelector.tsx` | Opakuj w div z `data-tour="theme-selector"` |
-
-### 3. Aktualizacja `tourSteps.ts`
-
-Rozszerzenie tablicy `tourSteps` o nowe kroki z odpowiednimi:
-- `targetSelector` 
-- `title` i `description` (po polsku)
-- `position` (top/bottom/left/right)
-- `visibleFor` (role-based visibility)
-- `scrollTo` (dla widgetów poniżej fold)
-- `requiresDropdownOpen` (dla elementów w dropdown)
+| `src/types/knowledge.ts` | Dodanie pola `language_code` do interfejsu |
+| `src/integrations/supabase/types.ts` | Automatyczna regeneracja z nową kolumną |
+| `src/components/admin/KnowledgeResourcesManagement.tsx` | Selektor języka w formularzu + filtr na liście + badge językowy |
+| `src/pages/KnowledgeCenter.tsx` | Filtrowanie dokumentów wg języka użytkownika |
 
 ---
 
-## Kolejność kroków samouczka
+## Szczegóły implementacji w panelu admina
 
-### Proponowana optymalna kolejność (logiczny flow):
+### Nowy selektor języka w formularzu
 
-```text
-1.  welcome-widget         - Powitanie i orientacja
-2.  sidebar                - Wprowadzenie do nawigacji
-3.  menu-dashboard         - Link do pulpitu
-4.  calendar-widget        - Kalendarz wydarzeń
-5.  my-meetings-widget     - Lista spotkań użytkownika
-6.  training-widget        - Postęp w szkoleniach
-7.  notifications-widget   - Widget powiadomień
-8.  otp-codes-widget       - Kody OTP (Partner+)
-9.  resources-widget       - Najnowsze zasoby
-10. team-contacts-widget   - Kontakty (Partner+)
-11. menu-academy           - Link do akademii
-12. menu-healthy-knowledge - Zdrowa Wiedza (Partner+)
-13. menu-resources         - Zasoby/Biblioteka
-14. menu-pureContacts      - PureKontakty (Partner+)
-15. menu-reflinks          - PureLinki (Partner+)
-16. menu-infolinks         - InfoLinki (Partner+)
-17. menu-news              - Aktualności
-18. menu-events            - Wydarzenia
-19. notifications-bell     - Dzwonek powiadomień
-20. tutorial-button        - Przycisk samouczka
-21. language-selector      - Wybór języka
-22. theme-selector         - Motyw
-23. user-avatar            - Avatar użytkownika
-24. user-menu-account      - Moje Konto (dropdown)
-25. user-menu-tools        - Panel narzędziowy (dropdown)
-26. menu-support           - Wsparcie techniczne
-27. footer-section         - Stopka
+```tsx
+// W zakładce "basic" formularza edycji
+<div className="space-y-2">
+  <Label>Język dokumentu</Label>
+  <Select
+    value={editingResource.language_code || 'all'}
+    onValueChange={(v) => setEditingResource({ 
+      ...editingResource, 
+      language_code: v === 'all' ? null : v 
+    })}
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Wybierz język" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="all">
+        🌐 Wszystkie języki
+      </SelectItem>
+      <SelectItem value="pl">🇵🇱 Polski</SelectItem>
+      <SelectItem value="en">🇬🇧 English</SelectItem>
+      <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
+      <SelectItem value="it">🇮🇹 Italiano</SelectItem>
+      <SelectItem value="es">🇪🇸 Español</SelectItem>
+      <SelectItem value="fr">🇫🇷 Français</SelectItem>
+      <SelectItem value="pt">🇵🇹 Português</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
 ```
 
-### Liczba kroków według roli:
+### Badge językowy na liście
 
-| Rola | Liczba kroków |
-|------|---------------|
-| Klient | 18 kroków |
-| Partner/Specjalista | 25 kroków |
-| Admin | 27 kroków |
+```tsx
+// W renderowaniu karty dokumentu
+<Badge variant="outline" className="text-[10px]">
+  {resource.language_code === null ? '🌐 Wszystkie' : 
+   `${languageFlags[resource.language_code]} ${resource.language_code.toUpperCase()}`}
+</Badge>
+```
 
 ---
 
-## Podsumowanie techniczne
+## Szczegóły filtrowania dla użytkownika
 
-### Zmiany w kodzie:
+### Logika filtrowania
 
-1. **10 widgetów** - dodanie atrybutu `data-tour`
-2. **2 komponenty topbar** - dodanie `data-tour` do selektorów
-3. **1 plik tourSteps.ts** - rozszerzenie o ~13 nowych kroków
-4. **Sidebar** - już ma dynamiczne `data-tour="menu-${item.id}"`
+```tsx
+// W KnowledgeCenter.tsx
+const { language } = useLanguage(); // aktualny język użytkownika
 
-### Estymacja:
+const filteredDocuments = documentResources.filter(r => {
+  // Dokument widoczny jeśli:
+  // 1. Jest uniwersalny (language_code === null)
+  // 2. Pasuje do języka użytkownika
+  const matchesLanguage = r.language_code === null || r.language_code === language;
+  
+  // ... pozostałe filtry (search, category, type, tag)
+  return matchesLanguage && matchesSearch && matchesCategory && matchesType && matchesTag;
+});
+```
 
-- Dodanie atrybutów: ~30 minut
-- Nowe kroki w tourSteps.ts: ~45 minut
-- Testowanie wszystkich ról: ~30 minut
+---
 
-### Korzyści:
+## Kompatybilność wsteczna
 
-- Użytkownik pozna WSZYSTKIE funkcje dashboardu
-- Każda rola widzi tylko odpowiednie dla siebie kroki
-- Logiczna kolejność prowadzi przez interfejs
-- Łatwe ponowne uruchomienie przez ikonkę pomocy
+1. **Istniejące dokumenty**: Domyślnie przypisane do języka polskiego (`'pl'`)
+2. **Migracja danych**: Admin może ręcznie zmienić język dla istniejących dokumentów lub oznaczyć jako "Wszystkie języki"
+3. **Brak breaking changes**: System działa bez zmian dla dokumentów bez przypisanego języka
+
+---
+
+## Opcjonalne ulepszenia (przyszłość)
+
+1. **Grupowanie w widoku użytkownika**: Możliwość przełączenia widoku na "Grupuj wg języka"
+2. **Kopiowanie dokumentu do innego języka**: Przycisk "Duplikuj do innego języka" w panelu admina
+3. **Statystyki językowe**: Dashboard pokazujący ile dokumentów jest w każdym języku
+4. **Powiadomienia o brakujących tłumaczeniach**: Alert gdy dokument istnieje tylko w jednym języku
+
+---
+
+## Podsumowanie zmian
+
+| Komponent | Zmiana |
+|-----------|--------|
+| **Baza danych** | +1 kolumna `language_code` |
+| **TypeScript** | +1 pole w interfejsie |
+| **Panel admina** | +selektor języka, +filtr, +badge |
+| **Widok użytkownika** | +automatyczne filtrowanie wg języka |
+| **Pliki** | ~4 plików do modyfikacji |
+
