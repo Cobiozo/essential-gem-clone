@@ -2900,6 +2900,7 @@ export type Database = {
           is_featured: boolean
           is_new: boolean
           is_updated: boolean
+          language_code: string | null
           position: number
           resource_type: Database["public"]["Enums"]["resource_type"]
           source_type: string
@@ -2932,6 +2933,7 @@ export type Database = {
           is_featured?: boolean
           is_new?: boolean
           is_updated?: boolean
+          language_code?: string | null
           position?: number
           resource_type?: Database["public"]["Enums"]["resource_type"]
           source_type?: string
@@ -2964,6 +2966,7 @@ export type Database = {
           is_featured?: boolean
           is_new?: boolean
           is_updated?: boolean
+          language_code?: string | null
           position?: number
           resource_type?: Database["public"]["Enums"]["resource_type"]
           source_type?: string

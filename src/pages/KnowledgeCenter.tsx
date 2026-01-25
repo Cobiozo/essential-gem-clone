@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Header } from '@/components/Header';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
 
 export default function KnowledgeCenter() {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [searchParams] = useSearchParams();
   const highlightedResourceId = searchParams.get('highlight');
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -154,7 +156,7 @@ export default function KnowledgeCenter() {
     }
   };
 
-  // Filter documents
+  // Filter documents - include language filtering
   const filteredDocuments = documentResources.filter(r => {
     const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,7 +164,9 @@ export default function KnowledgeCenter() {
     const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
     const matchesType = filterType === 'all' || r.resource_type === filterType;
     const matchesTag = filterTag === 'all' || r.tags?.includes(filterTag);
-    return matchesSearch && matchesCategory && matchesType && matchesTag;
+    // Language filtering: show if document is universal (null) or matches user's language
+    const matchesLanguage = r.language_code === null || r.language_code === language;
+    return matchesSearch && matchesCategory && matchesType && matchesTag && matchesLanguage;
   });
 
   // Filter graphics

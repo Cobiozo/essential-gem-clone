@@ -33,7 +33,27 @@ export interface KnowledgeResource {
   allow_share: boolean;
   allow_click_redirect: boolean;
   click_redirect_url: string | null;
+  // Language support
+  language_code: string | null; // 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt' or null (all languages)
 }
+
+// Language configuration for documents
+export const LANGUAGE_OPTIONS = [
+  { code: 'all', label: '🌐 Wszystkie języki', flag: '🌐' },
+  { code: 'pl', label: '🇵🇱 Polski', flag: '🇵🇱' },
+  { code: 'en', label: '🇬🇧 English', flag: '🇬🇧' },
+  { code: 'de', label: '🇩🇪 Deutsch', flag: '🇩🇪' },
+  { code: 'it', label: '🇮🇹 Italiano', flag: '🇮🇹' },
+  { code: 'es', label: '🇪🇸 Español', flag: '🇪🇸' },
+  { code: 'fr', label: '🇫🇷 Français', flag: '🇫🇷' },
+  { code: 'pt', label: '🇵🇹 Português', flag: '🇵🇹' }
+] as const;
+
+export const getLanguageLabel = (code: string | null): string => {
+  if (!code) return '🌐 Wszystkie';
+  const lang = LANGUAGE_OPTIONS.find(l => l.code === code);
+  return lang ? `${lang.flag} ${code.toUpperCase()}` : code;
+};
 
 export const RESOURCE_TYPE_LABELS: Record<ResourceType, string> = {
   pdf: 'PDF',
