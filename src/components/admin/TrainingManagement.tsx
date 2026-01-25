@@ -412,7 +412,66 @@ const TrainingManagement = () => {
             });
             
             await supabase.from('user_notifications').insert(notifications);
-            console.log(`📧 Sent ${allUserIds.length} notifications (${certifiedUserIds.size} certified, ${allUserIds.length - certifiedUserIds.size} in progress)`);
+            console.log(`📧 Sent ${allUserIds.length} in-app notifications (${certifiedUserIds.size} certified, ${allUserIds.length - certifiedUserIds.size} in progress)`);
+            
+            // === EMAIL NOTIFICATIONS ===
+            // Fetch event type ID for email sending
+            const { data: eventType } = await supabase
+              .from('notification_event_types')
+              .select('id, send_email, email_template_id')
+              .eq('event_key', 'training_new_lessons')
+              .eq('is_active', true)
+              .single();
+
+            // Send email notifications if configured
+            if (eventType?.send_email && eventType?.email_template_id) {
+              console.log(`📧 Sending email notifications to ${allUserIds.length} users...`);
+              
+              // Send emails in batches (max 5 at a time to avoid overwhelming the server)
+              const batchSize = 5;
+              let emailsSent = 0;
+              let emailsFailed = 0;
+              
+              for (let i = 0; i < allUserIds.length; i += batchSize) {
+                const batch = allUserIds.slice(i, i + batchSize);
+                
+                const results = await Promise.allSettled(
+                  batch.map(userId => {
+                    const hasCertificate = certifiedUserIds.has(userId);
+                    
+                    return supabase.functions.invoke('send-notification-email', {
+                      body: {
+                        event_type_id: eventType.id,
+                        recipient_user_id: userId,
+                        payload: {
+                          module_title: moduleTitle,
+                          lesson_title: lessonData.title,
+                          message: hasCertificate
+                            ? 'Twój certyfikat pozostaje ważny, ale zachęcamy do zapoznania się z nowymi materiałami.'
+                            : 'Ukończ wszystkie lekcje aby uzyskać certyfikat.',
+                          link: `${window.location.origin}/training/${selectedModule}`,
+                        },
+                      },
+                    });
+                  })
+                );
+                
+                // Count successes and failures
+                results.forEach(result => {
+                  if (result.status === 'fulfilled' && result.value?.data?.success) {
+                    emailsSent++;
+                  } else {
+                    emailsFailed++;
+                  }
+                });
+                
+                console.log(`📧 Email batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allUserIds.length / batchSize)} completed`);
+              }
+              
+              console.log(`✅ Email notifications completed: ${emailsSent} sent, ${emailsFailed} failed`);
+            } else {
+              console.log('📧 Email notifications not configured for training_new_lessons event type');
+            }
           }
         } catch (notificationError) {
           console.error('Error sending new lesson notifications:', notificationError);
