@@ -154,6 +154,12 @@ async function sendSmtpEmail(
   } catch (error) {
     console.error("[SMTP] Error:", error);
     throw error;
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (closeError) {
+        console.warn("[SMTP] Error closing connection:", closeError);
+      }
+    }
   }
 }
 
