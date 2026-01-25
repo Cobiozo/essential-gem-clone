@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Key, Clock, Copy, Loader2, CheckCircle2, XCircle, Users } from 'lucide-react';
 import { HkOtpCode } from '@/types/healthyKnowledge';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 // Shared types
 interface InfoLinkCode {
@@ -276,7 +277,8 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   
   if (loading) {
     return (
-      <Card>
+      <Card className="relative">
+        <WidgetInfoButton description="Kody jednorazowe dla Twoich podopiecznych - monitoruj dostępy" />
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Key className="w-5 h-5 text-primary" />
@@ -357,7 +359,8 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   );
 
   return (
-    <Card data-tour="otp-codes-widget">
+    <Card data-tour="otp-codes-widget" className="relative">
+      <WidgetInfoButton description="Kody jednorazowe dla Twoich podopiecznych - monitoruj dostępy" />
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Key className="w-5 h-5 text-primary" />

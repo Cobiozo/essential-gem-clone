@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 interface InfoLink {
   id: string;
@@ -122,7 +123,8 @@ export const InfoLinksWidget: React.FC = () => {
 
   if (loading) {
     return (
-      <Card className="shadow-sm" data-tour="infolinks-widget">
+      <Card className="shadow-sm relative" data-tour="infolinks-widget">
+        <WidgetInfoButton description="Przydatne linki zewnętrzne skonfigurowane przez administrację" />
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Info className="h-4 w-4 text-primary" />
@@ -145,7 +147,8 @@ export const InfoLinksWidget: React.FC = () => {
   }
 
   return (
-    <Card className="shadow-sm" data-tour="infolinks-widget">
+    <Card className="shadow-sm relative" data-tour="infolinks-widget">
+      <WidgetInfoButton description="Przydatne linki zewnętrzne skonfigurowane przez administrację" />
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Info className="h-4 w-4 text-primary" />

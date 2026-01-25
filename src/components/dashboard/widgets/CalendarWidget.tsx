@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import type { EventWithRegistration } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -198,7 +199,8 @@ Zapisz się tutaj: ${inviteUrl}
   };
 
   return (
-    <Card data-tour="calendar-widget" className="shadow-sm">
+    <Card data-tour="calendar-widget" className="shadow-sm relative">
+      <WidgetInfoButton description="Kalendarz wydarzeń - kliknij dzień aby zobaczyć zaplanowane webinary i spotkania. Kliknij kategorię w legendzie aby filtrować." />
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Calendar className="h-4 w-4 text-primary" />

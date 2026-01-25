@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { QRCodeSVG } from 'qrcode.react';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 interface UserReflink {
   id: string;
@@ -103,7 +104,8 @@ export const ReflinksWidget: React.FC = () => {
   }
 
   return (
-    <Card className="shadow-sm" data-tour="reflinks-widget">
+    <Card className="shadow-sm relative" data-tour="reflinks-widget">
+      <WidgetInfoButton description="Twoje linki polecające - kopiuj i śledź statystyki kliknięć" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Link2 className="h-4 w-4 text-primary" />
