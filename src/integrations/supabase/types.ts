@@ -3121,12 +3121,14 @@ export type Database = {
           activated_at: string | null
           activated_by: string | null
           can_host_private_meetings: boolean | null
+          consultation_slot_duration: number | null
           created_at: string | null
           external_calendly_url: string | null
           id: string
           individual_meetings_enabled: boolean | null
           partner_consultation_enabled: boolean | null
           tripartite_meeting_enabled: boolean | null
+          tripartite_slot_duration: number | null
           updated_at: string | null
           use_external_booking: boolean | null
           user_id: string
@@ -3136,12 +3138,14 @@ export type Database = {
           activated_at?: string | null
           activated_by?: string | null
           can_host_private_meetings?: boolean | null
+          consultation_slot_duration?: number | null
           created_at?: string | null
           external_calendly_url?: string | null
           id?: string
           individual_meetings_enabled?: boolean | null
           partner_consultation_enabled?: boolean | null
           tripartite_meeting_enabled?: boolean | null
+          tripartite_slot_duration?: number | null
           updated_at?: string | null
           use_external_booking?: boolean | null
           user_id: string
@@ -3151,12 +3155,14 @@ export type Database = {
           activated_at?: string | null
           activated_by?: string | null
           can_host_private_meetings?: boolean | null
+          consultation_slot_duration?: number | null
           created_at?: string | null
           external_calendly_url?: string | null
           id?: string
           individual_meetings_enabled?: boolean | null
           partner_consultation_enabled?: boolean | null
           tripartite_meeting_enabled?: boolean | null
+          tripartite_slot_duration?: number | null
           updated_at?: string | null
           use_external_booking?: boolean | null
           user_id?: string

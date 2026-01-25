@@ -21,6 +21,7 @@ import { format, addMonths, addMinutes, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const SLOT_DURATIONS = [
+  { value: 15, label: '15 minut' },
   { value: 30, label: '30 minut' },
   { value: 45, label: '45 minut' },
   { value: 60, label: '60 minut' },
@@ -106,15 +107,23 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         setAvailabilitySlots(slots);
       }
 
-      // Load leader permissions for zoom link and external booking settings
+      // Load leader permissions for zoom link, external booking settings, and slot durations
       const { data: permData } = await supabase
         .from('leader_permissions')
-        .select('zoom_link, use_external_booking, external_calendly_url')
+        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_slot_duration, consultation_slot_duration')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (permData?.zoom_link) {
         setZoomLink(permData.zoom_link);
+      }
+      
+      // Load slot duration for current meeting type
+      const durationField = meetingType === 'tripartite' 
+        ? 'tripartite_slot_duration' 
+        : 'consultation_slot_duration';
+      if (permData?.[durationField]) {
+        setSlotDuration(permData[durationField]);
       }
       
       // Load external booking settings
@@ -177,13 +186,18 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         if (availError) throw availError;
       }
 
-      // Update zoom link and external booking settings in leader_permissions
+      // Update zoom link, external booking settings, and slot duration in leader_permissions
+      const durationField = meetingType === 'tripartite' 
+        ? 'tripartite_slot_duration' 
+        : 'consultation_slot_duration';
+        
       const { error: permError } = await supabase
         .from('leader_permissions')
         .update({ 
           zoom_link: zoomLink || null,
           use_external_booking: bookingMode === 'external',
           external_calendly_url: bookingMode === 'external' ? externalCalendlyUrl : null,
+          [durationField]: slotDuration,
         })
         .eq('user_id', user.id);
 
