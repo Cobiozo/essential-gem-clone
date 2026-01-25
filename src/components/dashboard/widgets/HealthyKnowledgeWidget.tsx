@@ -74,7 +74,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
   }
 
   return (
-    <Card>
+    <Card data-tour="healthy-knowledge-widget">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -357,7 +357,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   );
 
   return (
-    <Card>
+    <Card data-tour="otp-codes-widget">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Key className="w-5 h-5 text-primary" />

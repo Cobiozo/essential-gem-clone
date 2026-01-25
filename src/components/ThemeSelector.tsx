@@ -12,6 +12,7 @@ export function ThemeSelector() {
   const { setTheme, theme } = useTheme()
 
   return (
+    <div data-tour="theme-selector">
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon">
@@ -44,5 +45,6 @@ export function ThemeSelector() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   )
 }

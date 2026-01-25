@@ -52,7 +52,8 @@ export const LanguageSelector: React.FC = () => {
   const selectedLanguage = languages.find(l => l.code === language);
 
   return (
-    <Select value={language} onValueChange={(value) => setLanguage(value)}>
+    <div data-tour="language-selector">
+      <Select value={language} onValueChange={(value) => setLanguage(value)}>
       <SelectTrigger className="w-auto h-8 border-0 bg-transparent px-2 hover:bg-accent/50">
         <SelectValue>
           {selectedLanguage && (
@@ -79,5 +80,6 @@ export const LanguageSelector: React.FC = () => {
         ))}
       </SelectContent>
     </Select>
+    </div>
   );
 };

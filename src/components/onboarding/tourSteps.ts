@@ -12,6 +12,7 @@ export interface TourStep {
 }
 
 export const tourSteps: TourStep[] = [
+  // WPROWADZENIE
   {
     id: 'welcome-widget',
     targetSelector: '[data-tour="welcome-widget"]',
@@ -21,6 +22,8 @@ export const tourSteps: TourStep[] = [
     visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
     scrollTo: true,
   },
+  
+  // NAWIGACJA GŁÓWNA
   {
     id: 'sidebar',
     targetSelector: '[data-tour="sidebar"]',
@@ -30,6 +33,92 @@ export const tourSteps: TourStep[] = [
     visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
   },
   {
+    id: 'menu-dashboard',
+    targetSelector: '[data-tour="menu-dashboard"]',
+    title: 'Strona Główna',
+    description: 'Kliknij tutaj, aby wrócić do głównego pulpitu z widgetami.',
+    position: 'right',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  
+  // WIDGETY DASHBOARDOWE
+  {
+    id: 'calendar',
+    targetSelector: '[data-tour="calendar-widget"]',
+    title: 'Kalendarz i Spotkania',
+    description: 'Kalendarz pokazuje nadchodzące wydarzenia. Kliknij na dzień, aby zobaczyć szczegóły.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+    scrollTo: true,
+  },
+  {
+    id: 'my-meetings-widget',
+    targetSelector: '[data-tour="my-meetings-widget"]',
+    title: 'Twoje Spotkania',
+    description: 'Lista Twoich nadchodzących spotkań. Gdy zbliża się czas, pojawi się przycisk WEJDŹ z pulsującą kropką.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+    scrollTo: true,
+  },
+  {
+    id: 'training-widget',
+    targetSelector: '[data-tour="training-widget"]',
+    title: 'Postęp Szkolenia',
+    description: 'Widget pokazuje Twój postęp w modułach szkoleniowych. Kliknij moduł, aby kontynuować naukę.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'notifications-widget',
+    targetSelector: '[data-tour="notifications-widget"]',
+    title: 'Ostatnie Powiadomienia',
+    description: 'Widget wyświetla 4 najnowsze powiadomienia. Kliknij, aby zobaczyć szczegóły lub przejść do pełnej listy.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'otp-codes-widget',
+    targetSelector: '[data-tour="otp-codes-widget"]',
+    title: 'Kody Dostępu OTP',
+    description: 'Podgląd aktywnych kodów OTP dla InfoLinków i Zdrowej Wiedzy. Skopiuj kod jednym kliknięciem i udostępnij odbiorcy.',
+    position: 'bottom',
+    visibleFor: ['partner', 'admin'],
+  },
+  {
+    id: 'resources-widget',
+    targetSelector: '[data-tour="resources-widget"]',
+    title: 'Najnowsze Zasoby',
+    description: 'Szybki dostęp do najnowszych materiałów. Możesz kopiować linki, pobierać pliki lub przejść do biblioteki.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'team-contacts-widget',
+    targetSelector: '[data-tour="team-contacts-widget"]',
+    title: 'Kontakty Zespołowe',
+    description: 'Podgląd Twoich kontaktów prywatnych i zespołowych. Kliknij, aby zobaczyć pełną listę i dodać nowe kontakty.',
+    position: 'bottom',
+    visibleFor: ['partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'healthy-knowledge-widget',
+    targetSelector: '[data-tour="healthy-knowledge-widget"]',
+    title: 'Zdrowa Wiedza',
+    description: 'Materiały edukacyjne o zdrowiu. Możesz je przeglądać i udostępniać innym za pomocą kodów OTP.',
+    position: 'bottom',
+    visibleFor: ['partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'active-users-widget',
+    targetSelector: '[data-tour="active-users-widget"]',
+    title: 'Aktywni Użytkownicy',
+    description: 'Statystyki aktywności użytkowników platformy. Widoczne tylko dla administratorów.',
+    position: 'bottom',
+    visibleFor: ['admin'],
+  },
+  
+  // MENU FUNKCJI
+  {
     id: 'training',
     targetSelector: '[data-tour="menu-academy"]',
     title: 'Akademia / Szkolenia',
@@ -38,21 +127,12 @@ export const tourSteps: TourStep[] = [
     visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
   },
   {
-    id: 'calendar',
-    targetSelector: '[data-tour="calendar-widget"]',
-    title: 'Kalendarz i Spotkania',
-    description: 'Kalendarz pokazuje nadchodzące wydarzenia. Obok widzisz listę Twoich najbliższych spotkań.',
-    position: 'bottom',
-    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
-    scrollTo: true,
-  },
-  {
-    id: 'notifications',
-    targetSelector: '[data-tour="notifications-bell"]',
-    title: 'Powiadomienia',
-    description: 'Dzwonek w górnym pasku pokazuje nowe powiadomienia. Widget na dashboardzie wyświetla ostatnie wiadomości.',
-    position: 'bottom',
-    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+    id: 'zdrowa-wiedza',
+    targetSelector: '[data-tour="menu-healthy-knowledge"]',
+    title: 'Zdrowa Wiedza',
+    description: 'Biblioteka materiałów edukacyjnych o zdrowiu. Możesz je przeglądać i udostępniać innym za pomocą kodów OTP.',
+    position: 'right',
+    visibleFor: ['partner', 'specjalista', 'admin'],
   },
   {
     id: 'resources',
@@ -87,18 +167,68 @@ export const tourSteps: TourStep[] = [
     visibleFor: ['partner', 'specjalista', 'admin'],
   },
   {
-    id: 'zdrowa-wiedza',
-    targetSelector: '[data-tour="menu-healthy-knowledge"]',
-    title: 'Zdrowa Wiedza',
-    description: 'Biblioteka materiałów edukacyjnych o zdrowiu. Możesz je przeglądać i udostępniać innym za pomocą kodów OTP.',
+    id: 'menu-news',
+    targetSelector: '[data-tour="menu-news"]',
+    title: 'Aktualności',
+    description: 'Przeglądaj najnowsze wiadomości, ogłoszenia i informacje od zespołu Pure Life.',
     position: 'right',
-    visibleFor: ['partner', 'specjalista', 'admin'],
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'menu-events',
+    targetSelector: '[data-tour="menu-events"]',
+    title: 'Wydarzenia',
+    description: 'Tutaj znajdziesz webinary, spotkania zespołu i spotkania indywidualne. Zapisuj się i uczestniczy online.',
+    position: 'right',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  
+  // PASEK GÓRNY I USTAWIENIA
+  {
+    id: 'notifications',
+    targetSelector: '[data-tour="notifications-bell"]',
+    title: 'Powiadomienia',
+    description: 'Dzwonek w górnym pasku pokazuje nowe powiadomienia. Kliknij, aby zobaczyć listę i przejść do szczegółów.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'tutorial-button',
+    targetSelector: '[data-tour="tutorial-button"]',
+    title: 'Przycisk Samouczka',
+    description: 'Kliknij tę ikonkę pomocy w dowolnym momencie, aby ponownie uruchomić samouczek.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'language-selector',
+    targetSelector: '[data-tour="language-selector"]',
+    title: 'Wybór Języka',
+    description: 'Zmień język interfejsu platformy. Dostępne języki: Polski, Angielski i Niemiecki.',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'theme-selector',
+    targetSelector: '[data-tour="theme-selector"]',
+    title: 'Motyw Kolorystyczny',
+    description: 'Przełącz między trybem jasnym, ciemnym lub automatycznym (zgodnym z ustawieniami systemu).',
+    position: 'bottom',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
+  },
+  {
+    id: 'user-avatar',
+    targetSelector: '[data-tour="user-avatar"]',
+    title: 'Menu Użytkownika',
+    description: 'Kliknij swój avatar, aby otworzyć menu użytkownika z dostępem do konta, ustawień i wylogowania.',
+    position: 'left',
+    visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
   },
   {
     id: 'my-account',
     targetSelector: '[data-tour="user-menu-account"]',
     title: 'Moje Konto',
-    description: "Klikając swój avatar otworzysz menu użytkownika. Wybierz 'Moje konto' aby zarządzać swoim profilem, zmienić hasło, skonfigurować preferencje.",
+    description: "Wybierz 'Moje konto' aby zarządzać swoim profilem, zmienić hasło, skonfigurować preferencje.",
     position: 'left',
     visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
     requiresDropdownOpen: true,
@@ -120,6 +250,8 @@ export const tourSteps: TourStep[] = [
     position: 'right',
     visibleFor: ['klient', 'partner', 'specjalista', 'admin'],
   },
+  
+  // STOPKA
   {
     id: 'footer',
     targetSelector: '[data-tour="footer-section"]',

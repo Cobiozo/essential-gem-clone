@@ -51,7 +51,7 @@ export const ActiveUsersWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm" data-tour="active-users-widget">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-2 cursor-pointer hover:bg-muted/30 transition-colors">
