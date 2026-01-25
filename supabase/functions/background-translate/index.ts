@@ -61,8 +61,22 @@ serve(async (req) => {
 
     console.log(`Starting background translation job: ${jobId}`);
 
-    // Start background processing
-    EdgeRuntime.waitUntil(processTranslationJob(jobId));
+    // Start background processing with global timeout wrapper
+    const withGlobalTimeout = (fn: () => Promise<void>, ms: number): Promise<void> => {
+      return Promise.race([
+        fn(),
+        new Promise<void>((_, reject) => 
+          setTimeout(() => reject(new Error('Global execution timeout')), ms)
+        )
+      ]).catch(error => {
+        console.error('Background task error or timeout:', error.message);
+      });
+    };
+
+    EdgeRuntime.waitUntil(withGlobalTimeout(
+      () => processTranslationJob(jobId), 
+      55000 // 55 seconds max (Supabase limit is 60s)
+    ));
 
     return new Response(JSON.stringify({ started: true, jobId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -138,10 +138,13 @@ async function sendSmtpEmail(
     
   } catch (error) {
     console.error('[SMTP] Error:', error);
-    if (conn) {
-      try { conn.close(); } catch {}
-    }
     return { success: false, error: error.message };
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch (closeError) {
+        console.warn('[SMTP] Error closing connection:', closeError);
+      }
+    }
   }
 }
 
