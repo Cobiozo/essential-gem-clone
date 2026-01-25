@@ -721,7 +721,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                         editingMaterial.content_type === 'document' ? ['document'] :
                         ['video', 'audio', 'image', 'document']
                       }
-                      maxSizeMB={2048}
+                      maxSizeMB={null}
                     />
                   </div>
                 )}

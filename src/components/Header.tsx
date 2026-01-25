@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 interface HeaderProps {
   siteLogo: string;
   publishedPages?: any[];
+  hideLanguageSelector?: boolean;
 }
 
 interface Reflink {
@@ -37,7 +38,7 @@ interface Reflink {
   clipboard_content: string | null;
 }
 
-export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] }) => {
+export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], hideLanguageSelector = false }) => {
   const { user, isAdmin, isPartner, isSpecjalista, isClient, signOut, userRole } = useAuth();
   const { t } = useLanguage();
   const { setViewMode } = useDashboardPreference();
@@ -206,7 +207,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [] })
 
           {/* Right side actions */}
           <div className="flex items-center space-x-0.5 sm:space-x-1">
-            <LanguageSelector />
+            {!hideLanguageSelector && <LanguageSelector />}
             <ThemeSelector />
             
             {user ? (
