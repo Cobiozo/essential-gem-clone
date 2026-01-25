@@ -2993,6 +2993,7 @@ export type Database = {
           is_active: boolean | null
           leader_user_id: string
           max_bookings_per_slot: number | null
+          meeting_type: string | null
           slot_duration_minutes: number | null
           specific_date: string | null
           start_time: string
@@ -3006,6 +3007,7 @@ export type Database = {
           is_active?: boolean | null
           leader_user_id: string
           max_bookings_per_slot?: number | null
+          meeting_type?: string | null
           slot_duration_minutes?: number | null
           specific_date?: string | null
           start_time: string
@@ -3019,6 +3021,7 @@ export type Database = {
           is_active?: boolean | null
           leader_user_id?: string
           max_bookings_per_slot?: number | null
+          meeting_type?: string | null
           slot_duration_minutes?: number | null
           specific_date?: string | null
           start_time?: string
@@ -3032,6 +3035,7 @@ export type Database = {
           exception_date: string
           id: string
           leader_user_id: string
+          meeting_type: string | null
           reason: string | null
         }
         Insert: {
@@ -3039,6 +3043,7 @@ export type Database = {
           exception_date: string
           id?: string
           leader_user_id: string
+          meeting_type?: string | null
           reason?: string | null
         }
         Update: {
@@ -3046,6 +3051,7 @@ export type Database = {
           exception_date?: string
           id?: string
           leader_user_id?: string
+          meeting_type?: string | null
           reason?: string | null
         }
         Relationships: []

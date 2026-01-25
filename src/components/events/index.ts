@@ -7,3 +7,5 @@ export { WorkingHoursScheduler } from './WorkingHoursScheduler';
 export type { WeeklySchedule } from './WorkingHoursScheduler';
 export { DateExceptionsManager } from './DateExceptionsManager';
 export type { DateException } from './DateExceptionsManager';
+export { MeetingTypeCard } from './MeetingTypeCard';
+export type { MeetingTypeSettings } from './MeetingTypeCard';
