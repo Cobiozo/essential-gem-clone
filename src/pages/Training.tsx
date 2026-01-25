@@ -43,7 +43,7 @@ const Training = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string}}>({});
+  const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string}}>({});
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -64,7 +64,7 @@ const Training = () => {
     loadData();
   }, [user]);
 
-  const fetchCertificates = async () => {
+  const fetchCertificates = async (): Promise<{[key: string]: {id: string, url: string, issuedAt: string}}> => {
     if (!user) return {};
 
     try {
@@ -76,11 +76,11 @@ const Training = () => {
 
       if (error) throw error;
 
-      const certMap: {[key: string]: {id: string, url: string}} = {};
+      const certMap: {[key: string]: {id: string, url: string, issuedAt: string}} = {};
       // Only keep the newest certificate for each module
       data?.forEach(cert => {
         if (!certMap[cert.module_id]) {
-          certMap[cert.module_id] = { id: cert.id, url: cert.file_url };
+          certMap[cert.module_id] = { id: cert.id, url: cert.file_url, issuedAt: cert.issued_at };
         }
       });
       setCertificates(certMap);
@@ -343,12 +343,24 @@ const Training = () => {
       // For each module, get lesson count and user progress
       const modulesWithProgress = await Promise.all(
         modulesData.map(async (module) => {
-          // Get lesson count
-          const { count: lessonsCount } = await supabase
+          // Get certificate date for this module (if exists)
+          const certIssuedAt = certMap[module.id]?.issuedAt;
+          
+          // Get all active lessons with their creation dates
+          const { data: lessonsData } = await supabase
             .from('training_lessons')
-            .select('*', { count: 'exact', head: true })
+            .select('id, min_time_seconds, video_duration_seconds, created_at')
             .eq('module_id', module.id)
             .eq('is_active', true);
+
+          // Calculate lessons count - exclude lessons created after certificate issuance
+          let relevantLessonsCount = lessonsData?.length || 0;
+          if (certIssuedAt && lessonsData) {
+            const certDate = new Date(certIssuedAt);
+            relevantLessonsCount = lessonsData.filter(l => 
+              new Date(l.created_at) <= certDate
+            ).length;
+          }
 
           // Get user progress if logged in
           let completedLessons = 0;
@@ -359,28 +371,30 @@ const Training = () => {
               .from('training_progress')
               .select(`
                 is_completed,
-                lesson:training_lessons!inner(min_time_seconds)
+                lesson:training_lessons!inner(min_time_seconds, created_at)
               `)
               .eq('user_id', user.id)
               .eq('lesson.module_id', module.id)
               .eq('is_completed', true);
 
-            completedLessons = progressData?.length || 0;
+            // Count completed lessons - exclude lessons created after certificate if user has one
+            if (certIssuedAt && progressData) {
+              const certDate = new Date(certIssuedAt);
+              completedLessons = progressData.filter((p: any) => 
+                new Date(p.lesson.created_at) <= certDate
+              ).length;
+            } else {
+              completedLessons = progressData?.length || 0;
+            }
           }
 
           // Get total estimated time for module (prioritize video_duration_seconds)
-          const { data: lessonsData } = await supabase
-            .from('training_lessons')
-            .select('min_time_seconds, video_duration_seconds')
-            .eq('module_id', module.id)
-            .eq('is_active', true);
-
           totalTime = lessonsData?.reduce((acc, lesson) => 
             acc + (lesson.video_duration_seconds || lesson.min_time_seconds || 0), 0) || 0;
 
           return {
             ...module,
-            lessons_count: lessonsCount || 0,
+            lessons_count: relevantLessonsCount,
             completed_lessons: completedLessons,
             total_time_minutes: Math.ceil(totalTime / 60),
             certificate_id: certMap[module.id]?.id,

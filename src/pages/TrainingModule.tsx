@@ -801,7 +801,7 @@ const TrainingModule = () => {
       if (user && currentLesson) {
         const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
         
-        await supabase
+        const { error: progressError } = await supabase
           .from('training_progress')
           .upsert({
             user_id: user.id,
@@ -813,6 +813,18 @@ const TrainingModule = () => {
           }, { 
             onConflict: 'user_id,lesson_id'
           });
+        
+        if (progressError) {
+          console.error('[TrainingModule] Error saving lesson completion:', progressError);
+          toast({
+            title: "Błąd zapisu",
+            description: "Nie udało się zapisać postępu lekcji. Spróbuj ponownie.",
+            variant: "destructive"
+          });
+          setIsNavigating(false);
+          isTransitioningRef.current = false;
+          return; // Don't navigate if save failed
+        }
         
         // Update local state
         setProgress(prev => ({

@@ -51,27 +51,62 @@ export const TrainingProgressWidget: React.FC = () => {
           return;
         }
 
+        // Fetch user's certificates to check for issuance dates
+        const { data: certificatesData } = await supabase
+          .from('certificates')
+          .select('module_id, issued_at')
+          .eq('user_id', user.id)
+          .order('issued_at', { ascending: false });
+
+        // Build a map of module_id -> newest certificate issued_at
+        const certMap: {[key: string]: string} = {};
+        certificatesData?.forEach(cert => {
+          if (!certMap[cert.module_id]) {
+            certMap[cert.module_id] = cert.issued_at;
+          }
+        });
+
         // Calculate progress for each module based on completed lessons
         const modulesWithProgress: ModuleProgress[] = await Promise.all(
           modulesData.map(async (mod: any) => {
-            // Get total active lessons in this module
-            const { count: totalLessons } = await supabase
+            const certIssuedAt = certMap[mod.id];
+            
+            // Get all active lessons with their creation dates
+            const { data: lessonsData } = await supabase
               .from('training_lessons')
-              .select('*', { count: 'exact', head: true })
+              .select('id, created_at')
               .eq('module_id', mod.id)
               .eq('is_active', true);
+
+            // Calculate total lessons - exclude lessons created after certificate issuance
+            let totalLessons = lessonsData?.length || 0;
+            if (certIssuedAt && lessonsData) {
+              const certDate = new Date(certIssuedAt);
+              totalLessons = lessonsData.filter(l => 
+                new Date(l.created_at) <= certDate
+              ).length;
+            }
 
             // Get completed lessons by user in this module
             const { data: completedData } = await supabase
               .from('training_progress')
-              .select('lesson_id, is_completed, training_lessons!inner(module_id)')
+              .select('lesson_id, is_completed, training_lessons!inner(module_id, created_at)')
               .eq('user_id', user.id)
               .eq('is_completed', true);
 
-            // Filter completed lessons that belong to this module
-            const completedInModule = completedData?.filter(
-              (p: any) => p.training_lessons?.module_id === mod.id
-            ).length || 0;
+            // Filter completed lessons - exclude lessons created after certificate if user has one
+            let completedInModule = 0;
+            if (certIssuedAt && completedData) {
+              const certDate = new Date(certIssuedAt);
+              completedInModule = completedData.filter(
+                (p: any) => p.training_lessons?.module_id === mod.id && 
+                           new Date(p.training_lessons?.created_at) <= certDate
+              ).length;
+            } else {
+              completedInModule = completedData?.filter(
+                (p: any) => p.training_lessons?.module_id === mod.id
+              ).length || 0;
+            }
 
             const total = totalLessons || 0;
             const progressPercent = total > 0 ? Math.round((completedInModule / total) * 100) : 0;
