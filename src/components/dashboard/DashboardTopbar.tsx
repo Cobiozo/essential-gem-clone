@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -97,6 +97,18 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
         {/* Language */}
         <LanguageSelector />
+
+        {/* Tutorial help button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
+          className="h-9 w-9"
+          title="Samouczek"
+          data-tour="tutorial-button"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </Button>
 
         {/* Theme */}
         <ThemeSelector />
