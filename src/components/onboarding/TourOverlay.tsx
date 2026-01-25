@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TourStep } from './tourSteps';
 import { TourTooltip } from './TourTooltip';
@@ -20,6 +20,9 @@ interface HighlightRect {
   height: number;
 }
 
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 500;
+
 export const TourOverlay: React.FC<TourOverlayProps> = ({
   step,
   currentStep,
@@ -31,6 +34,8 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
 }) => {
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const retryCountRef = useRef(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateHighlight = useCallback(() => {
     const element = document.querySelector(step.targetSelector);
@@ -52,16 +57,36 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
       }
 
       setIsVisible(true);
+      retryCountRef.current = 0;
     } else {
-      // Element not found - skip to next step after a short delay
-      setIsVisible(false);
-      setTimeout(() => {
+      // Element not found - retry with limit
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current += 1;
+        console.log(`[Tour] Element not found: ${step.targetSelector}, retry ${retryCountRef.current}/${MAX_RETRIES}`);
+        
+        retryTimeoutRef.current = setTimeout(() => {
+          updateHighlight();
+        }, RETRY_DELAY);
+      } else {
+        // Max retries reached - skip to next step
+        console.warn(`[Tour] Element not found after ${MAX_RETRIES} retries: ${step.targetSelector}, skipping...`);
+        setIsVisible(false);
+        retryCountRef.current = 0;
         onNext();
-      }, 100);
+      }
     }
   }, [step, onNext]);
 
   useEffect(() => {
+    // Reset retry count on step change
+    retryCountRef.current = 0;
+    
+    // Clear any pending retry timeout
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+
     // Handle dropdown steps
     if (step.requiresDropdownOpen) {
       onDropdownToggle?.(true);
@@ -74,7 +99,12 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
 
     // Update on resize
     window.addEventListener('resize', updateHighlight);
-    return () => window.removeEventListener('resize', updateHighlight);
+    return () => {
+      window.removeEventListener('resize', updateHighlight);
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
   }, [step, updateHighlight, onDropdownToggle]);
 
   if (!isVisible || !highlightRect) {

@@ -79,9 +79,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
         )}
 
         {/* Notifications */}
-        <div data-tour="notifications-bell">
-          <NotificationBell />
-        </div>
+        <NotificationBell />
 
         {/* Language */}
         <LanguageSelector />

@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { PartyPopper, RotateCcw, Rocket } from 'lucide-react';
 
 interface TourCompletionDialogProps {
@@ -22,8 +21,6 @@ export const TourCompletionDialog: React.FC<TourCompletionDialogProps> = ({
   onClose,
   onRestart,
 }) => {
-  const { t } = useLanguage();
-
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" hideCloseButton>
@@ -32,16 +29,16 @@ export const TourCompletionDialog: React.FC<TourCompletionDialogProps> = ({
             <PartyPopper className="h-8 w-8 text-green-500" />
           </div>
           <DialogTitle className="text-2xl">
-            {t('onboarding.dialog.completionTitle')}
+            Gratulacje!
           </DialogTitle>
           <DialogDescription className="text-base">
-            {t('onboarding.dialog.completionDescription')}
+            Znasz już podstawy platformy Pure Life.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button onClick={onClose} className="w-full" size="lg">
             <Rocket className="mr-2 h-4 w-4" />
-            {t('onboarding.dialog.closeButton')}
+            Zamknij i zacznij korzystać
           </Button>
           <Button
             onClick={onRestart}
@@ -49,7 +46,7 @@ export const TourCompletionDialog: React.FC<TourCompletionDialogProps> = ({
             className="w-full text-muted-foreground"
           >
             <RotateCcw className="mr-2 h-4 w-4" />
-            {t('onboarding.dialog.repeatButton')}
+            Powtórz samouczek
           </Button>
         </DialogFooter>
       </DialogContent>
