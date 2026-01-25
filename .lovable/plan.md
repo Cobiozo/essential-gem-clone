@@ -1,132 +1,179 @@
 
-# Plan naprawy: Tooltips i ikony informacyjne
+# Plan: Udoskonalenie harmonogramu spotkań indywidualnych
 
-## Zidentyfikowane problemy
+## Podsumowanie wymagań
 
-Na podstawie screenshotu i analizy kodu:
-
-1. **Tooltip w sidebarze pojawia się natychmiast** - `SidebarMenuButton` ma wbudowany prop `tooltip={t(item.labelKey)}` (linia 611), który wyświetla tooltip natychmiast, mimo że jest opakowany w `Tooltip` z `delayDuration={2000}`
-
-2. **Informacja widżetu pokazuje się natychmiast** - `WidgetInfoButton` używa `Popover` (wyświetla się przy kliknięciu), ale użytkownik oczekuje opóźnionego tooltipa przy najechaniu (3 sekundy)
-
-3. **Kolizja wizualna** - Ikona "i" w lewym górnym rogu (top-2 left-2) koliduje z tooltipem, który też pojawia się w tej okolicy
+1. **Elastyczny czas trwania** - partner-prowadzący może ustawić dowolny czas (15, 30, 60 minut) dla każdego typu spotkania osobno
+2. **Wzajemne blokowanie** - rezerwacja jednego typu (trójstronne/konsultacje) blokuje ten sam przedział czasowy dla drugiego typu
+3. **Blokada według rzeczywistego czasu** - 30-min konsultacja o 10:00 blokuje do 10:30, godzinna o 14:00 blokuje do 15:00
+4. **Integracja z Google Calendar** - blokady mają być spójne z kalendarzem Google
 
 ---
 
-## Rozwiązanie
+## Analiza obecnego stanu
 
-### Zmiana 1: Usunięcie podwójnego tooltipa w sidebarze
+### Co już działa:
+- System sprawdza zajętość obu typów spotkań podczas rezerwacji (linia 263-266 w `PartnerMeetingBooking.tsx`)
+- Blokady są sprawdzane przez `start_time` i `end_time`
+- Google Calendar jest odpytywany przez `check-google-calendar-busy`
 
-**Plik: `src/components/dashboard/DashboardSidebar.tsx`**
+### Problemy:
+1. **Czas trwania jest globalny** - jeden `slot_duration_minutes` dla wszystkich typów spotkań
+2. **Brak opcji 15 minut** - obecnie tylko 30, 45, 60, 90 min
+3. **Blokowanie nie uwzględnia rzeczywistego czasu trwania zarezerwowanego spotkania** - sprawdza tylko `start_time`, nie przelicza nakładania się czasów
 
-Usunąć prop `tooltip` z `SidebarMenuButton` wewnątrz `Tooltip` wrappera:
+---
 
-```tsx
-// BYŁO (linia 608-616):
-<SidebarMenuButton
-  onClick={() => handleMenuClick(item)}
-  isActive={isActive(item)}
-  tooltip={t(item.labelKey)}  // ← TO POWODUJE NATYCHMIASTOWY TOOLTIP
-  className="..."
->
+## Proponowane zmiany
+
+### 1. Rozszerzenie opcji czasowych (15 min)
+
+**Plik: `src/components/events/IndividualMeetingForm.tsx`**
+
+Dodanie 15 minut do listy opcji:
+```typescript
+const SLOT_DURATIONS = [
+  { value: 15, label: '15 minut' },  // NOWE
+  { value: 30, label: '30 minut' },
+  { value: 45, label: '45 minut' },
+  { value: 60, label: '60 minut' },
+  { value: 90, label: '90 minut' },
+];
+```
+
+### 2. Osobny czas trwania dla każdego typu spotkania
+
+Obecnie partner może mieć różne ustawienia dla `tripartite` i `consultation`, ale czas trwania jest wspólny. Zmiana:
+
+**Rozszerzenie bazy danych:**
+- Dodanie kolumn `tripartite_slot_duration` i `consultation_slot_duration` do `leader_permissions`
+
+**Migracja SQL:**
+```sql
+ALTER TABLE leader_permissions 
+ADD COLUMN IF NOT EXISTS tripartite_slot_duration integer DEFAULT 60,
+ADD COLUMN IF NOT EXISTS consultation_slot_duration integer DEFAULT 60;
+```
+
+**Plik: `src/components/events/IndividualMeetingForm.tsx`**
+
+Wczytywanie i zapisywanie osobnego czasu dla każdego typu:
+```typescript
+const [slotDuration, setSlotDuration] = useState(60);
+
+// W loadExistingData:
+const durationField = meetingType === 'tripartite' 
+  ? 'tripartite_slot_duration' 
+  : 'consultation_slot_duration';
+
+// W handleSave:
+await supabase
+  .from('leader_permissions')
+  .update({ 
+    [durationField]: slotDuration,
+    // ... inne pola
+  })
+  .eq('user_id', user.id);
+```
+
+### 3. Poprawienie logiki blokowania czasowego
+
+**Problem:** Obecna logika w `PartnerMeetingBooking.tsx` sprawdza tylko czy jest już spotkanie o tej samej godzinie startu, ale nie uwzględnia nakładania się czasów.
+
+**Plik: `src/components/events/PartnerMeetingBooking.tsx`**
+
+**Zmiana 1: Pobieranie pełnych danych spotkań (linie 259-266)**
+
+```typescript
+// BYŁO:
+.select('start_time')
+.eq('host_user_id', partnerId)
+.in('event_type', ['tripartite_meeting', 'partner_consultation'])
 
 // BĘDZIE:
-<SidebarMenuButton
-  onClick={() => handleMenuClick(item)}
-  isActive={isActive(item)}
-  // tooltip usunięty - używamy zewnętrznego Tooltip z delayDuration
-  className="..."
->
+.select('start_time, end_time, event_type')
+.eq('host_user_id', partnerId)
+.in('event_type', ['tripartite_meeting', 'partner_consultation'])
 ```
 
-Zmienić opóźnienie z 2000ms na 3000ms:
-```tsx
-<Tooltip delayDuration={3000}>
-```
+**Zmiana 2: Sprawdzanie nakładania się czasów zamiast tylko startu (linie 306-325)**
 
-Zmniejszyć tekst tooltipa:
-```tsx
-<TooltipContent side="right" className="max-w-xs text-xs">
-```
+```typescript
+// NOWA LOGIKA - sprawdzanie czy slot koliduje z istniejącymi spotkaniami
+const bookedMeetings = meetingsResult.data || [];
 
-### Zmiana 2: Przebudowa WidgetInfoButton na Tooltip z opóźnieniem
-
-**Plik: `src/components/dashboard/WidgetInfoButton.tsx`**
-
-Zmienić z `Popover` (kliknięcie) na `Tooltip` z opóźnieniem 3 sekund przy najechaniu:
-
-```tsx
-import React from 'react';
-import { Info } from 'lucide-react';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipTrigger 
-} from '@/components/ui/tooltip';
-
-interface WidgetInfoButtonProps {
-  description: string;
-}
-
-export const WidgetInfoButton: React.FC<WidgetInfoButtonProps> = ({ description }) => {
-  return (
-    <Tooltip delayDuration={3000}>
-      <TooltipTrigger asChild>
-        <button
-          className="absolute top-2 right-2 z-10 h-5 w-5 rounded-full bg-muted/80 hover:bg-muted flex items-center justify-center transition-colors"
-          aria-label="Informacja o widżecie"
-        >
-          <Info className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent 
-        side="bottom" 
-        align="end" 
-        className="max-w-[200px] text-xs"
-      >
-        {description}
-      </TooltipContent>
-    </Tooltip>
-  );
+const isSlotBlockedByMeeting = (slotTime: string): boolean => {
+  const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+  const slotEnd = addMinutes(slotStart, slotDuration);
+  
+  return bookedMeetings.some(meeting => {
+    const meetingStart = new Date(meeting.start_time);
+    const meetingEnd = new Date(meeting.end_time);
+    
+    // Overlap: slotStart < meetingEnd AND slotEnd > meetingStart
+    return slotStart < meetingEnd && slotEnd > meetingStart;
+  });
 };
+
+// W filtrze slotów:
+.filter(slotTime => {
+  // ... istniejące warunki ...
+  if (isSlotBlockedByMeeting(slotTime)) return false;
+  return true;
+})
 ```
 
-**Kluczowe zmiany:**
-- `Popover` → `Tooltip` z `delayDuration={3000}` (3 sekundy)
-- Pozycja: `top-2 left-2` → `top-2 right-2` (prawy górny róg, z dala od tytułu)
-- Tooltip wyświetla się `side="bottom"` (pod ikoną, nie obok)
-- Tekst: `text-sm` → `text-xs` (mniejszy)
-- Szerokość: `w-64` → `max-w-[200px]` (węższa)
+### 4. Spójność z Google Calendar
+
+Google Calendar już poprawnie blokuje sloty przez `check-google-calendar-busy` (FreeBusy API). Ta część działa dobrze.
+
+**Ulepszenie:** Przy tworzeniu spotkania w Google Calendar, upewnić się że `end_time` jest poprawnie ustawiony na podstawie rzeczywistego czasu trwania.
+
+**Plik: `supabase/functions/sync-google-calendar/index.ts`**
+
+Funkcja `formatGoogleEvent` już obsługuje `end_time` poprawnie (linie 129-134):
+```typescript
+const endTime = event.end_time 
+  ? new Date(event.end_time) 
+  : new Date(startTime.getTime() + 60 * 60 * 1000);
+```
+
+Upewnić się, że `end_time` jest zawsze przekazywany przy tworzeniu spotkania indywidualnego (już jest - linia 528-529 w PartnerMeetingBooking.tsx).
 
 ---
 
-## Wizualizacja po zmianach
+## Diagram blokowania czasowego
 
-**Sidebar - tooltip z 3s opóźnieniem:**
 ```text
-┌──────────────────┐     
-│ 📊 Pulpit        │ ─(po 3s)─► ┌──────────────────────────────┐
-│ 🎓 Akademia      │            │ Twoja strona główna z        │
-│ 💚 Zdrowa Wiedza │            │ podglądem wszystkich info... │
-│ 📁 Biblioteka    │            └──────────────────────────────┘
-└──────────────────┘
-```
+Przykład: Partner ma dostępność 10:00-12:00
 
-**Widżet - ikona "i" w prawym rogu, tooltip pod spodem:**
-```text
-┌─────────────────────────────────────────(i)┐
-│    📅 Kalendarz wydarzeń         [Zobacz ►]│
-│    ┌─────────────────────────────────────┐ │
-│    │ Pn Wt Śr Cz Pt Sb Nd               │ │
-│    │  ...                               │ │
-│    └─────────────────────────────────────┘ │
-└────────────────────────────────────────────┘
+Scenariusz 1: 30-min konsultacja zarezerwowana na 10:00
+┌──────────────────────────────────────────────────────┐
+│ 10:00    10:30    11:00    11:30    12:00            │
+│ [ZAJĘTE]────────┐                                    │
+│ Konsultacja 30m │                                    │
+│ ────────────────┘                                    │
+│                                                      │
+│ Blokuje sloty:                                       │
+│ - 10:00 (oba typy) ❌                                │
+│ - 10:15 (oba typy) ❌ (nakłada się)                 │
+│ - 10:30 (oba typy) ✅ (dostępny)                    │
+└──────────────────────────────────────────────────────┘
 
-Po najechaniu na (i) i odczekaniu 3s:
-                              ┌────────────────────┐
-                              │ Kalendarz wydarzeń │
-                              │ - kliknij dzień... │
-                              └────────────────────┘
+Scenariusz 2: 60-min spotkanie trójstronne na 14:00
+┌──────────────────────────────────────────────────────┐
+│ 14:00    14:30    15:00    15:30    16:00            │
+│ [ZAJĘTE]────────────────────┐                        │
+│ Spotkanie trójstronne 60min │                        │
+│ ────────────────────────────┘                        │
+│                                                      │
+│ Blokuje sloty:                                       │
+│ - 14:00 (oba typy) ❌                                │
+│ - 14:15 (oba typy) ❌                                │
+│ - 14:30 (oba typy) ❌                                │
+│ - 14:45 (oba typy) ❌                                │
+│ - 15:00 (oba typy) ✅ (dostępny)                    │
+└──────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -135,41 +182,141 @@ Po najechaniu na (i) i odczekaniu 3s:
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/DashboardSidebar.tsx` | Usunięcie prop `tooltip` z SidebarMenuButton, zmiana delayDuration na 3000, mniejszy tekst |
-| `src/components/dashboard/WidgetInfoButton.tsx` | Popover → Tooltip, delayDuration=3000, pozycja top-2 right-2, mniejszy tekst |
+| `supabase/migrations/[nowa]_individual_meeting_durations.sql` | Dodanie kolumn `tripartite_slot_duration` i `consultation_slot_duration` |
+| `src/components/events/IndividualMeetingForm.tsx` | Dodanie opcji 15 min, osobny czas dla każdego typu |
+| `src/components/events/PartnerMeetingBooking.tsx` | Pobieranie `end_time` spotkań, logika sprawdzania nakładania się |
+| `src/integrations/supabase/types.ts` | Aktualizacja typów (automatycznie po migracji) |
 
 ---
 
 ## Sekcja techniczna
 
-### Szczegóły zmian w DashboardSidebar.tsx
+### Migracja SQL
 
-**Linia 606:**
-```tsx
-// Zmiana opóźnienia
-<Tooltip delayDuration={3000}>
+```sql
+-- Dodanie osobnych czasów trwania dla każdego typu spotkania
+ALTER TABLE leader_permissions 
+ADD COLUMN IF NOT EXISTS tripartite_slot_duration integer DEFAULT 60,
+ADD COLUMN IF NOT EXISTS consultation_slot_duration integer DEFAULT 60;
+
+COMMENT ON COLUMN leader_permissions.tripartite_slot_duration IS 'Czas trwania spotkań trójstronnych w minutach';
+COMMENT ON COLUMN leader_permissions.consultation_slot_duration IS 'Czas trwania konsultacji w minutach';
 ```
 
-**Linie 608-616:**
-```tsx
-// Usunięcie prop tooltip
-<SidebarMenuButton
-  onClick={() => handleMenuClick(item)}
-  isActive={isActive(item)}
-  className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
->
+### Zmiana w IndividualMeetingForm.tsx
+
+**Linia 23-28 - rozszerzenie opcji:**
+```typescript
+const SLOT_DURATIONS = [
+  { value: 15, label: '15 minut' },
+  { value: 30, label: '30 minut' },
+  { value: 45, label: '45 minut' },
+  { value: 60, label: '60 minut' },
+  { value: 90, label: '90 minut' },
+];
 ```
 
-**Linia 619:**
-```tsx
-// Mniejszy tekst
-<TooltipContent side="right" className="max-w-xs text-xs">
+**Linie ~110-126 - wczytywanie osobnego czasu:**
+```typescript
+// W loadExistingData, po pobraniu permData:
+const durationField = meetingType === 'tripartite' 
+  ? 'tripartite_slot_duration' 
+  : 'consultation_slot_duration';
+
+if (permData?.[durationField]) {
+  setSlotDuration(permData[durationField]);
+}
 ```
 
-### Szczegóły zmian w WidgetInfoButton.tsx
+**Linie ~180-188 - zapisywanie:**
+```typescript
+const durationField = meetingType === 'tripartite' 
+  ? 'tripartite_slot_duration' 
+  : 'consultation_slot_duration';
 
-Pełna zamiana komponentu na Tooltip-based zamiast Popover-based:
-- Import: `Tooltip, TooltipContent, TooltipTrigger` zamiast `Popover, PopoverContent, PopoverTrigger`
-- Pozycja przycisku: `top-2 right-2` (prawy górny róg)
-- Tooltip: `delayDuration={3000}`, `side="bottom"`, `align="end"`
-- Styl tekstu: `text-xs`, `max-w-[200px]`
+await supabase
+  .from('leader_permissions')
+  .update({ 
+    zoom_link: zoomLink || null,
+    use_external_booking: bookingMode === 'external',
+    external_calendly_url: bookingMode === 'external' ? externalCalendlyUrl : null,
+    [durationField]: slotDuration,
+  })
+  .eq('user_id', user.id);
+```
+
+### Zmiana w PartnerMeetingBooking.tsx
+
+**Linie 259-266 - rozszerzenie zapytania:**
+```typescript
+supabase
+  .from('events')
+  .select('start_time, end_time, event_type')  // Dodane end_time i event_type
+  .eq('host_user_id', partnerId)
+  .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+  .gte('start_time', `${dateStr}T00:00:00`)
+  .lt('start_time', `${dateStr}T23:59:59`)
+  .eq('is_active', true),
+```
+
+**Linie 306-325 - nowa logika blokowania:**
+```typescript
+// Zastąpienie starej logiki bookedTimes nową logiką nakładania się
+const bookedMeetings = meetingsResult.data || [];
+
+const isSlotBlockedByExistingMeeting = (slotTime: string): boolean => {
+  const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+  const slotEnd = addMinutes(slotStart, slotDuration);
+  
+  return bookedMeetings.some(meeting => {
+    const meetingStart = new Date(meeting.start_time);
+    const meetingEnd = new Date(meeting.end_time);
+    
+    // Sprawdź nakładanie się: slot zaczyna się przed końcem spotkania 
+    // I slot kończy się po rozpoczęciu spotkania
+    return slotStart < meetingEnd && slotEnd > meetingStart;
+  });
+};
+```
+
+**Linie 362-368 - aktualizacja filtra:**
+```typescript
+const availableSlotsList: AvailableSlot[] = allSlots
+  .filter(slotTime => {
+    if (dateStr === today && slotTime <= currentTime) return false;
+    if (isSlotBlockedByExistingMeeting(slotTime)) return false;  // NOWE
+    if (blockedByPlatform.has(slotTime)) return false;
+    if (googleBusySlots.has(slotTime)) return false;
+    return true;
+  })
+```
+
+### Pobieranie czasu trwania przy rezerwacji
+
+**Linie ~250-290 - dodanie pobierania ustawień czasu trwania:**
+```typescript
+// W loadAvailableSlots, dodać pobieranie leader_permissions
+const [weeklyResult, meetingsResult, blockingResult, tokenResult, permissionsResult] = await Promise.all([
+  // ... istniejące zapytania ...
+  supabase
+    .from('leader_permissions')
+    .select('tripartite_slot_duration, consultation_slot_duration')
+    .eq('user_id', partnerId)
+    .maybeSingle(),
+]);
+
+// Użyj odpowiedniego czasu trwania w zależności od typu spotkania
+const permissions = permissionsResult.data;
+const slotDuration = meetingType === 'tripartite'
+  ? (permissions?.tripartite_slot_duration || 60)
+  : (permissions?.consultation_slot_duration || 60);
+```
+
+---
+
+## Korzyści
+
+1. **Elastyczność** - partnerzy mogą mieć różne czasy dla różnych typów spotkań
+2. **Precyzja** - blokady uwzględniają rzeczywisty czas trwania, nie tylko godzinę startu
+3. **Spójność** - Google Calendar pokazuje te same blokady co system
+4. **Dwukierunkowe blokowanie** - spotkanie jednego typu automatycznie blokuje drugi
