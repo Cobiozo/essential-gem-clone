@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 export const NotificationsWidget: React.FC = () => {
   const navigate = useNavigate();
@@ -35,7 +36,8 @@ export const NotificationsWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm" data-tour="notifications-widget">
+    <Card className="shadow-sm relative" data-tour="notifications-widget">
+      <WidgetInfoButton description="Centrum powiadomień - ważne informacje od upline i systemu" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" />

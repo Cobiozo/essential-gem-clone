@@ -7,6 +7,7 @@ import { GraduationCap, ArrowRight, Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 interface ModuleProgress {
   id: string;
@@ -132,7 +133,8 @@ export const TrainingProgressWidget: React.FC = () => {
   }, [user, userRole]);
 
   return (
-    <Card className="shadow-sm" data-tour="training-widget">
+    <Card className="shadow-sm relative" data-tour="training-widget">
+      <WidgetInfoButton description="Postęp w szkoleniach - śledź ukończone moduły i kontynuuj naukę" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <GraduationCap className="h-4 w-4 text-primary" />

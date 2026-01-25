@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Heart, ArrowRight, Play, FileText, Image, Music, Type, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge } from '@/types/healthyKnowledge';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
   const icons: Record<string, React.ReactNode> = {
@@ -74,7 +75,8 @@ export const HealthyKnowledgeWidget: React.FC = () => {
   }
 
   return (
-    <Card data-tour="healthy-knowledge-widget">
+    <Card data-tour="healthy-knowledge-widget" className="relative">
+      <WidgetInfoButton description="Wyróżnione materiały edukacyjne o zdrowym stylu życia" />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

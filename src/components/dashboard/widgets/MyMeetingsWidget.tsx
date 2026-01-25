@@ -13,6 +13,7 @@ import { format, subMinutes, isAfter, isBefore, differenceInMinutes } from 'date
 import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -360,7 +361,8 @@ export const MyMeetingsWidget: React.FC = () => {
 
   if (loading) {
     return (
-      <Card className="shadow-sm" data-tour="my-meetings-widget">
+      <Card className="shadow-sm relative" data-tour="my-meetings-widget">
+        <WidgetInfoButton description="Twoje nadchodzące spotkania - zapisane webinary i zaplanowane konsultacje" />
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
@@ -377,7 +379,8 @@ export const MyMeetingsWidget: React.FC = () => {
   }
 
   return (
-    <Card className="shadow-sm" data-tour="my-meetings-widget">
+    <Card className="shadow-sm relative" data-tour="my-meetings-widget">
+      <WidgetInfoButton description="Twoje nadchodzące spotkania - zapisane webinary i zaplanowane konsultacje" />
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Calendar className="h-4 w-4 text-primary" />

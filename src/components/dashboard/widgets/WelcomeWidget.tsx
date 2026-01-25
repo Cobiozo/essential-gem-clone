@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
@@ -98,8 +99,9 @@ export const WelcomeWidget: React.FC = () => {
   return (
     <Card 
       data-tour="welcome-widget"
-      className="col-span-full bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-sm"
+      className="col-span-full bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-sm relative"
     >
+      <WidgetInfoButton description="Powitanie i aktualny czas - dostosuj strefę czasową według potrzeb" />
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">

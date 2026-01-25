@@ -8,6 +8,7 @@ import { useUserPresence, UserPresence } from '@/hooks/useUserPresence';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: 'Pulpit',
@@ -51,7 +52,8 @@ export const ActiveUsersWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm" data-tour="active-users-widget">
+    <Card className="shadow-sm relative" data-tour="active-users-widget">
+      <WidgetInfoButton description="Aktualnie zalogowani użytkownicy w systemie (tylko dla administratorów)" />
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-2 cursor-pointer hover:bg-muted/30 transition-colors">

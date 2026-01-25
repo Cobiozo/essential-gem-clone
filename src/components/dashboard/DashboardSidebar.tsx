@@ -17,6 +17,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   LayoutDashboard,
   GraduationCap,
   FolderOpen,
@@ -50,6 +55,26 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
+
+// Tooltip descriptions for navigation items (2s delay)
+const menuTooltipDescriptions: Record<string, string> = {
+  dashboard: 'Twoja strona główna z podglądem wszystkich najważniejszych informacji',
+  academy: 'Szkolenia i materiały edukacyjne - zdobywaj wiedzę i certyfikaty',
+  'healthy-knowledge': 'Materiały o zdrowym stylu życia i produktach',
+  resources: 'Biblioteka dokumentów, grafik i materiałów do pobrania',
+  pureContacts: 'Zarządzaj kontaktami prywatnymi i zespołowymi',
+  news: 'Aktualności i ważne ogłoszenia od zespołu',
+  events: 'Webinary, spotkania zespołowe i indywidualne konsultacje',
+  chat: 'Komunikacja z upline i zespołem',
+  support: 'Potrzebujesz pomocy? Wyślij zgłoszenie do zespołu wsparcia',
+  reflinks: 'Twoje unikalne linki polecające - śledź kliknięcia',
+  infolinks: 'Przydatne linki i materiały informacyjne',
+  community: 'Dołącz do społeczności na różnych platformach',
+  settings: 'Ustawienia profilu, powiadomień i preferencji',
+  calculator: 'Kalkulator prowizji i symulacje zarobków',
+  admin: 'Panel administracyjny - zarządzanie systemem',
+  'individual-meetings-setup': 'Zarządzaj spotkaniami indywidualnymi',
+};
 
 interface SubMenuItem {
   id: string;
@@ -578,15 +603,24 @@ export const DashboardSidebar: React.FC = () => {
                   </CollapsibleContent>
                 </Collapsible>
               ) : (
-                <SidebarMenuButton
-                  onClick={() => handleMenuClick(item)}
-                  isActive={isActive(item)}
-                  tooltip={t(item.labelKey)}
-                  className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{t(item.labelKey)}</span>
-                </SidebarMenuButton>
+                <Tooltip delayDuration={2000}>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton
+                      onClick={() => handleMenuClick(item)}
+                      isActive={isActive(item)}
+                      tooltip={t(item.labelKey)}
+                      className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{t(item.labelKey)}</span>
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  {menuTooltipDescriptions[item.id] && (
+                    <TooltipContent side="right" className="max-w-xs">
+                      {menuTooltipDescriptions[item.id]}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               )}
             </SidebarMenuItem>
           ))}

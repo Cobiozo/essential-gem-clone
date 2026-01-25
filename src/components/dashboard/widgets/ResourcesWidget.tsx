@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 interface Resource {
   id: string;
@@ -99,7 +100,8 @@ export const ResourcesWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm" data-tour="resources-widget">
+    <Card className="shadow-sm relative" data-tour="resources-widget">
+      <WidgetInfoButton description="Najnowsze materiały z biblioteki - pobieraj dokumenty i grafiki" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <FolderOpen className="h-4 w-4 text-primary" />

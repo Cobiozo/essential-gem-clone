@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
+import { WidgetInfoButton } from '../WidgetInfoButton';
 
 interface TeamMember {
   id: string;
@@ -96,7 +97,8 @@ export const TeamContactsWidget: React.FC = () => {
 
   return (
     <>
-      <Card className="shadow-sm" data-tour="team-contacts-widget">
+      <Card className="shadow-sm relative" data-tour="team-contacts-widget">
+        <WidgetInfoButton description="Szybki dostęp do kontaktów zespołowych i wyszukiwarki specjalistów" />
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
