@@ -128,6 +128,8 @@ const HealthyKnowledgeManagement: React.FC = () => {
       description: '',
       slug: '',
       content_type: 'document',
+      thumbnail_url: null,
+      media_url: null,
       visible_to_admin: true,
       visible_to_partner: false,
       visible_to_client: false,
@@ -367,16 +369,43 @@ const HealthyKnowledgeManagement: React.FC = () => {
                     <TableRow key={material.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "p-2 rounded-lg",
-                            material.content_type === 'video' && "bg-blue-500/10 text-blue-500",
-                            material.content_type === 'audio' && "bg-purple-500/10 text-purple-500",
-                            material.content_type === 'document' && "bg-orange-500/10 text-orange-500",
-                            material.content_type === 'image' && "bg-green-500/10 text-green-500",
-                            material.content_type === 'text' && "bg-gray-500/10 text-gray-500",
-                          )}>
-                            <ContentTypeIcon type={material.content_type} className="w-4 h-4" />
+                          {/* Thumbnail preview */}
+                          <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-border/50">
+                            {material.thumbnail_url ? (
+                              <>
+                                <img 
+                                  src={material.thumbnail_url} 
+                                  alt={material.title}
+                                  className="w-full h-full object-cover"
+                                />
+                                {/* Play overlay for video */}
+                                {material.content_type === 'video' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                    <Play className="w-4 h-4 text-white fill-white" />
+                                  </div>
+                                )}
+                                {/* Audio overlay */}
+                                {material.content_type === 'audio' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                    <Music className="w-4 h-4 text-white" />
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className={cn(
+                                "w-full h-full flex items-center justify-center",
+                                material.content_type === 'video' && "bg-blue-500/10 text-blue-500",
+                                material.content_type === 'audio' && "bg-purple-500/10 text-purple-500",
+                                material.content_type === 'document' && "bg-orange-500/10 text-orange-500",
+                                material.content_type === 'image' && "bg-green-500/10 text-green-500",
+                                material.content_type === 'text' && "bg-gray-500/10 text-gray-500",
+                              )}>
+                                <ContentTypeIcon type={material.content_type} className="w-5 h-5" />
+                              </div>
+                            )}
                           </div>
+                          
+                          {/* Title and description */}
                           <div>
                             <p className="font-medium">{material.title}</p>
                             <p className="text-xs text-muted-foreground truncate max-w-[200px]">
