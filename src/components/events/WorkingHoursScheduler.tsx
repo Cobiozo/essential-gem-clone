@@ -27,6 +27,7 @@ interface WorkingHoursSchedulerProps {
   onScheduleChange: (schedule: WeeklySchedule) => void;
   slotDuration: number;
   isSaving?: boolean;
+  compact?: boolean;
 }
 
 const DAYS_OF_WEEK = [
@@ -56,6 +57,7 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
   onScheduleChange,
   slotDuration,
   isSaving = false,
+  compact = false,
 }) => {
   const [schedule, setSchedule] = useState<WeeklySchedule>(() => {
     // Empty object {} or undefined/null → use default schedule
@@ -176,22 +178,25 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
   const enabledDaysCount = DAYS_OF_WEEK.filter(({ value }) => schedule[value].enabled).length;
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Clock className="h-5 w-5" />
-          Godziny pracy
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Card className={cn(compact && "border-0 shadow-none")}>
+      {!compact && (
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Clock className="h-5 w-5" />
+            Godziny pracy
+          </CardTitle>
+        </CardHeader>
+      )}
+      <CardContent className={cn("space-y-6", compact && "space-y-3 p-0")}>
         {/* Day toggles */}
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className={cn("flex flex-wrap gap-2 justify-center", compact && "gap-1")}>
           {DAYS_OF_WEEK.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => toggleDay(value)}
               className={cn(
-                'w-10 h-10 rounded-full text-sm font-medium transition-all',
+                'rounded-full font-medium transition-all',
+                compact ? 'w-7 h-7 text-xs' : 'w-10 h-10 text-sm',
                 schedule[value].enabled
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -202,53 +207,58 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
           ))}
         </div>
 
-        {/* Use same hours checkbox */}
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="same-hours"
-            checked={useSameHours}
-            onCheckedChange={handleUseSameHoursChange}
-          />
-          <Label htmlFor="same-hours" className="text-sm cursor-pointer">
-            Użyj tych samych godzin dla wszystkich dni
-          </Label>
-        </div>
+        {/* Use same hours checkbox - hidden in compact mode */}
+        {!compact && (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="same-hours"
+              checked={useSameHours}
+              onCheckedChange={handleUseSameHoursChange}
+            />
+            <Label htmlFor="same-hours" className="text-sm cursor-pointer">
+              Użyj tych samych godzin dla wszystkich dni
+            </Label>
+          </div>
+        )}
 
-        {/* Timezone display */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-4">
-          <Globe className="h-4 w-4" />
+        {/* Timezone display - simplified in compact mode */}
+        <div className={cn(
+          "flex items-center gap-2 text-muted-foreground",
+          compact ? "text-xs" : "text-sm border-t pt-4"
+        )}>
+          <Globe className={cn(compact ? "h-3 w-3" : "h-4 w-4")} />
           <span>{timezone}</span>
         </div>
 
         {/* Day schedules */}
-        <div className="space-y-4">
+        <div className={cn("space-y-4", compact && "space-y-2")}>
           {DAYS_OF_WEEK.filter(({ value }) => schedule[value].enabled).map(({ value: dayOfWeek, fullLabel }) => (
-            <div key={dayOfWeek} className="space-y-2">
-              <Label className="font-medium">{fullLabel}</Label>
+            <div key={dayOfWeek} className={cn("space-y-2", compact && "space-y-1")}>
+              <Label className={cn("font-medium", compact && "text-xs")}>{fullLabel}</Label>
               {schedule[dayOfWeek].ranges.map((range, rangeIndex) => (
-                <div key={rangeIndex} className="flex items-center gap-2">
+                <div key={rangeIndex} className={cn("flex items-center", compact ? "gap-1" : "gap-2")}>
                   <Input
                     type="time"
                     value={range.start}
                     onChange={(e) => updateTimeRange(dayOfWeek, rangeIndex, 'start', e.target.value)}
-                    className="w-28"
+                    className={cn(compact ? "w-[72px] h-7 text-xs px-1" : "w-28")}
                   />
-                  <span className="text-muted-foreground">—</span>
+                  <span className={cn("text-muted-foreground", compact && "text-xs")}>—</span>
                   <Input
                     type="time"
                     value={range.end}
                     onChange={(e) => updateTimeRange(dayOfWeek, rangeIndex, 'end', e.target.value)}
-                    className="w-28"
+                    className={cn(compact ? "w-[72px] h-7 text-xs px-1" : "w-28")}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={() => addTimeRange(dayOfWeek)}
-                    className="h-8 w-8"
+                    className={cn(compact ? "h-6 w-6" : "h-8 w-8")}
                     title="Dodaj zakres"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className={cn(compact ? "h-3 w-3" : "h-4 w-4")} />
                   </Button>
                   {schedule[dayOfWeek].ranges.length > 1 && (
                     <Button
@@ -256,15 +266,20 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
                       variant="ghost"
                       size="icon"
                       onClick={() => removeTimeRange(dayOfWeek, rangeIndex)}
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      className={cn(
+                        "text-destructive hover:text-destructive",
+                        compact ? "h-6 w-6" : "h-8 w-8"
+                      )}
                       title="Usuń zakres"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className={cn(compact ? "h-3 w-3" : "h-4 w-4")} />
                     </Button>
                   )}
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {countGeneratedSlots([range])} slotów
-                  </span>
+                  {!compact && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {countGeneratedSlots([range])} slotów
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -272,18 +287,22 @@ export const WorkingHoursScheduler: React.FC<WorkingHoursSchedulerProps> = ({
         </div>
 
         {enabledDaysCount === 0 && (
-          <p className="text-center text-muted-foreground text-sm py-4">
-            Wybierz dni tygodnia, w które jesteś dostępny/a
+          <p className={cn(
+            "text-center text-muted-foreground",
+            compact ? "text-xs py-2" : "text-sm py-4"
+          )}>
+            Wybierz dni tygodnia
           </p>
         )}
 
-        {/* Summary */}
+        {/* Summary - compact version */}
         {enabledDaysCount > 0 && (
-          <div className="bg-muted/50 rounded-lg p-4 text-sm">
-            <p className="font-medium mb-1">Podsumowanie:</p>
+          <div className={cn(
+            "bg-muted/50 rounded-lg",
+            compact ? "p-2 text-xs" : "p-4 text-sm"
+          )}>
             <p className="text-muted-foreground">
-              Dostępność: {enabledDaysCount} dni w tygodniu
-              {slotDuration && ` • Czas trwania spotkania: ${slotDuration} min`}
+              {enabledDaysCount} dni • {slotDuration} min
             </p>
           </div>
         )}
