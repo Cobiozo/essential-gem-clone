@@ -18,6 +18,7 @@ const DashboardFooterSection = lazy(() => import('@/components/dashboard/widgets
 const CombinedOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/CombinedOtpCodesWidget'));
 const HealthyKnowledgeWidget = lazy(() => import('@/components/dashboard/widgets/HealthyKnowledgeWidget'));
 const ActiveUsersWidget = lazy(() => import('@/components/dashboard/widgets/ActiveUsersWidget'));
+const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour'));
 
 // Skeleton fallback for widgets during lazy load
 const WidgetSkeleton: React.FC = () => (
@@ -133,6 +134,11 @@ const Dashboard: React.FC = () => {
       {/* Footer Section with quote, team features and contact */}
       <Suspense fallback={<FooterSkeleton />}>
         <DashboardFooterSection />
+      </Suspense>
+
+      {/* Onboarding Tour */}
+      <Suspense fallback={null}>
+        <OnboardingTour />
       </Suspense>
     </DashboardLayout>
   );

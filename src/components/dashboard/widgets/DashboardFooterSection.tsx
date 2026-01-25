@@ -74,7 +74,7 @@ export const DashboardFooterSection: React.FC = () => {
   ];
 
   return (
-    <div className="mt-8 space-y-12">
+    <div data-tour="footer-section" className="mt-8 space-y-12">
       {/* Cytat - misja */}
       <section className="text-center py-8">
         <h2 className="text-3xl font-bold italic mb-4 text-foreground">

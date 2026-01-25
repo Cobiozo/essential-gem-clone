@@ -3791,6 +3791,9 @@ export type Database = {
           search_keywords: string[] | null
           specialization: string | null
           street_address: string | null
+          tutorial_completed: boolean | null
+          tutorial_completed_at: string | null
+          tutorial_skipped: boolean | null
           updated_at: string
           upline_eq_id: string | null
           upline_first_name: string | null
@@ -3827,6 +3830,9 @@ export type Database = {
           search_keywords?: string[] | null
           specialization?: string | null
           street_address?: string | null
+          tutorial_completed?: boolean | null
+          tutorial_completed_at?: string | null
+          tutorial_skipped?: boolean | null
           updated_at?: string
           upline_eq_id?: string | null
           upline_first_name?: string | null
@@ -3863,6 +3869,9 @@ export type Database = {
           search_keywords?: string[] | null
           specialization?: string | null
           street_address?: string | null
+          tutorial_completed?: boolean | null
+          tutorial_completed_at?: string | null
+          tutorial_skipped?: boolean | null
           updated_at?: string
           upline_eq_id?: string | null
           upline_first_name?: string | null

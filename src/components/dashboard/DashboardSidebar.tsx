@@ -499,7 +499,7 @@ export const DashboardSidebar: React.FC = () => {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
+    <Sidebar data-tour="sidebar" collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
       {/* Logo Header */}
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-3">
@@ -528,7 +528,7 @@ export const DashboardSidebar: React.FC = () => {
       <SidebarContent className="px-2 py-4">
         <SidebarMenu>
           {visibleMenuItems.map((item) => (
-            <SidebarMenuItem key={item.id}>
+            <SidebarMenuItem key={item.id} data-tour={`menu-${item.id}`}>
               {item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0 ? (
                 <Collapsible
                   open={openSubmenu === item.id || isSubmenuParentActive(item)}
