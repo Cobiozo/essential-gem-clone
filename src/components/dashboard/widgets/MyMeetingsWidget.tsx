@@ -360,7 +360,7 @@ export const MyMeetingsWidget: React.FC = () => {
 
   if (loading) {
     return (
-      <Card className="shadow-sm">
+      <Card className="shadow-sm" data-tour="my-meetings-widget">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
@@ -377,7 +377,7 @@ export const MyMeetingsWidget: React.FC = () => {
   }
 
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm" data-tour="my-meetings-widget">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Calendar className="h-4 w-4 text-primary" />

@@ -99,7 +99,7 @@ export const ResourcesWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm" data-tour="resources-widget">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <FolderOpen className="h-4 w-4 text-primary" />
