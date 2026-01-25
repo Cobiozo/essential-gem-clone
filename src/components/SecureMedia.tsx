@@ -114,6 +114,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const stuckCheckRef = useRef<NodeJS.Timeout>();
   const lastProgressTimeRef = useRef<number>(0);
   const bufferingTimeoutRef = useRef<NodeJS.Timeout>(); // NEW: Timeout for smart buffering delay
+  const lastActivityEmitRef = useRef<number>(0); // Throttle video-activity events for inactivity timeout
   const [isFullscreen, setIsFullscreen] = useState(false);
   
   // State dla odświeżania signed URL przed wygaśnięciem
@@ -776,11 +777,25 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       setCurrentTime(video.currentTime);
       onTimeUpdateRef.current?.(video.currentTime);
+      
+      // Throttled: emit video-activity event every ~10 seconds to prevent auto-logout
+      const now = Date.now();
+      if (now - lastActivityEmitRef.current >= 10000) {
+        lastActivityEmitRef.current = now;
+        window.dispatchEvent(new CustomEvent('video-activity', { 
+          detail: { type: 'timeupdate' } 
+        }));
+      }
     };
 
     const handlePlay = () => {
       setIsPlaying(true);
       onPlayStateChangeRef.current?.(true);
+      
+      // Emit video-activity event to prevent auto-logout during video playback
+      window.dispatchEvent(new CustomEvent('video-activity', { 
+        detail: { type: 'play' } 
+      }));
     };
 
     const handlePause = () => {
@@ -841,12 +856,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       if (!mounted) return;
       setCurrentTime(video.currentTime);
       onTimeUpdateRef.current?.(video.currentTime);
+      
+      // Throttled: emit video-activity event every ~10 seconds to prevent auto-logout
+      const now = Date.now();
+      if (now - lastActivityEmitRef.current >= 10000) {
+        lastActivityEmitRef.current = now;
+        window.dispatchEvent(new CustomEvent('video-activity', { 
+          detail: { type: 'timeupdate' } 
+        }));
+      }
     };
 
     const handlePlay = () => {
       if (!mounted) return;
       setIsPlaying(true);
       onPlayStateChangeRef.current?.(true);
+      
+      // Emit video-activity event to prevent auto-logout during video playback
+      window.dispatchEvent(new CustomEvent('video-activity', { 
+        detail: { type: 'play' } 
+      }));
     };
 
     const handlePause = () => {

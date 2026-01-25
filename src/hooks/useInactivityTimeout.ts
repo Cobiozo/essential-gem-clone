@@ -121,8 +121,11 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       if (!document.hidden) {
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         
-        // If user was away longer than timeout, logout immediately
-        if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
+        // Add 1-minute buffer to prevent immediate logout on tab return
+        const timeoutWithBuffer = INACTIVITY_TIMEOUT_MS + 60000;
+        
+        // If user was away longer than timeout + buffer, logout immediately
+        if (timeSinceLastActivity >= timeoutWithBuffer) {
           handleLogout();
         } else {
           resetTimer();
@@ -130,6 +133,13 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Handle video activity events (emitted by SecureMedia during video playback)
+    const handleVideoActivity = () => {
+      console.log('[useInactivityTimeout] Video activity detected, resetting timer');
+      resetTimer();
+    };
+    window.addEventListener('video-activity', handleVideoActivity);
 
     // Cleanup
     return () => {
@@ -147,6 +157,7 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
         document.removeEventListener(event, throttledResetTimer);
       });
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('video-activity', handleVideoActivity);
     };
   }, [enabled]);
 

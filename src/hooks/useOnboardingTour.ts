@@ -36,16 +36,26 @@ export const useOnboardingTour = (): UseOnboardingTourReturn => {
     const checkTutorialStatus = async () => {
       if (!user || !profile) return;
 
-      // Check if profile has tutorial_completed field
+      // Check if profile has tutorial fields
       const tutorialCompleted = (profile as any)?.tutorial_completed;
       const tutorialSkipped = (profile as any)?.tutorial_skipped;
+      const tutorialShownOnce = (profile as any)?.tutorial_shown_once;
 
-      // Show welcome dialog for fresh login users who haven't completed/skipped tutorial
-      if (isFreshLogin && !tutorialCompleted && !tutorialSkipped) {
+      // NEW LOGIC: Show automatically ONLY if:
+      // 1. It's a fresh login
+      // 2. Tutorial was never automatically shown before (tutorial_shown_once !== true)
+      // 3. Tutorial was not completed or skipped
+      if (isFreshLogin && !tutorialShownOnce && !tutorialCompleted && !tutorialSkipped) {
         // Small delay to let the dashboard render first
         setTimeout(() => {
           setShowWelcomeDialog(true);
         }, 1000);
+        
+        // Mark that tutorial was automatically shown once
+        await supabase
+          .from('profiles')
+          .update({ tutorial_shown_once: true })
+          .eq('id', user.id);
       }
     };
 
