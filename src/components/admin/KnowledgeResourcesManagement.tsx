@@ -23,7 +23,8 @@ import {
 import { 
   KnowledgeResource, ResourceType, ResourceStatus,
   RESOURCE_TYPE_LABELS, RESOURCE_STATUS_LABELS, 
-  DOCUMENT_CATEGORIES, GRAPHICS_CATEGORIES, RESOURCE_CATEGORIES 
+  DOCUMENT_CATEGORIES, GRAPHICS_CATEGORIES, RESOURCE_CATEGORIES,
+  LANGUAGE_OPTIONS, getLanguageLabel
 } from '@/types/knowledge';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -52,7 +53,8 @@ const emptyResource: Partial<KnowledgeResource> = {
   allow_download: true,
   allow_share: false,
   allow_click_redirect: false,
-  click_redirect_url: ''
+  click_redirect_url: '',
+  language_code: 'pl'
 };
 
 export const KnowledgeResourcesManagement: React.FC = () => {
@@ -65,6 +67,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [tagsInput, setTagsInput] = useState('');
   
   // Bulk upload state
@@ -171,7 +174,8 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           allow_download: resourceData.allow_download ?? true,
           allow_share: resourceData.allow_share ?? false,
           allow_click_redirect: resourceData.allow_click_redirect ?? false,
-          click_redirect_url: resourceData.click_redirect_url || null
+          click_redirect_url: resourceData.click_redirect_url || null,
+          language_code: resourceData.language_code || 'pl'
         }]);
       
       if (error) {
@@ -218,7 +222,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
       r.description?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
     const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
-    return matchesSearch && matchesStatus && matchesCategory;
+    const matchesLanguage = filterLanguage === 'all' || 
+      (filterLanguage === 'universal' ? r.language_code === null : r.language_code === filterLanguage);
+    return matchesSearch && matchesStatus && matchesCategory && matchesLanguage;
   });
 
   const getStatusBadge = (status: ResourceStatus) => {
@@ -509,6 +515,18 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Język" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Wszystkie języki</SelectItem>
+                <SelectItem value="universal">🌐 Uniwersalne</SelectItem>
+                {LANGUAGE_OPTIONS.filter(l => l.code !== 'all').map(lang => (
+                  <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -542,6 +560,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                       {getTypeBadge(resource.resource_type)}
                       {getStatusBadge(resource.status)}
                       {resource.category && <Badge variant="secondary">{resource.category}</Badge>}
+                      <Badge variant="outline" className="text-[10px]">
+                        {getLanguageLabel(resource.language_code)}
+                      </Badge>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Download className="h-3 w-3" />
                         {resource.download_count}
@@ -641,6 +662,27 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                       <SelectContent>
                         {(editingResource.resource_type === 'image' ? GRAPHICS_CATEGORIES : DOCUMENT_CATEGORIES).map(cat => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Język dokumentu</Label>
+                    <Select
+                      value={editingResource.language_code || 'all'}
+                      onValueChange={(v) => setEditingResource({ 
+                        ...editingResource, 
+                        language_code: v === 'all' ? null : v 
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz język" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LANGUAGE_OPTIONS.map(lang => (
+                          <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
