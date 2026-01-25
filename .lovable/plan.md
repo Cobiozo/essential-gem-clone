@@ -1,255 +1,164 @@
 
 
-# Plan: Ujednolicenie uploadu w module "Zdrowa Wiedza"
+# Naprawa widżetu "Aktywni użytkownicy"
 
-## Cel
+## Zdiagnozowane problemy
 
-Zamienić prostą implementację uploadu w `HealthyKnowledgeManagement.tsx` (Supabase ~50MB limit) na komponent `<MediaUpload />` używany w Akademii (VPS do 2GB).
+### Problem 1: Race condition przy inicjalizacji
+Event `sync` wywołuje się PRZED `trackPresence()`, więc pierwszy sync pokazuje pustą listę. Dopiero gdy inny użytkownik dołączy/opuści kanał, dane się odświeżą.
 
----
+### Problem 2: Throttling blokuje początkową aktualizację
+Linie 62-64 w `useUserPresence.ts` ograniczają aktualizacje do max 1/sekundę. Jeśli `sync` i `join` (własny) wywołają się w odstępie <1s, druga aktualizacja jest ignorowana.
 
-## Porównanie: Akademia vs Zdrowa Wiedza
+### Problem 3: Brak periodycznego odświeżania
+Po pierwszym `track()` nie ma mechanizmu ponownego wywołania `updateUserList()`. Użytkownicy są widoczni tylko gdy ktoś nowy dołączy/opuści kanał przez Realtime.
 
-| Aspekt | Akademia (TrainingManagement) | Zdrowa Wiedza (obecna) |
-|--------|-------------------------------|------------------------|
-| Komponent | `<MediaUpload />` | Prosty `<Input type="file">` |
-| Hook | `useLocalStorage` | `supabase.storage.upload()` |
-| Limit | **2GB** (VPS) | **~50MB** (Supabase) |
-| Pasek postępu | ✅ Tak | ❌ Tylko spinner |
-| Biblioteka plików | ✅ Tak | ❌ Brak |
-| Wykrywanie czasu video | ✅ Automatyczne | ❌ Brak |
-| Podanie URL | ✅ Tak | ❌ Brak |
+### Problem 4: 60-sekundowy próg `isActive`
+Jeśli użytkownik nie wykonuje żadnych akcji przez 60s, jest oznaczany jako `isActive: false` i nie jest liczony w `stats`. Brak mechanizmu periodycznego `track()` by aktualizować `lastActivity`.
 
 ---
 
-## Lokalizacja problemu
+## Plan naprawy
 
-**Plik:** `src/components/admin/HealthyKnowledgeManagement.tsx`
+### Krok 1: Wymusić aktualizację po własnym `track()`
 
-**Linie 152-186** - funkcja `handleFileUpload`:
+Po wywołaniu `trackPresence()` w callbacku `subscribe`, dodać krótkie opóźnienie i ponowne wywołanie `updateUserList()`:
+
 ```typescript
-// OBECNA IMPLEMENTACJA (problemowa)
-const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !editingMaterial) return;
-
-  setUploading(true);
-  try {
-    // ❌ Bezpośredni upload do Supabase Storage - limit ~50MB
-    const { error: uploadError } = await supabase.storage
-      .from('healthy-knowledge')
-      .upload(filePath, file);
-    // ...
+if (status === 'SUBSCRIBED' && mountedRef.current) {
+  setIsConnected(true);
+  if (isTabVisible) {
+    await trackPresence();
+    // Po własnym track(), poczekaj aż Realtime zaktualizuje state i odśwież listę
+    setTimeout(() => {
+      if (mountedRef.current) updateUserList();
+    }, 500);
   }
-};
+}
 ```
 
-**Linie 733-798** - UI uploadu:
+### Krok 2: Dodać periodyczny "heartbeat" dla `lastActivity`
+
+Dodać interval który co 30 sekund aktualizuje `lastActivity` obecnego użytkownika, żeby nie znikał z listy aktywnych:
+
 ```typescript
-// OBECNY UI (prosty)
-<Input
-  type="file"
-  onChange={handleFileUpload}
-  disabled={uploading}
-  accept={...}
-/>
-{uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+// Heartbeat - aktualizuj lastActivity co 30s
+const heartbeatInterval = setInterval(() => {
+  if (isTabVisible && mountedRef.current && channelRef.current) {
+    trackPresence();
+  }
+}, 30000);
+
+// W cleanup:
+clearInterval(heartbeatInterval);
 ```
 
----
+### Krok 3: Nie throttlować pierwszej aktualizacji
 
-## Rozwiązanie
-
-Zastąpić prostą implementację komponentem `<MediaUpload />` identycznym jak w Akademii.
-
----
-
-## Plan zmian
-
-### Krok 1: Usunięcie funkcji `handleFileUpload` (linie 152-186)
-
-Funkcja nie będzie już potrzebna - `<MediaUpload />` obsługuje upload wewnętrznie.
-
-### Krok 2: Dodanie callbacka `handleMediaUploaded` (wzorzec z Akademii)
+Zmodyfikować logikę throttlingu, aby przepuścić pierwszą aktualizację (gdy `lastUpdateRef.current === 0`):
 
 ```typescript
-const handleMediaUploaded = (url: string, type: string, altText?: string, durationSeconds?: number) => {
-  if (!editingMaterial) return;
+const updateUserList = () => {
+  if (!mountedRef.current) return;
   
-  setEditingMaterial({
-    ...editingMaterial,
-    media_url: url,
-    file_name: altText || url.split('/').pop() || 'file',
-    file_size: null, // MediaUpload nie zwraca rozmiaru, ale mamy URL
-    content_type: type as any,
-  });
+  const now = Date.now();
+  // Przepuść pierwszą aktualizację lub te starsze niż 1s
+  if (lastUpdateRef.current !== 0 && now - lastUpdateRef.current < 1000) return;
+  lastUpdateRef.current = now;
+  
+  // ... reszta logiki
 };
 ```
 
-### Krok 3: Import komponentu MediaUpload
+### Krok 4: Dodać periodyczne odświeżanie listy
+
+Oprócz heartbeat dla siebie, periodycznie sprawdzać presenceState() by wychwycić użytkowników którzy stali się nieaktywni:
 
 ```typescript
-import { MediaUpload } from '@/components/MediaUpload';
-```
+// Odświeżaj listę co 15s żeby aktualizować statusy isActive
+const refreshInterval = setInterval(() => {
+  if (mountedRef.current) updateUserList();
+}, 15000);
 
-### Krok 4: Zamiana UI uploadu (linie 733-798)
-
-**PRZED:**
-```tsx
-<div className="space-y-2">
-  <Label>Plik</Label>
-  <div className="flex items-center gap-2">
-    <Input
-      type="file"
-      onChange={handleFileUpload}
-      disabled={uploading}
-      accept={...}
-    />
-    {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
-  </div>
-  {/* Preview code... */}
-</div>
-```
-
-**PO:**
-```tsx
-<div className="space-y-2">
-  <Label>Plik</Label>
-  <MediaUpload
-    onMediaUploaded={handleMediaUploaded}
-    currentMediaUrl={editingMaterial.media_url || undefined}
-    currentMediaType={editingMaterial.content_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-    allowedTypes={
-      editingMaterial.content_type === 'video' ? ['video'] :
-      editingMaterial.content_type === 'audio' ? ['audio'] :
-      editingMaterial.content_type === 'image' ? ['image'] :
-      editingMaterial.content_type === 'document' ? ['document'] :
-      ['video', 'audio', 'image', 'document']
-    }
-    maxSizeMB={2048}
-  />
-</div>
+// W cleanup:
+clearInterval(refreshInterval);
 ```
 
 ---
 
-## Korzyści po wdrożeniu
+## Plik do modyfikacji
 
-1. **Pliki do 2GB** - pełna zgodność z Akademią
-2. **Rzeczywisty pasek postępu** - widoczny procent uploadu
-3. **Biblioteka plików** - dostęp do wcześniej przesłanych plików
-4. **URL zewnętrzny** - możliwość podania linku zamiast uploadu
-5. **Automatyczne wykrywanie czasu video** - dla plików wideo
-6. **Usuwanie starych plików** - cleanup z VPS przy zamianie
+`src/hooks/useUserPresence.ts`
 
 ---
 
-## Przepływ po wdrożeniu
+## Podsumowanie zmian
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│              Admin wybiera plik 126MB+ w "Zdrowa Wiedza"    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   <MediaUpload /> komponent                 │
-│                                                             │
-│   1. Wybór pliku przez Input / URL / Biblioteka             │
-│   2. Sprawdzenie rozmiaru (≤2MB → Supabase, >2MB → VPS)     │
-│   3. Upload z paskiem postępu (Progress bar)                │
-│   4. Callback onMediaUploaded(url, type, alt, duration)     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  handleMediaUploaded()                      │
-│                                                             │
-│   setEditingMaterial({                                      │
-│     ...editingMaterial,                                     │
-│     media_url: url,         // https://purelife.info.pl/... │
-│     file_name: 'video.mp4',                                 │
-│     content_type: 'video',                                  │
-│   })                                                        │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              handleSave() → Zapis do bazy danych            │
-│                                                             │
-│   media_url: https://purelife.info.pl/uploads/...           │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Folder docelowy
-
-**UWAGA:** Komponent `<MediaUpload />` obecnie używa folderu `training-media`. 
-
-Dla Zdrowej Wiedzy można:
-- **Opcja A:** Użyć tego samego folderu `training-media` (prostsze)
-- **Opcja B:** Dodać prop `folder` do `<MediaUpload />` i użyć `healthy-knowledge`
-
-Rekomenduję Opcję A dla uproszczenia - pliki i tak są rozróżnialne po nazwie i timestampie.
-
----
-
-## Pliki do modyfikacji
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/HealthyKnowledgeManagement.tsx` | Import `MediaUpload`, nowy callback, zamiana UI |
+| Zmiana | Efekt |
+|--------|-------|
+| Timeout po `trackPresence()` | Widżet pokaże bieżącego użytkownika natychmiast po połączeniu |
+| Heartbeat co 30s | Użytkownicy nie znikną po 60s nieaktywności |
+| Nie throttlować pierwszej aktualizacji | Początkowy stan będzie poprawny |
+| Refresh listy co 15s | Statusy `isActive` będą aktualne |
 
 ---
 
 ## Sekcja techniczna
 
-### Szczegółowe zmiany w HealthyKnowledgeManagement.tsx
+### Szczegółowe zmiany w `src/hooks/useUserPresence.ts`
 
-**1. Import (dodać na górze):**
+**Zmiana 1 - Zmodyfikować throttling (linie 58-64):**
 ```typescript
-import { MediaUpload } from '@/components/MediaUpload';
-```
-
-**2. Usunąć funkcję `handleFileUpload` (linie 152-186)**
-
-**3. Usunąć zmienną stanu `uploading` (linia 55)** - MediaUpload ma własny stan
-
-**4. Dodać nową funkcję (po `handleEdit`):**
-```typescript
-const handleMediaUploaded = (url: string, type: string, altText?: string, durationSeconds?: number) => {
-  if (!editingMaterial) return;
+const updateUserList = () => {
+  if (!mountedRef.current) return;
   
-  setEditingMaterial({
-    ...editingMaterial,
-    media_url: url,
-    file_name: altText || url.split('/').pop() || 'uploaded_file',
-    file_size: null,
-  });
+  const now = Date.now();
+  // Allow first update, then throttle to 1/second
+  if (lastUpdateRef.current !== 0 && now - lastUpdateRef.current < 1000) return;
+  lastUpdateRef.current = now;
+  
+  // ... reszta bez zmian
 };
 ```
 
-**5. Zamienić sekcję File Upload (linie 733-798):**
-```tsx
-{/* File Upload - używamy MediaUpload jak w Akademii */}
-{editingMaterial.content_type !== 'text' && (
-  <div className="space-y-2">
-    <Label>Plik multimedialny</Label>
-    <MediaUpload
-      onMediaUploaded={handleMediaUploaded}
-      currentMediaUrl={editingMaterial.media_url || undefined}
-      currentMediaType={editingMaterial.content_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
-      allowedTypes={
-        editingMaterial.content_type === 'video' ? ['video'] :
-        editingMaterial.content_type === 'audio' ? ['audio'] :
-        editingMaterial.content_type === 'image' ? ['image'] :
-        editingMaterial.content_type === 'document' ? ['document'] :
-        ['video', 'audio', 'image', 'document']
+**Zmiana 2 - Dodać intervale w useEffect (po linii 139):**
+```typescript
+// Heartbeat - keep lastActivity fresh
+const heartbeatInterval = setInterval(() => {
+  if (isTabVisible && mountedRef.current && channelRef.current) {
+    trackPresence();
+  }
+}, 30000);
+
+// Periodic refresh to update isActive statuses
+const refreshInterval = setInterval(() => {
+  if (mountedRef.current) {
+    lastUpdateRef.current = 0; // Reset throttle for forced update
+    updateUserList();
+  }
+}, 15000);
+```
+
+**Zmiana 3 - Wywołać updateUserList po track w subscribe (linie 162-167):**
+```typescript
+if (status === 'SUBSCRIBED' && mountedRef.current) {
+  setIsConnected(true);
+  if (isTabVisible) {
+    await trackPresence();
+    // Force update after own track completes
+    setTimeout(() => {
+      if (mountedRef.current) {
+        lastUpdateRef.current = 0; // Reset throttle
+        updateUserList();
       }
-      maxSizeMB={2048}
-    />
-  </div>
-)}
+    }, 500);
+  }
+}
+```
+
+**Zmiana 4 - Cleanup intervalów (w return, przed linią 177):**
+```typescript
+clearInterval(heartbeatInterval);
+clearInterval(refreshInterval);
 ```
 
