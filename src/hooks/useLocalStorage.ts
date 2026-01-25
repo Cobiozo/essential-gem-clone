@@ -186,7 +186,13 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       };
     } catch (err) {
       // Przy błędzie VPS - dla małych plików już próbowaliśmy Supabase
-      const errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
+      let errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
+      
+      // Dodaj wskazówkę dla użytkownika
+      if (errorMsg.includes('VPS niedostępny') || errorMsg.includes('serwery niedostępne')) {
+        errorMsg += '\n\nSpróbuj ponownie za chwilę lub skontaktuj się z administratorem systemu.';
+      }
+      
       setError(errorMsg);
       setIsUploading(false);
       throw new Error(errorMsg);

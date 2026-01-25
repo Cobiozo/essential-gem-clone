@@ -53,6 +53,7 @@ import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagem
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
 import GoogleCalendarManagement from '@/components/admin/GoogleCalendarManagement';
 import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
+import { SupportTicketsManagement } from '@/components/admin/SupportTicketsManagement';
 import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
 import GuestRegistrationsManagement from '@/components/admin/GuestRegistrationsManagement';
@@ -4391,7 +4392,10 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="support">
-            <SupportSettingsManagement />
+            <div className="space-y-6">
+              <SupportTicketsManagement />
+              <SupportSettingsManagement />
+            </div>
           </TabsContent>
 
           <TabsContent value="dashboard-footer">

@@ -355,7 +355,7 @@ export default function KnowledgeCenter() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header siteLogo={siteLogo} />
+      <Header siteLogo={siteLogo} hideLanguageSelector />
       
       <main className="container mx-auto px-4 py-8 pt-24">
         {/* Header */}
