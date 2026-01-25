@@ -359,7 +359,7 @@ const TrainingManagement = () => {
         if (error) throw error;
         toast({ title: t('admin.training.success'), description: t('admin.training.lessonCreated') });
         
-        // Send notifications to users with certificates for this module
+        // Send notifications to ALL users with progress in this module
         try {
           // Get module title
           const { data: moduleData } = await supabase
@@ -370,34 +370,49 @@ const TrainingManagement = () => {
           
           const moduleTitle = moduleData?.title || 'szkolenia';
           
-          // Get users with certificates for this module
+          // 1. Get users WITH certificates for this module
           const { data: certifiedUsers } = await supabase
             .from('certificates')
             .select('user_id')
             .eq('module_id', selectedModule);
           
-          if (certifiedUsers && certifiedUsers.length > 0) {
-            // Remove duplicate user_ids
-            const uniqueUserIds = [...new Set(certifiedUsers.map(c => c.user_id))];
-            
-            // Send notifications
-            const notifications = uniqueUserIds.map(userId => ({
-              user_id: userId,
-              notification_type: 'training_new_lessons',
-              source_module: 'training',
-              title: 'Nowe materiały szkoleniowe',
-              message: `Do modułu ${moduleTitle} została dodana nowa lekcja: "${lessonData.title}". Twój certyfikat pozostaje ważny, ale zachęcamy do zapoznania się z nowymi materiałami.`,
-              link: `/training/${selectedModule}`,
-              metadata: {
-                module_id: selectedModule,
-                module_title: moduleTitle,
-                lesson_title: lessonData.title,
-                certificate_valid: true
-              }
-            }));
+          const certifiedUserIds = new Set(certifiedUsers?.map(c => c.user_id) || []);
+          
+          // 2. Get ALL users with progress in this module (completed at least one lesson)
+          const { data: usersWithProgress } = await supabase
+            .from('training_progress')
+            .select('user_id, lesson_id, training_lessons!inner(module_id)')
+            .eq('training_lessons.module_id', selectedModule)
+            .eq('is_completed', true);
+          
+          const allUserIds = [...new Set(usersWithProgress?.map(p => p.user_id) || [])];
+          
+          if (allUserIds.length > 0) {
+            // Send personalized notifications based on certificate status
+            const notifications = allUserIds.map(userId => {
+              const hasCertificate = certifiedUserIds.has(userId);
+              
+              return {
+                user_id: userId,
+                notification_type: 'training_new_lessons',
+                source_module: 'training',
+                title: 'Nowe materiały szkoleniowe',
+                message: hasCertificate
+                  ? `Do modułu ${moduleTitle} została dodana nowa lekcja: "${lessonData.title}". Twój certyfikat pozostaje ważny, ale zachęcamy do zapoznania się z nowymi materiałami.`
+                  : `Do modułu ${moduleTitle} została dodana nowa lekcja: "${lessonData.title}". Ukończ wszystkie lekcje aby uzyskać certyfikat.`,
+                link: `/training/${selectedModule}`,
+                metadata: {
+                  module_id: selectedModule,
+                  module_title: moduleTitle,
+                  lesson_title: lessonData.title,
+                  certificate_valid: hasCertificate,
+                  has_certificate: hasCertificate
+                }
+              };
+            });
             
             await supabase.from('user_notifications').insert(notifications);
-            console.log(`📧 Sent ${uniqueUserIds.length} notifications about new lesson to certified users`);
+            console.log(`📧 Sent ${allUserIds.length} notifications (${certifiedUserIds.size} certified, ${allUserIds.length - certifiedUserIds.size} in progress)`);
           }
         } catch (notificationError) {
           console.error('Error sending new lesson notifications:', notificationError);
