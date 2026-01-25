@@ -55,7 +55,7 @@ export const useOnboardingTour = (): UseOnboardingTourReturn => {
         await supabase
           .from('profiles')
           .update({ tutorial_shown_once: true })
-          .eq('id', user.id);
+          .eq('user_id', user.id);
       }
     };
 
@@ -91,7 +91,7 @@ export const useOnboardingTour = (): UseOnboardingTourReturn => {
           tutorial_skipped: true,
           tutorial_completed_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
     }
   }, [user]);
 
@@ -123,7 +123,7 @@ export const useOnboardingTour = (): UseOnboardingTourReturn => {
           tutorial_completed: true,
           tutorial_completed_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
     }
   }, [user]);
 
@@ -143,7 +143,7 @@ export const useOnboardingTour = (): UseOnboardingTourReturn => {
           tutorial_skipped: false,
           tutorial_completed_at: null,
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
     }
 
     setShowCompletionDialog(false);
