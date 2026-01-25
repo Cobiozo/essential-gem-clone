@@ -182,19 +182,24 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     if (!selectedPartner) return;
 
     try {
-      // Get weekly schedule for this partner
+      // Map meeting type to availability meeting_type
+      const availabilityMeetingType = meetingType === 'tripartite' ? 'tripartite' : 'consultation';
+      
+      // Get weekly schedule for this partner filtered by meeting type
       const { data: weeklySchedule } = await supabase
         .from('leader_availability')
-        .select('day_of_week')
+        .select('day_of_week, meeting_type')
         .eq('leader_user_id', selectedPartner.user_id)
         .not('day_of_week', 'is', null)
+        .in('meeting_type', [availabilityMeetingType, 'both'])
         .eq('is_active', true);
 
-      // Get date exceptions (blocked dates)
+      // Get date exceptions (blocked dates) filtered by meeting type
       const { data: exceptions } = await supabase
         .from('leader_availability_exceptions')
-        .select('exception_date')
-        .eq('leader_user_id', selectedPartner.user_id);
+        .select('exception_date, meeting_type')
+        .eq('leader_user_id', selectedPartner.user_id)
+        .in('meeting_type', [availabilityMeetingType, 'both']);
 
       const activeDays = new Set(weeklySchedule?.map(s => s.day_of_week) || []);
       const blockedDates = new Set(exceptions?.map(e => e.exception_date) || []);
@@ -248,13 +253,17 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const dayOfWeek = getDay(selectedDate);
       const partnerId = selectedPartner.user_id;
 
+      // Map meeting type to availability meeting_type
+      const availabilityMeetingType = meetingType === 'tripartite' ? 'tripartite' : 'consultation';
+      
       // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + Google token + leader permissions
       const [weeklyResult, meetingsResult, blockingResult, tokenResult, permissionsResult] = await Promise.all([
         supabase
           .from('leader_availability')
-          .select('start_time, end_time, slot_duration_minutes, timezone')
+          .select('start_time, end_time, slot_duration_minutes, timezone, meeting_type')
           .eq('leader_user_id', partnerId)
           .eq('day_of_week', dayOfWeek)
+          .in('meeting_type', [availabilityMeetingType, 'both'])
           .eq('is_active', true),
         supabase
           .from('events')
