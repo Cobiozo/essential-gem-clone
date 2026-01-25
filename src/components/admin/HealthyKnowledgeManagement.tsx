@@ -14,12 +14,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
-  Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, Upload, 
+  Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, 
   Loader2, FileText, Play, Image, Music, Type, Share2, 
   Star, StarOff, MoreHorizontal, RefreshCw, BarChart3
 } from 'lucide-react';
 import HkStatisticsPanel from './HkStatisticsPanel';
 import { cn } from '@/lib/utils';
+import { MediaUpload } from '@/components/MediaUpload';
 import { 
   HealthyKnowledge, 
   HkOtpCode,
@@ -52,7 +53,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Partial<HealthyKnowledge> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   
   // OTP codes tab state
   const [otpCodes, setOtpCodes] = useState<HkOtpCode[]>([]);
@@ -149,40 +150,15 @@ const HealthyKnowledgeManagement: React.FC = () => {
     setEditDialogOpen(true);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !editingMaterial) return;
-
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-      const filePath = `materials/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('healthy-knowledge')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('healthy-knowledge')
-        .getPublicUrl(filePath);
-
-      setEditingMaterial({
-        ...editingMaterial,
-        media_url: urlData.publicUrl,
-        file_name: file.name,
-        file_size: file.size,
-      });
-
-      toast.success('Plik przesłany');
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      toast.error('Nie udało się przesłać pliku');
-    } finally {
-      setUploading(false);
-    }
+  const handleMediaUploaded = (url: string, type: string, altText?: string, durationSeconds?: number) => {
+    if (!editingMaterial) return;
+    
+    setEditingMaterial({
+      ...editingMaterial,
+      media_url: url,
+      file_name: altText || url.split('/').pop() || 'uploaded_file',
+      file_size: null,
+    });
   };
 
   const handleSave = async () => {
@@ -668,7 +644,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                           return;
                         }
                         
-                        setUploading(true);
+                        setUploadingThumbnail(true);
                         try {
                           const fileName = `thumbnails/${Date.now()}-${file.name}`;
                           const { data, error } = await supabase.storage
@@ -691,13 +667,13 @@ const HealthyKnowledgeManagement: React.FC = () => {
                           console.error('Thumbnail upload error:', error);
                           toast.error('Błąd przesyłania okładki');
                         } finally {
-                          setUploading(false);
+                          setUploadingThumbnail(false);
                         }
                       }}
-                      disabled={uploading}
+                      disabled={uploadingThumbnail}
                       accept="image/*"
                     />
-                    {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {uploadingThumbnail && <Loader2 className="w-4 h-4 animate-spin" />}
                   </div>
                   
                   {editingMaterial.thumbnail_url && (
@@ -730,70 +706,23 @@ const HealthyKnowledgeManagement: React.FC = () => {
                   </p>
                 </div>
 
-                {/* File Upload */}
+                {/* File Upload - używamy MediaUpload jak w Akademii */}
                 {editingMaterial.content_type !== 'text' && (
                   <div className="space-y-2">
-                    <Label>Plik</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                        accept={
-                          editingMaterial.content_type === 'video' ? 'video/*' :
-                          editingMaterial.content_type === 'audio' ? 'audio/*' :
-                          editingMaterial.content_type === 'image' ? 'image/*' :
-                          '.pdf,.doc,.docx'
-                        }
-                      />
-                      {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    </div>
-                    
-                    {/* File Preview */}
-                    {editingMaterial.media_url && (
-                      <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-                        {/* Thumbnail */}
-                        {editingMaterial.content_type === 'image' ? (
-                          <img 
-                            src={editingMaterial.media_url} 
-                            alt="Podgląd" 
-                            className="w-20 h-20 object-cover rounded-lg border shadow-sm"
-                          />
-                        ) : editingMaterial.content_type === 'video' ? (
-                          <div className="w-20 h-20 bg-blue-500/10 rounded-lg border flex items-center justify-center">
-                            <Play className="w-8 h-8 text-blue-500" />
-                          </div>
-                        ) : (
-                          <div className="w-20 h-20 bg-muted rounded-lg border flex items-center justify-center">
-                            <ContentTypeIcon type={editingMaterial.content_type} className="w-8 h-8 text-muted-foreground" />
-                          </div>
-                        )}
-                        
-                        {/* File info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{editingMaterial.file_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {editingMaterial.file_size ? `${(editingMaterial.file_size / 1024).toFixed(1)} KB` : 'Plik przesłany'}
-                          </p>
-                        </div>
-                        
-                        {/* Remove button */}
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          type="button"
-                          onClick={() => setEditingMaterial({
-                            ...editingMaterial,
-                            media_url: null,
-                            file_name: null,
-                            file_size: null,
-                          })}
-                          title="Usuń plik"
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    )}
+                    <Label>Plik multimedialny</Label>
+                    <MediaUpload
+                      onMediaUploaded={handleMediaUploaded}
+                      currentMediaUrl={editingMaterial.media_url || undefined}
+                      currentMediaType={editingMaterial.content_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+                      allowedTypes={
+                        editingMaterial.content_type === 'video' ? ['video'] :
+                        editingMaterial.content_type === 'audio' ? ['audio'] :
+                        editingMaterial.content_type === 'image' ? ['image'] :
+                        editingMaterial.content_type === 'document' ? ['document'] :
+                        ['video', 'audio', 'image', 'document']
+                      }
+                      maxSizeMB={2048}
+                    />
                   </div>
                 )}
 
