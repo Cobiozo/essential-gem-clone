@@ -544,25 +544,27 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Meeting Type Cards - only for internal mode */}
+        {/* Meeting Type Cards - two column layout for internal mode */}
         {bookingMode === 'internal' && (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <MeetingTypeCard
               type="tripartite"
               title="Spotkanie trójstronne"
-              icon={<Users className="h-5 w-5" />}
+              icon={<Users className="h-4 w-4" />}
               colorClass="text-violet-500"
               settings={tripartiteSettings}
               onSettingsChange={setTripartiteSettings}
+              compact
             />
             
             <MeetingTypeCard
               type="consultation"
               title="Konsultacje dla partnerów"
-              icon={<UserRound className="h-5 w-5" />}
+              icon={<UserRound className="h-4 w-4" />}
               colorClass="text-fuchsia-500"
               settings={consultationSettings}
               onSettingsChange={setConsultationSettings}
+              compact
             />
           </div>
         )}
