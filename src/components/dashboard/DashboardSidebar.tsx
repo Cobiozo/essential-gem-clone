@@ -603,12 +603,11 @@ export const DashboardSidebar: React.FC = () => {
                   </CollapsibleContent>
                 </Collapsible>
               ) : (
-                <Tooltip delayDuration={2000}>
+              <Tooltip delayDuration={3000}>
                   <TooltipTrigger asChild>
                     <SidebarMenuButton
                       onClick={() => handleMenuClick(item)}
                       isActive={isActive(item)}
-                      tooltip={t(item.labelKey)}
                       className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
                     >
                       <item.icon className="h-4 w-4" />
@@ -616,7 +615,7 @@ export const DashboardSidebar: React.FC = () => {
                     </SidebarMenuButton>
                   </TooltipTrigger>
                   {menuTooltipDescriptions[item.id] && (
-                    <TooltipContent side="right" className="max-w-xs">
+                    <TooltipContent side="right" className="max-w-xs text-xs">
                       {menuTooltipDescriptions[item.id]}
                     </TooltipContent>
                   )}
