@@ -358,6 +358,51 @@ const TrainingManagement = () => {
         
         if (error) throw error;
         toast({ title: t('admin.training.success'), description: t('admin.training.lessonCreated') });
+        
+        // Send notifications to users with certificates for this module
+        try {
+          // Get module title
+          const { data: moduleData } = await supabase
+            .from('training_modules')
+            .select('title')
+            .eq('id', selectedModule)
+            .single();
+          
+          const moduleTitle = moduleData?.title || 'szkolenia';
+          
+          // Get users with certificates for this module
+          const { data: certifiedUsers } = await supabase
+            .from('certificates')
+            .select('user_id')
+            .eq('module_id', selectedModule);
+          
+          if (certifiedUsers && certifiedUsers.length > 0) {
+            // Remove duplicate user_ids
+            const uniqueUserIds = [...new Set(certifiedUsers.map(c => c.user_id))];
+            
+            // Send notifications
+            const notifications = uniqueUserIds.map(userId => ({
+              user_id: userId,
+              notification_type: 'training_new_lessons',
+              source_module: 'training',
+              title: 'Nowe materiały szkoleniowe',
+              message: `Do modułu ${moduleTitle} została dodana nowa lekcja: "${lessonData.title}". Twój certyfikat pozostaje ważny, ale zachęcamy do zapoznania się z nowymi materiałami.`,
+              link: `/training/${selectedModule}`,
+              metadata: {
+                module_id: selectedModule,
+                module_title: moduleTitle,
+                lesson_title: lessonData.title,
+                certificate_valid: true
+              }
+            }));
+            
+            await supabase.from('user_notifications').insert(notifications);
+            console.log(`📧 Sent ${uniqueUserIds.length} notifications about new lesson to certified users`);
+          }
+        } catch (notificationError) {
+          console.error('Error sending new lesson notifications:', notificationError);
+          // Don't fail the lesson creation if notifications fail
+        }
       }
 
       await fetchLessons(selectedModule);
