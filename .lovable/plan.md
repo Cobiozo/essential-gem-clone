@@ -1,252 +1,255 @@
 
 
-# Audyt NPROC - Analiza Wycieków Procesów
+# Plan: Ujednolicenie uploadu w module "Zdrowa Wiedza"
 
-## Podsumowanie Wykonawcze
+## Cel
 
-Przeprowadziłem dogłębny audyt całej aplikacji pod kątem niezamykanych procesów, które mogą powodować akumulację NPROC na hostingu Cyber-Folks. Zidentyfikowałem **3 kategorie problemów**:
-
----
-
-## 1. KRYTYCZNE: Wycieki połączeń SMTP w Edge Functions
-
-### Problem
-Większość funkcji wysyłających emaile tworzy połączenia TCP/TLS przez `Deno.connect()` lub `Deno.connectTls()`, ale **nie zamyka ich w przypadku błędu**. Gdy wystąpi błąd podczas handshake SMTP (np. błąd autentykacji, timeout), połączenie pozostaje otwarte aż do naturalnego wygaśnięcia.
-
-### Dotknięte funkcje (12 plików)
-
-| Funkcja | Status | Problem |
-|---------|--------|---------|
-| `send-welcome-email` | ❌ BRAK finally | Błąd = wyciek |
-| `send-approval-email` | ❌ BRAK finally | Błąd = wyciek |
-| `send-training-notification` | ❌ BRAK finally | Błąd = wyciek |
-| `send-training-reminder` | ❌ BRAK finally | Błąd = wyciek |
-| `send-password-reset` | ❌ BRAK finally | Błąd = wyciek |
-| `send-activation-email` | ❌ BRAK finally | Błąd = wyciek |
-| `send-single-email` | ❌ BRAK finally | Błąd = wyciek |
-| `send-webinar-email` | ❌ BRAK finally | Błąd = wyciek |
-| `send-webinar-confirmation` | ❌ BRAK finally | Błąd = wyciek |
-| `send-maintenance-bypass-email` | ❌ BRAK finally | Błąd = wyciek |
-| `admin-reset-password` | ❌ BRAK finally | Błąd = wyciek |
-| `send-meeting-reminders` | ⚠️ catch cleanup | Częściowo OK |
-
-### Poprawnie zaimplementowane (wzorzec do naśladowania)
-
-| Funkcja | Status | Wzorzec |
-|---------|--------|---------|
-| `send-certificate-email` | ✅ finally | `finally { conn?.close() }` |
-| `send-group-email` | ✅ finally | `finally { conn?.close() }` |
-| `send-support-email` | ✅ finally | `finally { conn?.close() }` |
-| `send-notification-email` | ✅ catch | `catch { conn?.close() }` |
-
-### Rozwiązanie
-
-Dla każdej funkcji z kategorii "BRAK finally" należy dodać blok `finally`:
-
-```typescript
-// PRZED (problematyczny kod):
-async function sendSmtpEmail(...) {
-  let conn: Deno.Conn | null = null;
-  try {
-    conn = await Deno.connectTls({ ... });
-    // ... operacje SMTP
-    conn.close();
-    return { success: true };
-  } catch (error) {
-    console.error('[SMTP] Error:', error);
-    throw error; // ❌ conn NIE jest zamknięte!
-  }
-}
-
-// PO (poprawiony kod):
-async function sendSmtpEmail(...) {
-  let conn: Deno.Conn | null = null;
-  try {
-    conn = await Deno.connectTls({ ... });
-    // ... operacje SMTP
-    return { success: true };
-  } catch (error) {
-    console.error('[SMTP] Error:', error);
-    return { success: false, error: error.message };
-  } finally {
-    // ✅ ZAWSZE zamykaj połączenie
-    if (conn) {
-      try { conn.close(); } catch {}
-    }
-  }
-}
-```
+Zamienić prostą implementację uploadu w `HealthyKnowledgeManagement.tsx` (Supabase ~50MB limit) na komponent `<MediaUpload />` używany w Akademii (VPS do 2GB).
 
 ---
 
-## 2. ŚREDNIE: Potencjalne problemy z EdgeRuntime.waitUntil
+## Porównanie: Akademia vs Zdrowa Wiedza
 
-### Problem
-Funkcja `background-translate` używa `EdgeRuntime.waitUntil()` do uruchamiania długotrwałych zadań tłumaczeniowych. Jeśli zadanie trwa dłużej niż oczekiwano lub zawiesza się, może utrzymywać procesy.
+| Aspekt | Akademia (TrainingManagement) | Zdrowa Wiedza (obecna) |
+|--------|-------------------------------|------------------------|
+| Komponent | `<MediaUpload />` | Prosty `<Input type="file">` |
+| Hook | `useLocalStorage` | `supabase.storage.upload()` |
+| Limit | **2GB** (VPS) | **~50MB** (Supabase) |
+| Pasek postępu | ✅ Tak | ❌ Tylko spinner |
+| Biblioteka plików | ✅ Tak | ❌ Brak |
+| Wykrywanie czasu video | ✅ Automatyczne | ❌ Brak |
+| Podanie URL | ✅ Tak | ❌ Brak |
 
-### Lokalizacja
-- `supabase/functions/background-translate/index.ts:65`
+---
 
-### Rozwiązanie
-Funkcja już ma timeout 25s (`MAX_EXECUTION_TIME`), ale warto dodać globalny timeout na poziomie `waitUntil`:
+## Lokalizacja problemu
 
+**Plik:** `src/components/admin/HealthyKnowledgeManagement.tsx`
+
+**Linie 152-186** - funkcja `handleFileUpload`:
 ```typescript
-// Dodać timeout wrapper
-const withGlobalTimeout = (fn: () => Promise<void>, ms: number) => {
-  return Promise.race([
-    fn(),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Global timeout')), ms)
-    )
-  ]).catch(console.error);
+// OBECNA IMPLEMENTACJA (problemowa)
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !editingMaterial) return;
+
+  setUploading(true);
+  try {
+    // ❌ Bezpośredni upload do Supabase Storage - limit ~50MB
+    const { error: uploadError } = await supabase.storage
+      .from('healthy-knowledge')
+      .upload(filePath, file);
+    // ...
+  }
 };
+```
 
-EdgeRuntime.waitUntil(withGlobalTimeout(
-  () => processTranslationJob(jobId), 
-  55000 // 55 seconds max
-));
+**Linie 733-798** - UI uploadu:
+```typescript
+// OBECNY UI (prosty)
+<Input
+  type="file"
+  onChange={handleFileUpload}
+  disabled={uploading}
+  accept={...}
+/>
+{uploading && <Loader2 className="w-4 h-4 animate-spin" />}
 ```
 
 ---
 
-## 3. NISKIE: Frontend polling i Realtime
+## Rozwiązanie
 
-### Status: POPRAWNIE ZAIMPLEMENTOWANE ✅
-
-Frontend aplikacji ma już wdrożone wszystkie niezbędne mechanizmy cleanup:
-
-**Globalne czyszczenie kanałów:**
-- `src/App.tsx:226-231` - usuwa wszystkie kanały przy zamknięciu okna
-- `src/contexts/AuthContext.tsx:298-305` - usuwa kanały przed wylogowaniem
-
-**Timeouty i intervaly:**
-- `useNotifications.ts` - poprawny cleanup intervalu pollingu
-- `useUserPresence.ts` - poprawny cleanup retry timeout
-- `useTranslationJobs.ts` - MAX_POLLING_DURATION (30 min)
-- `useInactivityTimeout.ts` - cleanup 6 event listeners + 3 timery
-
-**Kanały Realtime:**
-- Wszystkie komponenty poprawnie wywołują `supabase.removeChannel()` w cleanup `useEffect`
+Zastąpić prostą implementację komponentem `<MediaUpload />` identycznym jak w Akademii.
 
 ---
 
-## 4. DODATKOWE: Cron Jobs i Overlapping Executions
+## Plan zmian
 
-### Obecne zabezpieczenia ✅
-- `process-pending-notifications` ma mechanizm `running job detection`
-- `cron_job_logs` śledzi status zadań
-- `cron_settings` kontroluje interwały
+### Krok 1: Usunięcie funkcji `handleFileUpload` (linie 152-186)
 
-### Potencjalny problem
-Gdy cron uruchamia się co 15 minut (`send-meeting-reminders`) i wywołuje wiele emaili sekwencyjnie, każdy błąd SMTP = niezamknięty proces.
+Funkcja nie będzie już potrzebna - `<MediaUpload />` obsługuje upload wewnętrznie.
 
----
-
-## Plan Naprawy
-
-### Faza 1: Krytyczne naprawy SMTP (Natychmiastowe)
-
-Zaktualizować 11 funkcji Edge Functions, dodając blok `finally` do funkcji `sendSmtpEmail`:
-
-1. `supabase/functions/send-welcome-email/index.ts`
-2. `supabase/functions/send-approval-email/index.ts`
-3. `supabase/functions/send-training-notification/index.ts`
-4. `supabase/functions/send-training-reminder/index.ts`
-5. `supabase/functions/send-password-reset/index.ts`
-6. `supabase/functions/send-activation-email/index.ts`
-7. `supabase/functions/send-single-email/index.ts`
-8. `supabase/functions/send-webinar-email/index.ts`
-9. `supabase/functions/send-webinar-confirmation/index.ts`
-10. `supabase/functions/send-maintenance-bypass-email/index.ts`
-11. `supabase/functions/admin-reset-password/index.ts`
-
-### Faza 2: Optymalizacja background-translate
-
-Dodać globalny timeout wrapper dla `EdgeRuntime.waitUntil()`.
-
-### Faza 3: Monitoring (Opcjonalne)
-
-Dodać endpoint `/health` lub tabelę `edge_function_metrics` do śledzenia:
-- Liczba aktywnych połączeń SMTP
-- Czas wykonania funkcji
-- Liczba błędów
-
----
-
-## Szacowany wpływ
-
-| Zmiana | Redukcja NPROC |
-|--------|----------------|
-| Naprawa SMTP finally | ~60-80% |
-| Timeout background-translate | ~5-10% |
-| Frontend już OK | 0% (już działa) |
-
----
-
-## Szczegóły techniczne
-
-### Wzorzec do zastosowania we wszystkich funkcjach SMTP
+### Krok 2: Dodanie callbacka `handleMediaUploaded` (wzorzec z Akademii)
 
 ```typescript
-async function sendSmtpEmail(
-  settings: SmtpSettings,
-  to: string,
-  subject: string,
-  htmlBody: string
-): Promise<{ success: boolean; error?: string }> {
-  let conn: Deno.Conn | null = null;
+const handleMediaUploaded = (url: string, type: string, altText?: string, durationSeconds?: number) => {
+  if (!editingMaterial) return;
   
-  try {
-    // Połączenie
-    if (settings.encryption === 'ssl') {
-      conn = await withTimeout(
-        Deno.connectTls({ hostname: settings.host, port: settings.port }),
-        30000
-      );
-    } else {
-      conn = await withTimeout(
-        Deno.connect({ hostname: settings.host, port: settings.port }),
-        30000
-      );
-    }
-
-    // ... operacje SMTP (EHLO, AUTH, MAIL FROM, RCPT TO, DATA)
-    
-    await sendCommand('QUIT');
-    return { success: true };
-    
-  } catch (error) {
-    console.error('[SMTP] Error:', error);
-    return { success: false, error: error.message };
-  } finally {
-    // KLUCZOWE: Zawsze zamknij połączenie
-    if (conn) {
-      try { 
-        conn.close(); 
-      } catch (closeError) {
-        console.warn('[SMTP] Error closing connection:', closeError);
-      }
-    }
-  }
-}
+  setEditingMaterial({
+    ...editingMaterial,
+    media_url: url,
+    file_name: altText || url.split('/').pop() || 'file',
+    file_size: null, // MediaUpload nie zwraca rozmiaru, ale mamy URL
+    content_type: type as any,
+  });
+};
 ```
 
-### Pliki do modyfikacji
+### Krok 3: Import komponentu MediaUpload
 
-Każdy plik wymaga zmiany struktury try/catch na try/catch/finally w funkcji `sendSmtpEmail`:
+```typescript
+import { MediaUpload } from '@/components/MediaUpload';
+```
+
+### Krok 4: Zamiana UI uploadu (linie 733-798)
+
+**PRZED:**
+```tsx
+<div className="space-y-2">
+  <Label>Plik</Label>
+  <div className="flex items-center gap-2">
+    <Input
+      type="file"
+      onChange={handleFileUpload}
+      disabled={uploading}
+      accept={...}
+    />
+    {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+  </div>
+  {/* Preview code... */}
+</div>
+```
+
+**PO:**
+```tsx
+<div className="space-y-2">
+  <Label>Plik</Label>
+  <MediaUpload
+    onMediaUploaded={handleMediaUploaded}
+    currentMediaUrl={editingMaterial.media_url || undefined}
+    currentMediaType={editingMaterial.content_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+    allowedTypes={
+      editingMaterial.content_type === 'video' ? ['video'] :
+      editingMaterial.content_type === 'audio' ? ['audio'] :
+      editingMaterial.content_type === 'image' ? ['image'] :
+      editingMaterial.content_type === 'document' ? ['document'] :
+      ['video', 'audio', 'image', 'document']
+    }
+    maxSizeMB={2048}
+  />
+</div>
+```
+
+---
+
+## Korzyści po wdrożeniu
+
+1. **Pliki do 2GB** - pełna zgodność z Akademią
+2. **Rzeczywisty pasek postępu** - widoczny procent uploadu
+3. **Biblioteka plików** - dostęp do wcześniej przesłanych plików
+4. **URL zewnętrzny** - możliwość podania linku zamiast uploadu
+5. **Automatyczne wykrywanie czasu video** - dla plików wideo
+6. **Usuwanie starych plików** - cleanup z VPS przy zamianie
+
+---
+
+## Przepływ po wdrożeniu
 
 ```text
-supabase/functions/
-├── send-welcome-email/index.ts         (linie ~59-189)
-├── send-approval-email/index.ts        (linie ~61-145)
-├── send-training-notification/index.ts (linie ~60-140)
-├── send-training-reminder/index.ts     (linie ~60-140)
-├── send-password-reset/index.ts        (linie ~57-160)
-├── send-activation-email/index.ts      (linie ~65-165)
-├── send-single-email/index.ts          (linie ~62-160)
-├── send-webinar-email/index.ts         (linie ~86-180)
-├── send-webinar-confirmation/index.ts  (linie ~64-158)
-├── send-maintenance-bypass-email/index.ts (linie ~77-151)
-└── admin-reset-password/index.ts       (linie ~60-140)
+┌─────────────────────────────────────────────────────────────┐
+│              Admin wybiera plik 126MB+ w "Zdrowa Wiedza"    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   <MediaUpload /> komponent                 │
+│                                                             │
+│   1. Wybór pliku przez Input / URL / Biblioteka             │
+│   2. Sprawdzenie rozmiaru (≤2MB → Supabase, >2MB → VPS)     │
+│   3. Upload z paskiem postępu (Progress bar)                │
+│   4. Callback onMediaUploaded(url, type, alt, duration)     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  handleMediaUploaded()                      │
+│                                                             │
+│   setEditingMaterial({                                      │
+│     ...editingMaterial,                                     │
+│     media_url: url,         // https://purelife.info.pl/... │
+│     file_name: 'video.mp4',                                 │
+│     content_type: 'video',                                  │
+│   })                                                        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│              handleSave() → Zapis do bazy danych            │
+│                                                             │
+│   media_url: https://purelife.info.pl/uploads/...           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Folder docelowy
+
+**UWAGA:** Komponent `<MediaUpload />` obecnie używa folderu `training-media`. 
+
+Dla Zdrowej Wiedzy można:
+- **Opcja A:** Użyć tego samego folderu `training-media` (prostsze)
+- **Opcja B:** Dodać prop `folder` do `<MediaUpload />` i użyć `healthy-knowledge`
+
+Rekomenduję Opcję A dla uproszczenia - pliki i tak są rozróżnialne po nazwie i timestampie.
+
+---
+
+## Pliki do modyfikacji
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/HealthyKnowledgeManagement.tsx` | Import `MediaUpload`, nowy callback, zamiana UI |
+
+---
+
+## Sekcja techniczna
+
+### Szczegółowe zmiany w HealthyKnowledgeManagement.tsx
+
+**1. Import (dodać na górze):**
+```typescript
+import { MediaUpload } from '@/components/MediaUpload';
+```
+
+**2. Usunąć funkcję `handleFileUpload` (linie 152-186)**
+
+**3. Usunąć zmienną stanu `uploading` (linia 55)** - MediaUpload ma własny stan
+
+**4. Dodać nową funkcję (po `handleEdit`):**
+```typescript
+const handleMediaUploaded = (url: string, type: string, altText?: string, durationSeconds?: number) => {
+  if (!editingMaterial) return;
+  
+  setEditingMaterial({
+    ...editingMaterial,
+    media_url: url,
+    file_name: altText || url.split('/').pop() || 'uploaded_file',
+    file_size: null,
+  });
+};
+```
+
+**5. Zamienić sekcję File Upload (linie 733-798):**
+```tsx
+{/* File Upload - używamy MediaUpload jak w Akademii */}
+{editingMaterial.content_type !== 'text' && (
+  <div className="space-y-2">
+    <Label>Plik multimedialny</Label>
+    <MediaUpload
+      onMediaUploaded={handleMediaUploaded}
+      currentMediaUrl={editingMaterial.media_url || undefined}
+      currentMediaType={editingMaterial.content_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+      allowedTypes={
+        editingMaterial.content_type === 'video' ? ['video'] :
+        editingMaterial.content_type === 'audio' ? ['audio'] :
+        editingMaterial.content_type === 'image' ? ['image'] :
+        editingMaterial.content_type === 'document' ? ['document'] :
+        ['video', 'audio', 'image', 'document']
+      }
+      maxSizeMB={2048}
+    />
+  </div>
+)}
 ```
 
