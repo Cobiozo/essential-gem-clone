@@ -248,8 +248,8 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const dayOfWeek = getDay(selectedDate);
       const partnerId = selectedPartner.user_id;
 
-      // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + Google token check
-      const [weeklyResult, meetingsResult, blockingResult, tokenResult] = await Promise.all([
+      // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + Google token + leader permissions
+      const [weeklyResult, meetingsResult, blockingResult, tokenResult, permissionsResult] = await Promise.all([
         supabase
           .from('leader_availability')
           .select('start_time, end_time, slot_duration_minutes, timezone')
@@ -258,7 +258,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           .eq('is_active', true),
         supabase
           .from('events')
-          .select('start_time')
+          .select('start_time, end_time, event_type')
           .eq('host_user_id', partnerId)
           .in('event_type', ['tripartite_meeting', 'partner_consultation'])
           .gte('start_time', `${dateStr}T00:00:00`)
@@ -276,6 +276,11 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           .select('id')
           .eq('user_id', partnerId)
           .maybeSingle(),
+        supabase
+          .from('leader_permissions')
+          .select('tripartite_slot_duration, consultation_slot_duration')
+          .eq('user_id', partnerId)
+          .maybeSingle(),
       ]);
 
       const weeklyRanges = weeklyResult.data;
@@ -287,7 +292,12 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       const partnerTimezone = weeklyRanges[0]?.timezone || 'Europe/Warsaw';
       setLeaderTimezone(partnerTimezone);
-      const slotDuration = weeklyRanges[0]?.slot_duration_minutes || 60;
+      
+      // Use separate slot duration for each meeting type
+      const permissions = permissionsResult.data;
+      const slotDuration = meetingType === 'tripartite'
+        ? (permissions?.tripartite_slot_duration || weeklyRanges[0]?.slot_duration_minutes || 60)
+        : (permissions?.consultation_slot_duration || weeklyRanges[0]?.slot_duration_minutes || 60);
 
       // 2. Generate all possible slots from ranges
       let allSlots: string[] = [];
@@ -303,10 +313,21 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Remove duplicates and sort
       allSlots = [...new Set(allSlots)].sort();
 
-      // 3. Process booked times
-      const bookedTimes = new Set(
-        meetingsResult.data?.map(e => format(new Date(e.start_time), 'HH:mm')) || []
-      );
+      // 3. Process booked meetings with overlap checking
+      const bookedMeetings = meetingsResult.data || [];
+      
+      const isSlotBlockedByExistingMeeting = (slotTime: string): boolean => {
+        const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+        const slotEnd = addMinutes(slotStart, slotDuration);
+        
+        return bookedMeetings.some(meeting => {
+          const meetingStart = new Date(meeting.start_time);
+          const meetingEnd = new Date(meeting.end_time);
+          
+          // Overlap: slotStart < meetingEnd AND slotEnd > meetingStart
+          return slotStart < meetingEnd && slotEnd > meetingStart;
+        });
+      };
 
       // 4. Calculate blocked times from platform events
       const blockedByPlatform = new Set<string>();
@@ -362,7 +383,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const availableSlotsList: AvailableSlot[] = allSlots
         .filter(slotTime => {
           if (dateStr === today && slotTime <= currentTime) return false;
-          if (bookedTimes.has(slotTime)) return false;
+          if (isSlotBlockedByExistingMeeting(slotTime)) return false;
           if (blockedByPlatform.has(slotTime)) return false;
           if (googleBusySlots.has(slotTime)) return false;
           return true;
@@ -392,7 +413,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     } finally {
       setLoadingSlots(false);
     }
-  }, [selectedPartner?.user_id, selectedDate, userTimezone, generateSlotsFromRange]);
+  }, [selectedPartner?.user_id, selectedDate, userTimezone, generateSlotsFromRange, meetingType]);
 
   // Load available time slots when date is selected
   useEffect(() => {
