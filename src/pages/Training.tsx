@@ -53,12 +53,11 @@ const Training = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      let certMap: {[key: string]: {id: string, url: string}} = {};
       
       if (user) {
-        certMap = await fetchCertificates();
+        const certMap = await fetchCertificates();
+        await fetchTrainingModules(certMap);
       }
-      await fetchTrainingModules(certMap);
       setLoading(false);
     };
     loadData();
@@ -274,7 +273,7 @@ const Training = () => {
     }
   };
 
-  const fetchTrainingModules = async (certMap: {[key: string]: {id: string, url: string}} = certificates) => {
+  const fetchTrainingModules = async (certMap: {[key: string]: {id: string, url: string, issuedAt: string}} = certificates) => {
     try {
       // Get current user's profile to check if admin
       const { data: profile } = await supabase
