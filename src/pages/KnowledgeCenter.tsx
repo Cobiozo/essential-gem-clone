@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +48,7 @@ export default function KnowledgeCenter() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterTag, setFilterTag] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'grouped'>('list');
+  const [documentLanguage, setDocumentLanguage] = useState<string | 'all'>(language);
   const [siteLogo, setSiteLogo] = useState<string>(newPureLifeLogo);
   
   // Main tab - documents or graphics
@@ -164,8 +166,11 @@ export default function KnowledgeCenter() {
     const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
     const matchesType = filterType === 'all' || r.resource_type === filterType;
     const matchesTag = filterTag === 'all' || r.tags?.includes(filterTag);
-    // Language filtering: show if document is universal (null) or matches user's language
-    const matchesLanguage = r.language_code === null || r.language_code === language;
+    // Language filtering: show all, or universal (null), or matches selected document language
+    const matchesLanguage = 
+      documentLanguage === 'all' || 
+      r.language_code === null || 
+      r.language_code === documentLanguage;
     return matchesSearch && matchesCategory && matchesType && matchesTag && matchesLanguage;
   });
 
@@ -435,22 +440,72 @@ export default function KnowledgeCenter() {
                     </Button>
                   )}
                 </div>
-                {/* View mode toggle */}
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="text-sm text-muted-foreground">Widok:</span>
-                  <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'grid' | 'grouped')}>
-                    <TabsList className="h-8">
-                      <TabsTrigger value="list" className="h-6 px-2">
-                        <List className="h-4 w-4" />
-                      </TabsTrigger>
-                      <TabsTrigger value="grid" className="h-6 px-2">
-                        <LayoutGrid className="h-4 w-4" />
-                      </TabsTrigger>
-                      <TabsTrigger value="grouped" className="h-6 px-2">
-                        <Tag className="h-4 w-4" />
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                {/* View mode toggle + Language filter */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Widok:</span>
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'grid' | 'grouped')}>
+                      <TabsList className="h-8">
+                        <TabsTrigger value="list" className="h-6 px-2">
+                          <List className="h-4 w-4" />
+                        </TabsTrigger>
+                        <TabsTrigger value="grid" className="h-6 px-2">
+                          <LayoutGrid className="h-4 w-4" />
+                        </TabsTrigger>
+                        <TabsTrigger value="grouped" className="h-6 px-2">
+                          <Tag className="h-4 w-4" />
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      Dokumenty w języku:
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setDocumentLanguage('all')}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors",
+                          documentLanguage === 'all' 
+                            ? "bg-primary text-primary-foreground" 
+                            : "bg-muted hover:bg-muted/80"
+                        )}
+                        title="Wszystkie języki"
+                      >
+                        🌐
+                      </button>
+                      {[
+                        { code: 'pl', country: 'pl' },
+                        { code: 'en', country: 'gb' },
+                        { code: 'de', country: 'de' },
+                        { code: 'it', country: 'it' },
+                        { code: 'es', country: 'es' },
+                        { code: 'fr', country: 'fr' },
+                        { code: 'pt', country: 'pt' }
+                      ].map(lang => (
+                        <button
+                          key={lang.code}
+                          onClick={() => setDocumentLanguage(lang.code)}
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors",
+                            documentLanguage === lang.code 
+                              ? "ring-2 ring-primary bg-muted" 
+                              : "bg-muted/50 hover:bg-muted"
+                          )}
+                          title={lang.code.toUpperCase()}
+                        >
+                          <img 
+                            src={`https://flagcdn.com/w20/${lang.country}.png`}
+                            alt={lang.code}
+                            className="w-5 h-3 object-cover rounded-sm"
+                          />
+                          <span className="uppercase font-medium">{lang.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
