@@ -1,221 +1,243 @@
 
-# Plan: Ulepszenie systemu powiadomień o nowych lekcjach szkoleniowych
 
-## Zidentyfikowane problemy
+# Plan: Konfiguracja powiadomień email o nowych lekcjach szkoleniowych
 
-### Problem 1: Brak powiadomień dla użytkowników bez certyfikatów
-Obecny system powiadamia TYLKO użytkowników z certyfikatami. Użytkownicy którzy:
-- Mieli postęp w module (np. 82%, 73%, etc.)
-- Mieli nawet 100% postępu ale nie wygenerowali certyfikatu
+## Podsumowanie
 
-NIE otrzymują żadnych powiadomień o nowych lekcjach.
-
-**Dotknięci użytkownicy (bez certyfikatu, bez powiadomienia):**
-| Imię | Nazwisko | Postęp | Ukończone lekcje |
-|------|----------|--------|------------------|
-| Marianna | Pietrzak | 82% | 9/11 |
-| Katarzyna | Snopek | 82% | 9/11 |
-| Sebastian | Snopek | 82% | 9/11 |
-| Mariola | Piotr | 82% | 9/11 |
-| Sebastian | Snopek | 82% | 9/11 |
-| Marika | Lubińska | 73% | 8/11 |
-| Jarosław | Wiglusz | 73% | 8/11 |
-| Danka | Pawłowska | 73% | 8/11 |
-| Karolina | Dawidowska | 64% | 7/11 |
-
-### Problem 2: Brak konfiguracji email
-- Typ zdarzenia `training_new_lessons` NIE istnieje w tabeli `notification_event_types`
-- Nie ma szablonu email dla tego typu powiadomienia
-- Powiadomienia są tylko wewnętrzne (dzwoneczek) - email NIE jest wysyłany
-
-### Problem 3: Różne komunikaty dla różnych grup
-Użytkownicy z certyfikatami i bez certyfikatów powinni otrzymywać różne treści:
-- Z certyfikatem: "Twój certyfikat pozostaje ważny"
-- Bez certyfikatu: "Nowe wymagane materiały - ukończ je aby uzyskać certyfikat"
+Implementacja systemu wysyłki email przy dodawaniu nowych lekcji szkoleniowych wymaga trzech kroków:
+1. Utworzenie szablonu email
+2. Dodanie typu zdarzenia `training_new_lessons` do tabeli `notification_event_types`
+3. Modyfikacja kodu `TrainingManagement.tsx` aby wywoływał funkcję `send-notification-email`
 
 ---
 
-## Rozwiązanie
+## Część 1: Utworzenie szablonu email (migracja SQL)
 
-### Część A: Jednorazowe powiadomienia dla użytkowników bez certyfikatów (SQL)
-
-Wysłanie powiadomień do użytkowników którzy mają postęp w module SPRZEDAŻOWE ale nie mają certyfikatu i nie dostali jeszcze powiadomienia:
+Nowy szablon email dla powiadomień o nowych lekcjach:
 
 ```sql
-INSERT INTO user_notifications (
-  user_id, 
-  notification_type, 
-  source_module, 
-  title, 
-  message, 
-  link, 
-  metadata
+INSERT INTO email_templates (
+  id,
+  name,
+  subject,
+  body_html,
+  footer_html,
+  is_active
 )
-SELECT DISTINCT ON (p.user_id)
-  p.user_id,
-  'training_new_lessons',
-  'training',
+VALUES (
+  gen_random_uuid(),
   'Nowe materiały szkoleniowe',
-  'Do modułu SPRZEDAŻOWE zostały dodane nowe lekcje. Ukończ wszystkie materiały aby uzyskać certyfikat.',
-  '/training/c6ab5d58-d77e-43e8-b246-a5e15c0f836f',
-  jsonb_build_object(
-    'module_id', 'c6ab5d58-d77e-43e8-b246-a5e15c0f836f',
-    'module_title', 'SPRZEDAŻOWE',
-    'new_lessons_count', 3,
-    'has_certificate', false
-  )
-FROM profiles p
-JOIN training_progress tp ON tp.user_id = p.user_id AND tp.is_completed = true
-JOIN training_lessons tl ON tl.id = tp.lesson_id 
-  AND tl.module_id = 'c6ab5d58-d77e-43e8-b246-a5e15c0f836f'
-WHERE NOT EXISTS (
-  SELECT 1 FROM certificates c 
-  WHERE c.user_id = p.user_id 
-  AND c.module_id = 'c6ab5d58-d77e-43e8-b246-a5e15c0f836f'
-)
-AND NOT EXISTS (
-  SELECT 1 FROM user_notifications un 
-  WHERE un.user_id = p.user_id 
-  AND un.notification_type = 'training_new_lessons'
-  AND un.metadata->>'module_id' = 'c6ab5d58-d77e-43e8-b246-a5e15c0f836f'
+  'Nowa lekcja w module: {{module_title}} 📚',
+  '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: #16a34a;">Cześć {{imię}}!</h1>
+    <p style="font-size: 16px; line-height: 1.6;">
+      Do modułu szkoleniowego <strong>{{module_title}}</strong> została dodana nowa lekcja:
+    </p>
+    <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 15px; margin: 20px 0;">
+      <strong style="font-size: 18px;">{{lesson_title}}</strong>
+    </div>
+    <p style="font-size: 16px; line-height: 1.6;">
+      {{message}}
+    </p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="{{link}}" 
+         style="display: inline-block; background-color: #16a34a; color: white; padding: 12px 30px; 
+                text-decoration: none; border-radius: 6px; font-weight: bold;">
+        Przejdź do szkolenia
+      </a>
+    </div>
+  </div>',
+  '<div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+    <p>Ta wiadomość została wysłana automatycznie z platformy Pure Life.</p>
+  </div>',
+  true
 );
 ```
 
 ---
 
-### Część B: Ulepszenie kodu TrainingManagement.tsx
+## Część 2: Utworzenie typu zdarzenia (migracja SQL)
 
-Zmienić logikę wysyłania powiadomień aby obejmowała WSZYSTKICH użytkowników z postępem w module (nie tylko z certyfikatami):
+Dodanie `training_new_lessons` do tabeli typów zdarzeń z przypisanym szablonem email:
+
+```sql
+-- Najpierw pobierz ID szablonu, potem wstaw typ zdarzenia
+DO $$
+DECLARE
+  template_uuid UUID;
+BEGIN
+  SELECT id INTO template_uuid FROM email_templates WHERE name = 'Nowe materiały szkoleniowe' LIMIT 1;
+  
+  INSERT INTO notification_event_types (
+    event_key, 
+    name, 
+    description, 
+    icon_name, 
+    color, 
+    source_module, 
+    send_email, 
+    email_template_id,
+    is_active,
+    position
+  )
+  VALUES (
+    'training_new_lessons',
+    'Nowe materiały szkoleniowe',
+    'Powiadomienie o dodaniu nowych lekcji do modułu szkoleniowego',
+    'BookOpen',
+    '#3b82f6',
+    'training',
+    true,
+    template_uuid,
+    true,
+    10
+  );
+END $$;
+```
+
+---
+
+## Część 3: Modyfikacja kodu TrainingManagement.tsx
+
+Po wstawieniu powiadomień do bazy danych, wywołaj Edge Function `send-notification-email` dla każdego użytkownika:
 
 ```typescript
-// Po pomyślnym wstawieniu nowej lekcji
-if (!editingLesson) {
-  // Get module title
-  const { data: moduleData } = await supabase
-    .from('training_modules')
-    .select('title')
-    .eq('id', selectedModule)
-    .single();
+// W saveLesson(), po linii 414 (po wstawieniu powiadomień)
+
+// Fetch event type ID for email sending
+const { data: eventType } = await supabase
+  .from('notification_event_types')
+  .select('id, send_email, email_template_id')
+  .eq('event_key', 'training_new_lessons')
+  .eq('is_active', true)
+  .single();
+
+// Send email notifications if configured
+if (eventType?.send_email && eventType?.email_template_id) {
+  console.log(`📧 Sending email notifications to ${allUserIds.length} users...`);
   
-  const moduleTitle = moduleData?.title || 'szkolenia';
-  
-  // 1. Get users WITH certificates
-  const { data: certifiedUsers } = await supabase
-    .from('certificates')
-    .select('user_id')
-    .eq('module_id', selectedModule);
-  
-  const certifiedUserIds = new Set(certifiedUsers?.map(c => c.user_id) || []);
-  
-  // 2. Get ALL users with progress in this module
-  const { data: usersWithProgress } = await supabase
-    .from('training_progress')
-    .select('user_id, training_lessons!inner(module_id)')
-    .eq('training_lessons.module_id', selectedModule)
-    .eq('is_completed', true);
-  
-  const allUserIds = [...new Set(usersWithProgress?.map(p => p.user_id) || [])];
-  
-  if (allUserIds.length > 0) {
-    const notifications = allUserIds.map(userId => {
-      const hasCertificate = certifiedUserIds.has(userId);
-      
-      return {
-        user_id: userId,
-        notification_type: 'training_new_lessons',
-        source_module: 'training',
-        title: 'Nowe materiały szkoleniowe',
-        message: hasCertificate
-          ? `Do modułu ${moduleTitle} została dodana nowa lekcja: "${lessonData.title}". Twój certyfikat pozostaje ważny, ale zachęcamy do zapoznania się z nowymi materiałami.`
-          : `Do modułu ${moduleTitle} została dodana nowa lekcja: "${lessonData.title}". Ukończ wszystkie lekcje aby uzyskać certyfikat.`,
-        link: `/training/${selectedModule}`,
-        metadata: {
-          module_id: selectedModule,
-          module_title: moduleTitle,
-          lesson_title: lessonData.title,
-          certificate_valid: hasCertificate,
-          has_certificate: hasCertificate
-        }
-      };
-    });
+  // Send emails in parallel (max 5 at a time to avoid overwhelming the server)
+  const batchSize = 5;
+  for (let i = 0; i < allUserIds.length; i += batchSize) {
+    const batch = allUserIds.slice(i, i + batchSize);
     
-    await supabase.from('user_notifications').insert(notifications);
-    console.log(`📧 Sent ${allUserIds.length} notifications (${certifiedUserIds.size} certified, ${allUserIds.length - certifiedUserIds.size} in progress)`);
+    await Promise.allSettled(
+      batch.map(userId => {
+        const hasCertificate = certifiedUserIds.has(userId);
+        
+        return supabase.functions.invoke('send-notification-email', {
+          body: {
+            event_type_id: eventType.id,
+            recipient_user_id: userId,
+            payload: {
+              module_title: moduleTitle,
+              lesson_title: lessonData.title,
+              message: hasCertificate
+                ? 'Twój certyfikat pozostaje ważny, ale zachęcamy do zapoznania się z nowymi materiałami.'
+                : 'Ukończ wszystkie lekcje aby uzyskać certyfikat.',
+              link: `${window.location.origin}/training/${selectedModule}`,
+            },
+          },
+        });
+      })
+    );
+    
+    console.log(`📧 Sent email batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allUserIds.length / batchSize)}`);
   }
+  
+  console.log(`✅ Email notifications completed for ${allUserIds.length} users`);
 }
 ```
 
 ---
 
-### Część C: Konfiguracja systemu email (opcjonalnie)
-
-Dodanie typu zdarzenia i szablonu email dla automatycznej wysyłki maili:
-
-**1. Utworzenie typu zdarzenia w bazie:**
-
-```sql
-INSERT INTO notification_event_types (
-  event_key, 
-  name, 
-  description, 
-  icon, 
-  color, 
-  source_module, 
-  send_email, 
-  email_template_id,
-  is_active
-)
-VALUES (
-  'training_new_lessons',
-  'Nowe materiały szkoleniowe',
-  'Powiadomienie o dodaniu nowych lekcji do modułu szkoleniowego',
-  'BookOpen',
-  '#3b82f6',
-  'training',
-  true,
-  NULL, -- do uzupełnienia po utworzeniu szablonu
-  true
-);
-```
-
-**2. Utworzenie szablonu email:**
-
-Szablon email z treścią:
-- Tytuł: "Nowe materiały szkoleniowe - {{moduł}}"
-- Treść: Informacja o nowej lekcji z linkiem do modułu
-- Wariant dla certyfikowanych: "Certyfikat pozostaje ważny"
-- Wariant dla pozostałych: "Ukończ szkolenie aby uzyskać certyfikat"
-
----
-
-## Podsumowanie zmian
+## Pliki do modyfikacji
 
 | Komponent | Zmiana |
 |-----------|--------|
-| Migracja SQL | Jednorazowe powiadomienia dla użytkowników BEZ certyfikatów |
-| `TrainingManagement.tsx` | Rozszerzona logika: powiadomienia dla WSZYSTKICH użytkowników z postępem |
-| `notification_event_types` (opcjonalnie) | Nowy typ zdarzenia z konfiguracją email |
-| Szablon email (opcjonalnie) | Nowy szablon dla powiadomień o lekcjach |
+| Migracja SQL | Utworzenie szablonu email "Nowe materiały szkoleniowe" |
+| Migracja SQL | Utworzenie typu zdarzenia `training_new_lessons` z przypisanym szablonem |
+| `src/components/admin/TrainingManagement.tsx` | Wywołanie Edge Function `send-notification-email` po wstawieniu powiadomień |
+
+---
+
+## Przepływ systemu
+
+```text
+ADMIN DODAJE NOWĄ LEKCJĘ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Admin wypełnia formularz nowej lekcji
+                    │
+                    ▼
+2. saveLesson() wstawia rekord do training_lessons
+                    │
+                    ▼
+3. Pobiera użytkowników z postępem/certyfikatami
+                    │
+                    ▼
+4. Wstawia powiadomienia do user_notifications (dzwoneczek)
+                    │
+                    ▼
+5. NOWE: Pobiera typ zdarzenia training_new_lessons
+                    │
+                    ▼
+6. NOWE: Wywołuje send-notification-email dla każdego użytkownika
+   (w partiach po 5, aby nie przeciążyć serwera)
+                    │
+                    ▼
+7. Edge Function:
+   - Pobiera szablon email
+   - Podstawia zmienne (imię, module_title, lesson_title, message, link)
+   - Wysyła email przez SMTP
+   - Loguje do email_logs
+                    │
+                    ▼
+8. Użytkownicy otrzymują:
+   - Powiadomienie w platformie (dzwoneczek)
+   - Email na swoją skrzynkę
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## Zmienne dostępne w szablonie email
+
+| Zmienna | Źródło | Przykład |
+|---------|--------|----------|
+| `{{imię}}` | profil użytkownika | Anna |
+| `{{nazwisko}}` | profil użytkownika | Kowalska |
+| `{{email}}` | profil użytkownika | anna@example.com |
+| `{{module_title}}` | payload | SPRZEDAŻOWE |
+| `{{lesson_title}}` | payload | Nowe techniki sprzedaży |
+| `{{message}}` | payload (zależne od certyfikatu) | Twój certyfikat pozostaje ważny... |
+| `{{link}}` | payload | https://purelife.lovable.app/training/... |
+| `{{data}}` | system | 25.01.2026 |
+| `{{godzina}}` | system | 14:35 |
 
 ---
 
 ## Oczekiwany rezultat
 
-1. **Jednorazowo**: Użytkownicy BEZ certyfikatów ale z postępem w module SPRZEDAŻOWE otrzymają powiadomienie o nowych lekcjach (9 osób)
+Po implementacji, przy każdym dodaniu nowej lekcji:
 
-2. **Na przyszłość**: Przy każdym dodaniu nowej lekcji:
-   - Użytkownicy Z certyfikatem → "Twój certyfikat pozostaje ważny, ale zachęcamy..."
-   - Użytkownicy BEZ certyfikatu → "Ukończ wszystkie lekcje aby uzyskać certyfikat"
+1. **Powiadomienie wewnętrzne** - użytkownik widzi alert w dzwoneczku
+2. **Email** - użytkownik otrzymuje wiadomość na swoją skrzynkę z:
+   - Nazwą modułu
+   - Nazwą nowej lekcji  
+   - Personalizowaną wiadomością (różną dla certyfikowanych i nie)
+   - Przyciskiem CTA "Przejdź do szkolenia"
 
-3. **Opcjonalnie**: Wysyłka email dodatkowo do powiadomień w platformie
+3. **Logowanie** - każdy wysłany email jest zapisany w `email_logs` dla celów audytu
 
 ---
 
-## Pytanie do decyzji
+## Uwagi techniczne
 
-Czy chcesz aby przy dodawaniu nowych lekcji były wysyłane **także emaile** oprócz powiadomień wewnętrznych (dzwoneczek)?
+- Emaile są wysyłane w partiach po 5 użytkowników (rate limiting)
+- Użyto `Promise.allSettled` zamiast `Promise.all` - jeden błąd nie blokuje pozostałych emaili
+- Błędy wysyłki email nie blokują procesu dodawania lekcji
+- Link w emailu zawiera pełny URL (z `window.location.origin`)
+- Szablon email jest responsywny i wspiera polskie znaki (UTF-8)
 
-Jeśli tak, będzie potrzebne:
-- Utworzenie szablonu email w panelu administracyjnym
-- Skonfigurowanie typu zdarzenia `training_new_lessons` z przypisaniem szablonu
-- Modyfikacja kodu aby wywoływał funkcję `send-notification-email`
