@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState, useCallback } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -53,6 +53,11 @@ const Dashboard: React.FC = () => {
   const { t } = useLanguage();
   const { user, loading, rolesReady } = useAuth();
   const location = useLocation();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const handleDropdownToggle = useCallback((open: boolean) => {
+    setIsUserMenuOpen(open);
+  }, []);
   
   // BEZPIECZEŃSTWO: Przekieruj niezalogowanych na stronę logowania
   if (!loading && !user) {
@@ -71,7 +76,11 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <DashboardLayout title={t('dashboard.menu.dashboard')}>
+    <DashboardLayout 
+      title={t('dashboard.menu.dashboard')}
+      isUserMenuOpen={isUserMenuOpen}
+      onUserMenuOpenChange={setIsUserMenuOpen}
+    >
       <div className="space-y-4 lg:space-y-6">
         {/* Welcome with digital clock - Full width */}
         <Suspense fallback={<WelcomeWidgetSkeleton />}>
@@ -138,7 +147,7 @@ const Dashboard: React.FC = () => {
 
       {/* Onboarding Tour */}
       <Suspense fallback={null}>
-        <OnboardingTour />
+        <OnboardingTour onDropdownToggle={handleDropdownToggle} />
       </Suspense>
     </DashboardLayout>
   );

@@ -6,15 +6,26 @@ import { DashboardTopbar } from './DashboardTopbar';
 interface DashboardLayoutProps {
   children: React.ReactNode;
   title?: string;
+  isUserMenuOpen?: boolean;
+  onUserMenuOpenChange?: (open: boolean) => void;
 }
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) => {
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
+  children, 
+  title,
+  isUserMenuOpen,
+  onUserMenuOpenChange,
+}) => {
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-muted/30">
         <DashboardSidebar />
         <SidebarInset className="flex flex-col flex-1">
-          <DashboardTopbar title={title} />
+          <DashboardTopbar 
+            title={title} 
+            isUserMenuOpen={isUserMenuOpen}
+            onUserMenuOpenChange={onUserMenuOpenChange}
+          />
           <main className="flex-1 overflow-auto p-4 lg:p-6">
             {children}
           </main>
