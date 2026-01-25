@@ -523,7 +523,7 @@ const MyAccount = () => {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${visibleTabCount}, minmax(0, 1fr))` }}>
+            <TabsList className="flex w-full h-auto flex-wrap gap-1 p-1.5 justify-start">
               {visibleTabs.profile && (
                 <TabsTrigger value="profile">
                   <User className="w-4 h-4 mr-2" />

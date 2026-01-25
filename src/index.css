@@ -292,6 +292,21 @@ All colors MUST be HSL.
   }
 }
 
+/* Fix time/date input icons in dark mode */
+@layer utilities {
+  .dark input[type="time"]::-webkit-calendar-picker-indicator,
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+
+  /* Firefox support for dark mode date/time inputs */
+  .dark input[type="time"],
+  .dark input[type="date"] {
+    color-scheme: dark;
+  }
+}
+
 /* Fix dark mode text visibility for CMS content with hardcoded black colors */
 @layer utilities {
   /* Override inline black text colors in dark mode */
