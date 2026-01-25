@@ -58,9 +58,9 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
     const updateUserList = () => {
       if (!mountedRef.current) return;
       
-      // Throttle updates to max once per second
+      // Throttle updates to max once per second, but allow first update
       const now = Date.now();
-      if (now - lastUpdateRef.current < 1000) return;
+      if (lastUpdateRef.current !== 0 && now - lastUpdateRef.current < 1000) return;
       lastUpdateRef.current = now;
       
       const state = channel.presenceState();
@@ -138,6 +138,21 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Heartbeat - keep lastActivity fresh every 30s
+    const heartbeatInterval = setInterval(() => {
+      if (isTabVisible && mountedRef.current && channelRef.current) {
+        trackPresence();
+      }
+    }, 30000);
+
+    // Periodic refresh to update isActive statuses every 15s
+    const refreshInterval = setInterval(() => {
+      if (mountedRef.current) {
+        lastUpdateRef.current = 0; // Reset throttle for forced update
+        updateUserList();
+      }
+    }, 15000);
+
     channel
       .on('presence', { event: 'sync' }, updateUserList)
       .on('presence', { event: 'join' }, updateUserList)
@@ -163,12 +178,22 @@ export const useUserPresence = (currentPage: string = 'dashboard') => {
         setIsConnected(true);
         if (isTabVisible) {
           await trackPresence();
+          // Force update after own track completes
+          setTimeout(() => {
+            if (mountedRef.current) {
+              lastUpdateRef.current = 0; // Reset throttle
+              updateUserList();
+            }
+          }, 500);
         }
       }
     });
 
     return () => {
       mountedRef.current = false;
+      // Clear intervals
+      clearInterval(heartbeatInterval);
+      clearInterval(refreshInterval);
       // Clear retry timer to prevent memory leak
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
