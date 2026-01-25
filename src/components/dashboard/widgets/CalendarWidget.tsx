@@ -198,7 +198,7 @@ Zapisz się tutaj: ${inviteUrl}
   };
 
   return (
-    <Card className="shadow-sm">
+    <Card data-tour="calendar-widget" className="shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Calendar className="h-4 w-4 text-primary" />

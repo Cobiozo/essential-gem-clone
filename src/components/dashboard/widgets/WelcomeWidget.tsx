@@ -96,7 +96,10 @@ export const WelcomeWidget: React.FC = () => {
   const formattedTime = formatInTimeZone(currentTime, selectedTimezone, 'HH:mm:ss');
 
   return (
-    <Card className="col-span-full bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-sm">
+    <Card 
+      data-tour="welcome-widget"
+      className="col-span-full bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-sm"
+    >
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">

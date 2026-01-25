@@ -1,0 +1,126 @@
+import React, { useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { TourStep } from './tourSteps';
+
+interface TourTooltipProps {
+  step: TourStep;
+  currentStep: number;
+  totalSteps: number;
+  highlightRect: { top: number; left: number; width: number; height: number };
+  onNext: () => void;
+  onPrev: () => void;
+  onSkip: () => void;
+}
+
+export const TourTooltip: React.FC<TourTooltipProps> = ({
+  step,
+  currentStep,
+  totalSteps,
+  highlightRect,
+  onNext,
+  onPrev,
+  onSkip,
+}) => {
+  const { t } = useLanguage();
+
+  const tooltipPosition = useMemo(() => {
+    const tooltipWidth = 320;
+    const tooltipHeight = 200;
+    const gap = 16;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let top = 0;
+    let left = 0;
+
+    switch (step.position) {
+      case 'bottom':
+        top = highlightRect.top + highlightRect.height + gap - window.scrollY;
+        left = highlightRect.left + highlightRect.width / 2 - tooltipWidth / 2;
+        break;
+      case 'top':
+        top = highlightRect.top - tooltipHeight - gap - window.scrollY;
+        left = highlightRect.left + highlightRect.width / 2 - tooltipWidth / 2;
+        break;
+      case 'left':
+        top = highlightRect.top + highlightRect.height / 2 - tooltipHeight / 2 - window.scrollY;
+        left = highlightRect.left - tooltipWidth - gap;
+        break;
+      case 'right':
+        top = highlightRect.top + highlightRect.height / 2 - tooltipHeight / 2 - window.scrollY;
+        left = highlightRect.left + highlightRect.width + gap;
+        break;
+    }
+
+    // Clamp to viewport
+    left = Math.max(16, Math.min(left, viewportWidth - tooltipWidth - 16));
+    top = Math.max(16, Math.min(top, viewportHeight - tooltipHeight - 16));
+
+    return { top, left };
+  }, [step.position, highlightRect]);
+
+  const progress = ((currentStep + 1) / totalSteps) * 100;
+  const isFirstStep = currentStep === 0;
+  const isLastStep = currentStep === totalSteps - 1;
+
+  return (
+    <Card
+      className="fixed w-80 shadow-2xl pointer-events-auto z-[10000] animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+      style={{
+        top: tooltipPosition.top,
+        left: tooltipPosition.left,
+      }}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">
+            {t(step.titleKey)}
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 -mr-2 -mt-2"
+            onClick={onSkip}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>
+            {t('onboarding.navigation.step')} {currentStep + 1} {t('onboarding.navigation.of')} {totalSteps}
+          </span>
+        </div>
+        <Progress value={progress} className="h-1" />
+      </CardHeader>
+      <CardContent className="pb-4">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {t(step.descriptionKey)}
+        </p>
+      </CardContent>
+      <CardFooter className="flex justify-between gap-2 pt-0">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onPrev}
+          disabled={isFirstStep}
+          className="flex-1"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          {t('onboarding.navigation.previous')}
+        </Button>
+        <Button
+          size="sm"
+          onClick={onNext}
+          className="flex-1"
+        >
+          {isLastStep ? t('onboarding.navigation.finish') : t('onboarding.navigation.next')}
+          {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};

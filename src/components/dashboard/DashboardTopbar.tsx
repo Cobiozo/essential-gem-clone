@@ -79,7 +79,9 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
         )}
 
         {/* Notifications */}
-        <NotificationBell />
+        <div data-tour="notifications-bell">
+          <NotificationBell />
+        </div>
 
         {/* Language */}
         <LanguageSelector />
@@ -107,7 +109,10 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
               </div>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/my-account?tab=profile')}>
+            <DropdownMenuItem 
+              data-tour="user-menu-account"
+              onClick={() => navigate('/my-account?tab=profile')}
+            >
               <User className="mr-2 h-4 w-4" />
               {t('nav.myAccount')}
             </DropdownMenuItem>
@@ -128,7 +133,10 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ title }) => {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <CacheManagementDialog>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+              <DropdownMenuItem 
+                data-tour="user-menu-tools"
+                onSelect={(e) => e.preventDefault()}
+              >
                 <Wrench className="mr-2 h-4 w-4" />
                 Panel narzędziowy
               </DropdownMenuItem>
