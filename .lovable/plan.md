@@ -1,206 +1,195 @@
 
-# Plan: Naprawa blokowania zajętych terminów w harmonogramie spotkań indywidualnych
 
-## Zdiagnozowane problemy
+# Plan: Wymuszenie Google Calendar dla harmonogramu wewnętrznego
 
-### Problem 1: RLS blokuje sprawdzanie Google Calendar partnera
-**Polityka RLS** na tabeli `user_google_tokens` pozwala użytkownikom widzieć tylko własne tokeny:
-```sql
-USING (auth.uid() = user_id)
-```
+## Problem
 
-Frontend próbuje sprawdzić czy partner ma token Google:
-```typescript
-// Linia 284-287 - to zapytanie ZAWSZE zwraca null dla innego użytkownika!
-supabase
-  .from('user_google_tokens')
-  .select('id')
-  .eq('user_id', partnerId) // partnerId ≠ auth.uid()
-  .maybeSingle()
-```
+System ma **odwróconą logikę** - blokuje zewnętrzny link (Calendly) gdy partner ma Google Calendar, ale **NIE blokuje** harmonogramu wewnętrznego gdy partner **NIE MA** Google Calendar.
 
-**Rezultat:** `tokenResult.data` = `null` → edge function `check-google-calendar-busy` nigdy nie jest wywoływana → zajęte sloty z Google Calendar NIE są blokowane.
-
-### Problem 2: Spotkanie zespołu jest w Google Calendar, nie w PureLife
-Użytkownik mówi że o 20:00 jest "spotkanie zespołu", ale w bazie danych nie ma żadnego wydarzenia typu `spotkanie_zespolu`. To wydarzenie jest tylko w Google Calendar lidera.
-
-**Aktualny przepływ:**
-```
-Slot 19:00/20:00 → Check platformy (brak eventów) → Check Google (pominięty przez RLS) → Slot pokazany jako dostępny
-```
-
-**Oczekiwany przepływ:**
-```
-Slot 19:00/20:00 → Check platformy → Check Google Calendar (zawsze!) → Slot zablokowany
-```
-
----
+To powoduje, że partner bez połączenia z Google może tworzyć harmonogram wewnętrzny, a system nie może sprawdzić jego zajętości, co prowadzi do kolizji terminów.
 
 ## Rozwiązanie
 
-### Zmiana 1: Zawsze wywoływać edge function dla Google Calendar
+### Zmiana w `IndividualMeetingForm.tsx`
 
-Zamiast sprawdzać token partnera przez RLS-chronioną tabelę, **zawsze** wywołuj edge function `check-google-calendar-busy`. Edge function sama sprawdzi czy partner ma token (używa service role key).
+**Nowa logika wyboru kalendarza:**
 
-| Aspekt | Przed | Po |
-|--------|-------|-----|
-| Sprawdzenie tokena | Frontend (blokowane RLS) | Edge function (service role) |
-| Kiedy wywołana | Tylko gdy `tokenResult.data` | Zawsze |
-| Fallback | Brak blokowania | `connected: false` z edge function |
+| Wariant | Stan | Rezultat |
+|---------|------|----------|
+| Partner MA Google Calendar | Wbudowany harmonogram = dostępny | Zewnętrzny link = zablokowany |
+| Partner NIE MA Google Calendar | Wbudowany harmonogram = zablokowany | Zewnętrzny link = dostępny |
 
-### Zmiana 2: Poprawić porównanie stref czasowych dla isSlotBlockedByExistingMeeting
+**Wizualnie:**
 
-Aktualnie slot jest parsowany jako czas lokalny, ale meeting times są w UTC. To powoduje błędne porównania.
-
-```typescript
-// PRZED (błędne):
-const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-
-// PO (poprawne):
-const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-const slotStart = fromZonedTime(slotDateTime, partnerTimezone);
-const slotEnd = addMinutes(slotStart, slotDuration);
 ```
-
-### Zmiana 3: Analogiczna poprawka dla blockedByPlatform
-
-Ta sama poprawka stref czasowych dla blokowania przez eventy platformy (webinar, spotkanie_zespolu, etc.).
-
----
+┌────────────────────────────────────────────────────────────────┐
+│ Sposób rezerwacji spotkań                                      │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  Jeśli NIE masz Google Calendar:                               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ ⚠️ Wbudowany harmonogram                                │   │
+│  │    [ZABLOKOWANY]                                        │   │
+│  │    "Aby korzystać z harmonogramu wewnętrznego,          │   │
+│  │     połącz Google Calendar w ustawieniach konta."       │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ ✅ Zewnętrzny link (Calendly/Cal.com)                   │   │
+│  │    [DOSTĘPNY]                                           │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                │
+│  Jeśli MASZ Google Calendar:                                   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ ✅ Wbudowany harmonogram                                │   │
+│  │    [DOSTĘPNY]                                           │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ ⚠️ Zewnętrzny link (Calendly/Cal.com)                   │   │
+│  │    [ZABLOKOWANY]                                        │   │
+│  │    "Niedostępne - masz połączony Google Calendar."      │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
 
 ## Sekcja techniczna
 
-### Plik: `src/components/events/PartnerMeetingBooking.tsx`
+### Plik: `src/components/events/IndividualMeetingForm.tsx`
 
-**Zmiana 1 - Usunięcie sprawdzania tokena przez RLS (linie 283-287):**
+**Zmiana 1 - Automatyczne ustawienie trybu (linie 62-81):**
 
-```typescript
-// PRZED:
-supabase
-  .from('user_google_tokens')
-  .select('id')
-  .eq('user_id', partnerId)
-  .maybeSingle(),
-
-// PO - usunąć to zapytanie z Promise.all i zawsze wywoływać edge function
-```
-
-**Zmiana 2 - Sekcja Google Calendar (linie 357-392):**
+Dodaj auto-switch do `external` jeśli nie ma Google Calendar:
 
 ```typescript
-// PRZED:
-if (tokenResult.data) {
-  try {
-    const { data: busyData } = await supabase.functions.invoke(...)
-    ...
-  }
-}
-
-// PO - Zawsze wywołuj edge function:
-try {
-  const { data: busyData } = await supabase.functions.invoke(
-    'check-google-calendar-busy',
-    { body: { leader_user_id: partnerId, date: dateStr } }
-  );
+const checkGoogleCalendarConnection = async () => {
+  if (!user) return;
   
-  // Edge function zwraca connected: false jeśli partner nie ma tokena
-  if (busyData?.connected && busyData?.busy && Array.isArray(busyData.busy)) {
-    console.log('[PartnerMeetingBooking] Google Calendar busy slots:', busyData.busy);
-    
-    busyData.busy.forEach((busySlot: { start: string; end: string }) => {
-      const busyStart = new Date(busySlot.start);
-      const busyEnd = new Date(busySlot.end);
-      
-      allSlots.forEach(slotTime => {
-        const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-        const slotStartUTC = fromZonedTime(slotDateTime, partnerTimezone);
-        const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
-        
-        if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
-          googleBusySlots.add(slotTime);
-        }
-      });
-    });
-    
-    console.log('[PartnerMeetingBooking] Slots blocked by Google:', [...googleBusySlots]);
-  } else if (busyData?.connected === false) {
-    console.log('[PartnerMeetingBooking] Leader has no Google Calendar connected');
-  }
-} catch (error) {
-  console.warn('[PartnerMeetingBooking] Google Calendar check failed:', error);
-}
-```
-
-**Zmiana 3 - Poprawka isSlotBlockedByExistingMeeting (linie 328-339):**
-
-```typescript
-const isSlotBlockedByExistingMeeting = (slotTime: string): boolean => {
-  // Convert slot time from leader's timezone to UTC for accurate comparison
-  const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-  const slotStart = fromZonedTime(slotDateTime, partnerTimezone);
-  const slotEnd = addMinutes(slotStart, slotDuration);
+  const { data } = await supabase
+    .from('user_google_tokens')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle();
   
-  return bookedMeetings.some(meeting => {
-    const meetingStart = new Date(meeting.start_time);
-    const meetingEnd = new Date(meeting.end_time);
-    
-    // Both times are now in UTC
-    return slotStart < meetingEnd && slotEnd > meetingStart;
-  });
+  const connected = !!data;
+  setHasGoogleCalendar(connected);
+  
+  // Automatycznie ustaw tryb na podstawie połączenia
+  // Jeśli nie ma Google Calendar, wymuś tryb zewnętrzny
+  if (!connected && bookingMode === 'internal') {
+    setBookingMode('external');
+  }
+  // Jeśli ma Google Calendar, wymuś tryb wewnętrzny
+  if (connected && bookingMode === 'external') {
+    setBookingMode('internal');
+  }
 };
 ```
 
-**Zmiana 4 - Poprawka blockedByPlatform (linie 341-355):**
+**Zmiana 2 - Zablokowanie "Wbudowany harmonogram" bez Google (linie 292-305):**
 
 ```typescript
-const blockedByPlatform = new Set<string>();
-blockingResult.data?.forEach(event => {
-  const eventStart = new Date(event.start_time);
-  const eventEnd = new Date(event.end_time);
-  
-  allSlots.forEach(slotTime => {
-    // Convert slot time from leader's timezone to UTC
-    const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-    const slotStart = fromZonedTime(slotDateTime, partnerTimezone);
-    const slotEnd = addMinutes(slotStart, slotDuration);
-    
-    // Both times are now in UTC
-    if (slotStart < eventEnd && slotEnd > eventStart) {
-      blockedByPlatform.add(slotTime);
-    }
-  });
-});
+<div className={cn(
+  "flex items-start gap-3 p-4 rounded-lg border transition-colors",
+  !hasGoogleCalendar ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+  bookingMode === 'internal' && hasGoogleCalendar ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+)}>
+  <RadioGroupItem 
+    value="internal" 
+    id="internal" 
+    className="mt-1" 
+    disabled={!hasGoogleCalendar}
+  />
+  <div className="flex-1">
+    <Label htmlFor="internal" className={cn(
+      "font-medium cursor-pointer",
+      !hasGoogleCalendar && "cursor-not-allowed"
+    )}>
+      Wbudowany harmonogram
+    </Label>
+    <p className="text-sm text-muted-foreground mt-1">
+      Ustalaj dostępność w aplikacji. Partnerzy rezerwują spotkania bezpośrednio w systemie.
+    </p>
+    {!hasGoogleCalendar && (
+      <Alert className="mt-2 py-2">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription className="text-xs">
+          Wymagane połączenie z Google Calendar. Przejdź do <strong>Ustawienia konta</strong> i połącz kalendarz.
+        </AlertDescription>
+      </Alert>
+    )}
+  </div>
+</div>
 ```
 
----
+**Zmiana 3 - Odblokowanie "Zewnętrzny link" bez Google (linie 307-338):**
+
+```typescript
+<div className={cn(
+  "flex items-start gap-3 p-4 rounded-lg border transition-colors",
+  hasGoogleCalendar ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+  bookingMode === 'external' && !hasGoogleCalendar ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+)}>
+  <RadioGroupItem 
+    value="external" 
+    id="external" 
+    className="mt-1" 
+    disabled={hasGoogleCalendar}
+  />
+  <div className="flex-1">
+    <Label htmlFor="external" className={cn(
+      "font-medium flex items-center gap-2",
+      hasGoogleCalendar ? "cursor-not-allowed" : "cursor-pointer"
+    )}>
+      Zewnętrzny link (Calendly/Cal.com)
+      <ExternalLink className="h-3.5 w-3.5" />
+    </Label>
+    <p className="text-sm text-muted-foreground mt-1">
+      Przekieruj partnerów do swojego zewnętrznego kalendarza rezerwacji.
+    </p>
+    {hasGoogleCalendar && (
+      <Alert variant="destructive" className="mt-2 py-2">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription className="text-xs">
+          Niedostępne - masz połączony Google Calendar. Rozłącz go w ustawieniach konta, aby używać Calendly.
+        </AlertDescription>
+      </Alert>
+    )}
+  </div>
+</div>
+```
 
 ## Podsumowanie zmian
 
 | Plik | Zmiana | Cel |
 |------|--------|-----|
-| `PartnerMeetingBooking.tsx` | Usunięcie sprawdzania tokena przez RLS | Ominięcie blokady RLS |
-| `PartnerMeetingBooking.tsx` | Zawsze wywołuj edge function | Sprawdzanie Google Calendar |
-| `PartnerMeetingBooking.tsx` | fromZonedTime w isSlotBlockedByExistingMeeting | Poprawne porównanie UTC |
-| `PartnerMeetingBooking.tsx` | fromZonedTime w blockedByPlatform | Poprawne porównanie UTC |
+| `IndividualMeetingForm.tsx` | Auto-switch `bookingMode` | Automatyczne wymuszenie poprawnego trybu |
+| `IndividualMeetingForm.tsx` | `disabled={!hasGoogleCalendar}` dla internal | Blokada harmonogramu bez Google |
+| `IndividualMeetingForm.tsx` | Alert informacyjny | Komunikat jak połączyć Google |
 
----
-
-## Efekt po wdrożeniu
+## Efekt końcowy
 
 **Przed:**
-- Sloty zajęte w Google Calendar są pokazywane jako dostępne (RLS blokuje sprawdzenie)
-- Porównanie stref czasowych jest błędne
+- Partner bez Google Calendar może wybrać harmonogram wewnętrzny
+- System nie zna jego zajętości → kolizje terminów
 
 **Po:**
-- Google Calendar jest zawsze sprawdzany przez edge function
-- Wszystkie zajęte sloty (Google + platforma) są poprawnie blokowane
-- Spójne porównanie w UTC dla wszystkich źródeł
+- Partner bez Google Calendar MUSI użyć Calendly
+- Partner z Google Calendar MUSI użyć harmonogramu wewnętrznego
+- Synchronizacja dwustronna działa poprawnie
+- Brak kolizji terminów
 
----
+## Weryfikacja zasad po wdrożeniu
 
-## Instrukcja dla Dawida Kowalczyka
+| Zasada | Status |
+|--------|--------|
+| Partner dostaje uprawnienia od admina | ✅ |
+| Google Calendar → tylko harmonogram wewnętrzny | ✅ (wymuszenie) |
+| Brak Google Calendar → tylko zewnętrzny link | ✅ (wymuszenie) |
+| Harmonogram dostępności | ✅ |
+| Partnerzy widzą terminy | ✅ |
+| Spotkania zespołu/webinary blokują sloty | ✅ |
+| Google Calendar blokuje sloty | ✅ |
+| Zapis → sync do Google | ✅ |
+| Anulowanie → slot wolny + usuń z Google | ✅ |
+| Dwustronna synchronizacja | ✅ |
 
-Po wdrożeniu poprawek:
-1. Sloty zajęte w Google Calendar (np. 16:00-22:00) będą automatycznie ukryte
-2. Nie trzeba nic robić - system będzie działał poprawnie
-3. Jeśli Google Calendar nie jest połączony, sloty będą pokazywane ale bez blokowania (oczekiwane zachowanie)
