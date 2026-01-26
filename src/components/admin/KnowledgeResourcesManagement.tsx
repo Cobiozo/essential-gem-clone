@@ -80,6 +80,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; fileName: string }>({ current: 0, total: 0, fileName: '' });
   
+  // Bulk actions state for "apply to all" functionality
+  const [applyingBulkActions, setApplyingBulkActions] = useState(false);
+  
   // Bulk upload extended options
   const [bulkVisibility, setBulkVisibility] = useState({
     visible_to_clients: false,
@@ -376,6 +379,41 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   // Remove file from bulk list
   const removeBulkFile = (index: number) => {
     setBulkFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Bulk actions - apply to all filtered graphics
+  const handleBulkActionsApply = async (
+    field: 'allow_share' | 'allow_copy_link' | 'allow_download',
+    newValue: boolean
+  ) => {
+    setApplyingBulkActions(true);
+    
+    const graphicIds = filteredGraphics.map(r => r.id);
+    
+    if (graphicIds.length === 0) {
+      toast({ title: t('toast.warning'), description: 'Brak grafik do aktualizacji' });
+      setApplyingBulkActions(false);
+      return;
+    }
+    
+    const { error } = await supabase
+      .from('knowledge_resources')
+      .update({ [field]: newValue })
+      .in('id', graphicIds);
+    
+    if (error) {
+      toast({ title: t('toast.error'), description: 'Nie udało się zaktualizować grafik', variant: 'destructive' });
+    } else {
+      setResources(prev => prev.map(r => 
+        graphicIds.includes(r.id) ? { ...r, [field]: newValue } : r
+      ));
+      toast({ 
+        title: t('toast.success'), 
+        description: `Zaktualizowano ${graphicIds.length} grafik` 
+      });
+    }
+    
+    setApplyingBulkActions(false);
   };
 
   // Quick toggle for individual resource actions (used in graphics list)
@@ -929,6 +967,102 @@ export const KnowledgeResourcesManagement: React.FC = () => {
 
         <TabsContent value="graphics" className="space-y-4">
           {renderFilters(false)}
+          
+          {/* Bulk actions bar */}
+          {!loading && filteredGraphics.length > 0 && (
+            <Card>
+              <CardContent className="py-3">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <span className="text-sm text-muted-foreground font-medium">
+                    Zastosuj dla wszystkich ({filteredGraphics.length}):
+                  </span>
+                  
+                  {/* Udostępnianie */}
+                  <div className="flex items-center gap-1">
+                    <Share2 className="h-4 w-4 text-muted-foreground" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={() => handleBulkActionsApply('allow_share', true)}
+                      disabled={applyingBulkActions}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Włącz
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={() => handleBulkActionsApply('allow_share', false)}
+                      disabled={applyingBulkActions}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Wyłącz
+                    </Button>
+                  </div>
+                  
+                  <div className="w-px h-6 bg-border" />
+                  
+                  {/* Kopiowanie linku */}
+                  <div className="flex items-center gap-1">
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={() => handleBulkActionsApply('allow_copy_link', true)}
+                      disabled={applyingBulkActions}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Włącz
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={() => handleBulkActionsApply('allow_copy_link', false)}
+                      disabled={applyingBulkActions}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Wyłącz
+                    </Button>
+                  </div>
+                  
+                  <div className="w-px h-6 bg-border" />
+                  
+                  {/* Pobieranie */}
+                  <div className="flex items-center gap-1">
+                    <Download className="h-4 w-4 text-muted-foreground" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={() => handleBulkActionsApply('allow_download', true)}
+                      disabled={applyingBulkActions}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Włącz
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-xs"
+                      onClick={() => handleBulkActionsApply('allow_download', false)}
+                      disabled={applyingBulkActions}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Wyłącz
+                    </Button>
+                  </div>
+                  
+                  {applyingBulkActions && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {loading ? (
             <div className="text-center py-8">
