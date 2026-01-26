@@ -1018,8 +1018,37 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType, disableInteraction, videoElement, isSmartBuffering, handleRetry]);
 
+  // ENHANCED: Native event listeners for context menu blocking in secure mode
+  useEffect(() => {
+    if (controlMode !== 'secure' || !videoElement) return;
+    
+    const blockContextMenu = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return false;
+    };
+    
+    // Block on video element with capture phase for maximum priority
+    videoElement.addEventListener('contextmenu', blockContextMenu, true);
+    
+    // Also block on container
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('contextmenu', blockContextMenu, true);
+    }
+    
+    return () => {
+      videoElement.removeEventListener('contextmenu', blockContextMenu, true);
+      if (container) {
+        container.removeEventListener('contextmenu', blockContextMenu, true);
+      }
+    };
+  }, [controlMode, videoElement]);
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -1121,8 +1150,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         <div 
           ref={containerRef}
           className={`space-y-3 ${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
-          <div className="relative">
+          <div className="relative" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <video
               ref={videoRefCallback}
               {...securityProps}
