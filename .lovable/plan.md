@@ -1,201 +1,237 @@
 
+# Plan: Bezpieczne kontrolki wideo dla Aktualności
 
-# Plan: Połączenie rejestrów gości i użytkowników w jeden panel
+## Zdiagnozowane problemy
 
-## Analiza obecnego stanu
+| Problem | Lokalizacja | Wpływ |
+|---------|-------------|-------|
+| Natywne kontrolki wideo | `SecureMedia.tsx` (linia 1202) | Możliwość pobierania przez menu kontekstowe przeglądarki |
+| Brak flagi `disableInteraction` w CMSContent | `CMSContent.tsx` (linia 47-52) | Wideo używa domyślnego trybu z natywnymi kontrolkami |
+| Brak kontrolki prędkości w VideoControls | `VideoControls.tsx` | Brak możliwości zmiany prędkości odtwarzania |
+| Brak paska postępu klikanego | `VideoControls.tsx` | Użytkownik nie może precyzyjnie przesuwać wideo |
 
-### Dwa osobne panele:
-| Panel | Tabela | Kto się zapisuje | Na jakie wydarzenia |
-|-------|--------|------------------|---------------------|
-| `GuestRegistrationsManagement` | `guest_event_registrations` | Goście (niezalogowani) | Webinary, team_training (gdzie `allow_invites = true`) |
-| `EventRegistrationsManagement` | `event_registrations` | Zalogowani użytkownicy | Wszystkie wydarzenia wewnętrzne |
+## Analiza obecnej architektury
 
-### Propozycja użytkownika:
-- **Jeden wspólny panel** z dwoma zakładkami/sekcjami
-- **Goście** - pokazuj tylko dla wydarzeń z `allow_invites = true`
-- **Użytkownicy** - wszystkie wydarzenia (webinary, spotkania zespołu)
-
----
-
-## Rozwiązanie: Połączony panel z zakładkami
-
-### Nowy widok po połączeniu:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│ 📋 Rejestracje na wydarzenia                                                    │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│ Wydarzenie: [Pure Calling ▼]                                                    │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│   [👥 Użytkownicy (12)]    [👤 Goście (5)]    ← zakładki                       │
-│   ━━━━━━━━━━━━━━━━━━━━━                                                         │
-│                                                                                  │
-│   Statystyki:  Wszystkich: 12   Aktywnych: 10   Anulowanych: 2                 │
-│                                                                                  │
-│   ┌────────────────────────────────────────────────────────────────────────────┐│
-│   │ Imię i nazwisko │ Email            │ Rola    │ Status  │ Termin  │ Data   ││
-│   ├────────────────────────────────────────────────────────────────────────────┤│
-│   │ Sebastian S.    │ seb@...          │ Partner │ ✓       │ 27.01   │ 26.01  ││
-│   │ Marcin K.       │ mar@...          │ Partner │ ✓       │ 27.01   │ 26.01  ││
-│   └────────────────────────────────────────────────────────────────────────────┘│
-│                                                                                  │
-│   [📥 Eksport CSV]                                                              │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```text
+SecureMedia.tsx
+├── disableInteraction = true  → VideoControls (custom, bez download)
+│   └── Play/Pause, Rewind, Progress (only view), Fullscreen
+│   └── BRAK: Seek, Speed control
+│
+└── disableInteraction = false → Native <video controls>
+    └── Wszystkie funkcje natywne + MOŻLIWE POBIERANIE
 ```
 
-### Logika wyświetlania zakładki "Goście":
-- Zakładka "Goście" pojawia się **tylko** gdy wybrane wydarzenie ma `allow_invites = true`
-- Jeśli wydarzenie nie pozwala na gości → tylko zakładka "Użytkownicy"
+## Wymagania dla Aktualności
+
+✅ Play / Pause
+✅ Przesuwanie (seek) po całym wideo
+✅ Zmiana prędkości (0.5x, 1x, 1.5x, 2x)
+✅ Pełny ekran
+✅ Pasek postępu (klikacie = skok)
+❌ BRAK pobierania
+❌ BRAK menu kontekstowego na wideo
+
+## Propozycja rozwiązania
+
+### Nowy parametr dla SecureMedia
+
+Dodać nową opcję `controlMode` z trzema trybami:
+
+| Tryb | Opis | Użycie |
+|------|------|--------|
+| `'native'` | Natywne kontrolki (obecne zachowanie) | Domyślny (kompatybilność) |
+| `'restricted'` | VideoControls bez seek/speed (obecny `disableInteraction`) | Szkolenia (podczas oglądania) |
+| `'secure'` | **NOWY** - Pełne kontrolki bez pobierania | Aktualności, Zdrowa Wiedza |
 
 ---
 
 ## Sekcja techniczna
 
-### 1. Modyfikacja pliku: `src/components/admin/EventRegistrationsManagement.tsx`
+### 1. Nowy plik: `src/components/training/SecureVideoControls.tsx`
 
-**Zmiany:**
-
-1. **Dodanie zakładek (Tabs)** do przełączania między użytkownikami a gośćmi
-2. **Rozszerzenie interfejsu `EventOption`** o pole `allow_invites: boolean`
-3. **Nowy stan `guestRegistrations`** do przechowywania gości
-4. **Funkcja `fetchGuestRegistrations()`** - pobieranie z `guest_event_registrations`
-5. **Warunkowe wyświetlanie zakładki "Goście"** - tylko gdy `selectedEvent?.allow_invites === true`
-6. **Osobna tabela dla gości** z dodatkowymi kolumnami (telefon, zaproszony przez, powiadomienia)
-7. **Funkcje zarządzania gośćmi** (zmiana statusu, wysyłanie przypomnień) - przeniesione z `GuestRegistrationsManagement`
-
-**Nowa struktura komponentu:**
+Nowy komponent kontrolek z pełną funkcjonalnością:
 
 ```typescript
-// Rozszerzony EventOption
-interface EventOption {
-  id: string;
-  title: string;
-  event_type: string;
-  start_time: string;
-  occurrences: any;
-  allow_invites: boolean;  // ← NOWE
+interface SecureVideoControlsProps {
+  videoRef: React.RefObject<HTMLVideoElement>;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  onPlayPause: () => void;
+  onSeek: (time: number) => void;        // NOWE
+  onSpeedChange: (rate: number) => void; // NOWE
+  onFullscreen?: () => void;
+  isFullscreen?: boolean;
+  onRetry?: () => void;
+  isBuffering?: boolean;
 }
+```
 
-// Interfejs dla gości (z GuestRegistrationsManagement)
-interface GuestRegistration {
-  id: string;
-  event_id: string;
-  email: string;
-  first_name: string;
-  last_name: string | null;
-  phone: string | null;
-  status: string;
-  registered_at: string;
-  confirmation_sent: boolean;
-  reminder_sent: boolean;
-  invited_by_user_id: string | null;
-  inviter_profile?: { first_name: string | null; last_name: string | null; } | null;
+Funkcje:
+- Pasek postępu klikacie (onClick → seek)
+- Dropdown prędkości (0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x)
+- Play/Pause, Fullscreen
+- Skip ±10s przyciski
+- Wyświetlanie czasu
+
+### 2. Modyfikacja: `src/components/SecureMedia.tsx`
+
+**Nowy prop:**
+```typescript
+interface SecureMediaProps {
+  // ... istniejące props
+  controlMode?: 'native' | 'restricted' | 'secure'; // NOWE
 }
-
-// Nowy stan
-const [activeTab, setActiveTab] = useState<'users' | 'guests'>('users');
-const [guestRegistrations, setGuestRegistrations] = useState<GuestRegistration[]>([]);
 ```
 
-**Zapytanie o wydarzenia z `allow_invites`:**
-
+**Logika renderowania wideo:**
 ```typescript
-const { data, error } = await supabase
-  .from('events')
-  .select('id, title, event_type, start_time, occurrences, allow_invites')
-  .eq('is_active', true)
-  .in('event_type', ['webinar', 'team_training'])  // Wydarzenia z zapisami
-  .order('start_time', { ascending: false });
-```
-
-**Warunkowe zakładki:**
-
-```typescript
-<Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'users' | 'guests')}>
-  <TabsList>
-    <TabsTrigger value="users">
-      <Users className="h-4 w-4 mr-2" />
-      Użytkownicy ({userRegistrations.length})
-    </TabsTrigger>
-    
-    {/* Zakładka gości tylko gdy allow_invites = true */}
-    {selectedEvent?.allow_invites && (
-      <TabsTrigger value="guests">
-        <UserPlus className="h-4 w-4 mr-2" />
-        Goście ({guestRegistrations.length})
-      </TabsTrigger>
-    )}
-  </TabsList>
+if (mediaType === 'video') {
+  // YouTube - bez zmian
+  if (isYouTube) { ... }
   
-  <TabsContent value="users">
-    {/* Tabela użytkowników - obecna logika */}
-  </TabsContent>
+  // Tryb restricted (szkolenia) - istniejąca logika
+  if (controlMode === 'restricted' || disableInteraction) {
+    return ( /* VideoControls - obecna implementacja */ );
+  }
   
-  <TabsContent value="guests">
-    {/* Tabela gości - logika z GuestRegistrationsManagement */}
-  </TabsContent>
-</Tabs>
+  // NOWY: Tryb secure (aktualności)
+  if (controlMode === 'secure') {
+    return (
+      <div ref={containerRef}>
+        <video
+          ref={videoRef}
+          src={signedUrl}
+          controls={false}
+          controlsList="nodownload noremoteplayback"
+          disablePictureInPicture
+          {...securityProps}
+        />
+        <SecureVideoControls
+          videoRef={videoRef}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          onPlayPause={handlePlayPause}
+          onSeek={handleSeek}
+          onSpeedChange={handleSpeedChange}
+          onFullscreen={handleFullscreen}
+          isFullscreen={isFullscreen}
+        />
+      </div>
+    );
+  }
+  
+  // Tryb native (domyślny) - istniejąca logika
+  return ( /* <video controls> */ );
+}
 ```
 
----
+**Nowe handlery:**
+```typescript
+const handleSeek = useCallback((time: number) => {
+  if (videoRef.current) {
+    videoRef.current.currentTime = time;
+    setCurrentTime(time);
+  }
+}, []);
 
-### 2. Usunięcie z AdminSidebar.tsx
-
-Usunięcie osobnej pozycji `guest-registrations` z menu:
-
-```diff
-  { value: 'events', labelKey: 'events', icon: CalendarDays },
-- { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
-  { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
+const handleSpeedChange = useCallback((rate: number) => {
+  if (videoRef.current) {
+    videoRef.current.playbackRate = rate;
+  }
+}, []);
 ```
 
----
+### 3. Modyfikacja: `src/components/CMSContent.tsx`
 
-### 3. Zmiana nazwy w sidebar
-
-Zmiana etykiety z "Rejestracje użytkowników" na bardziej ogólną:
+Przekazanie `controlMode="secure"` dla wideo w aktualnościach:
 
 ```typescript
-eventRegistrations: 'Rejestracje na wydarzenia',
+const renderMedia = () => {
+  if (!item.media_url || !item.media_type) return null;
+  
+  return (
+    <SecureMedia
+      mediaUrl={item.media_url}
+      mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+      altText={item.media_alt_text || item.title || 'Zabezpieczone media'}
+      className="w-full max-w-md mx-auto shadow-lg mb-4"
+      controlMode={item.media_type === 'video' ? 'secure' : undefined}  // NOWE
+    />
+  );
+};
+```
+
+### 4. Wzmocnienie zabezpieczeń w SecureMedia
+
+Dodanie blokady pobierania przez JavaScript:
+
+```typescript
+// W useEffect dla wideo
+useEffect(() => {
+  if (!videoElement) return;
+  
+  // Block download attempts via keyboard
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Block Ctrl+S on video
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+    }
+  };
+  
+  videoElement.addEventListener('keydown', handleKeyDown);
+  return () => videoElement.removeEventListener('keydown', handleKeyDown);
+}, [videoElement]);
 ```
 
 ---
 
-### 4. Usunięcie z Admin.tsx
+## Wygląd nowych kontrolek (SecureVideoControls)
 
-Usunięcie `TabsContent` dla `guest-registrations` (będzie częścią `event-registrations`):
-
-```diff
-- <TabsContent value="guest-registrations">
--   <GuestRegistrationsManagement />
-- </TabsContent>
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                          [WIDEO]                                           │
+├────────────────────────────────────────────────────────────────────────────┤
+│  ▶ Play   -10s   +10s   [░░░░████████░░░░░░░░]   1:23 / 5:00   1x ▼   ⛶   │
+│                          ↑ klikacie = seek                     ↑ speed    │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-### 5. Opcjonalne: Usunięcie pliku
-
-Plik `GuestRegistrationsManagement.tsx` można usunąć lub zachować jako backup - cała jego logika zostanie przeniesiona do `EventRegistrationsManagement.tsx`.
+Dropdown prędkości:
+```
+[ 1x ▼ ]
+├── 0.5x
+├── 0.75x
+├── 1x ✓
+├── 1.25x
+├── 1.5x
+└── 2x
+```
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana |
-|------|--------|
-| `EventRegistrationsManagement.tsx` | Dodanie zakładek, integracja logiki gości |
-| `AdminSidebar.tsx` | Usunięcie `guest-registrations`, zmiana nazwy |
-| `Admin.tsx` | Usunięcie `TabsContent` dla `guest-registrations` |
-| `GuestRegistrationsManagement.tsx` | Do usunięcia (opcjonalnie) |
+| Plik | Zmiana | Cel |
+|------|--------|-----|
+| `SecureVideoControls.tsx` | **NOWY** | Kontrolki z seek/speed bez download |
+| `SecureMedia.tsx` | Nowy prop `controlMode` + logika | Wybór trybu kontrolek |
+| `CMSContent.tsx` | `controlMode="secure"` dla wideo | Aktywacja bezpiecznych kontrolek |
 
----
+## Zachowana funkcjonalność
+
+- ✅ Strona Page.tsx nadal używa `useSecurityPreventions()` (prawy przycisk, Ctrl+S)
+- ✅ CSS `user-select: none` działa globalnie
+- ✅ Szkolenia (TrainingViewer) używają istniejącego `disableInteraction` / `controlMode="restricted"`
+- ✅ Wideo z YouTube - bez zmian (nie można kontrolować)
 
 ## Efekt końcowy
 
-- **Jeden panel** zamiast dwóch
-- **Wszystkie wydarzenia** (webinary + spotkania zespołu) w jednym dropdown
-- **Zakładka "Goście"** pojawia się automatycznie gdy wydarzenie ma włączone zaproszenia
-- **Spójne UI** - statystyki, eksport CSV dla obu typów
-- **Mniej pozycji w menu** - łatwiejsza nawigacja dla admina
-
+Na stronie Aktualności:
+- Wideo ma pełne kontrolki (play, pause, seek, speed, fullscreen)
+- Brak natywnego menu "Pobierz"
+- Brak możliwości prawego kliknięcia
+- Brak możliwości zaznaczenia/kopiowania
+- Wideo wyświetlane w bezpieczny sposób
