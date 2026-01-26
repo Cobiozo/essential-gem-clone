@@ -1,190 +1,201 @@
 
-# Plan: Panel statystyk rejestracji użytkowników na wydarzenia
+
+# Plan: Połączenie rejestrów gości i użytkowników w jeden panel
 
 ## Analiza obecnego stanu
 
-### Co już istnieje:
-1. **Tabela `event_registrations`** - przechowuje wszystkie zapisy zalogowanych użytkowników
-2. **Tabela `guest_event_registrations`** - dla gości zewnętrznych (webinary)
-3. **Komponent `GuestRegistrationsManagement`** - zarządza gośćmi (niezalogowanymi)
-4. **Zakładka "Zarządzanie wydarzeniami"** (`events`) - tworzenie/edycja wydarzeń
+### Dwa osobne panele:
+| Panel | Tabela | Kto się zapisuje | Na jakie wydarzenia |
+|-------|--------|------------------|---------------------|
+| `GuestRegistrationsManagement` | `guest_event_registrations` | Goście (niezalogowani) | Webinary, team_training (gdzie `allow_invites = true`) |
+| `EventRegistrationsManagement` | `event_registrations` | Zalogowani użytkownicy | Wszystkie wydarzenia wewnętrzne |
 
-### Czego brakuje:
-Panel do przeglądania **kto z zalogowanych użytkowników** zapisał się na wydarzenia wewnętrzne.
+### Propozycja użytkownika:
+- **Jeden wspólny panel** z dwoma zakładkami/sekcjami
+- **Goście** - pokazuj tylko dla wydarzeń z `allow_invites = true`
+- **Użytkownicy** - wszystkie wydarzenia (webinary, spotkania zespołu)
 
 ---
 
-## Propozycja rozwiązania
+## Rozwiązanie: Połączony panel z zakładkami
 
-Stworzę nowy komponent `EventRegistrationsManagement` wzorowany na `GuestRegistrationsManagement`, ale pobierający dane z tabeli `event_registrations` z dołączonymi profilami użytkowników.
+### Nowy widok po połączeniu:
 
-### Lokalizacja w panelu admina:
-
-```text
-Panel Admina
-├── Funkcjonalności
-│   ├── ...
-│   ├── Zarządzanie wydarzeniami  (istniejące)
-│   ├── Rejestracje gości          (istniejące - dla webinarów)
-│   ├── Rejestracje użytkowników   ← NOWY KOMPONENT
-│   ├── ...
 ```
-
-Zakładka pojawi się tuż pod "Rejestracje gości" jako logiczne uzupełnienie.
-
----
-
-## Funkcjonalności nowego panelu
-
-| Funkcja | Opis |
-|---------|------|
-| Wybór wydarzenia | Dropdown z listą wydarzeń (wszystkie typy lub filtr po typie) |
-| Tabela zapisów | Imię, nazwisko, email, rola, status, data zapisu, occurrence_index |
-| Statystyki | Łączna liczba zapisów, aktywnych, anulowanych |
-| Eksport CSV | Pobierz listę do arkusza |
-| Filtrowanie | Po typie wydarzenia, statusie, dacie |
-
-### Widok tabeli:
-
-```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ Rejestracje użytkowników na wydarzenia                                          │
+│ 📋 Rejestracje na wydarzenia                                                    │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│ Wydarzenie: [Pure Calling ▼]  Typ: [Wszystkie ▼]     [Eksport CSV]              │
+│ Wydarzenie: [Pure Calling ▼]                                                    │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│ Statystyki:  Wszystkich: 45   Aktywnych: 38   Anulowanych: 7                    │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│ Imię i nazwisko    │ Email                  │ Rola     │ Status  │ Data zapisu  │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│ Sebastian Snopek   │ sebastian@...          │ partner  │ ✓ Zapisany │ 26.01 19:35 │
-│ Marcin Kipa        │ marcin@...             │ partner  │ ✓ Zapisany │ 26.01 19:29 │
-│ Urszula Gałażyn    │ urszula@...            │ klient   │ ✗ Anulowany│ 25.01 14:00 │
+│                                                                                  │
+│   [👥 Użytkownicy (12)]    [👤 Goście (5)]    ← zakładki                       │
+│   ━━━━━━━━━━━━━━━━━━━━━                                                         │
+│                                                                                  │
+│   Statystyki:  Wszystkich: 12   Aktywnych: 10   Anulowanych: 2                 │
+│                                                                                  │
+│   ┌────────────────────────────────────────────────────────────────────────────┐│
+│   │ Imię i nazwisko │ Email            │ Rola    │ Status  │ Termin  │ Data   ││
+│   ├────────────────────────────────────────────────────────────────────────────┤│
+│   │ Sebastian S.    │ seb@...          │ Partner │ ✓       │ 27.01   │ 26.01  ││
+│   │ Marcin K.       │ mar@...          │ Partner │ ✓       │ 27.01   │ 26.01  ││
+│   └────────────────────────────────────────────────────────────────────────────┘│
+│                                                                                  │
+│   [📥 Eksport CSV]                                                              │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Logika wyświetlania zakładki "Goście":
+- Zakładka "Goście" pojawia się **tylko** gdy wybrane wydarzenie ma `allow_invites = true`
+- Jeśli wydarzenie nie pozwala na gości → tylko zakładka "Użytkownicy"
 
 ---
 
 ## Sekcja techniczna
 
-### 1. Nowy plik: `src/components/admin/EventRegistrationsManagement.tsx`
+### 1. Modyfikacja pliku: `src/components/admin/EventRegistrationsManagement.tsx`
 
-Struktura komponentu:
+**Zmiany:**
+
+1. **Dodanie zakładek (Tabs)** do przełączania między użytkownikami a gośćmi
+2. **Rozszerzenie interfejsu `EventOption`** o pole `allow_invites: boolean`
+3. **Nowy stan `guestRegistrations`** do przechowywania gości
+4. **Funkcja `fetchGuestRegistrations()`** - pobieranie z `guest_event_registrations`
+5. **Warunkowe wyświetlanie zakładki "Goście"** - tylko gdy `selectedEvent?.allow_invites === true`
+6. **Osobna tabela dla gości** z dodatkowymi kolumnami (telefon, zaproszony przez, powiadomienia)
+7. **Funkcje zarządzania gośćmi** (zmiana statusu, wysyłanie przypomnień) - przeniesione z `GuestRegistrationsManagement`
+
+**Nowa struktura komponentu:**
 
 ```typescript
-interface EventRegistration {
+// Rozszerzony EventOption
+interface EventOption {
+  id: string;
+  title: string;
+  event_type: string;
+  start_time: string;
+  occurrences: any;
+  allow_invites: boolean;  // ← NOWE
+}
+
+// Interfejs dla gości (z GuestRegistrationsManagement)
+interface GuestRegistration {
   id: string;
   event_id: string;
-  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string | null;
+  phone: string | null;
   status: string;
   registered_at: string;
-  cancelled_at: string | null;
-  occurrence_index: number | null;
-  // Dołączone z profiles
-  user_profile: {
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-    role: string;
-  };
-  // Dołączone z events
-  event: {
-    title: string;
-    event_type: string;
-    start_time: string;
-    occurrences: any;
-  };
+  confirmation_sent: boolean;
+  reminder_sent: boolean;
+  invited_by_user_id: string | null;
+  inviter_profile?: { first_name: string | null; last_name: string | null; } | null;
 }
+
+// Nowy stan
+const [activeTab, setActiveTab] = useState<'users' | 'guests'>('users');
+const [guestRegistrations, setGuestRegistrations] = useState<GuestRegistration[]>([]);
 ```
 
-**Zapytanie do bazy:**
+**Zapytanie o wydarzenia z `allow_invites`:**
+
 ```typescript
-const { data } = await supabase
-  .from('event_registrations')
-  .select(`
-    id,
-    event_id,
-    user_id,
-    status,
-    registered_at,
-    cancelled_at,
-    occurrence_index,
-    profiles!inner(first_name, last_name, email, role),
-    events!inner(title, event_type, start_time, occurrences)
-  `)
-  .eq('event_id', selectedEventId)
-  .order('registered_at', { ascending: false });
+const { data, error } = await supabase
+  .from('events')
+  .select('id, title, event_type, start_time, occurrences, allow_invites')
+  .eq('is_active', true)
+  .in('event_type', ['webinar', 'team_training'])  // Wydarzenia z zapisami
+  .order('start_time', { ascending: false });
 ```
 
-**Funkcje:**
-- `fetchEvents()` - lista wydarzeń do wyboru
-- `fetchRegistrations()` - rejestracje dla wybranego wydarzenia  
-- `handleExportCSV()` - eksport do CSV
-- `getOccurrenceDate()` - oblicz rzeczywistą datę dla spotkań cyklicznych
-
----
-
-### 2. Zmiana w `src/components/admin/AdminSidebar.tsx`
-
-Dodanie nowego elementu menu w kategorii "features" (linia ~185):
+**Warunkowe zakładki:**
 
 ```typescript
-// Istniejące:
-{ value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
-// Nowe:
-{ value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
-```
-
-Dodanie klucza tłumaczenia:
-```typescript
-eventRegistrations: 'admin.sidebar.eventRegistrations',
-```
-
-I hardcoded label:
-```typescript
-eventRegistrations: 'Rejestracje użytkowników',
+<Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'users' | 'guests')}>
+  <TabsList>
+    <TabsTrigger value="users">
+      <Users className="h-4 w-4 mr-2" />
+      Użytkownicy ({userRegistrations.length})
+    </TabsTrigger>
+    
+    {/* Zakładka gości tylko gdy allow_invites = true */}
+    {selectedEvent?.allow_invites && (
+      <TabsTrigger value="guests">
+        <UserPlus className="h-4 w-4 mr-2" />
+        Goście ({guestRegistrations.length})
+      </TabsTrigger>
+    )}
+  </TabsList>
+  
+  <TabsContent value="users">
+    {/* Tabela użytkowników - obecna logika */}
+  </TabsContent>
+  
+  <TabsContent value="guests">
+    {/* Tabela gości - logika z GuestRegistrationsManagement */}
+  </TabsContent>
+</Tabs>
 ```
 
 ---
 
-### 3. Zmiana w `src/pages/Admin.tsx`
+### 2. Usunięcie z AdminSidebar.tsx
 
-**Import (linia ~60):**
-```typescript
-import EventRegistrationsManagement from '@/components/admin/EventRegistrationsManagement';
+Usunięcie osobnej pozycji `guest-registrations` z menu:
+
+```diff
+  { value: 'events', labelKey: 'events', icon: CalendarDays },
+- { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
+  { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
 ```
 
-**TabsContent (po linii 4357):**
+---
+
+### 3. Zmiana nazwy w sidebar
+
+Zmiana etykiety z "Rejestracje użytkowników" na bardziej ogólną:
+
 ```typescript
-<TabsContent value="event-registrations">
-  <EventRegistrationsManagement />
-</TabsContent>
+eventRegistrations: 'Rejestracje na wydarzenia',
 ```
+
+---
+
+### 4. Usunięcie z Admin.tsx
+
+Usunięcie `TabsContent` dla `guest-registrations` (będzie częścią `event-registrations`):
+
+```diff
+- <TabsContent value="guest-registrations">
+-   <GuestRegistrationsManagement />
+- </TabsContent>
+```
+
+---
+
+### 5. Opcjonalne: Usunięcie pliku
+
+Plik `GuestRegistrationsManagement.tsx` można usunąć lub zachować jako backup - cała jego logika zostanie przeniesiona do `EventRegistrationsManagement.tsx`.
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana | Cel |
-|------|--------|-----|
-| `EventRegistrationsManagement.tsx` | Nowy komponent | Panel statystyk rejestracji |
-| `AdminSidebar.tsx` | Nowy element menu | Dostęp z sidebara |
-| `Admin.tsx` | Import + TabsContent | Renderowanie zakładki |
-
----
-
-## Dodatkowe opcje (opcjonalne rozszerzenia)
-
-1. **Filtrowanie po typie wydarzenia** - dropdown: Team Training, Webinar, Konsultacje, etc.
-2. **Widok zbiorczy** - wszystkie wydarzenia naraz z grupowaniem
-3. **Widok dla konkretnego terminu** - dla spotkań cyklicznych pokazuj occurrence_index
-4. **Historia zmian** - kto anulował i kiedy
+| Plik | Zmiana |
+|------|--------|
+| `EventRegistrationsManagement.tsx` | Dodanie zakładek, integracja logiki gości |
+| `AdminSidebar.tsx` | Usunięcie `guest-registrations`, zmiana nazwy |
+| `Admin.tsx` | Usunięcie `TabsContent` dla `guest-registrations` |
+| `GuestRegistrationsManagement.tsx` | Do usunięcia (opcjonalnie) |
 
 ---
 
 ## Efekt końcowy
 
-- Admin widzi **kto zapisał się** na każde wydarzenie
-- Może **eksportować dane** do CSV
-- Widzi **statystyki** zapisów
-- Panel jest **tylko dla admina** (w panelu /admin)
-- **Zero zmian** w logice zapisów - tylko nowy widok danych
+- **Jeden panel** zamiast dwóch
+- **Wszystkie wydarzenia** (webinary + spotkania zespołu) w jednym dropdown
+- **Zakładka "Goście"** pojawia się automatycznie gdy wydarzenie ma włączone zaproszenia
+- **Spójne UI** - statystyki, eksport CSV dla obu typów
+- **Mniej pozycji w menu** - łatwiejsza nawigacja dla admina
+
