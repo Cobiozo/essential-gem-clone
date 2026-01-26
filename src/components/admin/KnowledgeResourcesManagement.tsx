@@ -378,7 +378,32 @@ export const KnowledgeResourcesManagement: React.FC = () => {
     setBulkFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Render resource card
+  // Quick toggle for individual resource actions (used in graphics list)
+  const handleQuickActionToggle = async (
+    resourceId: string, 
+    field: 'allow_share' | 'allow_copy_link' | 'allow_download',
+    currentValue: boolean
+  ) => {
+    // Optimistic update first
+    setResources(prev => prev.map(r => 
+      r.id === resourceId ? { ...r, [field]: !currentValue } : r
+    ));
+    
+    const { error } = await supabase
+      .from('knowledge_resources')
+      .update({ [field]: !currentValue })
+      .eq('id', resourceId);
+    
+    if (error) {
+      // Revert on error
+      setResources(prev => prev.map(r => 
+        r.id === resourceId ? { ...r, [field]: currentValue } : r
+      ));
+      toast({ title: t('toast.error'), description: 'Nie udało się zaktualizować', variant: 'destructive' });
+    }
+  };
+
+  // Render resource card for documents
   const renderResourceCard = (resource: KnowledgeResource) => (
     <Card key={resource.id} className="hover:shadow-md transition-shadow">
       <CardContent className="py-4">
@@ -416,6 +441,95 @@ export const KnowledgeResourcesManagement: React.FC = () => {
               <Pencil className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" onClick={() => handleDelete(resource.id)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Render graphic card with thumbnail and quick actions
+  const renderGraphicCard = (resource: KnowledgeResource) => (
+    <Card key={resource.id} className="hover:shadow-md transition-shadow">
+      <CardContent className="py-4">
+        <div className="flex items-start gap-4">
+          {/* Thumbnail */}
+          <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted border">
+            {resource.source_url ? (
+              <img 
+                src={resource.source_url} 
+                alt={resource.title}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <FileImage className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h3 className="font-semibold truncate">{resource.title}</h3>
+              {resource.is_featured && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
+              {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700">{t('admin.knowledge.badgeNew')}</Badge>}
+              {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700">{t('admin.knowledge.badgeUpdated')}</Badge>}
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+              {resource.description || t('admin.knowledge.noDescription')}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {getTypeBadge(resource.resource_type)}
+              {getStatusBadge(resource.status)}
+              {resource.category && <Badge variant="secondary">{resource.category}</Badge>}
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Download className="h-3 w-3" />
+                {resource.download_count}
+              </span>
+            </div>
+          </div>
+          
+          {/* Quick Actions - toggle buttons */}
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${resource.allow_share ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={(e) => { e.stopPropagation(); handleQuickActionToggle(resource.id, 'allow_share', resource.allow_share); }}
+              title="Udostępnianie"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${resource.allow_copy_link ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={(e) => { e.stopPropagation(); handleQuickActionToggle(resource.id, 'allow_copy_link', resource.allow_copy_link); }}
+              title="Kopiuj link"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${resource.allow_download ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={(e) => { e.stopPropagation(); handleQuickActionToggle(resource.id, 'allow_download', resource.allow_download); }}
+              title="Pobieranie"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            
+            {/* Separator */}
+            <div className="w-px h-6 bg-border mx-1" />
+            
+            {/* Edit/Delete */}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resource)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(resource.id)}>
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </div>
@@ -817,16 +931,19 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           {renderFilters(false)}
           
           {loading ? (
-            <div className="text-center py-8">{t('common.loading')}</div>
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            </div>
           ) : filteredGraphics.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                {t('admin.knowledge.noResources')}
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <Images className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>{t('admin.knowledge.noResources')}</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {filteredGraphics.map(resource => renderResourceCard(resource))}
+            <div className="space-y-2">
+              {filteredGraphics.map(resource => renderGraphicCard(resource))}
             </div>
           )}
         </TabsContent>
