@@ -21,7 +21,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { format, addMinutes, parse, addDays, getDay, startOfDay, isAfter, isBefore } from 'date-fns';
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { PartnerWithAvailability } from '@/types/events';
@@ -276,7 +276,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         supabase
           .from('events')
           .select('start_time, end_time')
-          .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
+          .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
           .gte('end_time', `${dateStr}T00:00:00`)
           .lte('start_time', `${dateStr}T23:59:59`)
           .eq('is_active', true),
@@ -364,20 +364,27 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
             { body: { leader_user_id: partnerId, date: dateStr } }
           );
           
-          if (busyData?.busy && Array.isArray(busyData.busy)) {
+      if (busyData?.busy && Array.isArray(busyData.busy)) {
+            console.log('[PartnerMeetingBooking] Google Calendar busy slots for', dateStr, ':', busyData.busy);
+            
             busyData.busy.forEach((busySlot: { start: string; end: string }) => {
               const busyStart = new Date(busySlot.start);
               const busyEnd = new Date(busySlot.end);
               
               allSlots.forEach(slotTime => {
-                const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-                const slotEnd = addMinutes(slotStart, slotDuration);
+                // Parse slot time in leader's timezone to get correct UTC comparison
+                const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                const slotStartUTC = fromZonedTime(slotDateTime, partnerTimezone);
+                const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
                 
-                if (slotStart < busyEnd && slotEnd > busyStart) {
+                // Both times are now in UTC for accurate comparison
+                if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
                   googleBusySlots.add(slotTime);
                 }
               });
             });
+            
+            console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
           }
         } catch (error) {
           console.warn('[PartnerMeetingBooking] Google Calendar check failed:', error);
@@ -504,8 +511,8 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .select('id')
         .eq('host_user_id', selectedPartner.user_id)
         .in('event_type', ['tripartite_meeting', 'partner_consultation'])
-        .gte('start_time', startDateTime)
-        .lt('end_time', endDateTime)
+        .lt('start_time', endDateTime)
+        .gt('end_time', startDateTime)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -525,7 +532,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const { data: blockingEvent } = await supabase
         .from('events')
         .select('id, title')
-        .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
+        .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu', 'meeting_public'])
         .lt('start_time', endDateTime)
         .gt('end_time', startDateTime)
         .eq('is_active', true)
