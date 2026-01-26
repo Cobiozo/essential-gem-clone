@@ -36,24 +36,6 @@ Deno.serve(async (req) => {
     // CHECK 1: Users without roles (CRITICAL)
     // ============================================
     console.log('Checking for users without roles...');
-    const { data: usersWithoutRoles, error: rolesError } = await supabase
-      .from('profiles')
-      .select(`
-        user_id,
-        email,
-        first_name,
-        last_name,
-        created_at
-      `)
-      .not('user_id', 'in', 
-        supabase.from('user_roles').select('user_id')
-      );
-
-    if (rolesError) {
-      console.error('Error checking roles:', rolesError);
-    }
-
-    // Alternative query approach since nested NOT IN might not work
     const { data: allProfiles } = await supabase
       .from('profiles')
       .select('user_id, email, first_name, last_name, created_at');
@@ -69,7 +51,6 @@ Deno.serve(async (req) => {
       console.log(`Found ${usersNoRoles.length} users without roles`);
       
       if (usersNoRoles.length <= 5) {
-        // Individual alerts for small numbers
         for (const user of usersNoRoles) {
           results.push({
             type: 'missing_role',
@@ -88,7 +69,6 @@ Deno.serve(async (req) => {
           });
         }
       } else {
-        // Grouped alert for large numbers
         results.push({
           type: 'missing_role_group',
           severity: 'critical',
@@ -235,12 +215,119 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
+    // CHECK 4: Leaders without Google Calendar (WARNING)
+    // ============================================
+    console.log('Checking for leaders without Google Calendar...');
+
+    const { data: leaders } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'leader');
+
+    const leaderUserIds = (leaders || []).map(l => l.user_id);
+
+    if (leaderUserIds.length > 0) {
+      const { data: connectedLeaders } = await supabase
+        .from('user_google_tokens')
+        .select('user_id')
+        .in('user_id', leaderUserIds);
+      
+      const connectedIds = new Set((connectedLeaders || []).map(c => c.user_id));
+      const disconnectedLeaderIds = leaderUserIds.filter(id => !connectedIds.has(id));
+      
+      if (disconnectedLeaderIds.length > 0) {
+        const { data: disconnectedProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, email, first_name, last_name')
+          .in('user_id', disconnectedLeaderIds)
+          .eq('is_active', true);
+        
+        if (disconnectedProfiles && disconnectedProfiles.length > 0) {
+          console.log(`Found ${disconnectedProfiles.length} leaders without Google Calendar`);
+          
+          if (disconnectedProfiles.length <= 5) {
+            for (const leader of disconnectedProfiles) {
+              results.push({
+                type: 'google_calendar_disconnected',
+                severity: 'warning',
+                title: `Lider bez Google Calendar: ${leader.email}`,
+                description: `Lider ${leader.first_name || ''} ${leader.last_name || ''} (${leader.email}) nie ma połączonego Google Calendar. Rezerwacje spotkań mogą nakładać się na zajęte terminy w jego kalendarzu.`,
+                suggestedAction: 'Skontaktuj się z liderem i poproś o połączenie Google Calendar w ustawieniach konta (Moje konto → Ustawienia → Google Calendar).',
+                affectedUserId: leader.user_id,
+                affectedEntityType: 'user',
+                metadata: {
+                  email: leader.email,
+                  first_name: leader.first_name,
+                  last_name: leader.last_name,
+                }
+              });
+            }
+          } else {
+            results.push({
+              type: 'google_calendar_disconnected_group',
+              severity: 'warning',
+              title: `${disconnectedProfiles.length} liderów bez połączonego Google Calendar`,
+              description: `Wykryto ${disconnectedProfiles.length} liderów bez połączonego Google Calendar. Rezerwacje spotkań mogą nakładać się na zajęte terminy.`,
+              suggestedAction: 'Skontaktuj się z liderami i poproś o połączenie Google Calendar w ustawieniach konta.',
+              metadata: {
+                count: disconnectedProfiles.length,
+                sample_emails: disconnectedProfiles.slice(0, 10).map(l => l.email)
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // ============================================
+    // CHECK 5: Tokens expiring within 24 hours (INFO)
+    // ============================================
+    console.log('Checking for expiring Google tokens...');
+
+    const in24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
+
+    const { data: expiringTokens } = await supabase
+      .from('user_google_tokens')
+      .select('user_id, expires_at')
+      .gt('expires_at', nowIso)
+      .lt('expires_at', in24Hours);
+
+    if (expiringTokens && expiringTokens.length > 0) {
+      const expiringUserIds = expiringTokens.map(t => t.user_id);
+      const { data: expiringProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, email, first_name, last_name')
+        .in('user_id', expiringUserIds);
+
+      console.log(`Found ${expiringTokens.length} tokens expiring within 24 hours`);
+
+      for (const token of expiringTokens) {
+        const profile = expiringProfiles?.find(p => p.user_id === token.user_id);
+        if (profile) {
+          results.push({
+            type: 'google_calendar_expiring_soon',
+            severity: 'info',
+            title: `Token Google wygasa wkrótce: ${profile.email}`,
+            description: `Token Google Calendar użytkownika ${profile.first_name || ''} ${profile.last_name || ''} wygasa w ciągu 24 godzin. System automatycznie spróbuje go odświeżyć przy następnym użyciu.`,
+            suggestedAction: 'Monitoruj logi synchronizacji. Jeśli odświeżanie nie powiedzie się, użytkownik będzie musiał ponownie połączyć konto Google.',
+            affectedUserId: profile.user_id,
+            affectedEntityType: 'user',
+            metadata: {
+              email: profile.email,
+              expires_at: token.expires_at,
+            }
+          });
+        }
+      }
+    }
+
+    // ============================================
     // SAVE RESULTS TO admin_alerts
     // ============================================
     console.log(`Health check complete. Found ${results.length} issues.`);
 
     for (const result of results) {
-      // Check if similar unresolved alert already exists
       const { data: existing } = await supabase
         .from('admin_alerts')
         .select('id')
@@ -249,7 +336,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        // Update existing alert
         await supabase
           .from('admin_alerts')
           .update({
@@ -262,7 +348,6 @@ Deno.serve(async (req) => {
           })
           .eq('id', existing.id);
       } else {
-        // Insert new alert
         await supabase
           .from('admin_alerts')
           .insert({
@@ -287,12 +372,21 @@ Deno.serve(async (req) => {
       .select('id, alert_type')
       .eq('is_resolved', false);
 
+    // Types we check and can auto-resolve
+    const autoResolvableTypes = [
+      'missing_role', 'missing_role_group',
+      'missing_training', 'missing_training_group',
+      'unapproved_user_24h', 'unapproved_users_group',
+      'google_calendar_disconnected', 'google_calendar_disconnected_group',
+      'google_calendar_expiring_soon'
+    ];
+
     for (const alert of unresolvedAlerts || []) {
-      // If we checked this type but didn't find issues, auto-resolve
-      const typePrefix = alert.alert_type.replace(/_group$/, '');
-      const wasChecked = ['missing_role', 'missing_training', 'unapproved_user_24h'].includes(typePrefix);
+      const isAutoResolvable = autoResolvableTypes.some(type => 
+        alert.alert_type === type || alert.alert_type.startsWith(type.replace(/_group$/, ''))
+      );
       
-      if (wasChecked && !activeAlertTypes.has(alert.alert_type)) {
+      if (isAutoResolvable && !activeAlertTypes.has(alert.alert_type)) {
         await supabase
           .from('admin_alerts')
           .update({
