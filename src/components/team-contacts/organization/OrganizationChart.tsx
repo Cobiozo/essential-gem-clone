@@ -151,10 +151,11 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
                 
                 return (
                   <path
-                    key={`${child.id}-${isHighlighted ? animationKey : 'static'}`}
+                    key={`connector-${node.id}-${child.id}-${isHighlighted ? animationKey : 'static'}`}
                     d={createCurvePath(centerX, 0, childX, 32, 14)}
+                    pathLength={1}
                     className={cn(
-                      "fill-none",
+                      "fill-none transition-opacity duration-300",
                       isHighlighted 
                         ? "stroke-primary tree-connector-highlight" 
                         : hasFocus 

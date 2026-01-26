@@ -273,7 +273,7 @@ All colors MUST be HSL.
   /* Tree connector drawing animation */
   @keyframes draw-connector {
     from {
-      stroke-dashoffset: 200;
+      stroke-dashoffset: 1;
     }
     to {
       stroke-dashoffset: 0;
@@ -287,8 +287,9 @@ All colors MUST be HSL.
   
   /* Animacja rysowania TYLKO dla podświetlonej ścieżki */
   .tree-connector-highlight {
-    stroke-dasharray: 200;
-    animation: draw-connector 0.8s ease-out forwards;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw-connector 0.6s ease-out forwards;
   }
 }
 
