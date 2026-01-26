@@ -77,7 +77,17 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
       .eq('user_id', user.id)
       .maybeSingle();
     
-    setHasGoogleCalendar(!!data);
+    const connected = !!data;
+    setHasGoogleCalendar(connected);
+    
+    // Automatycznie ustaw tryb na podstawie połączenia z Google Calendar
+    // Jeśli nie ma Google Calendar, wymuś tryb zewnętrzny
+    // Jeśli ma Google Calendar, wymuś tryb wewnętrzny
+    if (!connected) {
+      setBookingMode('external');
+    } else {
+      setBookingMode('internal');
+    }
   };
 
   const loadExistingData = async () => {
@@ -290,17 +300,34 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
             className="space-y-4"
           >
             <div className={cn(
-              "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors",
-              bookingMode === 'internal' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+              "flex items-start gap-3 p-4 rounded-lg border transition-colors",
+              !hasGoogleCalendar ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              bookingMode === 'internal' && hasGoogleCalendar ? "border-primary bg-primary/5" : "hover:bg-muted/50"
             )}>
-              <RadioGroupItem value="internal" id="internal" className="mt-1" />
+              <RadioGroupItem 
+                value="internal" 
+                id="internal" 
+                className="mt-1" 
+                disabled={!hasGoogleCalendar}
+              />
               <div className="flex-1">
-                <Label htmlFor="internal" className="font-medium cursor-pointer">
+                <Label htmlFor="internal" className={cn(
+                  "font-medium",
+                  !hasGoogleCalendar ? "cursor-not-allowed" : "cursor-pointer"
+                )}>
                   Wbudowany harmonogram
                 </Label>
                 <p className="text-sm text-muted-foreground mt-1">
                   Ustalaj dostępność w aplikacji. Partnerzy rezerwują spotkania bezpośrednio w systemie.
                 </p>
+                {!hasGoogleCalendar && (
+                  <Alert className="mt-2 py-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Wymagane połączenie z Google Calendar. Przejdź do <strong>Ustawienia konta</strong> i połącz kalendarz.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </div>
             
