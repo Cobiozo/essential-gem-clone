@@ -1,260 +1,163 @@
 
+# Plan: Bezpieczne usunięcie widżetu Aktywnych Użytkowników i optymalizacja wydajności
 
-# Plan: Kompleksowe blokowanie terminów spotkań indywidualnych
+## Analiza bezpieczeństwa zmian
 
-## Aktualny stan kodu
+Przed usunięciem przeanalizowałem wszystkie zależności:
 
-Przeanalizowałem `PartnerMeetingBooking.tsx` i widzę następującą logikę:
+### ✅ Pliki używające `useUserPresence` i `ActiveUsersWidget`:
 
-### Co już działa poprawnie:
+| Plik | Użycie | Status po usunięciu |
+|------|--------|---------------------|
+| `src/pages/Dashboard.tsx` | Import + render widżetu | ✅ Usunę odniesienie |
+| `src/components/dashboard/widgets/ActiveUsersWidget.tsx` | Główny plik widżetu | ✅ Do usunięcia |
+| `src/hooks/useUserPresence.ts` | Hook presence | ✅ Do usunięcia |
+| `src/components/onboarding/tourSteps.ts` | Krok w onboardingu | ✅ Usunę krok |
 
-1. **Linie 276-282** - Pobieranie eventów blokujących z platformy:
-```tsx
-.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
-```
+### ✅ Niezależne systemy (pozostają bez zmian):
 
-2. **Linie 341-355** - Blokowanie slotów przez eventy platformy:
-```tsx
-if (slotStart < eventEnd && slotEnd > eventStart) {
-  blockedByPlatform.add(slotTime);
-}
-```
+| System | Plik | Opis |
+|--------|------|------|
+| Admin Presence | `useAdminPresence.ts` | Osobny hook dla panelu admina - **NIE DOTYKAM** |
+| Floating Admin | `FloatingAdminPresence.tsx` | Widget dla adminów w CMS - **NIE DOTYKAM** |
 
-3. **Linie 357-385** - Sprawdzanie Google Calendar busy times
-
-4. **Linie 523-543** - Walidacja przy rezerwacji (webinary, team_training)
-
-### Co wymaga naprawy:
-
-| Problem | Lokalizacja | Opis |
-|---------|-------------|------|
-| Brak `meeting_public` | Linie 279, 528 | Spotkania publiczne nie blokują slotów |
-| Błędne porównanie timezone | Linie 372-376 | Sloty parsowane w lokalnej strefie zamiast lidera |
-| Błędna walidacja overlap | Linie 507-508 | `.gte` i `.lt` zamiast `.lt` i `.gt` |
-
----
-
-## Rozwiązania
-
-### Zmiana 1: Dodanie `meeting_public` do typów blokujących
-
-**Plik:** `src/components/events/PartnerMeetingBooking.tsx`
-
-**Linia 279** - zapytanie pobierające eventy blokujące:
-```tsx
-// PRZED:
-.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
-
-// PO:
-.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
-```
-
-**Linia 528** - walidacja przed rezerwacją:
-```tsx
-// PRZED:
-.in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-
-// PO:
-.in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu', 'meeting_public'])
-```
-
-### Zmiana 2: Naprawa porównania stref czasowych z Google Calendar
-
-**Plik:** `src/components/events/PartnerMeetingBooking.tsx`
-
-**Import (dodać `zonedTimeToUtc`):**
-```tsx
-import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
-```
-
-**Linie 367-381** - zmiana parsowania slotów:
-```tsx
-// PRZED:
-if (busyData?.busy && Array.isArray(busyData.busy)) {
-  busyData.busy.forEach((busySlot: { start: string; end: string }) => {
-    const busyStart = new Date(busySlot.start);
-    const busyEnd = new Date(busySlot.end);
-    
-    allSlots.forEach(slotTime => {
-      const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-      const slotEnd = addMinutes(slotStart, slotDuration);
-      
-      if (slotStart < busyEnd && slotEnd > busyStart) {
-        googleBusySlots.add(slotTime);
-      }
-    });
-  });
-}
-
-// PO:
-if (busyData?.busy && Array.isArray(busyData.busy)) {
-  console.log('[PartnerMeetingBooking] Google Calendar busy slots:', busyData.busy);
-  
-  busyData.busy.forEach((busySlot: { start: string; end: string }) => {
-    const busyStart = new Date(busySlot.start);
-    const busyEnd = new Date(busySlot.end);
-    
-    allSlots.forEach(slotTime => {
-      // Parse slot time in leader's timezone to get correct UTC comparison
-      const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-      const slotStartUTC = zonedTimeToUtc(slotDateTime, partnerTimezone);
-      const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
-      
-      // Both times are now in UTC for accurate comparison
-      if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
-        googleBusySlots.add(slotTime);
-      }
-    });
-  });
-  
-  console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
-}
-```
-
-### Zmiana 3: Naprawa walidacji overlap przy rezerwacji
-
-**Plik:** `src/components/events/PartnerMeetingBooking.tsx`
-
-**Linie 502-510** - poprawienie warunków:
-```tsx
-// PRZED:
-const { data: existingEvent } = await supabase
-  .from('events')
-  .select('id')
-  .eq('host_user_id', selectedPartner.user_id)
-  .in('event_type', ['tripartite_meeting', 'partner_consultation'])
-  .gte('start_time', startDateTime)  // ❌ Błędne
-  .lt('end_time', endDateTime)        // ❌ Błędne
-  .eq('is_active', true)
-  .maybeSingle();
-
-// PO:
-const { data: existingEvent } = await supabase
-  .from('events')
-  .select('id')
-  .eq('host_user_id', selectedPartner.user_id)
-  .in('event_type', ['tripartite_meeting', 'partner_consultation'])
-  .lt('start_time', endDateTime)   // ✅ existing start < our end
-  .gt('end_time', startDateTime)   // ✅ existing end > our start
-  .eq('is_active', true)
-  .maybeSingle();
-```
-
----
-
-## Wizualizacja logiki blokowania
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    SPRAWDZANIE DOSTĘPNOŚCI SLOTU                │
-└─────────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  1. HARMONOGRAM LIDERA (leader_availability)                    │
-│     → Czy lider ma włączoną dostępność w tym dniu/godzinie?     │
-└─────────────────────────────────────────────────────────────────┘
-                               │ TAK
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  2. ISTNIEJĄCE SPOTKANIA INDYWIDUALNE                           │
-│     (tripartite_meeting, partner_consultation)                  │
-│     → Czy lider ma już rezerwację w tym czasie?                 │
-└─────────────────────────────────────────────────────────────────┘
-                               │ NIE
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  3. EVENTY PLATFORMY (webinar, team_training,                   │
-│                       spotkanie_zespolu, meeting_public)        │
-│     → Czy w tym czasie jest event zespołowy?                    │
-└─────────────────────────────────────────────────────────────────┘
-                               │ NIE
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  4. GOOGLE CALENDAR LIDERA                                      │
-│     → Czy lider ma zajęty czas w Google Calendar?               │
-└─────────────────────────────────────────────────────────────────┘
-                               │ NIE
-                               ▼
-                    ┌──────────────────┐
-                    │ SLOT DOSTĘPNY ✅ │
-                    └──────────────────┘
-```
-
----
-
-## Przykład: 26.01.2026
-
-| Godzina | Team Zoom | Google Cal | Rezultat |
-|---------|-----------|------------|----------|
-| 16:00 | - | ZAJĘTY | ❌ Zablokowany |
-| 17:00 | - | ZAJĘTY | ❌ Zablokowany |
-| 18:00 | - | ZAJĘTY | ❌ Zablokowany |
-| 19:00 | - | ZAJĘTY | ❌ Zablokowany |
-| 20:00 | TAK (team_training) | ZAJĘTY | ❌ Zablokowany (oba) |
-| 21:00 | - | ZAJĘTY | ❌ Zablokowany |
-
----
-
-## Podsumowanie zmian
-
-| Plik | Linia | Zmiana |
-|------|-------|--------|
-| `PartnerMeetingBooking.tsx` | 24 | Dodanie importu `zonedTimeToUtc` |
-| `PartnerMeetingBooking.tsx` | 279 | Dodanie `meeting_public` do typów blokujących |
-| `PartnerMeetingBooking.tsx` | 367-381 | Użycie `zonedTimeToUtc` dla Google Calendar |
-| `PartnerMeetingBooking.tsx` | 507-508 | Naprawa `.gte`/`.lt` → `.lt`/`.gt` |
-| `PartnerMeetingBooking.tsx` | 528 | Dodanie `meeting_public` do walidacji |
+Te dwa systemy używają **innego kanału** (`admin-presence-shared`) i **innego hooka** (`useAdminPresence`) - są całkowicie niezależne.
 
 ---
 
 ## Sekcja techniczna
 
-### Pełna lista zmian w pliku `PartnerMeetingBooking.tsx`:
+### Zmiana 1: Usunięcie z Dashboard.tsx
 
-**Linia 24 - rozszerzenie importu:**
+**Plik:** `src/pages/Dashboard.tsx`
+
+**Linia 20 - usunięcie importu:**
 ```tsx
-import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
+// USUNĄĆ:
+const ActiveUsersWidget = lazy(() => import('@/components/dashboard/widgets/ActiveUsersWidget'));
 ```
 
-**Linia 279 - zapytanie blokujące:**
+**Linie 136-139 - usunięcie renderowania:**
 ```tsx
-.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
+// USUNĄĆ:
+{/* Active Users Widget - only visible to admins */}
+<Suspense fallback={<WidgetSkeleton />}>
+  <ActiveUsersWidget />
+</Suspense>
 ```
 
-**Linie 367-385 - Google Calendar z timezone fix i logowaniem:**
-```tsx
-if (busyData?.busy && Array.isArray(busyData.busy)) {
-  console.log('[PartnerMeetingBooking] Google Calendar busy slots for', dateStr, ':', busyData.busy);
-  
-  busyData.busy.forEach((busySlot: { start: string; end: string }) => {
-    const busyStart = new Date(busySlot.start);
-    const busyEnd = new Date(busySlot.end);
-    
-    allSlots.forEach(slotTime => {
-      // Parse slot in leader's timezone for accurate UTC comparison
-      const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-      const slotStartUTC = zonedTimeToUtc(slotDateTime, partnerTimezone);
-      const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
-      
-      if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
-        googleBusySlots.add(slotTime);
-      }
-    });
-  });
-  
-  console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
-}
+### Zmiana 2: Usunięcie kroku onboardingu
+
+**Plik:** `src/components/onboarding/tourSteps.ts`
+
+**Linie 111-118 - usunięcie kroku:**
+```typescript
+// USUNĄĆ cały obiekt:
+{
+  id: 'active-users-widget',
+  targetSelector: '[data-tour="active-users-widget"]',
+  title: 'Aktywni Użytkownicy',
+  description: 'Statystyki aktywności użytkowników platformy. Widoczne tylko dla administratorów.',
+  position: 'bottom',
+  visibleFor: ['admin'],
+},
 ```
 
-**Linie 507-508 - walidacja overlap:**
-```tsx
-.lt('start_time', endDateTime)
-.gt('end_time', startDateTime)
+### Zmiana 3: Usunięcie plików
+
+**Pliki do usunięcia:**
+- `src/components/dashboard/widgets/ActiveUsersWidget.tsx`
+- `src/hooks/useUserPresence.ts`
+
+---
+
+## Optymalizacje wydajności (bez zmian struktury)
+
+### Zmiana 4: Zwiększenie interwału sprawdzania "stuck" wideo
+
+**Plik:** `src/lib/videoBufferConfig.ts`
+
+**Linia 39:**
+```typescript
+// PRZED:
+stuckDetectionIntervalMs: 10000,  // Check every 10s
+
+// PO:
+stuckDetectionIntervalMs: 20000,  // Check every 20s - mniej inwazyjne
 ```
 
-**Linia 528 - walidacja przy rezerwacji:**
-```tsx
-.in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu', 'meeting_public'])
+### Zmiana 5: Zmniejszenie częstotliwości OTP countdown
+
+**Plik:** `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx`
+
+**Linia 73:**
+```typescript
+// PRZED:
+const interval = setInterval(updateCountdown, 1000);
+
+// PO:
+const interval = setInterval(updateCountdown, 5000); // Co 5 sekund zamiast co 1
 ```
 
+### Zmiana 6: Lazy loading dla miniaturek Zdrowa Wiedza
+
+**Plik:** `src/pages/HealthyKnowledge.tsx`
+
+**Linia ~260 - dodanie atrybutów lazy loading:**
+```tsx
+// PRZED:
+<img
+  src={material.thumbnail_url}
+  alt={material.title}
+  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+/>
+
+// PO:
+<img
+  src={material.thumbnail_url}
+  alt={material.title}
+  loading="lazy"
+  decoding="async"
+  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+/>
+```
+
+---
+
+## Podsumowanie zmian
+
+| Plik | Akcja | Wpływ na wydajność |
+|------|-------|-------------------|
+| `Dashboard.tsx` | Usunięcie importu i renderowania | Eliminacja WebSocket dla wszystkich użytkowników |
+| `tourSteps.ts` | Usunięcie kroku onboardingu | Żaden |
+| `ActiveUsersWidget.tsx` | **USUNIĘCIE PLIKU** | Eliminacja widżetu |
+| `useUserPresence.ts` | **USUNIĘCIE PLIKU** | Eliminacja heartbeatów i połączeń Realtime |
+| `videoBufferConfig.ts` | 10s → 20s stuck detection | -50% sprawdzeń wideo |
+| `CombinedOtpCodesWidget.tsx` | 1s → 5s countdown | -80% re-renderów OTP |
+| `HealthyKnowledge.tsx` | lazy loading obrazów | Szybsze ładowanie listy materiałów |
+
+---
+
+## Szacowane oszczędności
+
+**Przed optymalizacją (20 aktywnych użytkowników):**
+- ~40 WebSocket połączeń/minutę (presence sync)
+- ~40 zapisów heartbeat/minutę do Supabase
+- ~80 odświeżeń listy użytkowników/minutę
+
+**Po optymalizacji:**
+- 0 WebSocket połączeń presence dla zwykłych użytkowników
+- 0 heartbeatów dla zwykłych użytkowników
+- Mniej re-renderów dashboardu
+
+---
+
+## Co pozostanie nienaruszone
+
+- `FloatingAdminPresence` - widget w panelu admina (używa `useAdminPresence`)
+- `AdminPresenceWidget` - lista innych adminów w CMS
+- Kanał `admin-presence-shared` - dla adminów w CMS
+- Wszystkie funkcje rezerwacji spotkań
+- Wszystkie funkcje szkoleń
+- Wszystkie funkcje Zdrowej Wiedzy
+- Wszystkie OTP kody
