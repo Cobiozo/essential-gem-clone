@@ -242,7 +242,7 @@ const HealthyKnowledgePage: React.FC = () => {
             {filteredMaterials.map((material) => (
               <Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
                 {/* Thumbnail with inline player */}
-                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                <div className="relative aspect-video bg-muted overflow-hidden">
                   {playingId === material.id && material.media_url ? (
                     // Inline player using SecureMedia for signed URLs
                     <div className="relative w-full h-full bg-black">
