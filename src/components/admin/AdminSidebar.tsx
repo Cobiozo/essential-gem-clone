@@ -103,6 +103,7 @@ const SIDEBAR_KEYS = {
   specialistCalculator: 'admin.sidebar.specialistCalculator',
   healthyKnowledge: 'admin.sidebar.healthyKnowledge',
   organizationTree: 'admin.sidebar.organizationTree',
+  eventRegistrations: 'admin.sidebar.eventRegistrations',
 };
 
 interface AdminSidebarProps {
@@ -182,6 +183,7 @@ const navCategories: NavCategory[] = [
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
+      { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
       { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
@@ -245,6 +247,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     systemHealth: 'Alerty systemowe',
     htmlPages: 'Strony HTML',
     organizationTree: 'Struktura organizacji',
+    eventRegistrations: 'Rejestracje użytkowników',
   };
 
   const getLabel = (key: string): string => {
