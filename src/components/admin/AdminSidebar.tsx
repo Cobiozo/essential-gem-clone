@@ -182,7 +182,6 @@ const navCategories: NavCategory[] = [
       { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
       { value: 'events', labelKey: 'events', icon: CalendarDays },
-      { value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
       { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
@@ -247,7 +246,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     systemHealth: 'Alerty systemowe',
     htmlPages: 'Strony HTML',
     organizationTree: 'Struktura organizacji',
-    eventRegistrations: 'Rejestracje użytkowników',
+    eventRegistrations: 'Rejestracje na wydarzenia',
   };
 
   const getLabel = (key: string): string => {
