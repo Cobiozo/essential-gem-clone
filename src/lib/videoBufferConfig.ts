@@ -36,7 +36,7 @@ export const VIDEO_BUFFER_CONFIG = {
   
   // Common settings (device-independent)
   common: {
-    stuckDetectionIntervalMs: 10000,  // Check every 10s for stuck playback
+    stuckDetectionIntervalMs: 20000,  // Check every 20s for stuck playback - less invasive
     bufferingStateDelayMs: 1200,      // Zwiększone z 1000 na 1200ms - mniej fałszywych spinnerów
     seekToleranceSeconds: 5,          // Max allowed time jump before blocking
     smartBufferingDelayMs: 2000,      // Zwiększone z 1500 na 2000ms - więcej tolerancji dla mikro-zacinań
