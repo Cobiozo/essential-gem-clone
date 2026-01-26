@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, X } from 'lucide-react';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge, CONTENT_TYPE_LABELS, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
@@ -46,9 +46,6 @@ const HealthyKnowledgePage: React.FC = () => {
   // Preview dialog state
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
-  
-  // Inline playback state
-  const [playingId, setPlayingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMaterials();
@@ -148,16 +145,22 @@ const HealthyKnowledgePage: React.FC = () => {
   };
 
   const handleViewMaterial = (material: HealthyKnowledge) => {
+    // For video/audio - navigate to dedicated player page
+    if (material.content_type === 'video' || material.content_type === 'audio') {
+      navigate(`/zdrowa-wiedza/player/${material.id}`);
+      return;
+    }
+    
+    // For other types - use modal dialog
     setPreviewMaterial(material);
     setPreviewDialogOpen(true);
     
-    // Increment view count
+    // Increment view count for non-video/audio
     supabase
       .from('healthy_knowledge')
       .update({ view_count: material.view_count + 1 })
       .eq('id', material.id)
       .then(() => {
-        // Update local state
         setMaterials(prev => prev.map(m => 
           m.id === material.id ? { ...m, view_count: m.view_count + 1 } : m
         ));
@@ -241,91 +244,58 @@ const HealthyKnowledgePage: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
             {filteredMaterials.map((material) => (
               <Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
-                {/* Thumbnail with inline player */}
+                {/* Thumbnail */}
                 <div className="relative aspect-video bg-muted overflow-hidden">
-                  {playingId === material.id && material.media_url ? (
-                    // Inline player using SecureMedia for signed URLs
-                    <div className="relative w-full h-full bg-black">
-                      <SecureMedia
-                        mediaUrl={material.media_url}
-                        mediaType={material.content_type as 'video' | 'audio'}
-                        className="w-full h-full object-contain"
-                      />
-                      {/* Close button */}
-                      <button
-                        className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors z-10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPlayingId(null);
-                        }}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+                  {/* Thumbnail */}
+                  {material.thumbnail_url ? (
+                    <img 
+                      src={material.thumbnail_url} 
+                      alt={material.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : material.content_type === 'image' && material.media_url ? (
+                    <img 
+                      src={material.media_url} 
+                      alt={material.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   ) : (
-                    <>
-                      {/* Thumbnail */}
-                      {material.thumbnail_url ? (
-                        <img 
-                          src={material.thumbnail_url} 
-                          alt={material.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : material.content_type === 'image' && material.media_url ? (
-                        <img 
-                          src={material.media_url} 
-                          alt={material.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-                          <ContentTypeIcon type={material.content_type} className="w-10 h-10 sm:w-16 sm:h-16 text-muted-foreground/30" />
-                        </div>
-                      )}
-                      
-                      {/* Play overlay for video/audio - starts inline playback */}
-                      {(material.content_type === 'video' || material.content_type === 'audio') && (
-                        <div 
-                          className="absolute inset-0 flex items-center justify-center cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPlayingId(material.id);
-                            // Increment view count
-                            supabase
-                              .from('healthy_knowledge')
-                              .update({ view_count: material.view_count + 1 })
-                              .eq('id', material.id)
-                              .then(() => {
-                                setMaterials(prev => prev.map(m => 
-                                  m.id === material.id ? { ...m, view_count: m.view_count + 1 } : m
-                                ));
-                              });
-                          }}
-                        >
-                          <div className="p-2 sm:p-3 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
-                            <Play className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Click overlay for other types - opens preview dialog */}
-                      {material.content_type !== 'video' && material.content_type !== 'audio' && (
-                        <div 
-                          className="absolute inset-0 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewMaterial(material);
-                          }}
-                        />
-                      )}
-                      
-                      {/* Featured badge on thumbnail */}
-                      {material.is_featured && (
-                        <Badge className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-yellow-500/90 text-yellow-950 text-[10px] sm:text-xs px-1 sm:px-2">
-                          Wyróżnione
-                        </Badge>
-                      )}
-                    </>
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+                      <ContentTypeIcon type={material.content_type} className="w-10 h-10 sm:w-16 sm:h-16 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  
+                  {/* Play overlay for video/audio - navigates to player page */}
+                  {(material.content_type === 'video' || material.content_type === 'audio') && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/zdrowa-wiedza/player/${material.id}`);
+                      }}
+                    >
+                      <div className="p-2 sm:p-3 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
+                        <Play className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Click overlay for other types - opens preview dialog */}
+                  {material.content_type !== 'video' && material.content_type !== 'audio' && (
+                    <div 
+                      className="absolute inset-0 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewMaterial(material);
+                      }}
+                    />
+                  )}
+                  
+                  {/* Featured badge on thumbnail */}
+                  {material.is_featured && (
+                    <Badge className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-yellow-500/90 text-yellow-950 text-[10px] sm:text-xs px-1 sm:px-2">
+                      Wyróżnione
+                    </Badge>
                   )}
                 </div>
 
