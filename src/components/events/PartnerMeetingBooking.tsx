@@ -256,8 +256,9 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Map meeting type to availability meeting_type
       const availabilityMeetingType = meetingType === 'tripartite' ? 'tripartite' : 'consultation';
       
-      // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + Google token + leader permissions
-      const [weeklyResult, meetingsResult, blockingResult, tokenResult, permissionsResult] = await Promise.all([
+      // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + leader permissions
+      // Note: We no longer check for Google token here - edge function will handle that with service role
+      const [weeklyResult, meetingsResult, blockingResult, permissionsResult] = await Promise.all([
         supabase
           .from('leader_availability')
           .select('start_time, end_time, slot_duration_minutes, timezone, meeting_type')
@@ -280,11 +281,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           .gte('end_time', `${dateStr}T00:00:00`)
           .lte('start_time', `${dateStr}T23:59:59`)
           .eq('is_active', true),
-        supabase
-          .from('user_google_tokens')
-          .select('id')
-          .eq('user_id', partnerId)
-          .maybeSingle(),
         supabase
           .from('leader_permissions')
           .select('tripartite_slot_duration, consultation_slot_duration')
@@ -326,69 +322,76 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const bookedMeetings = meetingsResult.data || [];
       
       const isSlotBlockedByExistingMeeting = (slotTime: string): boolean => {
-        const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+        // Convert slot time from leader's timezone to UTC for accurate comparison
+        const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+        const slotStart = fromZonedTime(slotDateTime, partnerTimezone);
         const slotEnd = addMinutes(slotStart, slotDuration);
         
         return bookedMeetings.some(meeting => {
           const meetingStart = new Date(meeting.start_time);
           const meetingEnd = new Date(meeting.end_time);
           
-          // Overlap: slotStart < meetingEnd AND slotEnd > meetingStart
+          // Both times are now in UTC for accurate comparison
           return slotStart < meetingEnd && slotEnd > meetingStart;
         });
       };
 
-      // 4. Calculate blocked times from platform events
+      // 4. Calculate blocked times from platform events (webinars, team meetings, etc.)
       const blockedByPlatform = new Set<string>();
       blockingResult.data?.forEach(event => {
         const eventStart = new Date(event.start_time);
         const eventEnd = new Date(event.end_time);
         
         allSlots.forEach(slotTime => {
-          const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+          // Convert slot time from leader's timezone to UTC
+          const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+          const slotStart = fromZonedTime(slotDateTime, partnerTimezone);
           const slotEnd = addMinutes(slotStart, slotDuration);
           
+          // Both times are now in UTC for accurate comparison
           if (slotStart < eventEnd && slotEnd > eventStart) {
             blockedByPlatform.add(slotTime);
           }
         });
       });
 
-      // 5. Check Google Calendar busy times (only if token exists)
+      // 5. Check Google Calendar busy times - ALWAYS call edge function
+      // Edge function uses service role to check tokens, bypassing RLS restrictions
       let googleBusySlots = new Set<string>();
       
-      if (tokenResult.data) {
-        try {
-          const { data: busyData } = await supabase.functions.invoke(
-            'check-google-calendar-busy',
-            { body: { leader_user_id: partnerId, date: dateStr } }
-          );
+      try {
+        const { data: busyData } = await supabase.functions.invoke(
+          'check-google-calendar-busy',
+          { body: { leader_user_id: partnerId, date: dateStr } }
+        );
+        
+        // Edge function returns connected: false if leader has no Google token
+        if (busyData?.connected && busyData?.busy && Array.isArray(busyData.busy)) {
+          console.log('[PartnerMeetingBooking] Google Calendar busy slots for', dateStr, ':', busyData.busy);
           
-      if (busyData?.busy && Array.isArray(busyData.busy)) {
-            console.log('[PartnerMeetingBooking] Google Calendar busy slots for', dateStr, ':', busyData.busy);
+          busyData.busy.forEach((busySlot: { start: string; end: string }) => {
+            const busyStart = new Date(busySlot.start);
+            const busyEnd = new Date(busySlot.end);
             
-            busyData.busy.forEach((busySlot: { start: string; end: string }) => {
-              const busyStart = new Date(busySlot.start);
-              const busyEnd = new Date(busySlot.end);
+            allSlots.forEach(slotTime => {
+              // Parse slot time in leader's timezone to get correct UTC comparison
+              const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+              const slotStartUTC = fromZonedTime(slotDateTime, partnerTimezone);
+              const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
               
-              allSlots.forEach(slotTime => {
-                // Parse slot time in leader's timezone to get correct UTC comparison
-                const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-                const slotStartUTC = fromZonedTime(slotDateTime, partnerTimezone);
-                const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
-                
-                // Both times are now in UTC for accurate comparison
-                if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
-                  googleBusySlots.add(slotTime);
-                }
-              });
+              // Both times are now in UTC for accurate comparison
+              if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
+                googleBusySlots.add(slotTime);
+              }
             });
-            
-            console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
-          }
-        } catch (error) {
-          console.warn('[PartnerMeetingBooking] Google Calendar check failed:', error);
+          });
+          
+          console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
+        } else if (busyData?.connected === false) {
+          console.log('[PartnerMeetingBooking] Leader has no Google Calendar connected');
         }
+      } catch (error) {
+        console.warn('[PartnerMeetingBooking] Google Calendar check failed:', error);
       }
 
       // 6. Filter out all blocked slots
