@@ -17,7 +17,7 @@ const MyMeetingsWidget = lazy(() => import('@/components/dashboard/widgets/MyMee
 const DashboardFooterSection = lazy(() => import('@/components/dashboard/widgets/DashboardFooterSection'));
 const CombinedOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/CombinedOtpCodesWidget'));
 const HealthyKnowledgeWidget = lazy(() => import('@/components/dashboard/widgets/HealthyKnowledgeWidget'));
-const ActiveUsersWidget = lazy(() => import('@/components/dashboard/widgets/ActiveUsersWidget'));
+
 const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour'));
 
 // Skeleton fallback for widgets during lazy load
@@ -133,10 +133,6 @@ const Dashboard: React.FC = () => {
             <HealthyKnowledgeWidget />
           </Suspense>
           
-          {/* Active Users Widget - only visible to admins */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <ActiveUsersWidget />
-          </Suspense>
         </div>
       </div>
 

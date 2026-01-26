@@ -70,7 +70,7 @@ const HkLiveCountdown: React.FC<{
     };
 
     updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
+    const interval = setInterval(updateCountdown, 5000); // Every 5s - performance optimization
     
     const handleVisibility = () => {
       if (!document.hidden) updateCountdown();
@@ -132,7 +132,7 @@ const InfoLinkLiveCountdown: React.FC<{
     };
 
     updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
+    const interval = setInterval(updateCountdown, 5000); // Every 5s - performance optimization
     
     const handleVisibility = () => {
       if (!document.hidden) updateCountdown();

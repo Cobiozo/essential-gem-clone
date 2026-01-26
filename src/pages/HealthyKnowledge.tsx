@@ -251,12 +251,16 @@ const HealthyKnowledgePage: React.FC = () => {
                     <img 
                       src={material.thumbnail_url} 
                       alt={material.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : material.content_type === 'image' && material.media_url ? (
                     <img 
                       src={material.media_url} 
                       alt={material.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (

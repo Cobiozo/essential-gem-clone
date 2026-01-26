@@ -108,14 +108,6 @@ export const tourSteps: TourStep[] = [
     position: 'bottom',
     visibleFor: ['partner', 'specjalista', 'admin'],
   },
-  {
-    id: 'active-users-widget',
-    targetSelector: '[data-tour="active-users-widget"]',
-    title: 'Aktywni Użytkownicy',
-    description: 'Statystyki aktywności użytkowników platformy. Widoczne tylko dla administratorów.',
-    position: 'bottom',
-    visibleFor: ['admin'],
-  },
   
   // MENU FUNKCJI
   {
