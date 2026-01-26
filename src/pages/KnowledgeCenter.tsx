@@ -692,6 +692,9 @@ export default function KnowledgeCenter() {
           imageUrl={selectedGraphic?.source_url || ''}
           title={selectedGraphic?.title || ''}
           resourceId={selectedGraphic?.id || ''}
+          allowDownload={selectedGraphic?.allow_download ?? true}
+          allowShare={selectedGraphic?.allow_share ?? true}
+          allowCopyLink={selectedGraphic?.allow_copy_link ?? true}
         />
       </main>
     </div>

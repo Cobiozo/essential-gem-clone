@@ -26,6 +26,9 @@ interface SocialShareDialogProps {
   imageUrl: string;
   title: string;
   resourceId: string;
+  allowDownload?: boolean;
+  allowShare?: boolean;
+  allowCopyLink?: boolean;
 }
 
 export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
@@ -34,6 +37,9 @@ export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
   imageUrl,
   title,
   resourceId,
+  allowDownload = true,
+  allowShare = true,
+  allowCopyLink = true,
 }) => {
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -116,99 +122,107 @@ export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
           />
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4">
-          {/* Download Button */}
-          <Button onClick={handleDownload} className="flex-1 gap-2">
-            <Download className="h-4 w-4" />
-            {t('dashboard.download')}
-          </Button>
-
-          {/* Share Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex-1 gap-2">
-                <Share2 className="h-4 w-4" />
-                {t('share.share')}
+        {/* Action Buttons - show only if any action is available */}
+        {(allowDownload || allowShare) && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4">
+            {/* Download Button - conditional */}
+            {allowDownload && (
+              <Button onClick={handleDownload} className="flex-1 gap-2">
+                <Download className="h-4 w-4" />
+                {t('dashboard.download')}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {/* Native Share (mobile) */}
-              {navigator.share && (
-                <>
-                  <DropdownMenuItem onClick={handleNativeShare} className="gap-3">
+            )}
+
+            {/* Share Dropdown - conditional */}
+            {allowShare && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex-1 gap-2">
                     <Share2 className="h-4 w-4" />
-                    {t('share.shareNative')}
+                    {t('share.share')}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {/* Native Share (mobile) */}
+                  {navigator.share && (
+                    <>
+                      <DropdownMenuItem onClick={handleNativeShare} className="gap-3">
+                        <Share2 className="h-4 w-4" />
+                        {t('share.shareNative')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+
+                  {/* Social Media */}
+                  <DropdownMenuItem 
+                    onClick={() => openShareWindow(shareLinks.facebook)}
+                    className="gap-3"
+                  >
+                    <Facebook className="h-4 w-4 text-blue-600" />
+                    Facebook
                   </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => openShareWindow(shareLinks.twitter)}
+                    className="gap-3"
+                  >
+                    <Twitter className="h-4 w-4 text-sky-500" />
+                    Twitter / X
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => openShareWindow(shareLinks.whatsapp)}
+                    className="gap-3"
+                  >
+                    <MessageCircle className="h-4 w-4 text-green-500" />
+                    WhatsApp
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => openShareWindow(shareLinks.telegram)}
+                    className="gap-3"
+                  >
+                    <Send className="h-4 w-4 text-blue-400" />
+                    Telegram
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => openShareWindow(shareLinks.messenger)}
+                    className="gap-3"
+                  >
+                    <MessageCircle className="h-4 w-4 text-purple-500" />
+                    Messenger
+                  </DropdownMenuItem>
+
                   <DropdownMenuSeparator />
-                </>
-              )}
 
-              {/* Social Media */}
-              <DropdownMenuItem 
-                onClick={() => openShareWindow(shareLinks.facebook)}
-                className="gap-3"
-              >
-                <Facebook className="h-4 w-4 text-blue-600" />
-                Facebook
-              </DropdownMenuItem>
+                  {/* Copy Link - conditional */}
+                  {allowCopyLink && (
+                    <DropdownMenuItem onClick={handleCopyLink} className="gap-3">
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      {copied ? t('share.copied') : t('share.copyLink')}
+                    </DropdownMenuItem>
+                  )}
 
-              <DropdownMenuItem 
-                onClick={() => openShareWindow(shareLinks.twitter)}
-                className="gap-3"
-              >
-                <Twitter className="h-4 w-4 text-sky-500" />
-                Twitter / X
-              </DropdownMenuItem>
-
-              <DropdownMenuItem 
-                onClick={() => openShareWindow(shareLinks.whatsapp)}
-                className="gap-3"
-              >
-                <MessageCircle className="h-4 w-4 text-green-500" />
-                WhatsApp
-              </DropdownMenuItem>
-
-              <DropdownMenuItem 
-                onClick={() => openShareWindow(shareLinks.telegram)}
-                className="gap-3"
-              >
-                <Send className="h-4 w-4 text-blue-400" />
-                Telegram
-              </DropdownMenuItem>
-
-              <DropdownMenuItem 
-                onClick={() => openShareWindow(shareLinks.messenger)}
-                className="gap-3"
-              >
-                <MessageCircle className="h-4 w-4 text-purple-500" />
-                Messenger
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-
-              {/* Copy Link */}
-              <DropdownMenuItem onClick={handleCopyLink} className="gap-3">
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-                {copied ? t('share.copied') : t('share.copyLink')}
-              </DropdownMenuItem>
-
-              {/* Instagram Info */}
-              <DropdownMenuSeparator />
-              <div className="px-2 py-2 text-xs text-muted-foreground">
-                <p className="flex items-center gap-2 mb-1">
-                  <ExternalLink className="h-3 w-3" />
-                  Instagram
-                </p>
-                <p>{t('share.instagramInfo')}</p>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                  {/* Instagram Info */}
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-2 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-2 mb-1">
+                      <ExternalLink className="h-3 w-3" />
+                      Instagram
+                    </p>
+                    <p>{t('share.instagramInfo')}</p>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
