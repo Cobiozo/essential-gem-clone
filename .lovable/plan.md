@@ -1,264 +1,260 @@
 
-# Plan naprawy wideo i nawigacji w panelu administracyjnym
 
-## Zidentyfikowane problemy
+# Plan: Kompleksowe blokowanie terminów spotkań indywidualnych
 
-### Problem 1: Wideo nie zatrzymuje się przy zmianie zakładki
-Komponent `SecureMedia.tsx` posiada logikę pauzowania wideo przy zmianie zakładki przeglądarki, ale jest ona **ograniczona tylko do trybu restricted** (gdy `disableInteraction = true`). Materiały "Zdrowa Wiedza" używają trybu unrestricted, więc wideo kontynuuje odtwarzanie w tle.
+## Aktualny stan kodu
 
-**Lokalizacja:** `src/components/SecureMedia.tsx` linia 913 - warunek `if (mediaType !== 'video' || !disableInteraction) return;` blokuje pauzowanie dla materiałów w trybie unrestricted.
+Przeanalizowałem `PartnerMeetingBooking.tsx` i widzę następującą logikę:
 
-### Problem 2: Panel admina przeskakuje do głównej zakładki
-Stan aktywnej zakładki w panelu admin jest przechowywany tylko w `useState("content")` bez persystencji. Przy zmianie zakładki przeglądarki różne efekty (np. presence tracking) mogą wywoływać re-rendery, które resetują widok.
+### Co już działa poprawnie:
 
-**Lokalizacja:** `src/pages/Admin.tsx` linia 281 - `const [activeTab, setActiveTab] = useState("content");`
+1. **Linie 276-282** - Pobieranie eventów blokujących z platformy:
+```tsx
+.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
+```
 
-### Problem 3: Zatwierdzanie lekcji zamyka rozwinięty widok
-Funkcja `approveLessonProgress` wywołuje `fetchUserProgress()` po zapisie, co odświeża całą listę użytkowników. Komponenty `Collapsible` nie mają śledzenia stanu `open`, więc wszystkie się zamykają.
+2. **Linie 341-355** - Blokowanie slotów przez eventy platformy:
+```tsx
+if (slotStart < eventEnd && slotEnd > eventStart) {
+  blockedByPlatform.add(slotTime);
+}
+```
 
-**Lokalizacja:** `src/components/admin/TrainingManagement.tsx` linie 821, 1452, 1486 - brak persystencji stanu rozwinięcia.
+3. **Linie 357-385** - Sprawdzanie Google Calendar busy times
+
+4. **Linie 523-543** - Walidacja przy rezerwacji (webinary, team_training)
+
+### Co wymaga naprawy:
+
+| Problem | Lokalizacja | Opis |
+|---------|-------------|------|
+| Brak `meeting_public` | Linie 279, 528 | Spotkania publiczne nie blokują slotów |
+| Błędne porównanie timezone | Linie 372-376 | Sloty parsowane w lokalnej strefie zamiast lidera |
+| Błędna walidacja overlap | Linie 507-508 | `.gte` i `.lt` zamiast `.lt` i `.gt` |
 
 ---
 
 ## Rozwiązania
 
-### Zmiana 1: Wideo pauzuje przy zmianie zakładki (dla wszystkich trybów)
+### Zmiana 1: Dodanie `meeting_public` do typów blokujących
 
-**Plik:** `src/components/SecureMedia.tsx`
+**Plik:** `src/components/events/PartnerMeetingBooking.tsx`
 
-Usunięcie warunku `!disableInteraction` z efektu visibility, aby wideo pauzowało się dla wszystkich materiałów:
-
+**Linia 279** - zapytanie pobierające eventy blokujące:
 ```tsx
-// Linia 911-931 - PRZED:
-useEffect(() => {
-  if (mediaType !== 'video' || !disableInteraction) return;
-  // ...
-}, [mediaType, disableInteraction]);
+// PRZED:
+.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training'])
 
 // PO:
-useEffect(() => {
-  if (mediaType !== 'video') return;
-  
-  const handleVisibilityChange = () => {
-    if (document.hidden) {
-      setIsTabHidden(true);
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
+.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
+```
+
+**Linia 528** - walidacja przed rezerwacją:
+```tsx
+// PRZED:
+.in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
+
+// PO:
+.in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu', 'meeting_public'])
+```
+
+### Zmiana 2: Naprawa porównania stref czasowych z Google Calendar
+
+**Plik:** `src/components/events/PartnerMeetingBooking.tsx`
+
+**Import (dodać `zonedTimeToUtc`):**
+```tsx
+import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
+```
+
+**Linie 367-381** - zmiana parsowania slotów:
+```tsx
+// PRZED:
+if (busyData?.busy && Array.isArray(busyData.busy)) {
+  busyData.busy.forEach((busySlot: { start: string; end: string }) => {
+    const busyStart = new Date(busySlot.start);
+    const busyEnd = new Date(busySlot.end);
+    
+    allSlots.forEach(slotTime => {
+      const slotStart = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+      const slotEnd = addMinutes(slotStart, slotDuration);
+      
+      if (slotStart < busyEnd && slotEnd > busyStart) {
+        googleBusySlots.add(slotTime);
       }
-    } else {
-      setIsTabHidden(false);
-    }
-  };
-
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-}, [mediaType]); // Usunięto disableInteraction
-```
-
-### Zmiana 2: Persystencja zakładki admina w URL
-
-**Plik:** `src/pages/Admin.tsx`
-
-Użycie `useSearchParams` zamiast `useState` do przechowywania aktywnej zakładki:
-
-```tsx
-// PRZED (linia 281):
-const [activeTab, setActiveTab] = useState("content");
-
-// PO:
-import { useSearchParams } from 'react-router-dom';
-
-// W komponencie:
-const [searchParams, setSearchParams] = useSearchParams();
-const activeTab = searchParams.get('tab') || 'content';
-
-const setActiveTab = useCallback((tab: string) => {
-  setSearchParams(prev => {
-    prev.set('tab', tab);
-    return prev;
-  }, { replace: true });
-}, [setSearchParams]);
-```
-
-Dzięki temu:
-- URL będzie zawierał `/admin?tab=szkolenia`
-- Zmiana zakładki przeglądarki nie zresetuje widoku
-- Historia przeglądarki będzie działać poprawnie
-
-### Zmiana 3: Śledzenie stanu rozwinięcia w TrainingManagement
-
-**Plik:** `src/components/admin/TrainingManagement.tsx`
-
-Dodanie stanu do śledzenia rozwiązanych użytkowników i modułów:
-
-```tsx
-// Nowe stany (po linii 164):
-const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-
-// Funkcje pomocnicze:
-const toggleUserExpanded = (userId: string) => {
-  setExpandedUsers(prev => {
-    const next = new Set(prev);
-    if (next.has(userId)) {
-      next.delete(userId);
-    } else {
-      next.add(userId);
-    }
-    return next;
+    });
   });
-};
+}
 
-const toggleModuleExpanded = (key: string) => {
-  setExpandedModules(prev => {
-    const next = new Set(prev);
-    if (next.has(key)) {
-      next.delete(key);
-    } else {
-      next.add(key);
-    }
-    return next;
+// PO:
+if (busyData?.busy && Array.isArray(busyData.busy)) {
+  console.log('[PartnerMeetingBooking] Google Calendar busy slots:', busyData.busy);
+  
+  busyData.busy.forEach((busySlot: { start: string; end: string }) => {
+    const busyStart = new Date(busySlot.start);
+    const busyEnd = new Date(busySlot.end);
+    
+    allSlots.forEach(slotTime => {
+      // Parse slot time in leader's timezone to get correct UTC comparison
+      const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+      const slotStartUTC = zonedTimeToUtc(slotDateTime, partnerTimezone);
+      const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
+      
+      // Both times are now in UTC for accurate comparison
+      if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
+        googleBusySlots.add(slotTime);
+      }
+    });
   });
-};
+  
+  console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
+}
 ```
 
-Modyfikacja Collapsible dla użytkowników:
+### Zmiana 3: Naprawa walidacji overlap przy rezerwacji
 
+**Plik:** `src/components/events/PartnerMeetingBooking.tsx`
+
+**Linie 502-510** - poprawienie warunków:
 ```tsx
-// PRZED (linia 1452):
-<Collapsible key={progressUser.user_id}>
+// PRZED:
+const { data: existingEvent } = await supabase
+  .from('events')
+  .select('id')
+  .eq('host_user_id', selectedPartner.user_id)
+  .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+  .gte('start_time', startDateTime)  // ❌ Błędne
+  .lt('end_time', endDateTime)        // ❌ Błędne
+  .eq('is_active', true)
+  .maybeSingle();
 
 // PO:
-<Collapsible 
-  key={progressUser.user_id}
-  open={expandedUsers.has(progressUser.user_id)}
-  onOpenChange={() => toggleUserExpanded(progressUser.user_id)}
->
-```
-
-Modyfikacja Collapsible dla modułów:
-
-```tsx
-// PRZED (linia 1486):
-<Collapsible key={module.module_id}>
-
-// PO:
-const moduleKey = `${progressUser.user_id}-${module.module_id}`;
-<Collapsible 
-  key={module.module_id}
-  open={expandedModules.has(moduleKey)}
-  onOpenChange={() => toggleModuleExpanded(moduleKey)}
->
+const { data: existingEvent } = await supabase
+  .from('events')
+  .select('id')
+  .eq('host_user_id', selectedPartner.user_id)
+  .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+  .lt('start_time', endDateTime)   // ✅ existing start < our end
+  .gt('end_time', startDateTime)   // ✅ existing end > our start
+  .eq('is_active', true)
+  .maybeSingle();
 ```
 
 ---
 
-## Wizualizacja zmian
+## Wizualizacja logiki blokowania
 
 ```text
-PRZED:
-┌───────────────────────────────────────────────┐
-│ Zmiana zakładki przeglądarki                  │
-│                    ↓                          │
-│ [Wideo gra dalej] [Admin → zakładka główna]   │
-│                    ↓                          │
-│ [Zatwierdzam lekcję → widok się zamyka]       │
-└───────────────────────────────────────────────┘
-
-PO:
-┌───────────────────────────────────────────────┐
-│ Zmiana zakładki przeglądarki                  │
-│                    ↓                          │
-│ [Wideo PAUZA] [Admin → ta sama zakładka]      │
-│                    ↓                          │
-│ [Zatwierdzam lekcję → widok pozostaje]        │
-└───────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    SPRAWDZANIE DOSTĘPNOŚCI SLOTU                │
+└─────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  1. HARMONOGRAM LIDERA (leader_availability)                    │
+│     → Czy lider ma włączoną dostępność w tym dniu/godzinie?     │
+└─────────────────────────────────────────────────────────────────┘
+                               │ TAK
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  2. ISTNIEJĄCE SPOTKANIA INDYWIDUALNE                           │
+│     (tripartite_meeting, partner_consultation)                  │
+│     → Czy lider ma już rezerwację w tym czasie?                 │
+└─────────────────────────────────────────────────────────────────┘
+                               │ NIE
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  3. EVENTY PLATFORMY (webinar, team_training,                   │
+│                       spotkanie_zespolu, meeting_public)        │
+│     → Czy w tym czasie jest event zespołowy?                    │
+└─────────────────────────────────────────────────────────────────┘
+                               │ NIE
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  4. GOOGLE CALENDAR LIDERA                                      │
+│     → Czy lider ma zajęty czas w Google Calendar?               │
+└─────────────────────────────────────────────────────────────────┘
+                               │ NIE
+                               ▼
+                    ┌──────────────────┐
+                    │ SLOT DOSTĘPNY ✅ │
+                    └──────────────────┘
 ```
+
+---
+
+## Przykład: 26.01.2026
+
+| Godzina | Team Zoom | Google Cal | Rezultat |
+|---------|-----------|------------|----------|
+| 16:00 | - | ZAJĘTY | ❌ Zablokowany |
+| 17:00 | - | ZAJĘTY | ❌ Zablokowany |
+| 18:00 | - | ZAJĘTY | ❌ Zablokowany |
+| 19:00 | - | ZAJĘTY | ❌ Zablokowany |
+| 20:00 | TAK (team_training) | ZAJĘTY | ❌ Zablokowany (oba) |
+| 21:00 | - | ZAJĘTY | ❌ Zablokowany |
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana |
-|------|--------|
-| `SecureMedia.tsx` | Usunięcie warunku `!disableInteraction` z visibility handler |
-| `Admin.tsx` | Persystencja `activeTab` w URL query params |
-| `TrainingManagement.tsx` | Dodanie `expandedUsers` i `expandedModules` state |
+| Plik | Linia | Zmiana |
+|------|-------|--------|
+| `PartnerMeetingBooking.tsx` | 24 | Dodanie importu `zonedTimeToUtc` |
+| `PartnerMeetingBooking.tsx` | 279 | Dodanie `meeting_public` do typów blokujących |
+| `PartnerMeetingBooking.tsx` | 367-381 | Użycie `zonedTimeToUtc` dla Google Calendar |
+| `PartnerMeetingBooking.tsx` | 507-508 | Naprawa `.gte`/`.lt` → `.lt`/`.gt` |
+| `PartnerMeetingBooking.tsx` | 528 | Dodanie `meeting_public` do walidacji |
 
 ---
 
 ## Sekcja techniczna
 
-### SecureMedia.tsx - pauzowanie wideo (linie 911-931)
+### Pełna lista zmian w pliku `PartnerMeetingBooking.tsx`:
 
+**Linia 24 - rozszerzenie importu:**
 ```tsx
-// Zmienić warunek z:
-if (mediaType !== 'video' || !disableInteraction) return;
-
-// Na:
-if (mediaType !== 'video') return;
-
-// I usunąć disableInteraction z dependency array:
-}, [mediaType]); // zamiast [mediaType, disableInteraction]
+import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
 ```
 
-### Admin.tsx - persystencja zakładki
-
+**Linia 279 - zapytanie blokujące:**
 ```tsx
-// Dodać import (linia 7):
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-
-// Zastąpić useState (linia 281):
-const [searchParams, setSearchParams] = useSearchParams();
-const activeTab = searchParams.get('tab') || 'content';
-
-const setActiveTab = useCallback((tab: string) => {
-  setSearchParams(prev => {
-    prev.set('tab', tab);
-    return prev;
-  }, { replace: true });
-}, [setSearchParams]);
+.in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
 ```
 
-### TrainingManagement.tsx - stan rozwinięcia
-
+**Linie 367-385 - Google Calendar z timezone fix i logowaniem:**
 ```tsx
-// Po linii 164 dodać:
-const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-
-const toggleUserExpanded = useCallback((userId: string) => {
-  setExpandedUsers(prev => {
-    const next = new Set(prev);
-    if (next.has(userId)) next.delete(userId);
-    else next.add(userId);
-    return next;
+if (busyData?.busy && Array.isArray(busyData.busy)) {
+  console.log('[PartnerMeetingBooking] Google Calendar busy slots for', dateStr, ':', busyData.busy);
+  
+  busyData.busy.forEach((busySlot: { start: string; end: string }) => {
+    const busyStart = new Date(busySlot.start);
+    const busyEnd = new Date(busySlot.end);
+    
+    allSlots.forEach(slotTime => {
+      // Parse slot in leader's timezone for accurate UTC comparison
+      const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
+      const slotStartUTC = zonedTimeToUtc(slotDateTime, partnerTimezone);
+      const slotEndUTC = addMinutes(slotStartUTC, slotDuration);
+      
+      if (slotStartUTC < busyEnd && slotEndUTC > busyStart) {
+        googleBusySlots.add(slotTime);
+      }
+    });
   });
-}, []);
-
-const toggleModuleExpanded = useCallback((key: string) => {
-  setExpandedModules(prev => {
-    const next = new Set(prev);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    return next;
-  });
-}, []);
-
-// Linia 1452 - zmienić Collapsible użytkownika:
-<Collapsible 
-  key={progressUser.user_id}
-  open={expandedUsers.has(progressUser.user_id)}
-  onOpenChange={() => toggleUserExpanded(progressUser.user_id)}
->
-
-// Linia 1486 - zmienić Collapsible modułu:
-// Najpierw dodać przed return w mapowaniu:
-const moduleKey = `${progressUser.user_id}-${module.module_id}`;
-// Potem:
-<Collapsible 
-  key={module.module_id}
-  open={expandedModules.has(moduleKey)}
-  onOpenChange={() => toggleModuleExpanded(moduleKey)}
->
+  
+  console.log('[PartnerMeetingBooking] Slots blocked by Google Calendar:', [...googleBusySlots]);
+}
 ```
+
+**Linie 507-508 - walidacja overlap:**
+```tsx
+.lt('start_time', endDateTime)
+.gt('end_time', startDateTime)
+```
+
+**Linia 528 - walidacja przy rezerwacji:**
+```tsx
+.in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu', 'meeting_public'])
+```
+
