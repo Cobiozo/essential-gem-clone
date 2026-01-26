@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { VideoControls } from '@/components/training/VideoControls';
+import { SecureVideoControls } from '@/components/training/SecureVideoControls';
 import { 
   getAdaptiveBufferConfig, 
   getBufferedRanges, 
@@ -35,6 +36,8 @@ interface SecureMediaProps {
   seekToTimeRef?: React.MutableRefObject<((time: number) => void) | null>;
   // External pause request (e.g., when notes dialog opens)
   pauseRequested?: boolean;
+  // Control mode: 'native' = browser controls, 'restricted' = no seek/speed (training), 'secure' = full controls without download (news)
+  controlMode?: 'native' | 'restricted' | 'secure';
 }
 
 // YouTube URL detection and ID extraction
@@ -67,7 +70,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   noteMarkers,
   onNoteMarkerClick,
   seekToTimeRef,
-  pauseRequested = false
+  pauseRequested = false,
+  controlMode
 }) => {
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
@@ -116,6 +120,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const bufferingTimeoutRef = useRef<NodeJS.Timeout>(); // NEW: Timeout for smart buffering delay
   const lastActivityEmitRef = useRef<number>(0); // Throttle video-activity events for inactivity timeout
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1); // Playback speed for secure mode
   
   // State dla odświeżania signed URL przed wygaśnięciem
   const [urlExpiryTime, setUrlExpiryTime] = useState<number | null>(null);
@@ -189,6 +194,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       seekToTimeRef.current = !disableInteraction ? seekToTime : null;
     }
   }, [seekToTimeRef, seekToTime, disableInteraction]);
+
+  // Seek handler for secure mode (full seek capability)
+  const handleSeek = useCallback((time: number) => {
+    if (!videoElement) return;
+    const safeTime = Math.max(0, Math.min(time, duration));
+    console.log('[SecureMedia] Secure mode seek:', { time: safeTime });
+    videoElement.currentTime = safeTime;
+    setCurrentTime(safeTime);
+  }, [videoElement, duration]);
+
+  // Speed change handler for secure mode
+  const handleSpeedChange = useCallback((rate: number) => {
+    if (!videoElement) return;
+    console.log('[SecureMedia] Speed change:', { rate });
+    videoElement.playbackRate = rate;
+    setPlaybackRate(rate);
+  }, [videoElement]);
 
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
@@ -845,9 +867,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]); // Added isSmartBuffering, isInitialBuffering
 
-  // Time tracking for unrestricted mode
+  // Time tracking for unrestricted mode and secure mode
   useEffect(() => {
-    if (mediaType !== 'video' || disableInteraction || !videoElement) return;
+    if (mediaType !== 'video' || !videoElement) return;
+    // Skip if restricted mode (has its own handlers) and not secure mode
+    if (disableInteraction && controlMode !== 'secure') return;
 
     let mounted = true; // Prevent state updates after unmount
     const video = videoElement;
@@ -1054,6 +1078,89 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               Timer będzie liczył czas niezależnie od stanu wideo.
             </div>
           )}
+        </div>
+      );
+    }
+
+    // Handle secure mode (full controls without download - for news/articles)
+    if (controlMode === 'secure') {
+      // Error fallback
+      if (hasExhaustedRetries) {
+        return (
+          <div className="bg-destructive/10 border border-destructive rounded-lg w-full p-6 flex flex-col items-center justify-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-destructive/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <h3 className="font-semibold text-destructive">Nie można załadować wideo</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Sprawdź połączenie internetowe i spróbuj ponownie
+              </p>
+            </div>
+            <button 
+              onClick={() => {
+                setRetryCount(0);
+                setHasExhaustedRetries(false);
+                setLoading(true);
+                setSignedUrl('');
+              }}
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Spróbuj ponownie
+            </button>
+          </div>
+        );
+      }
+      
+      return (
+        <div 
+          ref={containerRef}
+          className={`space-y-3 ${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
+        >
+          <div className="relative">
+            <video
+              ref={videoRefCallback}
+              {...securityProps}
+              src={signedUrl}
+              controls={false}
+              controlsList="nodownload noremoteplayback"
+              disablePictureInPicture
+              className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
+              preload="metadata"
+              playsInline
+              // @ts-ignore - webkit-playsinline for older iOS
+              webkit-playsinline="true"
+              // @ts-ignore - x5-playsinline for WeChat browser
+              x5-playsinline="true"
+              {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+            >
+              Twoja przeglądarka nie obsługuje odtwarzania wideo.
+            </video>
+            {isBuffering && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+                <span className="text-white text-sm mt-2">Ładowanie...</span>
+              </div>
+            )}
+          </div>
+          <SecureVideoControls
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={handlePlayPause}
+            onSeek={handleSeek}
+            onSpeedChange={handleSpeedChange}
+            onFullscreen={handleFullscreen}
+            isFullscreen={isFullscreen}
+            onRetry={handleRetry}
+            isBuffering={isBuffering}
+            playbackRate={playbackRate}
+          />
         </div>
       );
     }

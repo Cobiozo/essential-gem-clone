@@ -49,6 +49,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
         altText={item.media_alt_text || item.title || 'Zabezpieczone media'}
         className="w-full max-w-md mx-auto shadow-lg mb-4"
+        controlMode={item.media_type === 'video' ? 'secure' : undefined}
       />
     );
   };
