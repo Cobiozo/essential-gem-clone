@@ -1,212 +1,105 @@
 
-# Plan: Naprawa synchronizacji Google Calendar - obsługa nieważnego refresh tokena
+# Plan: Kompleksowy System Zabezpieczeń Google Calendar
 
-## Zidentyfikowany problem
+## Cel
 
-Logi serwera pokazują błąd:
-```
-"error": "invalid_grant",
-"error_description": "Token has been expired or revoked."
-```
-
-To oznacza, że **refresh token został unieważniony przez Google**. Może to się zdarzyć gdy:
-- Użytkownik odwołał dostęp aplikacji w ustawieniach Google
-- Token nie był używany przez 6 miesięcy
-- Hasło Google zostało zmienione
-
-**Aktualny problem**: Aplikacja pokazuje "Połączono" i "Token wygasa wkrótce", ale w rzeczywistości token jest całkowicie nieważny i trzeba połączyć się od nowa.
+Stworzenie niezawodnego systemu który:
+1. **Proaktywnie wykrywa** problemy z tokenami przed tym jak użytkownik zobaczy błąd
+2. **Automatycznie powiadamia** administratorów i użytkowników o problemach
+3. **Zapobiega** wyświetlaniu błędnych danych (zajętych slotów jako dostępnych)
+4. **Dokumentuje** wszystkie problemy do późniejszej analizy
 
 ---
 
-## Plan naprawy
+## Architektura rozwiązania
 
-### Zmiana 1: Wykrywanie błędu `invalid_grant` w edge function
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     WARSTWA PROAKTYWNEGO MONITORINGU                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ┌─────────────────┐    co godzinę    ┌─────────────────────────────┐ │
+│   │ system-health-  │ ◄──────────────► │  CHECK: google_calendar_    │ │
+│   │ check (cron)    │                  │  disconnected_partners      │ │
+│   └────────┬────────┘                  └─────────────────────────────┘ │
+│            │                                                           │
+│            ▼                                                           │
+│   ┌─────────────────┐                  ┌─────────────────────────────┐ │
+│   │  admin_alerts   │ ◄──────────────► │  Alert: "Lider X nie ma     │ │
+│   │  (tabela)       │                  │  połączonego kalendarza"    │ │
+│   └─────────────────┘                  └─────────────────────────────┘ │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 
-**Plik:** `supabase/functions/sync-google-calendar/index.ts`
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     WARSTWA REAKTYWNEGO WYKRYWANIA                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  check-google-calendar-busy                                      │   │
+│   │  ┌───────────────────┐    ┌────────────────────────────────┐    │   │
+│   │  │ Wykryj invalid_   │ ──►│ Usuń nieważny token z bazy     │    │   │
+│   │  │ grant             │    │ + sync records                  │    │   │
+│   │  └───────────────────┘    └────────────────────────────────┘    │   │
+│   │                                        │                         │   │
+│   │                                        ▼                         │   │
+│   │                           ┌────────────────────────────────┐    │   │
+│   │                           │ Zwróć connected: false +       │    │   │
+│   │                           │ token_revoked: true            │    │   │
+│   │                           └────────────────────────────────┘    │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 
-Funkcja `refreshAccessToken` powinna wykrywać błąd `invalid_grant` i zwracać specjalny status:
-
-```typescript
-// Linie 52-84 - zmiana funkcji refreshAccessToken
-async function refreshAccessToken(refreshToken: string): Promise<{ 
-  access_token?: string; 
-  expires_in?: number; 
-  error?: string;
-  token_revoked?: boolean;
-} | null> {
-  // ... istniejąca logika ...
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('[sync-google-calendar] Token refresh failed:', errorData);
-    
-    // Wykryj invalid_grant - token jest trwale unieważniony
-    if (errorData.error === 'invalid_grant') {
-      return { error: 'invalid_grant', token_revoked: true };
-    }
-    
-    return null;
-  }
-  // ...
-}
-```
-
-### Zmiana 2: Automatyczne usuwanie nieważnych tokenów
-
-**Plik:** `supabase/functions/sync-google-calendar/index.ts`
-
-W funkcji `getValidAccessToken` - gdy wykryty zostanie `invalid_grant`, automatycznie usuń token z bazy:
-
-```typescript
-// Linie 86-126 - zmiana funkcji getValidAccessToken
-async function getValidAccessToken(supabase: any, userId: string): Promise<{
-  access_token?: string;
-  token_revoked?: boolean;
-} | null> {
-  // ... pobierz token ...
-  
-  // Jeśli token wygasa, spróbuj odświeżyć
-  if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-    const refreshResult = await refreshAccessToken(tokenData.refresh_token);
-    
-    // Token został unieważniony - usuń z bazy
-    if (refreshResult?.token_revoked) {
-      console.log('[sync-google-calendar] Token revoked, removing from database');
-      await supabase
-        .from('user_google_tokens')
-        .delete()
-        .eq('user_id', userId);
-      
-      return { token_revoked: true };
-    }
-    
-    if (!refreshResult?.access_token) {
-      return null;
-    }
-    
-    // ... zapisz nowy token ...
-  }
-  
-  return { access_token: tokenData.access_token };
-}
-```
-
-### Zmiana 3: Obsługa błędu w odpowiedzi edge function
-
-**Plik:** `supabase/functions/sync-google-calendar/index.ts`
-
-Dla akcji `test` - zwracaj jasny komunikat o konieczności ponownego połączenia:
-
-```typescript
-// Linie 434-447 - zmiana obsługi test action
-const tokenResult = await getValidAccessToken(supabaseAdmin, testUserId);
-
-if (tokenResult?.token_revoked) {
-  return new Response(JSON.stringify({ 
-    success: false, 
-    token_revoked: true,
-    message: 'Token został unieważniony. Rozłącz i połącz ponownie z Google Calendar.' 
-  }), {
-    status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-```
-
-### Zmiana 4: Obsługa w hooku useGoogleCalendar
-
-**Plik:** `src/hooks/useGoogleCalendar.ts`
-
-W `refreshTokenIfNeeded` - sprawdź czy token został unieważniony i zaktualizuj stan:
-
-```typescript
-// Linie 256-276 - zmiana refreshTokenIfNeeded
-const { data, error } = await supabase.functions.invoke('sync-google-calendar', {
-  body: {
-    user_id: user.id,
-    action: 'test',
-  },
-});
-
-if (data?.token_revoked) {
-  console.log('[useGoogleCalendar] Token was revoked, updating state');
-  setState({ isConnected: false, isLoading: false, expiresAt: null });
-  toast({
-    title: 'Połączenie wygasło',
-    description: 'Token Google Calendar został unieważniony. Połącz się ponownie.',
-    variant: 'destructive',
-  });
-  return;
-}
-```
-
-### Zmiana 5: Obsługa w syncAllEvents
-
-**Plik:** `src/hooks/useGoogleCalendar.ts`
-
-W `syncAllEvents` - przed próbą synchronizacji, sprawdź czy token jest ważny:
-
-```typescript
-// Linie 278-350 - dodanie wstępnego sprawdzenia tokena
-const syncAllEvents = useCallback(async () => {
-  // ... istniejące sprawdzenia ...
-  
-  setIsSyncing(true);
-
-  try {
-    // Najpierw sprawdź czy token jest ważny
-    const testResult = await supabase.functions.invoke('sync-google-calendar', {
-      body: { user_id: user.id, action: 'test' },
-    });
-    
-    if (testResult.data?.token_revoked || !testResult.data?.success) {
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
-      toast({
-        title: 'Połączenie wygasło',
-        description: testResult.data?.message || 'Połącz się ponownie z Google Calendar.',
-        variant: 'destructive',
-      });
-      setIsSyncing(false);
-      return;
-    }
-    
-    // ... kontynuuj z synchronizacją ...
-  }
-});
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     WARSTWA INTERFEJSU UŻYTKOWNIKA                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  useGoogleCalendarBusy hook                                      │   │
+│   │  ┌───────────────────┐    ┌────────────────────────────────┐    │   │
+│   │  │ Jeśli lider nie   │ ──►│ Pokaż alert: "Lider nie ma     │    │   │
+│   │  │ ma kalendarza     │    │ połączonego kalendarza"        │    │   │
+│   │  └───────────────────┘    └────────────────────────────────┘    │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Podsumowanie zmian
+## Zmiany do implementacji
 
-| Plik | Zmiana | Cel |
-|------|--------|-----|
-| `sync-google-calendar/index.ts` | Wykrywanie `invalid_grant` w refreshAccessToken | Identyfikacja nieważnych tokenów |
-| `sync-google-calendar/index.ts` | Auto-usuwanie tokenów w getValidAccessToken | Oczyszczenie bazy |
-| `sync-google-calendar/index.ts` | Zwracanie `token_revoked` w odpowiedzi | Informacja dla frontendu |
-| `useGoogleCalendar.ts` | Obsługa `token_revoked` w refreshTokenIfNeeded | Aktualizacja stanu UI |
-| `useGoogleCalendar.ts` | Wstępne sprawdzenie tokena w syncAllEvents | Zapobieganie 12 błędom |
+### Zmiana 1: Obsługa `invalid_grant` w check-google-calendar-busy
 
----
+Uzupełnienie funkcji `check-google-calendar-busy` o wykrywanie unieważnionych tokenów - analogicznie do tego co już jest w `sync-google-calendar`.
 
-## Efekt po wdrożeniu
+| Element | Zmiana |
+|---------|--------|
+| `refreshAccessToken` | Zwracanie `token_revoked: true` przy `invalid_grant` |
+| Główna logika | Auto-usuwanie tokena i sync records |
+| Odpowiedź | `connected: false, token_revoked: true` |
 
-**Przed:**
-- UI pokazuje "Połączono" + "Token wygasa wkrótce"
-- Synchronizacja próbuje 12 razy i 12 razy się nie udaje
-- Użytkownik nie wie co robić
+### Zmiana 2: Nowy check w system-health-check
 
-**Po:**
-- UI automatycznie wykryje że token jest unieważniony
-- Pokaże komunikat "Token został unieważniony. Połącz się ponownie"
-- Status zmieni się na "Niepołączono"
-- Użytkownik będzie mógł kliknąć "Połącz z Google" aby ponownie autoryzować
+Dodanie sprawdzenia czy wszyscy aktywni liderzy mają połączony Google Calendar.
+
+| Typ alertu | Opis | Severity |
+|------------|------|----------|
+| `google_calendar_disconnected` | Lider bez połączonego kalendarza | `warning` |
+| `google_calendar_expiring_soon` | Token wygasa w ciągu 24h | `info` |
+
+### Zmiana 3: Komunikat w UI rezerwacji
+
+Gdy lider nie ma połączonego kalendarza, użytkownik rezerwujący widzi ostrzeżenie że dostępność slotów może nie być aktualna.
 
 ---
 
 ## Sekcja techniczna
 
-### `supabase/functions/sync-google-calendar/index.ts` - refreshAccessToken (linie 52-84):
+### Plik: `supabase/functions/check-google-calendar-busy/index.ts`
+
+**Zmiana funkcji refreshAccessToken (linie 26-58):**
 
 ```typescript
 async function refreshAccessToken(refreshToken: string): Promise<{ 
@@ -215,11 +108,11 @@ async function refreshAccessToken(refreshToken: string): Promise<{
   error?: string;
   token_revoked?: boolean;
 } | null> {
-  const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
-  const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    console.error('[sync-google-calendar] Missing Google credentials');
+  if (!clientId || !clientSecret) {
+    console.error('[check-google-calendar-busy] Missing Google OAuth credentials');
     return null;
   }
 
@@ -228,8 +121,8 @@ async function refreshAccessToken(refreshToken: string): Promise<{
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         refresh_token: refreshToken,
         grant_type: 'refresh_token',
       }),
@@ -237,10 +130,11 @@ async function refreshAccessToken(refreshToken: string): Promise<{
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'unknown' }));
-      console.error('[sync-google-calendar] Token refresh failed:', errorData);
+      console.error('[check-google-calendar-busy] Token refresh failed:', errorData);
       
-      // Wykryj invalid_grant - token jest trwale unieważniony
+      // Wykryj invalid_grant - token trwale unieważniony
       if (errorData.error === 'invalid_grant') {
+        console.log('[check-google-calendar-busy] Token was revoked (invalid_grant)');
         return { error: 'invalid_grant', token_revoked: true };
       }
       
@@ -253,144 +147,195 @@ async function refreshAccessToken(refreshToken: string): Promise<{
       expires_in: tokenData.expires_in 
     };
   } catch (error) {
-    console.error('[sync-google-calendar] Token refresh error:', error);
+    console.error('[check-google-calendar-busy] Token refresh error:', error);
     return null;
   }
 }
 ```
 
-### `supabase/functions/sync-google-calendar/index.ts` - getValidAccessToken (linie 86-126):
+**Obsługa tokena w głównej logice (linie 113-136):**
 
 ```typescript
-async function getValidAccessToken(supabase: any, userId: string): Promise<{
-  access_token?: string;
-  token_revoked?: boolean;
-} | null> {
-  const { data: tokenData, error } = await supabase
-    .from('user_google_tokens')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-
-  if (error || !tokenData) {
-    console.log('[sync-google-calendar] No Google token found for user:', userId);
-    return null;
-  }
-
-  const expiresAt = new Date(tokenData.expires_at);
-  const now = new Date();
-
-  // If token expires in less than 5 minutes, refresh it
-  if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-    console.log('[sync-google-calendar] Token expired or expiring soon, refreshing...');
-    
-    const refreshResult = await refreshAccessToken(tokenData.refresh_token);
-    
-    // Token został unieważniony - usuń z bazy
-    if (refreshResult?.token_revoked) {
-      console.log('[sync-google-calendar] Token revoked by user, removing from database for user:', userId);
-      await supabase
-        .from('user_google_tokens')
-        .delete()
-        .eq('user_id', userId);
-      
-      // Also clean up sync records
-      await supabase
-        .from('event_google_sync')
-        .delete()
-        .eq('user_id', userId);
-      
-      return { token_revoked: true };
-    }
-    
-    if (!refreshResult?.access_token) {
-      return null;
-    }
-
-    const newExpiresAt = new Date(Date.now() + (refreshResult.expires_in! * 1000)).toISOString();
-
+if (expiresAt <= fiveMinutesFromNow) {
+  console.log('[check-google-calendar-busy] Token expired or expiring soon, refreshing...');
+  
+  const refreshResult = await refreshAccessToken(tokenData.refresh_token);
+  
+  // Token został unieważniony - wyczyść bazę
+  if (refreshResult?.token_revoked) {
+    console.log('[check-google-calendar-busy] Token revoked, cleaning up for user:', leader_user_id);
     await supabase
       .from('user_google_tokens')
-      .update({
-        access_token: refreshResult.access_token,
-        expires_at: newExpiresAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId);
-
-    return { access_token: refreshResult.access_token };
+      .delete()
+      .eq('user_id', leader_user_id);
+    
+    await supabase
+      .from('event_google_sync')
+      .delete()
+      .eq('user_id', leader_user_id);
+    
+    return new Response(
+      JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  if (!refreshResult?.access_token) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to refresh token', busy: [] }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
-  return { access_token: tokenData.access_token };
+  accessToken = refreshResult.access_token;
+  
+  // Zaktualizuj token w bazie
+  const newExpiresAt = new Date(Date.now() + refreshResult.expires_in! * 1000);
+  await supabase
+    .from('user_google_tokens')
+    .update({
+      access_token: accessToken,
+      expires_at: newExpiresAt.toISOString(),
+    })
+    .eq('user_id', leader_user_id);
 }
 ```
 
-### `src/hooks/useGoogleCalendar.ts` - syncAllEvents (linie 278-350):
+---
+
+### Plik: `supabase/functions/system-health-check/index.ts`
+
+**Nowy check - Liderzy bez połączonego Google Calendar:**
 
 ```typescript
-const syncAllEvents = useCallback(async () => {
-  if (!user || !state.isConnected) {
-    toast({
-      title: 'Brak połączenia',
-      description: 'Najpierw połącz się z Google Calendar.',
-      variant: 'destructive',
-    });
-    return;
-  }
+// ============================================
+// CHECK: Leaders without Google Calendar (WARNING)
+// ============================================
+console.log('Checking for leaders without Google Calendar...');
 
-  // Debounce - prevent rapid syncs
-  const now = Date.now();
-  if (now - lastSyncTime < SYNC_COOLDOWN) {
-    toast({
-      title: 'Poczekaj',
-      description: 'Odczekaj 30 sekund przed kolejną synchronizacją.',
-      variant: 'destructive',
-    });
-    return;
-  }
-  setLastSyncTime(now);
+// Pobierz wszystkich aktywnych liderów
+const { data: leaders } = await supabase
+  .from('user_roles')
+  .select('user_id')
+  .eq('role', 'leader');
 
-  setIsSyncing(true);
+const leaderUserIds = (leaders || []).map(l => l.user_id);
 
-  try {
-    // Najpierw sprawdź czy token jest ważny
-    const testResult = await supabase.functions.invoke('sync-google-calendar', {
-      body: { user_id: user.id, action: 'test' },
-    });
+if (leaderUserIds.length > 0) {
+  // Pobierz liderów którzy mają połączony kalendarz
+  const { data: connectedLeaders } = await supabase
+    .from('user_google_tokens')
+    .select('user_id')
+    .in('user_id', leaderUserIds);
+  
+  const connectedIds = new Set((connectedLeaders || []).map(c => c.user_id));
+  const disconnectedLeaderIds = leaderUserIds.filter(id => !connectedIds.has(id));
+  
+  if (disconnectedLeaderIds.length > 0) {
+    // Pobierz profile tych liderów
+    const { data: disconnectedProfiles } = await supabase
+      .from('profiles')
+      .select('user_id, email, first_name, last_name')
+      .in('user_id', disconnectedLeaderIds)
+      .eq('is_active', true);
     
-    if (testResult.data?.token_revoked) {
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
-      toast({
-        title: 'Połączenie wygasło',
-        description: 'Token Google Calendar został unieważniony. Połącz się ponownie.',
-        variant: 'destructive',
-      });
-      setIsSyncing(false);
-      return;
+    if (disconnectedProfiles && disconnectedProfiles.length > 0) {
+      console.log(`Found ${disconnectedProfiles.length} leaders without Google Calendar`);
+      
+      for (const leader of disconnectedProfiles) {
+        results.push({
+          type: 'google_calendar_disconnected',
+          severity: 'warning',
+          title: `Lider bez Google Calendar: ${leader.email}`,
+          description: `Lider ${leader.first_name || ''} ${leader.last_name || ''} (${leader.email}) nie ma połączonego Google Calendar. Rezerwacje spotkań mogą nakładać się na zajęte terminy.`,
+          suggestedAction: 'Skontaktuj się z liderem i poproś o połączenie Google Calendar w ustawieniach konta.',
+          affectedUserId: leader.user_id,
+          affectedEntityType: 'user',
+          metadata: {
+            email: leader.email,
+            first_name: leader.first_name,
+            last_name: leader.last_name,
+          }
+        });
+      }
     }
-    
-    if (!testResult.data?.success) {
-      toast({
-        title: 'Błąd połączenia',
-        description: testResult.data?.message || 'Nie można połączyć się z Google Calendar.',
-        variant: 'destructive',
-      });
-      setIsSyncing(false);
-      return;
-    }
-
-    // Kontynuuj z synchronizacją...
-    const { data: registrations, error: regError } = await supabase
-      .from('event_registrations')
-      .select('event_id')
-      .eq('user_id', user.id)
-      .eq('status', 'registered');
-    
-    // ... reszta logiki synchronizacji ...
-  } catch (error) {
-    // ... obsługa błędów ...
-  } finally {
-    setIsSyncing(false);
   }
-}, [user, state.isConnected, lastSyncTime, toast]);
+}
+
+// ============================================
+// CHECK: Tokens expiring within 24 hours (INFO)
+// ============================================
+console.log('Checking for expiring Google tokens...');
+
+const in24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+const now = new Date().toISOString();
+
+const { data: expiringTokens } = await supabase
+  .from('user_google_tokens')
+  .select('user_id, expires_at')
+  .gt('expires_at', now)
+  .lt('expires_at', in24Hours);
+
+if (expiringTokens && expiringTokens.length > 0) {
+  // Pobierz profile
+  const expiringUserIds = expiringTokens.map(t => t.user_id);
+  const { data: expiringProfiles } = await supabase
+    .from('profiles')
+    .select('user_id, email, first_name, last_name')
+    .in('user_id', expiringUserIds);
+
+  for (const token of expiringTokens) {
+    const profile = expiringProfiles?.find(p => p.user_id === token.user_id);
+    if (profile) {
+      results.push({
+        type: 'google_calendar_expiring_soon',
+        severity: 'info',
+        title: `Token Google wygasa: ${profile.email}`,
+        description: `Token Google Calendar użytkownika ${profile.first_name || ''} ${profile.last_name || ''} wygasa w ciągu 24 godzin. System automatycznie spróbuje go odświeżyć.`,
+        suggestedAction: 'Monitoruj logi synchronizacji. Jeśli odświeżanie nie powiedzie się, użytkownik będzie musiał połączyć się ponownie.',
+        affectedUserId: profile.user_id,
+        affectedEntityType: 'user',
+        metadata: {
+          email: profile.email,
+          expires_at: token.expires_at,
+        }
+      });
+    }
+  }
+}
 ```
+
+---
+
+## Podsumowanie zmian
+
+| Plik | Zmiana | Cel |
+|------|--------|-----|
+| `check-google-calendar-busy/index.ts` | Obsługa `invalid_grant` + auto-cleanup | Spójność z sync-google-calendar |
+| `system-health-check/index.ts` | Check `google_calendar_disconnected` | Proaktywne wykrywanie problemów |
+| `system-health-check/index.ts` | Check `google_calendar_expiring_soon` | Wczesne ostrzeżenie |
+
+---
+
+## Korzyści
+
+| Aspekt | Przed | Po |
+|--------|-------|-----|
+| **Wykrywanie problemów** | Reaktywne (po błędzie użytkownika) | Proaktywne (co godzinę) |
+| **Czas reakcji** | Godziny/dni | Maksymalnie 1 godzina |
+| **Widoczność dla admina** | Brak | Alerty w panelu System Health |
+| **Spójność funkcji** | `sync` obsługuje `invalid_grant`, `busy` nie | Obie funkcje identycznie |
+| **Bezpieczeństwo danych** | Nieważne tokeny pozostają w bazie | Auto-cleanup |
+
+---
+
+## Instrukcja dla Dawida Kowalczyka
+
+Po wdrożeniu zmian, Dawid Kowalczyk musi:
+
+1. Przejść do **Moje konto** → **Ustawienia**
+2. W sekcji **Google Calendar** kliknąć **"Połącz z Google"**
+3. Zalogować się na konto Google i zaakceptować uprawnienia
+4. Kliknąć **"Synchronizuj wszystko"**
+
+Po tym jego terminy z PureLife pojawią się w Google Calendar, a system rezerwacji będzie poprawnie blokować zajęte sloty.
