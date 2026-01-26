@@ -70,6 +70,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [tagsInput, setTagsInput] = useState('');
   
+  // Main tab state for Documents/Graphics
+  const [activeTab, setActiveTab] = useState<'documents' | 'graphics'>('documents');
+  
   // Bulk upload state
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
@@ -82,6 +85,11 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   useEffect(() => {
     fetchResources();
   }, []);
+
+  // Reset category filter when switching tabs
+  useEffect(() => {
+    setFilterCategory('all');
+  }, [activeTab]);
 
   const fetchResources = async () => {
     setLoading(true);
@@ -98,6 +106,30 @@ export const KnowledgeResourcesManagement: React.FC = () => {
     }
     setLoading(false);
   };
+
+  // Split resources into documents and graphics
+  const documentResources = resources.filter(r => r.resource_type !== 'image');
+  const graphicsResources = resources.filter(r => r.resource_type === 'image');
+
+  // Filter documents
+  const filteredDocuments = documentResources.filter(r => {
+    const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
+    const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
+    const matchesLanguage = filterLanguage === 'all' || 
+      (filterLanguage === 'universal' ? r.language_code === null : r.language_code === filterLanguage);
+    return matchesSearch && matchesStatus && matchesCategory && matchesLanguage;
+  });
+
+  // Filter graphics (no language filter for graphics)
+  const filteredGraphics = graphicsResources.filter(r => {
+    const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
+    const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -206,26 +238,19 @@ export const KnowledgeResourcesManagement: React.FC = () => {
     }
   };
 
-  const openEditDialog = (resource?: KnowledgeResource) => {
+  const openEditDialog = (resource?: KnowledgeResource, isGraphic?: boolean) => {
     if (resource) {
       setEditingResource(resource);
       setTagsInput(resource.tags?.join(', ') || '');
     } else {
-      setEditingResource({ ...emptyResource });
+      setEditingResource({ 
+        ...emptyResource,
+        resource_type: isGraphic ? 'image' : 'pdf'
+      });
       setTagsInput('');
     }
     setDialogOpen(true);
   };
-
-  const filteredResources = resources.filter(r => {
-    const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
-    const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
-    const matchesLanguage = filterLanguage === 'all' || 
-      (filterLanguage === 'universal' ? r.language_code === null : r.language_code === filterLanguage);
-    return matchesSearch && matchesStatus && matchesCategory && matchesLanguage;
-  });
 
   const getStatusBadge = (status: ResourceStatus) => {
     const colors: Record<ResourceStatus, string> = {
@@ -327,18 +352,123 @@ export const KnowledgeResourcesManagement: React.FC = () => {
     setBulkFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Render resource card
+  const renderResourceCard = (resource: KnowledgeResource) => (
+    <Card key={resource.id} className="hover:shadow-md transition-shadow">
+      <CardContent className="py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h3 className="font-semibold truncate">{resource.title}</h3>
+              {resource.is_featured && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
+              {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700">{t('admin.knowledge.badgeNew')}</Badge>}
+              {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700">{t('admin.knowledge.badgeUpdated')}</Badge>}
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+              {resource.description || t('admin.knowledge.noDescription')}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {getTypeBadge(resource.resource_type)}
+              {getStatusBadge(resource.status)}
+              {resource.category && <Badge variant="secondary">{resource.category}</Badge>}
+              {resource.resource_type !== 'image' && (
+                <Badge variant="outline" className="text-[10px]">
+                  {getLanguageLabel(resource.language_code)}
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Download className="h-3 w-3" />
+                {resource.download_count}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                v{resource.version}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => openEditDialog(resource)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => handleDelete(resource.id)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Render filters
+  const renderFilters = (showLanguageFilter: boolean) => (
+    <Card>
+      <CardContent className="pt-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t('admin.knowledge.searchPlaceholder')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder={t('common.status')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('common.all')}</SelectItem>
+              <SelectItem value="active">{t('common.active')}</SelectItem>
+              <SelectItem value="draft">{t('admin.knowledge.statusDraft')}</SelectItem>
+              <SelectItem value="archived">{t('admin.knowledge.statusArchived')}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder={t('admin.knowledge.category')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('admin.knowledge.allCategories')}</SelectItem>
+              {(activeTab === 'graphics' ? GRAPHICS_CATEGORIES : DOCUMENT_CATEGORIES).map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {showLanguageFilter && (
+            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Język" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Wszystkie języki</SelectItem>
+                <SelectItem value="universal">🌐 Uniwersalne</SelectItem>
+                {LANGUAGE_OPTIONS.filter(l => l.code !== 'all').map(lang => (
+                  <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-2xl font-bold">{t('admin.knowledge.library')}</h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
-            <Images className="h-4 w-4 mr-2" />
-            Dodaj wiele grafik
-          </Button>
-          <Button onClick={() => openEditDialog()}>
+          {activeTab === 'graphics' && (
+            <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+              <Images className="h-4 w-4 mr-2" />
+              Dodaj wiele grafik
+            </Button>
+          )}
+          <Button onClick={() => openEditDialog(undefined, activeTab === 'graphics')}>
             <Plus className="h-4 w-4 mr-2" />
-            {t('admin.knowledge.addResource')}
+            {activeTab === 'graphics' ? 'Dodaj grafikę' : 'Dodaj dokument'}
           </Button>
         </div>
       </div>
@@ -478,114 +608,55 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('admin.knowledge.searchPlaceholder')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder={t('common.status')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common.all')}</SelectItem>
-                <SelectItem value="active">{t('common.active')}</SelectItem>
-                <SelectItem value="draft">{t('admin.knowledge.statusDraft')}</SelectItem>
-                <SelectItem value="archived">{t('admin.knowledge.statusArchived')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t('admin.knowledge.category')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('admin.knowledge.allCategories')}</SelectItem>
-                {RESOURCE_CATEGORIES.map(cat => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Język" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie języki</SelectItem>
-                <SelectItem value="universal">🌐 Uniwersalne</SelectItem>
-                {LANGUAGE_OPTIONS.filter(l => l.code !== 'all').map(lang => (
-                  <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Main Tabs: Documents / Graphics */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'documents' | 'graphics')}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Dokumenty ({filteredDocuments.length})
+          </TabsTrigger>
+          <TabsTrigger value="graphics" className="flex items-center gap-2">
+            <Images className="h-4 w-4" />
+            Grafiki ({filteredGraphics.length})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Resources List */}
-      {loading ? (
-        <div className="text-center py-8">{t('common.loading')}</div>
-      ) : filteredResources.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            {t('admin.knowledge.noResources')}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filteredResources.map(resource => (
-            <Card key={resource.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="font-semibold truncate">{resource.title}</h3>
-                      {resource.is_featured && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
-                      {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700">{t('admin.knowledge.badgeNew')}</Badge>}
-                      {resource.is_updated && <Badge className="bg-purple-500/20 text-purple-700">{t('admin.knowledge.badgeUpdated')}</Badge>}
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                      {resource.description || t('admin.knowledge.noDescription')}
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {getTypeBadge(resource.resource_type)}
-                      {getStatusBadge(resource.status)}
-                      {resource.category && <Badge variant="secondary">{resource.category}</Badge>}
-                      <Badge variant="outline" className="text-[10px]">
-                        {getLanguageLabel(resource.language_code)}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Download className="h-3 w-3" />
-                        {resource.download_count}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        v{resource.version}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(resource)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(resource.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
+        <TabsContent value="documents" className="space-y-4">
+          {renderFilters(true)}
+          
+          {loading ? (
+            <div className="text-center py-8">{t('common.loading')}</div>
+          ) : filteredDocuments.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                {t('admin.knowledge.noResources')}
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-3">
+              {filteredDocuments.map(resource => renderResourceCard(resource))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="graphics" className="space-y-4">
+          {renderFilters(false)}
+          
+          {loading ? (
+            <div className="text-center py-8">{t('common.loading')}</div>
+          ) : filteredGraphics.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                {t('admin.knowledge.noResources')}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filteredGraphics.map(resource => renderResourceCard(resource))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -667,27 +738,29 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Język dokumentu</Label>
-                    <Select
-                      value={editingResource.language_code || 'all'}
-                      onValueChange={(v) => setEditingResource({ 
-                        ...editingResource, 
-                        language_code: v === 'all' ? null : v 
-                      })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Wybierz język" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {LANGUAGE_OPTIONS.map(lang => (
-                          <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {editingResource.resource_type !== 'image' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Język dokumentu</Label>
+                      <Select
+                        value={editingResource.language_code || 'all'}
+                        onValueChange={(v) => setEditingResource({ 
+                          ...editingResource, 
+                          language_code: v === 'all' ? null : v 
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Wybierz język" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LANGUAGE_OPTIONS.map(lang => (
+                            <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="space-y-2">
                   <Label>{t('admin.knowledge.tagsLabel')}</Label>
                   <Input
