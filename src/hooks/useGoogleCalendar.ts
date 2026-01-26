@@ -262,6 +262,18 @@ export const useGoogleCalendar = () => {
         },
       });
       
+      // Check if token was revoked
+      if (data?.token_revoked) {
+        console.log('[useGoogleCalendar] Token was revoked, updating state');
+        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        toast({
+          title: 'Połączenie wygasło',
+          description: 'Token Google Calendar został unieważniony. Połącz się ponownie.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       if (error || !data?.success) {
         console.error('[useGoogleCalendar] Token refresh failed:', error || data?.message);
         return;
@@ -273,7 +285,7 @@ export const useGoogleCalendar = () => {
     } catch (error) {
       console.error('[useGoogleCalendar] Token refresh error:', error);
     }
-  }, [user, state.isConnected, state.expiresAt, checkConnection]);
+  }, [user, state.isConnected, state.expiresAt, checkConnection, toast]);
 
   // Sync all user's registered events
   const syncAllEvents = useCallback(async () => {
@@ -301,6 +313,32 @@ export const useGoogleCalendar = () => {
     setIsSyncing(true);
 
     try {
+      // First check if token is valid
+      const testResult = await supabase.functions.invoke('sync-google-calendar', {
+        body: { user_id: user.id, action: 'test' },
+      });
+      
+      if (testResult.data?.token_revoked) {
+        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        toast({
+          title: 'Połączenie wygasło',
+          description: 'Token Google Calendar został unieważniony. Połącz się ponownie.',
+          variant: 'destructive',
+        });
+        setIsSyncing(false);
+        return;
+      }
+      
+      if (!testResult.data?.success) {
+        toast({
+          title: 'Błąd połączenia',
+          description: testResult.data?.message || 'Nie można połączyć się z Google Calendar.',
+          variant: 'destructive',
+        });
+        setIsSyncing(false);
+        return;
+      }
+
       // Get all user's registered events
       const { data: registrations, error: regError } = await supabase
         .from('event_registrations')

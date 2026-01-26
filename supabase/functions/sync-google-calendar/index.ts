@@ -50,7 +50,12 @@ async function logSyncOperation(
 }
 
 // Refresh Google access token if expired
-async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number } | null> {
+async function refreshAccessToken(refreshToken: string): Promise<{ 
+  access_token?: string; 
+  expires_in?: number; 
+  error?: string;
+  token_revoked?: boolean;
+} | null> {
   const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
   const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
@@ -72,11 +77,23 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
     });
 
     if (!response.ok) {
-      console.error('[sync-google-calendar] Token refresh failed:', await response.text());
+      const errorData = await response.json().catch(() => ({ error: 'unknown' }));
+      console.error('[sync-google-calendar] Token refresh failed:', errorData);
+      
+      // Detect invalid_grant - token is permanently revoked
+      if (errorData.error === 'invalid_grant') {
+        console.log('[sync-google-calendar] Token was revoked by user (invalid_grant)');
+        return { error: 'invalid_grant', token_revoked: true };
+      }
+      
       return null;
     }
 
-    return await response.json();
+    const tokenData = await response.json();
+    return { 
+      access_token: tokenData.access_token, 
+      expires_in: tokenData.expires_in 
+    };
   } catch (error) {
     console.error('[sync-google-calendar] Token refresh error:', error);
     return null;
@@ -84,7 +101,10 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
 }
 
 // Get valid access token (refresh if needed)
-async function getValidAccessToken(supabase: any, userId: string): Promise<string | null> {
+async function getValidAccessToken(supabase: any, userId: string): Promise<{
+  access_token?: string;
+  token_revoked?: boolean;
+} | null> {
   const { data: tokenData, error } = await supabase
     .from('user_google_tokens')
     .select('*')
@@ -103,26 +123,44 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<strin
   if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
     console.log('[sync-google-calendar] Token expired or expiring soon, refreshing...');
     
-    const newTokens = await refreshAccessToken(tokenData.refresh_token);
-    if (!newTokens) {
+    const refreshResult = await refreshAccessToken(tokenData.refresh_token);
+    
+    // Token was revoked - delete from database
+    if (refreshResult?.token_revoked) {
+      console.log('[sync-google-calendar] Token revoked by user, removing from database for user:', userId);
+      await supabase
+        .from('user_google_tokens')
+        .delete()
+        .eq('user_id', userId);
+      
+      // Also clean up sync records
+      await supabase
+        .from('event_google_sync')
+        .delete()
+        .eq('user_id', userId);
+      
+      return { token_revoked: true };
+    }
+    
+    if (!refreshResult?.access_token) {
       return null;
     }
 
-    const newExpiresAt = new Date(Date.now() + (newTokens.expires_in * 1000)).toISOString();
+    const newExpiresAt = new Date(Date.now() + (refreshResult.expires_in! * 1000)).toISOString();
 
     await supabase
       .from('user_google_tokens')
       .update({
-        access_token: newTokens.access_token,
+        access_token: refreshResult.access_token,
         expires_at: newExpiresAt,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId);
 
-    return newTokens.access_token;
+    return { access_token: refreshResult.access_token };
   }
 
-  return tokenData.access_token;
+  return { access_token: tokenData.access_token };
 }
 
 // Format event for Google Calendar
@@ -263,13 +301,23 @@ async function processSyncForUser(
   
   try {
     // Get valid access token
-    const accessToken = await getValidAccessToken(supabaseAdmin, userId);
-    if (!accessToken) {
+    const tokenResult = await getValidAccessToken(supabaseAdmin, userId);
+    
+    // Handle token revoked
+    if (tokenResult?.token_revoked) {
+      const responseTime = Date.now() - startTime;
+      logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, 'Token was revoked');
+      return { success: false, reason: 'token_revoked' };
+    }
+    
+    if (!tokenResult?.access_token) {
       const responseTime = Date.now() - startTime;
       // Log skipped - don't block, fire and forget
       logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'skipped', responseTime, 'User not connected to Google Calendar');
       return { success: false, reason: 'not_connected' };
     }
+    
+    const accessToken = tokenResult.access_token;
 
     // Get user's calendar ID
     const { data: tokenData } = await supabaseAdmin
@@ -432,9 +480,23 @@ Deno.serve(async (req) => {
       }
 
       // Try to get a valid access token (this will refresh if needed)
-      const accessToken = await getValidAccessToken(supabaseAdmin, testUserId);
+      const tokenResult = await getValidAccessToken(supabaseAdmin, testUserId);
       
-      if (!accessToken) {
+      // Check if token was revoked
+      if (tokenResult?.token_revoked) {
+        const responseTime = Date.now() - startTime;
+        logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'error', responseTime, 'Token was revoked');
+        return new Response(JSON.stringify({ 
+          success: false, 
+          token_revoked: true,
+          message: 'Token został unieważniony. Rozłącz i połącz ponownie z Google Calendar.' 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (!tokenResult?.access_token) {
         const responseTime = Date.now() - startTime;
         logSyncOperation(supabaseAdmin, testUserId, null, 'test', 'error', responseTime, 'Token refresh failed');
         return new Response(JSON.stringify({ 
@@ -445,6 +507,8 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      
+      const accessToken = tokenResult.access_token;
 
       // Test API access by fetching calendar list
       try {
