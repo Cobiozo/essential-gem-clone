@@ -1,262 +1,190 @@
 
+# Plan: Panel statystyk rejestracji użytkowników na wydarzenia
 
-# Plan: Naprawa synchronizacji spotkań cyklicznych z Google Calendar
+## Analiza obecnego stanu
 
-## Zdiagnozowany problem
+### Co już istnieje:
+1. **Tabela `event_registrations`** - przechowuje wszystkie zapisy zalogowanych użytkowników
+2. **Tabela `guest_event_registrations`** - dla gości zewnętrznych (webinary)
+3. **Komponent `GuestRegistrationsManagement`** - zarządza gośćmi (niezalogowanymi)
+4. **Zakładka "Zarządzanie wydarzeniami"** (`events`) - tworzenie/edycja wydarzeń
 
-Edge function `sync-google-calendar` otrzymuje `occurrence_index` od frontendu, ale **kompletnie go ignoruje**. Pobiera dane eventu z tabeli `events` gdzie `start_time` to data PIERWSZEGO terminu cyklu (np. 20.01), a nie konkretnej daty na którą zapisał się użytkownik (np. 27.01).
-
-### Przykład błędu
-
-```text
-Event: "Pure Calling"
-├── start_time w bazie: 2026-01-20 10:00 (data pierwszego terminu)
-├── occurrences: [
-│     { date: "2026-01-20", time: "11:00", duration_minutes: 60 },  // index 0
-│     { date: "2026-01-20", time: "17:00", duration_minutes: 60 },  // index 1
-│     ...
-│     { date: "2026-01-27", time: "11:00", duration_minutes: 60 },  // index 6 ← użytkownik się zapisuje
-│     ...
-│   ]
-
-Użytkownik zapisuje się na termin 27.01 11:00 (index 6)
-→ Frontend wysyła: { occurrence_index: 6 }
-→ Edge function pobiera start_time z bazy: 20.01 10:00
-→ Edge function IGNORUJE occurrence_index
-→ Google Calendar: event pod datą 20.01 ❌
-```
+### Czego brakuje:
+Panel do przeglądania **kto z zalogowanych użytkowników** zapisał się na wydarzenia wewnętrzne.
 
 ---
 
-## Rozwiązanie
+## Propozycja rozwiązania
 
-### Zmiana w `sync-google-calendar` edge function
+Stworzę nowy komponent `EventRegistrationsManagement` wzorowany na `GuestRegistrationsManagement`, ale pobierający dane z tabeli `event_registrations` z dołączonymi profilami użytkowników.
 
-Edge function musi:
-1. Pobrać pole `occurrences` razem z danymi eventu
-2. Jeśli `occurrence_index` jest przekazany i event ma tablicę `occurrences`:
-   - Wyciągnąć konkretny termin z tablicy
-   - Użyć tej daty/godziny zamiast bazowego `start_time`
+### Lokalizacja w panelu admina:
+
+```text
+Panel Admina
+├── Funkcjonalności
+│   ├── ...
+│   ├── Zarządzanie wydarzeniami  (istniejące)
+│   ├── Rejestracje gości          (istniejące - dla webinarów)
+│   ├── Rejestracje użytkowników   ← NOWY KOMPONENT
+│   ├── ...
+```
+
+Zakładka pojawi się tuż pod "Rejestracje gości" jako logiczne uzupełnienie.
+
+---
+
+## Funkcjonalności nowego panelu
+
+| Funkcja | Opis |
+|---------|------|
+| Wybór wydarzenia | Dropdown z listą wydarzeń (wszystkie typy lub filtr po typie) |
+| Tabela zapisów | Imię, nazwisko, email, rola, status, data zapisu, occurrence_index |
+| Statystyki | Łączna liczba zapisów, aktywnych, anulowanych |
+| Eksport CSV | Pobierz listę do arkusza |
+| Filtrowanie | Po typie wydarzenia, statusie, dacie |
+
+### Widok tabeli:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Rejestracje użytkowników na wydarzenia                                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Wydarzenie: [Pure Calling ▼]  Typ: [Wszystkie ▼]     [Eksport CSV]              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Statystyki:  Wszystkich: 45   Aktywnych: 38   Anulowanych: 7                    │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Imię i nazwisko    │ Email                  │ Rola     │ Status  │ Data zapisu  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Sebastian Snopek   │ sebastian@...          │ partner  │ ✓ Zapisany │ 26.01 19:35 │
+│ Marcin Kipa        │ marcin@...             │ partner  │ ✓ Zapisany │ 26.01 19:29 │
+│ Urszula Gałażyn    │ urszula@...            │ klient   │ ✗ Anulowany│ 25.01 14:00 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Sekcja techniczna
 
-### Plik: `supabase/functions/sync-google-calendar/index.ts`
+### 1. Nowy plik: `src/components/admin/EventRegistrationsManagement.tsx`
 
-**Zmiana 1 - Dodanie `occurrence_index` do interfejsu (linia 8-13):**
+Struktura komponentu:
 
 ```typescript
-interface SyncRequest {
-  user_id?: string;
-  user_ids?: string[]; // Support batch sync
-  event_id?: string;
-  action: 'create' | 'update' | 'delete' | 'test';
-  occurrence_index?: number;  // ← DODAĆ
+interface EventRegistration {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: string;
+  registered_at: string;
+  cancelled_at: string | null;
+  occurrence_index: number | null;
+  // Dołączone z profiles
+  user_profile: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    role: string;
+  };
+  // Dołączone z events
+  event: {
+    title: string;
+    event_type: string;
+    start_time: string;
+    occurrences: any;
+  };
 }
 ```
 
-**Zmiana 2 - Pobranie `occurrences` z bazy (linie 573-587):**
-
+**Zapytanie do bazy:**
 ```typescript
-const { data: eventResult, error: eventError } = await supabaseAdmin
-  .from('events')
+const { data } = await supabase
+  .from('event_registrations')
   .select(`
     id,
-    title,
-    description,
-    start_time,
-    end_time,
-    zoom_link,
-    event_type,
-    host_user_id,
-    occurrences   // ← DODAĆ
-  `)
-  .eq('id', event_id)
-  .single();
-```
-
-**Zmiana 3 - Dodanie funkcji pomocniczej do parsowania occurrence:**
-
-```typescript
-// Get specific occurrence datetime for cyclic events
-function getOccurrenceDateTime(
-  occurrences: any, 
-  occurrenceIndex: number | undefined,
-  baseStartTime: string,
-  baseEndTime: string | null
-): { start_time: string; end_time: string } {
-  // If no occurrence_index or no occurrences array, use base times
-  if (occurrenceIndex === undefined || occurrenceIndex === null) {
-    return { 
-      start_time: baseStartTime, 
-      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
-    };
-  }
-
-  // Parse occurrences (can be string or array)
-  let parsedOccurrences: any[] | null = null;
-  
-  if (Array.isArray(occurrences)) {
-    parsedOccurrences = occurrences;
-  } else if (typeof occurrences === 'string') {
-    try {
-      parsedOccurrences = JSON.parse(occurrences);
-    } catch {
-      parsedOccurrences = null;
-    }
-  }
-
-  // If no valid occurrences or index out of range, use base times
-  if (!parsedOccurrences || !Array.isArray(parsedOccurrences) || occurrenceIndex >= parsedOccurrences.length) {
-    console.log('[sync-google-calendar] No valid occurrence found for index:', occurrenceIndex);
-    return { 
-      start_time: baseStartTime, 
-      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
-    };
-  }
-
-  const occurrence = parsedOccurrences[occurrenceIndex];
-  
-  // Parse occurrence date/time
-  const [year, month, day] = occurrence.date.split('-').map(Number);
-  const [hours, minutes] = occurrence.time.split(':').map(Number);
-  const durationMinutes = occurrence.duration_minutes || 60;
-
-  // Create Date objects in Europe/Warsaw timezone
-  const startDate = new Date(year, month - 1, day, hours, minutes);
-  const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
-
-  console.log('[sync-google-calendar] Using occurrence', occurrenceIndex, ':', occurrence.date, occurrence.time);
-
-  return {
-    start_time: startDate.toISOString(),
-    end_time: endDate.toISOString(),
-  };
-}
-```
-
-**Zmiana 4 - Użycie konkretnego terminu przed formatowaniem (po linii 597):**
-
-```typescript
-eventData = eventResult;
-
-// DODAĆ: Override start/end times with specific occurrence if provided
-const { occurrence_index } = requestData;
-if (occurrence_index !== undefined && eventData) {
-  const occurrenceTimes = getOccurrenceDateTime(
-    eventResult.occurrences,
+    event_id,
+    user_id,
+    status,
+    registered_at,
+    cancelled_at,
     occurrence_index,
-    eventResult.start_time,
-    eventResult.end_time
-  );
-  
-  eventData = {
-    ...eventData,
-    start_time: occurrenceTimes.start_time,
-    end_time: occurrenceTimes.end_time,
-  };
-  
-  console.log('[sync-google-calendar] Cyclic event: using occurrence', occurrence_index, 
-    'date:', occurrenceTimes.start_time);
-}
+    profiles!inner(first_name, last_name, email, role),
+    events!inner(title, event_type, start_time, occurrences)
+  `)
+  .eq('event_id', selectedEventId)
+  .order('registered_at', { ascending: false });
 ```
 
-**Zmiana 5 - Unikalny klucz sync dla każdego occurrence (linie 406-418):**
+**Funkcje:**
+- `fetchEvents()` - lista wydarzeń do wyboru
+- `fetchRegistrations()` - rejestracje dla wybranego wydarzenia  
+- `handleExportCSV()` - eksport do CSV
+- `getOccurrenceDate()` - oblicz rzeczywistą datę dla spotkań cyklicznych
 
-Zmiana klucza `event_google_sync` aby uwzględniał `occurrence_index`:
+---
+
+### 2. Zmiana w `src/components/admin/AdminSidebar.tsx`
+
+Dodanie nowego elementu menu w kategorii "features" (linia ~185):
 
 ```typescript
-// Save sync record - include occurrence_index in lookup
-if (eventId) {
-  // For cyclic events, use composite key with occurrence_index
-  const syncKey = occurrence_index !== undefined 
-    ? `${eventId}:${occurrence_index}` 
-    : eventId;
-    
-  await supabaseAdmin
-    .from('event_google_sync')
-    .upsert({
-      event_id: eventId,
-      user_id: userId,
-      google_event_id: googleEventId,
-      synced_at: new Date().toISOString(),
-      occurrence_index: occurrence_index ?? null,  // Store occurrence index
-    }, {
-      onConflict: 'event_id,user_id,occurrence_index',  // Updated constraint
-    });
-}
+// Istniejące:
+{ value: 'guest-registrations', labelKey: 'guestRegistrations', icon: UserPlus },
+// Nowe:
+{ value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
 ```
 
-**Zmiana 6 - Aktualizacja delete/update aby uwzględniało occurrence (linie 331-358):**
-
+Dodanie klucza tłumaczenia:
 ```typescript
-if (action === 'delete' && eventId) {
-  // Get existing sync record - include occurrence_index in lookup
-  let syncQuery = supabaseAdmin
-    .from('event_google_sync')
-    .select('google_event_id')
-    .eq('event_id', eventId)
-    .eq('user_id', userId);
-  
-  // Add occurrence_index filter for cyclic events
-  if (occurrence_index !== undefined) {
-    syncQuery = syncQuery.eq('occurrence_index', occurrence_index);
-  } else {
-    syncQuery = syncQuery.is('occurrence_index', null);
-  }
-  
-  const { data: syncRecord } = await syncQuery.single();
-  // ... rest of delete logic
-}
+eventRegistrations: 'admin.sidebar.eventRegistrations',
+```
+
+I hardcoded label:
+```typescript
+eventRegistrations: 'Rejestracje użytkowników',
 ```
 
 ---
 
-## Zmiana w bazie danych
+### 3. Zmiana w `src/pages/Admin.tsx`
 
-### Dodanie kolumny `occurrence_index` do `event_google_sync`
+**Import (linia ~60):**
+```typescript
+import EventRegistrationsManagement from '@/components/admin/EventRegistrationsManagement';
+```
 
-```sql
--- Add occurrence_index column
-ALTER TABLE event_google_sync 
-ADD COLUMN IF NOT EXISTS occurrence_index INTEGER DEFAULT NULL;
-
--- Drop old constraint and create new composite one
-ALTER TABLE event_google_sync 
-DROP CONSTRAINT IF EXISTS event_google_sync_event_id_user_id_key;
-
--- Create new unique constraint including occurrence_index
-CREATE UNIQUE INDEX IF NOT EXISTS event_google_sync_unique_idx 
-ON event_google_sync (event_id, user_id, COALESCE(occurrence_index, -1));
+**TabsContent (po linii 4357):**
+```typescript
+<TabsContent value="event-registrations">
+  <EventRegistrationsManagement />
+</TabsContent>
 ```
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik/Zasób | Zmiana | Cel |
-|------------|--------|-----|
-| `sync-google-calendar/index.ts` | Dodanie `occurrence_index` do interfejsu | Odczyt parametru |
-| `sync-google-calendar/index.ts` | Pobranie `occurrences` z bazy | Dostęp do wszystkich terminów |
-| `sync-google-calendar/index.ts` | Funkcja `getOccurrenceDateTime()` | Parsowanie konkretnego terminu |
-| `sync-google-calendar/index.ts` | Override `start_time`/`end_time` | Użycie poprawnej daty |
-| `sync-google-calendar/index.ts` | Sync record z `occurrence_index` | Osobny wpis dla każdego terminu |
-| Migracja SQL | Kolumna `occurrence_index` | Przechowywanie indeksu |
+| Plik | Zmiana | Cel |
+|------|--------|-----|
+| `EventRegistrationsManagement.tsx` | Nowy komponent | Panel statystyk rejestracji |
+| `AdminSidebar.tsx` | Nowy element menu | Dostęp z sidebara |
+| `Admin.tsx` | Import + TabsContent | Renderowanie zakładki |
+
+---
+
+## Dodatkowe opcje (opcjonalne rozszerzenia)
+
+1. **Filtrowanie po typie wydarzenia** - dropdown: Team Training, Webinar, Konsultacje, etc.
+2. **Widok zbiorczy** - wszystkie wydarzenia naraz z grupowaniem
+3. **Widok dla konkretnego terminu** - dla spotkań cyklicznych pokazuj occurrence_index
+4. **Historia zmian** - kto anulował i kiedy
 
 ---
 
 ## Efekt końcowy
 
-**Przed:**
-```
-Zapis na 27.01 11:00 → Google Calendar pokazuje event pod 20.01 10:00 ❌
-```
-
-**Po:**
-```
-Zapis na 27.01 11:00 → Google Calendar pokazuje event pod 27.01 11:00 ✅
-```
-
-Każdy termin spotkania cyklicznego będzie synchronizowany z właściwą datą w Google Calendar.
-
+- Admin widzi **kto zapisał się** na każde wydarzenie
+- Może **eksportować dane** do CSV
+- Widzi **statystyki** zapisów
+- Panel jest **tylko dla admina** (w panelu /admin)
+- **Zero zmian** w logice zapisów - tylko nowy widok danych
