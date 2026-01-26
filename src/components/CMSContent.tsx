@@ -1,6 +1,7 @@
 import React from 'react';
 import { CMSButton } from './CMSButton';
 import { SecureMedia } from './SecureMedia';
+import { SecureVideoWithProgress } from './SecureVideoWithProgress';
 import { FormattedText } from './FormattedText';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -43,13 +44,24 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
   const renderMedia = () => {
     if (!item.media_url || !item.media_type) return null;
     
+    // For video, use SecureVideoWithProgress to remember position
+    if (item.media_type === 'video') {
+      return (
+        <SecureVideoWithProgress
+          mediaUrl={item.media_url}
+          videoId={item.id}
+          className="w-full max-w-md mx-auto shadow-lg mb-4"
+          altText={item.media_alt_text || item.title || 'Wideo'}
+        />
+      );
+    }
+    
     return (
       <SecureMedia
         mediaUrl={item.media_url}
-        mediaType={item.media_type as 'image' | 'video' | 'document' | 'audio' | 'other'}
+        mediaType={item.media_type as 'image' | 'document' | 'audio' | 'other'}
         altText={item.media_alt_text || item.title || 'Zabezpieczone media'}
         className="w-full max-w-md mx-auto shadow-lg mb-4"
-        controlMode={item.media_type === 'video' ? 'secure' : undefined}
       />
     );
   };
@@ -352,10 +364,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                       
                       return (
                         <div key={subCell.id} className={subAlignmentClass}>
-                          <SecureMedia
+                          <SecureVideoWithProgress
                             mediaUrl={subCell.media_url}
-                            mediaType="video"
-                            controlMode="secure"
+                            videoId={subCell.id}
                             className="w-full rounded"
                           />
                         </div>
@@ -880,10 +891,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         <div style={videoStyles.style} className={cn('w-full', videoStyles.className)}>
           {hasLocalVideo ? (
             <>
-              <SecureMedia
+              <SecureVideoWithProgress
                 mediaUrl={videoUrl}
-                mediaType="video"
-                controlMode="secure"
+                videoId={item.id}
                 className="w-full max-w-full rounded-lg"
               />
               {item.title && (
