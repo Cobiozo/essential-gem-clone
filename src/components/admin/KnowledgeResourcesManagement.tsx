@@ -80,6 +80,27 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; fileName: string }>({ current: 0, total: 0, fileName: '' });
   
+  // Bulk upload extended options
+  const [bulkVisibility, setBulkVisibility] = useState({
+    visible_to_clients: false,
+    visible_to_partners: true,
+    visible_to_specjalista: true,
+    visible_to_everyone: false
+  });
+  const [bulkActions, setBulkActions] = useState({
+    allow_copy_link: true,
+    allow_download: true,
+    allow_share: true,
+    allow_click_redirect: false,
+    click_redirect_url: ''
+  });
+  const [bulkStatus, setBulkStatus] = useState<ResourceStatus>('active');
+  const [bulkBadges, setBulkBadges] = useState({
+    is_featured: false,
+    is_new: true,
+    is_updated: false
+  });
+  
   const { uploadFile, isUploading, uploadProgress } = useLocalStorage();
 
   useEffect(() => {
@@ -290,7 +311,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
       try {
         const result = await uploadFile(file, { folder: 'knowledge-resources' });
         
-        // Create database record for each file
+        // Create database record for each file with bulk options
         const { error } = await supabase
           .from('knowledge_resources')
           .insert([{
@@ -303,20 +324,25 @@ export const KnowledgeResourcesManagement: React.FC = () => {
             file_size: result.fileSize,
             category: bulkCategory,
             tags: [],
-            visible_to_clients: false,
-            visible_to_partners: true,
-            visible_to_specjalista: true,
-            visible_to_everyone: false,
-            status: 'active',
+            // Visibility options
+            visible_to_clients: bulkVisibility.visible_to_clients,
+            visible_to_partners: bulkVisibility.visible_to_partners,
+            visible_to_specjalista: bulkVisibility.visible_to_specjalista,
+            visible_to_everyone: bulkVisibility.visible_to_everyone,
+            // Status
+            status: bulkStatus,
             version: '1.0',
-            is_featured: false,
-            is_new: true,
-            is_updated: false,
+            // Badges
+            is_featured: bulkBadges.is_featured,
+            is_new: bulkBadges.is_new,
+            is_updated: bulkBadges.is_updated,
             position: resources.length + i,
-            allow_copy_link: true,
-            allow_download: true,
-            allow_share: true,
-            allow_click_redirect: false
+            // Actions
+            allow_copy_link: bulkActions.allow_copy_link,
+            allow_download: bulkActions.allow_download,
+            allow_share: bulkActions.allow_share,
+            allow_click_redirect: bulkActions.allow_click_redirect,
+            click_redirect_url: bulkActions.allow_click_redirect ? bulkActions.click_redirect_url : null
           }]);
         
         if (error) {
@@ -479,10 +505,30 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           setBulkUploadOpen(open);
           if (!open) {
             setBulkFiles([]);
+            // Reset all bulk options to defaults
+            setBulkVisibility({
+              visible_to_clients: false,
+              visible_to_partners: true,
+              visible_to_specjalista: true,
+              visible_to_everyone: false
+            });
+            setBulkActions({
+              allow_copy_link: true,
+              allow_download: true,
+              allow_share: true,
+              allow_click_redirect: false,
+              click_redirect_url: ''
+            });
+            setBulkStatus('active');
+            setBulkBadges({
+              is_featured: false,
+              is_new: true,
+              is_updated: false
+            });
           }
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileImage className="h-5 w-5" />
@@ -493,92 +539,220 @@ export const KnowledgeResourcesManagement: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {/* Category selector */}
-            <div className="space-y-2">
-              <Label>Kategoria dla wszystkich grafik</Label>
-              <Select value={bulkCategory} onValueChange={setBulkCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GRAPHICS_CATEGORIES.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Tabs defaultValue="files" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="files">Pliki</TabsTrigger>
+              <TabsTrigger value="visibility">Widoczność</TabsTrigger>
+              <TabsTrigger value="actions">Akcje</TabsTrigger>
+              <TabsTrigger value="badges">Oznaczenia</TabsTrigger>
+            </TabsList>
             
-            {/* File input */}
-            <div className="space-y-2">
-              <Label>Wybierz pliki</Label>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleBulkFilesSelect}
-                  className="hidden"
-                  id="bulk-file-input"
-                  disabled={bulkUploading}
-                />
-                <label htmlFor="bulk-file-input" className="cursor-pointer">
-                  <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Kliknij aby wybrać pliki lub przeciągnij je tutaj
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PNG, JPG, GIF, WebP
-                  </p>
-                </label>
-              </div>
-            </div>
-            
-            {/* Selected files list */}
-            {bulkFiles.length > 0 && (
+            <TabsContent value="files" className="space-y-4 mt-4">
+              {/* Category selector */}
               <div className="space-y-2">
-                <Label>Wybrane pliki ({bulkFiles.length})</Label>
-                <ScrollArea className="h-[200px] border rounded-lg p-2">
-                  <div className="space-y-2">
-                    {bulkFiles.map((file, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                        <img 
-                          src={URL.createObjectURL(file)} 
-                          alt={file.name}
-                          className="h-10 w-10 object-cover rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                        </div>
-                        {!bulkUploading && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8"
-                            onClick={() => removeBulkFile(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                <Label>Kategoria dla wszystkich grafik</Label>
+                <Select value={bulkCategory} onValueChange={setBulkCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GRAPHICS_CATEGORIES.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
-                  </div>
-                </ScrollArea>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-            
-            {/* Upload progress */}
-            {bulkUploading && (
+              
+              {/* Status selector */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Przesyłanie: {bulkProgress.fileName}</span>
-                  <span>{bulkProgress.current} / {bulkProgress.total}</span>
-                </div>
-                <Progress value={(bulkProgress.current / bulkProgress.total) * 100} />
+                <Label>Status</Label>
+                <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as ResourceStatus)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Aktywny</SelectItem>
+                    <SelectItem value="draft">Szkic</SelectItem>
+                    <SelectItem value="archived">Archiwalny</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
+              
+              {/* File input */}
+              <div className="space-y-2">
+                <Label>Wybierz pliki</Label>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleBulkFilesSelect}
+                    className="hidden"
+                    id="bulk-file-input"
+                    disabled={bulkUploading}
+                  />
+                  <label htmlFor="bulk-file-input" className="cursor-pointer">
+                    <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Kliknij aby wybrać pliki lub przeciągnij je tutaj
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PNG, JPG, GIF, WebP
+                    </p>
+                  </label>
+                </div>
+              </div>
+              
+              {/* Selected files list */}
+              {bulkFiles.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Wybrane pliki ({bulkFiles.length})</Label>
+                  <ScrollArea className="h-[200px] border rounded-lg p-2">
+                    <div className="space-y-2">
+                      {bulkFiles.map((file, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                          <img 
+                            src={URL.createObjectURL(file)} 
+                            alt={file.name}
+                            className="h-10 w-10 object-cover rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                          </div>
+                          {!bulkUploading && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => removeBulkFile(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="visibility" className="mt-4">
+              <VisibilityEditor
+                value={bulkVisibility}
+                onChange={(settings) => setBulkVisibility({
+                  visible_to_clients: settings.visible_to_clients ?? false,
+                  visible_to_partners: settings.visible_to_partners ?? false,
+                  visible_to_specjalista: settings.visible_to_specjalista ?? false,
+                  visible_to_everyone: settings.visible_to_everyone ?? false
+                })}
+              />
+            </TabsContent>
+            
+            <TabsContent value="actions" className="space-y-4 mt-4">
+              {/* Copy link */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Copy className="h-4 w-4" />
+                  <Label>Pokaż "Kopiuj link"</Label>
+                </div>
+                <Switch 
+                  checked={bulkActions.allow_copy_link} 
+                  onCheckedChange={(v) => setBulkActions({...bulkActions, allow_copy_link: v})} 
+                />
+              </div>
+              {/* Download */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  <Label>Pokaż "Pobierz"</Label>
+                </div>
+                <Switch 
+                  checked={bulkActions.allow_download} 
+                  onCheckedChange={(v) => setBulkActions({...bulkActions, allow_download: v})} 
+                />
+              </div>
+              {/* Share */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Share2 className="h-4 w-4" />
+                  <Label>Pokaż "Udostępnij"</Label>
+                </div>
+                <Switch 
+                  checked={bulkActions.allow_share} 
+                  onCheckedChange={(v) => setBulkActions({...bulkActions, allow_share: v})} 
+                />
+              </div>
+              {/* Click redirect */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MousePointer className="h-4 w-4" />
+                    <Label>Przekieruj po kliknięciu</Label>
+                  </div>
+                  <Switch 
+                    checked={bulkActions.allow_click_redirect}
+                    onCheckedChange={(v) => setBulkActions({...bulkActions, allow_click_redirect: v})} 
+                  />
+                </div>
+                {bulkActions.allow_click_redirect && (
+                  <Input 
+                    value={bulkActions.click_redirect_url}
+                    onChange={(e) => setBulkActions({...bulkActions, click_redirect_url: e.target.value})}
+                    placeholder="https://..." 
+                  />
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="badges" className="space-y-4 mt-4">
+              {/* Featured */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  <Label>Wyróżniony</Label>
+                </div>
+                <Switch 
+                  checked={bulkBadges.is_featured}
+                  onCheckedChange={(v) => setBulkBadges({...bulkBadges, is_featured: v})} 
+                />
+              </div>
+              {/* New */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-500" />
+                  <Label>Oznacz jako nowy</Label>
+                </div>
+                <Switch 
+                  checked={bulkBadges.is_new}
+                  onCheckedChange={(v) => setBulkBadges({...bulkBadges, is_new: v})} 
+                />
+              </div>
+              {/* Updated */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-purple-500" />
+                  <Label>Oznacz jako zaktualizowany</Label>
+                </div>
+                <Switch 
+                  checked={bulkBadges.is_updated}
+                  onCheckedChange={(v) => setBulkBadges({...bulkBadges, is_updated: v})} 
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          {/* Upload progress */}
+          {bulkUploading && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Przesyłanie: {bulkProgress.fileName}</span>
+                <span>{bulkProgress.current} / {bulkProgress.total}</span>
+              </div>
+              <Progress value={(bulkProgress.current / bulkProgress.total) * 100} />
+            </div>
+          )}
           
           <DialogFooter>
             <Button 
