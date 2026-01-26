@@ -1,195 +1,262 @@
 
 
-# Plan: Wymuszenie Google Calendar dla harmonogramu wewnętrznego
+# Plan: Naprawa synchronizacji spotkań cyklicznych z Google Calendar
 
-## Problem
+## Zdiagnozowany problem
 
-System ma **odwróconą logikę** - blokuje zewnętrzny link (Calendly) gdy partner ma Google Calendar, ale **NIE blokuje** harmonogramu wewnętrznego gdy partner **NIE MA** Google Calendar.
+Edge function `sync-google-calendar` otrzymuje `occurrence_index` od frontendu, ale **kompletnie go ignoruje**. Pobiera dane eventu z tabeli `events` gdzie `start_time` to data PIERWSZEGO terminu cyklu (np. 20.01), a nie konkretnej daty na którą zapisał się użytkownik (np. 27.01).
 
-To powoduje, że partner bez połączenia z Google może tworzyć harmonogram wewnętrzny, a system nie może sprawdzić jego zajętości, co prowadzi do kolizji terminów.
+### Przykład błędu
+
+```text
+Event: "Pure Calling"
+├── start_time w bazie: 2026-01-20 10:00 (data pierwszego terminu)
+├── occurrences: [
+│     { date: "2026-01-20", time: "11:00", duration_minutes: 60 },  // index 0
+│     { date: "2026-01-20", time: "17:00", duration_minutes: 60 },  // index 1
+│     ...
+│     { date: "2026-01-27", time: "11:00", duration_minutes: 60 },  // index 6 ← użytkownik się zapisuje
+│     ...
+│   ]
+
+Użytkownik zapisuje się na termin 27.01 11:00 (index 6)
+→ Frontend wysyła: { occurrence_index: 6 }
+→ Edge function pobiera start_time z bazy: 20.01 10:00
+→ Edge function IGNORUJE occurrence_index
+→ Google Calendar: event pod datą 20.01 ❌
+```
+
+---
 
 ## Rozwiązanie
 
-### Zmiana w `IndividualMeetingForm.tsx`
+### Zmiana w `sync-google-calendar` edge function
 
-**Nowa logika wyboru kalendarza:**
+Edge function musi:
+1. Pobrać pole `occurrences` razem z danymi eventu
+2. Jeśli `occurrence_index` jest przekazany i event ma tablicę `occurrences`:
+   - Wyciągnąć konkretny termin z tablicy
+   - Użyć tej daty/godziny zamiast bazowego `start_time`
 
-| Wariant | Stan | Rezultat |
-|---------|------|----------|
-| Partner MA Google Calendar | Wbudowany harmonogram = dostępny | Zewnętrzny link = zablokowany |
-| Partner NIE MA Google Calendar | Wbudowany harmonogram = zablokowany | Zewnętrzny link = dostępny |
-
-**Wizualnie:**
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│ Sposób rezerwacji spotkań                                      │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│  Jeśli NIE masz Google Calendar:                               │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ⚠️ Wbudowany harmonogram                                │   │
-│  │    [ZABLOKOWANY]                                        │   │
-│  │    "Aby korzystać z harmonogramu wewnętrznego,          │   │
-│  │     połącz Google Calendar w ustawieniach konta."       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ✅ Zewnętrzny link (Calendly/Cal.com)                   │   │
-│  │    [DOSTĘPNY]                                           │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                │
-│  Jeśli MASZ Google Calendar:                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ✅ Wbudowany harmonogram                                │   │
-│  │    [DOSTĘPNY]                                           │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ⚠️ Zewnętrzny link (Calendly/Cal.com)                   │   │
-│  │    [ZABLOKOWANY]                                        │   │
-│  │    "Niedostępne - masz połączony Google Calendar."      │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
-```
+---
 
 ## Sekcja techniczna
 
-### Plik: `src/components/events/IndividualMeetingForm.tsx`
+### Plik: `supabase/functions/sync-google-calendar/index.ts`
 
-**Zmiana 1 - Automatyczne ustawienie trybu (linie 62-81):**
-
-Dodaj auto-switch do `external` jeśli nie ma Google Calendar:
+**Zmiana 1 - Dodanie `occurrence_index` do interfejsu (linia 8-13):**
 
 ```typescript
-const checkGoogleCalendarConnection = async () => {
-  if (!user) return;
-  
-  const { data } = await supabase
-    .from('user_google_tokens')
-    .select('id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  
-  const connected = !!data;
-  setHasGoogleCalendar(connected);
-  
-  // Automatycznie ustaw tryb na podstawie połączenia
-  // Jeśli nie ma Google Calendar, wymuś tryb zewnętrzny
-  if (!connected && bookingMode === 'internal') {
-    setBookingMode('external');
+interface SyncRequest {
+  user_id?: string;
+  user_ids?: string[]; // Support batch sync
+  event_id?: string;
+  action: 'create' | 'update' | 'delete' | 'test';
+  occurrence_index?: number;  // ← DODAĆ
+}
+```
+
+**Zmiana 2 - Pobranie `occurrences` z bazy (linie 573-587):**
+
+```typescript
+const { data: eventResult, error: eventError } = await supabaseAdmin
+  .from('events')
+  .select(`
+    id,
+    title,
+    description,
+    start_time,
+    end_time,
+    zoom_link,
+    event_type,
+    host_user_id,
+    occurrences   // ← DODAĆ
+  `)
+  .eq('id', event_id)
+  .single();
+```
+
+**Zmiana 3 - Dodanie funkcji pomocniczej do parsowania occurrence:**
+
+```typescript
+// Get specific occurrence datetime for cyclic events
+function getOccurrenceDateTime(
+  occurrences: any, 
+  occurrenceIndex: number | undefined,
+  baseStartTime: string,
+  baseEndTime: string | null
+): { start_time: string; end_time: string } {
+  // If no occurrence_index or no occurrences array, use base times
+  if (occurrenceIndex === undefined || occurrenceIndex === null) {
+    return { 
+      start_time: baseStartTime, 
+      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
+    };
   }
-  // Jeśli ma Google Calendar, wymuś tryb wewnętrzny
-  if (connected && bookingMode === 'external') {
-    setBookingMode('internal');
+
+  // Parse occurrences (can be string or array)
+  let parsedOccurrences: any[] | null = null;
+  
+  if (Array.isArray(occurrences)) {
+    parsedOccurrences = occurrences;
+  } else if (typeof occurrences === 'string') {
+    try {
+      parsedOccurrences = JSON.parse(occurrences);
+    } catch {
+      parsedOccurrences = null;
+    }
   }
-};
+
+  // If no valid occurrences or index out of range, use base times
+  if (!parsedOccurrences || !Array.isArray(parsedOccurrences) || occurrenceIndex >= parsedOccurrences.length) {
+    console.log('[sync-google-calendar] No valid occurrence found for index:', occurrenceIndex);
+    return { 
+      start_time: baseStartTime, 
+      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
+    };
+  }
+
+  const occurrence = parsedOccurrences[occurrenceIndex];
+  
+  // Parse occurrence date/time
+  const [year, month, day] = occurrence.date.split('-').map(Number);
+  const [hours, minutes] = occurrence.time.split(':').map(Number);
+  const durationMinutes = occurrence.duration_minutes || 60;
+
+  // Create Date objects in Europe/Warsaw timezone
+  const startDate = new Date(year, month - 1, day, hours, minutes);
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+
+  console.log('[sync-google-calendar] Using occurrence', occurrenceIndex, ':', occurrence.date, occurrence.time);
+
+  return {
+    start_time: startDate.toISOString(),
+    end_time: endDate.toISOString(),
+  };
+}
 ```
 
-**Zmiana 2 - Zablokowanie "Wbudowany harmonogram" bez Google (linie 292-305):**
+**Zmiana 4 - Użycie konkretnego terminu przed formatowaniem (po linii 597):**
 
 ```typescript
-<div className={cn(
-  "flex items-start gap-3 p-4 rounded-lg border transition-colors",
-  !hasGoogleCalendar ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-  bookingMode === 'internal' && hasGoogleCalendar ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-)}>
-  <RadioGroupItem 
-    value="internal" 
-    id="internal" 
-    className="mt-1" 
-    disabled={!hasGoogleCalendar}
-  />
-  <div className="flex-1">
-    <Label htmlFor="internal" className={cn(
-      "font-medium cursor-pointer",
-      !hasGoogleCalendar && "cursor-not-allowed"
-    )}>
-      Wbudowany harmonogram
-    </Label>
-    <p className="text-sm text-muted-foreground mt-1">
-      Ustalaj dostępność w aplikacji. Partnerzy rezerwują spotkania bezpośrednio w systemie.
-    </p>
-    {!hasGoogleCalendar && (
-      <Alert className="mt-2 py-2">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription className="text-xs">
-          Wymagane połączenie z Google Calendar. Przejdź do <strong>Ustawienia konta</strong> i połącz kalendarz.
-        </AlertDescription>
-      </Alert>
-    )}
-  </div>
-</div>
+eventData = eventResult;
+
+// DODAĆ: Override start/end times with specific occurrence if provided
+const { occurrence_index } = requestData;
+if (occurrence_index !== undefined && eventData) {
+  const occurrenceTimes = getOccurrenceDateTime(
+    eventResult.occurrences,
+    occurrence_index,
+    eventResult.start_time,
+    eventResult.end_time
+  );
+  
+  eventData = {
+    ...eventData,
+    start_time: occurrenceTimes.start_time,
+    end_time: occurrenceTimes.end_time,
+  };
+  
+  console.log('[sync-google-calendar] Cyclic event: using occurrence', occurrence_index, 
+    'date:', occurrenceTimes.start_time);
+}
 ```
 
-**Zmiana 3 - Odblokowanie "Zewnętrzny link" bez Google (linie 307-338):**
+**Zmiana 5 - Unikalny klucz sync dla każdego occurrence (linie 406-418):**
+
+Zmiana klucza `event_google_sync` aby uwzględniał `occurrence_index`:
 
 ```typescript
-<div className={cn(
-  "flex items-start gap-3 p-4 rounded-lg border transition-colors",
-  hasGoogleCalendar ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-  bookingMode === 'external' && !hasGoogleCalendar ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-)}>
-  <RadioGroupItem 
-    value="external" 
-    id="external" 
-    className="mt-1" 
-    disabled={hasGoogleCalendar}
-  />
-  <div className="flex-1">
-    <Label htmlFor="external" className={cn(
-      "font-medium flex items-center gap-2",
-      hasGoogleCalendar ? "cursor-not-allowed" : "cursor-pointer"
-    )}>
-      Zewnętrzny link (Calendly/Cal.com)
-      <ExternalLink className="h-3.5 w-3.5" />
-    </Label>
-    <p className="text-sm text-muted-foreground mt-1">
-      Przekieruj partnerów do swojego zewnętrznego kalendarza rezerwacji.
-    </p>
-    {hasGoogleCalendar && (
-      <Alert variant="destructive" className="mt-2 py-2">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription className="text-xs">
-          Niedostępne - masz połączony Google Calendar. Rozłącz go w ustawieniach konta, aby używać Calendly.
-        </AlertDescription>
-      </Alert>
-    )}
-  </div>
-</div>
+// Save sync record - include occurrence_index in lookup
+if (eventId) {
+  // For cyclic events, use composite key with occurrence_index
+  const syncKey = occurrence_index !== undefined 
+    ? `${eventId}:${occurrence_index}` 
+    : eventId;
+    
+  await supabaseAdmin
+    .from('event_google_sync')
+    .upsert({
+      event_id: eventId,
+      user_id: userId,
+      google_event_id: googleEventId,
+      synced_at: new Date().toISOString(),
+      occurrence_index: occurrence_index ?? null,  // Store occurrence index
+    }, {
+      onConflict: 'event_id,user_id,occurrence_index',  // Updated constraint
+    });
+}
 ```
+
+**Zmiana 6 - Aktualizacja delete/update aby uwzględniało occurrence (linie 331-358):**
+
+```typescript
+if (action === 'delete' && eventId) {
+  // Get existing sync record - include occurrence_index in lookup
+  let syncQuery = supabaseAdmin
+    .from('event_google_sync')
+    .select('google_event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId);
+  
+  // Add occurrence_index filter for cyclic events
+  if (occurrence_index !== undefined) {
+    syncQuery = syncQuery.eq('occurrence_index', occurrence_index);
+  } else {
+    syncQuery = syncQuery.is('occurrence_index', null);
+  }
+  
+  const { data: syncRecord } = await syncQuery.single();
+  // ... rest of delete logic
+}
+```
+
+---
+
+## Zmiana w bazie danych
+
+### Dodanie kolumny `occurrence_index` do `event_google_sync`
+
+```sql
+-- Add occurrence_index column
+ALTER TABLE event_google_sync 
+ADD COLUMN IF NOT EXISTS occurrence_index INTEGER DEFAULT NULL;
+
+-- Drop old constraint and create new composite one
+ALTER TABLE event_google_sync 
+DROP CONSTRAINT IF EXISTS event_google_sync_event_id_user_id_key;
+
+-- Create new unique constraint including occurrence_index
+CREATE UNIQUE INDEX IF NOT EXISTS event_google_sync_unique_idx 
+ON event_google_sync (event_id, user_id, COALESCE(occurrence_index, -1));
+```
+
+---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana | Cel |
-|------|--------|-----|
-| `IndividualMeetingForm.tsx` | Auto-switch `bookingMode` | Automatyczne wymuszenie poprawnego trybu |
-| `IndividualMeetingForm.tsx` | `disabled={!hasGoogleCalendar}` dla internal | Blokada harmonogramu bez Google |
-| `IndividualMeetingForm.tsx` | Alert informacyjny | Komunikat jak połączyć Google |
+| Plik/Zasób | Zmiana | Cel |
+|------------|--------|-----|
+| `sync-google-calendar/index.ts` | Dodanie `occurrence_index` do interfejsu | Odczyt parametru |
+| `sync-google-calendar/index.ts` | Pobranie `occurrences` z bazy | Dostęp do wszystkich terminów |
+| `sync-google-calendar/index.ts` | Funkcja `getOccurrenceDateTime()` | Parsowanie konkretnego terminu |
+| `sync-google-calendar/index.ts` | Override `start_time`/`end_time` | Użycie poprawnej daty |
+| `sync-google-calendar/index.ts` | Sync record z `occurrence_index` | Osobny wpis dla każdego terminu |
+| Migracja SQL | Kolumna `occurrence_index` | Przechowywanie indeksu |
+
+---
 
 ## Efekt końcowy
 
 **Przed:**
-- Partner bez Google Calendar może wybrać harmonogram wewnętrzny
-- System nie zna jego zajętości → kolizje terminów
+```
+Zapis na 27.01 11:00 → Google Calendar pokazuje event pod 20.01 10:00 ❌
+```
 
 **Po:**
-- Partner bez Google Calendar MUSI użyć Calendly
-- Partner z Google Calendar MUSI użyć harmonogramu wewnętrznego
-- Synchronizacja dwustronna działa poprawnie
-- Brak kolizji terminów
+```
+Zapis na 27.01 11:00 → Google Calendar pokazuje event pod 27.01 11:00 ✅
+```
 
-## Weryfikacja zasad po wdrożeniu
-
-| Zasada | Status |
-|--------|--------|
-| Partner dostaje uprawnienia od admina | ✅ |
-| Google Calendar → tylko harmonogram wewnętrzny | ✅ (wymuszenie) |
-| Brak Google Calendar → tylko zewnętrzny link | ✅ (wymuszenie) |
-| Harmonogram dostępności | ✅ |
-| Partnerzy widzą terminy | ✅ |
-| Spotkania zespołu/webinary blokują sloty | ✅ |
-| Google Calendar blokuje sloty | ✅ |
-| Zapis → sync do Google | ✅ |
-| Anulowanie → slot wolny + usuń z Google | ✅ |
-| Dwustronna synchronizacja | ✅ |
+Każdy termin spotkania cyklicznego będzie synchronizowany z właściwą datą w Google Calendar.
 
