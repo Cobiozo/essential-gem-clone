@@ -1,163 +1,188 @@
 
-# Plan: Bezpieczne usunięcie widżetu Aktywnych Użytkowników i optymalizacja wydajności
+# Plan: Naprawa animacji rysowania linii w strukturze organizacji
 
-## Analiza bezpieczeństwa zmian
+## Zidentyfikowane problemy
 
-Przed usunięciem przeanalizowałem wszystkie zależności:
+Na podstawie analizy screenshotów i kodu widzę następujące problemy:
 
-### ✅ Pliki używające `useUserPresence` i `ActiveUsersWidget`:
+| Problem | Opis | Wpływ |
+|---------|------|-------|
+| Stała wartość `stroke-dasharray` | Ustawiona na 200px - za mało dla długich ścieżek | Linie nie rysują się płynnie do końca |
+| Brak `pathLength` | Animacja nie wie jaka jest długość ścieżki | Nierówne tempo rysowania |
+| Animacja restartuje się nagle | Zmiana klucza powoduje natychmiastowe zniknięcie i ponowne pojawienie | Brak płynnego przejścia |
 
-| Plik | Użycie | Status po usunięciu |
-|------|--------|---------------------|
-| `src/pages/Dashboard.tsx` | Import + render widżetu | ✅ Usunę odniesienie |
-| `src/components/dashboard/widgets/ActiveUsersWidget.tsx` | Główny plik widżetu | ✅ Do usunięcia |
-| `src/hooks/useUserPresence.ts` | Hook presence | ✅ Do usunięcia |
-| `src/components/onboarding/tourSteps.ts` | Krok w onboardingu | ✅ Usunę krok |
+## Rozwiązanie
 
-### ✅ Niezależne systemy (pozostają bez zmian):
+### Zmiana 1: Dynamiczna długość ścieżki z `pathLength`
 
-| System | Plik | Opis |
-|--------|------|------|
-| Admin Presence | `useAdminPresence.ts` | Osobny hook dla panelu admina - **NIE DOTYKAM** |
-| Floating Admin | `FloatingAdminPresence.tsx` | Widget dla adminów w CMS - **NIE DOTYKAM** |
+**Plik:** `src/components/team-contacts/organization/OrganizationChart.tsx`
 
-Te dwa systemy używają **innego kanału** (`admin-presence-shared`) i **innego hooka** (`useAdminPresence`) - są całkowicie niezależne.
+Zamiast polegać na stałej wartości `stroke-dasharray: 200`, użyjemy atrybutu `pathLength="1"` który normalizuje długość ścieżki do wartości 1. To sprawia, że animacja działa identycznie niezależnie od rzeczywistej długości linii.
 
----
-
-## Sekcja techniczna
-
-### Zmiana 1: Usunięcie z Dashboard.tsx
-
-**Plik:** `src/pages/Dashboard.tsx`
-
-**Linia 20 - usunięcie importu:**
+**Linie 152-167 - dodanie `pathLength`:**
 ```tsx
-// USUNĄĆ:
-const ActiveUsersWidget = lazy(() => import('@/components/dashboard/widgets/ActiveUsersWidget'));
+return (
+  <path
+    key={`${child.id}-${isHighlighted ? animationKey : 'static'}`}
+    d={createCurvePath(centerX, 0, childX, 32, 14)}
+    pathLength={1}  // ← Normalizuje długość do 1
+    className={cn(
+      "fill-none transition-opacity duration-300",
+      isHighlighted 
+        ? "stroke-primary tree-connector-highlight" 
+        : hasFocus 
+          ? "stroke-border/40" 
+          : "stroke-border tree-connector"
+    )}
+    strokeWidth={isHighlighted ? 3 : 2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+);
 ```
 
-**Linie 136-139 - usunięcie renderowania:**
+### Zmiana 2: Aktualizacja animacji CSS
+
+**Plik:** `src/index.css`
+
+Zmiana animacji aby używała znormalizowanych wartości (1 zamiast 200):
+
+**Linie 273-292:**
+```css
+/* Tree connector drawing animation */
+@keyframes draw-connector {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Statyczne linie - bez animacji */
+.tree-connector {
+  /* Brak animacji dla zwykłych linii */
+}
+
+/* Animacja rysowania TYLKO dla podświetlonej ścieżki */
+.tree-connector-highlight {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-connector 0.6s ease-out forwards;
+}
+```
+
+### Zmiana 3: Płynniejsze przejście przy zmianie wybranego węzła
+
+**Plik:** `src/components/team-contacts/organization/OrganizationChart.tsx`
+
+Usunięcie nagłej zmiany klucza - zamiast tego użyjemy tylko klasy CSS dla kontroli animacji. Klucz powinien być stabilny, a animacja powinna być triggerowana przez zmianę klasy.
+
+**Linia 154 - stabilny klucz:**
 ```tsx
-// USUNĄĆ:
-{/* Active Users Widget - only visible to admins */}
-<Suspense fallback={<WidgetSkeleton />}>
-  <ActiveUsersWidget />
-</Suspense>
+key={`connector-${node.id}-${child.id}`}
 ```
 
-### Zmiana 2: Usunięcie kroku onboardingu
+Aby wymusić restart animacji CSS bez zmiany klucza, dodamy `animation-delay` z małą wartością zależną od `animationKey`:
 
-**Plik:** `src/components/onboarding/tourSteps.ts`
-
-**Linie 111-118 - usunięcie kroku:**
-```typescript
-// USUNĄĆ cały obiekt:
-{
-  id: 'active-users-widget',
-  targetSelector: '[data-tour="active-users-widget"]',
-  title: 'Aktywni Użytkownicy',
-  description: 'Statystyki aktywności użytkowników platformy. Widoczne tylko dla administratorów.',
-  position: 'bottom',
-  visibleFor: ['admin'],
-},
-```
-
-### Zmiana 3: Usunięcie plików
-
-**Pliki do usunięcia:**
-- `src/components/dashboard/widgets/ActiveUsersWidget.tsx`
-- `src/hooks/useUserPresence.ts`
-
----
-
-## Optymalizacje wydajności (bez zmian struktury)
-
-### Zmiana 4: Zwiększenie interwału sprawdzania "stuck" wideo
-
-**Plik:** `src/lib/videoBufferConfig.ts`
-
-**Linia 39:**
-```typescript
-// PRZED:
-stuckDetectionIntervalMs: 10000,  // Check every 10s
-
-// PO:
-stuckDetectionIntervalMs: 20000,  // Check every 20s - mniej inwazyjne
-```
-
-### Zmiana 5: Zmniejszenie częstotliwości OTP countdown
-
-**Plik:** `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx`
-
-**Linia 73:**
-```typescript
-// PRZED:
-const interval = setInterval(updateCountdown, 1000);
-
-// PO:
-const interval = setInterval(updateCountdown, 5000); // Co 5 sekund zamiast co 1
-```
-
-### Zmiana 6: Lazy loading dla miniaturek Zdrowa Wiedza
-
-**Plik:** `src/pages/HealthyKnowledge.tsx`
-
-**Linia ~260 - dodanie atrybutów lazy loading:**
+**Linia 156-163:**
 ```tsx
-// PRZED:
-<img
-  src={material.thumbnail_url}
-  alt={material.title}
-  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-/>
-
-// PO:
-<img
-  src={material.thumbnail_url}
-  alt={material.title}
-  loading="lazy"
-  decoding="async"
-  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-/>
+className={cn(
+  "fill-none",
+  isHighlighted 
+    ? "stroke-primary tree-connector-highlight" 
+    : hasFocus 
+      ? "stroke-border/40 transition-opacity duration-200" 
+      : "stroke-border tree-connector"
+)}
+style={isHighlighted ? { animationDelay: `${animationKey * 0}ms` } : undefined}
 ```
+
+Alternatywnie, możemy zachować dynamiczny klucz ale dodać `transition-opacity` dla płynniejszego znikania/pojawiania się.
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Akcja | Wpływ na wydajność |
-|------|-------|-------------------|
-| `Dashboard.tsx` | Usunięcie importu i renderowania | Eliminacja WebSocket dla wszystkich użytkowników |
-| `tourSteps.ts` | Usunięcie kroku onboardingu | Żaden |
-| `ActiveUsersWidget.tsx` | **USUNIĘCIE PLIKU** | Eliminacja widżetu |
-| `useUserPresence.ts` | **USUNIĘCIE PLIKU** | Eliminacja heartbeatów i połączeń Realtime |
-| `videoBufferConfig.ts` | 10s → 20s stuck detection | -50% sprawdzeń wideo |
-| `CombinedOtpCodesWidget.tsx` | 1s → 5s countdown | -80% re-renderów OTP |
-| `HealthyKnowledge.tsx` | lazy loading obrazów | Szybsze ładowanie listy materiałów |
+| Plik | Linia | Zmiana |
+|------|-------|--------|
+| `OrganizationChart.tsx` | 153 | Dodanie `pathLength={1}` do `<path>` |
+| `OrganizationChart.tsx` | 156 | Dodanie `transition-opacity duration-300` |
+| `index.css` | 275-280 | Zmiana `stroke-dashoffset: 200` → `1` |
+| `index.css` | 289-291 | Zmiana `stroke-dasharray: 200` → `1` |
 
 ---
 
-## Szacowane oszczędności
+## Wizualizacja rozwiązania
 
-**Przed optymalizacją (20 aktywnych użytkowników):**
-- ~40 WebSocket połączeń/minutę (presence sync)
-- ~40 zapisów heartbeat/minutę do Supabase
-- ~80 odświeżeń listy użytkowników/minutę
+```
+PRZED (problem):
+┌──────────────────────────────────────────┐
+│  stroke-dasharray: 200                   │
+│  Ścieżka o długości 400px                │
+│  → Animacja rysuje tylko połowę linii!   │
+└──────────────────────────────────────────┘
 
-**Po optymalizacji:**
-- 0 WebSocket połączeń presence dla zwykłych użytkowników
-- 0 heartbeatów dla zwykłych użytkowników
-- Mniej re-renderów dashboardu
+PO (rozwiązanie):
+┌──────────────────────────────────────────┐
+│  pathLength="1"                          │
+│  stroke-dasharray: 1                     │
+│  → Animacja rysuje 100% linii niezależnie│
+│    od jej rzeczywistej długości          │
+└──────────────────────────────────────────┘
+```
 
 ---
 
-## Co pozostanie nienaruszone
+## Sekcja techniczna
 
-- `FloatingAdminPresence` - widget w panelu admina (używa `useAdminPresence`)
-- `AdminPresenceWidget` - lista innych adminów w CMS
-- Kanał `admin-presence-shared` - dla adminów w CMS
-- Wszystkie funkcje rezerwacji spotkań
-- Wszystkie funkcje szkoleń
-- Wszystkie funkcje Zdrowej Wiedzy
-- Wszystkie OTP kody
+### Pełna zmiana w `src/components/team-contacts/organization/OrganizationChart.tsx`:
+
+**Linie 152-168:**
+```tsx
+return (
+  <path
+    key={`connector-${node.id}-${child.id}-${isHighlighted ? animationKey : 'static'}`}
+    d={createCurvePath(centerX, 0, childX, 32, 14)}
+    pathLength={1}
+    className={cn(
+      "fill-none transition-opacity duration-300",
+      isHighlighted 
+        ? "stroke-primary tree-connector-highlight" 
+        : hasFocus 
+          ? "stroke-border/40" 
+          : "stroke-border tree-connector"
+    )}
+    strokeWidth={isHighlighted ? 3 : 2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+);
+```
+
+### Pełna zmiana w `src/index.css`:
+
+**Linie 273-292:**
+```css
+/* Tree connector drawing animation */
+@keyframes draw-connector {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Statyczne linie - bez animacji */
+.tree-connector {
+  /* Brak animacji dla zwykłych linii */
+}
+
+/* Animacja rysowania TYLKO dla podświetlonej ścieżki */
+.tree-connector-highlight {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-connector 0.6s ease-out forwards;
+}
+```
