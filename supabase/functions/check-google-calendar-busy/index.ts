@@ -23,7 +23,14 @@ interface FreeBusyResponse {
   };
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number } | null> {
+interface RefreshTokenResult {
+  access_token?: string;
+  expires_in?: number;
+  error?: string;
+  token_revoked?: boolean;
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<RefreshTokenResult | null> {
   const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
@@ -45,12 +52,23 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[check-google-calendar-busy] Token refresh failed:', errorText);
+      const errorData = await response.json().catch(() => ({ error: 'unknown' }));
+      console.error('[check-google-calendar-busy] Token refresh failed:', errorData);
+      
+      // Wykryj invalid_grant - token trwale unieważniony przez użytkownika
+      if (errorData.error === 'invalid_grant') {
+        console.log('[check-google-calendar-busy] Token was revoked by user (invalid_grant)');
+        return { error: 'invalid_grant', token_revoked: true };
+      }
+      
       return null;
     }
 
-    return await response.json();
+    const tokenData = await response.json();
+    return { 
+      access_token: tokenData.access_token, 
+      expires_in: tokenData.expires_in 
+    };
   } catch (error) {
     console.error('[check-google-calendar-busy] Token refresh error:', error);
     return null;
@@ -115,7 +133,31 @@ Deno.serve(async (req) => {
       
       const refreshResult = await refreshAccessToken(tokenData.refresh_token);
       
-      if (!refreshResult) {
+      // Token został unieważniony - wyczyść bazę danych
+      if (refreshResult?.token_revoked) {
+        console.log('[check-google-calendar-busy] Token revoked, cleaning up database for user:', leader_user_id);
+        
+        // Usuń nieważny token
+        await supabase
+          .from('user_google_tokens')
+          .delete()
+          .eq('user_id', leader_user_id);
+        
+        // Usuń powiązane rekordy synchronizacji
+        await supabase
+          .from('event_google_sync')
+          .delete()
+          .eq('user_id', leader_user_id);
+        
+        console.log('[check-google-calendar-busy] Cleanup complete for user:', leader_user_id);
+        
+        return new Response(
+          JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (!refreshResult?.access_token) {
         return new Response(
           JSON.stringify({ error: 'Failed to refresh token', busy: [] }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -125,7 +167,7 @@ Deno.serve(async (req) => {
       accessToken = refreshResult.access_token;
       
       // Update token in database
-      const newExpiresAt = new Date(Date.now() + refreshResult.expires_in * 1000);
+      const newExpiresAt = new Date(Date.now() + refreshResult.expires_in! * 1000);
       await supabase
         .from('user_google_tokens')
         .update({
@@ -159,6 +201,34 @@ Deno.serve(async (req) => {
     if (!freeBusyResponse.ok) {
       const errorText = await freeBusyResponse.text();
       console.error('[check-google-calendar-busy] FreeBusy API error:', errorText);
+      
+      // Sprawdź czy to błąd autoryzacji (401) - token może być unieważniony
+      if (freeBusyResponse.status === 401) {
+        console.log('[check-google-calendar-busy] FreeBusy returned 401, token may be invalid');
+        
+        // Spróbuj odświeżyć token
+        const refreshResult = await refreshAccessToken(tokenData.refresh_token);
+        
+        if (refreshResult?.token_revoked) {
+          console.log('[check-google-calendar-busy] Token confirmed revoked during FreeBusy call, cleaning up');
+          
+          await supabase
+            .from('user_google_tokens')
+            .delete()
+            .eq('user_id', leader_user_id);
+          
+          await supabase
+            .from('event_google_sync')
+            .delete()
+            .eq('user_id', leader_user_id);
+          
+          return new Response(
+            JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
       return new Response(
         JSON.stringify({ error: 'FreeBusy API failed', busy: [] }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
