@@ -908,9 +908,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement]);
 
-  // Visibility API - pause video when tab is hidden
+  // Visibility API - pause video when tab is hidden (for ALL video types)
   useEffect(() => {
-    if (mediaType !== 'video' || !disableInteraction) return;
+    if (mediaType !== 'video') return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -928,7 +928,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [mediaType, disableInteraction]);
+  }, [mediaType]);
 
   const handlePlayPause = useCallback(() => {
     if (!videoRef.current) return;

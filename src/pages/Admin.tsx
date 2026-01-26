@@ -4,7 +4,7 @@ import { FloatingAdminPresence } from '@/components/admin/FloatingAdminPresence'
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -278,7 +278,16 @@ const Admin = () => {
     visible_to_specjalista: false,
     visible_to_anonymous: false,
   });
-  const [activeTab, setActiveTab] = useState("content");
+  // Admin tab persistence via URL query params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'content';
+  
+  const setActiveTab = useCallback((tab: string) => {
+    setSearchParams(prev => {
+      prev.set('tab', tab);
+      return prev;
+    }, { replace: true });
+  }, [setSearchParams]);
   
   // Editing mode flag - blocks background updates when admin is in edit dialog
   const [isEditingMode, setIsEditingMode] = useState(false);
