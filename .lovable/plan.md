@@ -1,162 +1,199 @@
 
 
-# Plan: Miniaturki i szybkie akcje dla grafik w panelu administracyjnym
+# Plan: Funkcja masowych akcji dla wszystkich grafik
 
 ## Cel
 
-Rozbudować widok listy grafik o:
-1. **Miniaturki** - podgląd każdej grafiki w formie małego obrazka
-2. **Szybkie przyciski akcji** - ikony do włączania/wyłączania: Udostępnianie, Kopiowanie, Pobieranie
+Dodanie funkcji "Zastosuj dla wszystkich" w zakładce Grafiki, która pozwoli jednym kliknięciem:
+- Włączyć/wyłączyć udostępnianie dla wszystkich grafik
+- Włączyć/wyłączyć kopiowanie linku dla wszystkich grafik  
+- Włączyć/wyłączyć pobieranie dla wszystkich grafik
 
 ## Obecny stan
 
-Aktualnie lista grafik używa tej samej funkcji `renderResourceCard()` co dokumenty - pokazuje tylko tekst (tytuł, badge'e, kategorię) bez podglądu obrazu i bez szybkich przełączników.
+Aktualnie można przełączać akcje tylko pojedynczo dla każdej grafiki za pomocą przycisków przy każdym elemencie. Przy 123 grafikach zmiana ustawień dla wszystkich wymaga 123 kliknięć.
 
 ---
 
 ## Sekcja techniczna
 
-### Zmiana: `src/components/admin/KnowledgeResourcesManagement.tsx`
+### Modyfikacja: `src/components/admin/KnowledgeResourcesManagement.tsx`
 
-#### 1. Nowa funkcja do szybkiego przełączania akcji
+#### 1. Nowy stan dla dialogu masowych akcji
 
 ```typescript
-// Quick toggle for individual resource actions (used in graphics list)
-const handleQuickActionToggle = async (
-  resourceId: string, 
+const [bulkActionsDialogOpen, setBulkActionsDialogOpen] = useState(false);
+const [applyingBulkActions, setApplyingBulkActions] = useState(false);
+```
+
+#### 2. Funkcja do masowej aktualizacji akcji
+
+```typescript
+const handleBulkActionsApply = async (
   field: 'allow_share' | 'allow_copy_link' | 'allow_download',
-  currentValue: boolean
+  newValue: boolean
 ) => {
+  setApplyingBulkActions(true);
+  
+  // Pobierz IDs wszystkich grafik (przefiltrowanych lub wszystkich)
+  const graphicIds = filteredGraphics.map(r => r.id);
+  
+  if (graphicIds.length === 0) {
+    toast({ title: t('toast.warning'), description: 'Brak grafik do aktualizacji' });
+    setApplyingBulkActions(false);
+    return;
+  }
+  
   const { error } = await supabase
     .from('knowledge_resources')
-    .update({ [field]: !currentValue })
-    .eq('id', resourceId);
+    .update({ [field]: newValue })
+    .in('id', graphicIds);
   
   if (error) {
-    toast({ title: t('toast.error'), description: 'Nie udało się zaktualizować', variant: 'destructive' });
+    toast({ title: t('toast.error'), description: 'Nie udało się zaktualizować grafik', variant: 'destructive' });
   } else {
-    // Update local state optimistically
+    // Aktualizuj lokalny stan
     setResources(prev => prev.map(r => 
-      r.id === resourceId ? { ...r, [field]: !currentValue } : r
+      graphicIds.includes(r.id) ? { ...r, [field]: newValue } : r
     ));
+    toast({ 
+      title: t('toast.success'), 
+      description: `Zaktualizowano ${graphicIds.length} grafik` 
+    });
   }
+  
+  setApplyingBulkActions(false);
 };
 ```
 
-#### 2. Nowa funkcja renderująca kartę grafiki z miniaturką
+#### 3. Nowy pasek masowych akcji nad listą grafik
+
+Dodanie paska z przyciskami "Zastosuj dla wszystkich" pod filtrami w zakładce Grafiki:
 
 ```typescript
-// Render graphic card with thumbnail and quick actions
-const renderGraphicCard = (resource: KnowledgeResource) => (
-  <Card key={resource.id} className="hover:shadow-md transition-shadow">
-    <CardContent className="py-4">
-      <div className="flex items-start gap-4">
-        {/* Thumbnail */}
-        <div className="shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted border">
-          {resource.source_url ? (
-            <img 
-              src={resource.source_url} 
-              alt={resource.title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <FileImage className="h-8 w-8 text-muted-foreground" />
-            </div>
-          )}
+{/* Bulk actions bar - pokazuj tylko w zakładce grafiki gdy są jakieś grafiki */}
+{filteredGraphics.length > 0 && (
+  <Card>
+    <CardContent className="py-3">
+      <div className="flex items-center gap-4 flex-wrap">
+        <span className="text-sm text-muted-foreground font-medium">
+          Zastosuj dla wszystkich ({filteredGraphics.length}):
+        </span>
+        
+        {/* Udostępnianie */}
+        <div className="flex items-center gap-1">
+          <Share2 className="h-4 w-4 text-muted-foreground" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => handleBulkActionsApply('allow_share', true)}
+            disabled={applyingBulkActions}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            Włącz
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => handleBulkActionsApply('allow_share', false)}
+            disabled={applyingBulkActions}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Wyłącz
+          </Button>
         </div>
         
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="font-semibold truncate">{resource.title}</h3>
-            {resource.is_featured && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
-            {resource.is_new && <Badge className="bg-blue-500/20 text-blue-700">Nowy</Badge>}
-          </div>
-          <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-            {resource.description || 'Brak opisu'}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {getTypeBadge(resource.resource_type)}
-            {getStatusBadge(resource.status)}
-            {resource.category && <Badge variant="secondary">{resource.category}</Badge>}
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Download className="h-3 w-3" />
-              {resource.download_count}
-            </span>
-          </div>
+        <div className="w-px h-6 bg-border" />
+        
+        {/* Kopiowanie linku */}
+        <div className="flex items-center gap-1">
+          <Copy className="h-4 w-4 text-muted-foreground" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => handleBulkActionsApply('allow_copy_link', true)}
+            disabled={applyingBulkActions}
+          >
+            <Check className="h-3 w-3 mr-1" />
+            Włącz
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => handleBulkActionsApply('allow_copy_link', false)}
+            disabled={applyingBulkActions}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Wyłącz
+          </Button>
         </div>
         
-        {/* Quick Actions - toggle buttons */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant={resource.allow_share ? "default" : "ghost"}
-            size="icon"
-            className={`h-8 w-8 ${resource.allow_share ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'text-muted-foreground'}`}
-            onClick={() => handleQuickActionToggle(resource.id, 'allow_share', resource.allow_share)}
-            title="Udostępnianie"
+        <div className="w-px h-6 bg-border" />
+        
+        {/* Pobieranie */}
+        <div className="flex items-center gap-1">
+          <Download className="h-4 w-4 text-muted-foreground" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => handleBulkActionsApply('allow_download', true)}
+            disabled={applyingBulkActions}
           >
-            <Share2 className="h-4 w-4" />
+            <Check className="h-3 w-3 mr-1" />
+            Włącz
           </Button>
-          <Button
-            variant={resource.allow_copy_link ? "default" : "ghost"}
-            size="icon"
-            className={`h-8 w-8 ${resource.allow_copy_link ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'text-muted-foreground'}`}
-            onClick={() => handleQuickActionToggle(resource.id, 'allow_copy_link', resource.allow_copy_link)}
-            title="Kopiuj link"
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => handleBulkActionsApply('allow_download', false)}
+            disabled={applyingBulkActions}
           >
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={resource.allow_download ? "default" : "ghost"}
-            size="icon"
-            className={`h-8 w-8 ${resource.allow_download ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'text-muted-foreground'}`}
-            onClick={() => handleQuickActionToggle(resource.id, 'allow_download', resource.allow_download)}
-            title="Pobieranie"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-          
-          {/* Separator */}
-          <div className="w-px h-6 bg-border mx-1" />
-          
-          {/* Edit/Delete */}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resource)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(resource.id)}>
-            <Trash2 className="h-4 w-4 text-destructive" />
+            <X className="h-3 w-3 mr-1" />
+            Wyłącz
           </Button>
         </div>
+        
+        {applyingBulkActions && (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        )}
       </div>
     </CardContent>
   </Card>
-);
+)}
 ```
 
-#### 3. Użycie nowej funkcji w zakładce "Grafiki"
+#### 4. Umiejscowienie paska w TabsContent grafik
 
-W sekcji TabsContent dla grafik:
+Pasek zostanie dodany między filtrami a listą grafik:
 
 ```typescript
 <TabsContent value="graphics" className="space-y-4">
   {renderFilters(false)}
+  
+  {/* NEW: Bulk actions bar */}
+  {!loading && filteredGraphics.length > 0 && (
+    <Card>
+      <CardContent className="py-3">
+        {/* ... przyciski masowych akcji ... */}
+      </CardContent>
+    </Card>
+  )}
   
   {loading ? (
     <div className="text-center py-8">
       <Loader2 className="h-8 w-8 animate-spin mx-auto" />
     </div>
   ) : filteredGraphics.length === 0 ? (
-    <Card>
-      <CardContent className="py-12 text-center text-muted-foreground">
-        <Images className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p>Brak grafik do wyświetlenia</p>
-      </CardContent>
-    </Card>
+    /* ... empty state ... */
   ) : (
     <div className="space-y-2">
-      {filteredGraphics.map(renderGraphicCard)}  {/* <-- użycie nowej funkcji */}
+      {filteredGraphics.map(resource => renderGraphicCard(resource))}
     </div>
   )}
 </TabsContent>
@@ -167,23 +204,20 @@ W sekcji TabsContent dla grafik:
 ## Wizualizacja końcowa
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────┐
-│ [🖼] [HEART&ENERGY-relacje1]  [Nowy]                    [📤][📋][⬇] │ [✏][🗑] │
-│      Brak opisu                                                                    │
-│      [Grafika] [Aktywny] [Grafiki produktów EQ]  ⬇ 0  v1.0                        │
-├────────────────────────────────────────────────────────────────────────────────────┤
-│ [🖼] [HEART&ENERGY-relacje2]  [Nowy]                    [📤][📋][⬇] │ [✏][🗑] │
-│      Brak opisu                                                                    │
-│      [Grafika] [Aktywny] [Grafiki produktów EQ]  ⬇ 0  v1.0                        │
-└────────────────────────────────────────────────────────────────────────────────────┘
-
-Legenda:
-[🖼] = miniaturka 80x80px
-[📤] = Udostępnianie (podświetlone gdy włączone)
-[📋] = Kopiuj link (podświetlone gdy włączone)
-[⬇] = Pobieranie (podświetlone gdy włączone)
-[✏] = Edytuj
-[🗑] = Usuń
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ [Dokumenty (15)]  [Grafiki (123)]                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [🔍 Szukaj...]              [Wszystkie ▼]  [Wszystkie kategorie ▼]          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Zastosuj dla wszystkich (123):                                              │
+│                                                                             │
+│   📤 [✓ Włącz] [✗ Wyłącz]  │  📋 [✓ Włącz] [✗ Wyłącz]  │  ⬇ [✓ Włącz] [✗ Wyłącz] │
+│   (Udostępnianie)             (Kopiuj link)               (Pobieranie)      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [🖼] Logo Pure Life Team   [Nowy]              [📤] [📋] [⬇] │ [✏][🗑]     │
+│ [🖼] HEART&ENERGY-relacje1 [Nowy]              [📤] [📋] [⬇] │ [✏][🗑]     │
+│ ...                                                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -192,15 +226,15 @@ Legenda:
 
 | Element | Zmiana |
 |---------|--------|
-| Miniaturka | Obrazek 80x80px po lewej stronie karty |
-| Szybkie akcje | 3 przyciski (Share, Copy, Download) z wizualnym stanem włączony/wyłączony |
-| Optymistyczna aktualizacja | Natychmiastowa zmiana w UI bez czekania na odpowiedź serwera |
-| Dokumenty | Bez zmian - zachowują obecny wygląd |
+| Nowy stan | `applyingBulkActions` - blokowanie przycisków podczas aktualizacji |
+| Nowa funkcja | `handleBulkActionsApply` - masowa aktualizacja w Supabase |
+| Nowy pasek UI | Przyciski "Włącz/Wyłącz" dla każdej akcji (Share, Copy, Download) |
+| Filtrowanie | Masowe akcje działają na **przefiltrowanych** grafikach |
 
-## Korzyści
+## Kluczowe cechy
 
-- **Szybki podgląd** - od razu widać jak wygląda grafika
-- **Błyskawiczna edycja akcji** - jedno kliknięcie zamiast otwierania dialogu
-- **Wizualny feedback** - przyciski podświetlone gdy akcja włączona
-- **Optymistyczna aktualizacja** - brak opóźnienia w UI
+- **Działanie na przefiltrowanych** - jeśli wybrałeś kategorię "Social media", akcje zostaną zastosowane tylko dla tej kategorii
+- **Optymistyczna aktualizacja** - lokalny stan aktualizuje się natychmiast
+- **Feedback dla użytkownika** - toast z liczbą zaktualizowanych grafik
+- **Loader podczas aktualizacji** - przyciski są zablokowane i widoczny jest spinner
 
