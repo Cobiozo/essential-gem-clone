@@ -352,15 +352,11 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                       
                       return (
                         <div key={subCell.id} className={subAlignmentClass}>
-                          <video 
-                            src={subCell.media_url} 
-                            controls={subCell.controls !== false}
-                            autoPlay={subCell.autoplay === true}
-                            loop={subCell.loop === true}
-                            muted={subCell.muted !== false}
-                            playsInline
+                          <SecureMedia
+                            mediaUrl={subCell.media_url}
+                            mediaType="video"
+                            controlMode="secure"
                             className="w-full rounded"
-                            style={videoStyle}
                           />
                         </div>
                       );
@@ -879,23 +875,16 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         );
       }
       
-      // Local video
+      // Local video with secure controls
       return (
         <div style={videoStyles.style} className={cn('w-full', videoStyles.className)}>
           {hasLocalVideo ? (
             <>
-              <video
-                src={videoUrl}
-                controls={videoControls}
-                autoPlay={videoAutoplay}
-                loop={videoLoop}
-                muted={videoMuted}
+              <SecureMedia
+                mediaUrl={videoUrl}
+                mediaType="video"
+                controlMode="secure"
                 className="w-full max-w-full rounded-lg"
-                style={{ 
-                  objectFit: (item.object_fit as React.CSSProperties['objectFit']) || 'cover',
-                  maxWidth: item.max_width ? `${item.max_width}px` : undefined,
-                  maxHeight: item.max_height ? `${item.max_height}px` : undefined,
-                }}
               />
               {item.title && (
                 <h4 className="mt-2 font-medium text-foreground">{item.title}</h4>
