@@ -10,6 +10,7 @@ interface SyncRequest {
   user_ids?: string[]; // Support batch sync
   event_id?: string;
   action: 'create' | 'update' | 'delete' | 'test';
+  occurrence_index?: number; // For cyclic events - which occurrence to sync
 }
 
 interface EventData {
@@ -21,6 +22,63 @@ interface EventData {
   zoom_link?: string;
   event_type: string;
   host_id?: string;
+  occurrences?: any; // Array of occurrence objects for cyclic events
+}
+
+// Get specific occurrence datetime for cyclic events
+function getOccurrenceDateTime(
+  occurrences: any, 
+  occurrenceIndex: number | undefined,
+  baseStartTime: string,
+  baseEndTime: string | null
+): { start_time: string; end_time: string } {
+  // If no occurrence_index or no occurrences array, use base times
+  if (occurrenceIndex === undefined || occurrenceIndex === null) {
+    return { 
+      start_time: baseStartTime, 
+      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
+    };
+  }
+
+  // Parse occurrences (can be string or array)
+  let parsedOccurrences: any[] | null = null;
+  
+  if (Array.isArray(occurrences)) {
+    parsedOccurrences = occurrences;
+  } else if (typeof occurrences === 'string') {
+    try {
+      parsedOccurrences = JSON.parse(occurrences);
+    } catch {
+      parsedOccurrences = null;
+    }
+  }
+
+  // If no valid occurrences or index out of range, use base times
+  if (!parsedOccurrences || !Array.isArray(parsedOccurrences) || occurrenceIndex >= parsedOccurrences.length) {
+    console.log('[sync-google-calendar] No valid occurrence found for index:', occurrenceIndex, 'total:', parsedOccurrences?.length);
+    return { 
+      start_time: baseStartTime, 
+      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
+    };
+  }
+
+  const occurrence = parsedOccurrences[occurrenceIndex];
+  
+  // Parse occurrence date/time
+  const [year, month, day] = occurrence.date.split('-').map(Number);
+  const [hours, minutes] = occurrence.time.split(':').map(Number);
+  const durationMinutes = occurrence.duration_minutes || 60;
+
+  // Create Date objects - use UTC to avoid timezone issues, then format for Warsaw
+  const startDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+
+  console.log('[sync-google-calendar] Using occurrence', occurrenceIndex, ':', occurrence.date, occurrence.time, 'duration:', durationMinutes);
+
+  return {
+    start_time: startDate.toISOString(),
+    end_time: endDate.toISOString(),
+  };
 }
 
 // Log sync operation to database (fire-and-forget)
@@ -294,8 +352,9 @@ async function processSyncForUser(
   userId: string,
   eventId: string | undefined,
   action: string,
-  eventData?: any,
-  hostName?: string
+  eventData?: EventData,
+  hostName?: string,
+  occurrenceIndex?: number
 ): Promise<{ success: boolean; reason?: string; google_event_id?: string }> {
   const startTime = Date.now();
   
@@ -329,32 +388,49 @@ async function processSyncForUser(
     const calendarId = tokenData?.calendar_id || 'primary';
 
     if (action === 'delete' && eventId) {
-      // Get existing sync record
-      const { data: syncRecord } = await supabaseAdmin
+      // Get existing sync record - include occurrence_index in lookup
+      let syncQuery = supabaseAdmin
         .from('event_google_sync')
         .select('google_event_id')
         .eq('event_id', eventId)
-        .eq('user_id', userId)
-        .single();
+        .eq('user_id', userId);
+      
+      // Add occurrence_index filter for cyclic events
+      if (occurrenceIndex !== undefined) {
+        syncQuery = syncQuery.eq('occurrence_index', occurrenceIndex);
+      } else {
+        syncQuery = syncQuery.is('occurrence_index', null);
+      }
+      
+      const { data: syncRecord } = await syncQuery.single();
 
       if (syncRecord?.google_event_id) {
         const deleted = await deleteGoogleEvent(accessToken, calendarId, syncRecord.google_event_id);
         
         if (deleted) {
-          await supabaseAdmin
+          // Delete sync record with same filters
+          let deleteQuery = supabaseAdmin
             .from('event_google_sync')
             .delete()
             .eq('event_id', eventId)
             .eq('user_id', userId);
+          
+          if (occurrenceIndex !== undefined) {
+            deleteQuery = deleteQuery.eq('occurrence_index', occurrenceIndex);
+          } else {
+            deleteQuery = deleteQuery.is('occurrence_index', null);
+          }
+          
+          await deleteQuery;
         }
 
         const responseTime = Date.now() - startTime;
-        logSyncOperation(supabaseAdmin, userId, eventId, action, deleted ? 'success' : 'error', responseTime, deleted ? undefined : 'Delete failed');
+        logSyncOperation(supabaseAdmin, userId, eventId, action, deleted ? 'success' : 'error', responseTime, deleted ? undefined : 'Delete failed', { occurrence_index: occurrenceIndex });
         return { success: deleted };
       }
 
       const responseTime = Date.now() - startTime;
-      logSyncOperation(supabaseAdmin, userId, eventId, action, 'skipped', responseTime, 'No sync record found');
+      logSyncOperation(supabaseAdmin, userId, eventId, action, 'skipped', responseTime, 'No sync record found', { occurrence_index: occurrenceIndex });
       return { success: true, reason: 'no_sync_record' };
     }
 
@@ -367,27 +443,42 @@ async function processSyncForUser(
     const googleEventData = formatGoogleEvent(eventData, hostName);
 
     if (action === 'update' && eventId) {
-      // Check for existing sync record
-      const { data: syncRecord } = await supabaseAdmin
+      // Check for existing sync record - include occurrence_index
+      let syncQuery = supabaseAdmin
         .from('event_google_sync')
         .select('google_event_id')
         .eq('event_id', eventId)
-        .eq('user_id', userId)
-        .single();
+        .eq('user_id', userId);
+      
+      if (occurrenceIndex !== undefined) {
+        syncQuery = syncQuery.eq('occurrence_index', occurrenceIndex);
+      } else {
+        syncQuery = syncQuery.is('occurrence_index', null);
+      }
+      
+      const { data: syncRecord } = await syncQuery.single();
 
       if (syncRecord?.google_event_id) {
         const updated = await updateGoogleEvent(accessToken, calendarId, syncRecord.google_event_id, googleEventData);
         
         if (updated) {
-          await supabaseAdmin
+          let updateQuery = supabaseAdmin
             .from('event_google_sync')
             .update({ synced_at: new Date().toISOString() })
             .eq('event_id', eventId)
             .eq('user_id', userId);
+          
+          if (occurrenceIndex !== undefined) {
+            updateQuery = updateQuery.eq('occurrence_index', occurrenceIndex);
+          } else {
+            updateQuery = updateQuery.is('occurrence_index', null);
+          }
+          
+          await updateQuery;
         }
 
         const responseTime = Date.now() - startTime;
-        logSyncOperation(supabaseAdmin, userId, eventId, action, updated ? 'success' : 'error', responseTime, updated ? undefined : 'Update failed');
+        logSyncOperation(supabaseAdmin, userId, eventId, action, updated ? 'success' : 'error', responseTime, updated ? undefined : 'Update failed', { occurrence_index: occurrenceIndex });
         return { success: updated };
       }
 
@@ -399,30 +490,69 @@ async function processSyncForUser(
 
     if (!googleEventId) {
       const responseTime = Date.now() - startTime;
-      logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, 'Create failed');
+      logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, 'Create failed', { occurrence_index: occurrenceIndex });
       return { success: false, reason: 'create_failed' };
     }
 
-    // Save sync record
+    // Save sync record - use upsert with occurrence_index
     if (eventId) {
-      await supabaseAdmin
+      // Build the upsert data
+      const upsertData: any = {
+        event_id: eventId,
+        user_id: userId,
+        google_event_id: googleEventId,
+        synced_at: new Date().toISOString(),
+        occurrence_index: occurrenceIndex ?? null,
+      };
+      
+      // For the unique constraint, we need to handle it differently
+      // First try to find existing record
+      let existingQuery = supabaseAdmin
         .from('event_google_sync')
-        .upsert({
-          event_id: eventId,
-          user_id: userId,
-          google_event_id: googleEventId,
-          synced_at: new Date().toISOString(),
-        }, {
-          onConflict: 'event_id,user_id',
-        });
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('user_id', userId);
+      
+      if (occurrenceIndex !== undefined) {
+        existingQuery = existingQuery.eq('occurrence_index', occurrenceIndex);
+      } else {
+        existingQuery = existingQuery.is('occurrence_index', null);
+      }
+      
+      const { data: existing } = await existingQuery.maybeSingle();
+      
+      if (existing) {
+        // Update existing
+        let updateQuery = supabaseAdmin
+          .from('event_google_sync')
+          .update({
+            google_event_id: googleEventId,
+            synced_at: new Date().toISOString(),
+          })
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
+        
+        if (occurrenceIndex !== undefined) {
+          updateQuery = updateQuery.eq('occurrence_index', occurrenceIndex);
+        } else {
+          updateQuery = updateQuery.is('occurrence_index', null);
+        }
+        
+        await updateQuery;
+      } else {
+        // Insert new
+        await supabaseAdmin
+          .from('event_google_sync')
+          .insert(upsertData);
+      }
     }
 
     const responseTime = Date.now() - startTime;
-    logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'success', responseTime);
+    logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'success', responseTime, undefined, { occurrence_index: occurrenceIndex });
     return { success: true, google_event_id: googleEventId };
   } catch (error: any) {
     const responseTime = Date.now() - startTime;
-    logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, error.message || 'Unknown error');
+    logSyncOperation(supabaseAdmin, userId, eventId || null, action, 'error', responseTime, error.message || 'Unknown error', { occurrence_index: occurrenceIndex });
     console.error('[sync-google-calendar] Process sync error for user', userId, ':', error);
     return { success: false, reason: 'sync_error' };
   }
@@ -435,12 +565,12 @@ Deno.serve(async (req) => {
 
   try {
     const requestData: SyncRequest = await req.json();
-    const { user_id, user_ids, event_id, action } = requestData;
+    const { user_id, user_ids, event_id, action, occurrence_index } = requestData;
     
     // Support both single user_id and batch user_ids
     const usersToSync = user_ids || (user_id ? [user_id] : []);
 
-    console.log(`[sync-google-calendar] Processing ${action} for ${usersToSync.length} user(s), event ${event_id || 'N/A'}`);
+    console.log(`[sync-google-calendar] Processing ${action} for ${usersToSync.length} user(s), event ${event_id || 'N/A'}, occurrence_index: ${occurrence_index ?? 'N/A'}`);
 
     if (usersToSync.length === 0 || !action) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -581,7 +711,8 @@ Deno.serve(async (req) => {
           end_time,
           zoom_link,
           event_type,
-          host_user_id
+          host_user_id,
+          occurrences
         `)
         .eq('id', event_id)
         .single();
@@ -595,6 +726,25 @@ Deno.serve(async (req) => {
       }
 
       eventData = eventResult;
+
+      // Override start/end times with specific occurrence if provided (for cyclic events)
+      if (occurrence_index !== undefined && eventData) {
+        const occurrenceTimes = getOccurrenceDateTime(
+          eventResult.occurrences,
+          occurrence_index,
+          eventResult.start_time,
+          eventResult.end_time
+        );
+        
+        eventData = {
+          ...eventData,
+          start_time: occurrenceTimes.start_time,
+          end_time: occurrenceTimes.end_time,
+        };
+        
+        console.log('[sync-google-calendar] Cyclic event: using occurrence', occurrence_index, 
+          'start:', occurrenceTimes.start_time, 'end:', occurrenceTimes.end_time);
+      }
 
       // Get host name if available
       if (eventResult.host_user_id) {
@@ -614,7 +764,7 @@ Deno.serve(async (req) => {
     const results: { user_id: string; success: boolean; reason?: string }[] = [];
     
     for (const uid of usersToSync) {
-      const result = await processSyncForUser(supabaseAdmin, uid, event_id, action, eventData, hostName);
+      const result = await processSyncForUser(supabaseAdmin, uid, event_id, action, eventData!, hostName, occurrence_index);
       results.push({ user_id: uid, ...result });
     }
 

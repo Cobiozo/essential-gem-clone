@@ -1912,6 +1912,7 @@ export type Database = {
           event_id: string
           google_event_id: string
           id: string
+          occurrence_index: number | null
           synced_at: string
           user_id: string
         }
@@ -1919,6 +1920,7 @@ export type Database = {
           event_id: string
           google_event_id: string
           id?: string
+          occurrence_index?: number | null
           synced_at?: string
           user_id: string
         }
@@ -1926,6 +1928,7 @@ export type Database = {
           event_id?: string
           google_event_id?: string
           id?: string
+          occurrence_index?: number | null
           synced_at?: string
           user_id?: string
         }
