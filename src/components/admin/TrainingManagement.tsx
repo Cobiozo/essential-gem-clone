@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -162,6 +162,29 @@ const TrainingManagement = () => {
   const [resettingProgress, setResettingProgress] = useState<string | null>(null);
   const [approvingModule, setApprovingModule] = useState<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  
+  // Collapsible state persistence - prevents UI collapse on data refresh
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  
+  const toggleUserExpanded = useCallback((userId: string) => {
+    setExpandedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }, []);
+  
+  const toggleModuleExpanded = useCallback((key: string) => {
+    setExpandedModules(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  
   const { toast } = useToast();
   const { t } = useTranslations();
   const { user } = useAuth();
@@ -1449,7 +1472,11 @@ const TrainingManagement = () => {
                   : 0;
                 
                 return (
-                  <Collapsible key={progressUser.user_id}>
+                  <Collapsible 
+                    key={progressUser.user_id}
+                    open={expandedUsers.has(progressUser.user_id)}
+                    onOpenChange={() => toggleUserExpanded(progressUser.user_id)}
+                  >
                     <CollapsibleTrigger className="w-full">
                       <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card">
                         <div className="flex items-center gap-3">
@@ -1483,7 +1510,11 @@ const TrainingManagement = () => {
                           const isResettingModule = resettingProgress === key;
                           
                           return (
-                            <Collapsible key={module.module_id}>
+                            <Collapsible 
+                              key={module.module_id}
+                              open={expandedModules.has(key)}
+                              onOpenChange={() => toggleModuleExpanded(key)}
+                            >
                               <div className="border rounded-lg p-3 bg-background">
                                 <div className="flex items-center justify-between mb-2">
                                   <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors">
