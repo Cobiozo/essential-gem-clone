@@ -2,12 +2,14 @@
  * Production Node.js server for Mobilne-3D Platform
  * Deployed on Cyberfolks.pl (s108.cyber-folks.pl - 195.78.66.103)
  * 
+ * Optimized for Phusion Passenger on cPanel shared hosting.
+ * 
  * This server serves the built static files from the 'dist' directory
  * and handles client-side routing for the Single Page Application (SPA).
  * 
  * Usage:
  * 1. Build the application: npm run build
- * 2. Install dependencies: npm install express compression multer
+ * 2. Install dependencies: npm install express compression multer cors
  * 3. Start the server: node server.js
  * 
  * For production use with PM2:
@@ -26,10 +28,18 @@ import cors from 'cors';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// ========================================
+// SERVER CONFIGURATION
+// ========================================
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelife.info.pl';
+
+// Shutdown state for graceful termination
+let isShuttingDown = false;
+const activeConnections = new Set();
 
 // Upload configuration
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -73,6 +83,10 @@ const upload = multer({
   }
 });
 
+// ========================================
+// MIDDLEWARE SETUP
+// ========================================
+
 // Enable gzip compression
 app.use(compression());
 
@@ -102,6 +116,30 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
 });
+
+// Shutdown-aware middleware - reject new requests during shutdown
+app.use((req, res, next) => {
+  if (isShuttingDown) {
+    res.setHeader('Connection', 'close');
+    return res.status(503).json({
+      error: 'Server is shutting down',
+      retryAfter: 5
+    });
+  }
+  next();
+});
+
+// Passenger/shared hosting: prefer short connections
+app.use((req, res, next) => {
+  if (process.env.PASSENGER_APP_ENV || process.env.SHARED_HOSTING) {
+    res.setHeader('Connection', 'close');
+  }
+  next();
+});
+
+// ========================================
+// ROUTES
+// ========================================
 
 // Dedicated video streaming handler for training media
 app.get('/uploads/training-media/:filename', (req, res) => {
@@ -186,12 +224,15 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
-// Health check endpoint
+// Health check endpoint with connection tracking info
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    activeConnections: activeConnections.size,
+    pid: process.pid,
+    isShuttingDown,
   });
 });
 
@@ -366,15 +407,19 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start the server
-app.listen(PORT, HOST, () => {
+// ========================================
+// SERVER STARTUP WITH PROPER CONFIG
+// ========================================
+
+const server = app.listen(PORT, HOST, () => {
   console.log('='.repeat(60));
-  console.log('🚀 PureLife');
+  console.log('🚀 PureLife Server');
   console.log('='.repeat(60));
   console.log(`📍 Server running at: http://${HOST}:${PORT}`);
   console.log(`🌐 Host: s108.cyber-folks.pl (${process.env.SERVER_IP || '195.78.66.103'})`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'production'}`);
   console.log(`📁 Uploads directory: ${UPLOADS_DIR}`);
+  console.log(`🔧 PID: ${process.pid}`);
   console.log(`📅 Started at: ${new Date().toLocaleString('pl-PL')}`);
   console.log('='.repeat(60));
   console.log('');
@@ -382,13 +427,71 @@ app.listen(PORT, HOST, () => {
   console.log('');
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  process.exit(0);
+// CRITICAL: Timeouts for Phusion Passenger on shared hosting
+server.keepAliveTimeout = 5000;    // 5 seconds - close idle connections faster
+server.headersTimeout = 10000;     // 10 seconds - timeout for headers
+server.timeout = 30000;            // 30 seconds - general request timeout
+
+// Track active connections for graceful shutdown
+server.on('connection', (socket) => {
+  activeConnections.add(socket);
+  socket.on('close', () => {
+    activeConnections.delete(socket);
+  });
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  process.exit(0);
+// ========================================
+// GRACEFUL SHUTDOWN
+// ========================================
+
+const gracefulShutdown = (signal) => {
+  // Prevent multiple shutdown calls
+  if (isShuttingDown) {
+    console.log(`[Shutdown] Already in progress, ignoring ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
+  
+  console.log(`\n[Shutdown] ${signal} received`);
+  console.log(`[Shutdown] Active connections: ${activeConnections.size}`);
+  console.log(`[Shutdown] Closing server...`);
+  
+  // Stop accepting new connections
+  server.close((err) => {
+    if (err) {
+      console.error('[Shutdown] Server close error:', err);
+      process.exit(1);
+    }
+    console.log('[Shutdown] Server closed successfully');
+    process.exit(0);
+  });
+  
+  // Gracefully end existing connections (send FIN)
+  activeConnections.forEach((socket) => {
+    socket.end();
+  });
+  
+  // Force exit after 10s if graceful shutdown doesn't complete
+  // .unref() ensures this timer doesn't keep the process alive
+  setTimeout(() => {
+    console.warn('[Shutdown] Timeout - forcing exit');
+    activeConnections.forEach((socket) => socket.destroy());
+    process.exit(0);
+  }, 10000).unref();
+};
+
+// Signal handlers - handle all common shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP')); // Passenger sends this on restart
+
+// Error handlers
+process.on('uncaughtException', (err) => {
+  console.error('[Fatal] Uncaught exception:', err);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Fatal] Unhandled rejection:', reason);
+  // Don't shutdown - just log (might be non-critical)
 });
