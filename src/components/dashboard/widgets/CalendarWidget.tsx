@@ -397,7 +397,7 @@ Zapisz się tutaj: ${inviteUrl}
                           <Info className="h-3 w-3 mr-1" />
                           Szczegóły
                         </Button>
-                        {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (
+                        {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
                           <Button
                             size="sm"
                             variant="ghost"
