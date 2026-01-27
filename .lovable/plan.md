@@ -1,81 +1,123 @@
 
-# Plan: Dodanie przełącznika kontrolującego przycisk "Zapisz się"
+# Plan: Naprawa szerokości News Ticker + UX dla zewnętrznych webinarów
 
-## Zidentyfikowany problem
+## Część 1: Naprawa szerokości paska informacyjnego
 
-Przycisk "Zapisz się" zawsze się wyświetla dla webinarów, mimo że rejestracja odbywa się na zewnętrznej platformie. Przyczyna:
+### Problem
+NewsTicker nadal rozciąga się poza widoczny obszar. Problem wynika z kombinacji czynników:
 
-| Komponent | Warunek wyświetlania przycisku |
-|-----------|--------------------------------|
-| `EventCardCompact.tsx` (linia 461) | `event.requires_registration && isUpcoming && ...` |
-| `WebinarForm.tsx` | **Brak przełącznika** - domyślnie `requires_registration: true` |
-| `TeamTrainingForm.tsx` (linia 612) | **Ma przełącznik** - "Wymagaj rejestracji uczestników" |
+1. `WelcomeWidget` ma `col-span-full` ale brak `overflow-hidden`
+2. Kontener `CardContent` nie ogranicza szerokości dzieci
+3. Animacja marquee z `whitespace-nowrap` + duplikacja elementów może rozciągać parent
 
-## Rozwiązanie
+### Rozwiązanie
 
-Dodanie przełącznika "Wymagaj rejestracji uczestników" do formularza webinaru, analogicznie jak w formularzu spotkań zespołowych.
+**Plik: `src/components/dashboard/widgets/WelcomeWidget.tsx`**
 
-### Zmiana w WebinarForm.tsx
+Dodanie `overflow-hidden` do kontenera CardContent i dodatkowych ograniczeń dla NewsTicker:
 
-Dodanie nowego przełącznika Switch po sekcji "Przyciski akcji":
+```tsx
+// Linia 106: CardContent
+<CardContent className="p-6 overflow-hidden">
 
-```
-Przyciski akcji (Collapsible)
-└─ EventButtonsEditor
-
-[NOWY] ✅ Wymagaj rejestracji uczestników (wewnętrzny system)
-       └─ Wyłącz, gdy rejestracja odbywa się na zewnętrznej platformie
-
-✅ Zezwól na zapraszanie gości
-✅ Opublikuj natychmiast
+// Linia 139: NewsTicker kontener
+<div className="mt-4 overflow-hidden w-full max-w-full">
+  <NewsTicker />
+</div>
 ```
 
-### Zachowanie
+**Plik: `src/components/news-ticker/NewsTicker.tsx`**
 
-| `requires_registration` | Efekt |
-|------------------------|-------|
-| ✅ Włączony (domyślnie) | Przycisk "Zapisz się" widoczny → rejestracja w wewnętrznym systemie |
-| ❌ Wyłączony | Przycisk "Zapisz się" ukryty → można używać zewnętrznych przycisków akcji |
+Dodanie `overflow-x-hidden` jako dodatkowe zabezpieczenie:
 
-## Przepływ użytkownika
+```tsx
+// Linia 114-116: główny kontener
+className={cn(
+  "relative overflow-hidden overflow-x-hidden",
+  "min-w-0 max-w-full w-full",
+  ...
+)}
+```
 
-Administrator tworzy webinar z zewnętrzną rejestracją:
-1. Wypełnia dane webinaru
-2. Dodaje przycisk akcji "Przejdź i zapisz się w EQApp" z linkiem zewnętrznym
-3. **Wyłącza** przełącznik "Wymagaj rejestracji uczestników"
-4. Zapisuje
+---
 
-Użytkownik widzi:
-- Przycisk "Przejdź i zapisz się w EQApp" ✅
-- Brak przycisku "Zapisz się" ✅
+## Część 2: UX dla zewnętrznych webinarów
 
-## Plik do modyfikacji
+### Obecny problem
+Partner widzi przycisk "Zapisz się" ale nie jest jasne:
+- Że rejestracja w PureLife służy tylko do otrzymania przypomnienia/wpisu w kalendarzu
+- Że musi RÓWNIEŻ zapisać się na zewnętrznej platformie aby uzyskać dostęp
+
+### Proponowane rozwiązanie: Tryb "Zewnętrzna platforma"
+
+Dodanie wyraźnego oznaczenia i dwuetapowego procesu dla webinarów zewnętrznych:
+
+#### A) Nowe pole w formularzu webinaru
+
+**Plik: `src/components/admin/WebinarForm.tsx`**
+
+Nowy przełącznik i pole tekstowe:
+```
+✅ Zewnętrzna platforma (webinar odbywa się poza PureLife)
+
+Gdy włączony:
+└─ Pokaże się pole: "Komunikat dla uczestników"
+   Domyślny tekst: "Ten webinar odbywa się na zewnętrznej platformie. 
+   Zapisz się tutaj, aby otrzymać przypomnienie, a następnie 
+   użyj przycisku poniżej, aby zarejestrować się na platformie docelowej."
+```
+
+#### B) Wyświetlanie komunikatu na karcie wydarzenia
+
+**Plik: `src/components/events/EventCardCompact.tsx`**
+
+Gdy `is_external_platform = true`:
+1. Wyświetl żółty banner/alert z komunikatem
+2. Przycisk "Zapisz się" zmieni tekst na "📅 Dodaj do kalendarza"
+3. Przyciski akcji (zewnętrzne linki) będą wyraźnie wyróżnione
+
+```
+┌────────────────────────────────────────────┐
+│ 🌐 WEBINAR NA ZEWNĘTRZNEJ PLATFORMIE       │
+│ ─────────────────────────────────────────  │
+│ Zapisz się tutaj, aby otrzymać            │
+│ przypomnienie w kalendarzu.               │
+│ Dostęp do webinaru uzyskasz po kliknięciu │
+│ przycisku poniżej.                        │
+├────────────────────────────────────────────┤
+│ [📅 Dodaj do kalendarza]                   │
+│ [▶️ Przejdź do rejestracji] ← Primary      │
+└────────────────────────────────────────────┘
+```
+
+#### C) Zmiany w EventDetailsDialog
+
+**Plik: `src/components/events/EventDetailsDialog.tsx`**
+
+Podobna logika - wyświetlenie jasnego komunikatu o zewnętrznej platformie.
+
+### Schemat bazy danych
+
+Nowe pole w tabeli `events`:
+- `is_external_platform` (boolean, default: false)
+- `external_platform_message` (text, nullable) - opcjonalny niestandardowy komunikat
+
+### Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/WebinarForm.tsx` | Dodanie przełącznika `requires_registration` po sekcji "Przyciski akcji" |
+| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Dodanie `overflow-hidden` |
+| `src/components/news-ticker/NewsTicker.tsx` | Dodanie `overflow-x-hidden` |
+| `src/components/admin/WebinarForm.tsx` | Nowy przełącznik "Zewnętrzna platforma" + pole komunikatu |
+| `src/components/events/EventCardCompact.tsx` | Banner informacyjny + zmiana tekstu przycisku |
+| `src/components/events/EventDetailsDialog.tsx` | Banner informacyjny dla zewnętrznych webinarów |
+| Baza danych (migracja) | Nowe pola `is_external_platform` i `external_platform_message` |
 
-## Kod zmiany
+### Oczekiwany rezultat
 
-```tsx
-{/* Po sekcji Collapsible z przyciskami akcji */}
-
-{/* Internal registration toggle */}
-<div className="flex items-center gap-3">
-  <Switch
-    checked={form.requires_registration}
-    onCheckedChange={(checked) => setForm({ ...form, requires_registration: checked })}
-  />
-  <Label className="text-muted-foreground">
-    Wymagaj rejestracji uczestników (wewnętrzny system)
-  </Label>
-</div>
-
-{/* Allow invites toggle - już istnieje */}
-```
-
-## Oczekiwany rezultat
-
-1. Administrator może wyłączyć wewnętrzny system rejestracji dla webinarów zewnętrznych
-2. Przycisk "Zapisz się" nie będzie wyświetlany gdy `requires_registration = false`
-3. Przyciski akcji (np. link do zewnętrznej platformy) będą nadal widoczne
+1. **News Ticker** - pasek nie będzie rozciągał się poza widoczny obszar
+2. **Zewnętrzne webinary** - Partner widzi:
+   - Wyraźny komunikat że webinar jest na zewnętrznej platformie
+   - Przycisk "Dodaj do kalendarza" (zapis w PureLife)
+   - Wyróżniony przycisk przekierowujący do zewnętrznej rejestracji
+   - Jasna informacja o dwóch krokach procesu
