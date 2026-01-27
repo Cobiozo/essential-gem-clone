@@ -1,243 +1,39 @@
 
-# Plan: Rozszerzenie funkcjonalności News Ticker
 
-## Zidentyfikowane problemy i wymagania
+# Plan: Dokończenie rozszerzonej funkcjonalności News Ticker
 
-Na podstawie analizy kodu i wymagań użytkownika:
+## Podsumowanie stanu
 
-### 1. Problem "ucina stronę"
-Możliwa przyczyna: animacja marquee z `overflow: hidden` może powodować problemy z layoutem lub CSS mask. Wymaga weryfikacji i poprawki w komponencie NewsTicker.
-
-### 2. Selekcja konkretnych wydarzeń (zamiast automatycznego pobierania)
-**Obecny stan:** System automatycznie pobiera WSZYSTKIE webinary i spotkania z najbliższych 7 dni.
-
-**Wymaganie:** Admin chce RĘCZNIE wybierać które konkretne wydarzenia mają być wyświetlane w tickerze poprzez rozwijaną listę.
-
-### 3. Komunikaty dla konkretnych użytkowników
-**Obecny stan:** Komunikaty można targetować tylko po rolach (klient, partner, specjalista).
-
-**Wymaganie:** Możliwość wysłania komunikatu do JEDNEGO konkretnego użytkownika.
-
-### 4. Zaawansowane stylowanie ważnych komunikatów
-**Obecny stan:** Ważne komunikaty mają tylko pomarańczowy kolor i pulsującą kropkę.
-
-**Wymaganie:** Admin powinien móc edytować:
-- Większą czcionkę
-- Niestandardowy kolor
-- Efekt mrugania
-- Animowaną ikonkę
+Podstawowa wersja News Ticker została zaimplementowana, ale **rozszerzenia z planu nie zostały zrealizowane**. Poniżej znajduje się plan dokończenia wszystkich brakujących elementów.
 
 ---
 
-## Architektura rozwiązania
+## Brakujące elementy do implementacji
 
-### Zmiany w bazie danych
+### 1. Migracja bazy danych
 
-#### 1. Nowa tabela: `news_ticker_selected_events`
-Przechowuje ID wydarzeń wybranych przez admina do wyświetlenia:
+Dodanie nowych struktur:
 
 ```sql
-CREATE TABLE news_ticker_selected_events (
+-- Nowa tabela: wybór konkretnych wydarzeń przez admina
+CREATE TABLE public.news_ticker_selected_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id uuid REFERENCES events(id) ON DELETE CASCADE,
+  event_id uuid REFERENCES public.events(id) ON DELETE CASCADE,
   is_enabled boolean DEFAULT true,
-  custom_label text, -- opcjonalny nadpisany tekst
-  created_at timestamptz DEFAULT now()
+  custom_label text,
+  created_at timestamp with time zone DEFAULT now()
 );
+
+-- Rozszerzenie news_ticker_items o nowe kolumny
+ALTER TABLE public.news_ticker_items 
+  ADD COLUMN target_user_id uuid REFERENCES auth.users(id),
+  ADD COLUMN font_size text DEFAULT 'normal' CHECK (font_size IN ('normal', 'large', 'xlarge')),
+  ADD COLUMN custom_color text,
+  ADD COLUMN effect text DEFAULT 'none' CHECK (effect IN ('none', 'blink', 'pulse', 'glow')),
+  ADD COLUMN icon_animation text DEFAULT 'none' CHECK (icon_animation IN ('none', 'bounce', 'spin', 'shake'));
 ```
 
-#### 2. Rozszerzenie tabeli `news_ticker_items`
-Dodanie kolumn dla targetowania użytkownika i zaawansowanego stylowania:
-
-```sql
-ALTER TABLE news_ticker_items ADD COLUMN target_user_id uuid REFERENCES auth.users(id);
-ALTER TABLE news_ticker_items ADD COLUMN font_size text DEFAULT 'normal'; -- 'normal', 'large', 'xlarge'
-ALTER TABLE news_ticker_items ADD COLUMN custom_color text;
-ALTER TABLE news_ticker_items ADD COLUMN effect text; -- 'none', 'blink', 'pulse', 'glow'
-ALTER TABLE news_ticker_items ADD COLUMN icon_animation text; -- 'none', 'bounce', 'spin', 'shake'
-```
-
----
-
-## Zmiany w komponentach
-
-### 1. Poprawka "ucina stronę" - `NewsTicker.tsx`
-
-```typescript
-// Zmiana w MarqueeContent - usunięcie problematycznych stylów
-<div className="flex overflow-hidden relative">
-  <div
-    ref={contentRef}
-    className="flex animate-marquee whitespace-nowrap"
-    style={{ animationDuration: `${animationDuration}s` }}
-  >
-    {/* ... */}
-  </div>
-</div>
-```
-
-### 2. Panel wyboru wydarzeń - `NewsTickerManagement.tsx`
-
-Nowa zakładka "Wydarzenia" z dwiema sekcjami rozwijalnymi:
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  Ustawienia | Komunikaty | Wydarzenia | Podgląd                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ▼ WEBINARY                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ ☑ Prezentacja Zdrowotno-Naukowa (28.01 18:00)              ││
-│  │ ☑ Prezentacja Afiliacyjna (28.01 19:00)                    ││
-│  │ ☐ Prezentacja biznesowa (21.01 19:00) - minęło             ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  ▼ SPOTKANIA ZESPOŁOWE                                          │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ ☑ Start nowego partnera (29.01 18:00)                      ││
-│  │ ☐ TEAM ZOOM (19.01 19:00) - minęło                         ││
-│  │ ☐ Pure Calling (20.01 10:00) - minęło                      ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  [ Zapisz wybór ]                                               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 3. Formularz komunikatu z wyborem użytkownika
-
-Rozszerzenie dialogu dodawania/edycji komunikatu:
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  Nowy komunikat                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  Treść: [________________________]                              │
-│                                                                 │
-│  Widoczność:                                                    │
-│  ◉ Dla wybranych ról   ○ Dla konkretnego użytkownika           │
-│                                                                 │
-│  [Jeśli "Dla konkretnego użytkownika":]                        │
-│  Wybierz użytkownika: [ Szukaj... ▼ ]                          │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ 🔍 Wpisz imię, nazwisko lub email                          ││
-│  │ ─────────────────────────────────────────────────────────── ││
-│  │ 👤 Jan Kowalski (jan@example.com) - Partner                ││
-│  │ 👤 Anna Nowak (anna@example.com) - Klient                  ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  ☑ Oznacz jako ważny                                            │
-│                                                                 │
-│  [Jeśli "ważny":]                                               │
-│  ┌─ ZAAWANSOWANE STYLOWANIE ──────────────────────────────────┐ │
-│  │ Rozmiar czcionki: [Normal ▼] [Large] [XLarge]              │ │
-│  │ Kolor tekstu:     [#________] [🎨]                         │ │
-│  │ Efekt:            [Brak ▼] [Mruganie] [Pulsowanie] [Glow]  │ │
-│  │ Animacja ikony:   [Brak ▼] [Bounce] [Spin] [Shake]         │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│  [Anuluj] [Dodaj]                                               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 4. Rozszerzenie typu `TickerItem`
-
-```typescript
-export interface TickerItem {
-  id: string;
-  type: 'webinar' | 'meeting' | 'announcement' | 'banner';
-  icon: string;
-  content: string;
-  isImportant: boolean;
-  linkUrl?: string;
-  thumbnailUrl?: string;
-  sourceId: string;
-  priority: number;
-  // Nowe pola dla stylowania
-  fontSize?: 'normal' | 'large' | 'xlarge';
-  customColor?: string;
-  effect?: 'none' | 'blink' | 'pulse' | 'glow';
-  iconAnimation?: 'none' | 'bounce' | 'spin' | 'shake';
-  targetUserId?: string; // dla komunikatów do konkretnego użytkownika
-}
-```
-
-### 5. Zaktualizowany `TickerItemComponent`
-
-```typescript
-const TickerItemComponent = ({ item }) => {
-  const fontSizeClass = {
-    normal: 'text-sm',
-    large: 'text-base font-semibold',
-    xlarge: 'text-lg font-bold',
-  }[item.fontSize || 'normal'];
-
-  const effectClass = {
-    none: '',
-    blink: 'animate-blink',
-    pulse: 'animate-pulse',
-    glow: 'animate-glow drop-shadow-lg',
-  }[item.effect || 'none'];
-
-  const iconAnimationClass = {
-    none: '',
-    bounce: 'animate-bounce',
-    spin: 'animate-spin',
-    shake: 'animate-shake',
-  }[item.iconAnimation || 'none'];
-
-  return (
-    <span
-      className={cn(fontSizeClass, effectClass)}
-      style={item.customColor ? { color: item.customColor } : undefined}
-    >
-      <IconComponent className={cn("h-4 w-4", iconAnimationClass)} />
-      {item.content}
-    </span>
-  );
-};
-```
-
-### 6. Zaktualizowany `useNewsTickerData`
-
-Zmiana logiki pobierania wydarzeń - zamiast automatycznego pobierania, używa tabeli `news_ticker_selected_events`:
-
-```typescript
-// PRZED: pobieranie wszystkich webinarów z najbliższych 7 dni
-// PO: pobieranie tylko wybranych przez admina wydarzeń
-
-const fetchSelectedEvents = async () => {
-  const { data } = await supabase
-    .from('news_ticker_selected_events')
-    .select(`
-      id,
-      is_enabled,
-      custom_label,
-      event:events(id, title, event_type, start_time, zoom_link, image_url)
-    `)
-    .eq('is_enabled', true);
-  
-  return data?.filter(item => item.event) || [];
-};
-```
-
-Dodatkowo: filtrowanie komunikatów po `target_user_id`:
-
-```typescript
-// Filtruj komunikaty dla konkretnego użytkownika
-const filteredAnnouncements = announcements.filter(item => {
-  // Jeśli ma target_user_id, pokaż tylko temu użytkownikowi
-  if (item.target_user_id && item.target_user_id !== user?.id) {
-    return false;
-  }
-  // Reszta logiki widoczności per rola...
-});
-```
-
----
-
-## Nowe animacje CSS
-
-Dodanie do `tailwind.config.ts`:
+### 2. Nowe animacje CSS w tailwind.config.ts
 
 ```typescript
 keyframes: {
@@ -256,74 +52,150 @@ keyframes: {
   },
 },
 animation: {
-  blink: 'blink 1s ease-in-out 3',  // mruganie 3 razy
+  blink: 'blink 1s ease-in-out 3',
   glow: 'glow 2s ease-in-out infinite',
   shake: 'shake 0.5s ease-in-out infinite',
 }
 ```
 
+### 3. Aktualizacja typów - types.ts
+
+```typescript
+export interface TickerItem {
+  id: string;
+  type: 'webinar' | 'meeting' | 'announcement' | 'banner';
+  icon: string;
+  content: string;
+  isImportant: boolean;
+  linkUrl?: string;
+  thumbnailUrl?: string;
+  sourceId: string;
+  priority: number;
+  // Nowe pola
+  fontSize?: 'normal' | 'large' | 'xlarge';
+  customColor?: string;
+  effect?: 'none' | 'blink' | 'pulse' | 'glow';
+  iconAnimation?: 'none' | 'bounce' | 'spin' | 'shake';
+  targetUserId?: string;
+}
+```
+
+### 4. Aktualizacja TickerItem.tsx
+
+Obsługa nowych stylów i animacji:
+
+- Dynamiczne klasy dla `fontSize` (text-sm, text-base, text-lg)
+- Dynamiczne klasy dla `effect` (animate-blink, animate-pulse, animate-glow)
+- Dynamiczne klasy dla `iconAnimation` (animate-bounce, animate-spin, animate-shake)
+- Obsługa `customColor` przez inline style
+
+### 5. Aktualizacja useNewsTickerData.ts
+
+Zmiany w logice pobierania danych:
+
+- Zamiast automatycznego pobierania wszystkich webinarów/spotkań z 7 dni → pobieranie tylko z tabeli `news_ticker_selected_events`
+- Filtrowanie komunikatów po `target_user_id` (jeśli ustawione, pokaż tylko danemu użytkownikowi)
+- Mapowanie nowych pól stylowania do interfejsu TickerItem
+
+### 6. Rozbudowa NewsTickerManagement.tsx
+
+Nowa struktura zakładek:
+
+```
+Ustawienia | Komunikaty | Wydarzenia | Podgląd
+```
+
+#### Zakładka "Wydarzenia":
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ▼ WEBINARY                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ ☑ Prezentacja Zdrowotno-Naukowa (28.01 18:00)              ││
+│  │ ☑ Prezentacja Afiliacyjna (28.01 19:00)                    ││
+│  │ ☐ Prezentacja biznesowa (21.01 19:00) - minęło             ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│  ▼ SPOTKANIA ZESPOŁOWE                                          │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ ☑ Start nowego partnera (29.01 18:00)                      ││
+│  │ ☐ TEAM ZOOM (19.01 19:00) - minęło                         ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│  [ Zapisz wybór ]                                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Rozszerzony dialog dodawania/edycji komunikatu:
+
+- Radio button: "Dla wybranych ról" / "Dla konkretnego użytkownika"
+- Pole wyszukiwania użytkowników z autocomplete (imię, nazwisko, email)
+- Sekcja "Zaawansowane stylowanie" (widoczna gdy is_important=true):
+  - Select: Rozmiar czcionki (Normal, Large, XLarge)
+  - Color picker: Kolor tekstu
+  - Select: Efekt (Brak, Mruganie, Pulsowanie, Glow)
+  - Select: Animacja ikony (Brak, Bounce, Spin, Shake)
+
+### 7. Poprawka layoutu NewsTicker.tsx
+
+Weryfikacja i naprawa CSS, który może "ucinać stronę":
+
+- Sprawdzenie `overflow: hidden` na kontenerze
+- Weryfikacja `maskImage` w MarqueeContent
+- Upewnienie się, że ticker nie wpływa na layout rodzica
+
 ---
 
-## Zakres plików do zmiany
+## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| **Migracja SQL** | Nowa tabela `news_ticker_selected_events` + kolumny w `news_ticker_items` |
-| `src/integrations/supabase/types.ts` | Aktualizacja typów po migracji |
-| `src/components/news-ticker/types.ts` | Rozszerzenie interfejsów o nowe pola |
+| **Migracja SQL** | Nowa tabela + ALTER TABLE |
+| `src/integrations/supabase/types.ts` | Aktualizacja typów (automatycznie po migracji) |
+| `src/components/news-ticker/types.ts` | Dodanie nowych pól do TickerItem |
+| `src/components/news-ticker/TickerItem.tsx` | Obsługa stylowania i animacji |
+| `src/components/news-ticker/useNewsTickerData.ts` | Nowa logika pobierania wydarzeń + filtrowanie |
 | `src/components/news-ticker/NewsTicker.tsx` | Poprawka CSS layoutu |
-| `src/components/news-ticker/TickerItem.tsx` | Obsługa nowych styli i animacji |
-| `src/components/news-ticker/useNewsTickerData.ts` | Nowa logika pobierania wybranych wydarzeń + filtrowanie po user_id |
-| `src/components/admin/NewsTickerManagement.tsx` | Nowa zakładka "Wydarzenia", rozszerzony formularz komunikatów |
+| `src/components/admin/NewsTickerManagement.tsx` | Zakładka Wydarzenia + formularz z stylowaniem |
 | `tailwind.config.ts` | Nowe animacje (blink, glow, shake) |
 
 ---
 
-## Przepływ dla admina
+## Kolejność implementacji
 
-```text
-1. Admin otwiera "Pasek informacyjny" w panelu
-   │
-2. Zakładka "Ustawienia" - włącza źródło "Webinary" i "Spotkania"
-   │
-3. Zakładka "Wydarzenia" - widzi listę wszystkich webinarów i spotkań
-   │     - Odznacza te, które NIE mają się pojawiać
-   │     - Zaznacza te, które MAJĄ się pojawiać
-   │     - Klika "Zapisz wybór"
-   │
-4. Zakładka "Komunikaty" - dodaje nowy komunikat
-   │     - Wybiera "Dla konkretnego użytkownika"
-   │     - Wyszukuje "Jan Kowalski"
-   │     - Zaznacza "Ważny"
-   │     - Ustawia: Rozmiar=Large, Kolor=#FF0000, Efekt=Mruganie, Ikona=Bounce
-   │     - Zapisuje
-   │
-5. Zakładka "Podgląd" - widzi jak wygląda ticker z nowymi ustawieniami
-```
+1. **Migracja bazy danych** - dodanie tabeli i kolumn
+2. **tailwind.config.ts** - nowe animacje CSS
+3. **types.ts** - rozszerzenie interfejsów
+4. **TickerItem.tsx** - obsługa nowych styli
+5. **useNewsTickerData.ts** - nowa logika pobierania
+6. **NewsTickerManagement.tsx** - zakładka Wydarzenia + formularz
+7. **NewsTicker.tsx** - poprawka layoutu
 
 ---
 
-## Widoczność komunikatów
+## Przepływ dla admina (po implementacji)
 
-| Typ targetowania | Kto widzi |
-|------------------|-----------|
-| Role + wszystkie zaznaczone | Wszyscy z wybranych ról |
-| Konkretny użytkownik (`target_user_id`) | TYLKO ten użytkownik |
-| Mieszane | Najpierw sprawdź `target_user_id`, potem role |
-
----
-
-## Responsywność stylowania
-
-Na urządzeniach mobilnych:
-- `xlarge` → `large`
-- Animacje `shake` wyłączone (mogą być rozpraszające)
-- Efekt `glow` uproszczony
-
-```typescript
-// W TickerItem
-const fontSizeClass = cn(
-  item.fontSize === 'xlarge' ? 'text-lg md:text-xl' : '',
-  item.fontSize === 'large' ? 'text-base md:text-lg' : '',
-);
 ```
+1. Admin → Pasek informacyjny → Ustawienia
+   - Włącza źródło "Webinary" i "Spotkania"
+   
+2. Admin → Zakładka "Wydarzenia"
+   - Widzi listę wszystkich webinarów i spotkań
+   - Zaznacza checkboxy przy tych, które mają się wyświetlać
+   - Klika "Zapisz wybór"
+   
+3. Admin → Zakładka "Komunikaty" → "Dodaj komunikat"
+   - Wpisuje treść
+   - Wybiera "Dla konkretnego użytkownika"
+   - Wyszukuje i wybiera użytkownika
+   - Zaznacza "Oznacz jako ważny"
+   - W sekcji stylowania ustawia:
+     - Rozmiar: Large
+     - Kolor: #FF0000
+     - Efekt: Mruganie
+     - Animacja ikony: Bounce
+   - Zapisuje
+   
+4. Użytkownik widzi spersonalizowany, animowany komunikat
+```
+
