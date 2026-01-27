@@ -2,8 +2,9 @@ import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type { UnifiedChannel } from '@/hooks/useUnifiedChat';
+import type { UnifiedChannel, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import { ChannelListItem } from './ChannelListItem';
+import { TeamMembersSection } from './TeamMembersSection';
 
 interface MessagesSidebarProps {
   channels: UnifiedChannel[];
@@ -12,6 +13,11 @@ interface MessagesSidebarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   className?: string;
+  // Team members props
+  teamMembers?: TeamMemberChannel[];
+  upline?: TeamMemberChannel | null;
+  selectedDirectUserId?: string | null;
+  onSelectDirectMember?: (userId: string) => void;
 }
 
 export const MessagesSidebar = ({
@@ -21,6 +27,10 @@ export const MessagesSidebar = ({
   searchQuery,
   onSearchChange,
   className,
+  teamMembers = [],
+  upline = null,
+  selectedDirectUserId = null,
+  onSelectDirectMember,
 }: MessagesSidebarProps) => {
   // Separate outgoing (can send) and incoming (can receive) channels
   const outgoingChannels = channels.filter(c => c.canSend);
@@ -68,11 +78,22 @@ export const MessagesSidebar = ({
                 <ChannelListItem
                   key={channel.id}
                   channel={channel}
-                  isSelected={selectedChannel?.id === channel.id}
+                  isSelected={selectedChannel?.id === channel.id && !selectedDirectUserId}
                   onClick={() => onSelectChannel(channel.id)}
                 />
               ))}
             </div>
+          )}
+
+          {/* Team Members Section */}
+          {(upline || teamMembers.length > 0) && onSelectDirectMember && (
+            <TeamMembersSection
+              upline={upline}
+              members={teamMembers}
+              selectedUserId={selectedDirectUserId}
+              onSelectMember={onSelectDirectMember}
+              searchQuery={searchQuery}
+            />
           )}
 
           {/* Incoming channels (can receive) */}
@@ -87,7 +108,7 @@ export const MessagesSidebar = ({
                 <ChannelListItem
                   key={channel.id}
                   channel={channel}
-                  isSelected={selectedChannel?.id === channel.id}
+                  isSelected={selectedChannel?.id === channel.id && !selectedDirectUserId}
                   onClick={() => onSelectChannel(channel.id)}
                 />
               ))}

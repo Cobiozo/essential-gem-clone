@@ -2,13 +2,15 @@ import { useEffect, useRef } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2 } from 'lucide-react';
-import type { UnifiedChannel, UnifiedMessage } from '@/hooks/useUnifiedChat';
+import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
 
 interface FullChatWindowProps {
-  channel: UnifiedChannel;
+  channel: UnifiedChannel | null;
+  directMember?: TeamMemberChannel | null;
   messages: UnifiedMessage[];
   loading: boolean;
   onSend: (content: string) => Promise<boolean>;
@@ -17,12 +19,20 @@ interface FullChatWindowProps {
 
 export const FullChatWindow = ({
   channel,
+  directMember,
   messages,
   loading,
   onSend,
   onBack,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  
+  // Determine display name and capabilities
+  const displayName = directMember 
+    ? `${directMember.firstName} ${directMember.lastName}`
+    : channel?.name || '';
+  
+  const canSend = directMember ? true : channel?.canSend;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -45,7 +55,18 @@ export const FullChatWindow = ({
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h3 className="font-semibold text-foreground">{channel.name}</h3>
+          
+          {/* Show avatar for direct member */}
+          {directMember && (
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={directMember.avatarUrl || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                {directMember.firstName?.charAt(0)}{directMember.lastName?.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          
+          <h3 className="font-semibold text-foreground">{displayName}</h3>
         </div>
         <Button variant="ghost" size="icon">
           <Search className="h-4 w-4" />
@@ -61,8 +82,12 @@ export const FullChatWindow = ({
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p className="text-sm">Brak wiadomości w tym kanale</p>
-              {channel.canSend && (
+              <p className="text-sm">
+                {directMember 
+                  ? `Rozpocznij rozmowę z ${directMember.firstName}` 
+                  : 'Brak wiadomości w tym kanale'}
+              </p>
+              {canSend && (
                 <p className="text-xs mt-1">Wyślij pierwszą wiadomość poniżej</p>
               )}
             </div>
@@ -91,7 +116,7 @@ export const FullChatWindow = ({
       </ScrollArea>
 
       {/* Message input */}
-      {channel.canSend ? (
+      {canSend ? (
         <MessageInput onSend={onSend} />
       ) : (
         <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">

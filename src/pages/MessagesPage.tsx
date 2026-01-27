@@ -19,12 +19,40 @@ const MessagesPage = () => {
     loading,
     selectChannel,
     sendMessage,
+    // Team members
+    teamMembers,
+    upline,
+    selectedDirectUserId,
+    selectedDirectMember,
+    selectDirectMember,
+    sendDirectMessage,
   } = useUnifiedChat({ enableRealtime: true });
 
   const handleSelectChannel = (channelId: string) => {
     selectChannel(channelId);
     setMobileView('chat');
   };
+
+  const handleSelectDirectMember = (userId: string) => {
+    selectDirectMember(userId);
+    setMobileView('chat');
+  };
+
+  const handleSendMessage = async (content: string): Promise<boolean> => {
+    if (selectedDirectUserId) {
+      return sendDirectMessage(selectedDirectUserId, content);
+    }
+    return sendMessage(content);
+  };
+
+  // Determine current chat context
+  const currentChatName = selectedDirectMember 
+    ? `${selectedDirectMember.firstName} ${selectedDirectMember.lastName}`
+    : selectedChannel?.name;
+  
+  const canSendInCurrentChat = selectedDirectMember 
+    ? true  // Direct messages always sendable
+    : selectedChannel?.canSend;
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -54,6 +82,10 @@ const MessagesPage = () => {
           onSelectChannel={handleSelectChannel}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          teamMembers={teamMembers}
+          upline={upline}
+          selectedDirectUserId={selectedDirectUserId}
+          onSelectDirectMember={handleSelectDirectMember}
           className={cn(
             'w-80 border-r border-border shrink-0',
             'max-md:absolute max-md:inset-0 max-md:w-full max-md:z-10 max-md:bg-background',
@@ -66,12 +98,13 @@ const MessagesPage = () => {
           'flex-1 flex flex-col min-w-0',
           mobileView !== 'chat' && 'max-md:hidden'
         )}>
-          {selectedChannel ? (
+          {(selectedChannel || selectedDirectMember) ? (
             <FullChatWindow
               channel={selectedChannel}
+              directMember={selectedDirectMember}
               messages={messages}
               loading={loading}
-              onSend={sendMessage}
+              onSend={handleSendMessage}
               onBack={() => setMobileView('list')}
             />
           ) : (
