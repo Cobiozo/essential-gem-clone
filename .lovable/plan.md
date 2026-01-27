@@ -1,177 +1,136 @@
 
-# Plan naprawy obciętego layoutu News Ticker
 
-## Zidentyfikowane problemy
+# Plan: Dodanie edytora przycisków akcji do formularza webinaru
 
-Na podstawie zrzutów ekranu:
+## Cel
 
-1. **Desktop (image-137)**: Prawa strona dashboardu jest obcięta - widżet "Postęp szkoleń" nie mieści się w widoku. Pasek informacyjny z animacją marquee powoduje problem z layoutem.
+Dodać możliwość tworzenia niestandardowych przycisków w wydarzeniach typu webinar, które prowadzą do zewnętrznych formularzy rejestracji lub platform.
 
-2. **Mobile (image-136)**: Tekst w pasku jest ucięty ("JŚCI WERYFIKACJI SWOJEGO NUMERU KONT"), nie zawija się prawidłowo w trybie statycznym.
+## Obecny stan
 
-## Przyczyny techniczne
-
-### Problem 1: Marquee powoduje overflow
-
-```
-MarqueeContent:
-├─ div.flex.overflow-hidden (kontener - OK)
-│   └─ div.flex.animate-marquee.whitespace-nowrap (treść - PROBLEM)
-│       └─ Zduplikowane elementy (item + item + item + ...)
-```
-
-Animacja `translateX(-50%)` przesuwa treść, ale parent container nie ogranicza prawidłowo szerokości. Klasa `whitespace-nowrap` jest poprawna dla marquee, ale kontener musi mieć jawne `max-width: 100%` lub `overflow-x: hidden`.
-
-### Problem 2: StaticContent nie zawija tekstu
-
-```tsx
-// Obecny kod:
-<div className="flex items-center justify-center flex-wrap gap-2">
-  {items.slice(0, 3).map(item => <TickerItemComponent .../>)}
-</div>
-```
-
-Komponent `TickerItemComponent` ma `whitespace-nowrap` na elementach, co uniemożliwia zawijanie w trybie statycznym.
-
-### Problem 3: Szerokość kontenera głównego
-
-`NewsTicker` używa tylko `overflow-hidden` bez ograniczenia szerokości:
-```tsx
-className="relative overflow-hidden rounded-lg ..."
-```
-
-Brakuje `max-w-full` lub `w-full` aby ograniczyć szerokość do rodzica.
-
----
+| Element | Status |
+|---------|--------|
+| Pole `buttons` w bazie danych | Istnieje (JSON array) |
+| Typ `EventButton` (label, url, style) | Zdefiniowany w `src/types/events.ts` |
+| Renderowanie przycisków w `EventCardCompact` | Działa (linie 428-443) |
+| Edytor przycisków w `WebinarForm` | Brak |
+| Link Zoom ukrywany gdy pusty | Działa (linia 445: `if (event.zoom_link && ...`) |
 
 ## Rozwiązanie
 
-### Zmiana 1: NewsTicker.tsx - główny kontener
+### Zmiana 1: Nowy komponent `EventButtonsEditor`
 
-Dodanie ograniczenia szerokości do kontenera głównego:
+Stworzenie uproszczonego edytora przycisków dla wydarzeń:
 
-```tsx
-// Linia 114-119 - dodać min-w-0 i max-w-full
-className={cn(
-  "relative overflow-hidden rounded-lg",
-  "min-w-0 max-w-full w-full",  // ← NOWE
-  "bg-gradient-to-r from-muted/60 via-muted/40 to-muted/60",
-  ...
-)}
+```
+src/components/admin/EventButtonsEditor.tsx
+├── Dodawanie przycisków (etykieta + URL)
+├── Wybór stylu (primary/secondary/outline)
+├── Usuwanie przycisków
+└── Podgląd listy przycisków
 ```
 
-### Zmiana 2: MarqueeContent - kontener
+Interfejs prostszy niż `ActionButtonsEditor` z lekcji - tylko:
+- Label (nazwa przycisku)
+- URL (link zewnętrzny)
+- Style (primary/secondary/outline)
 
-Dodanie jawnego ograniczenia szerokości:
+### Zmiana 2: Integracja z WebinarForm.tsx
 
-```tsx
-// Linia 27 - główny kontener marquee
-<div className="flex overflow-hidden relative w-full max-w-full">
+Dodanie sekcji "Przyciski akcji" w formularzu webinaru:
+
+```
+Przyciski akcji (Sekcja Collapsible)
+├── [+ Dodaj przycisk]
+├── Przycisk 1: [Etykieta] [URL] [Styl] [🗑]
+├── Przycisk 2: [Etykieta] [URL] [Styl] [🗑]
+└── ...
 ```
 
-### Zmiana 3: StaticContent - zawijanie tekstu na mobile
+Lokalizacja: po sekcji "Link do webinaru (Zoom/Teams)", przed przełącznikiem "Zezwól na zapraszanie gości".
 
-Zmiana logiki dla trybu statycznego na mobile:
+### Przykład użycia
 
-```tsx
-const StaticContent: React.FC<{ items: TickerItem[] }> = ({ items }) => {
-  return (
-    <div className="flex items-center justify-center flex-wrap gap-2 max-w-full">
-      {items.slice(0, 3).map((item) => (
-        <TickerItemComponent 
-          key={item.id} 
-          item={item} 
-          allowWrap  // ← NOWY prop do kontroli zawijania
-        />
-      ))}
-      ...
-    </div>
-  );
-};
+Administrator tworzy webinar na zewnętrznej platformie:
+1. Pozostawia pole "Link do webinaru (Zoom/Teams)" puste
+2. Dodaje przycisk:
+   - Etykieta: "Zapisz się na webinar"
+   - URL: "https://external-platform.com/register/webinar-123"
+   - Styl: Primary
+3. Zapisuje wydarzenie
+
+Użytkownik widzi:
+- Kartę wydarzenia z opisem
+- Przycisk "Zapisz się na webinar" prowadzący do zewnętrznej strony
+- Brak przycisku "Dołącz" (bo zoom_link jest pusty)
+
+## Szczegóły techniczne
+
+### Plik 1: `src/components/admin/EventButtonsEditor.tsx` (nowy)
+
 ```
-
-### Zmiana 4: TickerItem.tsx - obsługa zawijania
-
-Dodanie prop `allowWrap` do kontroli `whitespace`:
-
-```tsx
-interface TickerItemProps {
-  item: TickerItemType;
-  className?: string;
-  allowWrap?: boolean;  // ← NOWY prop
+interface EventButtonsEditorProps {
+  buttons: EventButton[];
+  onChange: (buttons: EventButton[]) => void;
 }
-
-export const TickerItemComponent: React.FC<TickerItemProps> = ({ 
-  item, 
-  className,
-  allowWrap = false  // domyślnie nowrap dla marquee
-}) => {
-  // ...
-  const content = (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 mx-6",
-        allowWrap ? "whitespace-normal" : "whitespace-nowrap",  // ← WARUNKOWE
-        // Dla mobile w trybie static - mniejszy margin
-        allowWrap && "mx-2 text-center flex-wrap",
-        fontSizeClass,
-        ...
-      )}
-    >
-      ...
-    </span>
-  );
-};
 ```
 
-### Zmiana 5: RotatingContent - podobna logika
+Funkcjonalności:
+- Dodawanie nowego przycisku z domyślnymi wartościami
+- Edycja etykiety i URL inline
+- Wybór stylu z dropdown (Primary/Secondary/Outline)
+- Usuwanie przycisku z potwierdzeniem
+- Limit do 5 przycisków (opcjonalnie)
 
-Dla trybu rotate również dodać obsługę zawijania na dłuższych tekstach:
+### Plik 2: `src/components/admin/WebinarForm.tsx` (modyfikacja)
+
+Dodanie importu i sekcji:
 
 ```tsx
-const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ items, interval }) => {
-  // ...
-  return (
-    <div className="flex items-center justify-center min-h-[24px] max-w-full overflow-hidden">
-      <div className={cn(...)}>
-        <TickerItemComponent 
-          item={items[currentIndex]} 
-          allowWrap  // zawijaj tekst w rotate mode
-        />
-      </div>
-    </div>
-  );
-};
+import { EventButtonsEditor } from './EventButtonsEditor';
+
+// W JSX, po sekcji Zoom Link:
+<Collapsible>
+  <CollapsibleTrigger>
+    <ExternalLink className="h-4 w-4" />
+    <span>Przyciski akcji</span>
+  </CollapsibleTrigger>
+  <CollapsibleContent>
+    <EventButtonsEditor
+      buttons={form.buttons}
+      onChange={(buttons) => setForm({ ...form, buttons })}
+    />
+  </CollapsibleContent>
+</Collapsible>
 ```
 
----
+## Przepływ danych
+
+```text
+WebinarForm (form.buttons state)
+     ↓
+EventButtonsEditor (edycja)
+     ↓
+handleSave() → buttonsJson = form.buttons.map(...)
+     ↓
+Supabase: events.buttons (JSON)
+     ↓
+EventCardCompact.renderButtons()
+     ↓
+Użytkownik widzi przyciski
+```
 
 ## Pliki do modyfikacji
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/news-ticker/NewsTicker.tsx` | Dodanie `min-w-0 max-w-full` do kontenera głównego, `max-w-full` do MarqueeContent, `allowWrap` w StaticContent i RotatingContent |
-| `src/components/news-ticker/TickerItem.tsx` | Nowy prop `allowWrap` kontrolujący `whitespace-nowrap` vs `whitespace-normal` |
-
----
+| Plik | Operacja |
+|------|----------|
+| `src/components/admin/EventButtonsEditor.tsx` | Nowy plik |
+| `src/components/admin/WebinarForm.tsx` | Dodanie sekcji Collapsible z edytorem |
 
 ## Oczekiwany rezultat
 
-1. **Desktop**: Pasek informacyjny nie będzie powodował rozszerzenia layoutu poza viewport - widżety po prawej stronie będą widoczne w całości
+1. Administrator może dodać dowolne przyciski do webinaru (np. "Zapisz się", "Więcej informacji")
+2. Każdy przycisk prowadzi do zewnętrznego URL
+3. Jeśli zoom_link jest pusty, przycisk "Dołącz" się nie wyświetla (już działa)
+4. Przyciski są widoczne na karcie wydarzenia w sekcji akcji
 
-2. **Mobile (tryb statyczny/rotate)**: Długie komunikaty będą zawijane do nowej linii zamiast być obcinane
-
-3. **Mobile (tryb scroll)**: Animacja marquee będzie działać poprawnie, treść będzie przesuwana w widocznym obszarze
-
----
-
-## Techniczne szczegóły
-
-### CSS Flexbox i overflow
-
-Problem wynika z kombinacji:
-- `flex` layout (domyślnie `flex-shrink: 1`, ale bez `min-width: 0`)
-- `whitespace: nowrap` rozciąga element ponad kontener
-- `overflow: hidden` na rodzicu nie pomaga jeśli dziecko ma większy min-width
-
-Rozwiązanie: `min-w-0` resetuje minimalna szerokość flex item do 0, pozwalając na prawidłowe obcinanie.
