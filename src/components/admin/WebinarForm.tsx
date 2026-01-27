@@ -477,6 +477,17 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Internal registration toggle */}
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={form.requires_registration}
+            onCheckedChange={(checked) => setForm({ ...form, requires_registration: checked })}
+          />
+          <Label className="text-muted-foreground">
+            Wymagaj rejestracji uczestników (wewnętrzny system)
+          </Label>
+        </div>
+
         {/* Allow invites toggle */}
         <div className="flex items-center gap-3">
           <Switch
