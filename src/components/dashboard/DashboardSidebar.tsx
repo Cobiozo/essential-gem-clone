@@ -324,8 +324,7 @@ export const DashboardSidebar: React.FC = () => {
       id: 'chat', 
       icon: MessageSquare, 
       labelKey: 'dashboard.menu.chat', 
-      path: '/my-account', 
-      tab: 'communication',
+      path: '/messages',
     },
     { id: 'support', icon: HelpCircle, labelKey: 'dashboard.menu.support', action: () => {
       // Open support form dialog - dispatch custom event
