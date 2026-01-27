@@ -1,75 +1,85 @@
 
-# Plan: Naprawa błędu 401 w funkcji zoom-check-status
+# Plan: Naprawy dwóch problemów
 
-## Diagnoza problemu
+## Problem 1: Zoom Check Status - NAPRAWIONY
 
-Logi pokazują:
-```
-JWT verification failed: Auth session missing!
-```
+Funkcja edge `zoom-check-status` została wdrożona z poprawką dual-client authentication (ANON_KEY dla weryfikacji JWT użytkownika). Teraz powinna działać poprawnie.
 
-**Przyczyna**: Funkcja używa `SUPABASE_SERVICE_ROLE_KEY` do klienta weryfikującego JWT. Service role key nie ma kontekstu sesji użytkownika, więc `auth.getUser(token)` zawsze zwraca błąd "Auth session missing!".
-
-**Działające rozwiązanie** (z `cancel-individual-meeting`):
-Użyć **SUPABASE_ANON_KEY** do weryfikacji tokenu użytkownika, a dopiero potem service role do operacji bazodanowych.
+**Zalecenie:** Odśwież stronę admina i spróbuj ponownie przetestować połączenie Zoom.
 
 ---
 
-## Rozwiązanie
+## Problem 2: YouTube Live nie odtwarza
 
-### Zmiana w pliku `supabase/functions/zoom-check-status/index.ts`
+### Diagnoza
 
-**Linie 26-42 - Zmiana logiki weryfikacji JWT:**
-
-```text
-PRZED:
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-const token = authHeader.replace('Bearer ', '');
-const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-PO:
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-// Użyj ANON_KEY do weryfikacji JWT użytkownika
-const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
-const token = authHeader.replace('Bearer ', '');
-const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
-
-// ...walidacja...
-
-// Użyj SERVICE_ROLE_KEY do operacji bazodanowych
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+Link materiału "Sekrety kwasów omega-3":
+```
+https://www.youtube.com/live/_viv0nXi6eE?si=yxN6FtvinxW5bNgo&t=381
 ```
 
----
+Funkcja `extractYouTubeId()` w `SecureMedia.tsx` nie obsługuje formatu `youtube.com/live/`. Aktualnie wspierane formaty:
 
-## Zmiany szczegółowe
+| Format | Przykład | Status |
+|--------|----------|--------|
+| watch?v= | youtube.com/watch?v=VIDEO_ID | Obsługiwany |
+| youtu.be | youtu.be/VIDEO_ID | Obsługiwany |
+| embed | youtube.com/embed/VIDEO_ID | Obsługiwany |
+| shorts | youtube.com/shorts/VIDEO_ID | Obsługiwany |
+| **live** | youtube.com/live/VIDEO_ID | **BRAK** |
 
-| Lokalizacja | Zmiana |
-|-------------|--------|
-| Linia ~27 | Dodanie `supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')` |
-| Linia ~30 | Utworzenie `supabaseAuth` z anon key do weryfikacji użytkownika |
-| Linia ~34 | Weryfikacja tokenu przez `supabaseAuth.auth.getUser(token)` |
-| Po weryfikacji | Utworzenie `supabase` z service role key do operacji na bazie danych |
+### Rozwiązanie
 
----
-
-## Dlaczego to działa
-
-- **ANON_KEY**: Klucz publiczny który działa z tokenami JWT użytkowników. `auth.getUser(token)` weryfikuje token względem serwera autoryzacji.
-- **SERVICE_ROLE_KEY**: Klucz administratora który omija RLS, ale nie ma kontekstu sesji użytkownika. Używamy go tylko do operacji bazodanowych po pomyślnej weryfikacji.
+Dodanie `youtube\.com\/live\/` do pattern regex w funkcji `extractYouTubeId()`.
 
 ---
+
+## Szczegóły techniczne
+
+### Zmiana w pliku `src/components/SecureMedia.tsx`
+
+**Linie 48-58 - Aktualizacja funkcji extractYouTubeId:**
+
+Przed:
+```tsx
+const extractYouTubeId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+};
+```
+
+Po:
+```tsx
+const extractYouTubeId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+};
+```
+
+---
+
+## Podsumowanie zmian
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/SecureMedia.tsx` | Dodanie `youtube\.com\/live\/` do regex pattern |
 
 ## Oczekiwany rezultat
 
-Po wdrożeniu poprawki:
-- Funkcja będzie poprawnie weryfikować JWT użytkownika
-- Administrator będzie mógł testować połączenie Zoom z panelu administracyjnego
-- Błąd "Auth session missing!" zniknie
+- YouTube Live (jak "Sekrety kwasów omega-3") będzie poprawnie rozpoznawany i osadzany jako iframe
+- ID wideo `_viv0nXi6eE` zostanie wyekstrahowane z linku `youtube.com/live/_viv0nXi6eE?...`
+- Wideo będzie się odtwarzać w playerze Zdrowej Wiedzy
