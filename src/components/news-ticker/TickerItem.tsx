@@ -13,13 +13,39 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
   // Dynamically get icon component
   const IconComponent = (LucideIcons as any)[item.icon] || Info;
 
+  // Font size classes
+  const fontSizeClass = {
+    normal: 'text-sm',
+    large: 'text-base font-semibold',
+    xlarge: 'text-lg font-bold',
+  }[item.fontSize || 'normal'];
+
+  // Effect classes
+  const effectClass = {
+    none: '',
+    blink: 'animate-blink',
+    pulse: 'animate-pulse',
+    glow: 'animate-glow drop-shadow-lg',
+  }[item.effect || 'none'];
+
+  // Icon animation classes
+  const iconAnimationClass = {
+    none: '',
+    bounce: 'animate-bounce',
+    spin: 'animate-spin',
+    shake: 'animate-shake',
+  }[item.iconAnimation || 'none'];
+
   const content = (
     <span
       className={cn(
         "inline-flex items-center gap-2 mx-6 whitespace-nowrap",
-        item.isImportant && "text-amber-600 dark:text-amber-400 font-medium",
+        fontSizeClass,
+        effectClass,
+        item.isImportant && !item.customColor && "text-amber-600 dark:text-amber-400 font-medium",
         className
       )}
+      style={item.customColor ? { color: item.customColor } : undefined}
     >
       {item.thumbnailUrl ? (
         <img
@@ -28,9 +54,9 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
           className="h-5 w-5 rounded object-cover flex-shrink-0"
         />
       ) : (
-        <IconComponent className="h-4 w-4 flex-shrink-0" />
+        <IconComponent className={cn("h-4 w-4 flex-shrink-0", iconAnimationClass)} />
       )}
-      <span className="text-sm">{item.content}</span>
+      <span>{item.content}</span>
       {item.isImportant && (
         <span className="inline-flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
       )}
