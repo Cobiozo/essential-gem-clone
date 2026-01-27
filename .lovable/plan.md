@@ -1,136 +1,81 @@
 
+# Plan: Dodanie przełącznika kontrolującego przycisk "Zapisz się"
 
-# Plan: Dodanie edytora przycisków akcji do formularza webinaru
+## Zidentyfikowany problem
 
-## Cel
+Przycisk "Zapisz się" zawsze się wyświetla dla webinarów, mimo że rejestracja odbywa się na zewnętrznej platformie. Przyczyna:
 
-Dodać możliwość tworzenia niestandardowych przycisków w wydarzeniach typu webinar, które prowadzą do zewnętrznych formularzy rejestracji lub platform.
-
-## Obecny stan
-
-| Element | Status |
-|---------|--------|
-| Pole `buttons` w bazie danych | Istnieje (JSON array) |
-| Typ `EventButton` (label, url, style) | Zdefiniowany w `src/types/events.ts` |
-| Renderowanie przycisków w `EventCardCompact` | Działa (linie 428-443) |
-| Edytor przycisków w `WebinarForm` | Brak |
-| Link Zoom ukrywany gdy pusty | Działa (linia 445: `if (event.zoom_link && ...`) |
+| Komponent | Warunek wyświetlania przycisku |
+|-----------|--------------------------------|
+| `EventCardCompact.tsx` (linia 461) | `event.requires_registration && isUpcoming && ...` |
+| `WebinarForm.tsx` | **Brak przełącznika** - domyślnie `requires_registration: true` |
+| `TeamTrainingForm.tsx` (linia 612) | **Ma przełącznik** - "Wymagaj rejestracji uczestników" |
 
 ## Rozwiązanie
 
-### Zmiana 1: Nowy komponent `EventButtonsEditor`
+Dodanie przełącznika "Wymagaj rejestracji uczestników" do formularza webinaru, analogicznie jak w formularzu spotkań zespołowych.
 
-Stworzenie uproszczonego edytora przycisków dla wydarzeń:
+### Zmiana w WebinarForm.tsx
 
-```
-src/components/admin/EventButtonsEditor.tsx
-├── Dodawanie przycisków (etykieta + URL)
-├── Wybór stylu (primary/secondary/outline)
-├── Usuwanie przycisków
-└── Podgląd listy przycisków
-```
-
-Interfejs prostszy niż `ActionButtonsEditor` z lekcji - tylko:
-- Label (nazwa przycisku)
-- URL (link zewnętrzny)
-- Style (primary/secondary/outline)
-
-### Zmiana 2: Integracja z WebinarForm.tsx
-
-Dodanie sekcji "Przyciski akcji" w formularzu webinaru:
+Dodanie nowego przełącznika Switch po sekcji "Przyciski akcji":
 
 ```
-Przyciski akcji (Sekcja Collapsible)
-├── [+ Dodaj przycisk]
-├── Przycisk 1: [Etykieta] [URL] [Styl] [🗑]
-├── Przycisk 2: [Etykieta] [URL] [Styl] [🗑]
-└── ...
+Przyciski akcji (Collapsible)
+└─ EventButtonsEditor
+
+[NOWY] ✅ Wymagaj rejestracji uczestników (wewnętrzny system)
+       └─ Wyłącz, gdy rejestracja odbywa się na zewnętrznej platformie
+
+✅ Zezwól na zapraszanie gości
+✅ Opublikuj natychmiast
 ```
 
-Lokalizacja: po sekcji "Link do webinaru (Zoom/Teams)", przed przełącznikiem "Zezwól na zapraszanie gości".
+### Zachowanie
 
-### Przykład użycia
+| `requires_registration` | Efekt |
+|------------------------|-------|
+| ✅ Włączony (domyślnie) | Przycisk "Zapisz się" widoczny → rejestracja w wewnętrznym systemie |
+| ❌ Wyłączony | Przycisk "Zapisz się" ukryty → można używać zewnętrznych przycisków akcji |
 
-Administrator tworzy webinar na zewnętrznej platformie:
-1. Pozostawia pole "Link do webinaru (Zoom/Teams)" puste
-2. Dodaje przycisk:
-   - Etykieta: "Zapisz się na webinar"
-   - URL: "https://external-platform.com/register/webinar-123"
-   - Styl: Primary
-3. Zapisuje wydarzenie
+## Przepływ użytkownika
+
+Administrator tworzy webinar z zewnętrzną rejestracją:
+1. Wypełnia dane webinaru
+2. Dodaje przycisk akcji "Przejdź i zapisz się w EQApp" z linkiem zewnętrznym
+3. **Wyłącza** przełącznik "Wymagaj rejestracji uczestników"
+4. Zapisuje
 
 Użytkownik widzi:
-- Kartę wydarzenia z opisem
-- Przycisk "Zapisz się na webinar" prowadzący do zewnętrznej strony
-- Brak przycisku "Dołącz" (bo zoom_link jest pusty)
+- Przycisk "Przejdź i zapisz się w EQApp" ✅
+- Brak przycisku "Zapisz się" ✅
 
-## Szczegóły techniczne
+## Plik do modyfikacji
 
-### Plik 1: `src/components/admin/EventButtonsEditor.tsx` (nowy)
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/WebinarForm.tsx` | Dodanie przełącznika `requires_registration` po sekcji "Przyciski akcji" |
 
-```
-interface EventButtonsEditorProps {
-  buttons: EventButton[];
-  onChange: (buttons: EventButton[]) => void;
-}
-```
-
-Funkcjonalności:
-- Dodawanie nowego przycisku z domyślnymi wartościami
-- Edycja etykiety i URL inline
-- Wybór stylu z dropdown (Primary/Secondary/Outline)
-- Usuwanie przycisku z potwierdzeniem
-- Limit do 5 przycisków (opcjonalnie)
-
-### Plik 2: `src/components/admin/WebinarForm.tsx` (modyfikacja)
-
-Dodanie importu i sekcji:
+## Kod zmiany
 
 ```tsx
-import { EventButtonsEditor } from './EventButtonsEditor';
+{/* Po sekcji Collapsible z przyciskami akcji */}
 
-// W JSX, po sekcji Zoom Link:
-<Collapsible>
-  <CollapsibleTrigger>
-    <ExternalLink className="h-4 w-4" />
-    <span>Przyciski akcji</span>
-  </CollapsibleTrigger>
-  <CollapsibleContent>
-    <EventButtonsEditor
-      buttons={form.buttons}
-      onChange={(buttons) => setForm({ ...form, buttons })}
-    />
-  </CollapsibleContent>
-</Collapsible>
+{/* Internal registration toggle */}
+<div className="flex items-center gap-3">
+  <Switch
+    checked={form.requires_registration}
+    onCheckedChange={(checked) => setForm({ ...form, requires_registration: checked })}
+  />
+  <Label className="text-muted-foreground">
+    Wymagaj rejestracji uczestników (wewnętrzny system)
+  </Label>
+</div>
+
+{/* Allow invites toggle - już istnieje */}
 ```
-
-## Przepływ danych
-
-```text
-WebinarForm (form.buttons state)
-     ↓
-EventButtonsEditor (edycja)
-     ↓
-handleSave() → buttonsJson = form.buttons.map(...)
-     ↓
-Supabase: events.buttons (JSON)
-     ↓
-EventCardCompact.renderButtons()
-     ↓
-Użytkownik widzi przyciski
-```
-
-## Pliki do modyfikacji
-
-| Plik | Operacja |
-|------|----------|
-| `src/components/admin/EventButtonsEditor.tsx` | Nowy plik |
-| `src/components/admin/WebinarForm.tsx` | Dodanie sekcji Collapsible z edytorem |
 
 ## Oczekiwany rezultat
 
-1. Administrator może dodać dowolne przyciski do webinaru (np. "Zapisz się", "Więcej informacji")
-2. Każdy przycisk prowadzi do zewnętrznego URL
-3. Jeśli zoom_link jest pusty, przycisk "Dołącz" się nie wyświetla (już działa)
-4. Przyciski są widoczne na karcie wydarzenia w sekcji akcji
-
+1. Administrator może wyłączyć wewnętrzny system rejestracji dla webinarów zewnętrznych
+2. Przycisk "Zapisz się" nie będzie wyświetlany gdy `requires_registration = false`
+3. Przyciski akcji (np. link do zewnętrznej platformy) będą nadal widoczne
