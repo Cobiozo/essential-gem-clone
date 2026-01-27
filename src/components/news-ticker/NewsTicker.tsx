@@ -24,7 +24,7 @@ const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ item
   }, [items, speed]);
 
   return (
-    <div className="flex overflow-hidden relative w-full">
+    <div className="flex overflow-hidden relative w-full max-w-full">
       <div
         ref={contentRef}
         className="flex animate-marquee whitespace-nowrap"
@@ -63,14 +63,14 @@ const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ 
   if (items.length === 0) return null;
 
   return (
-    <div className="flex items-center justify-center min-h-[24px]">
+    <div className="flex items-center justify-center min-h-[24px] max-w-full overflow-hidden">
       <div
         className={cn(
-          "transition-opacity duration-200",
+          "transition-opacity duration-200 max-w-full",
           isVisible ? "opacity-100" : "opacity-0"
         )}
       >
-        <TickerItemComponent item={items[currentIndex]} />
+        <TickerItemComponent item={items[currentIndex]} allowWrap />
       </div>
     </div>
   );
@@ -79,9 +79,9 @@ const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ 
 // Static content (show all at once, centered)
 const StaticContent: React.FC<{ items: TickerItem[] }> = ({ items }) => {
   return (
-    <div className="flex items-center justify-center flex-wrap gap-2">
+    <div className="flex items-center justify-center flex-wrap gap-2 max-w-full">
       {items.slice(0, 3).map((item) => (
-        <TickerItemComponent key={item.id} item={item} />
+        <TickerItemComponent key={item.id} item={item} allowWrap />
       ))}
       {items.length > 3 && (
         <span className="text-xs text-muted-foreground ml-2">
@@ -113,6 +113,7 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
     <div
       className={cn(
         "relative overflow-hidden rounded-lg",
+        "min-w-0 max-w-full w-full",
         "bg-gradient-to-r from-muted/60 via-muted/40 to-muted/60",
         "border border-border/40",
         "py-2 px-3",
