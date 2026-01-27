@@ -1,116 +1,171 @@
 
-# Plan: Ukrywanie przycisków Pobierz/Udostępnij w dialogu grafik
 
-## Problem
+# Plan: Nakładka kontynuacji bezpośrednio na wideo
 
-Po wyłączeniu opcji "Udostępnianie" dla wszystkich grafik poprzez przycisk "Wyłącz" w panelu admina, przycisk "Udostępnij" nadal jest widoczny w dialogu podglądu grafiki w Bibliotece.
+## Cel
 
-**Przyczyna:** Komponent `SocialShareDialog` nie przyjmuje ani nie sprawdza flag `allow_share`, `allow_download` i `allow_copy_link` z zasobu - zawsze wyświetla wszystkie przyciski.
+Przenieść komunikat "Kontynuować od X:XX?" z osobnej karty nad wideo na **nakładkę wyświetlaną bezpośrednio na wideo**. Użytkownik zobaczy wideo z zatrzymaną klatką w miejscu gdzie skończył, a na nim przyciski wyboru.
+
+## Obecny stan
+
+Aktualnie w `HealthyKnowledgePlayer.tsx`:
+- Komunikat jest renderowany jako osobna `<Card>` NAD miejscem na wideo
+- Wideo jest UKRYTE gdy komunikat jest widoczny: `{!showResumePrompt && <SecureMedia ...>}`
+- Użytkownik nie widzi wideo dopóki nie podejmie decyzji
+
+## Nowe zachowanie
+
+- Wideo zawsze widoczne i ustawione na zapisanej pozycji
+- Na wideo nakładka z półprzezroczystym tłem
+- Pytanie "Kontynuować od X:XX?" z przyciskami
+- Po kliknięciu nakładka znika i wideo kontynuuje/resetuje
+
+```text
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│        ┌─────────────────────────────┐          │
+│        │                             │          │
+│        │  [Klatka wideo z :22]       │          │
+│        │                             │          │
+│        │   ╔═══════════════════════╗ │          │
+│        │   ║                       ║ │          │
+│        │   ║  Kontynuować od 0:22? ║ │          │
+│        │   ║                       ║ │          │
+│        │   ║ [Od początku] [Kont.] ║ │          │
+│        │   ║                       ║ │          │
+│        │   ╚═══════════════════════╝ │          │
+│        │                             │          │
+│        └─────────────────────────────┘          │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
 
 ---
 
-## Rozwiązanie
+## Sekcja techniczna
 
-### Zmiana 1: Rozszerzenie props w `SocialShareDialog.tsx`
+### Modyfikacja: `src/pages/HealthyKnowledgePlayer.tsx`
 
-Dodanie nowych propsów kontrolujących widoczność przycisków:
+#### 1. Zmiana logiki initialTime
+
+Zamiast ustawiać `initialTime` dopiero po wyborze, ustawiamy go od razu na zapisaną pozycję:
 
 ```typescript
-interface SocialShareDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  imageUrl: string;
-  title: string;
-  resourceId: string;
-  // NEW: Action visibility flags
-  allowDownload?: boolean;
-  allowShare?: boolean;
-  allowCopyLink?: boolean;
+// Na początku (przed pobraniem materiału)
+const [initialTime, setInitialTime] = useState(0);
+const [showResumePrompt, setShowResumePrompt] = useState(false);
+const [savedPosition, setSavedPosition] = useState(0);
+
+// W useEffect po załadowaniu postępu
+if (progress.position > 5) {
+  setSavedPosition(progress.position);
+  setInitialTime(progress.position);  // <-- NOWE: ustaw od razu
+  setShowResumePrompt(true);
 }
 ```
 
-### Zmiana 2: Warunkowe renderowanie przycisków w `SocialShareDialog.tsx`
+#### 2. Usunięcie warunku `{!showResumePrompt && ...}`
+
+Wideo jest teraz ZAWSZE renderowane:
 
 ```typescript
-export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
-  open,
-  onOpenChange,
-  imageUrl,
-  title,
-  resourceId,
-  allowDownload = true,  // domyślnie true dla wstecznej kompatybilności
-  allowShare = true,
-  allowCopyLink = true,
-}) => {
-  // ...
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        {/* ... image preview ... */}
-
-        {/* Action Buttons - pokazuj tylko jeśli jest jakakolwiek akcja */}
-        {(allowDownload || allowShare) && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4">
-            {/* Download Button - warunkowo */}
-            {allowDownload && (
-              <Button onClick={handleDownload} className="flex-1 gap-2">
-                <Download className="h-4 w-4" />
-                {t('dashboard.download')}
-              </Button>
-            )}
-
-            {/* Share Dropdown - warunkowo */}
-            {allowShare && (
-              <DropdownMenu>
-                {/* ... dropdown content ... */}
-                {/* W środku: Copy Link też warunkowy */}
-                {allowCopyLink && (
-                  <DropdownMenuItem onClick={handleCopyLink}>
-                    <Copy className="h-4 w-4" />
-                    {t('share.copyLink')}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenu>
-            )}
+{/* Video Player - ZAWSZE WIDOCZNY */}
+<Card className="overflow-hidden">
+  <CardContent className="p-0 relative">  {/* <-- relative dla pozycjonowania overlay */}
+    <SecureMedia
+      mediaUrl={material.media_url!}
+      mediaType={material.content_type as 'video' | 'audio'}
+      className="w-full aspect-video"
+      onTimeUpdate={handleTimeUpdate}
+      onPlayStateChange={handlePlayStateChange}
+      initialTime={initialTime}
+    />
+    
+    {/* Resume Overlay - nakładka NA WIDEO */}
+    {showResumePrompt && (
+      <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+        <div className="bg-card border border-primary/50 rounded-xl p-6 max-w-sm mx-4 text-center shadow-xl">
+          <RotateCcw className="w-8 h-8 text-primary mx-auto mb-3" />
+          <p className="text-lg font-medium mb-1">
+            Kontynuować od <span className="text-primary font-bold">{formatTime(savedPosition)}</span>?
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Ostatnio oglądałeś to wideo
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" onClick={handleStartOver}>
+              Od początku
+            </Button>
+            <Button onClick={handleResume} className="bg-primary">
+              Kontynuuj
+            </Button>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-};
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
 ```
 
-### Zmiana 3: Przekazanie flag w `KnowledgeCenter.tsx`
+#### 3. Logika handleStartOver z resetem initialTime
 
 ```typescript
-<SocialShareDialog
-  open={!!selectedGraphic}
-  onOpenChange={() => setSelectedGraphic(null)}
-  imageUrl={selectedGraphic?.source_url || ''}
-  title={selectedGraphic?.title || ''}
-  resourceId={selectedGraphic?.id || ''}
-  // NEW: Przekazanie flag z zasobu
-  allowDownload={selectedGraphic?.allow_download ?? true}
-  allowShare={selectedGraphic?.allow_share ?? true}
-  allowCopyLink={selectedGraphic?.allow_copy_link ?? true}
-/>
+const handleStartOver = () => {
+  setInitialTime(0);  // Reset do początku
+  setShowResumePrompt(false);
+  if (id) {
+    localStorage.removeItem(`hk_progress_${id}`);
+  }
+};
+
+const handleResume = () => {
+  // initialTime już ustawione na savedPosition
+  setShowResumePrompt(false);
+};
 ```
 
 ---
 
-## Efekt końcowy
+## Struktura JSX po zmianach
 
-| Stan flagi w bazie | Widoczność w dialogu |
-|-------------------|---------------------|
-| `allow_share = false` | Brak przycisku "Udostępnij" |
-| `allow_download = false` | Brak przycisku "Pobierz" |
-| `allow_copy_link = false` | Brak opcji "Kopiuj link" w dropdown |
-| Wszystkie wyłączone | Dialog pokazuje tylko obrazek bez przycisków akcji |
+```tsx
+<Card className="overflow-hidden">
+  <CardContent className="p-0 relative">
+    {/* Wideo zawsze widoczne */}
+    <SecureMedia ... />
+    
+    {/* Nakładka z pytaniem */}
+    {showResumePrompt && (
+      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+        <div className="bg-card border rounded-xl p-6 text-center">
+          <RotateCcw className="..." />
+          <p>Kontynuować od <strong>{formatTime(savedPosition)}</strong>?</p>
+          <div className="flex gap-3">
+            <Button onClick={handleStartOver}>Od początku</Button>
+            <Button onClick={handleResume}>Kontynuuj</Button>
+          </div>
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
+```
 
-## Pliki do modyfikacji
+---
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/share/SocialShareDialog.tsx` | Dodanie propsów `allowDownload`, `allowShare`, `allowCopyLink` + warunkowe renderowanie |
-| `src/pages/KnowledgeCenter.tsx` | Przekazanie flag z `selectedGraphic` do dialogu |
+## Podsumowanie zmian
+
+| Element | Było | Będzie |
+|---------|------|--------|
+| Wideo | Ukryte gdy prompt widoczny | Zawsze widoczne |
+| Prompt | Osobna karta nad wideo | Nakładka na wideo |
+| initialTime | Ustawiany po wyborze | Ustawiany od razu na savedPosition |
+| UX | Użytkownik nie widzi wideo | Widzi wideo z klatką gdzie skończył |
+
+## Korzyści
+
+- **Lepszy UX** - użytkownik od razu widzi gdzie skończył
+- **Kontekst wizualny** - klatka wideo pokazuje moment przerwania
+- **Nowoczesny wygląd** - nakładka na wideo jak w YouTube, Netflix
+- **Jeden plik do zmiany** - tylko `HealthyKnowledgePlayer.tsx`
+
