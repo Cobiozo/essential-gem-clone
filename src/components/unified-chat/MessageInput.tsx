@@ -1,8 +1,7 @@
-import { useState, useRef, KeyboardEvent } from 'react';
-import { Send, Smile, Paperclip } from 'lucide-react';
+import { useState, KeyboardEvent } from 'react';
+import { Send, Smile, Paperclip, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 interface MessageInputProps {
   onSend: (content: string) => Promise<boolean>;
@@ -12,7 +11,6 @@ interface MessageInputProps {
 export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = async () => {
     const trimmed = message.trim();
@@ -23,86 +21,47 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
       const success = await onSend(trimmed);
       if (success) {
         setMessage('');
-        // Reset textarea height
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-        }
       }
     } finally {
       setSending(false);
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Send on Enter (without Shift)
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
-    
-    // Auto-resize textarea
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-  };
-
   return (
-    <div className="p-3 border-t border-border bg-background">
-      <div className="flex items-end gap-2">
-        {/* Attachment button (placeholder) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          disabled
-        >
-          <Paperclip className="h-4 w-4" />
-        </Button>
+    <div className="p-4 border-t border-border bg-background/80">
+      <div className="flex items-center gap-3 bg-muted/50 rounded-full px-4 py-2">
+        {/* Utility icons */}
+        <Paperclip className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+        <Smile className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+        <Mic className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
 
-        {/* Emoji button (placeholder) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          disabled
-        >
-          <Smile className="h-4 w-4" />
-        </Button>
-
-        {/* Text input */}
-        <Textarea
-          ref={textareaRef}
+        {/* Input */}
+        <Input
           value={message}
-          onChange={handleChange}
+          onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Wpisz wiadomość..."
           disabled={disabled || sending}
-          className={cn(
-            'min-h-[36px] max-h-[120px] resize-none py-2',
-            'flex-1'
-          )}
-          rows={1}
+          className="flex-1 bg-transparent border-0 shadow-none focus-visible:ring-0 h-9 px-2"
         />
 
-        {/* Send button */}
+        {/* Send button - turquoise */}
         <Button
           onClick={handleSend}
           disabled={!message.trim() || sending || disabled}
           size="icon"
-          className="h-9 w-9 shrink-0"
+          className="h-10 w-10 rounded-full bg-cyan-500 hover:bg-cyan-600 shrink-0"
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4 text-white" />
         </Button>
       </div>
-
-      {/* Hint text */}
-      <p className="text-xs text-muted-foreground mt-2 text-center">
-        Enter aby wysłać • Shift+Enter nowa linia
-      </p>
     </div>
   );
 };

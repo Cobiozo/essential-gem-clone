@@ -18,7 +18,7 @@ export const UnifiedChatWidget = () => {
   } = useUnifiedChat({ enableRealtime: true });
 
   return (
-    <div className="flex h-[600px] border border-border rounded-lg overflow-hidden bg-card">
+    <div className="flex h-[600px] bg-background/90 backdrop-blur-sm border border-border/50 rounded-xl overflow-hidden shadow-sm">
       {/* Left sidebar - channel list */}
       <ConversationsSidebar
         channels={channels}
