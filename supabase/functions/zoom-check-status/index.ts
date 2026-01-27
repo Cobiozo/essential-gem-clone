@@ -3,19 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Verify JWT token
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.log('Missing or invalid authorization header');
       return new Response(
         JSON.stringify({ success: false, error: 'unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -23,19 +24,31 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify user
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
-    if (authError || !user) {
+    // Create client with user's auth header for JWT verification
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify user using getClaims instead of getUser
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: authError } = await supabaseAuth.auth.getClaims(token);
+    
+    if (authError || !claimsData?.claims?.sub) {
+      console.log('JWT verification failed:', authError?.message);
       return new Response(
         JSON.stringify({ success: false, error: 'unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    const userId = claimsData.claims.sub;
+    console.log('Authenticated user:', userId);
+    
+    // Create service role client for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if Zoom credentials are configured
     const accountId = Deno.env.get('ZOOM_ACCOUNT_ID');
