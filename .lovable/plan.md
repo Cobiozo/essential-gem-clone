@@ -1,123 +1,95 @@
 
-# Plan: Naprawa szerokości News Ticker + UX dla zewnętrznych webinarów
+# Plan: Definitywna naprawa szerokości News Ticker
 
-## Część 1: Naprawa szerokości paska informacyjnego
+## Zidentyfikowany problem
 
-### Problem
-NewsTicker nadal rozciąga się poza widoczny obszar. Problem wynika z kombinacji czynników:
+Animacja marquee używa `translateX(-50%)` z `whitespace-nowrap`, co powoduje że zawartość animowana rozciąga się na pełną szerokość tekstu (znacznie szerszą niż kontener). Mimo `overflow-hidden`, sam element rozciąga layout rodzica.
 
-1. `WelcomeWidget` ma `col-span-full` ale brak `overflow-hidden`
-2. Kontener `CardContent` nie ogranicza szerokości dzieci
-3. Animacja marquee z `whitespace-nowrap` + duplikacja elementów może rozciągać parent
+### Przyczyna techniczna:
+```
+Card (col-span-full)
+└── CardContent (overflow-hidden) ← działa
+    └── div (w-full max-w-full) ← nie wystarczy
+        └── NewsTicker (overflow-hidden) ← nie wystarczy
+            └── MarqueeContent (flex)
+                └── div (animate-marquee whitespace-nowrap) ← PROBLEM
+                    └── Zduplikowany tekst rozciąga parent
+```
 
-### Rozwiązanie
+## Rozwiązanie: Absolutne pozycjonowanie animacji
 
-**Plik: `src/components/dashboard/widgets/WelcomeWidget.tsx`**
+Zmiana podejścia - kontener będzie miał ustaloną wysokość, a animowana zawartość będzie pozycjonowana absolutnie wewnątrz niego.
 
-Dodanie `overflow-hidden` do kontenera CardContent i dodatkowych ograniczeń dla NewsTicker:
+### Zmiana w `src/components/news-ticker/NewsTicker.tsx`
+
+MarqueeContent:
 
 ```tsx
-// Linia 106: CardContent
-<CardContent className="p-6 overflow-hidden">
-
-// Linia 139: NewsTicker kontener
-<div className="mt-4 overflow-hidden w-full max-w-full">
-  <NewsTicker />
-</div>
+const MarqueeContent = ({ items, speed }) => {
+  return (
+    // Kontener z ustaloną wysokością i relative
+    <div className="relative w-full h-6 overflow-hidden">
+      {/* Animowany element absolutnie pozycjonowany */}
+      <div
+        className="absolute left-0 top-0 flex animate-marquee whitespace-nowrap"
+        style={{ animationDuration: `${duration}s` }}
+      >
+        {[...items, ...items].map(...)}
+      </div>
+    </div>
+  );
+};
 ```
 
-**Plik: `src/components/news-ticker/NewsTicker.tsx`**
+Kluczowe zmiany:
+1. Zewnętrzny div: `relative w-full h-6 overflow-hidden` - ustala granice
+2. Wewnętrzny div: `absolute left-0 top-0` - nie rozciąga rodzica
+3. Animacja `translateX(-50%)` działa w nieskończoność bez wpływu na layout
 
-Dodanie `overflow-x-hidden` jako dodatkowe zabezpieczenie:
+### Zmiana animacji w `tailwind.config.ts`
 
-```tsx
-// Linia 114-116: główny kontener
-className={cn(
-  "relative overflow-hidden overflow-x-hidden",
-  "min-w-0 max-w-full w-full",
-  ...
-)}
-```
+Upewnienie się, że animacja działa poprawnie z absolutnym pozycjonowaniem - bez zmian w keyframes, tylko dodanie `will-change: transform` dla płynności.
 
----
-
-## Część 2: UX dla zewnętrznych webinarów
-
-### Obecny problem
-Partner widzi przycisk "Zapisz się" ale nie jest jasne:
-- Że rejestracja w PureLife służy tylko do otrzymania przypomnienia/wpisu w kalendarzu
-- Że musi RÓWNIEŻ zapisać się na zewnętrznej platformie aby uzyskać dostęp
-
-### Proponowane rozwiązanie: Tryb "Zewnętrzna platforma"
-
-Dodanie wyraźnego oznaczenia i dwuetapowego procesu dla webinarów zewnętrznych:
-
-#### A) Nowe pole w formularzu webinaru
-
-**Plik: `src/components/admin/WebinarForm.tsx`**
-
-Nowy przełącznik i pole tekstowe:
-```
-✅ Zewnętrzna platforma (webinar odbywa się poza PureLife)
-
-Gdy włączony:
-└─ Pokaże się pole: "Komunikat dla uczestników"
-   Domyślny tekst: "Ten webinar odbywa się na zewnętrznej platformie. 
-   Zapisz się tutaj, aby otrzymać przypomnienie, a następnie 
-   użyj przycisku poniżej, aby zarejestrować się na platformie docelowej."
-```
-
-#### B) Wyświetlanie komunikatu na karcie wydarzenia
-
-**Plik: `src/components/events/EventCardCompact.tsx`**
-
-Gdy `is_external_platform = true`:
-1. Wyświetl żółty banner/alert z komunikatem
-2. Przycisk "Zapisz się" zmieni tekst na "📅 Dodaj do kalendarza"
-3. Przyciski akcji (zewnętrzne linki) będą wyraźnie wyróżnione
-
-```
-┌────────────────────────────────────────────┐
-│ 🌐 WEBINAR NA ZEWNĘTRZNEJ PLATFORMIE       │
-│ ─────────────────────────────────────────  │
-│ Zapisz się tutaj, aby otrzymać            │
-│ przypomnienie w kalendarzu.               │
-│ Dostęp do webinaru uzyskasz po kliknięciu │
-│ przycisku poniżej.                        │
-├────────────────────────────────────────────┤
-│ [📅 Dodaj do kalendarza]                   │
-│ [▶️ Przejdź do rejestracji] ← Primary      │
-└────────────────────────────────────────────┘
-```
-
-#### C) Zmiany w EventDetailsDialog
-
-**Plik: `src/components/events/EventDetailsDialog.tsx`**
-
-Podobna logika - wyświetlenie jasnego komunikatu o zewnętrznej platformie.
-
-### Schemat bazy danych
-
-Nowe pole w tabeli `events`:
-- `is_external_platform` (boolean, default: false)
-- `external_platform_message` (text, nullable) - opcjonalny niestandardowy komunikat
-
-### Podsumowanie zmian
+## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Dodanie `overflow-hidden` |
-| `src/components/news-ticker/NewsTicker.tsx` | Dodanie `overflow-x-hidden` |
-| `src/components/admin/WebinarForm.tsx` | Nowy przełącznik "Zewnętrzna platforma" + pole komunikatu |
-| `src/components/events/EventCardCompact.tsx` | Banner informacyjny + zmiana tekstu przycisku |
-| `src/components/events/EventDetailsDialog.tsx` | Banner informacyjny dla zewnętrznych webinarów |
-| Baza danych (migracja) | Nowe pola `is_external_platform` i `external_platform_message` |
+| `src/components/news-ticker/NewsTicker.tsx` | Przepisanie MarqueeContent z absolutnym pozycjonowaniem |
 
-### Oczekiwany rezultat
+## Kod rozwiązania
 
-1. **News Ticker** - pasek nie będzie rozciągał się poza widoczny obszar
-2. **Zewnętrzne webinary** - Partner widzi:
-   - Wyraźny komunikat że webinar jest na zewnętrznej platformie
-   - Przycisk "Dodaj do kalendarza" (zapis w PureLife)
-   - Wyróżniony przycisk przekierowujący do zewnętrznej rejestracji
-   - Jasna informacja o dwóch krokach procesu
+```tsx
+// MarqueeContent - nowa wersja
+const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ items, speed }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [animationDuration, setAnimationDuration] = useState(30);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      const contentWidth = contentRef.current.scrollWidth / 2;
+      const duration = contentWidth / speed;
+      setAnimationDuration(Math.max(10, duration));
+    }
+  }, [items, speed]);
+
+  return (
+    <div className="relative w-full h-6 overflow-hidden">
+      <div
+        ref={contentRef}
+        className="absolute left-0 top-0 flex animate-marquee whitespace-nowrap will-change-transform"
+        style={{ animationDuration: `${animationDuration}s` }}
+      >
+        {[...items, ...items].map((item, i) => (
+          <TickerItemComponent key={`${item.id}-${i}`} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+## Oczekiwany rezultat
+
+1. News Ticker będzie ograniczony do szerokości WelcomeWidget
+2. Animacja marquee będzie płynnie przewijać tekst bez rozciągania layoutu
+3. Tekst nie będzie wystawał poza widoczny obszar karty
