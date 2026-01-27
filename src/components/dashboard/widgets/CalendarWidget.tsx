@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays, Info } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { EventWithRegistration } from '@/types/events';
+import type { EventWithRegistration, EventButton } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
@@ -142,25 +142,19 @@ Zapisz się tutaj: ${inviteUrl}
     const eventStart = new Date(event.start_time);
     const eventEnd = new Date(event.end_time);
     const fifteenMinutesBefore = subMinutes(eventStart, 15);
+    const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
+    const isExternalPlatform = (event as any).is_external_platform === true;
     
-    // Event already ended
+    // Wydarzenie zakończone
     if (isAfter(now, eventEnd)) {
-      return (
-        <Badge variant="secondary" className="text-xs">
-          Zakończone
-        </Badge>
-      );
+      return <Badge variant="secondary" className="text-xs">Zakończone</Badge>;
     }
     
-    // User is registered and it's 15 min before or during event
+    // Można dołączyć (15 min przed lub trwa)
     if (event.is_registered && isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
       if (event.zoom_link) {
         return (
-          <Button
-            size="sm"
-            className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700"
-            asChild
-          >
+          <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
             <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3 w-3 mr-1" />
               WEJDŹ
@@ -168,24 +162,54 @@ Zapisz się tutaj: ${inviteUrl}
           </Button>
         );
       }
-      return (
-        <Badge className="text-xs bg-emerald-600">
-          Trwa teraz
-        </Badge>
-      );
+      return <Badge className="text-xs bg-emerald-600">Trwa teraz</Badge>;
     }
     
-    // User is registered but it's not time yet
+    // Zarejestrowany
     if (event.is_registered) {
+      if (isExternalPlatform) {
+        // Zewnętrzna platforma - "Usuń z kalendarza"
+        return (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-6 text-xs"
+            onClick={() => cancelRegistration(event.id, occurrenceIndex)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Usuń z kalendarza
+          </Button>
+        );
+      }
+      // Normalne wydarzenie - "Wypisz się"
       return (
-        <Badge variant="secondary" className="text-xs">
-          Jesteś zapisany
-        </Badge>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-6 text-xs"
+          onClick={() => cancelRegistration(event.id, occurrenceIndex)}
+        >
+          <X className="h-3 w-3 mr-1" />
+          Wypisz się
+        </Button>
       );
     }
     
-    // User not registered
-    const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
+    // Niezarejestrowany
+    if (isExternalPlatform) {
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 text-xs"
+          onClick={() => registerForEvent(event.id, occurrenceIndex)}
+        >
+          <Calendar className="h-3 w-3 mr-1" />
+          Dodaj do kalendarza
+        </Button>
+      );
+    }
+    
     return (
       <Button
         size="sm"
@@ -359,7 +383,7 @@ Zapisz się tutaj: ${inviteUrl}
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap justify-end">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -387,6 +411,26 @@ Zapisz się tutaj: ${inviteUrl}
                             <UserPlus className="h-3 w-3" />
                           </Button>
                         )}
+                        {/* Custom action buttons - zawsze widoczne */}
+                        {event.buttons && event.buttons.length > 0 && event.buttons.map((btn: EventButton, index: number) => {
+                          const variant = btn.style === 'primary' ? 'default' : 
+                                          btn.style === 'secondary' ? 'secondary' : 'outline';
+                          return (
+                            <Button
+                              key={`btn-${index}`}
+                              variant={variant}
+                              size="sm"
+                              className="h-6 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(btn.url, '_blank');
+                              }}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              {btn.label}
+                            </Button>
+                          );
+                        })}
                         {getRegistrationButton(event)}
                       </div>
                     </div>
