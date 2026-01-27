@@ -24,13 +24,10 @@ const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ item
   }, [items, speed]);
 
   return (
-    <div 
-      className="flex overflow-hidden"
-      style={{ maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)' }}
-    >
+    <div className="flex overflow-hidden relative w-full">
       <div
         ref={contentRef}
-        className="flex animate-marquee"
+        className="flex animate-marquee whitespace-nowrap"
         style={{
           animationDuration: `${animationDuration}s`,
         }}

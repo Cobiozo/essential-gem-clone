@@ -3276,8 +3276,12 @@ export type Database = {
           content: string
           created_at: string | null
           created_by: string | null
+          custom_color: string | null
+          effect: string | null
           end_date: string | null
+          font_size: string | null
           icon: string | null
+          icon_animation: string | null
           id: string
           is_active: boolean | null
           is_important: boolean | null
@@ -3285,6 +3289,7 @@ export type Database = {
           priority: number | null
           short_description: string | null
           start_date: string | null
+          target_user_id: string | null
           thumbnail_url: string | null
           updated_at: string | null
           visible_to_clients: boolean | null
@@ -3295,8 +3300,12 @@ export type Database = {
           content: string
           created_at?: string | null
           created_by?: string | null
+          custom_color?: string | null
+          effect?: string | null
           end_date?: string | null
+          font_size?: string | null
           icon?: string | null
+          icon_animation?: string | null
           id?: string
           is_active?: boolean | null
           is_important?: boolean | null
@@ -3304,6 +3313,7 @@ export type Database = {
           priority?: number | null
           short_description?: string | null
           start_date?: string | null
+          target_user_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
           visible_to_clients?: boolean | null
@@ -3314,8 +3324,12 @@ export type Database = {
           content?: string
           created_at?: string | null
           created_by?: string | null
+          custom_color?: string | null
+          effect?: string | null
           end_date?: string | null
+          font_size?: string | null
           icon?: string | null
+          icon_animation?: string | null
           id?: string
           is_active?: boolean | null
           is_important?: boolean | null
@@ -3323,6 +3337,7 @@ export type Database = {
           priority?: number | null
           short_description?: string | null
           start_date?: string | null
+          target_user_id?: string | null
           thumbnail_url?: string | null
           updated_at?: string | null
           visible_to_clients?: boolean | null
@@ -3330,6 +3345,38 @@ export type Database = {
           visible_to_specjalista?: boolean | null
         }
         Relationships: []
+      }
+      news_ticker_selected_events: {
+        Row: {
+          created_at: string | null
+          custom_label: string | null
+          event_id: string | null
+          id: string
+          is_enabled: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          custom_label?: string | null
+          event_id?: string | null
+          id?: string
+          is_enabled?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          custom_label?: string | null
+          event_id?: string | null
+          id?: string
+          is_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_ticker_selected_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       news_ticker_settings: {
         Row: {

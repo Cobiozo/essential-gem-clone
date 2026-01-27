@@ -148,6 +148,20 @@ export default {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        // News ticker enhanced effects
+        blink: {
+          "0%, 50%, 100%": { opacity: "1" },
+          "25%, 75%": { opacity: "0.3" },
+        },
+        glow: {
+          "0%, 100%": { filter: "drop-shadow(0 0 2px currentColor)" },
+          "50%": { filter: "drop-shadow(0 0 8px currentColor)" },
+        },
+        shake: {
+          "0%, 100%": { transform: "translateX(0)" },
+          "25%": { transform: "translateX(-2px)" },
+          "75%": { transform: "translateX(2px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
@@ -166,6 +180,9 @@ export default {
         "logo-pulse": "logo-pulse 2s ease-in-out infinite",
         // News ticker
         marquee: "marquee 30s linear infinite",
+        blink: "blink 1s ease-in-out 3",
+        glow: "glow 2s ease-in-out infinite",
+        shake: "shake 0.5s ease-in-out infinite",
       },
     },
   },

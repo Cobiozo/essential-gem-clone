@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { TickerItem, TickerSettings } from './types';
-import { format, isAfter, isBefore, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { isAfter, isBefore } from 'date-fns';
 
 interface NewsTickerData {
   items: TickerItem[];
@@ -12,7 +13,7 @@ interface NewsTickerData {
 }
 
 export const useNewsTickerData = (): NewsTickerData => {
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, user } = useAuth();
   const [settings, setSettings] = useState<TickerSettings | null>(null);
   const [items, setItems] = useState<TickerItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +84,6 @@ export const useNewsTickerData = (): NewsTickerData => {
       setLoading(true);
       const allItems: TickerItem[] = [];
       const now = new Date();
-      const weekFromNow = addDays(now, 7);
 
       // Fetch announcements from news_ticker_items
       if (settings.sourceAnnouncements) {
@@ -98,6 +98,12 @@ export const useNewsTickerData = (): NewsTickerData => {
             // Check date range
             if (item.start_date && isBefore(now, new Date(item.start_date))) return false;
             if (item.end_date && isAfter(now, new Date(item.end_date))) return false;
+            
+            // Check if targeted to specific user
+            if (item.target_user_id) {
+              // Only show to that specific user
+              return item.target_user_id === user?.id;
+            }
             
             // Check role visibility
             if (isAdmin) return true;
@@ -118,86 +124,123 @@ export const useNewsTickerData = (): NewsTickerData => {
               thumbnailUrl: item.thumbnail_url || undefined,
               sourceId: item.id,
               priority: item.priority,
+              // Enhanced styling
+              fontSize: (item.font_size as 'normal' | 'large' | 'xlarge') || 'normal',
+              customColor: item.custom_color || undefined,
+              effect: (item.effect as 'none' | 'blink' | 'pulse' | 'glow') || 'none',
+              iconAnimation: (item.icon_animation as 'none' | 'bounce' | 'spin' | 'shake') || 'none',
+              targetUserId: item.target_user_id || undefined,
             });
           });
         }
       }
 
-      // Fetch webinars from events
+      // Fetch SELECTED webinars from news_ticker_selected_events (instead of all)
       if (settings.sourceWebinars) {
-        const { data: webinars } = await supabase
-          .from('events')
-          .select('*')
-          .eq('is_active', true)
-          .eq('event_type', 'webinar')
-          .gte('start_time', now.toISOString())
-          .lte('start_time', weekFromNow.toISOString())
-          .order('start_time', { ascending: true })
-          .limit(5);
+        const { data: selectedWebinars } = await supabase
+          .from('news_ticker_selected_events')
+          .select(`
+            id,
+            is_enabled,
+            custom_label,
+            event_id
+          `)
+          .eq('is_enabled', true);
 
-        if (webinars) {
-          const filteredWebinars = webinars.filter(event => {
-            if (isAdmin) return true;
-            if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
-            if (userRole === 'partner') return event.visible_to_partners;
-            if (userRole === 'specjalista') return event.visible_to_specjalista;
-            return false;
-          });
+        if (selectedWebinars && selectedWebinars.length > 0) {
+          // Fetch the actual events
+          const eventIds = selectedWebinars.map(s => s.event_id);
+          const { data: events } = await supabase
+            .from('events')
+            .select('*')
+            .in('id', eventIds)
+            .eq('is_active', true)
+            .eq('event_type', 'webinar')
+            .gte('start_time', now.toISOString())
+            .order('start_time', { ascending: true });
 
-          filteredWebinars.forEach(event => {
-            const eventDate = new Date(event.start_time);
-            const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
-            allItems.push({
-              id: `webinar-${event.id}`,
-              type: 'webinar',
-              icon: 'Video',
-              content: `WEBINAR: ${event.title} - ${formattedDate}`,
-              isImportant: false,
-              linkUrl: event.zoom_link || undefined,
-              thumbnailUrl: event.image_url || undefined,
-              sourceId: event.id,
-              priority: 50,
+          if (events) {
+            const filteredEvents = events.filter(event => {
+              if (isAdmin) return true;
+              if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
+              if (userRole === 'partner') return event.visible_to_partners;
+              if (userRole === 'specjalista') return event.visible_to_specjalista;
+              return false;
             });
-          });
+
+            filteredEvents.forEach(event => {
+              const selectedItem = selectedWebinars.find(s => s.event_id === event.id);
+              const eventDate = new Date(event.start_time);
+              const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
+              const label = selectedItem?.custom_label || event.title;
+              
+              allItems.push({
+                id: `webinar-${event.id}`,
+                type: 'webinar',
+                icon: 'Video',
+                content: `WEBINAR: ${label} - ${formattedDate}`,
+                isImportant: false,
+                linkUrl: event.zoom_link || undefined,
+                thumbnailUrl: event.image_url || undefined,
+                sourceId: event.id,
+                priority: 50,
+              });
+            });
+          }
         }
       }
 
-      // Fetch team meetings from events
+      // Fetch SELECTED team meetings from news_ticker_selected_events
       if (settings.sourceTeamMeetings) {
-        const { data: meetings } = await supabase
-          .from('events')
-          .select('*')
-          .eq('is_active', true)
-          .eq('event_type', 'team_training')
-          .gte('start_time', now.toISOString())
-          .lte('start_time', weekFromNow.toISOString())
-          .order('start_time', { ascending: true })
-          .limit(5);
+        const { data: selectedMeetings } = await supabase
+          .from('news_ticker_selected_events')
+          .select(`
+            id,
+            is_enabled,
+            custom_label,
+            event_id
+          `)
+          .eq('is_enabled', true);
 
-        if (meetings) {
-          const filteredMeetings = meetings.filter(event => {
-            if (isAdmin) return true;
-            if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
-            if (userRole === 'partner') return event.visible_to_partners;
-            if (userRole === 'specjalista') return event.visible_to_specjalista;
-            return false;
-          });
+        if (selectedMeetings && selectedMeetings.length > 0) {
+          const eventIds = selectedMeetings.map(s => s.event_id);
+          const { data: events } = await supabase
+            .from('events')
+            .select('*')
+            .in('id', eventIds)
+            .eq('is_active', true)
+            .eq('event_type', 'team_training')
+            .gte('start_time', now.toISOString())
+            .order('start_time', { ascending: true });
 
-          filteredMeetings.forEach(event => {
-            const eventDate = new Date(event.start_time);
-            const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
-            allItems.push({
-              id: `meeting-${event.id}`,
-              type: 'meeting',
-              icon: 'Users',
-              content: `SPOTKANIE: ${event.title} - ${formattedDate}`,
-              isImportant: false,
-              linkUrl: event.zoom_link || undefined,
-              thumbnailUrl: event.image_url || undefined,
-              sourceId: event.id,
-              priority: 40,
+          if (events) {
+            const filteredEvents = events.filter(event => {
+              if (isAdmin) return true;
+              if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
+              if (userRole === 'partner') return event.visible_to_partners;
+              if (userRole === 'specjalista') return event.visible_to_specjalista;
+              return false;
             });
-          });
+
+            filteredEvents.forEach(event => {
+              const selectedItem = selectedMeetings.find(s => s.event_id === event.id);
+              const eventDate = new Date(event.start_time);
+              const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
+              const label = selectedItem?.custom_label || event.title;
+              
+              allItems.push({
+                id: `meeting-${event.id}`,
+                type: 'meeting',
+                icon: 'Users',
+                content: `SPOTKANIE: ${label} - ${formattedDate}`,
+                isImportant: false,
+                linkUrl: event.zoom_link || undefined,
+                thumbnailUrl: event.image_url || undefined,
+                sourceId: event.id,
+                priority: 40,
+              });
+            });
+          }
         }
       }
 
@@ -209,7 +252,7 @@ export const useNewsTickerData = (): NewsTickerData => {
     };
 
     fetchItems();
-  }, [settings, isVisibleForRole, userRole, isAdmin]);
+  }, [settings, isVisibleForRole, userRole, isAdmin, user?.id]);
 
   return {
     items,
