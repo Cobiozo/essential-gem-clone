@@ -1,201 +1,108 @@
 
 
-# Plan: Dokończenie rozszerzonej funkcjonalności News Ticker
+# Plan naprawy News Ticker
 
-## Podsumowanie stanu
+## Zdiagnozowane problemy
 
-Podstawowa wersja News Ticker została zaimplementowana, ale **rozszerzenia z planu nie zostały zrealizowane**. Poniżej znajduje się plan dokończenia wszystkich brakujących elementów.
+### 1. Krytyczny problem: Nie można wybrać wydarzeń do paska informacyjnego
 
----
-
-## Brakujące elementy do implementacji
-
-### 1. Migracja bazy danych
-
-Dodanie nowych struktur:
+**Przyczyna:** Polityka RLS dla tabeli `news_ticker_selected_events` jest niepoprawna:
 
 ```sql
--- Nowa tabela: wybór konkretnych wydarzeń przez admina
-CREATE TABLE public.news_ticker_selected_events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id uuid REFERENCES public.events(id) ON DELETE CASCADE,
-  is_enabled boolean DEFAULT true,
-  custom_label text,
-  created_at timestamp with time zone DEFAULT now()
-);
+-- Obecna (niepoprawna):
+WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
 
--- Rozszerzenie news_ticker_items o nowe kolumny
-ALTER TABLE public.news_ticker_items 
-  ADD COLUMN target_user_id uuid REFERENCES auth.users(id),
-  ADD COLUMN font_size text DEFAULT 'normal' CHECK (font_size IN ('normal', 'large', 'xlarge')),
-  ADD COLUMN custom_color text,
-  ADD COLUMN effect text DEFAULT 'none' CHECK (effect IN ('none', 'blink', 'pulse', 'glow')),
-  ADD COLUMN icon_animation text DEFAULT 'none' CHECK (icon_animation IN ('none', 'bounce', 'spin', 'shake'));
+-- Problem:
+-- 1. profiles.id to UUID profilu, NIE użytkownika
+-- 2. profiles.user_id to pole z ID użytkownika z auth.users
+-- 3. Sprawdzanie role w profiles jest niezgodne z architekturą (role są w user_roles)
 ```
 
-### 2. Nowe animacje CSS w tailwind.config.ts
+**Rozwiązanie:** Użycie funkcji `is_admin()` która już istnieje i poprawnie sprawdza role przez tabelę `user_roles`.
 
-```typescript
-keyframes: {
-  blink: {
-    '0%, 50%, 100%': { opacity: '1' },
-    '25%, 75%': { opacity: '0.3' },
-  },
-  glow: {
-    '0%, 100%': { filter: 'drop-shadow(0 0 2px currentColor)' },
-    '50%': { filter: 'drop-shadow(0 0 8px currentColor)' },
-  },
-  shake: {
-    '0%, 100%': { transform: 'translateX(0)' },
-    '25%': { transform: 'translateX(-2px)' },
-    '75%': { transform: 'translateX(2px)' },
-  },
-},
-animation: {
-  blink: 'blink 1s ease-in-out 3',
-  glow: 'glow 2s ease-in-out infinite',
-  shake: 'shake 0.5s ease-in-out infinite',
-}
-```
+### 2. Funkcjonalności już zaimplementowane w kodzie
 
-### 3. Aktualizacja typów - types.ts
+Analiza kodu wykazała, że następujące funkcjonalności **są już gotowe** w komponencie `NewsTickerManagement.tsx`:
 
-```typescript
-export interface TickerItem {
-  id: string;
-  type: 'webinar' | 'meeting' | 'announcement' | 'banner';
-  icon: string;
-  content: string;
-  isImportant: boolean;
-  linkUrl?: string;
-  thumbnailUrl?: string;
-  sourceId: string;
-  priority: number;
-  // Nowe pola
-  fontSize?: 'normal' | 'large' | 'xlarge';
-  customColor?: string;
-  effect?: 'none' | 'blink' | 'pulse' | 'glow';
-  iconAnimation?: 'none' | 'bounce' | 'spin' | 'shake';
-  targetUserId?: string;
-}
-```
+| Funkcjonalność | Status | Lokalizacja |
+|----------------|--------|-------------|
+| Wybór wydarzeń (zakładka Wydarzenia) | Gotowe (linie 608-714) | UI jest, ale RLS blokuje zapis |
+| Komunikat dla konkretnego użytkownika | Gotowe (linie 780-891) | Radio button + wyszukiwarka użytkowników |
+| Zaawansowane stylowanie ważnych | Gotowe (linie 904-963) | Rozmiar, kolor, efekt, animacja ikony |
+| Edycja stylowania istniejących | Gotowe (linie 1119-1165) | W dialogu edycji |
 
-### 4. Aktualizacja TickerItem.tsx
-
-Obsługa nowych stylów i animacji:
-
-- Dynamiczne klasy dla `fontSize` (text-sm, text-base, text-lg)
-- Dynamiczne klasy dla `effect` (animate-blink, animate-pulse, animate-glow)
-- Dynamiczne klasy dla `iconAnimation` (animate-bounce, animate-spin, animate-shake)
-- Obsługa `customColor` przez inline style
-
-### 5. Aktualizacja useNewsTickerData.ts
-
-Zmiany w logice pobierania danych:
-
-- Zamiast automatycznego pobierania wszystkich webinarów/spotkań z 7 dni → pobieranie tylko z tabeli `news_ticker_selected_events`
-- Filtrowanie komunikatów po `target_user_id` (jeśli ustawione, pokaż tylko danemu użytkownikowi)
-- Mapowanie nowych pól stylowania do interfejsu TickerItem
-
-### 6. Rozbudowa NewsTickerManagement.tsx
-
-Nowa struktura zakładek:
-
-```
-Ustawienia | Komunikaty | Wydarzenia | Podgląd
-```
-
-#### Zakładka "Wydarzenia":
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  ▼ WEBINARY                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ ☑ Prezentacja Zdrowotno-Naukowa (28.01 18:00)              ││
-│  │ ☑ Prezentacja Afiliacyjna (28.01 19:00)                    ││
-│  │ ☐ Prezentacja biznesowa (21.01 19:00) - minęło             ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  ▼ SPOTKANIA ZESPOŁOWE                                          │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ ☑ Start nowego partnera (29.01 18:00)                      ││
-│  │ ☐ TEAM ZOOM (19.01 19:00) - minęło                         ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  [ Zapisz wybór ]                                               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Rozszerzony dialog dodawania/edycji komunikatu:
-
-- Radio button: "Dla wybranych ról" / "Dla konkretnego użytkownika"
-- Pole wyszukiwania użytkowników z autocomplete (imię, nazwisko, email)
-- Sekcja "Zaawansowane stylowanie" (widoczna gdy is_important=true):
-  - Select: Rozmiar czcionki (Normal, Large, XLarge)
-  - Color picker: Kolor tekstu
-  - Select: Efekt (Brak, Mruganie, Pulsowanie, Glow)
-  - Select: Animacja ikony (Brak, Bounce, Spin, Shake)
-
-### 7. Poprawka layoutu NewsTicker.tsx
-
-Weryfikacja i naprawa CSS, który może "ucinać stronę":
-
-- Sprawdzenie `overflow: hidden` na kontenerze
-- Weryfikacja `maskImage` w MarqueeContent
-- Upewnienie się, że ticker nie wpływa na layout rodzica
+**Kolumny w bazie danych** (`news_ticker_items`):
+- `target_user_id` - dla komunikatów do konkretnego użytkownika
+- `font_size` - normal/large/xlarge
+- `custom_color` - kolor tekstu
+- `effect` - none/blink/pulse/glow
+- `icon_animation` - none/bounce/spin/shake
 
 ---
 
-## Pliki do modyfikacji
+## Plan naprawy
 
-| Plik | Zmiana |
-|------|--------|
-| **Migracja SQL** | Nowa tabela + ALTER TABLE |
-| `src/integrations/supabase/types.ts` | Aktualizacja typów (automatycznie po migracji) |
-| `src/components/news-ticker/types.ts` | Dodanie nowych pól do TickerItem |
-| `src/components/news-ticker/TickerItem.tsx` | Obsługa stylowania i animacji |
-| `src/components/news-ticker/useNewsTickerData.ts` | Nowa logika pobierania wydarzeń + filtrowanie |
-| `src/components/news-ticker/NewsTicker.tsx` | Poprawka CSS layoutu |
-| `src/components/admin/NewsTickerManagement.tsx` | Zakładka Wydarzenia + formularz z stylowaniem |
-| `tailwind.config.ts` | Nowe animacje (blink, glow, shake) |
+### Krok 1: Migracja SQL
 
----
+Usunięcie niepoprawnej polityki RLS i dodanie poprawnej używającej `is_admin()`:
 
-## Kolejność implementacji
+```sql
+-- Usuń starą politykę
+DROP POLICY IF EXISTS "Admins can manage selected events" 
+  ON public.news_ticker_selected_events;
 
-1. **Migracja bazy danych** - dodanie tabeli i kolumn
-2. **tailwind.config.ts** - nowe animacje CSS
-3. **types.ts** - rozszerzenie interfejsów
-4. **TickerItem.tsx** - obsługa nowych styli
-5. **useNewsTickerData.ts** - nowa logika pobierania
-6. **NewsTickerManagement.tsx** - zakładka Wydarzenia + formularz
-7. **NewsTicker.tsx** - poprawka layoutu
-
----
-
-## Przepływ dla admina (po implementacji)
-
+-- Dodaj nową, poprawną politykę
+CREATE POLICY "Admins can manage selected events"
+ON public.news_ticker_selected_events
+FOR ALL
+USING (is_admin());
 ```
-1. Admin → Pasek informacyjny → Ustawienia
-   - Włącza źródło "Webinary" i "Spotkania"
-   
-2. Admin → Zakładka "Wydarzenia"
-   - Widzi listę wszystkich webinarów i spotkań
-   - Zaznacza checkboxy przy tych, które mają się wyświetlać
-   - Klika "Zapisz wybór"
-   
-3. Admin → Zakładka "Komunikaty" → "Dodaj komunikat"
-   - Wpisuje treść
-   - Wybiera "Dla konkretnego użytkownika"
-   - Wyszukuje i wybiera użytkownika
-   - Zaznacza "Oznacz jako ważny"
-   - W sekcji stylowania ustawia:
-     - Rozmiar: Large
-     - Kolor: #FF0000
-     - Efekt: Mruganie
-     - Animacja ikony: Bounce
-   - Zapisuje
-   
-4. Użytkownik widzi spersonalizowany, animowany komunikat
+
+### Krok 2: Weryfikacja
+
+Po migracji:
+- Zakładka "Wydarzenia" będzie działać - admin może zaznaczać/odznaczać webinary i spotkania
+- Wybrane wydarzenia pojawią się w tickerze gdy źródło jest włączone w Ustawieniach
+
+---
+
+## Podsumowanie zmian
+
+### Plik do modyfikacji:
+- **Nowa migracja SQL** - naprawa polityki RLS dla `news_ticker_selected_events`
+
+### Nic więcej nie jest potrzebne
+
+Pozostałe funkcjonalności (komunikaty dla użytkowników, stylowanie ważnych komunikatów) są już w pełni zaimplementowane:
+
+1. **Komunikat dla konkretnego użytkownika:**
+   - W dialogu "Dodaj komunikat" wybierz "Dla konkretnego użytkownika"
+   - Wyszukaj użytkownika po imieniu, nazwisku lub emailu
+   - Komunikat będzie widoczny tylko dla tego użytkownika
+
+2. **Zaawansowane stylowanie ważnych komunikatów:**
+   - Zaznacz "Oznacz jako ważny"
+   - Pojawi się sekcja "Zaawansowane stylowanie"
+   - Ustaw: rozmiar czcionki, kolor, efekt (mruganie/pulsowanie/poświata), animację ikony
+
+---
+
+## Przepływ po naprawie
+
+```text
+Admin → Pasek informacyjny → Zakładka "Wydarzenia"
+│
+├─ Widzi listę webinarów i spotkań z checkboxami
+├─ Zaznacza wydarzenia do wyświetlenia
+├─ Zmiany zapisują się automatycznie (bez błędu RLS)
+│
+Admin → Zakładka "Ustawienia"
+│
+├─ Włącza źródło "Webinary" lub "Spotkania zespołowe"
+├─ Zapisuje ustawienia
+│
+Użytkownik → Dashboard
+│
+└─ Widzi pasek z wybranymi wydarzeniami
 ```
 
