@@ -50,6 +50,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
             // Check if not older than 7 days and position > 5 seconds
             if (Date.now() - progress.updatedAt < 7 * 24 * 60 * 60 * 1000 && progress.position > 5) {
               setSavedPosition(progress.position);
+              setInitialTime(progress.position); // Set initial time immediately for video preview
               setShowResumePrompt(true);
             }
           } catch (e) {
@@ -136,15 +137,14 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     setIsPlaying(playing);
   }, []);
 
-  // Resume from saved position
+  // Resume from saved position (initialTime already set)
   const handleResume = () => {
-    setInitialTime(savedPosition);
     setShowResumePrompt(false);
   };
 
   // Start from beginning
   const handleStartOver = () => {
-    setInitialTime(0);
+    setInitialTime(0); // Reset to beginning
     setShowResumePrompt(false);
     // Clear saved progress
     if (id) {
@@ -221,45 +221,42 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Resume prompt */}
-        {showResumePrompt && (
-          <Card className="border-primary/50 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="w-5 h-5 text-primary" />
-                  <span className="text-sm">
-                    Kontynuować od <strong>{formatTime(savedPosition)}</strong>?
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={handleStartOver}>
-                    Od początku
-                  </Button>
-                  <Button size="sm" onClick={handleResume}>
-                    Kontynuuj
-                  </Button>
+        {/* Video Player - always visible */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-0 relative">
+            <SecureMedia
+              mediaUrl={material.media_url!}
+              mediaType={material.content_type as 'video' | 'audio'}
+              className="w-full aspect-video"
+              onTimeUpdate={handleTimeUpdate}
+              onPlayStateChange={handlePlayStateChange}
+              initialTime={initialTime}
+            />
+            
+            {/* Resume Overlay - on top of video */}
+            {showResumePrompt && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+                <div className="bg-card border border-primary/50 rounded-xl p-6 max-w-sm mx-4 text-center shadow-xl">
+                  <RotateCcw className="w-8 h-8 text-primary mx-auto mb-3" />
+                  <p className="text-lg font-medium mb-1">
+                    Kontynuować od <span className="text-primary font-bold">{formatTime(savedPosition)}</span>?
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Ostatnio oglądałeś to wideo
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    <Button variant="outline" onClick={handleStartOver}>
+                      Od początku
+                    </Button>
+                    <Button onClick={handleResume}>
+                      Kontynuuj
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Video Player */}
-        {!showResumePrompt && (
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <SecureMedia
-                mediaUrl={material.media_url!}
-                mediaType={material.content_type as 'video' | 'audio'}
-                className="w-full aspect-video"
-                onTimeUpdate={handleTimeUpdate}
-                onPlayStateChange={handlePlayStateChange}
-                initialTime={initialTime}
-              />
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
 
         {/* Metadata */}
         <div className="flex items-center flex-wrap gap-3 text-sm text-muted-foreground">
