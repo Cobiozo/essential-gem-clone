@@ -44,6 +44,7 @@ import { CookieConsentManagement } from '@/components/admin/CookieConsentManagem
 import { AiCompassManagement } from '@/components/admin/AiCompassManagement';
 import { DailySignalManagement } from '@/components/admin/DailySignalManagement';
 import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagement';
+import { NewsTickerManagement } from '@/components/admin/NewsTickerManagement';
 import TranslationsManagement from '@/components/admin/TranslationsManagement';
 import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
 import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
@@ -4346,6 +4347,10 @@ const Admin = () => {
 
           <TabsContent value="important-info">
             <ImportantInfoManagement />
+          </TabsContent>
+
+          <TabsContent value="news-ticker">
+            <NewsTickerManagement />
           </TabsContent>
 
           <TabsContent value="events">

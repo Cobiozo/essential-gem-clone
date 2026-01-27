@@ -3271,6 +3271,123 @@ export type Database = {
           },
         ]
       }
+      news_ticker_items: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          end_date: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_important: boolean | null
+          link_url: string | null
+          priority: number | null
+          short_description: string | null
+          start_date: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          visible_to_clients: boolean | null
+          visible_to_partners: boolean | null
+          visible_to_specjalista: boolean | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_important?: boolean | null
+          link_url?: string | null
+          priority?: number | null
+          short_description?: string | null
+          start_date?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visible_to_clients?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          end_date?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_important?: boolean | null
+          link_url?: string | null
+          priority?: number | null
+          short_description?: string | null
+          start_date?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          visible_to_clients?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Relationships: []
+      }
+      news_ticker_settings: {
+        Row: {
+          animation_mode: string | null
+          background_color: string | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          rotate_interval: number | null
+          scroll_speed: number | null
+          source_announcements: boolean | null
+          source_important_banners: boolean | null
+          source_team_meetings: boolean | null
+          source_webinars: boolean | null
+          text_color: string | null
+          updated_at: string | null
+          visible_to_clients: boolean | null
+          visible_to_partners: boolean | null
+          visible_to_specjalista: boolean | null
+        }
+        Insert: {
+          animation_mode?: string | null
+          background_color?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          rotate_interval?: number | null
+          scroll_speed?: number | null
+          source_announcements?: boolean | null
+          source_important_banners?: boolean | null
+          source_team_meetings?: boolean | null
+          source_webinars?: boolean | null
+          text_color?: string | null
+          updated_at?: string | null
+          visible_to_clients?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Update: {
+          animation_mode?: string | null
+          background_color?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          rotate_interval?: number | null
+          scroll_speed?: number | null
+          source_announcements?: boolean | null
+          source_important_banners?: boolean | null
+          source_team_meetings?: boolean | null
+          source_webinars?: boolean | null
+          text_color?: string | null
+          updated_at?: string | null
+          visible_to_clients?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Relationships: []
+      }
       notification_delivery_log: {
         Row: {
           delivered_at: string | null

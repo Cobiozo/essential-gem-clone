@@ -143,6 +143,11 @@ export default {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.05)" },
         },
+        // News ticker marquee animation
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
@@ -159,6 +164,8 @@ export default {
         // Logo animations
         "logo-reveal": "logo-reveal 0.8s ease-out forwards",
         "logo-pulse": "logo-pulse 2s ease-in-out infinite",
+        // News ticker
+        marquee: "marquee 30s linear infinite",
       },
     },
   },

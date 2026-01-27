@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { WidgetInfoButton } from '../WidgetInfoButton';
+import { NewsTicker } from '@/components/news-ticker';
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
@@ -133,6 +134,9 @@ export const WelcomeWidget: React.FC = () => {
             </Select>
           </div>
         </div>
+        
+        {/* News Ticker - pasek informacyjny */}
+        <NewsTicker className="mt-4" />
       </CardContent>
     </Card>
   );

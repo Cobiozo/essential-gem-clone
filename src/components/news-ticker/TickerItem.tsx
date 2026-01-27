@@ -1,0 +1,54 @@
+import React from 'react';
+import { cn } from '@/lib/utils';
+import { TickerItem as TickerItemType } from './types';
+import * as LucideIcons from 'lucide-react';
+import { Info } from 'lucide-react';
+
+interface TickerItemProps {
+  item: TickerItemType;
+  className?: string;
+}
+
+export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className }) => {
+  // Dynamically get icon component
+  const IconComponent = (LucideIcons as any)[item.icon] || Info;
+
+  const content = (
+    <span
+      className={cn(
+        "inline-flex items-center gap-2 mx-6 whitespace-nowrap",
+        item.isImportant && "text-amber-600 dark:text-amber-400 font-medium",
+        className
+      )}
+    >
+      {item.thumbnailUrl ? (
+        <img
+          src={item.thumbnailUrl}
+          alt=""
+          className="h-5 w-5 rounded object-cover flex-shrink-0"
+        />
+      ) : (
+        <IconComponent className="h-4 w-4 flex-shrink-0" />
+      )}
+      <span className="text-sm">{item.content}</span>
+      {item.isImportant && (
+        <span className="inline-flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+      )}
+    </span>
+  );
+
+  if (item.linkUrl) {
+    return (
+      <a
+        href={item.linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:underline hover:opacity-80 transition-opacity"
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return <>{content}</>;
+};
