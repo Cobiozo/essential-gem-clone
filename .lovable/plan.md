@@ -1,391 +1,331 @@
 
 
-# Plan: Sekcja "Członkowie zespołu" w komunikatorze
+# Plan: Optymalizacja server.js dla Phusion Passenger na cPanel
 
-## Cel
+## Zidentyfikowane problemy
 
-Dodanie trzeciej grupy w sidebarze komunikatora o nazwie "Członkowie zespołu" z rozwijaną listą, która zawiera:
-
-1. **Upline (opiekun)** - wyraźnie oznaczony jako "Twój opiekun" - osoba będąca w strukturze powyżej aktualnego użytkownika
-2. **Członkowie struktury (downline)** - użytkownicy wszystkich ról (partner, specjalista, klient) będący w strukturze organizacyjnej danego partnera
-
-## Źródła danych
-
-### Upline (opiekun)
-Pobierany z `profiles` przez `upline_eq_id` aktualnego użytkownika - ten sam mechanizm co w `useOrganizationTree`.
-
-### Downline (struktura)
-Pobierany przez istniejącą funkcję RPC `get_organization_tree` z `profile.eq_id` jako root - zwraca wszystkich użytkowników w strukturze poniżej partnera.
+| Problem | Opis | Status w kodzie |
+|---------|------|-----------------|
+| **SIGKILL vs SIGTERM** | Passenger używa SIGKILL, który nie wywołuje handlerów | Handlery SIGTERM/SIGINT są nieefektywne |
+| **Brak timeoutów keep-alive** | Połączenia wiszą przez długi czas | `keepAliveTimeout` i `headersTimeout` nie ustawione |
+| **Brak obsługi SIGHUP** | Passenger wysyła SIGHUP przy restarcie | Brak handlera |
+| **server.close() nie wywoływany** | Graceful shutdown nie zamyka serwera prawidłowo | `process.exit(0)` natychmiast |
+| **Brak trackingu połączeń** | Nie wiemy ile połączeń jest aktywnych | Brak mechanizmu |
 
 ---
 
-## Architektura rozwiązania
+## Proponowane rozwiązania
 
-```text
-┌───────────────────────────────────┐
-│  Konwersacje                      │
-│  ┌─────────────────────────────┐  │
-│  │ 🔍 Szukaj rozmów...         │  │
-│  └─────────────────────────────┘  │
-│                                   │
-│  KANAŁY                           │
-│  ● Specjaliści                    │
-│  ● Klienci                        │
-│                                   │
-│  CZŁONKOWIE ZESPOŁU          ▼   │ ← nowa rozwijana sekcja
-│  ┌─────────────────────────────┐  │
-│  │ 👤 Jan Kowalski (Opiekun)   │  │ ← upline wyróżniony
-│  │ ─────────────────────────   │  │
-│  │ 👤 Anna Nowak • Partner     │  │ ← członkowie struktury
-│  │ 👤 Piotr Wiśniewski • Spec  │  │
-│  │ 👤 Maria Zielińska • Klient │  │
-│  └─────────────────────────────┘  │
-│                                   │
-│  ODEBRANE                         │
-│  ● Od Administratorów             │
-└───────────────────────────────────┘
+### 1. Konfiguracja timeoutów serwera
+
+Krytyczne dla zapobiegania "wiszącym" połączeniom:
+
+```javascript
+const server = app.listen(PORT, HOST, () => {
+  // ... log startup
+});
+
+// KRYTYCZNE: Timeouty dla Passenger
+server.keepAliveTimeout = 5000;   // 5s - zamknij idle connections szybciej
+server.headersTimeout = 10000;    // 10s - timeout na nagłówki
+server.timeout = 30000;           // 30s - ogólny timeout requestu
 ```
 
----
+### 2. Tracking aktywnych połączeń
 
-## Zakres zmian
+Monitorowanie połączeń dla graceful shutdown:
 
-### 1. Rozszerzenie typu `UnifiedChannel` w `useUnifiedChat.ts`
+```javascript
+const activeConnections = new Set();
 
-Dodanie nowego typu kanału `direct` dla wiadomości bezpośrednich 1:1:
+server.on('connection', (socket) => {
+  activeConnections.add(socket);
+  socket.on('close', () => {
+    activeConnections.delete(socket);
+  });
+});
 
-```typescript
-export interface UnifiedChannel {
-  id: string;
-  type: 'role' | 'broadcast' | 'private' | 'direct';  // + 'direct'
-  name: string;
-  targetRole: string | null;
-  targetUserId: string | null;  // NOWE: dla wiadomości 1:1
-  icon: string;
-  unreadCount: number;
-  lastMessage?: string;
-  lastMessageAt?: string;
-  canSend: boolean;
-  canReceive: boolean;
-  isIncoming: boolean;
-  isUpline?: boolean;  // NOWE: wyróżnienie opiekuna
-}
+// Endpoint do sprawdzenia stanu
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    activeConnections: activeConnections.size,  // NOWE
+    pid: process.pid,                            // NOWE - dla debugowania
+  });
+});
 ```
 
-### 2. Nowy interfejs dla członków zespołu
+### 3. Ulepszone graceful shutdown
 
-```typescript
-export interface TeamMemberChannel {
-  userId: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  eqId: string | null;
-  avatarUrl: string | null;
-  isUpline: boolean;
-  level: number;
-}
-```
+Prawidłowe zamykanie z obsługą wszystkich sygnałów:
 
-### 3. Rozszerzenie `useUnifiedChat` o pobieranie struktury
+```javascript
+let isShuttingDown = false;
 
-Dodanie funkcji do pobierania członków zespołu (upline + downline):
-
-```typescript
-// Pobierz upline (opiekuna)
-const fetchUpline = async () => {
-  if (!profile?.upline_eq_id) return null;
+const gracefulShutdown = (signal) => {
+  // Zapobiegaj wielokrotnemu wywołaniu
+  if (isShuttingDown) {
+    console.log(`[Shutdown] Already shutting down, ignoring ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
   
-  const { data } = await supabase
-    .from('profiles')
-    .select('user_id, first_name, last_name, eq_id, role, avatar_url')
-    .eq('eq_id', profile.upline_eq_id)
-    .eq('is_active', true)
-    .single();
-    
-  return data;
-};
-
-// Pobierz downline (struktura)
-const fetchDownline = async () => {
-  if (!profile?.eq_id) return [];
+  console.log(`[Shutdown] ${signal} received, starting graceful shutdown...`);
+  console.log(`[Shutdown] Active connections: ${activeConnections.size}`);
   
-  const { data } = await supabase.rpc('get_organization_tree', {
-    p_root_eq_id: profile.eq_id,
-    p_max_depth: 10
+  // Przestań przyjmować nowe połączenia
+  server.close((err) => {
+    if (err) {
+      console.error('[Shutdown] Error closing server:', err);
+      process.exit(1);
+    }
+    console.log('[Shutdown] Server closed successfully');
+    process.exit(0);
   });
   
-  // Filtruj tylko członków poniżej roota (level > 0)
-  return (data || []).filter(m => m.level > 0);
-};
-```
-
-### 4. Nowy komponent `TeamMembersSection`
-
-Rozwijana sekcja w sidebarze:
-
-```typescript
-// src/components/messages/TeamMembersSection.tsx
-
-interface TeamMembersSectionProps {
-  upline: TeamMemberChannel | null;
-  members: TeamMemberChannel[];
-  selectedUserId: string | null;
-  onSelectMember: (userId: string) => void;
-  searchQuery: string;
-}
-
-export const TeamMembersSection = ({
-  upline,
-  members,
-  selectedUserId,
-  onSelectMember,
-  searchQuery,
-}) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  // Zamknij istniejące połączenia delikatnie
+  activeConnections.forEach((socket) => {
+    // Wyślij FIN, ale daj czas na dokończenie
+    socket.end();
+  });
   
-  // Filtruj po wyszukiwaniu
-  const filteredMembers = members.filter(m => 
-    `${m.firstName} ${m.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-      <CollapsibleTrigger className="...">
-        <span>CZŁONKOWIE ZESPOŁU</span>
-        <ChevronDown className={cn('...', isExpanded && 'rotate-180')} />
-      </CollapsibleTrigger>
-      
-      <CollapsibleContent>
-        {/* Upline - wyróżniony */}
-        {upline && (
-          <>
-            <TeamMemberItem 
-              member={upline}
-              isSelected={selectedUserId === upline.userId}
-              onClick={() => onSelectMember(upline.userId)}
-              badge="Opiekun"
-            />
-            <Separator className="my-1" />
-          </>
-        )}
-        
-        {/* Członkowie struktury */}
-        {filteredMembers.map(member => (
-          <TeamMemberItem 
-            key={member.userId}
-            member={member}
-            isSelected={selectedUserId === member.userId}
-            onClick={() => onSelectMember(member.userId)}
-          />
-        ))}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-};
-```
-
-### 5. Komponent pojedynczego członka `TeamMemberItem`
-
-```typescript
-// src/components/messages/TeamMemberItem.tsx
-
-const ROLE_LABELS = {
-  partner: 'Partner',
-  specjalista: 'Specjalista',
-  client: 'Klient',
-};
-
-export const TeamMemberItem = ({ member, isSelected, onClick, badge }) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      'w-full flex items-center gap-3 px-3 py-2 text-left transition-colors',
-      isSelected 
-        ? 'bg-primary/10 border-l-2 border-primary' 
-        : 'hover:bg-muted/50'
-    )}
-  >
-    <Avatar className="h-9 w-9">
-      <AvatarImage src={member.avatarUrl} />
-      <AvatarFallback>
-        {member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
-      </AvatarFallback>
-    </Avatar>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="font-medium truncate">
-          {member.firstName} {member.lastName}
-        </span>
-        {badge && (
-          <Badge variant="secondary" className="text-xs">
-            {badge}
-          </Badge>
-        )}
-      </div>
-      <span className="text-xs text-muted-foreground">
-        {ROLE_LABELS[member.role] || member.role}
-        {member.eqId && ` • ${member.eqId}`}
-      </span>
-    </div>
-  </button>
-);
-```
-
-### 6. Modyfikacja `MessagesSidebar.tsx`
-
-Dodanie sekcji "Członkowie zespołu" między "Kanały" a "Odebrane":
-
-```typescript
-// MessagesSidebar.tsx
-
-export const MessagesSidebar = ({
-  channels,
-  selectedChannel,
-  onSelectChannel,
-  // NOWE propsy:
-  teamMembers,
-  upline,
-  selectedDirectUserId,
-  onSelectDirectMember,
-  searchQuery,
-  onSearchChange,
-}) => {
-  return (
-    <div className="flex flex-col">
-      {/* Header + Search */}
-      
-      <ScrollArea className="flex-1">
-        {/* Kanały (outgoing) */}
-        {outgoingChannels.length > 0 && (
-          <div className="mb-4">
-            <SectionHeader>Kanały</SectionHeader>
-            {outgoingChannels.map(channel => (
-              <ChannelListItem ... />
-            ))}
-          </div>
-        )}
-        
-        {/* NOWA SEKCJA: Członkowie zespołu */}
-        {(upline || teamMembers.length > 0) && (
-          <TeamMembersSection
-            upline={upline}
-            members={teamMembers}
-            selectedUserId={selectedDirectUserId}
-            onSelectMember={onSelectDirectMember}
-            searchQuery={searchQuery}
-          />
-        )}
-        
-        {/* Odebrane (incoming) */}
-        {incomingChannels.length > 0 && (
-          <div>
-            <SectionHeader>Odebrane</SectionHeader>
-            {incomingChannels.map(channel => (
-              <ChannelListItem ... />
-            ))}
-          </div>
-        )}
-      </ScrollArea>
-    </div>
-  );
-};
-```
-
-### 7. Obsługa wiadomości bezpośrednich 1:1
-
-Rozszerzenie `useUnifiedChat` o wysyłanie do konkretnego użytkownika:
-
-```typescript
-// W useUnifiedChat.ts
-
-const sendDirectMessage = async (recipientId: string, content: string) => {
-  // Użyj istniejącego systemu private_chat lub role_chat_messages z recipient_id
-  const { error } = await supabase
-    .from('role_chat_messages')
-    .insert({
-      sender_id: user.id,
-      sender_role: currentRole,
-      recipient_role: recipientRole, // rola odbiorcy
-      recipient_id: recipientId,     // konkretny user
-      content,
+  // Fallback: wymuś zamknięcie po 10s
+  setTimeout(() => {
+    console.warn('[Shutdown] Forcing exit after timeout');
+    activeConnections.forEach((socket) => {
+      socket.destroy();
     });
-    
-  // Wyślij powiadomienie
-  await supabase.from('user_notifications').insert({
-    user_id: recipientId,
-    notification_type: 'direct_message',
-    title: `Wiadomość od ${senderName}`,
-    message: content.substring(0, 100),
-    link: '/messages',
-    sender_id: user.id,
+    process.exit(0);
+  }, 10000).unref(); // .unref() - nie blokuj zamykania przez ten timer
+};
+
+// Obsługa wszystkich sygnałów
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));  // NOWE
+
+// Obsługa nieoczekiwanych błędów
+process.on('uncaughtException', (err) => {
+  console.error('[Fatal] Uncaught exception:', err);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Fatal] Unhandled rejection:', reason);
+  gracefulShutdown('unhandledRejection');
+});
+```
+
+### 4. Passenger-specific: Middleware dla szybkiego zamykania
+
+Odrzucaj nowe requesty podczas shutdown:
+
+```javascript
+// Middleware: odrzuć requesty podczas shutdown
+app.use((req, res, next) => {
+  if (isShuttingDown) {
+    res.setHeader('Connection', 'close');
+    return res.status(503).json({
+      error: 'Server is shutting down',
+      retryAfter: 5
+    });
+  }
+  next();
+});
+```
+
+### 5. Connection: close header dla Passenger
+
+Pomaga w szybszym zwalnianiu połączeń:
+
+```javascript
+// Dla Passenger: sugeruj zamknięcie połączenia po odpowiedzi
+app.use((req, res, next) => {
+  // Na shared hostingu preferuj krótkie połączenia
+  if (process.env.PASSENGER_APP_ENV || process.env.SHARED_HOSTING) {
+    res.setHeader('Connection', 'close');
+  }
+  next();
+});
+```
+
+---
+
+## Sekcja techniczna: Pełna struktura zmian
+
+### Zmieniony plik: `server.js`
+
+```javascript
+// ========================================
+// SERVER CONFIGURATION
+// ========================================
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+const HOST = process.env.HOST || '0.0.0.0';
+const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelife.info.pl';
+
+// Shutdown state
+let isShuttingDown = false;
+const activeConnections = new Set();
+
+// ... (middleware setup - bez zmian)
+
+// Shutdown-aware middleware (PRZED innymi routes)
+app.use((req, res, next) => {
+  if (isShuttingDown) {
+    res.setHeader('Connection', 'close');
+    return res.status(503).json({
+      error: 'Server is shutting down',
+      retryAfter: 5
+    });
+  }
+  next();
+});
+
+// ... (routes - bez zmian)
+
+// ========================================
+// SERVER STARTUP WITH PROPER CONFIG
+// ========================================
+
+const server = app.listen(PORT, HOST, () => {
+  console.log('='.repeat(60));
+  console.log('🚀 PureLife Server');
+  console.log('='.repeat(60));
+  console.log(`📍 Server running at: http://${HOST}:${PORT}`);
+  console.log(`🌐 Host: s108.cyber-folks.pl`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'production'}`);
+  console.log(`📁 Uploads directory: ${UPLOADS_DIR}`);
+  console.log(`🔧 PID: ${process.pid}`);
+  console.log(`📅 Started at: ${new Date().toLocaleString('pl-PL')}`);
+  console.log('='.repeat(60));
+});
+
+// KRYTYCZNE: Timeouty dla Phusion Passenger
+server.keepAliveTimeout = 5000;    // 5 sekund
+server.headersTimeout = 10000;     // 10 sekund  
+server.timeout = 30000;            // 30 sekund
+
+// Track aktywnych połączeń
+server.on('connection', (socket) => {
+  activeConnections.add(socket);
+  socket.on('close', () => {
+    activeConnections.delete(socket);
   });
+});
+
+// ========================================
+// GRACEFUL SHUTDOWN
+// ========================================
+
+const gracefulShutdown = (signal) => {
+  if (isShuttingDown) {
+    console.log(`[Shutdown] Already in progress, ignoring ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
+  
+  console.log(`\n[Shutdown] ${signal} received`);
+  console.log(`[Shutdown] Active connections: ${activeConnections.size}`);
+  console.log(`[Shutdown] Closing server...`);
+  
+  server.close((err) => {
+    if (err) {
+      console.error('[Shutdown] Server close error:', err);
+      process.exit(1);
+    }
+    console.log('[Shutdown] Server closed successfully');
+    process.exit(0);
+  });
+  
+  // Gracefully end existing connections
+  activeConnections.forEach((socket) => {
+    socket.end();
+  });
+  
+  // Force exit after 10s (unref = don't keep process alive)
+  setTimeout(() => {
+    console.warn('[Shutdown] Timeout - forcing exit');
+    activeConnections.forEach((socket) => socket.destroy());
+    process.exit(0);
+  }, 10000).unref();
 };
 
-const fetchDirectMessages = async (otherUserId: string) => {
-  // Pobierz wiadomości gdzie sender/recipient to current user i otherUser
-  const { data } = await supabase
-    .from('role_chat_messages')
-    .select('*')
-    .or(
-      `and(sender_id.eq.${user.id},recipient_id.eq.${otherUserId}),` +
-      `and(sender_id.eq.${otherUserId},recipient_id.eq.${user.id})`
-    )
-    .order('created_at', { ascending: true });
-    
-  return data;
-};
+// Signal handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
+
+// Error handlers
+process.on('uncaughtException', (err) => {
+  console.error('[Fatal] Uncaught exception:', err);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Fatal] Unhandled rejection:', reason);
+  // Nie zamykaj - tylko loguj (może być nieistotne)
+});
 ```
 
 ---
 
-## Widoczność funkcjonalności według roli
+## Dodatkowe zalecenia dla Passenger na cPanel
 
-| Rola | Upline (opiekun) | Downline (struktura) |
-|------|------------------|----------------------|
-| **Admin** | Nie | Widzi wszystkich użytkowników (opcjonalnie) |
-| **Partner** | Tak - jego opiekun | Wszyscy w jego strukturze |
-| **Specjalista** | Tak - jego opiekun | Członkowie jego zespołu (jeśli ma) |
-| **Klient** | Tak - jego opiekun | Brak (klient nie ma struktury) |
+### Plik `.htaccess` (jeśli używany)
 
----
+```apache
+PassengerAppRoot /home/username/public_html
+PassengerStartupFile server.js
+PassengerAppType node
+PassengerNodejs /usr/bin/node
 
-## Struktura nowych/modyfikowanych plików
+# Krótszy idle time
+PassengerPoolIdleTime 60
+PassengerMaxPoolSize 2
+```
 
-```text
-src/hooks/
-└── useUnifiedChat.ts               # Rozszerzenie o teamMembers i directMessages
+### Zmienne środowiskowe
 
-src/components/messages/
-├── MessagesSidebar.tsx             # Dodanie sekcji TeamMembersSection
-├── TeamMembersSection.tsx          # NOWY: rozwijana lista członków
-├── TeamMemberItem.tsx              # NOWY: pojedynczy członek
-├── ChannelListItem.tsx             # Bez zmian
-├── FullChatWindow.tsx              # Dostosowanie do direct messages
-└── index.ts                        # Eksport nowych komponentów
+Ustaw w panelu cPanel lub `.env`:
 
-src/pages/
-└── MessagesPage.tsx                # Przekazanie nowych propsów do sidebar
+```bash
+PASSENGER_APP_ENV=production
+SHARED_HOSTING=true
+NODE_ENV=production
 ```
 
 ---
 
-## Sekcja techniczna: Przepływ danych
+## Podsumowanie zmian
 
-1. **Inicjalizacja**: `useUnifiedChat` wywołuje `fetchTeamMembers()` przy mount
-2. **Pobieranie upline**: Query do `profiles` po `upline_eq_id`
-3. **Pobieranie downline**: RPC `get_organization_tree` z `eq_id` użytkownika
-4. **Transformacja**: Mapowanie na `TeamMemberChannel[]`
-5. **Renderowanie**: `TeamMembersSection` wyświetla listę z rozróżnieniem upline
-6. **Wybór członka**: Ustawia `selectedDirectUserId` i przełącza widok czatu
-7. **Wiadomości**: Pobiera/wysyła przez `role_chat_messages` z `recipient_id`
+| Element | Przed | Po |
+|---------|-------|-----|
+| `keepAliveTimeout` | Brak (domyślnie 5s w Node 18+) | Jawnie 5000ms |
+| `headersTimeout` | Brak (domyślnie 60s) | 10000ms |
+| `server.timeout` | Brak (domyślnie 0 = bez limitu) | 30000ms |
+| SIGHUP handler | Brak | Dodany |
+| Connection tracking | Brak | `activeConnections` Set |
+| Shutdown middleware | Brak | 503 podczas shutdown |
+| `setTimeout().unref()` | Brak | Użyty w fallback |
+| `server.close()` | Nie wywoływany | Prawidłowo wywoływany |
+| uncaughtException | Brak | Handler z shutdown |
 
 ---
 
-## Zachowana funkcjonalność
+## Uwaga o SIGKILL
 
-- Istniejące kanały role-based (Specjaliści, Klienci) działają bez zmian
-- Powiadomienia real-time pozostają aktywne
-- Hierarchia ról nadal kontroluje kto może do kogo pisać
-- `private_chat_*` system pozostaje dla grup i specjalistów
+**SIGKILL nie może być obsłużony** - to jest sygnał "natychmiastowego zabicia" procesu na poziomie kernela. Nie ma na to sposobu w żadnym języku programowania.
+
+Rozwiązanie: Upewnij się, że Passenger NIE używa SIGKILL jako pierwszego sygnału. W konfiguracji Passenger:
+
+```apache
+# Daj procesowi czas na graceful shutdown
+PassengerMaxRequestTime 60
+```
+
+Jeśli Passenger nadal używa SIGKILL, to jest problem konfiguracji hostingu - skontaktuj się z Cyberfolks.
 
