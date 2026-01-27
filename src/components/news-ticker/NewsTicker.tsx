@@ -16,23 +16,19 @@ const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ item
 
   useEffect(() => {
     if (contentRef.current) {
-      const contentWidth = contentRef.current.scrollWidth / 2; // Half because content is duplicated
-      // Calculate duration based on speed (px/s) and content width
+      const contentWidth = contentRef.current.scrollWidth / 2;
       const duration = contentWidth / speed;
       setAnimationDuration(Math.max(10, duration));
     }
   }, [items, speed]);
 
   return (
-    <div className="flex overflow-hidden relative w-full max-w-full">
+    <div className="relative w-full h-6 overflow-hidden">
       <div
         ref={contentRef}
-        className="flex animate-marquee whitespace-nowrap"
-        style={{
-          animationDuration: `${animationDuration}s`,
-        }}
+        className="absolute left-0 top-0 flex animate-marquee whitespace-nowrap will-change-transform"
+        style={{ animationDuration: `${animationDuration}s` }}
       >
-        {/* Duplicate content for seamless loop */}
         {[...items, ...items].map((item, i) => (
           <TickerItemComponent key={`${item.id}-${i}`} item={item} />
         ))}
