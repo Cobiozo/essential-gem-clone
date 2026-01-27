@@ -37,6 +37,7 @@ import type { DbEvent, WebinarFormData, WEBINAR_TYPES, DURATION_OPTIONS } from '
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RegistrationFormEditor, RegistrationFormConfig, defaultRegistrationFormConfig } from './RegistrationFormEditor';
 import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
+import { EventButtonsEditor } from './EventButtonsEditor';
 
 interface WebinarFormProps {
   editingWebinar: DbEvent | null;
@@ -101,6 +102,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [remindersOpen, setRemindersOpen] = useState(true);
   const [formEditorOpen, setFormEditorOpen] = useState(false);
+  const [buttonsEditorOpen, setButtonsEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   
   // Zoom API integration state
@@ -453,6 +455,27 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* Action Buttons Editor Section */}
+        <Collapsible open={buttonsEditorOpen} onOpenChange={setButtonsEditorOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start gap-2 h-10 px-3 hover:bg-muted">
+              <ExternalLink className="h-4 w-4" />
+              <span className="font-medium">Przyciski akcji</span>
+              {form.buttons.length > 0 && (
+                <Badge variant="secondary" className="ml-auto">
+                  {form.buttons.length}
+                </Badge>
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 pl-2">
+            <EventButtonsEditor
+              buttons={form.buttons}
+              onChange={(buttons) => setForm({ ...form, buttons })}
+            />
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Allow invites toggle */}
         <div className="flex items-center gap-3">
