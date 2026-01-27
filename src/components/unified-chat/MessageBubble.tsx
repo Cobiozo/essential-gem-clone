@@ -1,6 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { ROLE_LABELS } from '@/types/roleChat';
 import type { UnifiedMessage } from '@/hooks/useUnifiedChat';
 
 interface MessageBubbleProps {
@@ -16,43 +15,25 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
   };
 
   return (
-    <div
-      className={cn(
-        'flex gap-3',
-        message.isOwn ? 'flex-row-reverse' : 'flex-row'
-      )}
-    >
+    <div className="flex items-start gap-3">
       {/* Avatar */}
-      <Avatar className="h-8 w-8 shrink-0">
+      <Avatar className="h-9 w-9 shrink-0">
         {message.senderAvatar && (
           <AvatarImage src={message.senderAvatar} alt={message.senderName} />
         )}
-        <AvatarFallback className="text-xs bg-primary/10 text-primary">
+        <AvatarFallback className="text-xs bg-primary text-primary-foreground font-medium">
           {message.senderInitials}
         </AvatarFallback>
       </Avatar>
 
       {/* Message content */}
-      <div
-        className={cn(
-          'max-w-[70%] space-y-1',
-          message.isOwn ? 'items-end' : 'items-start'
-        )}
-      >
+      <div className="flex-1 min-w-0">
         {/* Sender info */}
-        <div
-          className={cn(
-            'flex items-center gap-2 text-xs',
-            message.isOwn ? 'flex-row-reverse' : 'flex-row'
-          )}
-        >
-          <span className="font-medium text-foreground">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-medium text-sm text-foreground">
             {message.senderName}
           </span>
-          <span className="text-muted-foreground">
-            {ROLE_LABELS[message.senderRole] || message.senderRole}
-          </span>
-          <span className="text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {formatTime(message.createdAt)}
           </span>
         </div>
@@ -60,10 +41,10 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
         {/* Message bubble */}
         <div
           className={cn(
-            'px-4 py-2.5 rounded-2xl',
+            'inline-block px-4 py-2.5 rounded-2xl max-w-[85%]',
             message.isOwn
-              ? 'bg-primary text-primary-foreground rounded-br-md'
-              : 'bg-muted text-foreground rounded-bl-md'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-foreground'
           )}
         >
           <p className="text-sm whitespace-pre-wrap break-words">
