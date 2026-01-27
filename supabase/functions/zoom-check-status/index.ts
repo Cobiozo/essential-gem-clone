@@ -24,14 +24,16 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Create service role client for database operations and JWT verification
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify user using getUser with service role key
+    // Use ANON_KEY client for JWT verification (works with user tokens)
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    
+    // Create service role client for database operations (after auth verification)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     if (authError || !user) {
       console.log('JWT verification failed:', authError?.message || 'No user');
