@@ -53,6 +53,7 @@ import {
   Images,
   Heart,
   TreePine,
+  Newspaper,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -104,6 +105,7 @@ const SIDEBAR_KEYS = {
   healthyKnowledge: 'admin.sidebar.healthyKnowledge',
   organizationTree: 'admin.sidebar.organizationTree',
   eventRegistrations: 'admin.sidebar.eventRegistrations',
+  newsTicker: 'admin.sidebar.newsTicker',
 };
 
 interface AdminSidebarProps {
@@ -181,6 +183,7 @@ const navCategories: NavCategory[] = [
       { value: 'ai-compass', labelKey: 'compass', icon: Compass },
       { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
+      { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
@@ -247,6 +250,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     htmlPages: 'Strony HTML',
     organizationTree: 'Struktura organizacji',
     eventRegistrations: 'Rejestracje na wydarzenia',
+    newsTicker: 'Pasek informacyjny',
   };
 
   const getLabel = (key: string): string => {
