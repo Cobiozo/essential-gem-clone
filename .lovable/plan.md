@@ -1,281 +1,391 @@
 
 
-# Plan: Osobna Strona Wiadomości w Stylu WhatsApp
+# Plan: Sekcja "Członkowie zespołu" w komunikatorze
 
-## Wizualizacja proponowanego rozwiązania
+## Cel
 
-### Layout pełnoekranowy (widok desktop)
+Dodanie trzeciej grupy w sidebarze komunikatora o nazwie "Członkowie zespołu" z rozwijaną listą, która zawiera:
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│  🌿 PURE LIFE                    🔔  🌍PL  ◐  [Akademia]  [Strona główna]  [→ Wyloguj się]          │
-├───────────────────────────────────┬─────────────────────────────────────────────────────────────────┤
-│                                   │                                                                 │
-│  ← Powrót do pulpitu              │                       Partnerzy                              🔍 │
-│                                   ├─────────────────────────────────────────────────────────────────│
-│  ┌─────────────────────────────┐  │                                                                 │
-│  │ 🔍 Szukaj rozmów...         │  │                                                                 │
-│  └─────────────────────────────┘  │     DK   Dawid Kowalczyk                        Dzisiaj 07:16  │
-│                                   │          ┌──────────────────────────────────────┐               │
-│  KANAŁY                           │          │  Cześć! Jak mogę pomóc?              │               │
-│  ─────────────────────────────    │          └──────────────────────────────────────┘               │
-│                                   │          👍 1                                                   │
-│  ● Wszyscy               •        │                                                                 │
-│  ● Partnerzy            ← ●2      │                                                                 │
-│  ● Specjaliści                    │               ┌──────────────────────────────────────┐          │
-│  ● Klienci                        │               │  Dzięki, wszystko jasne!             │  Ty      │
-│                                   │               └──────────────────────────────────────┘          │
-│  ─────────────────────────────    │                                                    Dzisiaj 07:20│
-│                                   │                                                                 │
-│  OSTATNIE ROZMOWY                 │                                                                 │
-│  ─────────────────────────────    │                                                                 │
-│                                   │                                                                 │
-│  👤 Anna Nowak                    │                                                                 │
-│     Dzięki za info!   • 2h temu   │                                                                 │
-│                                   │                                                                 │
-│  👤 Jan Kowalski                  │                                                                 │
-│     OK, rozumiem      • wczoraj   │                                                                 │
-│                                   │                                                                 │
-│                                   │                                                                 │
-│                                   │                                                                 │
-│                                   │                                                                 │
-│                                   ├─────────────────────────────────────────────────────────────────│
-│                                   │                                                                 │
-│                                   │  📎  😊  🎤   Wpisz wiadomość...                        ✈       │
-│                                   │                                                                 │
-└───────────────────────────────────┴─────────────────────────────────────────────────────────────────┘
-```
+1. **Upline (opiekun)** - wyraźnie oznaczony jako "Twój opiekun" - osoba będąca w strukturze powyżej aktualnego użytkownika
+2. **Członkowie struktury (downline)** - użytkownicy wszystkich ról (partner, specjalista, klient) będący w strukturze organizacyjnej danego partnera
 
-### Layout mobilny (responsive)
+## Źródła danych
+
+### Upline (opiekun)
+Pobierany z `profiles` przez `upline_eq_id` aktualnego użytkownika - ten sam mechanizm co w `useOrganizationTree`.
+
+### Downline (struktura)
+Pobierany przez istniejącą funkcję RPC `get_organization_tree` z `profile.eq_id` jako root - zwraca wszystkich użytkowników w strukturze poniżej partnera.
+
+---
+
+## Architektura rozwiązania
 
 ```text
-┌────────────────────────────┐          ┌────────────────────────────┐
-│  ← Wiadomości         🔍   │          │  ← Partnerzy          🔍   │
-├────────────────────────────┤          ├────────────────────────────┤
-│                            │          │                            │
-│  🔍 Szukaj rozmów...       │          │  DK  Dawid Kowalczyk       │
-│                            │   TAP    │      ┌──────────────┐      │
-│  KANAŁY                    │  ───→    │      │ Cześć! Jak   │      │
-│  ● Wszyscy            •    │          │      │ mogę pomóc?  │      │
-│  ● Partnerzy         ●2    │          │      └──────────────┘      │
-│  ● Specjaliści             │          │      👍 1                  │
-│  ● Klienci                 │          │                            │
-│                            │          │      ┌──────────────┐ Ty   │
-│  OSTATNIE ROZMOWY          │          │      │ Dzięki!      │      │
-│                            │          │      └──────────────┘      │
-│  👤 Anna Nowak             │          │                            │
-│     Dzięki za info!        │          │                            │
-│                            │          ├────────────────────────────┤
-│  👤 Jan Kowalski           │          │ 📎 😊 🎤 Wpisz...     ✈    │
-│     OK, rozumiem           │          └────────────────────────────┘
-└────────────────────────────┘
-     LISTA                                      CZAT
+┌───────────────────────────────────┐
+│  Konwersacje                      │
+│  ┌─────────────────────────────┐  │
+│  │ 🔍 Szukaj rozmów...         │  │
+│  └─────────────────────────────┘  │
+│                                   │
+│  KANAŁY                           │
+│  ● Specjaliści                    │
+│  ● Klienci                        │
+│                                   │
+│  CZŁONKOWIE ZESPOŁU          ▼   │ ← nowa rozwijana sekcja
+│  ┌─────────────────────────────┐  │
+│  │ 👤 Jan Kowalski (Opiekun)   │  │ ← upline wyróżniony
+│  │ ─────────────────────────   │  │
+│  │ 👤 Anna Nowak • Partner     │  │ ← członkowie struktury
+│  │ 👤 Piotr Wiśniewski • Spec  │  │
+│  │ 👤 Maria Zielińska • Klient │  │
+│  └─────────────────────────────┘  │
+│                                   │
+│  ODEBRANE                         │
+│  ● Od Administratorów             │
+└───────────────────────────────────┘
 ```
 
 ---
 
 ## Zakres zmian
 
-### 1. Nowa strona: `/messages` (MessagesPage.tsx)
+### 1. Rozszerzenie typu `UnifiedChannel` w `useUnifiedChat.ts`
 
-Pełnoekranowa strona komunikatora z:
-- **Header**: Prosty pasek z przyciskiem "Powrót do pulpitu" i tytułem "Wiadomości"
-- **Sidebar (320px)**: Lista kanałów + ostatnie rozmowy z podglądem ostatniej wiadomości
-- **Chat window**: Okno rozmowy z wybranym kanałem
-- **Responsywność**: Na mobile - przełączanie między widokiem listy a czatem
-
-### 2. Struktura nowej strony
+Dodanie nowego typu kanału `direct` dla wiadomości bezpośrednich 1:1:
 
 ```typescript
-// src/pages/MessagesPage.tsx
+export interface UnifiedChannel {
+  id: string;
+  type: 'role' | 'broadcast' | 'private' | 'direct';  // + 'direct'
+  name: string;
+  targetRole: string | null;
+  targetUserId: string | null;  // NOWE: dla wiadomości 1:1
+  icon: string;
+  unreadCount: number;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  canSend: boolean;
+  canReceive: boolean;
+  isIncoming: boolean;
+  isUpline?: boolean;  // NOWE: wyróżnienie opiekuna
+}
+```
 
-const MessagesPage = () => {
-  const navigate = useNavigate();
-  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+### 2. Nowy interfejs dla członków zespołu
+
+```typescript
+export interface TeamMemberChannel {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  eqId: string | null;
+  avatarUrl: string | null;
+  isUpline: boolean;
+  level: number;
+}
+```
+
+### 3. Rozszerzenie `useUnifiedChat` o pobieranie struktury
+
+Dodanie funkcji do pobierania członków zespołu (upline + downline):
+
+```typescript
+// Pobierz upline (opiekuna)
+const fetchUpline = async () => {
+  if (!profile?.upline_eq_id) return null;
   
-  const {
-    channels,
-    selectedChannel,
-    messages,
-    loading,
-    selectChannel,
-    sendMessage,
-  } = useUnifiedChat({ enableRealtime: true });
+  const { data } = await supabase
+    .from('profiles')
+    .select('user_id, first_name, last_name, eq_id, role, avatar_url')
+    .eq('eq_id', profile.upline_eq_id)
+    .eq('is_active', true)
+    .single();
+    
+  return data;
+};
 
+// Pobierz downline (struktura)
+const fetchDownline = async () => {
+  if (!profile?.eq_id) return [];
+  
+  const { data } = await supabase.rpc('get_organization_tree', {
+    p_root_eq_id: profile.eq_id,
+    p_max_depth: 10
+  });
+  
+  // Filtruj tylko członków poniżej roota (level > 0)
+  return (data || []).filter(m => m.level > 0);
+};
+```
+
+### 4. Nowy komponent `TeamMembersSection`
+
+Rozwijana sekcja w sidebarze:
+
+```typescript
+// src/components/messages/TeamMembersSection.tsx
+
+interface TeamMembersSectionProps {
+  upline: TeamMemberChannel | null;
+  members: TeamMemberChannel[];
+  selectedUserId: string | null;
+  onSelectMember: (userId: string) => void;
+  searchQuery: string;
+}
+
+export const TeamMembersSection = ({
+  upline,
+  members,
+  selectedUserId,
+  onSelectMember,
+  searchQuery,
+}) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  
+  // Filtruj po wyszukiwaniu
+  const filteredMembers = members.filter(m => 
+    `${m.firstName} ${m.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Mini header - tylko link powrotu */}
-      <header className="h-14 border-b flex items-center px-4 bg-background/95 backdrop-blur">
-        <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Powrót do pulpitu
-        </Button>
-        <h1 className="ml-4 font-semibold">Wiadomości</h1>
-      </header>
+    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      <CollapsibleTrigger className="...">
+        <span>CZŁONKOWIE ZESPOŁU</span>
+        <ChevronDown className={cn('...', isExpanded && 'rotate-180')} />
+      </CollapsibleTrigger>
       
-      {/* Main content - 2 columns on desktop, switchable on mobile */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - kanały i rozmowy */}
-        <MessagesSidebar 
-          channels={channels}
-          selectedChannel={selectedChannel}
-          onSelectChannel={(id) => {
-            selectChannel(id);
-            setMobileView('chat'); // Switch to chat on mobile
-          }}
-          className={cn(
-            'w-80 border-r',
-            // Mobile: show only when mobileView === 'list'
-            'max-md:absolute max-md:inset-0 max-md:w-full max-md:z-10',
-            mobileView !== 'list' && 'max-md:hidden'
-          )}
-        />
-        
-        {/* Chat window */}
-        <div className={cn(
-          'flex-1 flex flex-col',
-          mobileView !== 'chat' && 'max-md:hidden'
-        )}>
-          {selectedChannel ? (
-            <FullChatWindow
-              channel={selectedChannel}
-              messages={messages}
-              loading={loading}
-              onSend={sendMessage}
-              onBack={() => setMobileView('list')} // Mobile back button
+      <CollapsibleContent>
+        {/* Upline - wyróżniony */}
+        {upline && (
+          <>
+            <TeamMemberItem 
+              member={upline}
+              isSelected={selectedUserId === upline.userId}
+              onClick={() => onSelectMember(upline.userId)}
+              badge="Opiekun"
             />
-          ) : (
-            <EmptyState />
-          )}
-        </div>
+            <Separator className="my-1" />
+          </>
+        )}
+        
+        {/* Członkowie struktury */}
+        {filteredMembers.map(member => (
+          <TeamMemberItem 
+            key={member.userId}
+            member={member}
+            isSelected={selectedUserId === member.userId}
+            onClick={() => onSelectMember(member.userId)}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
+```
+
+### 5. Komponent pojedynczego członka `TeamMemberItem`
+
+```typescript
+// src/components/messages/TeamMemberItem.tsx
+
+const ROLE_LABELS = {
+  partner: 'Partner',
+  specjalista: 'Specjalista',
+  client: 'Klient',
+};
+
+export const TeamMemberItem = ({ member, isSelected, onClick, badge }) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      'w-full flex items-center gap-3 px-3 py-2 text-left transition-colors',
+      isSelected 
+        ? 'bg-primary/10 border-l-2 border-primary' 
+        : 'hover:bg-muted/50'
+    )}
+  >
+    <Avatar className="h-9 w-9">
+      <AvatarImage src={member.avatarUrl} />
+      <AvatarFallback>
+        {member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
+      </AvatarFallback>
+    </Avatar>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <span className="font-medium truncate">
+          {member.firstName} {member.lastName}
+        </span>
+        {badge && (
+          <Badge variant="secondary" className="text-xs">
+            {badge}
+          </Badge>
+        )}
       </div>
+      <span className="text-xs text-muted-foreground">
+        {ROLE_LABELS[member.role] || member.role}
+        {member.eqId && ` • ${member.eqId}`}
+      </span>
+    </div>
+  </button>
+);
+```
+
+### 6. Modyfikacja `MessagesSidebar.tsx`
+
+Dodanie sekcji "Członkowie zespołu" między "Kanały" a "Odebrane":
+
+```typescript
+// MessagesSidebar.tsx
+
+export const MessagesSidebar = ({
+  channels,
+  selectedChannel,
+  onSelectChannel,
+  // NOWE propsy:
+  teamMembers,
+  upline,
+  selectedDirectUserId,
+  onSelectDirectMember,
+  searchQuery,
+  onSearchChange,
+}) => {
+  return (
+    <div className="flex flex-col">
+      {/* Header + Search */}
+      
+      <ScrollArea className="flex-1">
+        {/* Kanały (outgoing) */}
+        {outgoingChannels.length > 0 && (
+          <div className="mb-4">
+            <SectionHeader>Kanały</SectionHeader>
+            {outgoingChannels.map(channel => (
+              <ChannelListItem ... />
+            ))}
+          </div>
+        )}
+        
+        {/* NOWA SEKCJA: Członkowie zespołu */}
+        {(upline || teamMembers.length > 0) && (
+          <TeamMembersSection
+            upline={upline}
+            members={teamMembers}
+            selectedUserId={selectedDirectUserId}
+            onSelectMember={onSelectDirectMember}
+            searchQuery={searchQuery}
+          />
+        )}
+        
+        {/* Odebrane (incoming) */}
+        {incomingChannels.length > 0 && (
+          <div>
+            <SectionHeader>Odebrane</SectionHeader>
+            {incomingChannels.map(channel => (
+              <ChannelListItem ... />
+            ))}
+          </div>
+        )}
+      </ScrollArea>
     </div>
   );
 };
 ```
 
-### 3. Rozszerzony sidebar z podglądem ostatniej wiadomości
+### 7. Obsługa wiadomości bezpośrednich 1:1
+
+Rozszerzenie `useUnifiedChat` o wysyłanie do konkretnego użytkownika:
 
 ```typescript
-// Każdy kanał pokazuje:
-// - Nazwę kanału/osoby
-// - Podgląd ostatniej wiadomości (skrócony)
-// - Czas ostatniej wiadomości
-// - Badge z liczbą nieprzeczytanych
+// W useUnifiedChat.ts
 
-<div className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer">
-  <Avatar className="h-12 w-12">
-    <AvatarFallback>PA</AvatarFallback>
-  </Avatar>
-  <div className="flex-1 min-w-0">
-    <div className="flex justify-between items-center">
-      <span className="font-medium">Partnerzy</span>
-      <span className="text-xs text-muted-foreground">07:16</span>
-    </div>
-    <p className="text-sm text-muted-foreground truncate">
-      Dawid: Cześć! Jak mogę pomóc?
-    </p>
-  </div>
-  {unreadCount > 0 && (
-    <Badge variant="destructive">{unreadCount}</Badge>
-  )}
-</div>
-```
+const sendDirectMessage = async (recipientId: string, content: string) => {
+  // Użyj istniejącego systemu private_chat lub role_chat_messages z recipient_id
+  const { error } = await supabase
+    .from('role_chat_messages')
+    .insert({
+      sender_id: user.id,
+      sender_role: currentRole,
+      recipient_role: recipientRole, // rola odbiorcy
+      recipient_id: recipientId,     // konkretny user
+      content,
+    });
+    
+  // Wyślij powiadomienie
+  await supabase.from('user_notifications').insert({
+    user_id: recipientId,
+    notification_type: 'direct_message',
+    title: `Wiadomość od ${senderName}`,
+    message: content.substring(0, 100),
+    link: '/messages',
+    sender_id: user.id,
+  });
+};
 
-### 4. Aktualizacja nawigacji w DashboardSidebar
-
-Zmiana ścieżki dla "Czat" z `/my-account?tab=communication` na `/messages`:
-
-```typescript
-// src/components/dashboard/DashboardSidebar.tsx
-{ 
-  id: 'chat', 
-  icon: MessageSquare, 
-  labelKey: 'dashboard.menu.chat', 
-  path: '/messages',  // ← ZMIANA: osobna strona zamiast zakładki
-},
-```
-
-### 5. Nowa trasa w App.tsx
-
-```typescript
-// src/App.tsx
-const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
-
-// W Routes:
-<Route path="/messages" element={<MessagesPage />} />
+const fetchDirectMessages = async (otherUserId: string) => {
+  // Pobierz wiadomości gdzie sender/recipient to current user i otherUser
+  const { data } = await supabase
+    .from('role_chat_messages')
+    .select('*')
+    .or(
+      `and(sender_id.eq.${user.id},recipient_id.eq.${otherUserId}),` +
+      `and(sender_id.eq.${otherUserId},recipient_id.eq.${user.id})`
+    )
+    .order('created_at', { ascending: true });
+    
+  return data;
+};
 ```
 
 ---
 
-## Struktura plików
+## Widoczność funkcjonalności według roli
+
+| Rola | Upline (opiekun) | Downline (struktura) |
+|------|------------------|----------------------|
+| **Admin** | Nie | Widzi wszystkich użytkowników (opcjonalnie) |
+| **Partner** | Tak - jego opiekun | Wszyscy w jego strukturze |
+| **Specjalista** | Tak - jego opiekun | Członkowie jego zespołu (jeśli ma) |
+| **Klient** | Tak - jego opiekun | Brak (klient nie ma struktury) |
+
+---
+
+## Struktura nowych/modyfikowanych plików
 
 ```text
-src/pages/
-└── MessagesPage.tsx              # NOWY: Pełnoekranowa strona komunikatora
+src/hooks/
+└── useUnifiedChat.ts               # Rozszerzenie o teamMembers i directMessages
 
-src/components/messages/          # NOWY folder
-├── MessagesSidebar.tsx           # Rozszerzony sidebar z podglądami
-├── MessagesHeader.tsx            # Mini header z powrotem
-├── FullChatWindow.tsx            # Pełnoekranowe okno czatu
-├── ChannelListItem.tsx           # Element listy z podglądem
-└── MobileBackButton.tsx          # Przycisk powrotu na mobile
+src/components/messages/
+├── MessagesSidebar.tsx             # Dodanie sekcji TeamMembersSection
+├── TeamMembersSection.tsx          # NOWY: rozwijana lista członków
+├── TeamMemberItem.tsx              # NOWY: pojedynczy członek
+├── ChannelListItem.tsx             # Bez zmian
+├── FullChatWindow.tsx              # Dostosowanie do direct messages
+└── index.ts                        # Eksport nowych komponentów
+
+src/pages/
+└── MessagesPage.tsx                # Przekazanie nowych propsów do sidebar
 ```
 
 ---
 
-## Sekcja techniczna
+## Sekcja techniczna: Przepływ danych
 
-### Komponenty do utworzenia:
-
-| Komponent | Opis |
-|-----------|------|
-| `MessagesPage.tsx` | Główna strona `/messages` z pełnoekranowym layoutem |
-| `MessagesSidebar.tsx` | Sidebar z kanałami i podglądem ostatnich wiadomości |
-| `FullChatWindow.tsx` | Okno czatu z przyciskiem powrotu na mobile |
-| `ChannelListItem.tsx` | Element listy kanału z avatar, podglądem i czasem |
-
-### Modyfikacje istniejących plików:
-
-| Plik | Zmiana |
-|------|--------|
-| `src/App.tsx` | Dodanie trasy `/messages` |
-| `src/components/dashboard/DashboardSidebar.tsx` | Zmiana path dla "Czat" na `/messages` |
-
-### Responsywność:
-
-- **Desktop (>768px)**: 2 kolumny obok siebie (sidebar 320px + chat flex-1)
-- **Mobile (<768px)**: Przełączanie widoków list ↔ chat
-- **Animacje**: Slide transition przy zmianie widoku na mobile
-
-### Integracja z istniejącym kodem:
-
-- Wykorzystanie `useUnifiedChat` hook bez zmian
-- Wykorzystanie istniejących komponentów: `MessageBubble`, `MessageInput`
-- Real-time i powiadomienia działają bez zmian
-- `CommunicationCenter` w "Moje konto" pozostaje jako fallback
-
----
-
-## Porównanie z obecnym rozwiązaniem
-
-| Aspekt | Obecne (zakładka) | Nowe (osobna strona) |
-|--------|-------------------|---------------------|
-| Lokalizacja | `/my-account?tab=communication` | `/messages` |
-| Wysokość | 600px (widget) | 100vh (pełny ekran) |
-| Sidebar | Minimalistyczny | Rozszerzony z podglądem wiadomości |
-| Mobile | Brak dedykowanego UX | Przełączanie list/chat |
-| Nawigacja | Przez "Moje konto" | Bezpośredni link w sidebar |
-| Styl | Widget osadzony | Samodzielna aplikacja jak WhatsApp |
+1. **Inicjalizacja**: `useUnifiedChat` wywołuje `fetchTeamMembers()` przy mount
+2. **Pobieranie upline**: Query do `profiles` po `upline_eq_id`
+3. **Pobieranie downline**: RPC `get_organization_tree` z `eq_id` użytkownika
+4. **Transformacja**: Mapowanie na `TeamMemberChannel[]`
+5. **Renderowanie**: `TeamMembersSection` wyświetla listę z rozróżnieniem upline
+6. **Wybór członka**: Ustawia `selectedDirectUserId` i przełącza widok czatu
+7. **Wiadomości**: Pobiera/wysyła przez `role_chat_messages` z `recipient_id`
 
 ---
 
 ## Zachowana funkcjonalność
 
-- ✅ Role-based channels (Admin, Partner, Specjalista, Klient)
-- ✅ Hierarchia uprawnień (kto może do kogo pisać)
-- ✅ Real-time aktualizacje
-- ✅ Powiadomienia z `user_notifications`
-- ✅ Istniejący `useUnifiedChat` hook
-- ✅ Stary `CommunicationCenter` pozostaje (backward compatibility)
+- Istniejące kanały role-based (Specjaliści, Klienci) działają bez zmian
+- Powiadomienia real-time pozostają aktywne
+- Hierarchia ról nadal kontroluje kto może do kogo pisać
+- `private_chat_*` system pozostaje dla grup i specjalistów
 
