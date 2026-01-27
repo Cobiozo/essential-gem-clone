@@ -1,331 +1,477 @@
 
+# Plan: Pasek Informacyjny (News Ticker) w Stylu Belki Wiadomości
 
-# Plan: Optymalizacja server.js dla Phusion Passenger na cPanel
+## Cel
 
-## Zidentyfikowane problemy
+Implementacja dynamicznego paska informacyjnego (ticker/news bar) osadzonego w dolnej części widgetu powitalnego (`WelcomeWidget`). Pasek będzie wyświetlał komunikaty systemowe, ogłoszenia i ważne informacje pobierane z różnych źródeł danych skonfigurowanych przez administratora.
 
-| Problem | Opis | Status w kodzie |
-|---------|------|-----------------|
-| **SIGKILL vs SIGTERM** | Passenger używa SIGKILL, który nie wywołuje handlerów | Handlery SIGTERM/SIGINT są nieefektywne |
-| **Brak timeoutów keep-alive** | Połączenia wiszą przez długi czas | `keepAliveTimeout` i `headersTimeout` nie ustawione |
-| **Brak obsługi SIGHUP** | Passenger wysyła SIGHUP przy restarcie | Brak handlera |
-| **server.close() nie wywoływany** | Graceful shutdown nie zamyka serwera prawidłowo | `process.exit(0)` natychmiast |
-| **Brak trackingu połączeń** | Nie wiemy ile połączeń jest aktywnych | Brak mechanizmu |
+## Wizualizacja
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│  WelcomeWidget                                                                          │
+│  ┌───────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  Dzień dobry, Marcin! 👋                                    🕐 14:32:45  Polska   │  │
+│  │  Poniedziałek, 27 Stycznia 2025                                                   │  │
+│  └───────────────────────────────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ ⚡ WEBINAR: "Nowe produkty 2025" jutro o 18:00 • 📢 Komunikat: Aktualizacja...    │  │ ← News Ticker
+│  └───────────────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Proponowane rozwiązania
+## Źródła danych (konfigurowane przez admina)
 
-### 1. Konfiguracja timeoutów serwera
+Administrator może włączyć/wyłączyć pobieranie z następujących źródeł:
 
-Krytyczne dla zapobiegania "wiszącym" połączeniom:
+| Źródło | Tabela | Informacja wyświetlana |
+|--------|--------|------------------------|
+| **Webinary** | `events` (event_type='webinar') | Tytuł + data najbliższego webinaru |
+| **Spotkania zespołowe** | `events` (event_type='team_training') | Tytuł + data spotkania |
+| **Komunikaty admina** | `news_ticker_items` (NOWA) | Dowolny tekst + ikona + priorytet |
+| **Grafiki/miniatury** | `news_ticker_items` | Komunikat z opcjonalną miniaturką |
+| **Ważne informacje** | `important_info_banners` (is_ticker=true) | Skrócony tekst bannera |
 
-```javascript
-const server = app.listen(PORT, HOST, () => {
-  // ... log startup
-});
+---
 
-// KRYTYCZNE: Timeouty dla Passenger
-server.keepAliveTimeout = 5000;   // 5s - zamknij idle connections szybciej
-server.headersTimeout = 10000;    // 10s - timeout na nagłówki
-server.timeout = 30000;           // 30s - ogólny timeout requestu
+## Struktura bazy danych
+
+### Nowa tabela: `news_ticker_settings`
+
+```sql
+CREATE TABLE news_ticker_settings (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  is_enabled boolean DEFAULT true,
+  
+  -- Widoczność per rola
+  visible_to_clients boolean DEFAULT true,
+  visible_to_partners boolean DEFAULT true,
+  visible_to_specjalista boolean DEFAULT true,
+  
+  -- Źródła danych (które włączone)
+  source_webinars boolean DEFAULT true,
+  source_team_meetings boolean DEFAULT true,
+  source_announcements boolean DEFAULT true,
+  source_important_banners boolean DEFAULT false,
+  
+  -- Ustawienia animacji
+  animation_mode text DEFAULT 'scroll', -- 'scroll' | 'rotate' | 'static'
+  scroll_speed integer DEFAULT 50, -- px/s dla marquee
+  rotate_interval integer DEFAULT 5, -- sekundy między komunikatami
+  
+  -- Styl
+  background_color text DEFAULT NULL, -- NULL = domyślny gradient
+  text_color text DEFAULT NULL,
+  
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
 ```
 
-### 2. Tracking aktywnych połączeń
+### Nowa tabela: `news_ticker_items`
 
-Monitorowanie połączeń dla graceful shutdown:
-
-```javascript
-const activeConnections = new Set();
-
-server.on('connection', (socket) => {
-  activeConnections.add(socket);
-  socket.on('close', () => {
-    activeConnections.delete(socket);
-  });
-});
-
-// Endpoint do sprawdzenia stanu
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    activeConnections: activeConnections.size,  // NOWE
-    pid: process.pid,                            // NOWE - dla debugowania
-  });
-});
+```sql
+CREATE TABLE news_ticker_items (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  
+  -- Treść
+  content text NOT NULL,
+  short_description text, -- max 120 znaków dla tickera
+  icon text DEFAULT 'info', -- nazwa ikony Lucide
+  thumbnail_url text, -- opcjonalna miniatura
+  link_url text, -- opcjonalny link
+  
+  -- Widoczność
+  is_active boolean DEFAULT true,
+  visible_to_clients boolean DEFAULT true,
+  visible_to_partners boolean DEFAULT true,
+  visible_to_specjalista boolean DEFAULT true,
+  
+  -- Priorytet i wyróżnienie
+  priority integer DEFAULT 0,
+  is_important boolean DEFAULT false, -- wyróżnienie kolorem
+  
+  -- Harmonogram
+  start_date timestamp with time zone,
+  end_date timestamp with time zone,
+  
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by uuid REFERENCES auth.users(id)
+);
 ```
 
-### 3. Ulepszone graceful shutdown
+---
 
-Prawidłowe zamykanie z obsługą wszystkich sygnałów:
+## Architektura komponentów
 
-```javascript
-let isShuttingDown = false;
+```text
+src/components/
+├── news-ticker/
+│   ├── NewsTicker.tsx              # Główny komponent tickera
+│   ├── TickerItem.tsx              # Pojedynczy element (ikona + tekst)
+│   ├── useNewsTickerData.ts        # Hook pobierający dane ze wszystkich źródeł
+│   └── index.ts
+│
+├── admin/
+│   └── NewsTickerManagement.tsx    # Panel zarządzania w CMS
 
-const gracefulShutdown = (signal) => {
-  // Zapobiegaj wielokrotnemu wywołaniu
-  if (isShuttingDown) {
-    console.log(`[Shutdown] Already shutting down, ignoring ${signal}`);
-    return;
-  }
-  isShuttingDown = true;
+src/components/dashboard/widgets/
+└── WelcomeWidget.tsx               # Modyfikacja - dodanie tickera w dolnej części
+```
+
+---
+
+## Implementacja komponentów
+
+### 1. Hook `useNewsTickerData`
+
+Pobiera dane ze wszystkich włączonych źródeł i łączy je w jedną listę:
+
+```typescript
+interface TickerItem {
+  id: string;
+  type: 'webinar' | 'meeting' | 'announcement' | 'banner';
+  icon: string;
+  content: string;
+  isImportant: boolean;
+  linkUrl?: string;
+  thumbnailUrl?: string;
+  sourceId: string;
+}
+
+interface TickerSettings {
+  isEnabled: boolean;
+  animationMode: 'scroll' | 'rotate' | 'static';
+  scrollSpeed: number;
+  rotateInterval: number;
+  backgroundColor?: string;
+  textColor?: string;
+}
+
+const useNewsTickerData = () => {
+  // 1. Pobierz settings
+  // 2. Sprawdź widoczność dla roli użytkownika
+  // 3. Pobierz dane z włączonych źródeł
+  // 4. Połącz i posortuj po priority
+  // 5. Zwróć { items, settings, loading }
+};
+```
+
+### 2. Komponent `NewsTicker`
+
+```typescript
+interface NewsTickerProps {
+  className?: string;
+}
+
+const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
+  const { items, settings, loading } = useNewsTickerData();
+  const [currentIndex, setCurrentIndex] = useState(0);
   
-  console.log(`[Shutdown] ${signal} received, starting graceful shutdown...`);
-  console.log(`[Shutdown] Active connections: ${activeConnections.size}`);
+  if (!settings?.isEnabled || items.length === 0) return null;
   
-  // Przestań przyjmować nowe połączenia
-  server.close((err) => {
-    if (err) {
-      console.error('[Shutdown] Error closing server:', err);
-      process.exit(1);
-    }
-    console.log('[Shutdown] Server closed successfully');
-    process.exit(0);
-  });
+  // Tryb: scroll (marquee), rotate (zmiana co X sekund), static (wszystkie naraz)
   
-  // Zamknij istniejące połączenia delikatnie
-  activeConnections.forEach((socket) => {
-    // Wyślij FIN, ale daj czas na dokończenie
-    socket.end();
-  });
+  return (
+    <div className={cn(
+      "relative overflow-hidden rounded-lg bg-gradient-to-r from-muted/50 to-muted/30",
+      "border border-border/50 py-2 px-4",
+      className
+    )}>
+      {settings.animationMode === 'scroll' ? (
+        <MarqueeContent items={items} speed={settings.scrollSpeed} />
+      ) : settings.animationMode === 'rotate' ? (
+        <RotatingContent items={items} interval={settings.rotateInterval} />
+      ) : (
+        <StaticContent items={items} />
+      )}
+    </div>
+  );
+};
+```
+
+### 3. Animacja Marquee (scroll)
+
+```typescript
+const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ items, speed }) => {
+  // Płynne przewijanie w poziomie z CSS animation
+  // Duplikacja treści dla ciągłego efektu
   
-  // Fallback: wymuś zamknięcie po 10s
-  setTimeout(() => {
-    console.warn('[Shutdown] Forcing exit after timeout');
-    activeConnections.forEach((socket) => {
-      socket.destroy();
-    });
-    process.exit(0);
-  }, 10000).unref(); // .unref() - nie blokuj zamykania przez ten timer
+  return (
+    <div className="flex animate-marquee whitespace-nowrap">
+      {[...items, ...items].map((item, i) => (
+        <TickerItem key={`${item.id}-${i}`} item={item} />
+      ))}
+    </div>
+  );
 };
 
-// Obsługa wszystkich sygnałów
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));  // NOWE
-
-// Obsługa nieoczekiwanych błędów
-process.on('uncaughtException', (err) => {
-  console.error('[Fatal] Uncaught exception:', err);
-  gracefulShutdown('uncaughtException');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[Fatal] Unhandled rejection:', reason);
-  gracefulShutdown('unhandledRejection');
-});
+// CSS (w tailwind.config lub inline)
+// @keyframes marquee {
+//   0% { transform: translateX(0); }
+//   100% { transform: translateX(-50%); }
+// }
 ```
 
-### 4. Passenger-specific: Middleware dla szybkiego zamykania
+### 4. Animacja Rotate (zmiana co X sekund)
 
-Odrzucaj nowe requesty podczas shutdown:
-
-```javascript
-// Middleware: odrzuć requesty podczas shutdown
-app.use((req, res, next) => {
-  if (isShuttingDown) {
-    res.setHeader('Connection', 'close');
-    return res.status(503).json({
-      error: 'Server is shutting down',
-      retryAfter: 5
-    });
-  }
-  next();
-});
-```
-
-### 5. Connection: close header dla Passenger
-
-Pomaga w szybszym zwalnianiu połączeń:
-
-```javascript
-// Dla Passenger: sugeruj zamknięcie połączenia po odpowiedzi
-app.use((req, res, next) => {
-  // Na shared hostingu preferuj krótkie połączenia
-  if (process.env.PASSENGER_APP_ENV || process.env.SHARED_HOSTING) {
-    res.setHeader('Connection', 'close');
-  }
-  next();
-});
-```
-
----
-
-## Sekcja techniczna: Pełna struktura zmian
-
-### Zmieniony plik: `server.js`
-
-```javascript
-// ========================================
-// SERVER CONFIGURATION
-// ========================================
-
-const app = express();
-const PORT = process.env.PORT || 8080;
-const HOST = process.env.HOST || '0.0.0.0';
-const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelife.info.pl';
-
-// Shutdown state
-let isShuttingDown = false;
-const activeConnections = new Set();
-
-// ... (middleware setup - bez zmian)
-
-// Shutdown-aware middleware (PRZED innymi routes)
-app.use((req, res, next) => {
-  if (isShuttingDown) {
-    res.setHeader('Connection', 'close');
-    return res.status(503).json({
-      error: 'Server is shutting down',
-      retryAfter: 5
-    });
-  }
-  next();
-});
-
-// ... (routes - bez zmian)
-
-// ========================================
-// SERVER STARTUP WITH PROPER CONFIG
-// ========================================
-
-const server = app.listen(PORT, HOST, () => {
-  console.log('='.repeat(60));
-  console.log('🚀 PureLife Server');
-  console.log('='.repeat(60));
-  console.log(`📍 Server running at: http://${HOST}:${PORT}`);
-  console.log(`🌐 Host: s108.cyber-folks.pl`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'production'}`);
-  console.log(`📁 Uploads directory: ${UPLOADS_DIR}`);
-  console.log(`🔧 PID: ${process.pid}`);
-  console.log(`📅 Started at: ${new Date().toLocaleString('pl-PL')}`);
-  console.log('='.repeat(60));
-});
-
-// KRYTYCZNE: Timeouty dla Phusion Passenger
-server.keepAliveTimeout = 5000;    // 5 sekund
-server.headersTimeout = 10000;     // 10 sekund  
-server.timeout = 30000;            // 30 sekund
-
-// Track aktywnych połączeń
-server.on('connection', (socket) => {
-  activeConnections.add(socket);
-  socket.on('close', () => {
-    activeConnections.delete(socket);
-  });
-});
-
-// ========================================
-// GRACEFUL SHUTDOWN
-// ========================================
-
-const gracefulShutdown = (signal) => {
-  if (isShuttingDown) {
-    console.log(`[Shutdown] Already in progress, ignoring ${signal}`);
-    return;
-  }
-  isShuttingDown = true;
+```typescript
+const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ items, interval }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
   
-  console.log(`\n[Shutdown] ${signal} received`);
-  console.log(`[Shutdown] Active connections: ${activeConnections.size}`);
-  console.log(`[Shutdown] Closing server...`);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % items.length);
+    }, interval * 1000);
+    return () => clearInterval(timer);
+  }, [items.length, interval]);
   
-  server.close((err) => {
-    if (err) {
-      console.error('[Shutdown] Server close error:', err);
-      process.exit(1);
-    }
-    console.log('[Shutdown] Server closed successfully');
-    process.exit(0);
-  });
-  
-  // Gracefully end existing connections
-  activeConnections.forEach((socket) => {
-    socket.end();
-  });
-  
-  // Force exit after 10s (unref = don't keep process alive)
-  setTimeout(() => {
-    console.warn('[Shutdown] Timeout - forcing exit');
-    activeConnections.forEach((socket) => socket.destroy());
-    process.exit(0);
-  }, 10000).unref();
+  return (
+    <div className="flex items-center justify-center transition-opacity duration-300">
+      <TickerItem item={items[currentIndex]} />
+    </div>
+  );
 };
+```
 
-// Signal handlers
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
+### 5. Komponent `TickerItem`
 
-// Error handlers
-process.on('uncaughtException', (err) => {
-  console.error('[Fatal] Uncaught exception:', err);
-  gracefulShutdown('uncaughtException');
-});
+```typescript
+const TickerItem: React.FC<{ item: TickerItem }> = ({ item }) => {
+  const IconComponent = (LucideIcons as any)[item.icon] || Info;
+  
+  const content = (
+    <span className={cn(
+      "inline-flex items-center gap-2 mx-4",
+      item.isImportant && "text-amber-600 dark:text-amber-400 font-medium"
+    )}>
+      {item.thumbnailUrl ? (
+        <img src={item.thumbnailUrl} className="h-5 w-5 rounded object-cover" />
+      ) : (
+        <IconComponent className="h-4 w-4 flex-shrink-0" />
+      )}
+      <span className="text-sm">{item.content}</span>
+    </span>
+  );
+  
+  if (item.linkUrl) {
+    return (
+      <a href={item.linkUrl} className="hover:underline" target="_blank">
+        {content}
+      </a>
+    );
+  }
+  
+  return content;
+};
+```
 
-process.on('unhandledRejection', (reason) => {
-  console.error('[Fatal] Unhandled rejection:', reason);
-  // Nie zamykaj - tylko loguj (może być nieistotne)
-});
+### 6. Modyfikacja `WelcomeWidget`
+
+Dodanie tickera w dolnej części widgetu:
+
+```typescript
+// W WelcomeWidget.tsx
+import { NewsTicker } from '@/components/news-ticker';
+
+return (
+  <Card className="...">
+    <CardContent className="p-6">
+      {/* Istniejąca zawartość - powitanie + zegar */}
+      <div className="flex flex-col md:flex-row ...">
+        {/* ... */}
+      </div>
+      
+      {/* NOWY: News Ticker w dolnej części */}
+      <NewsTicker className="mt-4" />
+    </CardContent>
+  </Card>
+);
 ```
 
 ---
 
-## Dodatkowe zalecenia dla Passenger na cPanel
+## Panel administracyjny
 
-### Plik `.htaccess` (jeśli używany)
+### Komponent `NewsTickerManagement`
 
-```apache
-PassengerAppRoot /home/username/public_html
-PassengerStartupFile server.js
-PassengerAppType node
-PassengerNodejs /usr/bin/node
+Zakładki:
+1. **Ustawienia** - włączanie/wyłączanie, wybór źródeł, animacja, kolory
+2. **Komunikaty** - lista ręcznych komunikatów (CRUD)
+3. **Podgląd** - live preview tickera
 
-# Krótszy idle time
-PassengerPoolIdleTime 60
-PassengerMaxPoolSize 2
+```typescript
+// Struktura podobna do DailySignalManagement i ImportantInfoManagement
+// - Switch do włączania/wyłączania całego tickera
+// - Checkboxy widoczności per rola
+// - Checkboxy źródeł danych (webinary, spotkania, komunikaty)
+// - Select animacji (scroll/rotate/static)
+// - Slider prędkości/interwału
+// - Color picker dla tła i tekstu
+// - Lista komunikatów z możliwością dodawania/edycji/usuwania
 ```
 
-### Zmienne środowiskowe
+### Integracja z AdminSidebar
 
-Ustaw w panelu cPanel lub `.env`:
+Dodanie nowego elementu menu w kategorii "Funkcje":
 
-```bash
-PASSENGER_APP_ENV=production
-SHARED_HOSTING=true
-NODE_ENV=production
+```typescript
+// W navCategories, features items:
+{ value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
 ```
 
 ---
 
-## Podsumowanie zmian
+## Widoczność per rola
 
-| Element | Przed | Po |
-|---------|-------|-----|
-| `keepAliveTimeout` | Brak (domyślnie 5s w Node 18+) | Jawnie 5000ms |
-| `headersTimeout` | Brak (domyślnie 60s) | 10000ms |
-| `server.timeout` | Brak (domyślnie 0 = bez limitu) | 30000ms |
-| SIGHUP handler | Brak | Dodany |
-| Connection tracking | Brak | `activeConnections` Set |
-| Shutdown middleware | Brak | 503 podczas shutdown |
-| `setTimeout().unref()` | Brak | Użyty w fallback |
-| `server.close()` | Nie wywoływany | Prawidłowo wywoływany |
-| uncaughtException | Brak | Handler z shutdown |
+System widoczności zgodny z istniejącym wzorcem:
+
+| Rola | Widzi ticker jeśli |
+|------|-------------------|
+| Admin | Zawsze (do testowania) |
+| Partner | `visible_to_partners = true` w settings |
+| Specjalista | `visible_to_specjalista = true` w settings |
+| Klient | `visible_to_clients = true` w settings |
+
+Dodatkowo, każdy komunikat w `news_ticker_items` ma własne flagi widoczności per rola.
 
 ---
 
-## Uwaga o SIGKILL
+## Filtrowanie komunikatów per rola
 
-**SIGKILL nie może być obsłużony** - to jest sygnał "natychmiastowego zabicia" procesu na poziomie kernela. Nie ma na to sposobu w żadnym języku programowania.
+Administrator może określić, która informacja komu się wyświetla:
 
-Rozwiązanie: Upewnij się, że Passenger NIE używa SIGKILL jako pierwszego sygnału. W konfiguracji Passenger:
+1. **Globalne ustawienia tickera** - widoczność całego komponentu per rola
+2. **Widoczność per komunikat** - każdy wpis w `news_ticker_items` ma flagi `visible_to_*`
+3. **Źródła danych dziedziczą widoczność** - np. webinar widoczny tylko dla partnerów pojawi się tylko dla partnerów
 
-```apache
-# Daj procesowi czas na graceful shutdown
-PassengerMaxRequestTime 60
+---
+
+## Responsywność
+
+- **Desktop**: Pełna szerokość, animacja scroll/rotate
+- **Tablet**: Mniejszy font, krótsza animacja
+- **Mobile**: Statyczny lub rotate (scroll może być trudny do czytania), tekst może być skrócony
+
+```typescript
+// Tailwind responsive classes
+<div className={cn(
+  "text-sm md:text-base",
+  "py-2 md:py-3",
+  // Na mobile preferuj rotate zamiast scroll
+  settings.animationMode === 'scroll' && "md:animate-marquee"
+)}>
 ```
 
-Jeśli Passenger nadal używa SIGKILL, to jest problem konfiguracji hostingu - skontaktuj się z Cyberfolks.
+---
 
+## Sekcja techniczna
+
+### Pliki do utworzenia:
+
+| Plik | Opis |
+|------|------|
+| `src/components/news-ticker/NewsTicker.tsx` | Główny komponent |
+| `src/components/news-ticker/TickerItem.tsx` | Element tickera |
+| `src/components/news-ticker/useNewsTickerData.ts` | Hook pobierający dane |
+| `src/components/news-ticker/index.ts` | Eksporty |
+| `src/components/admin/NewsTickerManagement.tsx` | Panel admina |
+
+### Pliki do modyfikacji:
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Dodanie `<NewsTicker />` |
+| `src/components/admin/AdminSidebar.tsx` | Dodanie menu "News Ticker" |
+| `src/pages/Admin.tsx` | Dodanie case dla 'news-ticker' |
+| `src/integrations/supabase/types.ts` | Dodanie typów dla nowych tabel (po migracji) |
+
+### Migracja bazy danych:
+
+```sql
+-- Tabela ustawień
+CREATE TABLE news_ticker_settings (...);
+
+-- Tabela komunikatów
+CREATE TABLE news_ticker_items (...);
+
+-- RLS policies
+ALTER TABLE news_ticker_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE news_ticker_items ENABLE ROW LEVEL SECURITY;
+
+-- Read access dla zalogowanych
+CREATE POLICY "Authenticated users can read ticker settings" 
+  ON news_ticker_settings FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can read active ticker items" 
+  ON news_ticker_items FOR SELECT TO authenticated 
+  USING (is_active = true);
+
+-- Admin write access
+CREATE POLICY "Admins can manage ticker settings" 
+  ON news_ticker_settings FOR ALL TO authenticated 
+  USING (is_admin());
+
+CREATE POLICY "Admins can manage ticker items" 
+  ON news_ticker_items FOR ALL TO authenticated 
+  USING (is_admin());
+```
+
+### CSS dla animacji marquee:
+
+```css
+/* W index.css lub jako plugin tailwind */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee var(--marquee-duration, 30s) linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+```
+
+---
+
+## Przepływ danych
+
+```text
+1. User wchodzi na Dashboard
+   │
+2. WelcomeWidget renderuje NewsTicker
+   │
+3. useNewsTickerData:
+   ├─ Pobiera news_ticker_settings
+   ├─ Sprawdza widoczność dla roli użytkownika
+   ├─ Jeśli wyłączony → return { items: [], settings: null }
+   │
+   ├─ Pobiera dane z włączonych źródeł:
+   │   ├─ events (webinary, najbliższe 7 dni)
+   │   ├─ events (spotkania zespołowe, najbliższe 7 dni)
+   │   ├─ news_ticker_items (aktywne, w harmonogramie)
+   │   └─ important_info_banners (is_ticker = true)
+   │
+   ├─ Filtruje po widoczności per rola
+   ├─ Sortuje po priority i dacie
+   └─ Zwraca { items, settings, loading }
+   │
+4. NewsTicker renderuje animację zgodnie z settings.animationMode
+```
+
+---
+
+## Podsumowanie
+
+- **Lekki wizualnie** - subtelny gradient, małe ikony, czytelny font
+- **Nieinwazyjny** - nie blokuje interfejsu, można zignorować
+- **Dynamiczny** - pobiera dane z wielu źródeł w czasie rzeczywistym
+- **Konfigurowalny** - admin ma pełną kontrolę nad źródłami, animacją i widocznością
+- **Responsywny** - działa na mobile i desktop
+- **Zgodny z istniejącą architekturą** - używa tych samych wzorców co DailySignal, ImportantInfo
