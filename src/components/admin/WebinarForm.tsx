@@ -73,7 +73,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     { value: 'szkoleniowy', label: t('admin.webinar.types.training') },
   ];
 
-  const [form, setForm] = useState<WebinarFormData & { registration_form_config: RegistrationFormConfig | null }>({
+  const [form, setForm] = useState<WebinarFormData & { registration_form_config: RegistrationFormConfig | null; is_external_platform?: boolean; external_platform_message?: string }>({
     title: '',
     description: '',
     event_type: 'webinar',
@@ -97,6 +97,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     is_published: true,
     guest_link: '',
     registration_form_config: defaultRegistrationFormConfig,
+    is_external_platform: false,
+    external_platform_message: '',
   });
 
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -151,6 +153,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         registration_form_config: parsedFormConfig || defaultRegistrationFormConfig,
         allow_invites: (editingWebinar as any).allow_invites ?? false,
         publish_at: (editingWebinar as any).publish_at || null,
+        is_external_platform: (editingWebinar as any).is_external_platform ?? false,
+        external_platform_message: (editingWebinar as any).external_platform_message || '',
       } as any);
       setImageUrlInput(editingWebinar.image_url || '');
       
@@ -240,6 +244,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         registration_form_config: JSON.parse(JSON.stringify(form.registration_form_config)) as Json,
         allow_invites: (form as any).allow_invites || false,
         publish_at: (form as any).publish_at || null,
+        is_external_platform: form.is_external_platform || false,
+        external_platform_message: form.external_platform_message || null,
       };
 
       let error;
@@ -476,6 +482,34 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
             />
           </CollapsibleContent>
         </Collapsible>
+
+        {/* External platform toggle */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={form.is_external_platform || false}
+              onCheckedChange={(checked) => setForm({ ...form, is_external_platform: checked })}
+            />
+            <Label className="text-muted-foreground">
+              Zewnętrzna platforma (webinar odbywa się poza PureLife)
+            </Label>
+          </div>
+          
+          {form.is_external_platform && (
+            <div className="pl-6 space-y-2">
+              <Label className="text-xs text-muted-foreground">Komunikat dla uczestników</Label>
+              <Input
+                value={form.external_platform_message || ''}
+                onChange={(e) => setForm({ ...form, external_platform_message: e.target.value })}
+                placeholder="Ten webinar odbywa się na zewnętrznej platformie. Zapisz się tutaj, aby otrzymać przypomnienie..."
+                className="h-10"
+              />
+              <p className="text-xs text-muted-foreground">
+                Zostaw puste, aby użyć domyślnego komunikatu
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Internal registration toggle */}
         <div className="flex items-center gap-3">

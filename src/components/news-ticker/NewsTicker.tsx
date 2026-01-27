@@ -112,8 +112,8 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-lg",
-        "min-w-0 max-w-full w-full",
+        "relative overflow-hidden overflow-x-hidden rounded-lg",
+        "min-w-0 max-w-full w-full box-border",
         "bg-gradient-to-r from-muted/60 via-muted/40 to-muted/60",
         "border border-border/40",
         "py-2 px-3",

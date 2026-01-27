@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -20,7 +21,8 @@ import {
   Loader2,
   UserPlus,
   CalendarDays,
-  ChevronDown
+  ChevronDown,
+  Globe
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { EventWithRegistration, EventButton } from '@/types/events';
@@ -171,6 +173,11 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const isMultiOccurrence = isMultiOccurrenceEvent(event);
   const allOccurrences = isMultiOccurrence ? getAllOccurrences(event) : [];
   const futureOccurrences = allOccurrences.filter(occ => !occ.is_past);
+  
+  // Check if this is an external platform event
+  const isExternalPlatform = (event as any).is_external_platform === true;
+  const externalPlatformMessage = (event as any).external_platform_message || 
+    'Ten webinar odbywa się na zewnętrznej platformie. Zapisz się tutaj, aby otrzymać przypomnienie w kalendarzu, a następnie użyj przycisku poniżej, aby zarejestrować się na platformie docelowej.';
 
   // Handle occurrence-specific registration
   const handleOccurrenceRegister = async (occurrenceIndex: number, shouldRegister: boolean) => {
@@ -461,10 +468,15 @@ Zapisz się tutaj: ${inviteUrl}
     if (showRegistration && event.requires_registration && isUpcoming && !isPastEvent && !isMultiOccurrence) {
       const isFull = event.max_participants && (event.registration_count || 0) >= event.max_participants;
       
+      // Change button text for external platform events
+      const registerButtonText = isExternalPlatform 
+        ? (isRegistered ? 'Wypisz się' : isFull ? 'Brak miejsc' : '📅 Dodaj do kalendarza')
+        : (isRegistered ? 'Wypisz się' : isFull ? 'Brak miejsc' : 'Zapisz się');
+      
       buttons.push(
         <Button
           key="register"
-          variant={isRegistered ? 'secondary' : 'default'}
+          variant={isRegistered ? 'secondary' : isExternalPlatform ? 'outline' : 'default'}
           size="sm"
           onClick={handleRegister}
           disabled={registering || (isFull && !isRegistered)}
@@ -473,10 +485,12 @@ Zapisz się tutaj: ${inviteUrl}
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : isRegistered ? (
             <X className="h-4 w-4 mr-2" />
+          ) : isExternalPlatform ? (
+            <Calendar className="h-4 w-4 mr-2" />
           ) : (
             <Check className="h-4 w-4 mr-2" />
           )}
-          {isRegistered ? 'Wypisz się' : isFull ? 'Brak miejsc' : 'Zapisz się'}
+          {registerButtonText}
         </Button>
       );
     }
@@ -578,6 +592,16 @@ Zapisz się tutaj: ${inviteUrl}
                 <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
               </div>
             </div>
+
+            {/* External platform banner */}
+            {isExternalPlatform && isUpcoming && (
+              <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                <Globe className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
+                  {externalPlatformMessage}
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Description */}
             {event.description && (
