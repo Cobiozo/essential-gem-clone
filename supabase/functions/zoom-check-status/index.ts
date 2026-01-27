@@ -24,31 +24,24 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Create client with user's auth header for JWT verification
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    // Create service role client for database operations and JWT verification
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user using getClaims instead of getUser
+    // Verify user using getUser with service role key
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: authError } = await supabaseAuth.auth.getClaims(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
-    if (authError || !claimsData?.claims?.sub) {
-      console.log('JWT verification failed:', authError?.message);
+    if (authError || !user) {
+      console.log('JWT verification failed:', authError?.message || 'No user');
       return new Response(
         JSON.stringify({ success: false, error: 'unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    const userId = claimsData.claims.sub;
-    console.log('Authenticated user:', userId);
-    
-    // Create service role client for database operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log('Authenticated user:', user.id);
 
     // Check if Zoom credentials are configured
     const accountId = Deno.env.get('ZOOM_ACCOUNT_ID');
