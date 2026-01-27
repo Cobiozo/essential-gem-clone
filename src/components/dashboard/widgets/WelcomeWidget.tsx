@@ -103,7 +103,7 @@ export const WelcomeWidget: React.FC = () => {
       className="col-span-full bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-sm relative"
     >
       <WidgetInfoButton description="Powitanie i aktualny czas - dostosuj strefę czasową według potrzeb" />
-      <CardContent className="p-6">
+      <CardContent className="p-6 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">
@@ -136,7 +136,9 @@ export const WelcomeWidget: React.FC = () => {
         </div>
         
         {/* News Ticker - pasek informacyjny */}
-        <NewsTicker className="mt-4" />
+        <div className="mt-4 overflow-hidden w-full max-w-full">
+          <NewsTicker />
+        </div>
       </CardContent>
     </Card>
   );

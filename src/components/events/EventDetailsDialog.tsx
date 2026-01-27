@@ -7,7 +7,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe } from 'lucide-react';
 import { format, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -67,6 +68,11 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 
   // Use dynamic zoom link as fallback
   const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
+  
+  // External platform detection
+  const isExternalPlatform = (event as any).is_external_platform === true;
+  const externalPlatformMessage = (event as any).external_platform_message || 
+    'Ten webinar odbywa się na zewnętrznej platformie. Zapisz się tutaj, aby otrzymać przypomnienie w kalendarzu, a następnie użyj przycisku poniżej, aby zarejestrować się na platformie docelowej.';
 
   const isEnded = isAfter(now, eventEnd);
   const isLive = isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd);
@@ -174,6 +180,16 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               </div>
             </div>
 
+            {/* External platform banner */}
+            {isExternalPlatform && !isEnded && (
+              <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+                <Globe className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
+                  {externalPlatformMessage}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Description - pod spodem */}
             {event.description && (
               <div className="pt-2 border-t">
@@ -216,11 +232,11 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 </Button>
               ) : event.is_registered ? (
                 <Button variant="secondary" className="w-full" disabled>
-                  Jesteś zapisany/a
+                  {isExternalPlatform ? '📅 Dodano do kalendarza' : 'Jesteś zapisany/a'}
                 </Button>
               ) : (
-                <Button className="w-full" onClick={handleRegister}>
-                  Zapisz się
+                <Button className="w-full" onClick={handleRegister} variant={isExternalPlatform ? 'outline' : 'default'}>
+                  {isExternalPlatform ? '📅 Dodaj do kalendarza' : 'Zapisz się'}
                 </Button>
               )}
 

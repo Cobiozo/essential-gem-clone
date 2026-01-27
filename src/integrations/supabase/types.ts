@@ -2035,12 +2035,14 @@ export type Database = {
           email_reminder_enabled: boolean | null
           end_time: string
           event_type: string
+          external_platform_message: string | null
           guest_link: string | null
           host_name: string | null
           host_user_id: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_external_platform: boolean | null
           is_published: boolean | null
           location: string | null
           max_participants: number | null
@@ -2076,12 +2078,14 @@ export type Database = {
           email_reminder_enabled?: boolean | null
           end_time: string
           event_type?: string
+          external_platform_message?: string | null
           guest_link?: string | null
           host_name?: string | null
           host_user_id?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_external_platform?: boolean | null
           is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
@@ -2117,12 +2121,14 @@ export type Database = {
           email_reminder_enabled?: boolean | null
           end_time?: string
           event_type?: string
+          external_platform_message?: string | null
           guest_link?: string | null
           host_name?: string | null
           host_user_id?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_external_platform?: boolean | null
           is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
