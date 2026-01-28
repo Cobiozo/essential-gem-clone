@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { globalEditingStateRef } from '@/contexts/EditingContext';
 import type { UserNotification } from '@/components/team-contacts/types';
 
 interface UseNotificationsOptions {
@@ -171,9 +172,12 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       if (document.hidden) {
         stopPolling();
       } else {
+        // Skip updates when user is actively editing forms
+        if (globalEditingStateRef.current) return;
+        
         // Delay fetch when tab becomes visible to avoid disrupting UI during editing
         setTimeout(() => {
-          if (!document.hidden) {
+          if (!document.hidden && !globalEditingStateRef.current) {
             fetchUnreadCount();
             startPolling();
           }

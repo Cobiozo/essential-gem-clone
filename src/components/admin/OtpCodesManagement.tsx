@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 import {
   Table,
   TableBody,
@@ -81,6 +82,9 @@ export const OtpCodesManagement: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { toast } = useToast();
   const { t, language } = useLanguage();
+
+  // Protect against tab-switch reloads when dialogs are open
+  useMultiFormProtection(deleteDialogOpen, detailsDialogOpen);
   
   const dateLocale = language === 'pl' ? pl : enUS;
 

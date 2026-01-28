@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Mail, Calendar, User, MessageSquare, Search, RefreshCw, Eye, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface SupportTicket {
   id: string;
@@ -33,6 +34,9 @@ export const SupportTicketsManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+
+  // Protect against tab-switch reloads when viewing ticket details
+  useFormProtection(!!selectedTicket);
 
   const fetchTickets = async () => {
     setLoading(true);

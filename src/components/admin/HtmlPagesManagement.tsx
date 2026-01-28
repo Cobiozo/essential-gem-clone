@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
 import { HtmlHybridEditor } from '@/components/admin/html-editor/HtmlHybridEditor';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface HtmlPage {
   id: string;
@@ -74,6 +75,9 @@ export const HtmlPagesManagement: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPage, setEditingPage] = useState<Partial<HtmlPage> | null>(null);
   const [activeTab, setActiveTab] = useState('editor');
+
+  // Protect against tab-switch reloads when editing dialog is open
+  useFormProtection(isDialogOpen);
 
   const { data: pages, isLoading } = useQuery({
     queryKey: ['html-pages-admin'],

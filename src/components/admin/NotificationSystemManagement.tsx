@@ -20,6 +20,7 @@ import { MODULE_NAMES, ROLE_NAMES } from '@/types/notifications';
 import { IconPicker } from '@/components/cms/IconPicker';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 const ROLES = ['admin', 'partner', 'specjalista', 'client'];
 
@@ -109,6 +110,9 @@ export const NotificationSystemManagement = () => {
   const [editingEventType, setEditingEventType] = useState<NotificationEventType | null>(null);
   const [eventForm, setEventForm] = useState<EventFormData>(defaultEventForm);
   const [saving, setSaving] = useState(false);
+
+  // Protect against tab-switch reloads when editing
+  useFormProtection(showEventDialog);
 
   // History tab state
   const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { globalEditingStateRef } from './EditingContext';
 
 interface Profile {
   id: string;
@@ -146,9 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, newSession) => {
         if (!mounted) return;
         
-        // CRITICAL: Ignoruj eventy auth gdy strona jest ukryta (tab switch)
-        // Zapobiega resetowaniu stanu UI przy przełączaniu kart
-        if (isPageHiddenRef.current && event !== 'SIGNED_OUT') {
+        // CRITICAL: Ignoruj eventy auth gdy strona jest ukryta lub użytkownik edytuje (tab switch)
+        // Zapobiega resetowaniu stanu UI przy przełączaniu kart lub w trakcie edycji formularza
+        if ((isPageHiddenRef.current || globalEditingStateRef.current) && event !== 'SIGNED_OUT') {
           // Cicho zaktualizuj sesję bez resetowania UI
           setSession(newSession);
           setUser(newSession?.user ?? null);
