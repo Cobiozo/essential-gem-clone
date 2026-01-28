@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { SupportFormDialog } from "@/components/support";
+import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 
 // Helper function for lazy loading with automatic retry on chunk errors
 // Improved: More retries, cache clearing, loop detection
@@ -154,6 +155,7 @@ const ChatWidgetsWrapper = () => {
 
 const AppContent = () => {
   useDynamicMetaTags();
+  useSecurityPreventions(false); // Global: disable right-click, allow text selection
   const { toast } = useToast();
   const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista } = useAuth();
   const { isModern } = useDashboardPreference();
