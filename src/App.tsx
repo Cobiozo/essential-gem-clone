@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { EditingProvider } from "@/contexts/EditingContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
@@ -380,7 +381,9 @@ const App = () => (
       <LanguageProvider>
         <ThemeProvider defaultTheme="system" storageKey="pure-life-theme">
           <AuthProvider>
-            <AppContent />
+            <EditingProvider>
+              <AppContent />
+            </EditingProvider>
           </AuthProvider>
         </ThemeProvider>
       </LanguageProvider>

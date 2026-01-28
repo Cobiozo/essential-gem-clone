@@ -126,7 +126,7 @@ const StatusDot: React.FC<{ status: UserStatus }> = ({ status }) => {
     awaiting_admin: { color: 'bg-amber-500', tooltip: 'Oczekuje na admina' },
     awaiting_guardian: { color: 'bg-red-500', tooltip: 'Oczekuje na opiekuna' },
     email_pending: { color: 'bg-gray-400', tooltip: 'Email niepotwierdzony' },
-    inactive: { color: 'bg-gray-300', tooltip: 'Nieaktywny' },
+    inactive: { color: 'bg-gray-300', tooltip: 'Zablokowany' },
   };
 
   const { color, tooltip } = config[status];
@@ -232,7 +232,7 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
               )}
               {!userProfile.is_active && (
                 <Badge variant="destructive" className="text-xs h-5">
-                  Nieaktywny
+                  Zablokowany
                 </Badge>
               )}
             </div>
@@ -423,7 +423,7 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => onToggleStatus(userProfile.user_id, userProfile.is_active)}>
                       <Power className="w-4 h-4 mr-2" />
-                      {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
+                      {userProfile.is_active ? 'Zablokuj' : 'Odblokuj'}
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={() => onDeleteUser(userProfile.user_id, userProfile.email)}

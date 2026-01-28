@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,9 @@ export const EventsManagement: React.FC = () => {
   const { user } = useAuth();
   const dateLocale = language === 'pl' ? pl : enUS;
 
+  // Protect form state when switching browser tabs
+  
+
   // State
   const [activeTab, setActiveTab] = useState('webinars');
   const [events, setEvents] = useState<DbEvent[]>([]);
@@ -63,6 +67,15 @@ export const EventsManagement: React.FC = () => {
   const [leaderDialogOpen, setLeaderDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<DbEvent | null>(null);
   const [editingTopic, setEditingTopic] = useState<MeetingTopic | null>(null);
+
+  // Protect form state when switching browser tabs
+  useMultiFormProtection(
+    showWebinarForm,
+    showTeamTrainingForm,
+    eventDialogOpen,
+    topicDialogOpen,
+    leaderDialogOpen
+  );
   
   // Form states for team/private meetings
   const [eventForm, setEventForm] = useState({

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMultiFormProtection } from "@/hooks/useFormProtection";
+import { useEditingSafe } from "@/contexts/EditingContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslations } from "@/hooks/useTranslations";
@@ -155,6 +157,12 @@ const TrainingManagement = () => {
   const [selectedModuleForUsers, setSelectedModuleForUsers] = useState<string>("");
   const [activeTab, setActiveTab] = useState("modules");
   const [loading, setLoading] = useState(true);
+
+  // Get global editing state for blocking realtime updates
+  const { isEditing } = useEditingSafe();
+  
+  // Protect form state when switching browser tabs
+  useMultiFormProtection(showModuleForm, showLessonForm, showUserSelector);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [progressLoading, setProgressLoading] = useState(false);
   const [certificateHistory, setCertificateHistory] = useState<Record<string, CertificateHistory[]>>({});
@@ -221,6 +229,7 @@ const TrainingManagement = () => {
   }, [activeTab]);
 
   // Real-time subscription for training progress updates
+  // Skip updates when editing to prevent form data loss
   useEffect(() => {
     if (activeTab !== 'progress') return;
 
@@ -234,6 +243,11 @@ const TrainingManagement = () => {
           table: 'training_progress'
         },
         () => {
+          // Block realtime updates when editing forms
+          if (isEditing) {
+            console.log('📊 Training progress changed, skipping refresh (editing mode)');
+            return;
+          }
           console.log('📊 Training progress changed, refreshing...');
           fetchUserProgress();
         }
@@ -250,6 +264,11 @@ const TrainingManagement = () => {
           table: 'training_assignments'
         },
         () => {
+          // Block realtime updates when editing forms
+          if (isEditing) {
+            console.log('📋 Training assignments changed, skipping refresh (editing mode)');
+            return;
+          }
           console.log('📋 Training assignments changed, refreshing...');
           fetchUserProgress();
         }
@@ -260,7 +279,7 @@ const TrainingManagement = () => {
       supabase.removeChannel(progressChannel);
       supabase.removeChannel(assignmentsChannel);
     };
-  }, [activeTab]);
+  }, [activeTab, isEditing]);
 
   const fetchModules = async () => {
     try {

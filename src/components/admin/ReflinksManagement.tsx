@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link2, Plus, Pencil, Trash2, Save, Copy, Check, ArrowUpDown, Eye, Users, Key } from 'lucide-react';
+import { useFormProtection } from '@/hooks/useFormProtection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -64,6 +65,10 @@ export const ReflinksManagement: React.FC<ReflinksManagementProps> = ({ onEditin
   const [editingReflink, setEditingReflink] = useState<Reflink | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Protect form state when switching browser tabs (replaces onEditingStateChange)
+  const isAnyDialogOpen = showAddDialog || editingReflink !== null;
+  useFormProtection(isAnyDialogOpen);
   const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings>({
     client: false,
     partner: false,
