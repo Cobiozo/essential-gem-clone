@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 
 interface EditingContextType {
   isEditing: boolean;
@@ -7,6 +7,10 @@ interface EditingContextType {
 }
 
 const EditingContext = createContext<EditingContextType | null>(null);
+
+// Global ref accessible for components outside the Provider (e.g., AuthContext, useNotifications)
+// This allows checking editing state without using hooks
+export const globalEditingStateRef = { current: false };
 
 export const useEditing = () => {
   const context = useContext(EditingContext);
@@ -28,6 +32,11 @@ export const useEditingSafe = () => {
 export const EditingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const editCountRef = useRef(0);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Sync global ref with state for components outside the provider
+  useEffect(() => {
+    globalEditingStateRef.current = isEditing;
+  }, [isEditing]);
 
   const registerEdit = useCallback(() => {
     editCountRef.current += 1;

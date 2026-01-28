@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { MessageSquare, Send, User } from 'lucide-react';
 import { usePrivateChat } from '@/hooks/usePrivateChat';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface Specialist {
   user_id: string;
@@ -32,6 +33,9 @@ export const PrivateChatDialog = ({
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Protect against tab-switch reloads when dialog is open
+  useFormProtection(open);
 
   const handleStartChat = async () => {
     if (!specialist || !message.trim()) return;

@@ -15,6 +15,7 @@ import { Plus, Save, Trash2, FileText, Eye, Sparkles, Loader2, AlertTriangle, In
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TemplateDndEditor from './TemplateDndEditor';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 // jsPDF imported dynamically when generating certificates
 
 interface CertificateTemplate {
@@ -134,6 +135,9 @@ const CertificateEditor = () => {
   const editorRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { t } = useTranslations();
+
+  // Protect against tab-switch reloads when dialogs are open or editing a template
+  useMultiFormProtection(showCreateDialog, selectedTemplate !== null);
 
   const handleEditTemplate = (template: CertificateTemplate) => {
     setSelectedTemplate(template);

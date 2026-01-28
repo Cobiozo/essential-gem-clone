@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import CertificatePreview from './CertificatePreview';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface TemplateElement {
   id: string;
@@ -147,6 +148,9 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const [noWrap, setNoWrap] = useState(false);
   const [textWidth, setTextWidth] = useState(400);
   const [previewElements, setPreviewElements] = useState<TemplateElement[]>([]);
+
+  // Protect against tab-switch reloads - entire component is an editor
+  useFormProtection(true);
   
   const [uploading, setUploading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');

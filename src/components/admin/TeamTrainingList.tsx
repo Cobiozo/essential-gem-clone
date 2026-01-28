@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isPast, isFuture } from 'date-fns';
 import { pl, enUS } from 'date-fns/locale';
+import { useFormProtection } from '@/hooks/useFormProtection';
 import { 
   Copy, 
   Users, 
@@ -89,6 +90,9 @@ export const TeamTrainingList: React.FC<TeamTrainingListProps> = ({
   const [selectedTraining, setSelectedTraining] = useState<DbEvent | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  // Protect against tab-switch reloads when participants dialog is open
+  useFormProtection(participantsDialogOpen);
 
   const handleCopyLink = (link: string) => {
     navigator.clipboard.writeText(link);
