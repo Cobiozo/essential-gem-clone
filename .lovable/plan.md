@@ -1,88 +1,65 @@
 
-# Plan: Blokada prawego przycisku myszy w Bibliotece (Grafiki)
+# Plan: Globalna blokada prawego przycisku myszy
 
 ## Problem
 
-Menu kontekstowe prawego przycisku myszy pojawia się na grafikach w Bibliotece, mimo że powinno być całkowicie zablokowane. Użytkownik może:
-- Zapisać obraz przez "Zapisz jako"
-- Kopiować obraz
-- Otworzyć w nowej karcie
+Blokada prawego przycisku myszy jest obecnie stosowana tylko na wybranych stronach:
+- `Index.tsx` (strona główna)
+- `Page.tsx` (strony CMS)
+- `KnowledgeCenter.tsx` (biblioteka)
+- `NotFound.tsx` (404)
+- `Admin.tsx` (panel admina)
 
-## Diagnoza
-
-Strona `KnowledgeCenter.tsx` **nie używa** hooka `useSecurityPreventions`, który blokuje prawy przycisk myszy w innych częściach aplikacji (np. na stronie głównej, w panelu admina).
+Pozostałe strony (Dashboard, Training, Webinars, Messages, MyAccount itd.) nie mają tej blokady.
 
 ## Rozwiązanie
 
-Dodanie hooka `useSecurityPreventions` do strony `KnowledgeCenter.tsx` oraz bezpośredniej blokady `onContextMenu` na elementach graficznych dla pewności.
+Dodanie `useSecurityPreventions()` do głównego komponentu `AppContent` w `App.tsx` - to zapewni globalną blokadę na **całej platformie**, niezależnie od strony.
 
 ---
 
 ## Zmiany techniczne
 
-### 1. Plik `src/pages/KnowledgeCenter.tsx`
+### Plik `src/App.tsx`
 
-**Dodanie importu i użycia hooka:**
-
+**1. Dodanie importu (linia ~21):**
 ```tsx
-// Na początku pliku - dodanie importu
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
-
-// W komponencie KnowledgeCenter, na początku
-export default function KnowledgeCenter() {
-  const { user } = useAuth();
-  const { language } = useLanguage();
-  
-  // Dodanie blokady prawego przycisku
-  useSecurityPreventions();
-  
-  // ... reszta kodu
-}
 ```
 
-### 2. Plik `src/components/share/GraphicsCard.tsx`
-
-**Dodanie blokady na elemencie img dla pewności:**
-
+**2. Użycie hooka w AppContent (linia ~156-160):**
 ```tsx
-<img
-  src={resource.source_url}
-  alt={resource.title}
-  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-  loading="lazy"
-  onContextMenu={(e) => e.preventDefault()}
-  draggable={false}
-/>
+const AppContent = () => {
+  useDynamicMetaTags();
+  const { toast } = useToast();
+  
+  // NOWE: Globalna blokada prawego przycisku na całej platformie
+  useSecurityPreventions(false); // false = pozwala na zaznaczanie tekstu (potrzebne w formularzach)
+  
+  const { loginTrigger, profile, user, rolesReady, ... } = useAuth();
 ```
 
-### 3. Plik `src/components/share/SocialShareDialog.tsx`
+### Czyszczenie - usunięcie duplikatów (opcjonalne)
 
-**Dodanie blokady na podglądzie obrazu:**
+Po globalnym zastosowaniu można usunąć lokalne wywołania z:
+- `Index.tsx`
+- `Page.tsx`
+- `KnowledgeCenter.tsx`
+- `NotFound.tsx`
 
-```tsx
-<img
-  src={imageUrl}
-  alt={title}
-  className="w-full h-full object-contain"
-  loading="lazy"
-  onContextMenu={(e) => e.preventDefault()}
-  draggable={false}
-/>
-```
+Jednak zostawienie ich nie szkodzi - hook jest idempotentny.
 
 ---
 
-## Podsumowanie zmian
+## Podsumowanie
 
 | Plik | Zmiana |
 |------|--------|
-| `KnowledgeCenter.tsx` | Import i użycie `useSecurityPreventions()` |
-| `GraphicsCard.tsx` | Dodanie `onContextMenu` i `draggable={false}` na img |
-| `SocialShareDialog.tsx` | Dodanie `onContextMenu` i `draggable={false}` na img |
+| `App.tsx` | Import + `useSecurityPreventions(false)` w AppContent |
 
 ## Oczekiwany rezultat
 
-- Prawy przycisk myszy nie będzie działał na całej stronie Biblioteki
-- Grafiki nie będą mogły być przeciągane (drag & drop)
-- Menu kontekstowe przeglądarki nie pojawi się na obrazkach
-- Zabezpieczenie działa zarówno na miniaturkach jak i w dialogu podglądu
+- Prawy przycisk myszy zablokowany na **każdej stronie** platformy
+- Skróty klawiszowe (F12, Ctrl+U, Ctrl+S, Ctrl+P) zablokowane globalnie
+- Zaznaczanie tekstu nadal możliwe (parametr `false`) - konieczne dla formularzy
+- Przeciąganie elementów zablokowane
