@@ -1,73 +1,73 @@
 
-# Plan: Naprawy dwóch problemów
+# Plan: Blokada prawego przycisku myszy w Bibliotece (Grafiki)
 
-## Problem 1: Zoom Check Status - NAPRAWIONY
+## Problem
 
-Funkcja edge `zoom-check-status` została wdrożona z poprawką dual-client authentication (ANON_KEY dla weryfikacji JWT użytkownika). Teraz powinna działać poprawnie.
+Menu kontekstowe prawego przycisku myszy pojawia się na grafikach w Bibliotece, mimo że powinno być całkowicie zablokowane. Użytkownik może:
+- Zapisać obraz przez "Zapisz jako"
+- Kopiować obraz
+- Otworzyć w nowej karcie
 
-**Zalecenie:** Odśwież stronę admina i spróbuj ponownie przetestować połączenie Zoom.
+## Diagnoza
 
----
+Strona `KnowledgeCenter.tsx` **nie używa** hooka `useSecurityPreventions`, który blokuje prawy przycisk myszy w innych częściach aplikacji (np. na stronie głównej, w panelu admina).
 
-## Problem 2: YouTube Live nie odtwarza
+## Rozwiązanie
 
-### Diagnoza
-
-Link materiału "Sekrety kwasów omega-3":
-```
-https://www.youtube.com/live/_viv0nXi6eE?si=yxN6FtvinxW5bNgo&t=381
-```
-
-Funkcja `extractYouTubeId()` w `SecureMedia.tsx` nie obsługuje formatu `youtube.com/live/`. Aktualnie wspierane formaty:
-
-| Format | Przykład | Status |
-|--------|----------|--------|
-| watch?v= | youtube.com/watch?v=VIDEO_ID | Obsługiwany |
-| youtu.be | youtu.be/VIDEO_ID | Obsługiwany |
-| embed | youtube.com/embed/VIDEO_ID | Obsługiwany |
-| shorts | youtube.com/shorts/VIDEO_ID | Obsługiwany |
-| **live** | youtube.com/live/VIDEO_ID | **BRAK** |
-
-### Rozwiązanie
-
-Dodanie `youtube\.com\/live\/` do pattern regex w funkcji `extractYouTubeId()`.
+Dodanie hooka `useSecurityPreventions` do strony `KnowledgeCenter.tsx` oraz bezpośredniej blokady `onContextMenu` na elementach graficznych dla pewności.
 
 ---
 
-## Szczegóły techniczne
+## Zmiany techniczne
 
-### Zmiana w pliku `src/components/SecureMedia.tsx`
+### 1. Plik `src/pages/KnowledgeCenter.tsx`
 
-**Linie 48-58 - Aktualizacja funkcji extractYouTubeId:**
+**Dodanie importu i użycia hooka:**
 
-Przed:
 ```tsx
-const extractYouTubeId = (url: string): string | null => {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) return match[1];
-  }
-  return null;
-};
+// Na początku pliku - dodanie importu
+import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
+
+// W komponencie KnowledgeCenter, na początku
+export default function KnowledgeCenter() {
+  const { user } = useAuth();
+  const { language } = useLanguage();
+  
+  // Dodanie blokady prawego przycisku
+  useSecurityPreventions();
+  
+  // ... reszta kodu
+}
 ```
 
-Po:
+### 2. Plik `src/components/share/GraphicsCard.tsx`
+
+**Dodanie blokady na elemencie img dla pewności:**
+
 ```tsx
-const extractYouTubeId = (url: string): string | null => {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) return match[1];
-  }
-  return null;
-};
+<img
+  src={resource.source_url}
+  alt={resource.title}
+  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+  loading="lazy"
+  onContextMenu={(e) => e.preventDefault()}
+  draggable={false}
+/>
+```
+
+### 3. Plik `src/components/share/SocialShareDialog.tsx`
+
+**Dodanie blokady na podglądzie obrazu:**
+
+```tsx
+<img
+  src={imageUrl}
+  alt={title}
+  className="w-full h-full object-contain"
+  loading="lazy"
+  onContextMenu={(e) => e.preventDefault()}
+  draggable={false}
+/>
 ```
 
 ---
@@ -76,10 +76,13 @@ const extractYouTubeId = (url: string): string | null => {
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Dodanie `youtube\.com\/live\/` do regex pattern |
+| `KnowledgeCenter.tsx` | Import i użycie `useSecurityPreventions()` |
+| `GraphicsCard.tsx` | Dodanie `onContextMenu` i `draggable={false}` na img |
+| `SocialShareDialog.tsx` | Dodanie `onContextMenu` i `draggable={false}` na img |
 
 ## Oczekiwany rezultat
 
-- YouTube Live (jak "Sekrety kwasów omega-3") będzie poprawnie rozpoznawany i osadzany jako iframe
-- ID wideo `_viv0nXi6eE` zostanie wyekstrahowane z linku `youtube.com/live/_viv0nXi6eE?...`
-- Wideo będzie się odtwarzać w playerze Zdrowej Wiedzy
+- Prawy przycisk myszy nie będzie działał na całej stronie Biblioteki
+- Grafiki nie będą mogły być przeciągane (drag & drop)
+- Menu kontekstowe przeglądarki nie pojawi się na obrazkach
+- Zabezpieczenie działa zarówno na miniaturkach jak i w dialogu podglądu
