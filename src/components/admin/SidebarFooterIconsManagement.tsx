@@ -16,6 +16,7 @@ import { IconPicker } from '@/components/cms/IconPicker';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface SidebarFooterIcon {
   id: string;
@@ -133,6 +134,9 @@ export const SidebarFooterIconsManagement: React.FC = () => {
     visible_to_client: true,
     visible_to_specjalista: true,
   });
+
+  // Protect form from page refresh on tab switch
+  useFormProtection(dialogOpen);
 
   const sensors = useSensors(
     useSensor(PointerSensor),

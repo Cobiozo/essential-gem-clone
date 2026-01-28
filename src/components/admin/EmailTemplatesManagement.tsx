@@ -24,6 +24,7 @@ import { createDefaultBlocks, getTemplateBlocks } from './email-editor/defaultBl
 import { blocksToHtml } from './email-editor/blocksToHtml';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 
 interface EmailTemplate {
   id: string;
@@ -131,6 +132,9 @@ export const EmailTemplatesManagement: React.FC = () => {
 
   // Ref for RichTextEditor to insert variables
   const editorRef = useRef<HTMLDivElement>(null);
+
+  // Protect form from page refresh on tab switch
+  useMultiFormProtection(showTemplateDialog, showEventDialog, showPreviewDialog, showForceSendDialog);
 
   useEffect(() => {
     fetchData();

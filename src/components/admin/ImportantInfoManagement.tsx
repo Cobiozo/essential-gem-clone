@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useFormProtection } from '@/hooks/useFormProtection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,6 +86,9 @@ export const ImportantInfoManagement: React.FC = () => {
     button_color: '#10b981',
     button_icon: '',
   });
+
+  // Protect form from page refresh on tab switch
+  useFormProtection(isDialogOpen);
 
   useEffect(() => {
     fetchData();

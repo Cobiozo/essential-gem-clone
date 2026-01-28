@@ -38,6 +38,7 @@ import { SectionRenderer } from './SectionRenderer';
 import { RolePreviewBanner, PreviewRole } from './RolePreview';
 import { createDefaultContent, getElementTypeName, initializeSectionColumns, log, warn } from './utils/layoutHelpers';
 import { getSimulatedVisibilityParams, isSectionVisible, isItemVisible } from '@/lib/visibilityUtils';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 
 interface Column {
   id: string;
@@ -120,6 +121,9 @@ export const LivePreviewEditor: React.FC<LivePreviewEditorProps> = ({
   
   // Ref for broadcast channel cleanup
   const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Protect form from page refresh on tab switch
+  useMultiFormProtection(editMode, isItemEditorOpen, isSectionEditorOpen);
 
   // ✅ Force immediate preview refresh after reorder actions (arrows / DnD)
   const refreshPreview = useCallback(() => {

@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, GripVertical, Save, Eye } from 'lucide-react';
+import { useFormProtection } from '@/hooks/useFormProtection';
 import type { 
   CookieConsentSettings, 
   CookieBannerSettings, 
@@ -41,6 +42,9 @@ export function CookieConsentManagement() {
   const [consentStats, setConsentStats] = useState({ total: 0, accepted: 0, rejected: 0 });
   
   const [showPreview, setShowPreview] = useState(false);
+
+  // Protect form from page refresh on tab switch (entire component is a settings form)
+  useFormProtection(true);
 
   useEffect(() => {
     loadData();
