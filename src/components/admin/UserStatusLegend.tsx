@@ -7,7 +7,7 @@ const statusColors = [
   { color: 'bg-amber-500', label: 'Oczekuje na admina', description: 'Opiekun zatwierdził, czeka na admina' },
   { color: 'bg-red-500', label: 'Oczekuje na opiekuna', description: 'Email potwierdzony, brak zatwierdzenia opiekuna' },
   { color: 'bg-gray-400', label: 'Email niepotwierdzony', description: 'Użytkownik nie potwierdził emaila' },
-  { color: 'bg-gray-300', label: 'Nieaktywny', description: 'Konto dezaktywowane przez admina' },
+  { color: 'bg-gray-300', label: 'Zablokowany', description: 'Konto zablokowane przez admina' },
 ];
 
 export const UserStatusLegend: React.FC = () => {

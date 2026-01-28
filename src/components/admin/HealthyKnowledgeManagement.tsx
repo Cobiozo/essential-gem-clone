@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useFormProtection } from '@/hooks/useFormProtection';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,9 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [editingMaterial, setEditingMaterial] = useState<Partial<HealthyKnowledge> | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+
+  // Protect form state when switching browser tabs
+  useFormProtection(editDialogOpen);
   
   // OTP codes tab state
   const [otpCodes, setOtpCodes] = useState<HkOtpCode[]>([]);

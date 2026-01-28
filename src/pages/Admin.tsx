@@ -387,7 +387,7 @@ const Admin = () => {
   // User sorting and filtering state
   const [userSortBy, setUserSortBy] = useState<'email' | 'role' | 'created_at' | 'is_active'>('created_at');
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [userFilterTab, setUserFilterTab] = useState<'all' | 'active' | 'pending'>('pending');
+  const [userFilterTab, setUserFilterTab] = useState<'all' | 'active' | 'pending' | 'blocked'>('pending');
   
   // Bulk user selection state
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -623,9 +623,9 @@ const Admin = () => {
           user.user_id === userId ? { ...user, is_active: !currentStatus } : user
         ));
         
-        toast({
+      toast({
           title: "Sukces",
-          description: `Klient został ${!currentStatus ? 'aktywowany' : 'dezaktywowany'}.`,
+          description: `Klient został ${!currentStatus ? 'odblokowany' : 'zablokowany'}.`,
         });
       }
     } catch (error: any) {
@@ -1743,8 +1743,11 @@ const Admin = () => {
         // Fully approved: email_activated && guardian_approved && admin_approved && is_active
         return user.email_activated && user.guardian_approved && user.admin_approved && user.is_active;
       } else if (userFilterTab === 'pending') {
-        // Pending: missing email_activated, guardian_approved, admin_approved, or not active
-        return !user.email_activated || !user.guardian_approved || !user.admin_approved || !user.is_active;
+        // Pending: active but missing approvals (waiting for email/guardian/admin)
+        return user.is_active && (!user.email_activated || !user.guardian_approved || !user.admin_approved);
+      } else if (userFilterTab === 'blocked') {
+        // Blocked: inactive accounts
+        return !user.is_active;
       }
       return true; // 'all'
     });
@@ -1787,9 +1790,10 @@ const Admin = () => {
   
   // Count users by status for tab badges
   const userCounts = useMemo(() => {
-    const pending = users.filter(u => !u.email_activated || !u.guardian_approved || !u.admin_approved || !u.is_active).length;
+    const blocked = users.filter(u => !u.is_active).length;
+    const pending = users.filter(u => u.is_active && (!u.email_activated || !u.guardian_approved || !u.admin_approved)).length;
     const active = users.filter(u => u.email_activated && u.guardian_approved && u.admin_approved && u.is_active).length;
-    return { pending, active, all: users.length };
+    return { pending, active, blocked, all: users.length };
   }, [users]);
 
   // Export functions
@@ -4062,6 +4066,21 @@ const Admin = () => {
                            </Badge>
                          </button>
                          <button
+                           onClick={() => setUserFilterTab('blocked')}
+                           className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                             userFilterTab === 'blocked' 
+                               ? 'bg-background text-foreground shadow' 
+                               : 'hover:bg-background/50'
+                           }`}
+                         >
+                           Zablokowani
+                           {userCounts.blocked > 0 && (
+                             <Badge variant="outline" className="ml-2 h-5 px-1.5 text-xs border-red-300 text-red-600">
+                               {userCounts.blocked}
+                             </Badge>
+                           )}
+                         </button>
+                         <button
                            onClick={() => setUserFilterTab('all')}
                            className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                              userFilterTab === 'all' 
@@ -4183,7 +4202,9 @@ const Admin = () => {
                               ? 'Brak użytkowników oczekujących na zatwierdzenie'
                               : userFilterTab === 'active'
                                 ? 'Brak aktywnych użytkowników'
-                                : t('admin.noUsers')
+                                : userFilterTab === 'blocked'
+                                  ? 'Brak zablokowanych użytkowników'
+                                  : t('admin.noUsers')
                           }
                         </div>
                       ) : (
