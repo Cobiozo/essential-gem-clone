@@ -1,125 +1,173 @@
 
-# Plan: Kompleksowa ochrona przed przeładowaniem przy zmianie karty przeglądarki
+# Plan: Globalna ochrona wszystkich formularzy przed resetem przy zmianie karty
 
-## Diagnoza problemu
+## Zweryfikowane komponenty i stany dialogów
 
-Po przeanalizowaniu kodu zidentyfikowałem **główne źródła problemu**:
+Po szczegółowej analizie kodu potwierdzam, że poniższe komponenty wymagają dodania `useFormProtection` z dokładnie określonymi nazwami stanów:
 
-### 1. AuthContext nie integruje się z EditingContext
-- `AuthContext.tsx` (linie 93-100) śledzi `isPageHiddenRef` dla zdarzeń auth
-- Jednak **nie sprawdza globalnej flagi `isEditing`** z `EditingContext`
-- Problem: AuthContext jest poza EditingProvider, więc nie może bezpośrednio używać hooka
+### Komponenty do modyfikacji
 
-### 2. Brakująca ochrona w komponentach admin
-Wiele komponentów z formularzami **NIE używa `useFormProtection`**:
-- `CertificateEditor.tsx` - `showCreateDialog`, `selectedTemplate` (edycja)
-- `TemplateDndEditor.tsx` - cały komponent to formularz edycji
-- `HtmlPagesManagement.tsx` - `isDialogOpen`
-- `IndividualMeetingsManagement.tsx` - brak dialogów ale dane w trakcie edycji
-- `NotificationSystemManagement.tsx` - dialogi
-- `CookieConsentManagement.tsx`, `DailySignalManagement.tsx`, i inne
-
-### 3. useNotifications reaguje na visibility change
-- `useNotifications.ts` (linie 170-182) przy powrocie do karty od razu wywołuje `fetchUnreadCount()`
-- To może triggerować re-render całego drzewa komponentów jeśli powiadomienia się zmienią
-- **Brak sprawdzenia `isEditing`** przed aktualizacją
-
-### 4. React Query może odświeżać dane
-- Mimo `refetchOnWindowFocus: false` w globalnej konfiguracji, indywidualne query mogą to nadpisywać
-- Niektóre mutacje mogą invalidować cache i triggerować re-fetch
+| Komponent | Stany do ochrony | Uwagi |
+|-----------|------------------|-------|
+| `ImportantInfoManagement.tsx` | `isDialogOpen` | Linia 60 - dialog tworzenia/edycji banera |
+| `LivePreviewEditor.tsx` | `editMode`, `isItemEditorOpen`, `isSectionEditorOpen` | Linie 85, 101, 108 - tryb edycji i panele |
+| `DailySignalManagement.tsx` | `showAddDialog`, `showGenerateDialog`, `!!editingSignal` | Linie 82-83, 81 |
+| `CookieConsentManagement.tsx` | `true` (formularz zawsze aktywny) | Cały komponent to edycja ustawień |
+| `MaintenanceModeManagement.tsx` | `showPreview`, `showEnableWarning` | Linie 39-40 |
+| `NewsTickerManagement.tsx` | `showAddDialog`, `!!editingItem` | Linie 129, 128 |
+| `KnowledgeResourcesManagement.tsx` | `dialogOpen`, `bulkUploadOpen` | Linie 65, 77 |
+| `EmailTemplatesManagement.tsx` | `showTemplateDialog`, `showEventDialog`, `showPreviewDialog`, `showForceSendDialog` | Linie 90-91, 97, 107 |
+| `BulkUserActions.tsx` | `showEmailDialog` | Linia 44 |
+| `SidebarFooterIconsManagement.tsx` | `dialogOpen` | Linia 116 |
+| `WebinarList.tsx` | `participantsDialogOpen` | Linia 79 |
 
 ---
 
-## Rozwiązanie
+## Szczegółowe zmiany
 
-### Krok 1: Rozszerzenie EditingContext o globalną ekspozycję
+### 1. `ImportantInfoManagement.tsx`
 
-**Problem**: AuthContext jest renderowany PRZED EditingProvider, więc nie może używać useEditing().
-
-**Rozwiązanie**: Eksponujemy stan edycji przez globalny ref dostępny bez hooka.
-
-**Plik: `src/contexts/EditingContext.tsx`**
-
-Dodanie eksportu globalnego ref:
+**Import (dodać na górze pliku):**
 ```tsx
-// Globalny ref dostępny dla komponentów poza Providerem (np. AuthContext)
-export const globalEditingStateRef = { current: false };
-
-// W EditingProvider - synchronizacja z globalnym ref:
-useEffect(() => {
-  globalEditingStateRef.current = isEditing;
-}, [isEditing]);
+import { useFormProtection } from '@/hooks/useFormProtection';
 ```
 
----
-
-### Krok 2: Integracja AuthContext z globalnym stanem edycji
-
-**Plik: `src/contexts/AuthContext.tsx`**
-
-Import i sprawdzenie globalnego ref:
+**Hook (po useState declarations, około linii 92):**
 ```tsx
-import { globalEditingStateRef } from './EditingContext';
-
-// W onAuthStateChange callback (linia ~151):
-if ((isPageHiddenRef.current || globalEditingStateRef.current) && event !== 'SIGNED_OUT') {
-  // Cicho zaktualizuj sesję bez resetowania UI
-  setSession(newSession);
-  setUser(newSession?.user ?? null);
-  return;
-}
+useFormProtection(isDialogOpen);
 ```
 
----
+### 2. `LivePreviewEditor.tsx`
 
-### Krok 3: Ochrona useNotifications przed aktualizacjami podczas edycji
-
-**Plik: `src/hooks/useNotifications.ts`**
-
-Dodanie sprawdzenia stanu edycji:
-```tsx
-import { globalEditingStateRef } from '@/contexts/EditingContext';
-
-// W handleVisibilityChange (linia ~170):
-const handleVisibilityChange = () => {
-  if (document.hidden) {
-    stopPolling();
-  } else {
-    // NIE aktualizuj gdy użytkownik jest w trybie edycji
-    if (globalEditingStateRef.current) return;
-    
-    setTimeout(() => {
-      if (!document.hidden && !globalEditingStateRef.current) {
-        fetchUnreadCount();
-        startPolling();
-      }
-    }, 500);
-  }
-};
-```
-
----
-
-### Krok 4: Dodanie useFormProtection do brakujących komponentów
-
-| Komponent | Dialogi/stany do ochrony |
-|-----------|--------------------------|
-| `CertificateEditor.tsx` | `showCreateDialog`, `selectedTemplate !== null` |
-| `TemplateDndEditor.tsx` | Zawsze true (cały komponent to edycja) |
-| `HtmlPagesManagement.tsx` | `isDialogOpen` |
-| `OtpCodesManagement.tsx` | `deleteDialogOpen`, `detailsDialogOpen` |
-| `NotificationSystemManagement.tsx` | dialogi |
-| `SupportTicketsManagement.tsx` | `!!selectedTicket` |
-| `TeamTrainingList.tsx` | `participantsDialogOpen` |
-| `WebinarList.tsx` (jeśli ma dialogi) | dialogi |
-
-**Przykład dla CertificateEditor.tsx:**
+**Import:**
 ```tsx
 import { useMultiFormProtection } from '@/hooks/useFormProtection';
-
-// W komponencie:
-useMultiFormProtection(showCreateDialog, selectedTemplate !== null);
 ```
+
+**Hook (po deklaracjach stanu, około linii 120):**
+```tsx
+useMultiFormProtection(editMode, isItemEditorOpen, isSectionEditorOpen);
+```
+
+### 3. `DailySignalManagement.tsx`
+
+**Import:**
+```tsx
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 101):**
+```tsx
+useMultiFormProtection(showAddDialog, showGenerateDialog, !!editingSignal);
+```
+
+### 4. `CookieConsentManagement.tsx`
+
+**Import:**
+```tsx
+import { useFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 44):**
+```tsx
+useFormProtection(true); // Cały formularz jest aktywny gdy komponent jest widoczny
+```
+
+### 5. `MaintenanceModeManagement.tsx`
+
+**Import:**
+```tsx
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 49):**
+```tsx
+useMultiFormProtection(showPreview, showEnableWarning);
+```
+
+### 6. `NewsTickerManagement.tsx`
+
+**Import:**
+```tsx
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 165):**
+```tsx
+useMultiFormProtection(showAddDialog, !!editingItem);
+```
+
+### 7. `KnowledgeResourcesManagement.tsx`
+
+**Import:**
+```tsx
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 107):**
+```tsx
+useMultiFormProtection(dialogOpen, bulkUploadOpen);
+```
+
+### 8. `EmailTemplatesManagement.tsx`
+
+**Import:**
+```tsx
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 134):**
+```tsx
+useMultiFormProtection(showTemplateDialog, showEventDialog, showPreviewDialog, showForceSendDialog);
+```
+
+### 9. `BulkUserActions.tsx`
+
+**Import:**
+```tsx
+import { useFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (wewnątrz komponentu, po useState, około linii 46):**
+```tsx
+useFormProtection(showEmailDialog);
+```
+
+### 10. `SidebarFooterIconsManagement.tsx`
+
+**Import:**
+```tsx
+import { useFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 136):**
+```tsx
+useFormProtection(dialogOpen);
+```
+
+### 11. `WebinarList.tsx`
+
+**Import:**
+```tsx
+import { useFormProtection } from '@/hooks/useFormProtection';
+```
+
+**Hook (po useState declarations, około linii 83):**
+```tsx
+useFormProtection(participantsDialogOpen);
+```
+
+---
+
+## Weryfikacja bezpieczeństwa zmian
+
+Wszystkie zmiany są bezpieczne ponieważ:
+
+1. **Hook `useFormProtection` już istnieje** - został utworzony w poprzedniej implementacji i działa poprawnie
+2. **Nazwy stanów są zweryfikowane** - wszystkie nazwy zmiennych zostały sprawdzone bezpośrednio w kodzie źródłowym
+3. **Brak zmian logiki biznesowej** - jedyna zmiana to wywołanie hooka, który ustawia globalną flagę edycji
+4. **Hook jest idempotentny** - wielokrotne wywołanie nie powoduje problemów
+5. **Cleanup jest automatyczny** - hook zawiera cleanup w useEffect
 
 ---
 
@@ -127,23 +175,26 @@ useMultiFormProtection(showCreateDialog, selectedTemplate !== null);
 
 | Plik | Zmiana |
 |------|--------|
-| `src/contexts/EditingContext.tsx` | Dodanie `globalEditingStateRef` |
-| `src/contexts/AuthContext.tsx` | Sprawdzanie globalnego ref edycji |
-| `src/hooks/useNotifications.ts` | Blokada aktualizacji podczas edycji |
-| `src/components/admin/CertificateEditor.tsx` | Dodanie `useMultiFormProtection` |
-| `src/components/admin/TemplateDndEditor.tsx` | Dodanie `useFormProtection(true)` |
-| `src/components/admin/HtmlPagesManagement.tsx` | Dodanie `useFormProtection` |
-| `src/components/admin/OtpCodesManagement.tsx` | Dodanie `useMultiFormProtection` |
-| `src/components/admin/NotificationSystemManagement.tsx` | Dodanie `useFormProtection` |
-| `src/components/admin/SupportTicketsManagement.tsx` | Dodanie `useFormProtection` |
-| `src/components/admin/TeamTrainingList.tsx` | Dodanie `useFormProtection` |
+| `src/components/admin/ImportantInfoManagement.tsx` | +import, +useFormProtection(isDialogOpen) |
+| `src/components/dnd/LivePreviewEditor.tsx` | +import, +useMultiFormProtection(...) |
+| `src/components/admin/DailySignalManagement.tsx` | +import, +useMultiFormProtection(...) |
+| `src/components/admin/CookieConsentManagement.tsx` | +import, +useFormProtection(true) |
+| `src/components/admin/MaintenanceModeManagement.tsx` | +import, +useMultiFormProtection(...) |
+| `src/components/admin/NewsTickerManagement.tsx` | +import, +useMultiFormProtection(...) |
+| `src/components/admin/KnowledgeResourcesManagement.tsx` | +import, +useMultiFormProtection(...) |
+| `src/components/admin/EmailTemplatesManagement.tsx` | +import, +useMultiFormProtection(...) |
+| `src/components/admin/BulkUserActions.tsx` | +import, +useFormProtection(showEmailDialog) |
+| `src/components/admin/SidebarFooterIconsManagement.tsx` | +import, +useFormProtection(dialogOpen) |
+| `src/components/admin/WebinarList.tsx` | +import, +useFormProtection(participantsDialogOpen) |
 
 ---
 
 ## Oczekiwany rezultat
 
-- Przełączanie kart przeglądarki **NIE przeładowuje strony** gdy otwarty jest jakikolwiek dialog/formularz
-- Edycja certyfikatów, szablonów HTML, powiadomień itp. **pozostaje nietknięta** po powrocie
-- AuthContext **nie resetuje stanu UI** podczas edycji
-- useNotifications **nie aktualizuje się** gdy użytkownik edytuje dane
-- Rozwiązanie działa **globalnie** dla całej aplikacji
+Po implementacji:
+- **Tworzenie banera** w "Ważne informacje" - wyjście na inną kartę i powrót NIE resetuje formularza
+- **Edycja w Layout Editor** - przełączenie karty NIE wyrzuca z trybu edycji
+- **Daily Signal, Cookies, Maintenance** - formularze pozostają nietknięte
+- **News Ticker, Knowledge Resources** - dialogi nie są zamykane/resetowane
+- **Email Templates** - edycja szablonów zachowana
+- **Wszystkie inne dialogi** - stabilne działanie bez nieoczekiwanych odświeżeń
