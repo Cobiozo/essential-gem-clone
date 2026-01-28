@@ -1,206 +1,149 @@
 
-# Plan: Ochrona stanu + Zakładka "Zablokowani" w zarządzaniu użytkownikami
+# Plan: Kompleksowa ochrona przed przeładowaniem przy zmianie karty przeglądarki
 
-## Część 1: Ochrona przed odświeżaniem przy zmianie karty
+## Diagnoza problemu
 
-### Problem
-Gdy użytkownik edytuje formularz i przełączy się na inną kartę przeglądarki, strona odświeża się lub przenosi na stronę główną, niszcząc pracę.
+Po przeanalizowaniu kodu zidentyfikowałem **główne źródła problemu**:
 
-### Rozwiązanie
-Wprowadzenie globalnej flagi edycji blokującej re-rendery podczas aktywnej pracy z formularzami.
+### 1. AuthContext nie integruje się z EditingContext
+- `AuthContext.tsx` (linie 93-100) śledzi `isPageHiddenRef` dla zdarzeń auth
+- Jednak **nie sprawdza globalnej flagi `isEditing`** z `EditingContext`
+- Problem: AuthContext jest poza EditingProvider, więc nie może bezpośrednio używać hooka
 
-### Zmiany techniczne
+### 2. Brakująca ochrona w komponentach admin
+Wiele komponentów z formularzami **NIE używa `useFormProtection`**:
+- `CertificateEditor.tsx` - `showCreateDialog`, `selectedTemplate` (edycja)
+- `TemplateDndEditor.tsx` - cały komponent to formularz edycji
+- `HtmlPagesManagement.tsx` - `isDialogOpen`
+- `IndividualMeetingsManagement.tsx` - brak dialogów ale dane w trakcie edycji
+- `NotificationSystemManagement.tsx` - dialogi
+- `CookieConsentManagement.tsx`, `DailySignalManagement.tsx`, i inne
 
-**1. Nowy plik `src/contexts/EditingContext.tsx`**
-- Globalny kontekst śledzący czy użytkownik jest w trybie edycji
-- Licznik referencyjny dla wielu jednoczesnych formularzy
-- Funkcje: `isEditing`, `setEditing`, `registerEdit`
+### 3. useNotifications reaguje na visibility change
+- `useNotifications.ts` (linie 170-182) przy powrocie do karty od razu wywołuje `fetchUnreadCount()`
+- To może triggerować re-render całego drzewa komponentów jeśli powiadomienia się zmienią
+- **Brak sprawdzenia `isEditing`** przed aktualizacją
 
-**2. Nowy plik `src/hooks/useFormProtection.ts`**
-- Hook automatycznie rejestrujący stan edycji gdy dialog jest otwarty
-- Automatyczne czyszczenie przy zamknięciu
-
-**3. Modyfikacja `src/App.tsx`**
-- Dodanie `EditingProvider` jako wrapper
-
-**4. Modyfikacja formularzy administracyjnych**
-- `EventsManagement.tsx` - ochrona dialogów wydarzeń
-- `HealthyKnowledgeManagement.tsx` - ochrona edycji zasobów
-- `ReflinksManagement.tsx` - migracja na globalny kontekst
-- `TrainingManagement.tsx` - blokada realtime podczas edycji
+### 4. React Query może odświeżać dane
+- Mimo `refetchOnWindowFocus: false` w globalnej konfiguracji, indywidualne query mogą to nadpisywać
+- Niektóre mutacje mogą invalidować cache i triggerować re-fetch
 
 ---
 
-## Część 2: Nowa zakładka "Zablokowani"
+## Rozwiązanie
 
-### Problem
-Obecnie zakładka "Oczekujący" zawiera zarówno użytkowników oczekujących na zatwierdzenie, jak i dezaktywowanych. Potrzebna jest osobna zakładka dla zablokowanych użytkowników.
+### Krok 1: Rozszerzenie EditingContext o globalną ekspozycję
 
-### Rozwiązanie
-1. Dodanie nowej zakładki "Zablokowani"
-2. Zmiana nazwy "Dezaktywuj" na "Zablokuj"
-3. Poprawienie filtrów tak, aby:
-   - "Oczekujący" = tylko ci, którzy faktycznie czekają na zatwierdzenie (is_active=true ale brak email/guardian/admin approval)
-   - "Zablokowani" = is_active=false (zablokowane konta)
+**Problem**: AuthContext jest renderowany PRZED EditingProvider, więc nie może używać useEditing().
 
-### Zmiany techniczne
+**Rozwiązanie**: Eksponujemy stan edycji przez globalny ref dostępny bez hooka.
 
-**1. Modyfikacja `src/pages/Admin.tsx`**
+**Plik: `src/contexts/EditingContext.tsx`**
 
-A) Zmiana typu stanu filtra (linia ~390):
+Dodanie eksportu globalnego ref:
 ```tsx
-// Przed:
-const [userFilterTab, setUserFilterTab] = useState<'all' | 'active' | 'pending'>('pending');
+// Globalny ref dostępny dla komponentów poza Providerem (np. AuthContext)
+export const globalEditingStateRef = { current: false };
 
-// Po:
-const [userFilterTab, setUserFilterTab] = useState<'all' | 'active' | 'pending' | 'blocked'>('pending');
+// W EditingProvider - synchronizacja z globalnym ref:
+useEffect(() => {
+  globalEditingStateRef.current = isEditing;
+}, [isEditing]);
 ```
 
-B) Aktualizacja logiki filtrowania (linie ~1741-1750):
-```tsx
-const filteredAndSortedUsers = useMemo(() => {
-  let filtered = users.filter((user) => {
-    if (userFilterTab === 'active') {
-      // W pełni zatwierdzeni i aktywni
-      return user.email_activated && user.guardian_approved && user.admin_approved && user.is_active;
-    } else if (userFilterTab === 'pending') {
-      // NOWE: Oczekujący = aktywni ALE brakuje zatwierdzeń
-      return user.is_active && (!user.email_activated || !user.guardian_approved || !user.admin_approved);
-    } else if (userFilterTab === 'blocked') {
-      // NOWE: Zablokowani = nieaktywni
-      return !user.is_active;
-    }
-    return true; // 'all'
-  });
-  // ... reszta bez zmian
-}, [...]);
-```
+---
 
-C) Aktualizacja liczników (linie ~1789-1793):
-```tsx
-const userCounts = useMemo(() => {
-  const blocked = users.filter(u => !u.is_active).length;
-  const pending = users.filter(u => u.is_active && (!u.email_activated || !u.guardian_approved || !u.admin_approved)).length;
-  const active = users.filter(u => u.email_activated && u.guardian_approved && u.admin_approved && u.is_active).length;
-  return { pending, active, blocked, all: users.length };
-}, [users]);
-```
+### Krok 2: Integracja AuthContext z globalnym stanem edycji
 
-D) Dodanie nowej zakładki w UI (po linii ~4076):
-```tsx
-<button
-  onClick={() => setUserFilterTab('blocked')}
-  className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-    userFilterTab === 'blocked' 
-      ? 'bg-background text-foreground shadow' 
-      : 'hover:bg-background/50'
-  }`}
->
-  Zablokowani
-  {userCounts.blocked > 0 && (
-    <Badge variant="outline" className="ml-2 h-5 px-1.5 text-xs border-red-300 text-red-600">
-      {userCounts.blocked}
-    </Badge>
-  )}
-</button>
-```
+**Plik: `src/contexts/AuthContext.tsx`**
 
-E) Aktualizacja pustych stanów (linie ~4182-4186):
+Import i sprawdzenie globalnego ref:
 ```tsx
-{userSearchQuery 
-  ? t('admin.noUsersFound') 
-  : userFilterTab === 'pending'
-    ? 'Brak użytkowników oczekujących na zatwierdzenie'
-    : userFilterTab === 'active'
-      ? 'Brak aktywnych użytkowników'
-      : userFilterTab === 'blocked'
-        ? 'Brak zablokowanych użytkowników'
-        : t('admin.noUsers')
+import { globalEditingStateRef } from './EditingContext';
+
+// W onAuthStateChange callback (linia ~151):
+if ((isPageHiddenRef.current || globalEditingStateRef.current) && event !== 'SIGNED_OUT') {
+  // Cicho zaktualizuj sesję bez resetowania UI
+  setSession(newSession);
+  setUser(newSession?.user ?? null);
+  return;
 }
 ```
 
-**2. Modyfikacja `src/components/admin/CompactUserCard.tsx`**
+---
 
-A) Zmiana tekstu przycisku (linie ~424-427):
+### Krok 3: Ochrona useNotifications przed aktualizacjami podczas edycji
+
+**Plik: `src/hooks/useNotifications.ts`**
+
+Dodanie sprawdzenia stanu edycji:
 ```tsx
-// Przed:
-<DropdownMenuItem onClick={() => onToggleStatus(userProfile.user_id, userProfile.is_active)}>
-  <Power className="w-4 h-4 mr-2" />
-  {userProfile.is_active ? 'Dezaktywuj' : 'Aktywuj'}
-</DropdownMenuItem>
+import { globalEditingStateRef } from '@/contexts/EditingContext';
 
-// Po:
-<DropdownMenuItem onClick={() => onToggleStatus(userProfile.user_id, userProfile.is_active)}>
-  <Power className="w-4 h-4 mr-2" />
-  {userProfile.is_active ? 'Zablokuj' : 'Odblokuj'}
-</DropdownMenuItem>
-```
-
-B) Zmiana badge'a nieaktywnego (linie ~233-237):
-```tsx
-// Przed:
-{!userProfile.is_active && (
-  <Badge variant="destructive" className="text-xs h-5">
-    Nieaktywny
-  </Badge>
-)}
-
-// Po:
-{!userProfile.is_active && (
-  <Badge variant="destructive" className="text-xs h-5">
-    Zablokowany
-  </Badge>
-)}
-```
-
-**3. Modyfikacja `src/components/admin/UserStatusLegend.tsx`**
-
-Aktualizacja legendy (linia ~10):
-```tsx
-// Przed:
-{ color: 'bg-gray-300', label: 'Nieaktywny', description: 'Konto dezaktywowane przez admina' },
-
-// Po:
-{ color: 'bg-gray-300', label: 'Zablokowany', description: 'Konto zablokowane przez admina' },
-```
-
-**4. Modyfikacja `src/pages/Admin.tsx` - komunikat toast**
-
-Zmiana w funkcji `toggleUserStatus` (linia ~628):
-```tsx
-// Przed:
-description: `Klient został ${!currentStatus ? 'aktywowany' : 'dezaktywowany'}.`,
-
-// Po:
-description: `Klient został ${!currentStatus ? 'odblokowany' : 'zablokowany'}.`,
+// W handleVisibilityChange (linia ~170):
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopPolling();
+  } else {
+    // NIE aktualizuj gdy użytkownik jest w trybie edycji
+    if (globalEditingStateRef.current) return;
+    
+    setTimeout(() => {
+      if (!document.hidden && !globalEditingStateRef.current) {
+        fetchUnreadCount();
+        startPolling();
+      }
+    }, 500);
+  }
+};
 ```
 
 ---
 
-## Podsumowanie zmian
+### Krok 4: Dodanie useFormProtection do brakujących komponentów
+
+| Komponent | Dialogi/stany do ochrony |
+|-----------|--------------------------|
+| `CertificateEditor.tsx` | `showCreateDialog`, `selectedTemplate !== null` |
+| `TemplateDndEditor.tsx` | Zawsze true (cały komponent to edycja) |
+| `HtmlPagesManagement.tsx` | `isDialogOpen` |
+| `OtpCodesManagement.tsx` | `deleteDialogOpen`, `detailsDialogOpen` |
+| `NotificationSystemManagement.tsx` | dialogi |
+| `SupportTicketsManagement.tsx` | `!!selectedTicket` |
+| `TeamTrainingList.tsx` | `participantsDialogOpen` |
+| `WebinarList.tsx` (jeśli ma dialogi) | dialogi |
+
+**Przykład dla CertificateEditor.tsx:**
+```tsx
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
+
+// W komponencie:
+useMultiFormProtection(showCreateDialog, selectedTemplate !== null);
+```
+
+---
+
+## Lista plików do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/contexts/EditingContext.tsx` | **NOWY** - globalny kontekst edycji |
-| `src/hooks/useFormProtection.ts` | **NOWY** - hook ochrony formularzy |
-| `src/App.tsx` | Dodanie `EditingProvider` + `useSecurityPreventions` |
-| `src/pages/Admin.tsx` | Nowa zakładka "Zablokowani", nowe filtry, zmiana komunikatów |
-| `src/components/admin/CompactUserCard.tsx` | "Zablokuj/Odblokuj" zamiast "Dezaktywuj/Aktywuj" |
-| `src/components/admin/UserStatusLegend.tsx` | Zmiana "Nieaktywny" na "Zablokowany" |
-| Formularze admin (4 pliki) | Integracja `useFormProtection` |
+| `src/contexts/EditingContext.tsx` | Dodanie `globalEditingStateRef` |
+| `src/contexts/AuthContext.tsx` | Sprawdzanie globalnego ref edycji |
+| `src/hooks/useNotifications.ts` | Blokada aktualizacji podczas edycji |
+| `src/components/admin/CertificateEditor.tsx` | Dodanie `useMultiFormProtection` |
+| `src/components/admin/TemplateDndEditor.tsx` | Dodanie `useFormProtection(true)` |
+| `src/components/admin/HtmlPagesManagement.tsx` | Dodanie `useFormProtection` |
+| `src/components/admin/OtpCodesManagement.tsx` | Dodanie `useMultiFormProtection` |
+| `src/components/admin/NotificationSystemManagement.tsx` | Dodanie `useFormProtection` |
+| `src/components/admin/SupportTicketsManagement.tsx` | Dodanie `useFormProtection` |
+| `src/components/admin/TeamTrainingList.tsx` | Dodanie `useFormProtection` |
 
 ---
 
 ## Oczekiwany rezultat
 
-### Ochrona formularzy:
-- Przełączanie kart przeglądarki nie resetuje otwartych formularzy
-- Dane wpisane w formularze nie są tracone przy powrocie na kartę
-- Subskrypcje realtime nie nadpisują edytowanych danych
-
-### Zarządzanie użytkownikami:
-- 4 zakładki: Oczekujący | Aktywni | Zablokowani | Wszyscy
-- "Oczekujący" zawiera TYLKO tych, którzy czekają na zatwierdzenie
-- "Zablokowani" zawiera TYLKO zablokowane konta (is_active=false)
-- Przycisk "Zablokuj" zamiast "Dezaktywuj"
-- Badge "Zablokowany" zamiast "Nieaktywny"
+- Przełączanie kart przeglądarki **NIE przeładowuje strony** gdy otwarty jest jakikolwiek dialog/formularz
+- Edycja certyfikatów, szablonów HTML, powiadomień itp. **pozostaje nietknięta** po powrocie
+- AuthContext **nie resetuje stanu UI** podczas edycji
+- useNotifications **nie aktualizuje się** gdy użytkownik edytuje dane
+- Rozwiązanie działa **globalnie** dla całej aplikacji
