@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 
 interface MaintenanceSettings {
   id: string;
@@ -46,6 +47,9 @@ const MaintenanceModeManagement: React.FC = () => {
   const [message, setMessage] = useState(t('admin.maintenance.defaultMessage'));
   const [plannedEndTime, setPlannedEndTime] = useState('');
   const [bypassKey, setBypassKey] = useState<string | null>(null);
+
+  // Protect form from page refresh on tab switch
+  useMultiFormProtection(showPreview, showEnableWarning);
 
   useEffect(() => {
     fetchSettings();

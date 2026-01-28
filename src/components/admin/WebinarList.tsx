@@ -46,6 +46,7 @@ import {
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
 import { useEvents } from '@/hooks/useEvents';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface WebinarListProps {
   webinars: DbEvent[];
@@ -80,6 +81,9 @@ export const WebinarList: React.FC<WebinarListProps> = ({
   const [selectedWebinar, setSelectedWebinar] = useState<DbEvent | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+
+  // Protect form from page refresh on tab switch
+  useFormProtection(participantsDialogOpen);
 
   const handleCopyLink = (link: string) => {
     navigator.clipboard.writeText(link);

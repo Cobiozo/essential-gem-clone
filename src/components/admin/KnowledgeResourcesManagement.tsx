@@ -29,6 +29,7 @@ import {
 import { VisibilityEditor } from '@/components/cms/editors/VisibilityEditor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { formatFileSize } from '@/lib/storageConfig';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 
 const emptyResource: Partial<KnowledgeResource> = {
   title: '',
@@ -105,6 +106,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
   });
   
   const { uploadFile, isUploading, uploadProgress } = useLocalStorage();
+
+  // Protect form from page refresh on tab switch
+  useMultiFormProtection(dialogOpen, bulkUploadOpen);
 
   useEffect(() => {
     fetchResources();

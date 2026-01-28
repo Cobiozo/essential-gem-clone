@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, ChevronDown, Mail, Users, X } from 'lucide-react';
+import { useFormProtection } from '@/hooks/useFormProtection';
 
 interface BulkUserActionsProps {
   selectedCount: number;
@@ -43,6 +44,9 @@ export const BulkUserActions: React.FC<BulkUserActionsProps> = ({
 }) => {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
+  // Protect form from page refresh on tab switch
+  useFormProtection(showEmailDialog);
 
   if (selectedCount === 0) return null;
 

@@ -17,6 +17,7 @@ import {
   Sparkles, Plus, Check, X, Trash2, Wand2, Edit, Calendar, Loader2, 
   BarChart3, Users, Eye, EyeOff, Heart, Zap, Cloud, Filter 
 } from 'lucide-react';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 
 interface DailySignal {
   id: string;
@@ -98,6 +99,9 @@ export const DailySignalManagement: React.FC = () => {
     signal_type: 'supportive',
     scheduled_date: ''
   });
+
+  // Protect form from page refresh on tab switch
+  useMultiFormProtection(showAddDialog, showGenerateDialog, !!editingSignal);
 
   useEffect(() => {
     fetchData();

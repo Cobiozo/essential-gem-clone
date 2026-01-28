@@ -21,6 +21,7 @@ import { format, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useMultiFormProtection } from '@/hooks/useFormProtection';
 
 interface TickerSettings {
   id: string;
@@ -162,6 +163,9 @@ export const NewsTickerManagement: React.FC = () => {
     effect: 'none',
     icon_animation: 'none',
   });
+
+  // Protect form from page refresh on tab switch
+  useMultiFormProtection(showAddDialog, !!editingItem);
 
   // Fetch all data
   useEffect(() => {
