@@ -1,173 +1,135 @@
 
-# Plan: Globalna ochrona wszystkich formularzy przed resetem przy zmianie karty
+# Plan: Kody OTP dla admina + Nowy harmonogram przypomnień o spotkaniach
 
-## Zweryfikowane komponenty i stany dialogów
+## Część 1: Kody OTP - Admin widzi tylko swoje kody
 
-Po szczegółowej analizie kodu potwierdzam, że poniższe komponenty wymagają dodania `useFormProtection` z dokładnie określonymi nazwami stanów:
+### Aktualny stan
+Kod w `CombinedOtpCodesWidget.tsx` już filtruje po `partner_id = user.id` (linie 175, 210). Admin nie widzi kodów bo prawdopodobnie sam nie ma wygenerowanych żadnych kodów (nie jest partnerem który generuje kody).
 
-### Komponenty do modyfikacji
+### Wyjaśnienie
+Widget jest już poprawnie skonfigurowany - każdy użytkownik (partner i admin) widzi **tylko swoje kody**. Problem polega na tym, że admin prawdopodobnie nie ma żadnych wygenerowanych kodów, dlatego widget jest pusty lub nie wyświetla się wcale (linia 297-299 ukrywa widget gdy `totalCodes === 0`).
 
-| Komponent | Stany do ochrony | Uwagi |
-|-----------|------------------|-------|
-| `ImportantInfoManagement.tsx` | `isDialogOpen` | Linia 60 - dialog tworzenia/edycji banera |
-| `LivePreviewEditor.tsx` | `editMode`, `isItemEditorOpen`, `isSectionEditorOpen` | Linie 85, 101, 108 - tryb edycji i panele |
-| `DailySignalManagement.tsx` | `showAddDialog`, `showGenerateDialog`, `!!editingSignal` | Linie 82-83, 81 |
-| `CookieConsentManagement.tsx` | `true` (formularz zawsze aktywny) | Cały komponent to edycja ustawień |
-| `MaintenanceModeManagement.tsx` | `showPreview`, `showEnableWarning` | Linie 39-40 |
-| `NewsTickerManagement.tsx` | `showAddDialog`, `!!editingItem` | Linie 129, 128 |
-| `KnowledgeResourcesManagement.tsx` | `dialogOpen`, `bulkUploadOpen` | Linie 65, 77 |
-| `EmailTemplatesManagement.tsx` | `showTemplateDialog`, `showEventDialog`, `showPreviewDialog`, `showForceSendDialog` | Linie 90-91, 97, 107 |
-| `BulkUserActions.tsx` | `showEmailDialog` | Linia 44 |
-| `SidebarFooterIconsManagement.tsx` | `dialogOpen` | Linia 116 |
-| `WebinarList.tsx` | `participantsDialogOpen` | Linia 79 |
+**Rozwiązanie**: Brak zmian potrzebnych - widget działa poprawnie. Jeśli admin ma swoje kody, zobaczy je.
 
 ---
 
-## Szczegółowe zmiany
+## Część 2: Nowy harmonogram powiadomień o spotkaniach
 
-### 1. `ImportantInfoManagement.tsx`
+### Wymagane zmiany (według specyfikacji)
 
-**Import (dodać na górze pliku):**
-```tsx
-import { useFormProtection } from '@/hooks/useFormProtection';
-```
+| Kiedy | Dla kogo | Co wysłać | Status aktualny |
+|-------|----------|-----------|-----------------|
+| **Zaraz po rezerwacji** | Leader | Email "meeting_booked" | ✅ Działa |
+| **Zaraz po rezerwacji** | Rezerwujący | Email "meeting_confirmed" | ✅ Działa |
+| **Zaraz po anulowaniu** | Wszyscy | Email "event_cancelled" | ✅ Działa |
+| **1h przed** | Leader | Email z linkiem + przypomnienie | ✅ Działa (template `meeting_reminder_1h`) |
+| **1h przed** | Rezerwujący (trójstronne) | Email + adnotacja o kontakcie z gościem zewnętrznym | ⚠️ Wymaga zmian |
+| **15 min przed** | Obaj | Email przypominający | ❌ Brak - trzeba dodać |
+| **2h przed** | - | Blokada anulowania | ❌ Trzeba dodać walidację |
 
-**Hook (po useState declarations, około linii 92):**
-```tsx
-useFormProtection(isDialogOpen);
-```
+### Aktualne szablony email (w bazie)
+- `meeting_reminder_24h` - ❌ **Do usunięcia** (wg specyfikacji nie ma być)
+- `meeting_reminder_1h` - ✅ Istnieje, wymaga aktualizacji treści
 
-### 2. `LivePreviewEditor.tsx`
-
-**Import:**
-```tsx
-import { useMultiFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po deklaracjach stanu, około linii 120):**
-```tsx
-useMultiFormProtection(editMode, isItemEditorOpen, isSectionEditorOpen);
-```
-
-### 3. `DailySignalManagement.tsx`
-
-**Import:**
-```tsx
-import { useMultiFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 101):**
-```tsx
-useMultiFormProtection(showAddDialog, showGenerateDialog, !!editingSignal);
-```
-
-### 4. `CookieConsentManagement.tsx`
-
-**Import:**
-```tsx
-import { useFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 44):**
-```tsx
-useFormProtection(true); // Cały formularz jest aktywny gdy komponent jest widoczny
-```
-
-### 5. `MaintenanceModeManagement.tsx`
-
-**Import:**
-```tsx
-import { useMultiFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 49):**
-```tsx
-useMultiFormProtection(showPreview, showEnableWarning);
-```
-
-### 6. `NewsTickerManagement.tsx`
-
-**Import:**
-```tsx
-import { useMultiFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 165):**
-```tsx
-useMultiFormProtection(showAddDialog, !!editingItem);
-```
-
-### 7. `KnowledgeResourcesManagement.tsx`
-
-**Import:**
-```tsx
-import { useMultiFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 107):**
-```tsx
-useMultiFormProtection(dialogOpen, bulkUploadOpen);
-```
-
-### 8. `EmailTemplatesManagement.tsx`
-
-**Import:**
-```tsx
-import { useMultiFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 134):**
-```tsx
-useMultiFormProtection(showTemplateDialog, showEventDialog, showPreviewDialog, showForceSendDialog);
-```
-
-### 9. `BulkUserActions.tsx`
-
-**Import:**
-```tsx
-import { useFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (wewnątrz komponentu, po useState, około linii 46):**
-```tsx
-useFormProtection(showEmailDialog);
-```
-
-### 10. `SidebarFooterIconsManagement.tsx`
-
-**Import:**
-```tsx
-import { useFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 136):**
-```tsx
-useFormProtection(dialogOpen);
-```
-
-### 11. `WebinarList.tsx`
-
-**Import:**
-```tsx
-import { useFormProtection } from '@/hooks/useFormProtection';
-```
-
-**Hook (po useState declarations, około linii 83):**
-```tsx
-useFormProtection(participantsDialogOpen);
-```
+### Brakujące elementy
+1. **Szablon `meeting_reminder_15min`** - nowy szablon email
+2. **Logika różnicowania** - inny email dla leadera vs rezerwującego w trybie trójstronnym
+3. **Blokada anulowania 2h przed** - walidacja w `cancel-individual-meeting/index.ts`
 
 ---
 
-## Weryfikacja bezpieczeństwa zmian
+## Zmiany techniczne
 
-Wszystkie zmiany są bezpieczne ponieważ:
+### 1. Nowy szablon email: `meeting_reminder_15min`
 
-1. **Hook `useFormProtection` już istnieje** - został utworzony w poprzedniej implementacji i działa poprawnie
-2. **Nazwy stanów są zweryfikowane** - wszystkie nazwy zmiennych zostały sprawdzone bezpośrednio w kodzie źródłowym
-3. **Brak zmian logiki biznesowej** - jedyna zmiana to wywołanie hooka, który ustawia globalną flagę edycji
-4. **Hook jest idempotentny** - wielokrotne wywołanie nie powoduje problemów
-5. **Cleanup jest automatyczny** - hook zawiera cleanup w useEffect
+**Wstawka SQL do bazy:**
+```sql
+INSERT INTO email_templates (internal_name, subject, body_html, footer_html, is_active)
+VALUES (
+  'meeting_reminder_15min',
+  '⏰ Spotkanie za 15 minut: {{temat}} o {{godzina_spotkania}}',
+  '<h2>Spotkanie zaczyna się za 15 minut!</h2>
+   <p>Cześć {{imię}},</p>
+   <p>Twoje spotkanie <strong>{{temat}}</strong> rozpocznie się o <strong>{{godzina_spotkania}}</strong>.</p>
+   <p>Pokój spotkania będzie otwarty 5 minut przed czasem.</p>
+   <p><a href="{{zoom_link}}">Kliknij tutaj aby dołączyć do spotkania</a></p>',
+  '<p>Pozdrawiamy,<br>Zespół Pure Life</p>',
+  true
+);
+```
+
+### 2. Aktualizacja szablonu `meeting_reminder_1h` dla trójstronnego
+
+Dodać wariant dla rezerwującego w spotkaniu trójstronnym:
+```html
+<p><strong>Przypomnienie:</strong> Jeśli zapraszasz osobę zewnętrzną na to spotkanie, 
+skontaktuj się z nią teraz, aby upewnić się, że nic w planach się nie zmieniło. 
+Prześlij jej link do spotkania - pokój będzie otwarty 5 minut przed czasem.</p>
+```
+
+### 3. Modyfikacja `send-meeting-reminders/index.ts`
+
+**Plik**: `supabase/functions/send-meeting-reminders/index.ts`
+
+#### a) Zmiana okien czasowych (linie 164-171)
+```typescript
+// PRZED (24h + 1h):
+const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+const reminder1hStart = new Date(now.getTime() + 45 * 60 * 1000);
+const reminder1hEnd = new Date(now.getTime() + 75 * 60 * 1000);
+
+// PO (1h + 15min):
+const reminder1hStart = new Date(now.getTime() + 50 * 60 * 1000); // 50-70 min before
+const reminder1hEnd = new Date(now.getTime() + 70 * 60 * 1000);
+const reminder15minStart = new Date(now.getTime() + 10 * 60 * 1000); // 10-20 min before
+const reminder15minEnd = new Date(now.getTime() + 20 * 60 * 1000);
+```
+
+#### b) Dodanie logiki dla spotkania trójstronnego
+W pętli wysyłania emaili dodać rozróżnienie:
+```typescript
+// Check if this is tripartite meeting and if user is the booker (not host)
+const isTripartite = meeting.event_type === 'tripartite_meeting';
+const isBooker = profile.user_id !== meeting.host_user_id;
+
+// Add special note for booker in tripartite meetings (1h reminder only)
+if (isTripartite && isBooker && reminderType === '1h') {
+  variables['adnotacja_trojstronna'] = 
+    'Pamiętaj, aby skontaktować się z osobą zaproszoną z zewnątrz i upewnić się, ' +
+    'że nic w planach się nie zmieniło. Prześlij jej link do spotkania - ' +
+    'pokój będzie otwarty 5 minut przed czasem.';
+}
+
+// Add Zoom link to reminder
+variables['zoom_link'] = meeting.zoom_link || '';
+```
+
+#### c) Usunięcie 24h reminder
+Całkowicie usunąć logikę dla `reminder24hStart/End` i szablonu `meeting_reminder_24h`.
+
+### 4. Blokada anulowania 2h przed spotkaniem
+
+**Plik**: `supabase/functions/cancel-individual-meeting/index.ts`
+
+Dodać walidację po pobraniu eventu (około linii 75):
+```typescript
+// Check if meeting is within 2 hours
+const meetingStart = new Date(event.start_time);
+const now = new Date();
+const hoursUntilMeeting = (meetingStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+if (hoursUntilMeeting <= 2) {
+  console.log('[cancel-individual-meeting] Cannot cancel - less than 2h before meeting');
+  return new Response(
+    JSON.stringify({ 
+      success: false, 
+      error: 'Nie można anulować spotkania na mniej niż 2 godziny przed jego rozpoczęciem' 
+    }),
+    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+```
 
 ---
 
@@ -175,26 +137,18 @@ Wszystkie zmiany są bezpieczne ponieważ:
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/ImportantInfoManagement.tsx` | +import, +useFormProtection(isDialogOpen) |
-| `src/components/dnd/LivePreviewEditor.tsx` | +import, +useMultiFormProtection(...) |
-| `src/components/admin/DailySignalManagement.tsx` | +import, +useMultiFormProtection(...) |
-| `src/components/admin/CookieConsentManagement.tsx` | +import, +useFormProtection(true) |
-| `src/components/admin/MaintenanceModeManagement.tsx` | +import, +useMultiFormProtection(...) |
-| `src/components/admin/NewsTickerManagement.tsx` | +import, +useMultiFormProtection(...) |
-| `src/components/admin/KnowledgeResourcesManagement.tsx` | +import, +useMultiFormProtection(...) |
-| `src/components/admin/EmailTemplatesManagement.tsx` | +import, +useMultiFormProtection(...) |
-| `src/components/admin/BulkUserActions.tsx` | +import, +useFormProtection(showEmailDialog) |
-| `src/components/admin/SidebarFooterIconsManagement.tsx` | +import, +useFormProtection(dialogOpen) |
-| `src/components/admin/WebinarList.tsx` | +import, +useFormProtection(participantsDialogOpen) |
+| `supabase/functions/send-meeting-reminders/index.ts` | Nowy harmonogram (1h + 15min), usunięcie 24h, logika trójstronnego |
+| `supabase/functions/cancel-individual-meeting/index.ts` | Blokada anulowania 2h przed |
+| Baza danych (email_templates) | Nowy szablon `meeting_reminder_15min` |
+| Baza danych (email_templates) | Aktualizacja `meeting_reminder_1h` o adnotację trójstronną |
 
 ---
 
 ## Oczekiwany rezultat
 
-Po implementacji:
-- **Tworzenie banera** w "Ważne informacje" - wyjście na inną kartę i powrót NIE resetuje formularza
-- **Edycja w Layout Editor** - przełączenie karty NIE wyrzuca z trybu edycji
-- **Daily Signal, Cookies, Maintenance** - formularze pozostają nietknięte
-- **News Ticker, Knowledge Resources** - dialogi nie są zamykane/resetowane
-- **Email Templates** - edycja szablonów zachowana
-- **Wszystkie inne dialogi** - stabilne działanie bez nieoczekiwanych odświeżeń
+1. **Admin na pulpicie** - widzi swoje kody OTP (bez zmian w kodzie - działa poprawnie)
+2. **Po rezerwacji** - natychmiastowy email do obu stron
+3. **1h przed** - email z linkiem do spotkania; dla trójstronnego rezerwujący dostaje dodatkową adnotację o kontakcie z gościem
+4. **15 min przed** - email przypominający z linkiem
+5. **Anulowanie** - zablokowane na mniej niż 2h przed spotkaniem
+6. **Pokój spotkania** - otwierany 5 minut przed (to jest konfiguracja Zoom, nie wymaga zmian w kodzie)
