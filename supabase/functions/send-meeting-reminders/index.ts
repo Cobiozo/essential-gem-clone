@@ -161,18 +161,18 @@ serve(async (req) => {
 
     const now = new Date();
     
-    // Define time windows for reminders
-    // 24h reminder: between 23h and 25h before event
-    const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-    const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    // Define time windows for reminders (NEW SCHEDULE: 1h + 15min)
+    // 1h reminder: between 50min and 70min before event
+    const reminder1hStart = new Date(now.getTime() + 50 * 60 * 1000);
+    const reminder1hEnd = new Date(now.getTime() + 70 * 60 * 1000);
     
-    // 1h reminder: between 45min and 75min before event
-    const reminder1hStart = new Date(now.getTime() + 45 * 60 * 1000);
-    const reminder1hEnd = new Date(now.getTime() + 75 * 60 * 1000);
+    // 15min reminder: between 10min and 20min before event
+    const reminder15minStart = new Date(now.getTime() + 10 * 60 * 1000);
+    const reminder15minEnd = new Date(now.getTime() + 20 * 60 * 1000);
 
     console.log('[send-meeting-reminders] Checking for meetings needing reminders...');
-    console.log(`[send-meeting-reminders] 24h window: ${reminder24hStart.toISOString()} - ${reminder24hEnd.toISOString()}`);
     console.log(`[send-meeting-reminders] 1h window: ${reminder1hStart.toISOString()} - ${reminder1hEnd.toISOString()}`);
+    console.log(`[send-meeting-reminders] 15min window: ${reminder15minStart.toISOString()} - ${reminder15minEnd.toISOString()}`);
 
     // Get individual meetings in the reminder windows
     const { data: meetings, error: meetingsError } = await supabase
@@ -182,11 +182,13 @@ serve(async (req) => {
         title,
         start_time,
         host_user_id,
-        event_type
+        event_type,
+        zoom_link,
+        created_by
       `)
       .in('event_type', ['tripartite_meeting', 'partner_consultation'])
       .eq('is_active', true)
-      .or(`and(start_time.gte.${reminder24hStart.toISOString()},start_time.lte.${reminder24hEnd.toISOString()}),and(start_time.gte.${reminder1hStart.toISOString()},start_time.lte.${reminder1hEnd.toISOString()})`);
+      .or(`and(start_time.gte.${reminder1hStart.toISOString()},start_time.lte.${reminder1hEnd.toISOString()}),and(start_time.gte.${reminder15minStart.toISOString()},start_time.lte.${reminder15minEnd.toISOString()})`);
 
     if (meetingsError) {
       console.error('[send-meeting-reminders] Error fetching meetings:', meetingsError);
@@ -227,19 +229,19 @@ serve(async (req) => {
       from_name: smtpData.sender_name,
     };
 
-    // Get email templates
+    // Get email templates (NEW: 1h and 15min)
     const { data: templates } = await supabase
       .from('email_templates')
       .select('*')
-      .in('internal_name', ['meeting_reminder_24h', 'meeting_reminder_1h']);
+      .in('internal_name', ['meeting_reminder_1h', 'meeting_reminder_15min']);
 
-    const template24h = templates?.find(t => t.internal_name === 'meeting_reminder_24h');
     const template1h = templates?.find(t => t.internal_name === 'meeting_reminder_1h');
+    const template15min = templates?.find(t => t.internal_name === 'meeting_reminder_15min');
 
-    if (!template24h || !template1h) {
-      console.error('[send-meeting-reminders] Missing email templates');
+    if (!template1h || !template15min) {
+      console.error('[send-meeting-reminders] Missing email templates (1h or 15min)');
       return new Response(
-        JSON.stringify({ success: false, error: "Missing email templates" }),
+        JSON.stringify({ success: false, error: "Missing email templates (meeting_reminder_1h or meeting_reminder_15min)" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -249,18 +251,18 @@ serve(async (req) => {
 
     for (const meeting of meetings) {
       const meetingStart = new Date(meeting.start_time);
-      const hoursUntil = (meetingStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const minutesUntil = (meetingStart.getTime() - now.getTime()) / (1000 * 60);
       
       // Determine reminder type
-      let reminderType: '24h' | '1h';
-      let template: typeof template24h;
+      let reminderType: '1h' | '15min';
+      let template: typeof template1h;
       
-      if (hoursUntil >= 23 && hoursUntil <= 25) {
-        reminderType = '24h';
-        template = template24h;
-      } else if (hoursUntil >= 0.75 && hoursUntil <= 1.25) {
+      if (minutesUntil >= 50 && minutesUntil <= 70) {
         reminderType = '1h';
         template = template1h;
+      } else if (minutesUntil >= 10 && minutesUntil <= 20) {
+        reminderType = '15min';
+        template = template15min;
       } else {
         continue;
       }
@@ -328,16 +330,43 @@ serve(async (req) => {
           ? `${otherParty.first_name || ''} ${otherParty.last_name || ''}`.trim() 
           : 'Partner';
 
-        const variables = {
+        // Check if this is tripartite meeting and if user is the booker (not host)
+        const isTripartite = meeting.event_type === 'tripartite_meeting';
+        const isBooker = profile.user_id === meeting.created_by && profile.user_id !== meeting.host_user_id;
+
+        // Build variables
+        const variables: Record<string, string> = {
           imię: profile.first_name || '',
           temat: meeting.title,
           data_spotkania: dateStr,
           godzina_spotkania: timeStr,
           druga_strona: otherPartyName,
+          zoom_link: meeting.zoom_link || '',
         };
 
+        // Add special note for booker in tripartite meetings (1h reminder only)
+        if (isTripartite && isBooker && reminderType === '1h') {
+          variables['adnotacja_trojstronna'] = 
+            '<p style="background-color: #fff3cd; padding: 12px; border-radius: 6px; border-left: 4px solid #ffc107; margin: 16px 0;">' +
+            '<strong>⚠️ Przypomnienie:</strong> Jeśli zapraszasz osobę zewnętrzną na to spotkanie, ' +
+            'skontaktuj się z nią teraz, aby upewnić się, że nic w planach się nie zmieniło. ' +
+            'Prześlij jej link do spotkania - pokój będzie otwarty 5 minut przed czasem.</p>';
+          console.log(`[send-meeting-reminders] Adding tripartite note for booker ${profile.email}`);
+        } else {
+          variables['adnotacja_trojstronna'] = '';
+        }
+
         const subject = replaceVariables(template.subject, variables);
-        const htmlBody = replaceVariables(template.body_html, variables);
+        let htmlBody = replaceVariables(template.body_html, variables);
+        
+        // Append tripartite note if exists
+        if (variables['adnotacja_trojstronna']) {
+          htmlBody = htmlBody.replace('</body>', variables['adnotacja_trojstronna'] + '</body>');
+          // Also try to add before footer if no </body>
+          if (!htmlBody.includes('</body>')) {
+            htmlBody += variables['adnotacja_trojstronna'];
+          }
+        }
 
         const result = await sendSmtpEmail(smtpSettings, profile.email, subject, htmlBody);
 
@@ -362,6 +391,7 @@ serve(async (req) => {
             metadata: { 
               reminder_type: reminderType,
               event_id: meeting.id,
+              is_tripartite_booker: isTripartite && isBooker,
             },
           });
 
