@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
 import { Header } from '@/components/Header';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,9 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
 export default function KnowledgeCenter() {
   const { user } = useAuth();
   const { language } = useLanguage();
+  
+  // Block right-click and other security measures
+  useSecurityPreventions();
   const [searchParams] = useSearchParams();
   const highlightedResourceId = searchParams.get('highlight');
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);

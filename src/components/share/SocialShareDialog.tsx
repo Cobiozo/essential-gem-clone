@@ -119,6 +119,8 @@ export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
             alt={title}
             className="w-full h-full object-contain"
             loading="lazy"
+            onContextMenu={(e) => e.preventDefault()}
+            draggable={false}
           />
         </div>
 
