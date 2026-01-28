@@ -78,6 +78,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if meeting is within 2 hours - block cancellation
+    const meetingStart = new Date(event.start_time);
+    const now = new Date();
+    const hoursUntilMeeting = (meetingStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursUntilMeeting <= 2 && hoursUntilMeeting > 0) {
+      console.log('[cancel-individual-meeting] Cannot cancel - less than 2h before meeting');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Nie można anulować spotkania na mniej niż 2 godziny przed jego rozpoczęciem' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Check if user is host or participant (created_by = booker)
     const isHost = event.host_user_id === user.id;
     const isBooker = event.created_by === user.id;
