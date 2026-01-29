@@ -183,47 +183,36 @@ const Auth = () => {
     const ref = urlParams.get('ref');
     if (ref) {
       setReflinkCode(ref);
-      // Fetch reflink info to get target role, creator profile, and increment click count
+      // Fetch reflink info using RPC to bypass RLS issues with JOINs for unauthenticated users
       supabase
-        .from('user_reflinks')
-        .select(`
-          id, 
-          target_role, 
-          click_count,
-          creator_user_id,
-          profiles!user_reflinks_creator_user_id_fkey(
-            user_id,
-            first_name,
-            last_name,
-            eq_id,
-            email
-          )
-        `)
-        .eq('reflink_code', ref)
-        .eq('is_active', true)
-        .gt('expires_at', new Date().toISOString())
+        .rpc('get_reflink_with_creator', { reflink_code_param: ref })
         .single()
-        .then(async ({ data }) => {
+        .then(async ({ data, error }) => {
+          if (error) {
+            console.error('Error fetching reflink:', error);
+            return;
+          }
           if (data) {
             // Automatycznie przełącz na zakładkę rejestracji przy reflinku
             setActiveTab('signup');
             
-            // Set role
+            // Set role from reflink
             if (data.target_role) {
               setReflinkRole(data.target_role);
               setRole(data.target_role);
             }
-            // Set guardian from reflink creator
-            const creatorProfile = data.profiles as any;
-            if (creatorProfile) {
+            
+            // Set guardian from reflink creator (flat structure from RPC)
+            if (data.creator_user_id) {
               setSelectedGuardian({
-                user_id: creatorProfile.user_id,
-                first_name: creatorProfile.first_name,
-                last_name: creatorProfile.last_name,
-                eq_id: creatorProfile.eq_id,
-                email: creatorProfile.email
+                user_id: data.creator_user_id,
+                first_name: data.creator_first_name,
+                last_name: data.creator_last_name,
+                eq_id: data.creator_eq_id,
+                email: data.creator_email
               });
             }
+            
             // Increment click count
             await supabase
               .from('user_reflinks')
