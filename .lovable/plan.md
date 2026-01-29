@@ -1,134 +1,142 @@
 
-# Plan: Kody OTP dla admina + Nowy harmonogram przypomnień o spotkaniach
+# Plan: Naprawa pobierania danych reflinku dla wszystkich ról
 
-## Część 1: Kody OTP - Admin widzi tylko swoje kody
+## Zidentyfikowany problem
 
-### Aktualny stan
-Kod w `CombinedOtpCodesWidget.tsx` już filtruje po `partner_id = user.id` (linie 175, 210). Admin nie widzi kodów bo prawdopodobnie sam nie ma wygenerowanych żadnych kodów (nie jest partnerem który generuje kody).
+Zapytanie w `Auth.tsx` (linie 187-205) używa JOINa klienta Supabase:
 
-### Wyjaśnienie
-Widget jest już poprawnie skonfigurowany - każdy użytkownik (partner i admin) widzi **tylko swoje kody**. Problem polega na tym, że admin prawdopodobnie nie ma żadnych wygenerowanych kodów, dlatego widget jest pusty lub nie wyświetla się wcale (linia 297-299 ukrywa widget gdy `totalCodes === 0`).
+```typescript
+supabase
+  .from('user_reflinks')
+  .select(`
+    id, target_role, click_count, creator_user_id,
+    profiles!user_reflinks_creator_user_id_fkey(
+      user_id, first_name, last_name, eq_id, email
+    )
+  `)
+```
 
-**Rozwiązanie**: Brak zmian potrzebnych - widget działa poprawnie. Jeśli admin ma swoje kody, zobaczy je.
+**Problem:** Klient Supabase dla niezalogowanego użytkownika wykonuje JOIN między dwiema tabelami z różnymi politykami RLS. Mimo że obie tabele mają polityki pozwalające na odczyt (user_reflinks: "Anyone can read valid reflinks", profiles: "Anyone can search for guardians"), JOIN po stronie klienta może zwracać `null` dla zagnieżdżonego obiektu `profiles`.
+
+**Dotyczy WSZYSTKICH ról:** client, partner, specjalista - ponieważ problem jest w mechanizmie JOINa, nie w danych.
 
 ---
 
-## Część 2: Nowy harmonogram powiadomień o spotkaniach
+## Rozwiązanie
 
-### Wymagane zmiany (według specyfikacji)
-
-| Kiedy | Dla kogo | Co wysłać | Status aktualny |
-|-------|----------|-----------|-----------------|
-| **Zaraz po rezerwacji** | Leader | Email "meeting_booked" | ✅ Działa |
-| **Zaraz po rezerwacji** | Rezerwujący | Email "meeting_confirmed" | ✅ Działa |
-| **Zaraz po anulowaniu** | Wszyscy | Email "event_cancelled" | ✅ Działa |
-| **1h przed** | Leader | Email z linkiem + przypomnienie | ✅ Działa (template `meeting_reminder_1h`) |
-| **1h przed** | Rezerwujący (trójstronne) | Email + adnotacja o kontakcie z gościem zewnętrznym | ⚠️ Wymaga zmian |
-| **15 min przed** | Obaj | Email przypominający | ❌ Brak - trzeba dodać |
-| **2h przed** | - | Blokada anulowania | ❌ Trzeba dodać walidację |
-
-### Aktualne szablony email (w bazie)
-- `meeting_reminder_24h` - ❌ **Do usunięcia** (wg specyfikacji nie ma być)
-- `meeting_reminder_1h` - ✅ Istnieje, wymaga aktualizacji treści
-
-### Brakujące elementy
-1. **Szablon `meeting_reminder_15min`** - nowy szablon email
-2. **Logika różnicowania** - inny email dla leadera vs rezerwującego w trybie trójstronnym
-3. **Blokada anulowania 2h przed** - walidacja w `cancel-individual-meeting/index.ts`
+Utworzenie funkcji SQL `SECURITY DEFINER` która:
+1. Pobiera dane reflinku z tabeli `user_reflinks`
+2. Dołącza dane twórcy z tabeli `profiles` w jednym zapytaniu serwerowym
+3. Waliduje czy reflink jest aktywny i niewygasły
+4. Zwraca wszystkie potrzebne dane jako płaski obiekt
 
 ---
 
 ## Zmiany techniczne
 
-### 1. Nowy szablon email: `meeting_reminder_15min`
+### 1. Nowa funkcja SQL: `get_reflink_with_creator`
 
-**Wstawka SQL do bazy:**
 ```sql
-INSERT INTO email_templates (internal_name, subject, body_html, footer_html, is_active)
-VALUES (
-  'meeting_reminder_15min',
-  '⏰ Spotkanie za 15 minut: {{temat}} o {{godzina_spotkania}}',
-  '<h2>Spotkanie zaczyna się za 15 minut!</h2>
-   <p>Cześć {{imię}},</p>
-   <p>Twoje spotkanie <strong>{{temat}}</strong> rozpocznie się o <strong>{{godzina_spotkania}}</strong>.</p>
-   <p>Pokój spotkania będzie otwarty 5 minut przed czasem.</p>
-   <p><a href="{{zoom_link}}">Kliknij tutaj aby dołączyć do spotkania</a></p>',
-  '<p>Pozdrawiamy,<br>Zespół Pure Life</p>',
-  true
-);
+CREATE OR REPLACE FUNCTION public.get_reflink_with_creator(reflink_code_param text)
+RETURNS TABLE(
+  id uuid,
+  target_role text,
+  click_count integer,
+  creator_user_id uuid,
+  creator_first_name text,
+  creator_last_name text,
+  creator_eq_id text,
+  creator_email text
+)
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT 
+    ur.id,
+    ur.target_role,
+    ur.click_count,
+    ur.creator_user_id,
+    p.first_name,
+    p.last_name,
+    p.eq_id,
+    p.email
+  FROM public.user_reflinks ur
+  INNER JOIN public.profiles p ON p.user_id = ur.creator_user_id
+  WHERE ur.reflink_code = reflink_code_param
+    AND ur.is_active = true
+    AND ur.expires_at > now()
+  LIMIT 1;
+$$;
 ```
 
-### 2. Aktualizacja szablonu `meeting_reminder_1h` dla trójstronnego
+### 2. Modyfikacja `Auth.tsx` - użycie RPC zamiast JOINa
 
-Dodać wariant dla rezerwującego w spotkaniu trójstronnym:
-```html
-<p><strong>Przypomnienie:</strong> Jeśli zapraszasz osobę zewnętrzną na to spotkanie, 
-skontaktuj się z nią teraz, aby upewnić się, że nic w planach się nie zmieniło. 
-Prześlij jej link do spotkania - pokój będzie otwarty 5 minut przed czasem.</p>
-```
+**Plik:** `src/pages/Auth.tsx` (linie 186-243)
 
-### 3. Modyfikacja `send-meeting-reminders/index.ts`
+Zmiana z bezpośredniego zapytania z JOINem na wywołanie RPC:
 
-**Plik**: `supabase/functions/send-meeting-reminders/index.ts`
-
-#### a) Zmiana okien czasowych (linie 164-171)
 ```typescript
-// PRZED (24h + 1h):
-const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-const reminder1hStart = new Date(now.getTime() + 45 * 60 * 1000);
-const reminder1hEnd = new Date(now.getTime() + 75 * 60 * 1000);
+// PRZED (linie 187-243):
+supabase
+  .from('user_reflinks')
+  .select(`
+    id, target_role, click_count, creator_user_id,
+    profiles!user_reflinks_creator_user_id_fkey(...)
+  `)
+  .eq('reflink_code', ref)
+  .eq('is_active', true)
+  .gt('expires_at', new Date().toISOString())
+  .single()
+  .then(async ({ data }) => {
+    // ... obsługa danych z zagnieżdżonym profiles
+  });
 
-// PO (1h + 15min):
-const reminder1hStart = new Date(now.getTime() + 50 * 60 * 1000); // 50-70 min before
-const reminder1hEnd = new Date(now.getTime() + 70 * 60 * 1000);
-const reminder15minStart = new Date(now.getTime() + 10 * 60 * 1000); // 10-20 min before
-const reminder15minEnd = new Date(now.getTime() + 20 * 60 * 1000);
-```
-
-#### b) Dodanie logiki dla spotkania trójstronnego
-W pętli wysyłania emaili dodać rozróżnienie:
-```typescript
-// Check if this is tripartite meeting and if user is the booker (not host)
-const isTripartite = meeting.event_type === 'tripartite_meeting';
-const isBooker = profile.user_id !== meeting.host_user_id;
-
-// Add special note for booker in tripartite meetings (1h reminder only)
-if (isTripartite && isBooker && reminderType === '1h') {
-  variables['adnotacja_trojstronna'] = 
-    'Pamiętaj, aby skontaktować się z osobą zaproszoną z zewnątrz i upewnić się, ' +
-    'że nic w planach się nie zmieniło. Prześlij jej link do spotkania - ' +
-    'pokój będzie otwarty 5 minut przed czasem.';
-}
-
-// Add Zoom link to reminder
-variables['zoom_link'] = meeting.zoom_link || '';
-```
-
-#### c) Usunięcie 24h reminder
-Całkowicie usunąć logikę dla `reminder24hStart/End` i szablonu `meeting_reminder_24h`.
-
-### 4. Blokada anulowania 2h przed spotkaniem
-
-**Plik**: `supabase/functions/cancel-individual-meeting/index.ts`
-
-Dodać walidację po pobraniu eventu (około linii 75):
-```typescript
-// Check if meeting is within 2 hours
-const meetingStart = new Date(event.start_time);
-const now = new Date();
-const hoursUntilMeeting = (meetingStart.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-if (hoursUntilMeeting <= 2) {
-  console.log('[cancel-individual-meeting] Cannot cancel - less than 2h before meeting');
-  return new Response(
-    JSON.stringify({ 
-      success: false, 
-      error: 'Nie można anulować spotkania na mniej niż 2 godziny przed jego rozpoczęciem' 
-    }),
-    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
+// PO:
+supabase
+  .rpc('get_reflink_with_creator', { reflink_code_param: ref })
+  .single()
+  .then(async ({ data, error }) => {
+    if (error) {
+      console.error('Error fetching reflink:', error);
+      return;
+    }
+    if (data) {
+      setActiveTab('signup');
+      
+      // Ustaw rolę z reflinku
+      if (data.target_role) {
+        setReflinkRole(data.target_role);
+        setRole(data.target_role);
+      }
+      
+      // Dane twórcy są bezpośrednio w obiekcie data (płaska struktura)
+      if (data.creator_user_id) {
+        setSelectedGuardian({
+          user_id: data.creator_user_id,
+          first_name: data.creator_first_name,
+          last_name: data.creator_last_name,
+          eq_id: data.creator_eq_id,
+          email: data.creator_email
+        });
+      }
+      
+      // Inkrementacja click_count (osobne zapytanie)
+      await supabase
+        .from('user_reflinks')
+        .update({ click_count: (data.click_count || 0) + 1 })
+        .eq('id', data.id);
+      
+      // Log click event
+      await supabase
+        .from('reflink_events')
+        .insert({
+          reflink_id: data.id,
+          event_type: 'click',
+          target_role: data.target_role
+        });
+    }
+  });
 ```
 
 ---
@@ -137,18 +145,25 @@ if (hoursUntilMeeting <= 2) {
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/send-meeting-reminders/index.ts` | Nowy harmonogram (1h + 15min), usunięcie 24h, logika trójstronnego |
-| `supabase/functions/cancel-individual-meeting/index.ts` | Blokada anulowania 2h przed |
-| Baza danych (email_templates) | Nowy szablon `meeting_reminder_15min` |
-| Baza danych (email_templates) | Aktualizacja `meeting_reminder_1h` o adnotację trójstronną |
+| Migracja SQL | Nowa funkcja `get_reflink_with_creator` |
+| `src/pages/Auth.tsx` | Zmiana zapytania z JOINa na RPC (linie 186-243) |
 
 ---
 
-## Oczekiwany rezultat
+## Weryfikacja po wdrożeniu
 
-1. **Admin na pulpicie** - widzi swoje kody OTP (bez zmian w kodzie - działa poprawnie)
-2. **Po rezerwacji** - natychmiastowy email do obu stron
-3. **1h przed** - email z linkiem do spotkania; dla trójstronnego rezerwujący dostaje dodatkową adnotację o kontakcie z gościem
-4. **15 min przed** - email przypominający z linkiem
-5. **Anulowanie** - zablokowane na mniej niż 2h przed spotkaniem
-6. **Pokój spotkania** - otwierany 5 minut przed (to jest konfiguracja Zoom, nie wymaga zmian w kodzie)
+Po implementacji przetestować linki dla wszystkich ról:
+
+| Rola | Przykładowy link | Oczekiwany opiekun |
+|------|------------------|-------------------|
+| **Specjalista** | `?ref=u-hfed38-121229225` | Wees Mooi (EQID: 121229225) |
+| **Klient** | `?ref=u-h50qpy-121118999` | Sebastian Snopek (EQID: 121118999) |
+| **Partner** | `?ref=u-17rrt7-121182249` | Joanna Górska (EQID: 121182249) |
+
+Dla każdego linku sprawdzić:
+1. Automatyczne przełączenie na zakładkę "Zarejestruj się"
+2. Rola ustawiona i zablokowana (disabled)
+3. Opiekun wyświetlony z imieniem, nazwiskiem i EQID
+4. Pole opiekuna zablokowane (disabled)
+5. Komunikat "Rola została ustawiona przez link polecający"
+6. Komunikat "Opiekun został ustawiony przez link polecający" (jeśli tłumaczenie istnieje)
