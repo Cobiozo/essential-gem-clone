@@ -1,157 +1,119 @@
 
-# Plan: Ulepszenie globalnego zarządzania PureLinkami
+# Plan: Naprawa PureLinków dla Specjalistów
 
 ## Zdiagnozowany problem
 
-Przycisk "Odśwież wszystkie aktywne linki" tylko aktualizuje `updated_at`, co nie naprawia rzeczywistego problemu. Ręczne wyłączenie/włączenie linku działa, ponieważ wykonuje pełny `UPDATE` z `is_active = false` a potem `is_active = true`.
+Niezalogowani użytkownicy wchodzący na link `/auth?ref=xxx` nie mogą ukończyć procesu rejestracji ponieważ:
 
-## Proponowane rozwiązanie
+1. **Funkcja RPC działa poprawnie** - `get_reflink_with_creator` zwraca dane dla wszystkich ról (partner, specjalista, client)
+2. **Błąd UPDATE** - Po pobraniu danych, kod próbuje wykonać:
+   ```javascript
+   await supabase
+     .from('user_reflinks')
+     .update({ click_count: (data.click_count || 0) + 1 })
+     .eq('id', data.id);
+   ```
+3. **Brak polityki RLS** - Tabela `user_reflinks` nie ma polityki UPDATE dla roli `public` (niezalogowanych), tylko dla `authenticated`
+4. **Efekt** - Błąd UPDATE przerywa łańcuch `.then()` i nie ustawia poprawnie `selectedGuardian` ani `role` w formularzu
 
-Zastąpienie obecnego przycisku **dwoma nowymi przyciskami** lub jednym przyciskiem z sekwencyjną operacją:
+## Dowody
 
-### Wariant A: Jeden przycisk z automatyczną sekwencją
-Przycisk "Zresetuj wszystkie aktywne linki" który:
-1. Wyłącza wszystkie linki (`is_active = false`)
-2. Natychmiast włącza je z powrotem (`is_active = true`)
-3. Zwraca liczbę zresetowanych linków
+Polityki RLS dla `user_reflinks`:
+- ✅ SELECT dla `public`: `"Anyone can read valid reflinks" WHERE is_active AND expires_at > now()`
+- ❌ **Brak UPDATE dla `public`** - tylko dla `authenticated` (właściciel lub admin)
 
-### Wariant B: Dwa oddzielne przyciski (bardziej kontrolowane)
-1. **"Wyłącz wszystkie"** - globalnie ustawia `is_active = false`
-2. **"Włącz wszystkie"** - globalnie ustawia `is_active = true`
+## Rozwiązanie
 
-**Rekomendacja:** Wariant A jest bezpieczniejszy (automatyczna sekwencja w jednej transakcji)
+### Krok 1: Nowa funkcja RPC `increment_reflink_click`
 
----
-
-## Zmiany techniczne
-
-### 1. Nowa funkcja SQL: `reset_all_active_reflinks`
-
-Funkcja wykonująca pełny cykl wyłączenia i włączenia w jednej transakcji:
+Utworzenie funkcji SECURITY DEFINER która bezpiecznie inkrementuje licznik kliknięć:
 
 ```sql
-CREATE OR REPLACE FUNCTION public.reset_all_active_reflinks()
-RETURNS json
+CREATE OR REPLACE FUNCTION public.increment_reflink_click(reflink_id_param uuid)
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  reset_count integer;
-  active_link_ids uuid[];
 BEGIN
-  -- Sprawdź czy użytkownik jest adminem
-  IF NOT EXISTS (
-    SELECT 1 FROM user_roles 
-    WHERE user_id = auth.uid() AND role = 'admin'
-  ) THEN
-    RAISE EXCEPTION 'Only admins can reset all reflinks';
-  END IF;
-
-  -- Pobierz ID wszystkich aktywnych linków
-  SELECT array_agg(id) INTO active_link_ids
-  FROM user_reflinks
-  WHERE is_active = true
+  UPDATE user_reflinks
+  SET 
+    click_count = click_count + 1,
+    updated_at = now()
+  WHERE id = reflink_id_param
+    AND is_active = true
     AND expires_at > now();
-  
-  IF active_link_ids IS NULL OR array_length(active_link_ids, 1) IS NULL THEN
-    RETURN json_build_object('reset_count', 0);
-  END IF;
-  
-  reset_count := array_length(active_link_ids, 1);
-  
-  -- Krok 1: Wyłącz wszystkie
-  UPDATE user_reflinks
-  SET is_active = false, updated_at = now()
-  WHERE id = ANY(active_link_ids);
-  
-  -- Krok 2: Włącz z powrotem
-  UPDATE user_reflinks
-  SET is_active = true, updated_at = now()
-  WHERE id = ANY(active_link_ids);
-  
-  RETURN json_build_object('reset_count', reset_count);
 END;
 $$;
+
+-- Pozwól wszystkim (w tym anonimowym) wywoływać tę funkcję
+GRANT EXECUTE ON FUNCTION public.increment_reflink_click(uuid) TO anon;
+GRANT EXECUTE ON FUNCTION public.increment_reflink_click(uuid) TO authenticated;
 ```
 
-### 2. Aktualizacja przycisku w `UserReflinksSettings.tsx`
+### Krok 2: Poprawka w Auth.tsx
 
-Zmiana ikony, tekstu i wywołania funkcji:
+Zmiana bezpośredniego UPDATE na wywołanie RPC:
 
-```tsx
-// Zamiast refresh_all_active_reflinks
-const handleResetAllReflinks = async () => {
-  if (refreshing) return;
-  setRefreshing(true);
-  try {
-    const { data, error } = await supabase.rpc('reset_all_active_reflinks');
-    
-    if (error) throw error;
-    
-    setLastRefreshStats({ updated_count: data.reset_count });
-    toast({
-      title: 'Zresetowano',
-      description: `Zresetowano ${data.reset_count} aktywnych linków (wyłączono i włączono)`,
-    });
-  } catch (error: any) {
-    toast({
-      title: 'Błąd',
-      description: error.message,
-      variant: 'destructive',
-    });
-  } finally {
-    setRefreshing(false);
-  }
-};
+**Przed:**
+```javascript
+// Increment click count - BŁĄD dla niezalogowanych!
+await supabase
+  .from('user_reflinks')
+  .update({ click_count: (data.click_count || 0) + 1 } as any)
+  .eq('id', data.id);
 ```
 
-**UI zmiana:**
-- Tekst przycisku: "Zresetuj wszystkie aktywne linki"
-- Opis: "Ta operacja wyłączy i ponownie włączy wszystkie aktywne purelinki. Użyj tego jeśli linki nie działają poprawnie."
-
-### 3. Bonus: Poprawka `.single()` w Auth.tsx
-
-Zmiana z:
-```typescript
-.rpc('get_reflink_with_creator', { reflink_code_param: ref })
-.single()
+**Po:**
+```javascript
+// Increment click count via RPC (bezpieczne dla niezalogowanych)
+await supabase.rpc('increment_reflink_click', { 
+  reflink_id_param: data.id 
+});
 ```
 
-Na:
-```typescript
-.rpc('get_reflink_with_creator', { reflink_code_param: ref })
-.maybeSingle()
+### Krok 3: Poprawka obsługi błędów
+
+Dodanie lepszej obsługi błędów aby UPDATE nie przerywał głównego flow:
+
+```javascript
+// Increment click count via RPC (nie blokuje flow przy błędzie)
+supabase.rpc('increment_reflink_click', { 
+  reflink_id_param: data.id 
+}).catch(err => {
+  console.warn('Could not increment click count:', err);
+});
+
+// Log click event - kontynuuj nawet przy błędzie
+supabase.from('reflink_events').insert({
+  reflink_id: data.id,
+  event_type: 'click',
+  target_role: data.target_role
+} as any).catch(err => {
+  console.warn('Could not log click event:', err);
+});
 ```
-
-To zapobiegnie cichym błędom gdy link nie zostanie znaleziony.
-
----
 
 ## Lista plików do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| Migracja SQL | Nowa funkcja `reset_all_active_reflinks` |
-| `src/components/admin/UserReflinksSettings.tsx` | Zamiana wywołania `refresh_all_active_reflinks` na `reset_all_active_reflinks` |
-| `src/pages/Auth.tsx` | Zmiana `.single()` na `.maybeSingle()` |
-| `src/integrations/supabase/types.ts` | Automatyczna aktualizacja typów |
-
----
+| Migracja SQL | Nowa funkcja `increment_reflink_click` + GRANT |
+| `src/pages/Auth.tsx` | Zamiana UPDATE na RPC + lepsza obsługa błędów |
+| `src/integrations/supabase/types.ts` | Automatycznie zaktualizowane typy |
 
 ## Weryfikacja po wdrożeniu
 
-1. Zaloguj się jako Admin
-2. Przejdź do ustawień purelinków
-3. Kliknij **"Zresetuj wszystkie aktywne linki"**
-4. Sprawdź że wyświetla się liczba zresetowanych linków
-5. **Przetestuj link dla specjalisty** - powinien teraz działać bez konieczności ręcznego wyłączania/włączania
-
----
+1. Otwórz nowe okno incognito (niezalogowany)
+2. Wklej link specjalisty np. `https://purelife.info.pl/auth?ref=u-j8czca-12458557556`
+3. Sprawdź czy:
+   - Formularz przełącza się na zakładkę rejestracji
+   - Rola jest ustawiona na "Specjalista"  
+   - Opiekun jest automatycznie wypełniony
+4. Sprawdź czy click_count wzrósł w bazie danych
 
 ## Bezpieczeństwo
 
-- Funkcja sprawdza rolę `admin` przed wykonaniem
-- Operacja wykonywana w jednej transakcji (atomowa)
-- Dotyczy tylko aktywnych, niewygasłych linków
-- Wynik jest dokładnie taki sam jak ręczne wyłączenie/włączenie
+- Funkcja `increment_reflink_click` tylko zwiększa licznik - nie może zmieniać innych danych
+- Walidacja `is_active` i `expires_at` wewnątrz funkcji
+- Brak możliwości nadużycia - funkcja nie zwraca żadnych danych
