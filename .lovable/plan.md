@@ -1,97 +1,55 @@
 
-# Plan: Naprawa PureLinków - błędy RLS i przekierowanie
 
-## Zidentyfikowane problemy
+# Plan: Dodanie polityki RLS INSERT dla adminów
 
-### Problem 1: Błąd "new row violates row-level security policy for table 'user_reflinks'"
+## Problem
 
-**Przyczyna**: Polityka RLS INSERT liczy **wszystkie linki** użytkownika (włącznie z nieaktywnymi), zamiast tylko aktywnych.
+Kiedy admin generuje PureLink w imieniu innego użytkownika, operacja kończy się błędem:
+> "new row violates row-level security policy for table 'user_reflinks'"
 
-Aktualna polityka:
-```sql
-SELECT count(*) FROM user_reflinks 
-WHERE creator_user_id = auth.uid()
--- ^ liczy WSZYSTKIE linki (w tym is_active = false)
-```
+**Przyczyna**: Polityka INSERT sprawdza `creator_user_id = auth.uid()`, ale admin ustawia `creator_user_id` na ID partnera (nie swoje). Brakuje polityki INSERT pozwalającej adminom na tworzenie linków dla dowolnych użytkowników.
 
-Przykład Sebastiana Snopka (partner):
-- Wszystkie linki: 3 (w tym 1 nieaktywny)
-- Aktywne linki: 2
-- Limit: 3
-- Wynik: 3 >= 3 = BLOKADA (mimo że ma tylko 2 aktywne)
+### Aktualne polityki dla `user_reflinks`:
 
-**Rozwiązanie**: Zmienić politykę RLS aby liczyła tylko aktywne linki:
-```sql
-SELECT count(*) FROM user_reflinks 
-WHERE creator_user_id = auth.uid() 
-  AND is_active = true  -- <- dodać ten warunek
-```
+| Operacja | Polityka | Status |
+|----------|----------|--------|
+| SELECT | Admins can read all reflinks | ✓ |
+| UPDATE | Admins can update any reflink | ✓ |
+| DELETE | Admins can delete any reflink | ✓ |
+| INSERT | **BRAK dla adminów** | ❌ |
 
-### Problem 2: Linki nie przekierowują do rejestracji (signup)
+## Rozwiązanie
 
-**Przyczyna**: Kod w `Auth.tsx` jest poprawny i został już naprawiony, ale **zmiany mogą nie być opublikowane** na stronie produkcyjnej.
-
-Kod już zawiera:
-```typescript
-const reflink = Array.isArray(data) ? data[0] : data;
-if (reflink) {
-  setActiveTab('signup'); // Przełącz na zakładkę rejestracji
-  setRole(reflink.target_role);
-  setSelectedGuardian({...});
-}
-```
-
-**Rozwiązanie**: Wymagana jest **publikacja** zmian na produkcję.
-
----
-
-## Plan naprawy
-
-### Krok 1: Naprawić politykę RLS (migracja bazy danych)
-
-Zmienić politykę INSERT dla `user_reflinks`, aby liczyła tylko aktywne linki:
+Dodać nową politykę RLS INSERT dla adminów:
 
 ```sql
-DROP POLICY IF EXISTS "Users can create reflinks if permitted" ON user_reflinks;
-
-CREATE POLICY "Users can create reflinks if permitted"
+CREATE POLICY "Admins can create reflinks for any user"
 ON user_reflinks FOR INSERT
 TO authenticated
-WITH CHECK (
-  creator_user_id = auth.uid()
-  AND EXISTS (
-    SELECT 1
-    FROM reflink_generation_settings rgs
-    JOIN user_roles ur ON ur.role = rgs.role
-    WHERE ur.user_id = auth.uid()
-      AND rgs.can_generate = true
-      AND user_reflinks.target_role = ANY(rgs.allowed_target_roles)
-      AND (
-        SELECT count(*) 
-        FROM user_reflinks 
-        WHERE creator_user_id = auth.uid()
-          AND is_active = true  -- Liczyć tylko aktywne!
-      ) < rgs.max_links_per_user
-  )
-);
+WITH CHECK (is_admin());
 ```
 
-### Krok 2: Publikacja zmian
+Dzięki temu admin będzie mógł tworzyć linki z dowolnym `creator_user_id` (w imieniu każdego użytkownika).
 
-Po zatwierdzeniu migracji, kliknij przycisk **Publish** w Lovable, aby wdrożyć:
-- Naprawioną politykę RLS
-- Poprawiony kod `Auth.tsx` z obsługą tablic z RPC
+## Migracja bazy danych
 
----
+```sql
+-- Add INSERT policy for admins to create reflinks on behalf of any user
+CREATE POLICY "Admins can create reflinks for any user"
+ON user_reflinks FOR INSERT
+TO authenticated
+WITH CHECK (is_admin());
+```
 
-## Podsumowanie zmian
+## Pliki do modyfikacji
 
-| Element | Zmiana |
-|---------|--------|
-| Polityka RLS `user_reflinks` INSERT | Dodanie warunku `is_active = true` przy liczeniu |
-| Publikacja | Wdrożenie kodu z poprawkami na produkcję |
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | Dodanie polityki INSERT dla adminów |
 
-## Efekt po wdrożeniu
+## Po wdrożeniu
 
-1. Użytkownicy będą mogli tworzyć nowe linki, jeśli ich liczba **aktywnych** linków jest poniżej limitu
-2. Linki polecające będą poprawnie przekierowywać na zakładkę rejestracji z wypełnioną rolą i opiekunem
+1. Admin będzie mógł generować PureLinki dla każdego użytkownika
+2. Zwykli użytkownicy nadal będą ograniczeni do tworzenia linków tylko dla siebie (zgodnie z limitem)
+3. Link wygenerowany przez admina będzie przypisany do wybranego użytkownika jako twórca
+
