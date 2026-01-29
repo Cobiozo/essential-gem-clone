@@ -5769,6 +5769,19 @@ export type Database = {
         }[]
       }
       get_reflink_validity_days: { Args: never; Returns: number }
+      get_reflink_with_creator: {
+        Args: { reflink_code_param: string }
+        Returns: {
+          click_count: number
+          creator_email: string
+          creator_eq_id: string
+          creator_first_name: string
+          creator_last_name: string
+          creator_user_id: string
+          id: string
+          target_role: string
+        }[]
+      }
       get_retryable_failed_emails: {
         Args: never
         Returns: {
