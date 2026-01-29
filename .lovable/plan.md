@@ -1,126 +1,181 @@
 
+# Plan: Panel administracyjny wszystkich PureLinków użytkowników
 
-# Plan: Naprawa obsługi funkcji RPC dla PureLinków
+## Podsumowanie
 
-## Zdiagnozowany problem
+Utworzę nowy komponent `AllUserReflinksPanel.tsx` w panelu administracyjnym, który wyświetli **wszystkie PureLinki wygenerowane przez wszystkich użytkowników** z możliwością filtrowania, włączania/wyłączania i usuwania każdego linku z osobna.
 
-Problem polegał na **niepoprawnym użyciu `.maybeSingle()` na funkcji RPC zwracającej `RETURNS TABLE`**.
+## Co zostanie dodane
 
-### Jak to działa:
+### Nowy komponent: `AllUserReflinksPanel.tsx`
 
-1. Funkcja `get_reflink_with_creator` jest zdefiniowana jako:
-   ```sql
-   RETURNS TABLE(
-     id uuid,
-     target_role text,
-     click_count integer,
-     ...
-   )
-   ```
+Panel zawierający:
 
-2. Funkcja RPC zwracająca TABLE **zawsze zwraca tablicę**, nawet jeśli ma tylko 1 wiersz
+1. **Tabelę wszystkich PureLinków** z kolumnami:
+   - Kod linku (`reflink_code`)
+   - Rola docelowa (Klient/Partner/Specjalista)
+   - Twórca linku (imię, nazwisko, email, rola)
+   - Status (aktywny/nieaktywny)
+   - Data wygaśnięcia + badge (wygasł/wygasa wkrótce/aktywny)
+   - Kliknięcia / Rejestracje
+   - Akcje (włącz/wyłącz, usuń)
 
-3. Wywołanie `.maybeSingle()` lub `.single()` na takiej funkcji **może powodować nieoczekiwane zachowanie** - próbuje przekonwertować tablicę na pojedynczy obiekt, co może skutkować:
-   - Błędem gdy zwracana jest tablica
-   - Pustym `data` (null) mimo że funkcja zwróciła dane
+2. **Filtry**:
+   - Wyszukiwanie po kodzie linku lub nazwisku twórcy
+   - Filtr po roli docelowej (wszystkie/klient/partner/specjalista)
+   - Filtr po statusie (wszystkie/aktywne/nieaktywne/wygasłe)
 
-### Dowód:
-```sql
-SELECT data_type FROM information_schema.routines 
-WHERE routine_name = 'get_reflink_with_creator';
--- Wynik: "record" (RETURNS TABLE = zbiór rekordów)
+3. **Akcje masowe**:
+   - Przycisk "Usuń wygasłe linki"
+
+## Struktura tabeli
+
+```text
++----------------+--------+------------------+--------+---------+--------+-------+----------+
+| Kod linku      | Rola   | Twórca           | Status | Wygasa  | Klikn. | Rej.  | Akcje    |
++----------------+--------+------------------+--------+---------+--------+-------+----------+
+| u-3rxrgp-anon  | Spec.  | Sebastian Snopek | ✓      | 28 dni  |   2    |   0   | [on][x]  |
+|                |        | (admin)          |        |         |        |       |          |
++----------------+--------+------------------+--------+---------+--------+-------+----------+
+| u-j8czca-12... | Spec.  | Sebastian Snopek | ✓      | 30 dni  |   0    |   0   | [on][x]  |
+|                |        | (partner)        |        |         |        |       |          |
++----------------+--------+------------------+--------+---------+--------+-------+----------+
 ```
 
-## Rozwiązanie
+## Integracja
 
-Usunąć `.maybeSingle()` i obsłużyć dane jako tablicę:
+Komponent zostanie dodany jako **nowa zakładka** w istniejącym `UserReflinksSettings.tsx` lub jako osobna sekcja w `ReflinksManagement.tsx` pod zakładką "Linki użytkowników".
 
-**Zmiana w `src/pages/Auth.tsx` (linie 187-195):**
-
-```typescript
-// PRZED (niepoprawne):
-supabase
-  .rpc('get_reflink_with_creator', { reflink_code_param: ref })
-  .maybeSingle()
-  .then(async ({ data, error }) => {
-    if (error) {
-      console.error('Error fetching reflink:', error);
-      return;
-    }
-    if (data) {
-      // ...
-
-// PO (poprawne):
-supabase
-  .rpc('get_reflink_with_creator', { reflink_code_param: ref })
-  .then(async ({ data, error }) => {
-    if (error) {
-      console.error('Error fetching reflink:', error);
-      return;
-    }
-    // Funkcja RPC z RETURNS TABLE zwraca tablicę
-    const reflink = Array.isArray(data) ? data[0] : data;
-    if (reflink) {
-      // Reszta kodu używa "reflink" zamiast "data"
-      setActiveTab('signup');
-      
-      if (reflink.target_role) {
-        setReflinkRole(reflink.target_role);
-        setRole(reflink.target_role);
-      }
-      
-      if (reflink.creator_user_id) {
-        setSelectedGuardian({
-          user_id: reflink.creator_user_id,
-          first_name: reflink.creator_first_name,
-          last_name: reflink.creator_last_name,
-          eq_id: reflink.creator_eq_id,
-          email: reflink.creator_email
-        });
-      }
-      
-      // Increment click count via RPC
-      supabase.rpc('increment_reflink_click', { 
-        reflink_id_param: reflink.id 
-      }).then(/* ... */);
-      
-      // Log click event
-      supabase.from('reflink_events').insert({
-        reflink_id: reflink.id,
-        event_type: 'click',
-        target_role: reflink.target_role
-      } as any).then(/* ... */);
-    }
-  });
-```
-
-## Lista plików do modyfikacji
+## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/pages/Auth.tsx` | Usunięcie `.maybeSingle()` + obsługa danych jako tablicy |
+| `src/components/admin/AllUserReflinksPanel.tsx` | **NOWY** - główny komponent panelu |
+| `src/components/admin/UserReflinksSettings.tsx` | Dodanie nowej zakładki z `AllUserReflinksPanel` |
 
-## Dlaczego to zadziała
+---
 
-1. **Funkcja RPC zawsze zwraca tablicę** - nawet z `LIMIT 1` w SQL, klient JavaScript otrzymuje `[]` lub `[{...}]`
-2. **Sprawdzamy czy data jest tablicą** - `Array.isArray(data) ? data[0] : data` bezpiecznie obsługuje oba przypadki
-3. **Logika flow pozostaje taka sama** - tylko źródło danych zmienia się z `data` na `reflink`
+## Szczegóły techniczne
 
-## Weryfikacja po wdrożeniu
+### Zapytanie do bazy danych
 
-1. Otwórz nowe okno incognito (niezalogowany)
-2. Wklej dowolny link:
-   - Dla klienta: `https://purelife.info.pl/auth?ref=u-bwvtp5-121142263`
-   - Dla partnera: `https://purelife.info.pl/auth?ref=u-6poiga-12458557556`
-   - Dla specjalisty: `https://purelife.info.pl/auth?ref=u-j8czca-12458557556`
-3. Sprawdź czy:
-   - Formularz przełącza się na zakładkę rejestracji
-   - Rola jest ustawiona poprawnie (Klient/Partner/Specjalista)
-   - Opiekun jest automatycznie wypełniony
+Wykorzystam JOIN między `user_reflinks` a `profiles` aby pobrać dane twórcy:
+
+```typescript
+const { data } = await supabase
+  .from('user_reflinks')
+  .select(`
+    *,
+    profiles:creator_user_id (
+      first_name,
+      last_name,
+      email,
+      eq_id,
+      role
+    )
+  `)
+  .order('created_at', { ascending: false });
+```
+
+### Funkcje zarządzania
+
+1. **Włącz/Wyłącz link**:
+```typescript
+await supabase
+  .from('user_reflinks')
+  .update({ is_active: !currentState })
+  .eq('id', reflinkId);
+```
+
+2. **Usuń link**:
+```typescript
+await supabase
+  .from('user_reflinks')
+  .delete()
+  .eq('id', reflinkId);
+```
+
+3. **Usuń wszystkie wygasłe**:
+```typescript
+await supabase
+  .from('user_reflinks')
+  .delete()
+  .lt('expires_at', new Date().toISOString());
+```
+
+### Interfejs TypeScript
+
+```typescript
+interface UserReflinkWithCreator {
+  id: string;
+  creator_user_id: string;
+  target_role: 'admin' | 'partner' | 'specjalista' | 'client';
+  reflink_code: string;
+  is_active: boolean;
+  click_count: number;
+  registration_count: number;
+  created_at: string;
+  expires_at: string;
+  profiles: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    eq_id: string | null;
+    role: string;
+  };
+}
+```
+
+### Komponenty UI wykorzystane
+
+- `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell` - tabela
+- `Input` - wyszukiwarka
+- `Select` - filtry
+- `Switch` - włączanie/wyłączanie linku
+- `Button` - usuwanie
+- `Badge` - status, rola
+- `ReflinkStatusBadge` - istniejący komponent do wyświetlania statusu wygaśnięcia
+- `AlertDialog` - potwierdzenie usunięcia
+
+### Struktura komponentu
+
+```typescript
+export const AllUserReflinksPanel: React.FC = () => {
+  // State
+  const [reflinks, setReflinks] = useState<UserReflinkWithCreator[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Fetch all user reflinks with creator info
+  const fetchReflinks = async () => { ... };
+  
+  // Toggle active status
+  const handleToggle = async (id: string, currentState: boolean) => { ... };
+  
+  // Delete single reflink
+  const handleDelete = async (id: string) => { ... };
+  
+  // Delete all expired
+  const handleDeleteExpired = async () => { ... };
+  
+  // Filtered list based on search and filters
+  const filteredReflinks = useMemo(() => { ... }, [reflinks, searchQuery, roleFilter, statusFilter]);
+  
+  return (
+    <Card>
+      {/* Filters section */}
+      {/* Table with all reflinks */}
+      {/* Delete expired button */}
+    </Card>
+  );
+};
+```
 
 ## Bezpieczeństwo
 
-- Bez zmian w bazie danych
-- Tylko poprawka obsługi danych po stronie klienta
-- Funkcja `increment_reflink_click` pozostaje bez zmian
+- Operacje dostępne tylko dla administratorów (panel jest w `/admin`)
+- Usuwanie z potwierdzeniem przez `AlertDialog`
+- RLS chroni dostęp do danych - admin ma pełne uprawnienia
 
