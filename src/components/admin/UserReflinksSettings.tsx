@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Users, Clock, Save, Link2 } from 'lucide-react';
+import { Settings, Users, Clock, Save, Link2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getRoleLabel, AppRole } from '@/components/user-reflinks/types';
@@ -28,6 +28,8 @@ export const UserReflinksSettings: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshStats, setLastRefreshStats] = useState<{updated_count: number} | null>(null);
   
   const [validityDays, setValidityDays] = useState('30');
   const [generationSettings, setGenerationSettings] = useState<GenerationSettings[]>([]);
@@ -181,6 +183,30 @@ export const UserReflinksSettings: React.FC = () => {
     }
   };
 
+  const handleRefreshAllReflinks = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.rpc('refresh_all_active_reflinks');
+      
+      if (error) throw error;
+      
+      setLastRefreshStats(data as {updated_count: number});
+      toast({
+        title: 'Odświeżono',
+        description: `Zaktualizowano ${(data as {updated_count: number}).updated_count} aktywnych linków`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Błąd',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -299,6 +325,40 @@ export const UserReflinksSettings: React.FC = () => {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Global management section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="w-5 h-5" />
+            Zarządzanie globalne
+          </CardTitle>
+          <CardDescription>
+            Odśwież wszystkie aktywne purelinki aby naprawić ewentualne problemy
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={handleRefreshAllReflinks} 
+              disabled={refreshing}
+              variant="outline"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Odśwież wszystkie aktywne linki
+            </Button>
+            {lastRefreshStats && (
+              <Badge variant="secondary">
+                Odświeżono: {lastRefreshStats.updated_count} linków
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Ta operacja zaktualizuje znacznik czasu dla wszystkich aktywnych purelinków.
+            Użyj tego jeśli linki nie działają poprawnie.
+          </p>
         </CardContent>
       </Card>
     </div>
