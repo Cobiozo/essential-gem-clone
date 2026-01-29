@@ -186,36 +186,37 @@ const Auth = () => {
       // Fetch reflink info using RPC to bypass RLS issues with JOINs for unauthenticated users
       supabase
         .rpc('get_reflink_with_creator', { reflink_code_param: ref })
-        .maybeSingle()
         .then(async ({ data, error }) => {
           if (error) {
             console.error('Error fetching reflink:', error);
             return;
           }
-          if (data) {
+          // RPC with RETURNS TABLE always returns an array
+          const reflink = Array.isArray(data) ? data[0] : data;
+          if (reflink) {
             // Automatycznie przełącz na zakładkę rejestracji przy reflinku
             setActiveTab('signup');
             
             // Set role from reflink
-            if (data.target_role) {
-              setReflinkRole(data.target_role);
-              setRole(data.target_role);
+            if (reflink.target_role) {
+              setReflinkRole(reflink.target_role);
+              setRole(reflink.target_role);
             }
             
             // Set guardian from reflink creator (flat structure from RPC)
-            if (data.creator_user_id) {
+            if (reflink.creator_user_id) {
               setSelectedGuardian({
-                user_id: data.creator_user_id,
-                first_name: data.creator_first_name,
-                last_name: data.creator_last_name,
-                eq_id: data.creator_eq_id,
-                email: data.creator_email
+                user_id: reflink.creator_user_id,
+                first_name: reflink.creator_first_name,
+                last_name: reflink.creator_last_name,
+                eq_id: reflink.creator_eq_id,
+                email: reflink.creator_email
               });
             }
             
             // Increment click count via RPC (safe for anonymous users, doesn't block flow)
             supabase.rpc('increment_reflink_click', { 
-              reflink_id_param: data.id 
+              reflink_id_param: reflink.id 
             }).then(({ error: rpcError }) => {
               if (rpcError) console.warn('Could not increment click count:', rpcError);
             });
@@ -224,9 +225,9 @@ const Auth = () => {
             supabase
               .from('reflink_events')
               .insert({
-                reflink_id: data.id,
+                reflink_id: reflink.id,
                 event_type: 'click',
-                target_role: data.target_role
+                target_role: reflink.target_role
               } as any)
               .then(({ error: eventError }) => {
                 if (eventError) console.warn('Could not log click event:', eventError);
