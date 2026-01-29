@@ -213,20 +213,24 @@ const Auth = () => {
               });
             }
             
-            // Increment click count
-            await supabase
-              .from('user_reflinks')
-              .update({ click_count: (data.click_count || 0) + 1 } as any)
-              .eq('id', data.id);
+            // Increment click count via RPC (safe for anonymous users, doesn't block flow)
+            supabase.rpc('increment_reflink_click', { 
+              reflink_id_param: data.id 
+            }).then(({ error: rpcError }) => {
+              if (rpcError) console.warn('Could not increment click count:', rpcError);
+            });
             
-            // Log click event to reflink_events
-            await supabase
+            // Log click event to reflink_events (doesn't block flow)
+            supabase
               .from('reflink_events')
               .insert({
                 reflink_id: data.id,
                 event_type: 'click',
                 target_role: data.target_role
-              } as any);
+              } as any)
+              .then(({ error: eventError }) => {
+                if (eventError) console.warn('Could not log click event:', eventError);
+              });
           }
         });
     }

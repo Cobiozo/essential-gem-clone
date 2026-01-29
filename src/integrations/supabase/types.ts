@@ -5880,6 +5880,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_reflink_click: {
+        Args: { reflink_id_param: string }
+        Returns: undefined
+      }
       is_active_leader: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_current_user_leader: { Args: never; Returns: boolean }
