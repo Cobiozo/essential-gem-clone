@@ -1,119 +1,126 @@
 
-# Plan: Naprawa PureLinków dla Specjalistów
+
+# Plan: Naprawa obsługi funkcji RPC dla PureLinków
 
 ## Zdiagnozowany problem
 
-Niezalogowani użytkownicy wchodzący na link `/auth?ref=xxx` nie mogą ukończyć procesu rejestracji ponieważ:
+Problem polegał na **niepoprawnym użyciu `.maybeSingle()` na funkcji RPC zwracającej `RETURNS TABLE`**.
 
-1. **Funkcja RPC działa poprawnie** - `get_reflink_with_creator` zwraca dane dla wszystkich ról (partner, specjalista, client)
-2. **Błąd UPDATE** - Po pobraniu danych, kod próbuje wykonać:
-   ```javascript
-   await supabase
-     .from('user_reflinks')
-     .update({ click_count: (data.click_count || 0) + 1 })
-     .eq('id', data.id);
+### Jak to działa:
+
+1. Funkcja `get_reflink_with_creator` jest zdefiniowana jako:
+   ```sql
+   RETURNS TABLE(
+     id uuid,
+     target_role text,
+     click_count integer,
+     ...
+   )
    ```
-3. **Brak polityki RLS** - Tabela `user_reflinks` nie ma polityki UPDATE dla roli `public` (niezalogowanych), tylko dla `authenticated`
-4. **Efekt** - Błąd UPDATE przerywa łańcuch `.then()` i nie ustawia poprawnie `selectedGuardian` ani `role` w formularzu
 
-## Dowody
+2. Funkcja RPC zwracająca TABLE **zawsze zwraca tablicę**, nawet jeśli ma tylko 1 wiersz
 
-Polityki RLS dla `user_reflinks`:
-- ✅ SELECT dla `public`: `"Anyone can read valid reflinks" WHERE is_active AND expires_at > now()`
-- ❌ **Brak UPDATE dla `public`** - tylko dla `authenticated` (właściciel lub admin)
+3. Wywołanie `.maybeSingle()` lub `.single()` na takiej funkcji **może powodować nieoczekiwane zachowanie** - próbuje przekonwertować tablicę na pojedynczy obiekt, co może skutkować:
+   - Błędem gdy zwracana jest tablica
+   - Pustym `data` (null) mimo że funkcja zwróciła dane
+
+### Dowód:
+```sql
+SELECT data_type FROM information_schema.routines 
+WHERE routine_name = 'get_reflink_with_creator';
+-- Wynik: "record" (RETURNS TABLE = zbiór rekordów)
+```
 
 ## Rozwiązanie
 
-### Krok 1: Nowa funkcja RPC `increment_reflink_click`
+Usunąć `.maybeSingle()` i obsłużyć dane jako tablicę:
 
-Utworzenie funkcji SECURITY DEFINER która bezpiecznie inkrementuje licznik kliknięć:
+**Zmiana w `src/pages/Auth.tsx` (linie 187-195):**
 
-```sql
-CREATE OR REPLACE FUNCTION public.increment_reflink_click(reflink_id_param uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  UPDATE user_reflinks
-  SET 
-    click_count = click_count + 1,
-    updated_at = now()
-  WHERE id = reflink_id_param
-    AND is_active = true
-    AND expires_at > now();
-END;
-$$;
+```typescript
+// PRZED (niepoprawne):
+supabase
+  .rpc('get_reflink_with_creator', { reflink_code_param: ref })
+  .maybeSingle()
+  .then(async ({ data, error }) => {
+    if (error) {
+      console.error('Error fetching reflink:', error);
+      return;
+    }
+    if (data) {
+      // ...
 
--- Pozwól wszystkim (w tym anonimowym) wywoływać tę funkcję
-GRANT EXECUTE ON FUNCTION public.increment_reflink_click(uuid) TO anon;
-GRANT EXECUTE ON FUNCTION public.increment_reflink_click(uuid) TO authenticated;
-```
-
-### Krok 2: Poprawka w Auth.tsx
-
-Zmiana bezpośredniego UPDATE na wywołanie RPC:
-
-**Przed:**
-```javascript
-// Increment click count - BŁĄD dla niezalogowanych!
-await supabase
-  .from('user_reflinks')
-  .update({ click_count: (data.click_count || 0) + 1 } as any)
-  .eq('id', data.id);
-```
-
-**Po:**
-```javascript
-// Increment click count via RPC (bezpieczne dla niezalogowanych)
-await supabase.rpc('increment_reflink_click', { 
-  reflink_id_param: data.id 
-});
-```
-
-### Krok 3: Poprawka obsługi błędów
-
-Dodanie lepszej obsługi błędów aby UPDATE nie przerywał głównego flow:
-
-```javascript
-// Increment click count via RPC (nie blokuje flow przy błędzie)
-supabase.rpc('increment_reflink_click', { 
-  reflink_id_param: data.id 
-}).catch(err => {
-  console.warn('Could not increment click count:', err);
-});
-
-// Log click event - kontynuuj nawet przy błędzie
-supabase.from('reflink_events').insert({
-  reflink_id: data.id,
-  event_type: 'click',
-  target_role: data.target_role
-} as any).catch(err => {
-  console.warn('Could not log click event:', err);
-});
+// PO (poprawne):
+supabase
+  .rpc('get_reflink_with_creator', { reflink_code_param: ref })
+  .then(async ({ data, error }) => {
+    if (error) {
+      console.error('Error fetching reflink:', error);
+      return;
+    }
+    // Funkcja RPC z RETURNS TABLE zwraca tablicę
+    const reflink = Array.isArray(data) ? data[0] : data;
+    if (reflink) {
+      // Reszta kodu używa "reflink" zamiast "data"
+      setActiveTab('signup');
+      
+      if (reflink.target_role) {
+        setReflinkRole(reflink.target_role);
+        setRole(reflink.target_role);
+      }
+      
+      if (reflink.creator_user_id) {
+        setSelectedGuardian({
+          user_id: reflink.creator_user_id,
+          first_name: reflink.creator_first_name,
+          last_name: reflink.creator_last_name,
+          eq_id: reflink.creator_eq_id,
+          email: reflink.creator_email
+        });
+      }
+      
+      // Increment click count via RPC
+      supabase.rpc('increment_reflink_click', { 
+        reflink_id_param: reflink.id 
+      }).then(/* ... */);
+      
+      // Log click event
+      supabase.from('reflink_events').insert({
+        reflink_id: reflink.id,
+        event_type: 'click',
+        target_role: reflink.target_role
+      } as any).then(/* ... */);
+    }
+  });
 ```
 
 ## Lista plików do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| Migracja SQL | Nowa funkcja `increment_reflink_click` + GRANT |
-| `src/pages/Auth.tsx` | Zamiana UPDATE na RPC + lepsza obsługa błędów |
-| `src/integrations/supabase/types.ts` | Automatycznie zaktualizowane typy |
+| `src/pages/Auth.tsx` | Usunięcie `.maybeSingle()` + obsługa danych jako tablicy |
+
+## Dlaczego to zadziała
+
+1. **Funkcja RPC zawsze zwraca tablicę** - nawet z `LIMIT 1` w SQL, klient JavaScript otrzymuje `[]` lub `[{...}]`
+2. **Sprawdzamy czy data jest tablicą** - `Array.isArray(data) ? data[0] : data` bezpiecznie obsługuje oba przypadki
+3. **Logika flow pozostaje taka sama** - tylko źródło danych zmienia się z `data` na `reflink`
 
 ## Weryfikacja po wdrożeniu
 
 1. Otwórz nowe okno incognito (niezalogowany)
-2. Wklej link specjalisty np. `https://purelife.info.pl/auth?ref=u-j8czca-12458557556`
+2. Wklej dowolny link:
+   - Dla klienta: `https://purelife.info.pl/auth?ref=u-bwvtp5-121142263`
+   - Dla partnera: `https://purelife.info.pl/auth?ref=u-6poiga-12458557556`
+   - Dla specjalisty: `https://purelife.info.pl/auth?ref=u-j8czca-12458557556`
 3. Sprawdź czy:
    - Formularz przełącza się na zakładkę rejestracji
-   - Rola jest ustawiona na "Specjalista"  
+   - Rola jest ustawiona poprawnie (Klient/Partner/Specjalista)
    - Opiekun jest automatycznie wypełniony
-4. Sprawdź czy click_count wzrósł w bazie danych
 
 ## Bezpieczeństwo
 
-- Funkcja `increment_reflink_click` tylko zwiększa licznik - nie może zmieniać innych danych
-- Walidacja `is_active` i `expires_at` wewnątrz funkcji
-- Brak możliwości nadużycia - funkcja nie zwraca żadnych danych
+- Bez zmian w bazie danych
+- Tylko poprawka obsługi danych po stronie klienta
+- Funkcja `increment_reflink_click` pozostaje bez zmian
+
