@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Users, Clock, Save, Link2, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Settings, Users, Clock, Save, Link2, RefreshCw, List } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getRoleLabel, AppRole } from '@/components/user-reflinks/types';
+import { AllUserReflinksPanel } from './AllUserReflinksPanel';
 
 interface GenerationSettings {
   id: string;
@@ -219,7 +221,19 @@ export const UserReflinksSettings: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="settings" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="settings" className="gap-2">
+          <Settings className="w-4 h-4" />
+          Ustawienia
+        </TabsTrigger>
+        <TabsTrigger value="all-links" className="gap-2">
+          <List className="w-4 h-4" />
+          Wszystkie linki
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="settings" className="space-y-6">
       {/* Global validity setting */}
       <Card>
         <CardHeader>
@@ -362,6 +376,11 @@ export const UserReflinksSettings: React.FC = () => {
           </p>
         </CardContent>
       </Card>
-    </div>
+      </TabsContent>
+
+      <TabsContent value="all-links">
+        <AllUserReflinksPanel />
+      </TabsContent>
+    </Tabs>
   );
 };
