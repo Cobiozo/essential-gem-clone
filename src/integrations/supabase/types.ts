@@ -5889,6 +5889,7 @@ export type Database = {
       }
       is_thread_participant: { Args: { thread_uuid: string }; Returns: boolean }
       refresh_all_active_reflinks: { Args: never; Returns: Json }
+      reset_all_active_reflinks: { Args: never; Returns: Json }
       search_guardians: {
         Args: { search_query: string }
         Returns: {

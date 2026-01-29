@@ -183,18 +183,19 @@ export const UserReflinksSettings: React.FC = () => {
     }
   };
 
-  const handleRefreshAllReflinks = async () => {
+  const handleResetAllReflinks = async () => {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      const { data, error } = await supabase.rpc('refresh_all_active_reflinks');
+      const { data, error } = await supabase.rpc('reset_all_active_reflinks');
       
       if (error) throw error;
       
-      setLastRefreshStats(data as {updated_count: number});
+      const result = data as { reset_count: number };
+      setLastRefreshStats({ updated_count: result.reset_count });
       toast({
-        title: 'Odświeżono',
-        description: `Zaktualizowano ${(data as {updated_count: number}).updated_count} aktywnych linków`,
+        title: 'Zresetowano',
+        description: `Zresetowano ${result.reset_count} aktywnych linków (wyłączono i włączono)`,
       });
     } catch (error: any) {
       toast({
@@ -336,27 +337,27 @@ export const UserReflinksSettings: React.FC = () => {
             Zarządzanie globalne
           </CardTitle>
           <CardDescription>
-            Odśwież wszystkie aktywne purelinki aby naprawić ewentualne problemy
+            Zresetuj wszystkie aktywne purelinki aby naprawić ewentualne problemy
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
             <Button 
-              onClick={handleRefreshAllReflinks} 
+              onClick={handleResetAllReflinks} 
               disabled={refreshing}
               variant="outline"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Odśwież wszystkie aktywne linki
+              Zresetuj wszystkie aktywne linki
             </Button>
             {lastRefreshStats && (
               <Badge variant="secondary">
-                Odświeżono: {lastRefreshStats.updated_count} linków
+                Zresetowano: {lastRefreshStats.updated_count} linków
               </Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Ta operacja zaktualizuje znacznik czasu dla wszystkich aktywnych purelinków.
+            Ta operacja wyłączy i ponownie włączy wszystkie aktywne purelinki.
             Użyj tego jeśli linki nie działają poprawnie.
           </p>
         </CardContent>

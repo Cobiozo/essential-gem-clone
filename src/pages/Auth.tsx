@@ -186,7 +186,7 @@ const Auth = () => {
       // Fetch reflink info using RPC to bypass RLS issues with JOINs for unauthenticated users
       supabase
         .rpc('get_reflink_with_creator', { reflink_code_param: ref })
-        .single()
+        .maybeSingle()
         .then(async ({ data, error }) => {
           if (error) {
             console.error('Error fetching reflink:', error);
