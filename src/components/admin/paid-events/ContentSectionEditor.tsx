@@ -40,7 +40,7 @@ const SECTION_TYPES = [
 ];
 
 const ICON_OPTIONS = [
-  { value: '', label: 'Brak ikony' },
+  { value: 'none', label: 'Brak ikony' },
   { value: 'BookOpen', label: 'Książka' },
   { value: 'Target', label: 'Cel' },
   { value: 'Users', label: 'Ludzie' },
@@ -104,7 +104,7 @@ export const ContentSectionEditor: React.FC<ContentSectionEditorProps> = ({ even
         is_active: data.is_active ?? true,
         background_color: data.background_color || null,
         text_color: data.text_color || null,
-        icon_name: data.icon_name || null,
+        icon_name: data.icon_name === 'none' ? null : (data.icon_name || null),
         items: data.items || [],
         event_id: eventId,
         position: nextPosition,
@@ -340,8 +340,8 @@ export const ContentSectionEditor: React.FC<ContentSectionEditorProps> = ({ even
               <div>
                 <Label>Ikona</Label>
                 <Select
-                  value={formData.icon_name || ''}
-                  onValueChange={(value) => setFormData({ ...formData, icon_name: value || null })}
+                  value={formData.icon_name || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, icon_name: value === 'none' ? null : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Wybierz ikonę" />
