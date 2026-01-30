@@ -11,9 +11,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Users, Copy } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Users, Copy, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { PaidEventContentEditor } from './PaidEventContentEditor';
 
 interface PaidEvent {
   id: string;
@@ -76,6 +77,7 @@ export const PaidEventsList: React.FC = () => {
   const [editingEvent, setEditingEvent] = useState<PaidEvent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<Partial<PaidEvent>>(defaultEvent);
+  const [contentEditorEvent, setContentEditorEvent] = useState<PaidEvent | null>(null);
 
   // Fetch events
   const { data: events = [], isLoading } = useQuery({
@@ -281,7 +283,16 @@ export const PaidEventsList: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => setContentEditorEvent(event)}
+                          title="Edytuj treści i bilety"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => openEditDialog(event)}
+                          title="Edytuj wydarzenie"
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
@@ -293,6 +304,7 @@ export const PaidEventsList: React.FC = () => {
                               deleteMutation.mutate(event.id);
                             }
                           }}
+                          title="Usuń wydarzenie"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -514,6 +526,14 @@ export const PaidEventsList: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Content Editor Dialog */}
+      {contentEditorEvent && (
+        <PaidEventContentEditor
+          event={contentEditorEvent}
+          onClose={() => setContentEditorEvent(null)}
+        />
+      )}
     </div>
   );
 };
