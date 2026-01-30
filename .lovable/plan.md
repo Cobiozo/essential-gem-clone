@@ -1,195 +1,198 @@
 
 
-# Plan: Osobny Layout Editor dla Płatnych Wydarzeń
+# Plan: Przełącznik widoczności modułu "Czat" w pasku bocznym per rola
 
 ## Cel
 
-Stworzyć dedykowany edytor wizualny dla płatnych wydarzeń w stylu referencyjnego screena - z panelem edycji po lewej stronie i podglądem na żywo strony wydarzenia po prawej.
+Dodać dla administratora globalny przełącznik, który pozwala kontrolować widoczność modułu "Czat" w pasku bocznym dashboardu dla poszczególnych ról: **Admin**, **Partner**, **Klient**, **Specjalista**.
 
-## Wizualizacja nowego layoutu
+## Wizualizacja rozwiązania
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│  ← Powrót    │  Edytor wydarzenia: LinkedIn w Firmie                │  👁 Podgląd  │  💾 Zapisz     │
-│              │  Edytuj treści i zobacz podgląd na żywo               │              │                │
-└──────────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐  ┌────────────────────────────────────────────────────┐
-│          PANEL EDYCJI (lewa strona)         │  │         PODGLĄD NA ŻYWO (prawa strona)             │
-│                                             │  │                                                    │
-│  ┌─────────────────────────────────────────┐│  │  ┌────────────────────────────────────────────────┐│
-│  │ Główne                                  ││  │  │  [Hero Banner]                                 ││
-│  │ Sekcje treści  │  Bilety  │  Prelegenci ││  │  │  LinkedIn w Firmie - kompleksowe szkolenie     ││
-│  └─────────────────────────────────────────┘│  │  │  📅 20 luty 2026    📍 Online                  ││
-│                                             │  │  └────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────┐│  │                                                    │
-│  │ ▼ Sekcja Hero                  [+] [−] ││  │  ┌───────────────────────────┐ ┌────────────────┐ │
-│  │   ┌───────────────────────────────────┐││  │  │  O szkoleniu              │ │  REJESTRACJA   │ │
-│  │   │ title (text)          [Zapisz] 🗑 │││  │  │  ─────────────────────    │ │                │ │
-│  │   │ ┌─────────────────────────────┐   │││  │  │  Kompleksowe szkolenie    │ │  Przedpłata    │ │
-│  │   │ │ LinkedIn w Firmie...        │   │││  │  │  dotyczące LinkedIn...    │ │  648 zł        │ │
-│  │   │ └─────────────────────────────┘   │││  │  │                           │ │                │ │
-│  │   │ Klucz: event.title                │││  │  │                           │ │  [Zapisz się]  │ │
-│  │   └───────────────────────────────────┘││  │  └───────────────────────────┘ └────────────────┘ │
-│  │   ┌───────────────────────────────────┐││  │                                                    │
-│  │   │ date (datetime)       [Zapisz] 🗑 │││  │  ┌────────────────────────────────────────────────┐│
-│  │   │ ┌─────────────────────────────┐   │││  │  │  Dlaczego warto wziąć udział?                 ││
-│  │   │ │ 2026-02-20 09:00            │   │││  │  │  ─────────────────────────────────────────    ││
-│  │   │ └─────────────────────────────┘   │││  │  │  Twój profil na LinkedIn to nie wirtualne...  ││
-│  │   └───────────────────────────────────┘││  │  └────────────────────────────────────────────────┘│
-│  └─────────────────────────────────────────┘│  │                                                    │
-│                                             │  │  ┌────────────────────────────────────────────────┐│
-│  ┌─────────────────────────────────────────┐│  │  │  Program szkolenia                            ││
-│  │ ▶ O szkoleniu               [↑][↓][✏️] ││  │  │  ─────────────────────────────────────────    ││
-│  └─────────────────────────────────────────┘│  │  │  • LinkedIn jako narzędzie rozwoju...         ││
-│                                             │  │  │  • Profil, który sprzedaje kompetencje...     ││
-│  ┌─────────────────────────────────────────┐│  │  └────────────────────────────────────────────────┘│
-│  │ ▶ Dlaczego warto            [↑][↓][✏️] ││  │                                                    │
-│  └─────────────────────────────────────────┘│  │  ┌─────────────── Prelegenci ────────────────────┐│
-│                                             │  │  │   [Avatar] Marcin Pietraszek                 ││
-│  ┌─────────────────────────────────────────┐│  │  │            Empemedia                          ││
-│  │ ▶ Program szkolenia         [↑][↓][✏️] ││  │  └────────────────────────────────────────────────┘│
-│  └─────────────────────────────────────────┘│  │                                                    │
-│                                             │  └────────────────────────────────────────────────────┘
-│  ┌─────────────────────────────────────────┐│
-│  │ [+ Dodaj sekcję]                        ││  Podgląd na żywo — Kliknij sekcję, aby przejść do edycji
-│  └─────────────────────────────────────────┘│
-│                                             │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Panel administracyjny → Komunikacja → Kierunki komunikacji                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  💬 Widoczność modułu Czat                                             │  │
+│  │  ──────────────────────────────────────────────────────────────────    │  │
+│  │  Kontroluj, które role widzą moduł "Czat" w pasku bocznym              │  │
+│  │                                                                        │  │
+│  │   ┌────────────┬────────────────────────────────┬───────────────────┐  │  │
+│  │   │   Rola     │        Opis                    │    Widoczność     │  │  │
+│  │   ├────────────┼────────────────────────────────┼───────────────────┤  │  │
+│  │   │ Admin      │ Administratorzy                │    [🟢 ON ]       │  │  │
+│  │   │ Partner    │ Partnerzy                      │    [🟢 ON ]       │  │  │
+│  │   │ Specjalista│ Specjaliści                    │    [🟢 ON ]       │  │  │
+│  │   │ Klient     │ Klienci                        │    [⚪ OFF]       │  │  │
+│  │   └────────────┴────────────────────────────────┴───────────────────┘  │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  📧 Kierunki komunikacji (istniejące)                                  │  │
+│  │  ──────────────────────────────────────────────────────────────────    │  │
+│  │  ...                                                                   │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Architektura rozwiązania
 
-### Nowe komponenty
+### Baza danych
 
-| Komponent | Opis |
-|-----------|------|
-| `PaidEventEditorLayout.tsx` | Główny layout split-view (lewa: panel, prawa: podgląd) |
-| `EventEditorSidebar.tsx` | Panel boczny z zakładkami (Główne, Sekcje, Bilety, Prelegenci) |
-| `EventEditorPreview.tsx` | Iframe lub inline preview strony wydarzenia |
-| `EventMainSettingsPanel.tsx` | Formularz głównych ustawień (tytuł, data, lokalizacja) |
-| `EventSectionsPanel.tsx` | Collapsible lista sekcji z inline edycją |
-| `EventTicketsPanel.tsx` | Zarządzanie biletami z drag-and-drop |
-| `EventSpeakersPanel.tsx` | Zarządzanie prelegentami |
+**Nowa tabela: `chat_sidebar_visibility`**
 
-### Modyfikacje istniejących plików
+| Kolumna | Typ | Opis |
+|---------|-----|------|
+| id | uuid | Klucz główny |
+| visible_to_admin | boolean | Widoczność dla administratorów (default: true) |
+| visible_to_partner | boolean | Widoczność dla partnerów (default: true) |
+| visible_to_specjalista | boolean | Widoczność dla specjalistów (default: true) |
+| visible_to_client | boolean | Widoczność dla klientów (default: true) |
+| created_at | timestamp | Data utworzenia |
+| updated_at | timestamp | Data aktualizacji |
+
+Tabela będzie zawierać tylko jeden wiersz (singleton pattern) - tak jak `organization_tree_settings`.
+
+### Komponenty do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `PaidEventsList.tsx` | Zmiana akcji "Edytuj treści" na otwarcie nowego edytora |
-| `PaidEventsManagement.tsx` | Obsługa stanu edycji pełnoekranowej |
+| `src/components/admin/ChatPermissionsManagement.tsx` | Dodanie sekcji "Widoczność modułu Czat" na górze z 4 przełącznikami per rola |
+| `src/components/dashboard/DashboardSidebar.tsx` | Dodanie sprawdzenia widoczności przed wyświetleniem pozycji "Czat" |
 
-## Szczegóły techniczne
+### Nowy hook
 
-### 1. PaidEventEditorLayout.tsx
+**`src/hooks/useChatSidebarVisibility.ts`**
 
-Główny komponent z layoutem split-view:
-
+Hook do pobierania ustawień widoczności czatu w sidebarze:
 ```typescript
-interface PaidEventEditorLayoutProps {
-  eventId: string;
-  eventSlug: string;
-  onClose: () => void;
+export const useChatSidebarVisibility = () => {
+  // Pobiera ustawienia z tabeli chat_sidebar_visibility
+  // Zwraca { isVisibleForRole: (role: string) => boolean, loading }
 }
-
-// Struktura:
-// - ResizablePanelGroup z react-resizable-panels
-// - Lewy panel: 40% szerokości (min 350px)
-// - Prawy panel: 60% szerokości (podgląd)
 ```
 
-### 2. EventEditorSidebar.tsx
+## Szczegóły implementacji
 
-Zakładki z edytorami:
+### Krok 1: Migracja bazy danych
 
-```typescript
-// Zakładki:
-// 1. "Główne" - tytuł, slug, data, lokalizacja, status
-// 2. "Sekcje" - collapsible lista sekcji CMS
-// 3. "Bilety" - lista pakietów z cenami i benefitami
-// 4. "Prelegenci" - lista prelegentów z bio
+```sql
+CREATE TABLE chat_sidebar_visibility (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  visible_to_admin boolean NOT NULL DEFAULT true,
+  visible_to_partner boolean NOT NULL DEFAULT true,
+  visible_to_specjalista boolean NOT NULL DEFAULT true,
+  visible_to_client boolean NOT NULL DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-// Każda sekcja rozwijana jak na screenie:
-// - Nagłówek z tytułem i przyciskami [↑][↓][✏️][🗑]
-// - Po rozwinięciu: inline edytor pól
-// - Przyciski "Zapisz" przy każdym polu
+-- Wstaw domyślny wiersz
+INSERT INTO chat_sidebar_visibility (id) VALUES (gen_random_uuid());
+
+-- RLS policies
+ALTER TABLE chat_sidebar_visibility ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read" ON chat_sidebar_visibility
+  FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Only admins can update" ON chat_sidebar_visibility
+  FOR UPDATE TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM user_roles 
+      WHERE user_id = auth.uid() AND role = 'admin'
+    )
+  );
 ```
 
-### 3. EventEditorPreview.tsx
+### Krok 2: Aktualizacja ChatPermissionsManagement.tsx
 
-Podgląd na żywo:
-
-```typescript
-// Opcje implementacji:
-// A) Iframe z src="/events/{slug}?preview=true" (izolowany, ale wymaga refresh)
-// B) Inline rendering PaidEventPage z przekazanymi danymi (real-time)
-
-// Wybór: Opcja B - inline rendering z React Query invalidation
-// Po każdej zmianie w panelu -> invalidateQueries -> instant preview update
-```
-
-### 4. Integracja z istniejącymi komponentami
-
-Reużycie:
-- `ContentSectionEditor.tsx` - jako baza dla EventSectionsPanel
-- `PaidEventHero.tsx`, `PaidEventSection.tsx` - do renderingu preview
-- `TicketBenefitsEditor.tsx` - do zarządzania benefitami biletów
-
-## Flow użytkownika
+Dodanie nowej sekcji na górze komponentu:
 
 ```text
-1. Admin otwiera /admin?tab=paid-events
-2. Na liście wydarzeń klika "Edytuj" przy wydarzeniu
-3. Otwiera się pełnoekranowy edytor (PaidEventEditorLayout)
-4. Lewa strona: Panel z zakładkami i collapsible sekcjami
-5. Prawa strona: Live preview strony wydarzenia
-6. Każda zmiana w panelu -> natychmiastowa aktualizacja preview
-7. Kliknięcie sekcji w preview -> scroll do edycji tej sekcji w panelu
-8. Przycisk "← Powrót" wraca do listy wydarzeń
+┌─────────────────────────────────────────────────────────────────────────┐
+│  💬 Widoczność modułu Czat                                              │
+│  ─────────────────────────────────────────────────────────────────────  │
+│  Określ, które role widzą pozycję "Czat" w menu bocznym                 │
+│                                                                         │
+│  ┌─────────────────┬─────────────────────────────────────────────────┐  │
+│  │  Administrator  │  [🟢 Switch] Administratorzy widzą moduł Czat   │  │
+│  │  Partner        │  [🟢 Switch] Partnerzy widzą moduł Czat         │  │
+│  │  Specjalista    │  [🟢 Switch] Specjaliści widzą moduł Czat       │  │
+│  │  Klient         │  [🟢 Switch] Klienci widzą moduł Czat           │  │
+│  └─────────────────┴─────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Synchronizacja real-time
+### Krok 3: Modyfikacja DashboardSidebar.tsx
 
-```text
-┌─────────────────────┐                    ┌─────────────────────┐
-│   EventEditorSidebar │                   │  EventEditorPreview │
-│                     │                    │                     │
-│  [Edit title] ──────┼──► useMutation ───►│  useQuery           │
-│                     │    onSuccess:      │  (auto-refetch)     │
-│                     │    invalidate()    │                     │
-│                     │                    │  Re-render          │
-└─────────────────────┘                    └─────────────────────┘
+W sekcji `useEffect` - dodanie pobierania ustawień widoczności czatu:
+
+```typescript
+// Existing visibility fetch
+const [chatVisible, setChatVisible] = useState(true);
+
+useEffect(() => {
+  const fetchChatVisibility = async () => {
+    const { data } = await supabase
+      .from('chat_sidebar_visibility')
+      .select('*')
+      .limit(1)
+      .single();
+      
+    if (data) {
+      const role = userRole?.role?.toLowerCase();
+      const visible = 
+        (role === 'admin' && data.visible_to_admin) ||
+        (role === 'partner' && data.visible_to_partner) ||
+        (role === 'specjalista' && data.visible_to_specjalista) ||
+        (role === 'client' && data.visible_to_client);
+      setChatVisible(visible);
+    }
+  };
+  
+  if (userRole) {
+    fetchChatVisibility();
+  }
+}, [userRole]);
 ```
 
-## Nowe pliki do utworzenia
+W filtrze `visibleMenuItems`:
+
+```typescript
+// Dodanie warunku dla chat
+if (item.id === 'chat' && !chatVisible) {
+  return false;
+}
+```
+
+## Pliki do utworzenia
 
 | Plik | Opis |
 |------|------|
-| `src/components/admin/paid-events/editor/PaidEventEditorLayout.tsx` | Layout split-view |
-| `src/components/admin/paid-events/editor/EventEditorSidebar.tsx` | Panel boczny |
-| `src/components/admin/paid-events/editor/EventEditorPreview.tsx` | Podgląd live |
-| `src/components/admin/paid-events/editor/EventMainSettingsPanel.tsx` | Ustawienia główne |
-| `src/components/admin/paid-events/editor/EventSectionsPanel.tsx` | Sekcje CMS |
-| `src/components/admin/paid-events/editor/EventTicketsPanel.tsx` | Bilety |
-| `src/components/admin/paid-events/editor/EventSpeakersPanel.tsx` | Prelegenci |
-| `src/components/admin/paid-events/editor/index.ts` | Eksporty |
+| Migracja SQL | Tabela `chat_sidebar_visibility` z RLS |
 
 ## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/paid-events/PaidEventsList.tsx` | Dodanie stanu `editorEventId` i warunkowe renderowanie edytora |
-| `src/components/admin/paid-events/PaidEventsManagement.tsx` | Przekazanie props do obsługi pełnoekranowego edytora |
+| `src/components/admin/ChatPermissionsManagement.tsx` | Nowa sekcja "Widoczność modułu Czat" z 4 przełącznikami |
+| `src/components/dashboard/DashboardSidebar.tsx` | Pobieranie i sprawdzanie widoczności przed wyświetleniem "Czat" |
+| `src/integrations/supabase/types.ts` | Automatycznie zaktualizowane przez migrację |
 
-## UI/UX zgodny z referencją
+## Flow użytkownika
 
-Na podstawie screena:
-- Jasne tło panelu edycji (szaro-niebieskie)
-- Sekcje jako karty z zaokrąglonymi rogami
-- Rozwijane sekcje z ikoną chevron
-- Przyciski "Zapisz" i "🗑" przy każdym polu
-- Etykiety typu "(text)", "(datetime)" przy polach
-- Podpowiedź "Klucz: event.title" pod inputami
-- Przycisk "+ Dodaj sekcję" na końcu listy
-- Info "Podgląd na żywo — Kliknij sekcję, aby przejść do edycji"
+1. Admin otwiera Panel CMS → Komunikacja → Kierunki komunikacji
+2. Na górze widzi nową sekcję "Widoczność modułu Czat"
+3. Może wyłączyć/włączyć widoczność dla każdej roli osobno
+4. Po wyłączeniu np. dla "Klient" - klienci nie widzą pozycji "Czat" w menu bocznym
+5. Zmiana jest natychmiastowa (po odświeżeniu strony przez użytkownika)
+
+## Zgodność z zasadami projektu
+
+- **Brak elementu = niewidoczność**: Gdy wyłączone - pozycja "Czat" po prostu nie renderuje się (nie jest wyszarzona ani ukryta)
+- **Hierarchia ról zachowana**: Ta funkcja kontroluje tylko widoczność modułu w menu, nie wpływa na istniejące uprawnienia komunikacyjne
+- **Wzorzec singleton**: Jedna tabela, jeden wiersz - jak w `organization_tree_settings`
 
