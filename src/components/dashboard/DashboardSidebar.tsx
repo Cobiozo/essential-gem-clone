@@ -56,6 +56,7 @@ import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
+import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 
 // Tooltip descriptions for navigation items (2s delay)
 const menuTooltipDescriptions: Record<string, string> = {
@@ -125,6 +126,9 @@ export const DashboardSidebar: React.FC = () => {
 
   // Calculator access
   const { data: calculatorAccess } = useCalculatorAccess();
+
+  // Chat sidebar visibility
+  const { data: chatVisibility } = useChatSidebarVisibility();
 
   // Visibility settings
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
@@ -411,6 +415,11 @@ export const DashboardSidebar: React.FC = () => {
 
     // Check community visibility - hide if no submenu items
     if (item.id === 'community' && communitySubmenuItems.length === 0) {
+      return false;
+    }
+
+    // Check chat visibility based on role settings
+    if (item.id === 'chat' && !isRoleVisibleForChat(chatVisibility, userRole?.role)) {
       return false;
     }
 

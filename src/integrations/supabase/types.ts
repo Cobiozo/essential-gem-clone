@@ -815,6 +815,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_sidebar_visibility: {
+        Row: {
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
       cms_item_translations: {
         Row: {
           cells: Json | null
