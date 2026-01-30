@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { MessageSquare, ArrowRight, RefreshCw, Loader2, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ChatSidebarVisibilityCard } from './ChatSidebarVisibilityCard';
 
 interface ChatPermission {
   id: string;
@@ -102,24 +103,29 @@ export const ChatPermissionsManagement = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Kierunki komunikacji
-            </CardTitle>
-            <CardDescription className="mt-1">
-              Konfiguruj kto może wysyłać wiadomości do kogo w systemie
-            </CardDescription>
+    <>
+      {/* Chat Sidebar Visibility Section */}
+      <ChatSidebarVisibilityCard />
+      
+      {/* Chat Permissions Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Kierunki komunikacji
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Konfiguruj kto może wysyłać wiadomości do kogo w systemie
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchPermissions}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Odśwież
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchPermissions}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Odśwież
-          </Button>
-        </div>
-      </CardHeader>
+        </CardHeader>
       <CardContent>
         {/* Info box */}
         <div className="bg-muted/50 p-4 rounded-lg mb-6 flex items-start gap-3">
@@ -237,6 +243,7 @@ export const ChatPermissionsManagement = () => {
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </>
   );
 };
