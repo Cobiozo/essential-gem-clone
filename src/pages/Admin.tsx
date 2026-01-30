@@ -59,6 +59,7 @@ import { DashboardFooterManagement } from '@/components/admin/DashboardFooterMan
 import { EventsManagement } from '@/components/admin/EventsManagement';
 import EventRegistrationsManagement from '@/components/admin/EventRegistrationsManagement';
 import { CalculatorManagement } from '@/components/admin/CalculatorManagement';
+import { PaidEventsManagement } from '@/components/admin/paid-events/PaidEventsManagement';
 import { SpecialistCalculatorManagement } from '@/components/admin/SpecialistCalculatorManagement';
 import { SidebarFooterIconsManagement } from '@/components/admin/SidebarFooterIconsManagement';
 import { SystemHealthAlertsPanel } from '@/components/admin/SystemHealthAlertsPanel';
@@ -4380,6 +4381,10 @@ const Admin = () => {
 
           <TabsContent value="event-registrations">
             <EventRegistrationsManagement />
+          </TabsContent>
+
+          <TabsContent value="paid-events">
+            <PaidEventsManagement />
           </TabsContent>
 
           <TabsContent value="calculator">
