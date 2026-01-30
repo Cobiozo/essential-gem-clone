@@ -45,6 +45,7 @@ import {
   UserRound,
   Calculator,
   Heart,
+  Ticket,
   icons as LucideIcons,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,6 +66,7 @@ const menuTooltipDescriptions: Record<string, string> = {
   pureContacts: 'Zarządzaj kontaktami prywatnymi i zespołowymi',
   news: 'Aktualności i ważne ogłoszenia od zespołu',
   events: 'Webinary, spotkania zespołowe i indywidualne konsultacje',
+  'paid-events': 'Płatne szkolenia i wydarzenia z biletami',
   chat: 'Komunikacja z upline i zespołem',
   support: 'Potrzebujesz pomocy? Wyślij zgłoszenie do zespołu wsparcia',
   reflinks: 'Twoje unikalne linki polecające - śledź kliknięcia',
@@ -299,6 +301,7 @@ export const DashboardSidebar: React.FC = () => {
         { id: 'individual-meetings', labelKey: 'dashboard.menu.individualMeetings', path: '/events/individual-meetings', icon: UserRound },
       ],
     },
+    { id: 'paid-events', icon: Ticket, labelKey: 'Eventy', path: '/paid-events' },
     // Individual meetings for partners with permissions
     ...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
       id: 'individual-meetings-setup',
