@@ -1,169 +1,195 @@
 
 
-# Plan: Uruchomienie wydarzenia i dodanie modułu EVENTY do sidebara
+# Plan: Osobny Layout Editor dla Płatnych Wydarzeń
 
 ## Cel
 
-1. Uruchomić dane testowe wydarzenia "LinkedIn w Firmie" w bazie danych
-2. Stworzyć publiczną stronę z listą płatnych eventów
-3. Dodać moduł "EVENTY" do bocznego panelu nawigacyjnego (Dashboard Sidebar)
+Stworzyć dedykowany edytor wizualny dla płatnych wydarzeń w stylu referencyjnego screena - z panelem edycji po lewej stronie i podglądem na żywo strony wydarzenia po prawej.
 
----
+## Wizualizacja nowego layoutu
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  ← Powrót    │  Edytor wydarzenia: LinkedIn w Firmie                │  👁 Podgląd  │  💾 Zapisz     │
+│              │  Edytuj treści i zobacz podgląd na żywo               │              │                │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐  ┌────────────────────────────────────────────────────┐
+│          PANEL EDYCJI (lewa strona)         │  │         PODGLĄD NA ŻYWO (prawa strona)             │
+│                                             │  │                                                    │
+│  ┌─────────────────────────────────────────┐│  │  ┌────────────────────────────────────────────────┐│
+│  │ Główne                                  ││  │  │  [Hero Banner]                                 ││
+│  │ Sekcje treści  │  Bilety  │  Prelegenci ││  │  │  LinkedIn w Firmie - kompleksowe szkolenie     ││
+│  └─────────────────────────────────────────┘│  │  │  📅 20 luty 2026    📍 Online                  ││
+│                                             │  │  └────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────┐│  │                                                    │
+│  │ ▼ Sekcja Hero                  [+] [−] ││  │  ┌───────────────────────────┐ ┌────────────────┐ │
+│  │   ┌───────────────────────────────────┐││  │  │  O szkoleniu              │ │  REJESTRACJA   │ │
+│  │   │ title (text)          [Zapisz] 🗑 │││  │  │  ─────────────────────    │ │                │ │
+│  │   │ ┌─────────────────────────────┐   │││  │  │  Kompleksowe szkolenie    │ │  Przedpłata    │ │
+│  │   │ │ LinkedIn w Firmie...        │   │││  │  │  dotyczące LinkedIn...    │ │  648 zł        │ │
+│  │   │ └─────────────────────────────┘   │││  │  │                           │ │                │ │
+│  │   │ Klucz: event.title                │││  │  │                           │ │  [Zapisz się]  │ │
+│  │   └───────────────────────────────────┘││  │  └───────────────────────────┘ └────────────────┘ │
+│  │   ┌───────────────────────────────────┐││  │                                                    │
+│  │   │ date (datetime)       [Zapisz] 🗑 │││  │  ┌────────────────────────────────────────────────┐│
+│  │   │ ┌─────────────────────────────┐   │││  │  │  Dlaczego warto wziąć udział?                 ││
+│  │   │ │ 2026-02-20 09:00            │   │││  │  │  ─────────────────────────────────────────    ││
+│  │   │ └─────────────────────────────┘   │││  │  │  Twój profil na LinkedIn to nie wirtualne...  ││
+│  │   └───────────────────────────────────┘││  │  └────────────────────────────────────────────────┘│
+│  └─────────────────────────────────────────┘│  │                                                    │
+│                                             │  │  ┌────────────────────────────────────────────────┐│
+│  ┌─────────────────────────────────────────┐│  │  │  Program szkolenia                            ││
+│  │ ▶ O szkoleniu               [↑][↓][✏️] ││  │  │  ─────────────────────────────────────────    ││
+│  └─────────────────────────────────────────┘│  │  │  • LinkedIn jako narzędzie rozwoju...         ││
+│                                             │  │  │  • Profil, który sprzedaje kompetencje...     ││
+│  ┌─────────────────────────────────────────┐│  │  └────────────────────────────────────────────────┘│
+│  │ ▶ Dlaczego warto            [↑][↓][✏️] ││  │                                                    │
+│  └─────────────────────────────────────────┘│  │  ┌─────────────── Prelegenci ────────────────────┐│
+│                                             │  │  │   [Avatar] Marcin Pietraszek                 ││
+│  ┌─────────────────────────────────────────┐│  │  │            Empemedia                          ││
+│  │ ▶ Program szkolenia         [↑][↓][✏️] ││  │  └────────────────────────────────────────────────┘│
+│  └─────────────────────────────────────────┘│  │                                                    │
+│                                             │  └────────────────────────────────────────────────────┘
+│  ┌─────────────────────────────────────────┐│
+│  │ [+ Dodaj sekcję]                        ││  Podgląd na żywo — Kliknij sekcję, aby przejść do edycji
+│  └─────────────────────────────────────────┘│
+│                                             │
+└─────────────────────────────────────────────┘
+```
 
 ## Architektura rozwiązania
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                    DASHBOARD SIDEBAR                          │
-│  ┌──────────────────────────────────────────────────────────┐│
-│  │  🏠 Dashboard                                            ││
-│  │  🎓 Akademia                                             ││
-│  │  ...                                                     ││
-│  │  📅 Wydarzenia                                           ││
-│  │     ├── Webinary                                         ││
-│  │     ├── Spotkania zespołowe                              ││
-│  │     └── Spotkania indywidualne                           ││
-│  │  🎫 EVENTY (NOWY!) ─────────────────────────────────────►││───────┐
-│  │  ...                                                     ││       │
-│  └──────────────────────────────────────────────────────────┘│       │
-└──────────────────────────────────────────────────────────────┘       │
-                                                                        │
-                                                                        ▼
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                          /paid-events                                              │
-│  ┌───────────────────────────────────────────────────────────────────────────────┐│
-│  │                           Płatne wydarzenia                                   ││
-│  │  ─────────────────────────────────────────────────────────────────────────    ││
-│  │                                                                               ││
-│  │  ┌─────────────────────────────────────────────────────────────────────────┐ ││
-│  │  │                    Nadchodzące wydarzenia                               │ ││
-│  │  │  ┌─────────────────────────────────────────────────────────────────┐   │ ││
-│  │  │  │ 📅 20 lut 2026  │  LinkedIn w Firmie                            │   │ ││
-│  │  │  │                 │  Kompleksowe szkolenie...                     │   │ ││
-│  │  │  │  🌐 Online      │                          [Zobacz szczegóły →] │   │ ││
-│  │  │  │  💰 od 648 zł   │                                               │   │ ││
-│  │  │  └─────────────────────────────────────────────────────────────────┘   │ ││
-│  │  │                                                                         │ ││
-│  │  │  ┌─────────────────────────────────────────────────────────────────┐   │ ││
-│  │  │  │ 📅 15 mar 2026  │  Kolejne wydarzenie...                        │   │ ││
-│  │  │  │                 │  ...                                          │   │ ││
-│  │  │  └─────────────────────────────────────────────────────────────────┘   │ ││
-│  │  └─────────────────────────────────────────────────────────────────────────┘ ││
-│  └───────────────────────────────────────────────────────────────────────────────┘│
-│                                                                                    │
-│                                     KLIK                                           │
-│                                       │                                            │
-│                                       ▼                                            │
-│                          /events/linkedin-w-firmie                                 │
-│                        (Istniejąca strona szczegółów)                              │
-└───────────────────────────────────────────────────────────────────────────────────┘
-```
+### Nowe komponenty
 
----
+| Komponent | Opis |
+|-----------|------|
+| `PaidEventEditorLayout.tsx` | Główny layout split-view (lewa: panel, prawa: podgląd) |
+| `EventEditorSidebar.tsx` | Panel boczny z zakładkami (Główne, Sekcje, Bilety, Prelegenci) |
+| `EventEditorPreview.tsx` | Iframe lub inline preview strony wydarzenia |
+| `EventMainSettingsPanel.tsx` | Formularz głównych ustawień (tytuł, data, lokalizacja) |
+| `EventSectionsPanel.tsx` | Collapsible lista sekcji z inline edycją |
+| `EventTicketsPanel.tsx` | Zarządzanie biletami z drag-and-drop |
+| `EventSpeakersPanel.tsx` | Zarządzanie prelegentami |
 
-## Kroki implementacji
-
-### Krok 1: Uruchomienie danych testowych (SQL)
-
-Wykonam skrypt `scripts/seed-linkedin-event.sql` bezpośrednio z Supabase SQL Editor. Skrypt utworzy:
-- 1 wydarzenie główne (`paid_events`)
-- 5 sekcji treści CMS (`paid_event_content_sections`)
-- 2 pakiety biletów (`paid_event_tickets`)
-- 1 prelegenta (`paid_event_speakers`)
-
----
-
-### Krok 2: Nowa strona publiczna - Lista płatnych eventów
-
-**Plik:** `src/pages/PaidEventsListPage.tsx`
-
-Strona wzorowana na `WebinarsPage.tsx`, wyświetlająca:
-- Nagłówek z ikoną 🎫 i tytułem "Eventy"
-- Listę nadchodzących wydarzeń (karty z datą, tytułem, ceną, lokalizacją)
-- Listę zakończonych wydarzeń (opcjonalnie)
-- Link do szczegółów każdego wydarzenia `/events/:slug`
-
-**Pobieranie danych:**
-```sql
-SELECT * FROM paid_events 
-WHERE is_published = true AND is_active = true
-ORDER BY event_date ASC
-```
-
----
-
-### Krok 3: Komponent karty wydarzenia
-
-**Plik:** `src/components/paid-events/PaidEventCard.tsx`
-
-Karta wydarzenia zawierająca:
-- Datę (format: "20 lut 2026")
-- Tytuł wydarzenia
-- Krótki opis
-- Znacznik "Online" lub lokalizację
-- Najniższą cenę (z tabeli `paid_event_tickets`)
-- Przycisk "Zobacz szczegóły →"
-
----
-
-### Krok 4: Dodanie trasy w App.tsx
-
-```typescript
-<Route path="/paid-events" element={<PaidEventsListPage />} />
-```
-
----
-
-### Krok 5: Dodanie "EVENTY" do DashboardSidebar
-
-**Plik:** `src/components/dashboard/DashboardSidebar.tsx`
-
-Dodanie nowego elementu menu:
-```typescript
-{ 
-  id: 'paid-events', 
-  icon: Ticket, 
-  labelKey: 'Eventy', 
-  path: '/paid-events' 
-},
-```
-
-Umieszczenie po istniejących "Wydarzenia" (events).
-
----
-
-## Szczegóły techniczne
-
-### Nowe pliki do utworzenia
-
-| Plik | Opis |
-|------|------|
-| `src/pages/PaidEventsListPage.tsx` | Strona listy płatnych eventów |
-| `src/components/paid-events/PaidEventCard.tsx` | Karta pojedynczego wydarzenia |
-
-### Pliki do modyfikacji
+### Modyfikacje istniejących plików
 
 | Plik | Zmiana |
 |------|--------|
-| `src/App.tsx` | Dodanie trasy `/paid-events` |
-| `src/components/dashboard/DashboardSidebar.tsx` | Dodanie pozycji "Eventy" w menu |
+| `PaidEventsList.tsx` | Zmiana akcji "Edytuj treści" na otwarcie nowego edytora |
+| `PaidEventsManagement.tsx` | Obsługa stanu edycji pełnoekranowej |
 
----
+## Szczegóły techniczne
 
-## Widoczność modułu
+### 1. PaidEventEditorLayout.tsx
 
-Moduł "EVENTY" będzie widoczny dla:
-- Wszystkich zalogowanych użytkowników (partners, clients, specjaliści)
-- Brak ograniczeń per rola (każdy może przeglądać i kupować bilety)
+Główny komponent z layoutem split-view:
 
----
+```typescript
+interface PaidEventEditorLayoutProps {
+  eventId: string;
+  eventSlug: string;
+  onClose: () => void;
+}
 
-## Efekt końcowy
+// Struktura:
+// - ResizablePanelGroup z react-resizable-panels
+// - Lewy panel: 40% szerokości (min 350px)
+// - Prawy panel: 60% szerokości (podgląd)
+```
 
-Po implementacji:
-1. ✅ W bazie danych pojawi się wydarzenie "LinkedIn w Firmie" z pełną treścią
-2. ✅ W bocznym menu pojawi się nowa pozycja "Eventy" z ikoną biletu
-3. ✅ Po kliknięciu otworzy się strona `/paid-events` z listą nadchodzących wydarzeń
-4. ✅ Kliknięcie w wydarzenie przeniesie na stronę szczegółów `/events/linkedin-w-firmie`
-5. ✅ Użytkownik może kupić bilet (istniejący flow PayU)
+### 2. EventEditorSidebar.tsx
+
+Zakładki z edytorami:
+
+```typescript
+// Zakładki:
+// 1. "Główne" - tytuł, slug, data, lokalizacja, status
+// 2. "Sekcje" - collapsible lista sekcji CMS
+// 3. "Bilety" - lista pakietów z cenami i benefitami
+// 4. "Prelegenci" - lista prelegentów z bio
+
+// Każda sekcja rozwijana jak na screenie:
+// - Nagłówek z tytułem i przyciskami [↑][↓][✏️][🗑]
+// - Po rozwinięciu: inline edytor pól
+// - Przyciski "Zapisz" przy każdym polu
+```
+
+### 3. EventEditorPreview.tsx
+
+Podgląd na żywo:
+
+```typescript
+// Opcje implementacji:
+// A) Iframe z src="/events/{slug}?preview=true" (izolowany, ale wymaga refresh)
+// B) Inline rendering PaidEventPage z przekazanymi danymi (real-time)
+
+// Wybór: Opcja B - inline rendering z React Query invalidation
+// Po każdej zmianie w panelu -> invalidateQueries -> instant preview update
+```
+
+### 4. Integracja z istniejącymi komponentami
+
+Reużycie:
+- `ContentSectionEditor.tsx` - jako baza dla EventSectionsPanel
+- `PaidEventHero.tsx`, `PaidEventSection.tsx` - do renderingu preview
+- `TicketBenefitsEditor.tsx` - do zarządzania benefitami biletów
+
+## Flow użytkownika
+
+```text
+1. Admin otwiera /admin?tab=paid-events
+2. Na liście wydarzeń klika "Edytuj" przy wydarzeniu
+3. Otwiera się pełnoekranowy edytor (PaidEventEditorLayout)
+4. Lewa strona: Panel z zakładkami i collapsible sekcjami
+5. Prawa strona: Live preview strony wydarzenia
+6. Każda zmiana w panelu -> natychmiastowa aktualizacja preview
+7. Kliknięcie sekcji w preview -> scroll do edycji tej sekcji w panelu
+8. Przycisk "← Powrót" wraca do listy wydarzeń
+```
+
+## Synchronizacja real-time
+
+```text
+┌─────────────────────┐                    ┌─────────────────────┐
+│   EventEditorSidebar │                   │  EventEditorPreview │
+│                     │                    │                     │
+│  [Edit title] ──────┼──► useMutation ───►│  useQuery           │
+│                     │    onSuccess:      │  (auto-refetch)     │
+│                     │    invalidate()    │                     │
+│                     │                    │  Re-render          │
+└─────────────────────┘                    └─────────────────────┘
+```
+
+## Nowe pliki do utworzenia
+
+| Plik | Opis |
+|------|------|
+| `src/components/admin/paid-events/editor/PaidEventEditorLayout.tsx` | Layout split-view |
+| `src/components/admin/paid-events/editor/EventEditorSidebar.tsx` | Panel boczny |
+| `src/components/admin/paid-events/editor/EventEditorPreview.tsx` | Podgląd live |
+| `src/components/admin/paid-events/editor/EventMainSettingsPanel.tsx` | Ustawienia główne |
+| `src/components/admin/paid-events/editor/EventSectionsPanel.tsx` | Sekcje CMS |
+| `src/components/admin/paid-events/editor/EventTicketsPanel.tsx` | Bilety |
+| `src/components/admin/paid-events/editor/EventSpeakersPanel.tsx` | Prelegenci |
+| `src/components/admin/paid-events/editor/index.ts` | Eksporty |
+
+## Pliki do modyfikacji
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/paid-events/PaidEventsList.tsx` | Dodanie stanu `editorEventId` i warunkowe renderowanie edytora |
+| `src/components/admin/paid-events/PaidEventsManagement.tsx` | Przekazanie props do obsługi pełnoekranowego edytora |
+
+## UI/UX zgodny z referencją
+
+Na podstawie screena:
+- Jasne tło panelu edycji (szaro-niebieskie)
+- Sekcje jako karty z zaokrąglonymi rogami
+- Rozwijane sekcje z ikoną chevron
+- Przyciski "Zapisz" i "🗑" przy każdym polu
+- Etykiety typu "(text)", "(datetime)" przy polach
+- Podpowiedź "Klucz: event.title" pod inputami
+- Przycisk "+ Dodaj sekcję" na końcu listy
+- Info "Podgląd na żywo — Kliknij sekcję, aby przejść do edycji"
 
