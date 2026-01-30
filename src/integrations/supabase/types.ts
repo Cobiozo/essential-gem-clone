@@ -3839,6 +3839,373 @@ export type Database = {
         }
         Relationships: []
       }
+      paid_event_orders: {
+        Row: {
+          checked_in: boolean | null
+          checked_in_at: string | null
+          created_at: string
+          email: string
+          event_id: string
+          first_name: string
+          id: string
+          last_name: string
+          payment_order_id: string | null
+          payment_provider: string | null
+          payment_transaction_id: string | null
+          phone: string | null
+          quantity: number | null
+          status: string
+          ticket_code: string | null
+          ticket_generated_at: string | null
+          ticket_id: string
+          ticket_sent_at: string | null
+          total_amount: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          created_at?: string
+          email: string
+          event_id: string
+          first_name: string
+          id?: string
+          last_name: string
+          payment_order_id?: string | null
+          payment_provider?: string | null
+          payment_transaction_id?: string | null
+          phone?: string | null
+          quantity?: number | null
+          status?: string
+          ticket_code?: string | null
+          ticket_generated_at?: string | null
+          ticket_id: string
+          ticket_sent_at?: string | null
+          total_amount: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          checked_in?: boolean | null
+          checked_in_at?: string | null
+          created_at?: string
+          email?: string
+          event_id?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          payment_order_id?: string | null
+          payment_provider?: string | null
+          payment_transaction_id?: string | null
+          phone?: string | null
+          quantity?: number | null
+          status?: string
+          ticket_code?: string | null
+          ticket_generated_at?: string | null
+          ticket_id?: string
+          ticket_sent_at?: string | null
+          total_amount?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_event_orders_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "paid_event_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_event_schedule: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          position: number | null
+          speaker_id: string | null
+          time_slot: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          position?: number | null
+          speaker_id?: string | null
+          time_slot: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          position?: number | null
+          speaker_id?: string | null
+          time_slot?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_schedule_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_event_schedule_speaker_id_fkey"
+            columns: ["speaker_id"]
+            isOneToOne: false
+            referencedRelation: "paid_event_speakers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_event_speakers: {
+        Row: {
+          bio: string | null
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          photo_url: string | null
+          position: number | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          photo_url?: string | null
+          position?: number | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          photo_url?: string | null
+          position?: number | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_speakers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_event_tickets: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          is_active: boolean | null
+          name: string
+          position: number | null
+          price_pln: number
+          quantity_available: number | null
+          quantity_sold: number | null
+          sale_end: string | null
+          sale_start: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          position?: number | null
+          price_pln?: number
+          quantity_available?: number | null
+          quantity_sold?: number | null
+          sale_end?: string | null
+          sale_start?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          position?: number | null
+          price_pln?: number
+          quantity_available?: number | null
+          quantity_sold?: number | null
+          sale_end?: string | null
+          sale_start?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_events: {
+        Row: {
+          banner_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_date: string
+          event_end_date: string | null
+          id: string
+          is_active: boolean | null
+          is_online: boolean | null
+          is_published: boolean | null
+          location: string | null
+          max_tickets: number | null
+          short_description: string | null
+          slug: string
+          stream_url: string | null
+          tickets_sold: number | null
+          title: string
+          updated_at: string
+          visible_to_clients: boolean | null
+          visible_to_everyone: boolean | null
+          visible_to_partners: boolean | null
+          visible_to_specjalista: boolean | null
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_date: string
+          event_end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_online?: boolean | null
+          is_published?: boolean | null
+          location?: string | null
+          max_tickets?: number | null
+          short_description?: string | null
+          slug: string
+          stream_url?: string | null
+          tickets_sold?: number | null
+          title: string
+          updated_at?: string
+          visible_to_clients?: boolean | null
+          visible_to_everyone?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_date?: string
+          event_end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_online?: boolean | null
+          is_published?: boolean | null
+          location?: string | null
+          max_tickets?: number | null
+          short_description?: string | null
+          slug?: string
+          stream_url?: string | null
+          tickets_sold?: number | null
+          title?: string
+          updated_at?: string
+          visible_to_clients?: boolean | null
+          visible_to_everyone?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Relationships: []
+      }
+      paid_events_settings: {
+        Row: {
+          company_address: string | null
+          company_name: string | null
+          company_nip: string | null
+          created_at: string
+          default_currency: string | null
+          id: string
+          is_enabled: boolean
+          payu_environment: string | null
+          payu_merchant_id: string | null
+          payu_pos_id: string | null
+          updated_at: string
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          company_address?: string | null
+          company_name?: string | null
+          company_nip?: string | null
+          created_at?: string
+          default_currency?: string | null
+          id?: string
+          is_enabled?: boolean
+          payu_environment?: string | null
+          payu_merchant_id?: string | null
+          payu_pos_id?: string | null
+          updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          company_address?: string | null
+          company_name?: string | null
+          company_nip?: string | null
+          created_at?: string
+          default_currency?: string | null
+          id?: string
+          is_enabled?: boolean
+          payu_environment?: string | null
+          payu_merchant_id?: string | null
+          payu_pos_id?: string | null
+          updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
       private_chat_messages: {
         Row: {
           content: string
