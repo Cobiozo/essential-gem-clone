@@ -158,3 +158,12 @@ verify_jwt = false
 
 [functions.verify-hk-session]
 verify_jwt = false
+
+[functions.payu-create-order]
+verify_jwt = false
+
+[functions.payu-webhook]
+verify_jwt = false
+
+[functions.verify-event-ticket]
+verify_jwt = false
