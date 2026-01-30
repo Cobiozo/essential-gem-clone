@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Save, Loader2, Users, UserRound, Video, Eye, Clock, History, Settings, ExternalLink, CalendarDays, AlertTriangle } from 'lucide-react';
+import { Save, Loader2, Users, UserRound, Video, Eye, Clock, History, Settings, ExternalLink, CalendarDays, AlertTriangle, Globe } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { WeeklyAvailabilityScheduler, TimeSlot } from './WeeklyAvailabilityScheduler';
 import { IndividualMeetingsHistory } from './IndividualMeetingsHistory';
@@ -26,6 +26,26 @@ const SLOT_DURATIONS = [
   { value: 45, label: '45 minut' },
   { value: 60, label: '60 minut' },
   { value: 90, label: '90 minut' },
+];
+
+const TIMEZONES = [
+  { value: 'Europe/Warsaw', label: 'Polska (CET/CEST)' },
+  { value: 'Europe/London', label: 'Wielka Brytania (GMT/BST)' },
+  { value: 'Europe/Berlin', label: 'Niemcy (CET/CEST)' },
+  { value: 'Europe/Paris', label: 'Francja (CET/CEST)' },
+  { value: 'Europe/Madrid', label: 'Hiszpania (CET/CEST)' },
+  { value: 'Europe/Rome', label: 'Włochy (CET/CEST)' },
+  { value: 'Europe/Amsterdam', label: 'Holandia (CET/CEST)' },
+  { value: 'Europe/Brussels', label: 'Belgia (CET/CEST)' },
+  { value: 'Europe/Vienna', label: 'Austria (CET/CEST)' },
+  { value: 'Europe/Prague', label: 'Czechy (CET/CEST)' },
+  { value: 'Europe/Stockholm', label: 'Szwecja (CET/CEST)' },
+  { value: 'Europe/Oslo', label: 'Norwegia (CET/CEST)' },
+  { value: 'Europe/Helsinki', label: 'Finlandia (EET/EEST)' },
+  { value: 'Europe/Athens', label: 'Grecja (EET/EEST)' },
+  { value: 'America/New_York', label: 'USA Wschód (EST/EDT)' },
+  { value: 'America/Los_Angeles', label: 'USA Zachód (PST/PDT)' },
+  { value: 'America/Chicago', label: 'USA Central (CST/CDT)' },
 ];
 
 interface IndividualMeetingFormProps {
@@ -57,6 +77,12 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
   // External booking (Calendly) options
   const [bookingMode, setBookingMode] = useState<'internal' | 'external'>('internal');
   const [externalCalendlyUrl, setExternalCalendlyUrl] = useState('');
+  
+  // Timezone for availability
+  const [timezone, setTimezone] = useState<string>('Europe/Warsaw');
+  
+  // Detect user's timezone on mount
+  const detectedTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
   
   // Google Calendar connection status
   const [hasGoogleCalendar, setHasGoogleCalendar] = useState(false);
@@ -117,10 +143,10 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         setAvailabilitySlots(slots);
       }
 
-      // Load leader permissions for zoom link, external booking settings, and slot durations
+      // Load leader permissions for zoom link, external booking settings, slot durations, and timezone
       const { data: permData } = await supabase
         .from('leader_permissions')
-        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_slot_duration, consultation_slot_duration')
+        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_slot_duration, consultation_slot_duration, timezone')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -142,6 +168,15 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         setExternalCalendlyUrl(permData.external_calendly_url || '');
       } else {
         setBookingMode('internal');
+      }
+      
+      // Load timezone or use detected
+      if (permData?.timezone) {
+        setTimezone(permData.timezone);
+      } else {
+        // Try to use detected timezone if it's in our list, otherwise default to Warsaw
+        const isKnownTimezone = TIMEZONES.some(tz => tz.value === detectedTimezone);
+        setTimezone(isKnownTimezone ? detectedTimezone : 'Europe/Warsaw');
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -178,7 +213,7 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         .eq('leader_user_id', user.id)
         .not('specific_date', 'is', null);
 
-      // Insert new slots for specific dates
+      // Insert new slots for specific dates with timezone
       if (availabilitySlots.length > 0) {
         const insertData = availabilitySlots.map((slot) => ({
           leader_user_id: user.id,
@@ -187,6 +222,7 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
           end_time: calculateEndTime(slot.time, slotDuration),
           is_active: true,
           slot_duration_minutes: slotDuration,
+          timezone: timezone,
         }));
 
         const { error: availError } = await supabase
@@ -196,7 +232,7 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
         if (availError) throw availError;
       }
 
-      // Update zoom link, external booking settings, and slot duration in leader_permissions
+      // Update zoom link, external booking settings, slot duration, and timezone in leader_permissions
       const durationField = meetingType === 'tripartite' 
         ? 'tripartite_slot_duration' 
         : 'consultation_slot_duration';
@@ -208,6 +244,7 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
           use_external_booking: bookingMode === 'external',
           external_calendly_url: bookingMode === 'external' ? externalCalendlyUrl : null,
           [durationField]: slotDuration,
+          timezone: timezone,
         })
         .eq('user_id', user.id);
 
@@ -436,6 +473,31 @@ export const IndividualMeetingForm: React.FC<IndividualMeetingFormProps> = ({ me
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Twoja strefa czasowa
+              </Label>
+              <Select
+                value={timezone}
+                onValueChange={setTimezone}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Godziny dostępności będą wyświetlane partnerom w ich lokalnej strefie czasowej
+              </p>
             </div>
           </CardContent>
         </Card>

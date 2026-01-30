@@ -410,8 +410,13 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .map(slotTime => {
           let displayTime = slotTime;
           try {
+            // CRITICAL FIX: Properly convert leader's time to user's local time
+            // 1. Parse the time string as if it's in leader's timezone
             const leaderDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-            displayTime = formatInTimeZone(leaderDateTime, userTimezone, 'HH:mm');
+            // 2. Convert from leader's timezone to UTC
+            const utcDateTime = fromZonedTime(leaderDateTime, partnerTimezone);
+            // 3. Format in user's timezone for display
+            displayTime = formatInTimeZone(utcDateTime, userTimezone, 'HH:mm');
           } catch (e) {
             console.warn('[PartnerMeetingBooking] Timezone conversion error:', e);
           }
@@ -501,12 +506,24 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
     setBooking(true);
     try {
+      // CRITICAL: Use leader's time in leader's timezone, then convert to UTC
+      // leaderTime is always in leader's timezone (e.g., "21:00" CET)
       const timeToUse = selectedSlot.leaderTime || selectedSlot.time;
+      const timezone = selectedSlot.leaderTimezone || leaderTimezone || 'Europe/Warsaw';
       
-      const localStartDate = parse(`${selectedSlot.date} ${timeToUse}`, 'yyyy-MM-dd HH:mm', new Date());
-      const startDateTime = localStartDate.toISOString();
-      const endDate = addMinutes(localStartDate, selectedSlot.slot_duration_minutes);
-      const endDateTime = endDate.toISOString();
+      // Parse the time as if it's in the leader's timezone, then convert to UTC
+      const leaderLocalDateTime = parse(`${selectedSlot.date} ${timeToUse}`, 'yyyy-MM-dd HH:mm', new Date());
+      const startDateUTC = fromZonedTime(leaderLocalDateTime, timezone);
+      const startDateTime = startDateUTC.toISOString();
+      const endDateUTC = addMinutes(startDateUTC, selectedSlot.slot_duration_minutes);
+      const endDateTime = endDateUTC.toISOString();
+      
+      console.log('[PartnerMeetingBooking] Booking:', {
+        leaderTime: timeToUse,
+        leaderTimezone: timezone,
+        startDateUTC: startDateTime,
+        endDateUTC: endDateTime,
+      });
 
       // Check if slot is still available before creating (prevent double booking)
       const { data: existingEvent } = await supabase
@@ -935,8 +952,25 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>{selectedSlot.time} ({selectedSlot.slot_duration_minutes} min)</span>
+              <span className="font-medium">{selectedSlot.time}</span>
+              <span className="text-muted-foreground">({selectedSlot.slot_duration_minutes} min)</span>
             </div>
+            
+            {/* Show both times when timezones differ */}
+            {selectedSlot.leaderTimezone && userTimezone !== selectedSlot.leaderTimezone && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2 text-sm">
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Twój czas:</span>
+                  <span>{selectedSlot.time} ({userTimezone.split('/')[1]?.replace('_', ' ') || userTimezone})</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Czas lidera:</span>
+                  <span>{selectedSlot.leaderTime} ({selectedSlot.leaderTimezone.split('/')[1]?.replace('_', ' ') || selectedSlot.leaderTimezone})</span>
+                </div>
+              </div>
+            )}
 
             {selectedPartner.zoom_link && (
               <div className="flex items-center gap-2 text-sm">
