@@ -3172,6 +3172,7 @@ export type Database = {
           id: string
           individual_meetings_enabled: boolean | null
           partner_consultation_enabled: boolean | null
+          timezone: string | null
           tripartite_meeting_enabled: boolean | null
           tripartite_slot_duration: number | null
           updated_at: string | null
@@ -3189,6 +3190,7 @@ export type Database = {
           id?: string
           individual_meetings_enabled?: boolean | null
           partner_consultation_enabled?: boolean | null
+          timezone?: string | null
           tripartite_meeting_enabled?: boolean | null
           tripartite_slot_duration?: number | null
           updated_at?: string | null
@@ -3206,6 +3208,7 @@ export type Database = {
           id?: string
           individual_meetings_enabled?: boolean | null
           partner_consultation_enabled?: boolean | null
+          timezone?: string | null
           tripartite_meeting_enabled?: boolean | null
           tripartite_slot_duration?: number | null
           updated_at?: string | null
