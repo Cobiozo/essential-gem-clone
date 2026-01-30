@@ -42,13 +42,15 @@ export const CalendarWidget: React.FC = () => {
   const handleCopyInvitation = (event: EventWithRegistration) => {
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
+    const eventTimezone = (event as any).timezone || DEFAULT_EVENT_TIMEZONE;
+    const tzLabel = getTimezoneLabel(eventTimezone, 'short');
     const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
     const invitationText = `
 🎥 Zaproszenie na webinar: ${event.title}
 
 📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
+⏰ Godzina: ${formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - ${formatInTimeZone(endDate, eventTimezone, 'HH:mm')} (${tzLabel})
 ${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
 
 Zapisz się tutaj: ${inviteUrl}
@@ -383,7 +385,7 @@ Zapisz się tutaj: ${inviteUrl}
                     
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
+                        {formatInTimeZone(new Date(event.start_time), (event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(new Date(event.end_time), (event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')}
                         <span className="ml-1">({getTimezoneLabel((event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'short')})</span>
                       </span>
                       <div className="flex items-center gap-1 flex-wrap justify-end">
