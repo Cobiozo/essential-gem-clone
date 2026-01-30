@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isPast, isFuture, differenceInMinutes, type Locale } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import { 
   Calendar, 
@@ -42,7 +43,8 @@ const PastOccurrenceRow: React.FC<{
   occurrence: ExpandedOccurrence;
   wasRegistered: boolean;
   dateLocale: Locale;
-}> = ({ occurrence, wasRegistered, dateLocale }) => {
+  eventTimezone: string;
+}> = ({ occurrence, wasRegistered, dateLocale, eventTimezone }) => {
   const dayName = format(occurrence.start_datetime, 'EEEE', { locale: dateLocale });
 
   return (
@@ -54,7 +56,7 @@ const PastOccurrenceRow: React.FC<{
           <span className="ml-1 capitalize">({dayName})</span>
         </span>
         <span className="text-sm font-medium line-through text-muted-foreground">
-          {format(occurrence.start_datetime, 'HH:mm')}
+          {formatInTimeZone(occurrence.start_datetime, eventTimezone, 'HH:mm')}
         </span>
         <Badge variant="secondary" className="text-xs">
           Zakończony
@@ -79,7 +81,8 @@ const OccurrenceRow: React.FC<{
   isRegistered: boolean;
   onRegisterChange: (occurrenceIndex: number, register: boolean) => Promise<void>;
   dateLocale: Locale;
-}> = ({ event, occurrence, isRegistered, onRegisterChange, dateLocale }) => {
+  eventTimezone: string;
+}> = ({ event, occurrence, isRegistered, onRegisterChange, dateLocale, eventTimezone }) => {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
@@ -102,7 +105,7 @@ const OccurrenceRow: React.FC<{
           <span className="text-muted-foreground ml-1 capitalize">({dayName})</span>
         </span>
         <span className="text-sm font-medium">
-          {format(occurrence.start_datetime, 'HH:mm')}
+          {formatInTimeZone(occurrence.start_datetime, eventTimezone, 'HH:mm')}
         </span>
       </div>
       
@@ -162,6 +165,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   const now = new Date();
+  const eventTimezone = (event as any).timezone || DEFAULT_EVENT_TIMEZONE;
   
   const isLive = now >= startDate && now <= endDate;
   const isUpcoming = isFuture(startDate);
@@ -383,11 +387,12 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
 
   const handleCopyInvitation = () => {
     const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    const tzLabel = getTimezoneLabel(eventTimezone, 'short');
     const invitationText = `
 🎥 Zaproszenie na spotkanie: ${event.title}
 
 📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
+⏰ Godzina: ${formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - ${formatInTimeZone(endDate, eventTimezone, 'HH:mm')} (${tzLabel})
 ${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
 
 Zapisz się tutaj: ${inviteUrl}
@@ -557,8 +562,8 @@ Zapisz się tutaj: ${inviteUrl}
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
               <span>
-                {format(startDate, 'HH:mm')}
-                <span className="ml-1">({getTimezoneLabel((event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'short')})</span>
+                {formatInTimeZone(startDate, eventTimezone, 'HH:mm')}
+                <span className="ml-1">({getTimezoneLabel(eventTimezone, 'short')})</span>
               </span>
             </div>
           </div>
@@ -593,7 +598,7 @@ Zapisz się tutaj: ${inviteUrl}
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
+                <span>{formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - {formatInTimeZone(endDate, eventTimezone, 'HH:mm')} ({getTimezoneLabel(eventTimezone, 'short')})</span>
               </div>
             </div>
 
@@ -666,6 +671,7 @@ Zapisz się tutaj: ${inviteUrl}
                         occurrence={occurrence}
                         wasRegistered={registeredOccurrences.has(occurrence.index)}
                         dateLocale={dateLocale}
+                        eventTimezone={eventTimezone}
                       />
                     ) : (
                       <OccurrenceRow
@@ -675,6 +681,7 @@ Zapisz się tutaj: ${inviteUrl}
                         isRegistered={registeredOccurrences.has(occurrence.index)}
                         onRegisterChange={handleOccurrenceRegister}
                         dateLocale={dateLocale}
+                        eventTimezone={eventTimezone}
                       />
                     )
                   ))}
