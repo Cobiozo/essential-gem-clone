@@ -14,6 +14,7 @@ import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
+import { DEFAULT_EVENT_TIMEZONE, getTimezoneLabel } from '@/lib/timezone-utils';
 
 export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -416,6 +417,9 @@ export const MyMeetingsWidget: React.FC = () => {
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="text-xs text-muted-foreground">
                             {format(new Date(event.start_time), 'd MMM HH:mm', { locale })}
+                            {(event.event_type === 'webinar' || event.event_type === 'team_training') && (
+                              <span className="ml-1">({getTimezoneLabel((event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'short')})</span>
+                            )}
                           </span>
                           {getActionButton(event)}
                         </div>

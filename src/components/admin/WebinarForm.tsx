@@ -31,13 +31,15 @@ import {
   EyeOff,
   Clock,
   Upload,
-  FileText
+  FileText,
+  Globe
 } from 'lucide-react';
 import type { DbEvent, WebinarFormData, WEBINAR_TYPES, DURATION_OPTIONS } from '@/types/events';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RegistrationFormEditor, RegistrationFormConfig, defaultRegistrationFormConfig } from './RegistrationFormEditor';
 import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
 import { EventButtonsEditor } from './EventButtonsEditor';
+import { TIMEZONE_OPTIONS, DEFAULT_EVENT_TIMEZONE, getTimezoneLabel } from '@/lib/timezone-utils';
 
 interface WebinarFormProps {
   editingWebinar: DbEvent | null;
@@ -73,7 +75,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     { value: 'szkoleniowy', label: t('admin.webinar.types.training') },
   ];
 
-  const [form, setForm] = useState<WebinarFormData & { registration_form_config: RegistrationFormConfig | null; is_external_platform?: boolean; external_platform_message?: string }>({
+  const [form, setForm] = useState<WebinarFormData & { registration_form_config: RegistrationFormConfig | null; is_external_platform?: boolean; external_platform_message?: string; timezone?: string }>({
     title: '',
     description: '',
     event_type: 'webinar',
@@ -99,6 +101,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     registration_form_config: defaultRegistrationFormConfig,
     is_external_platform: false,
     external_platform_message: '',
+    timezone: DEFAULT_EVENT_TIMEZONE,
   });
 
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -155,6 +158,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         publish_at: (editingWebinar as any).publish_at || null,
         is_external_platform: (editingWebinar as any).is_external_platform ?? false,
         external_platform_message: (editingWebinar as any).external_platform_message || '',
+        timezone: (editingWebinar as any).timezone || DEFAULT_EVENT_TIMEZONE,
       } as any);
       setImageUrlInput(editingWebinar.image_url || '');
       
@@ -246,6 +250,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         publish_at: (form as any).publish_at || null,
         is_external_platform: form.is_external_platform || false,
         external_platform_message: form.external_platform_message || null,
+        timezone: form.timezone || DEFAULT_EVENT_TIMEZONE,
       };
 
       let error;
@@ -321,7 +326,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           />
         </div>
 
-        {/* Date/Time and Type row */}
+        {/* Date/Time and Timezone row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-primary font-medium">
@@ -350,23 +355,49 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-muted-foreground font-medium">{t('admin.webinar.type')}</Label>
+            <Label className="text-muted-foreground font-medium flex items-center gap-1.5">
+              <Globe className="h-4 w-4" />
+              Strefa czasowa
+            </Label>
             <Select
-              value={form.webinar_type || 'biznesowy'}
-              onValueChange={(value) => setForm({ ...form, webinar_type: value })}
+              value={form.timezone || DEFAULT_EVENT_TIMEZONE}
+              onValueChange={(value) => setForm({ ...form, timezone: value })}
             >
               <SelectTrigger className="h-10">
-                <SelectValue placeholder={t('admin.webinar.selectType')} />
+                <SelectValue placeholder="Wybierz strefę" />
               </SelectTrigger>
               <SelectContent>
-                {webinarTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                {TIMEZONE_OPTIONS.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Czas w strefie: {getTimezoneLabel(form.timezone || DEFAULT_EVENT_TIMEZONE, 'full')}
+            </p>
           </div>
+        </div>
+
+        {/* Webinar Type row */}
+        <div className="space-y-2">
+          <Label className="text-muted-foreground font-medium">{t('admin.webinar.type')}</Label>
+          <Select
+            value={form.webinar_type || 'biznesowy'}
+            onValueChange={(value) => setForm({ ...form, webinar_type: value })}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder={t('admin.webinar.selectType')} />
+            </SelectTrigger>
+            <SelectContent>
+              {webinarTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Host and Duration row */}
