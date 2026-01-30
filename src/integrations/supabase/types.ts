@@ -3839,6 +3839,62 @@ export type Database = {
         }
         Relationships: []
       }
+      paid_event_content_sections: {
+        Row: {
+          background_color: string | null
+          content: string | null
+          created_at: string | null
+          event_id: string
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          items: Json | null
+          position: number | null
+          section_type: string
+          text_color: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          background_color?: string | null
+          content?: string | null
+          created_at?: string | null
+          event_id: string
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          items?: Json | null
+          position?: number | null
+          section_type?: string
+          text_color?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          background_color?: string | null
+          content?: string | null
+          created_at?: string | null
+          event_id?: string
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          items?: Json | null
+          position?: number | null
+          section_type?: string
+          text_color?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_content_sections_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       paid_event_orders: {
         Row: {
           checked_in: boolean | null
@@ -4023,11 +4079,14 @@ export type Database = {
       }
       paid_event_tickets: {
         Row: {
+          benefits: Json | null
           created_at: string
           description: string | null
           event_id: string
+          highlight_text: string | null
           id: string
           is_active: boolean | null
+          is_featured: boolean | null
           name: string
           position: number | null
           price_pln: number
@@ -4038,11 +4097,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          benefits?: Json | null
           created_at?: string
           description?: string | null
           event_id: string
+          highlight_text?: string | null
           id?: string
           is_active?: boolean | null
+          is_featured?: boolean | null
           name: string
           position?: number | null
           price_pln?: number
@@ -4053,11 +4115,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          benefits?: Json | null
           created_at?: string
           description?: string | null
           event_id?: string
+          highlight_text?: string | null
           id?: string
           is_active?: boolean | null
+          is_featured?: boolean | null
           name?: string
           position?: number | null
           price_pln?: number

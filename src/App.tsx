@@ -115,6 +115,7 @@ const HealthyKnowledge = lazyWithRetry(() => import("./pages/HealthyKnowledge"))
 const HealthyKnowledgePlayer = lazyWithRetry(() => import("./pages/HealthyKnowledgePlayer"));
 const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKnowledgePublicPage"));
 const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
+const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -334,6 +335,7 @@ const AppContent = () => {
               <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
               <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
               <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/events/:slug" element={<PaidEventPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
