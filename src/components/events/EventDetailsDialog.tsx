@@ -46,6 +46,48 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
   const [selectedUserTimezone, setSelectedUserTimezone] = useState<string>(getBrowserTimezone());
 
+  // Prepare data safely (can be null)
+  const eventStart = event ? new Date(event.start_time) : new Date();
+  const eventEnd = event ? new Date(event.end_time) : new Date();
+  const eventTimezone = (event as any)?.timezone || DEFAULT_EVENT_TIMEZONE;
+
+  // ALL useMemo hooks BEFORE conditional return - React Rules of Hooks
+  const userStartTime = useMemo(() => {
+    if (!event) return '';
+    try {
+      return formatInTimeZone(eventStart, selectedUserTimezone, 'HH:mm');
+    } catch {
+      return format(eventStart, 'HH:mm');
+    }
+  }, [event, eventStart, selectedUserTimezone]);
+  
+  const userEndTime = useMemo(() => {
+    if (!event) return '';
+    try {
+      return formatInTimeZone(eventEnd, selectedUserTimezone, 'HH:mm');
+    } catch {
+      return format(eventEnd, 'HH:mm');
+    }
+  }, [event, eventEnd, selectedUserTimezone]);
+  
+  const eventStartTimeFormatted = useMemo(() => {
+    if (!event) return '';
+    try {
+      return formatInTimeZone(eventStart, eventTimezone, 'HH:mm');
+    } catch {
+      return format(eventStart, 'HH:mm');
+    }
+  }, [event, eventStart, eventTimezone]);
+  
+  const eventEndTimeFormatted = useMemo(() => {
+    if (!event) return '';
+    try {
+      return formatInTimeZone(eventEnd, eventTimezone, 'HH:mm');
+    } catch {
+      return format(eventEnd, 'HH:mm');
+    }
+  }, [event, eventEnd, eventTimezone]);
+
   // Fetch zoom_link from leader_permissions if event doesn't have one
   useEffect(() => {
     const fetchDynamicZoomLink = async () => {
@@ -69,50 +111,13 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
     if (event) fetchDynamicZoomLink();
   }, [event]);
 
+  // Conditional return AFTER all hooks
   if (!event) return null;
 
-  const eventStart = new Date(event.start_time);
-  const eventEnd = new Date(event.end_time);
   const now = new Date();
   const fifteenMinutesBefore = subMinutes(eventStart, 15);
   const durationMinutes = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60));
-  
-  // Get event timezone (default to Europe/Warsaw for backwards compatibility)
-  const eventTimezone = (event as any).timezone || DEFAULT_EVENT_TIMEZONE;
   const timezonesMatch = areTimezonesEqual(eventTimezone, selectedUserTimezone);
-  
-  // Calculate user's local time
-  const userStartTime = useMemo(() => {
-    try {
-      return formatInTimeZone(eventStart, selectedUserTimezone, 'HH:mm');
-    } catch {
-      return format(eventStart, 'HH:mm');
-    }
-  }, [eventStart, selectedUserTimezone]);
-  
-  const userEndTime = useMemo(() => {
-    try {
-      return formatInTimeZone(eventEnd, selectedUserTimezone, 'HH:mm');
-    } catch {
-      return format(eventEnd, 'HH:mm');
-    }
-  }, [eventEnd, selectedUserTimezone]);
-  
-  const eventStartTimeFormatted = useMemo(() => {
-    try {
-      return formatInTimeZone(eventStart, eventTimezone, 'HH:mm');
-    } catch {
-      return format(eventStart, 'HH:mm');
-    }
-  }, [eventStart, eventTimezone]);
-  
-  const eventEndTimeFormatted = useMemo(() => {
-    try {
-      return formatInTimeZone(eventEnd, eventTimezone, 'HH:mm');
-    } catch {
-      return format(eventEnd, 'HH:mm');
-    }
-  }, [eventEnd, eventTimezone]);
 
   // Use dynamic zoom link as fallback
   const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
