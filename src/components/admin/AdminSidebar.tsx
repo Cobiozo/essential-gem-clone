@@ -54,6 +54,7 @@ import {
   Heart,
   TreePine,
   Newspaper,
+  Ticket,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -186,6 +187,7 @@ const navCategories: NavCategory[] = [
       { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
+      { value: 'paid-events', labelKey: 'paidEvents', icon: Ticket },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
       { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
@@ -251,6 +253,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     organizationTree: 'Struktura organizacji',
     eventRegistrations: 'Rejestracje na wydarzenia',
     newsTicker: 'Pasek informacyjny',
+    paidEvents: 'Płatne wydarzenia',
   };
 
   const getLabel = (key: string): string => {
