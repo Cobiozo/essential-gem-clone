@@ -11,9 +11,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Calendar, MapPin, Users, Copy, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar, MapPin, Users, Copy, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { PaidEventEditorLayout } from './editor';
 import { PaidEventContentEditor } from './PaidEventContentEditor';
 
 interface PaidEvent {
@@ -78,6 +79,7 @@ export const PaidEventsList: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<Partial<PaidEvent>>(defaultEvent);
   const [contentEditorEvent, setContentEditorEvent] = useState<PaidEvent | null>(null);
+  const [visualEditorEvent, setVisualEditorEvent] = useState<PaidEvent | null>(null);
 
   // Fetch events
   const { data: events = [], isLoading } = useQuery({
@@ -185,6 +187,18 @@ export const PaidEventsList: React.FC = () => {
     return { available, total: event.max_tickets, sold };
   };
 
+  // Show visual editor if event is selected
+  if (visualEditorEvent) {
+    return (
+      <PaidEventEditorLayout
+        eventId={visualEditorEvent.id}
+        eventSlug={visualEditorEvent.slug}
+        eventTitle={visualEditorEvent.title}
+        onClose={() => setVisualEditorEvent(null)}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -283,10 +297,10 @@ export const PaidEventsList: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setContentEditorEvent(event)}
-                          title="Edytuj treści i bilety"
+                          onClick={() => setVisualEditorEvent(event)}
+                          title="Edytor wizualny"
                         >
-                          <FileText className="w-4 h-4" />
+                          <LayoutDashboard className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="ghost"
