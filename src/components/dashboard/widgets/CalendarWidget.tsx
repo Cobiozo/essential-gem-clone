@@ -15,6 +15,8 @@ import type { EventWithRegistration, EventButton } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
+import { DEFAULT_EVENT_TIMEZONE, getTimezoneLabel } from '@/lib/timezone-utils';
+import { formatInTimeZone } from 'date-fns-tz';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -382,6 +384,7 @@ Zapisz się tutaj: ${inviteUrl}
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
+                        <span className="ml-1">({getTimezoneLabel((event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'short')})</span>
                       </span>
                       <div className="flex items-center gap-1 flex-wrap justify-end">
                         <Button

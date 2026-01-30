@@ -20,13 +20,15 @@ import {
   MessageSquare,
   Users,
   CalendarDays,
-  Clock
+  Clock,
+  Globe
 } from 'lucide-react';
 import type { DbEvent, TeamTrainingFormData, TEAM_TRAINING_TYPES } from '@/types/events';
 import type { EventOccurrence } from '@/types/occurrences';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
 import { OccurrencesEditor } from './OccurrencesEditor';
+import { TIMEZONE_OPTIONS, DEFAULT_EVENT_TIMEZONE, getTimezoneLabel } from '@/lib/timezone-utils';
 
 interface TeamTrainingFormProps {
   editingTraining: DbEvent | null;
@@ -60,7 +62,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const [form, setForm] = useState<TeamTrainingFormData>({
+  const [form, setForm] = useState<TeamTrainingFormData & { timezone?: string }>({
     title: '',
     description: '',
     event_type: 'team_training',
@@ -82,6 +84,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     sms_reminder_enabled: false,
     email_reminder_enabled: true,
     is_published: true,
+    timezone: DEFAULT_EVENT_TIMEZONE,
   });
 
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -123,6 +126,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         is_published: editingTraining.is_published ?? true,
         allow_invites: (editingTraining as any).allow_invites ?? false,
         publish_at: (editingTraining as any).publish_at || null,
+        timezone: (editingTraining as any).timezone || DEFAULT_EVENT_TIMEZONE,
       } as any);
       setImageUrlInput(editingTraining.image_url || '');
       
@@ -242,6 +246,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
         allow_invites: (form as any).allow_invites || false,
         publish_at: (form as any).publish_at || null,
+        timezone: form.timezone || DEFAULT_EVENT_TIMEZONE,
       };
 
       let error;
@@ -346,7 +351,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             defaultDuration={form.duration_minutes}
           />
         ) : (
-          /* Date/Time and Type row (single occurrence mode) */
+          /* Date/Time and Timezone row (single occurrence mode) */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-primary font-medium">
@@ -375,46 +380,81 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-muted-foreground font-medium">Typ szkolenia</Label>
+              <Label className="text-muted-foreground font-medium flex items-center gap-1.5">
+                <Globe className="h-4 w-4" />
+                Strefa czasowa
+              </Label>
               <Select
-                value={form.training_type || 'wewnetrzny'}
-                onValueChange={(value) => setForm({ ...form, training_type: value })}
+                value={form.timezone || DEFAULT_EVENT_TIMEZONE}
+                onValueChange={(value) => setForm({ ...form, timezone: value })}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Wybierz typ" />
+                  <SelectValue placeholder="Wybierz strefę" />
                 </SelectTrigger>
                 <SelectContent>
-                  {trainingTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Czas w strefie: {getTimezoneLabel(form.timezone || DEFAULT_EVENT_TIMEZONE, 'full')}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Type selector (visible in both modes) */}
+        {/* Type selector (visible in both modes) and timezone for multi-occurrence */}
         {isMultiOccurrence && (
-          <div className="space-y-2">
-            <Label className="text-muted-foreground font-medium">Typ szkolenia</Label>
-            <Select
-              value={form.training_type || 'wewnetrzny'}
-              onValueChange={(value) => setForm({ ...form, training_type: value })}
-            >
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Wybierz typ" />
-              </SelectTrigger>
-              <SelectContent>
-                {trainingTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground font-medium">Typ szkolenia</Label>
+                <Select
+                  value={form.training_type || 'wewnetrzny'}
+                  onValueChange={(value) => setForm({ ...form, training_type: value })}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Wybierz typ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {trainingTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground font-medium flex items-center gap-1.5">
+                  <Globe className="h-4 w-4" />
+                  Strefa czasowa
+                </Label>
+                <Select
+                  value={form.timezone || DEFAULT_EVENT_TIMEZONE}
+                  onValueChange={(value) => setForm({ ...form, timezone: value })}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Wybierz strefę" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONE_OPTIONS.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Czas w strefie: {getTimezoneLabel(form.timezone || DEFAULT_EVENT_TIMEZONE, 'full')}
+                </p>
+              </div>
+            </div>
+          </>
         )}
 
         {/* Host and Duration row */}

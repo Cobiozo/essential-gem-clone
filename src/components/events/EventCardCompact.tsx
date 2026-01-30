@@ -28,6 +28,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import type { EventWithRegistration, EventButton } from '@/types/events';
 import type { ExpandedOccurrence } from '@/types/occurrences';
 import { isMultiOccurrenceEvent, getAllOccurrences } from '@/hooks/useOccurrences';
+import { DEFAULT_EVENT_TIMEZONE, getTimezoneLabel } from '@/lib/timezone-utils';
 
 interface EventCardCompactProps {
   event: EventWithRegistration;
@@ -555,7 +556,10 @@ Zapisz się tutaj: ${inviteUrl}
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>{format(startDate, 'HH:mm')}</span>
+              <span>
+                {format(startDate, 'HH:mm')}
+                <span className="ml-1">({getTimezoneLabel((event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'short')})</span>
+              </span>
             </div>
           </div>
 
