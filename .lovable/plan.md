@@ -1,390 +1,324 @@
 
-# Plan: Moduł sprzedaży biletów na wydarzenia (Paid Events / Ticket Shop)
+# Plan: Strona publiczna wydarzenia płatnego z edytowalnym CMS
 
 ## Przegląd
 
-Moduł umożliwiający sprzedaż biletów na wydarzenia z integracją płatności PayU, automatycznym generowaniem biletów z kodem QR, systemem mailingowym i pełnym panelem administracyjnym.
+Stworzenie publicznej strony landing page dla wydarzeń płatnych (Ticket Shop), która będzie:
+- Dostępna pod ścieżką `/events/[slug]`
+- Wyglądać podobnie do referencyjnych zrzutów ekranu (sekcje: O szkoleniu, Dlaczego warto, Program, Prelegenci, Cennik)
+- W pełni edytowalna z poziomu panelu administracyjnego
+- Zintegrowana z istniejącym systemem płatności PayU
 
 ---
 
-## Architektura modułu
+## Architektura rozwiązania
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         PAID EVENTS MODULE                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│  PUBLIC LANDING PAGE          │  ADMIN PANEL                           │
-│  /event/[slug]                │  /admin → "Płatne wydarzenia"          │
-│  ├── Opis wydarzenia          │  ├── Lista wydarzeń                    │
-│  ├── Grafika/banner           │  ├── Formularz tworzenia/edycji        │
-│  ├── Prelegenci               │  ├── Pakiety cenowe                    │
-│  ├── Harmonogram              │  ├── Prelegenci                        │
-│  ├── Pakiety biletów          │  ├── Lista uczestników                 │
-│  └── Przycisk "Kup bilet"     │  └── Ustawienia modułu                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                          PAYMENT FLOW                                   │
-│  Formularz zakupu → Edge Function → PayU API → Webhook → Bilet + Email │
-├─────────────────────────────────────────────────────────────────────────┤
-│                          DATABASE TABLES                                │
-│  paid_events │ paid_event_tickets │ paid_event_speakers │               │
-│  paid_event_schedule │ paid_event_orders │ paid_events_settings        │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                          PUBLIC LANDING PAGE STRUCTURE                              │
+│                             /events/[slug]                                          │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│  │ HERO SECTION (z bazy paid_events)                                           │   │
+│  │ - Banner image, tytuł, krótki opis, data, lokalizacja                       │   │
+│  └─────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                     │
+│  ┌───────────────────────────────────────┐  ┌─────────────────────────────────┐   │
+│  │ MAIN CONTENT (scrollable)             │  │ STICKY SIDEBAR                   │   │
+│  │                                       │  │                                   │   │
+│  │ ┌───────────────────────────────────┐ │  │ - Pakiety biletów                │   │
+│  │ │ Navigation Tabs (scroll anchors) │ │  │   (paid_event_tickets)            │   │
+│  │ │ O szkoleniu | Program | Prelegenci│ │  │ - Wybór pakietu                  │   │
+│  │ └───────────────────────────────────┘ │  │ - Przycisk "Kup bilet"           │   │
+│  │                                       │  │ - Countdown do wydarzenia        │   │
+│  │ EDITABLE CMS SECTIONS:                │  │                                   │   │
+│  │ ├── O szkoleniu (content_sections)    │  └─────────────────────────────────┘   │
+│  │ ├── Dlaczego warto wziąć udział?      │                                        │
+│  │ ├── Kto powinien wziąć udział?        │                                        │
+│  │ ├── Program szkolenia (schedule)      │                                        │
+│  │ ├── Czas trwania                      │                                        │
+│  │ └── Prelegenci (speakers)             │                                        │
+│  │                                       │                                        │
+│  └───────────────────────────────────────┘                                        │
+│                                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│  │ PURCHASE MODAL/DRAWER                                                        │   │
+│  │ - Formularz danych kupującego                                                │   │
+│  │ - Podsumowanie zamówienia                                                    │   │
+│  │ - Przekierowanie do PayU                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 1. Struktura bazy danych
+## 1. Modyfikacja bazy danych
 
-### Tabela: `paid_events` - Główna tabela wydarzeń
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | uuid | Klucz główny |
-| slug | text UNIQUE | URL-friendly identyfikator |
-| title | text | Tytuł wydarzenia |
-| description | text | Opis HTML/Markdown |
-| short_description | text | Krótki opis na karty |
-| banner_url | text | Grafika główna |
-| location | text | Lokalizacja (adres lub "online") |
-| event_date | timestamptz | Data i godzina wydarzenia |
-| event_end_date | timestamptz | Data zakończenia |
-| is_online | boolean | Czy wydarzenie online |
-| stream_url | text | Link do transmisji (dla online) |
-| max_tickets | int | Maksymalna liczba biletów |
-| tickets_sold | int DEFAULT 0 | Sprzedane bilety |
-| is_published | boolean | Czy widoczne publicznie |
-| is_active | boolean | Czy aktywne |
-| visible_to_everyone | boolean | Widoczność publiczna |
-| visible_to_partners | boolean | Widoczność dla partnerów |
-| visible_to_specjalista | boolean | Widoczność dla specjalistów |
-| visible_to_clients | boolean | Widoczność dla klientów |
-| created_by | uuid | Twórca |
-| created_at, updated_at | timestamptz | Znaczniki czasu |
+### Nowa tabela: `paid_event_content_sections`
 
-### Tabela: `paid_event_tickets` - Pakiety biletów
+Tabela umożliwiająca administratorowi dodawanie niestandardowych sekcji treści do każdego wydarzenia.
+
 | Kolumna | Typ | Opis |
 |---------|-----|------|
 | id | uuid | Klucz główny |
 | event_id | uuid FK | Powiązanie z wydarzeniem |
-| name | text | Nazwa pakietu (np. "Standard", "VIP") |
-| description | text | Co zawiera pakiet |
-| price_pln | int | Cena w groszach (1500 = 15.00 PLN) |
-| quantity_available | int | Dostępna ilość |
-| quantity_sold | int DEFAULT 0 | Sprzedana ilość |
-| sale_start | timestamptz | Początek sprzedaży |
-| sale_end | timestamptz | Koniec sprzedaży |
-| is_active | boolean | Czy aktywny |
+| section_type | text | Typ: 'about', 'why_join', 'for_whom', 'custom', 'duration' |
+| title | text | Tytuł sekcji (np. "Dlaczego warto wziąć udział?") |
+| content | text | Treść HTML/Rich text |
 | position | int | Kolejność wyświetlania |
-
-### Tabela: `paid_event_speakers` - Prelegenci
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | uuid | Klucz główny |
-| event_id | uuid FK | Powiązanie z wydarzeniem |
-| name | text | Imię i nazwisko |
-| title | text | Tytuł/stanowisko |
-| bio | text | Krótki opis |
-| photo_url | text | Zdjęcie |
-| position | int | Kolejność |
-
-### Tabela: `paid_event_schedule` - Harmonogram
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | uuid | Klucz główny |
-| event_id | uuid FK | Powiązanie z wydarzeniem |
-| time_slot | time | Godzina (np. "10:00") |
-| title | text | Tytuł punktu |
-| description | text | Opis |
-| speaker_id | uuid FK | Opcjonalnie: prelegent |
-| position | int | Kolejność |
-
-### Tabela: `paid_event_orders` - Zamówienia/Bilety
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | uuid | Klucz główny |
-| event_id | uuid FK | Wydarzenie |
-| ticket_id | uuid FK | Pakiet biletu |
-| user_id | uuid | Jeśli zalogowany |
-| email | text | Email kupującego |
-| first_name | text | Imię |
-| last_name | text | Nazwisko |
-| phone | text | Telefon |
-| quantity | int DEFAULT 1 | Ilość biletów |
-| total_amount | int | Suma w groszach |
-| status | text | 'pending', 'paid', 'cancelled', 'refunded' |
-| payment_provider | text | 'payu' |
-| payment_order_id | text | ID zamówienia PayU |
-| payment_transaction_id | text | ID transakcji PayU |
-| ticket_code | text UNIQUE | Unikalny kod biletu (do QR) |
-| ticket_generated_at | timestamptz | Kiedy wygenerowano bilet |
-| ticket_sent_at | timestamptz | Kiedy wysłano email z biletem |
-| checked_in | boolean DEFAULT false | Czy zeskanowano przy wejściu |
-| checked_in_at | timestamptz | Kiedy zeskanowano |
+| is_active | boolean | Czy widoczna |
+| background_color | text | Kolor tła sekcji (opcjonalnie) |
+| text_color | text | Kolor tekstu (opcjonalnie) |
 | created_at, updated_at | timestamptz | Znaczniki czasu |
 
-### Tabela: `paid_events_settings` - Ustawienia globalne
+### Rozszerzenie tabeli `paid_events`
+
+Dodanie pól do obsługi rozszerzonego opisu wydarzenia:
+
 | Kolumna | Typ | Opis |
 |---------|-----|------|
-| id | uuid | Klucz główny |
-| is_enabled | boolean | Moduł włączony globalnie |
-| visible_to_admin | boolean | Widoczny dla admina |
-| visible_to_partner | boolean | Widoczny dla partnerów |
-| visible_to_specjalista | boolean | Widoczny dla specjalistów |
-| visible_to_client | boolean | Widoczny dla klientów |
-| payu_merchant_id | text | ID sprzedawcy PayU |
-| payu_pos_id | text | POS ID PayU |
-| payu_environment | text | 'sandbox' lub 'production' |
-| default_currency | text DEFAULT 'PLN' | Waluta |
-| company_name | text | Nazwa firmy na fakturach |
-| company_nip | text | NIP |
-| company_address | text | Adres |
+| content_sections_enabled | boolean | Czy używać sekcji CMS |
+| show_schedule | boolean | Czy pokazywać harmonogram |
+| show_speakers | boolean | Czy pokazywać prelegentów |
+| sidebar_title | text | Tytuł sidebara (np. "Rejestracja") |
+| sidebar_cta_text | text | Tekst przycisku (np. "Zapisz się →") |
 
 ---
 
-## 2. Edge Functions
+## 2. Komponenty frontendowe
 
-### `payu-create-order` - Tworzenie zamówienia PayU
+### Strona główna: `src/pages/PaidEventPage.tsx`
+
+Nowa strona routowana jako `/events/:slug`:
+
 ```text
-POST /payu-create-order
-Body: { eventId, ticketId, quantity, buyer: { email, firstName, lastName, phone } }
-
-Flow:
-1. Walidacja danych + sprawdzenie dostępności biletów
-2. Tworzenie rekordu w paid_event_orders (status: pending)
-3. Generowanie unikalnego ticket_code
-4. Wywołanie PayU API → POST /api/v2_1/orders
-5. Zwrot redirectUri do klienta
+Struktura komponentu:
+├── PaidEventPage.tsx (główny kontener)
+│   ├── PaidEventHero.tsx (banner, tytuł, meta)
+│   ├── PaidEventNavigation.tsx (scroll anchors)
+│   ├── PaidEventContent.tsx (sekcje CMS)
+│   │   ├── AboutSection.tsx
+│   │   ├── WhyJoinSection.tsx
+│   │   ├── ForWhomSection.tsx
+│   │   ├── ScheduleSection.tsx
+│   │   ├── DurationSection.tsx
+│   │   ├── SpeakersSection.tsx
+│   │   └── CustomSection.tsx
+│   ├── PaidEventSidebar.tsx (sticky pricing)
+│   │   ├── TicketSelector.tsx
+│   │   ├── PriceDisplay.tsx
+│   │   └── CountdownTimer.tsx
+│   └── PurchaseDrawer.tsx (formularz zakupu)
 ```
 
-### `payu-webhook` - Obsługa notyfikacji PayU
-```text
-POST /payu-webhook
-Body: PayU notification JSON
+### Komponenty sekcji (zgodne z designem referencyjnym)
 
-Flow:
-1. Weryfikacja podpisu (signature)
-2. Aktualizacja statusu zamówienia
-3. Jeśli COMPLETED:
-   - Generowanie biletu PDF z QR
-   - Wysłanie emaila z biletem
-   - Aktualizacja tickets_sold
-```
+**AboutSection.tsx** - "O szkoleniu"
+- Tytuł H2 w kolorze granatowym
+- Treść jako HTML/rich text
+- Opcjonalny obraz/grafika
 
-### `generate-event-ticket` - Generowanie biletu PDF
-```text
-POST /generate-event-ticket
-Body: { orderId }
+**WhyJoinSection.tsx** - "Dlaczego warto wziąć udział?"
+- Karty z ikonami
+- Bullet points z kolorowym tekstem
 
-Flow:
-1. Pobranie danych zamówienia i wydarzenia
-2. Generowanie QR code z ticket_code
-3. Renderowanie PDF z biletem
-4. Upload do storage
-5. Zwrot URL
-```
+**ProgramSection.tsx** - "Program szkolenia"
+- Struktura hierarchiczna
+- Bullet lists z zakreśleniami
+- Sekcje tematyczne
 
-### `send-event-ticket-email` - Wysyłka emaila z biletem
-```text
-POST /send-event-ticket-email
-Body: { orderId }
+**SpeakersSection.tsx** - "Prelegenci"
+- Tło w kolorze akcentowym (niebieski jak na screenie)
+- Karty prelegentów ze zdjęciem, imieniem, tytułem, bio
+- Okrągłe zdjęcia z ramką
 
-Flow:
-1. Pobranie danych
-2. Użycie szablonu email
-3. Załączenie biletu PDF
-4. Wysyłka przez SMTP
-```
-
-### `verify-event-ticket` - Weryfikacja biletu (skanowanie QR)
-```text
-POST /verify-event-ticket
-Body: { ticketCode }
-
-Flow:
-1. Wyszukanie zamówienia po ticket_code
-2. Sprawdzenie statusu (paid, not checked_in)
-3. Oznaczenie checked_in = true
-4. Zwrot danych uczestnika
-```
+**SidebarPricing.tsx**
+- Sticky sidebar przy scrollowaniu
+- Nagłówek "Rejestracja"
+- Wybór terminu (jeśli wiele dat)
+- Cena z VAT
+- Lista "Cena zawiera" z checkmarkami
+- CTA button "Zapisz się →"
 
 ---
 
-## 3. Komponenty frontend
+## 3. Panel administracyjny - rozszerzenia
 
-### Strona publiczna wydarzenia: `/event/[slug]`
-- **PaidEventLandingPage.tsx** - Główna strona wydarzenia
-  - Banner/hero section
-  - Opis wydarzenia (rich text)
-  - Sekcja prelegentów z foto i bio
-  - Harmonogram czasowy
-  - Sekcja pakietów biletów z cenami
-  - Formularz zakupu (modal/drawer)
-  - Countdown do wydarzenia
+### Nowe komponenty edycji
 
-### Panel admina: `/admin` → zakładka "Płatne wydarzenia"
-- **PaidEventsManagement.tsx** - Główny komponent zarządzania
-  - Lista wydarzeń z filtrowaniem
-  - Statystyki sprzedaży
-- **PaidEventForm.tsx** - Formularz tworzenia/edycji
-  - Dane podstawowe
-  - Upload grafiki
-  - Edytor opisu (WYSIWYG)
-- **PaidEventTicketsEditor.tsx** - Zarządzanie pakietami biletów
-- **PaidEventSpeakersEditor.tsx** - Zarządzanie prelegentami
-- **PaidEventScheduleEditor.tsx** - Edytor harmonogramu
-- **PaidEventOrdersList.tsx** - Lista zamówień/uczestników
-  - Export do Excel
-  - Filtrowanie po statusie
-  - Ręczne oznaczanie check-in
-- **PaidEventsSettingsPanel.tsx** - Ustawienia globalne modułu
-  - Włączanie/wyłączanie modułu
-  - Konfiguracja PayU
-  - Widoczność per rola
+**PaidEventContentEditor.tsx**
+- Lista edytowalnych sekcji treści
+- Drag & drop sortowanie sekcji
+- Dodawanie/usuwanie sekcji
+- Rich text editor dla każdej sekcji (wykorzysta istniejący TextEditor)
 
-### Komponenty wspólne
-- **TicketQRCode.tsx** - Generowanie QR dla biletu (używa `qrcode.react`)
-- **PaidEventCard.tsx** - Karta wydarzenia (lista)
-- **TicketPurchaseForm.tsx** - Formularz zakupu z walidacją
-- **PaymentStatusBadge.tsx** - Badge statusu płatności
+**PaidEventSpeakersEditor.tsx** 
+- Formularz dodawania prelegentów
+- Upload zdjęć (integracja z Media Library)
+- Edycja bio, tytułu, pozycji
+
+**PaidEventScheduleEditor.tsx**
+- Edycja punktów harmonogramu
+- Time slots + tytuły + opisy
+- Przypisywanie prelegentów do punktów
+
+**PaidEventTicketsEditor.tsx**
+- Zarządzanie pakietami biletów
+- Cena, opis, ilość, daty sprzedaży
+- Lista "co zawiera" jako tablica tekstów
 
 ---
 
-## 4. Integracja z PayU
+## 4. Routing i integracja
 
-### Wymagane sekrety (Edge Functions)
-| Sekret | Opis |
-|--------|------|
-| PAYU_CLIENT_ID | OAuth client_id |
-| PAYU_CLIENT_SECRET | OAuth client_secret |
-| PAYU_MERCHANT_POS_ID | POS ID |
-| PAYU_SECOND_KEY | MD5 key do weryfikacji |
+### App.tsx - nowa trasa
 
-### Flow płatności
-```text
-1. Użytkownik wybiera bilet → klik "Kup"
-2. Wypełnia formularz (email, imię, nazwisko, telefon)
-3. Frontend → POST /payu-create-order
-4. Edge function:
-   a) Pobiera token OAuth: POST /pl/standard/user/oauth/authorize
-   b) Tworzy zamówienie: POST /api/v2_1/orders
-   c) Zapisuje w bazie (status: pending)
-   d) Zwraca redirectUri
-5. Frontend przekierowuje na PayU
-6. Użytkownik płaci
-7. PayU → webhook → /payu-webhook
-8. Jeśli COMPLETED → generuj bilet + wyślij email
-9. Użytkownik wraca na continueUrl (strona potwierdzenia)
-```
-
----
-
-## 5. System mailingowy
-
-### Szablony email do utworzenia
-| Nazwa wewnętrzna | Kiedy wysyłany |
-|------------------|----------------|
-| `paid_event_ticket` | Po pomyślnej płatności - z biletem PDF |
-| `paid_event_reminder_24h` | 24h przed wydarzeniem |
-| `paid_event_reminder_1h` | 1h przed wydarzeniem (opcjonalnie) |
-
-### Zawartość emaila z biletem
-- Dane wydarzenia (tytuł, data, miejsce)
-- Dane biletu (pakiet, ilość, kwota)
-- QR code inline lub załącznik PDF
-- Instrukcje dotarcia / link do streamu
-
----
-
-## 6. Widoczność modułu w aplikacji
-
-### Sidebar (DashboardSidebar.tsx)
-Dodanie nowego wpisu w menu:
 ```typescript
-{
-  id: 'paid-events',
-  icon: Ticket, // z lucide-react
-  labelKey: 'Płatne wydarzenia',
-  path: '/paid-events',
-  visibleFor: [] // kontrolowane przez paid_events_settings
-}
+<Route path="/events/:slug" element={<PaidEventPage />} />
 ```
 
 ### Logika widoczności
-1. Admin może włączyć/wyłączyć moduł globalnie
-2. Admin może ustawić widoczność per rola
-3. Jeśli wyłączony dla roli → element nie renderuje się w ogóle (zgodnie z zasadą projektu)
+- Strona dostępna publicznie dla opublikowanych wydarzeń
+- Dla nieopublikowanych - tylko administratorzy
+- Respektowanie ustawień visible_to_* z paid_events
 
 ---
 
-## 7. Weryfikacja biletów (check-in)
+## 5. Szczegóły implementacji UI
 
-### Opcje weryfikacji
-1. **Skanowanie QR w panelu admin** - dedykowana strona `/admin/ticket-scanner`
-2. **API endpoint** - dla zewnętrznych czytników QR
-3. **Manualne oznaczanie** - w liście uczestników
+### Design zgodny z referencją
 
-### Strona skanera QR (opcjonalna)
-- Używa kamery urządzenia
-- Wyświetla dane uczestnika po zeskanowaniu
-- Przycisk "Potwierdź wejście"
+**Paleta kolorów (z screenów):**
+- Tło główne: biały/jasny szary (#f5f5f5)
+- Sekcja prelegentów: niebieski (#4a6fa5)
+- Nagłówki: ciemnogranatowy (#1a365d)
+- Akcenty: pomarańczowy (#e67e22) dla CTA
+- Tekst: ciemnoszary (#333)
 
----
+**Typografia:**
+- Nagłówki sekcji: 28-32px, bold, serif-like
+- Body text: 14-16px, system font
+- Bullet lists: kolorowy tekst dla emphasis
 
-## 8. Kolejność implementacji
-
-### Faza 1: Baza danych i backend
-1. Migracja SQL - wszystkie tabele
-2. Polityki RLS
-3. Edge function: `payu-create-order`
-4. Edge function: `payu-webhook`
-
-### Faza 2: Panel admina
-5. `PaidEventsManagement.tsx` - lista wydarzeń
-6. `PaidEventForm.tsx` - tworzenie/edycja
-7. `PaidEventTicketsEditor.tsx` - pakiety
-8. `PaidEventSpeakersEditor.tsx` - prelegenci
-9. `PaidEventScheduleEditor.tsx` - harmonogram
-10. `PaidEventsSettingsPanel.tsx` - ustawienia
-
-### Faza 3: Strona publiczna
-11. `PaidEventLandingPage.tsx`
-12. `TicketPurchaseForm.tsx`
-13. Integracja z PayU (redirect)
-
-### Faza 4: Bilety i email
-14. Edge function: `generate-event-ticket`
-15. Edge function: `send-event-ticket-email`
-16. Szablon email
-
-### Faza 5: Zarządzanie uczestnikami
-17. `PaidEventOrdersList.tsx`
-18. Export do Excel
-19. Strona weryfikacji QR
+**Layout:**
+- Desktop: 2 kolumny (content 70% + sidebar 30%)
+- Mobile: jedna kolumna, sidebar zamienia się w sticky footer
 
 ---
 
-## 9. Uwagi techniczne
+## 6. Migracja bazy danych
 
-### PayU sandbox do testów
-- URL: `https://secure.snd.payu.com`
-- Test POS ID: `145227`
-- Test MD5: `13a980d4f851f3d9a1cfc792fb1f5e50`
+```sql
+-- Sekcje treści dla wydarzeń
+CREATE TABLE paid_event_content_sections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL REFERENCES paid_events(id) ON DELETE CASCADE,
+  section_type text NOT NULL DEFAULT 'custom',
+  title text NOT NULL,
+  content text,
+  position int DEFAULT 0,
+  is_active boolean DEFAULT true,
+  background_color text,
+  text_color text,
+  icon_name text,
+  items jsonb, -- dla list typu "co zawiera"
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-### Generowanie PDF z biletem
-- Użycie `jsPDF` (już zainstalowane w projekcie)
-- Osadzenie QR code jako base64
+-- Indeksy
+CREATE INDEX idx_paid_event_content_sections_event ON paid_event_content_sections(event_id);
 
-### Przechowywanie biletów
-- Storage bucket: `event-tickets`
-- Struktura: `{event_id}/{order_id}/ticket.pdf`
+-- RLS
+ALTER TABLE paid_event_content_sections ENABLE ROW LEVEL SECURITY;
+
+-- Polityki (admini full access, publiczny read dla published)
+CREATE POLICY "Public read content sections" ON paid_event_content_sections
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM paid_events 
+      WHERE id = event_id AND is_published = true AND is_active = true
+    )
+  );
+
+CREATE POLICY "Admin full access content sections" ON paid_event_content_sections
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role = 'admin')
+  );
+
+-- Rozszerzenie paid_event_tickets o listę benefitów
+ALTER TABLE paid_event_tickets 
+  ADD COLUMN benefits jsonb DEFAULT '[]'::jsonb,
+  ADD COLUMN highlight_text text,
+  ADD COLUMN is_featured boolean DEFAULT false;
+```
+
+---
+
+## 7. Kolejność implementacji
+
+### Faza 1: Baza danych
+1. Migracja SQL - tabela `paid_event_content_sections`
+2. Rozszerzenie `paid_event_tickets` o benefits
+3. Polityki RLS
+
+### Faza 2: Strona publiczna
+4. `PaidEventPage.tsx` - główny kontener
+5. `PaidEventHero.tsx` - sekcja hero z banerem
+6. `PaidEventNavigation.tsx` - nawigacja zakładkowa
+7. Komponenty sekcji (About, Why, Schedule, Speakers)
+8. `PaidEventSidebar.tsx` - pricing sticky
+9. `PurchaseDrawer.tsx` - formularz zakupu
+
+### Faza 3: Panel admina
+10. `PaidEventContentEditor.tsx` - edytor sekcji CMS
+11. `PaidEventSpeakersEditor.tsx` - zarządzanie prelegentami
+12. `PaidEventScheduleEditor.tsx` - harmonogram
+13. `PaidEventTicketsEditor.tsx` - rozszerzenie o benefits
+
+### Faza 4: Integracja
+14. Dodanie trasy w App.tsx
+15. Aktualizacja link w PaidEventsList (kopiowanie URL)
+16. Testy end-to-end flow zakupu
+
+---
+
+## 8. Struktura plików
+
+```text
+src/
+├── pages/
+│   └── PaidEventPage.tsx              # Nowa strona
+├── components/
+│   └── paid-events/
+│       ├── public/
+│       │   ├── PaidEventHero.tsx
+│       │   ├── PaidEventNavigation.tsx
+│       │   ├── PaidEventContent.tsx
+│       │   ├── PaidEventSidebar.tsx
+│       │   ├── PaidEventSpeakers.tsx
+│       │   ├── PaidEventSchedule.tsx
+│       │   ├── PaidEventSection.tsx
+│       │   ├── TicketCard.tsx
+│       │   └── PurchaseDrawer.tsx
+│       └── admin/
+│           ├── ContentSectionEditor.tsx
+│           ├── SpeakersEditor.tsx
+│           ├── ScheduleEditor.tsx
+│           └── TicketBenefitsEditor.tsx
+```
 
 ---
 
 ## Podsumowanie
 
-Moduł zapewni pełen cykl sprzedaży biletów:
-- Atrakcyjne strony wydarzeń z pełną informacją
-- Różne pakiety cenowe z limitami
-- Bezpieczne płatności przez PayU
-- Automatyczne generowanie biletów z QR
-- Zarządzanie uczestnikami i check-in
-- Pełna kontrola widoczności per rola
+Plan przewiduje:
+- **1 nową tabelę** bazy danych dla sekcji treści CMS
+- **1 rozszerzenie** istniejącej tabeli biletów
+- **1 nową stronę** publiczną z pełnym layoutem
+- **~12 nowych komponentów** UI dla strony publicznej i admina
+- **Pełną edytowalność** wszystkich sekcji z poziomu panelu CMS
+- **Responsywny design** dopasowany do stylu aplikacji
+- **Integrację** z istniejącym flow płatności PayU
