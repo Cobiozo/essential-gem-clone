@@ -1,198 +1,111 @@
 
+# Plan: Naprawa synchronizacji stref czasowych w spotkaniach indywidualnych
 
-# Plan: Przełącznik widoczności modułu "Czat" w pasku bocznym per rola
+## Problem
 
-## Cel
+Spotkania indywidualne mają błędną obsługę stref czasowych. Gdy lider ustawia dostępność w CET (Polska), a użytkownik z innej strefy czasowej (np. Anglia GMT) rezerwuje spotkanie, dochodzi do rozbieżności godzin.
 
-Dodać dla administratora globalny przełącznik, który pozwala kontrolować widoczność modułu "Czat" w pasku bocznym dashboardu dla poszczególnych ról: **Admin**, **Partner**, **Klient**, **Specjalista**.
+**Przykład z dzisiejszego dnia:**
+- Lider Dawid Kowalczyk ustawił dostępność na 21:00 CET
+- Marcin Kipa (Anglia, GMT) zarezerwował "21:00" 
+- W kalendarzu lidera pojawiła się godzina 22:00 CET (błąd!)
 
-## Wizualizacja rozwiązania
+## Przyczyna techniczna
 
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  Panel administracyjny → Komunikacja → Kierunki komunikacji                 │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │  💬 Widoczność modułu Czat                                             │  │
-│  │  ──────────────────────────────────────────────────────────────────    │  │
-│  │  Kontroluj, które role widzą moduł "Czat" w pasku bocznym              │  │
-│  │                                                                        │  │
-│  │   ┌────────────┬────────────────────────────────┬───────────────────┐  │  │
-│  │   │   Rola     │        Opis                    │    Widoczność     │  │  │
-│  │   ├────────────┼────────────────────────────────┼───────────────────┤  │  │
-│  │   │ Admin      │ Administratorzy                │    [🟢 ON ]       │  │  │
-│  │   │ Partner    │ Partnerzy                      │    [🟢 ON ]       │  │  │
-│  │   │ Specjalista│ Specjaliści                    │    [🟢 ON ]       │  │  │
-│  │   │ Klient     │ Klienci                        │    [⚪ OFF]       │  │  │
-│  │   └────────────┴────────────────────────────────┴───────────────────┘  │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-│                                                                              │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │  📧 Kierunki komunikacji (istniejące)                                  │  │
-│  │  ──────────────────────────────────────────────────────────────────    │  │
-│  │  ...                                                                   │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+W pliku `PartnerMeetingBooking.tsx` funkcja `parse()` parsuje czas lidera jako czas lokalny przeglądarki użytkownika rezerwującego, zamiast jako czas w strefie lidera.
+
+```
+Lider ustawia: 21:00 CET (Europe/Warsaw)
+Marcin w Anglii widzi: 21:00 (powinno być 20:00 GMT)
+Zapis do bazy: 21:00 GMT → 22:00 CET (błąd!)
 ```
 
-## Architektura rozwiązania
+## Proponowane rozwiązanie
 
-### Baza danych
+### Część 1: Naprawa konwersji stref czasowych (krytyczne)
 
-**Nowa tabela: `chat_sidebar_visibility`**
+Poprawić logikę w `PartnerMeetingBooking.tsx`:
 
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | uuid | Klucz główny |
-| visible_to_admin | boolean | Widoczność dla administratorów (default: true) |
-| visible_to_partner | boolean | Widoczność dla partnerów (default: true) |
-| visible_to_specjalista | boolean | Widoczność dla specjalistów (default: true) |
-| visible_to_client | boolean | Widoczność dla klientów (default: true) |
-| created_at | timestamp | Data utworzenia |
-| updated_at | timestamp | Data aktualizacji |
+1. **Wyświetlanie slotów** - użyć `fromZonedTime` do prawidłowej konwersji:
+   ```
+   Czas lidera (21:00 CET) → UTC → Czas użytkownika (20:00 GMT)
+   ```
 
-Tabela będzie zawierać tylko jeden wiersz (singleton pattern) - tak jak `organization_tree_settings`.
+2. **Zapis spotkania** - konwertować czas lidera do UTC przed zapisem:
+   ```
+   Czas lidera (21:00 CET) → fromZonedTime(leaderTimezone) → UTC ISO
+   ```
 
-### Komponenty do modyfikacji
+### Część 2: Wybór strefy czasowej przez użytkownika
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/ChatPermissionsManagement.tsx` | Dodanie sekcji "Widoczność modułu Czat" na górze z 4 przełącznikami per rola |
-| `src/components/dashboard/DashboardSidebar.tsx` | Dodanie sprawdzenia widoczności przed wyświetleniem pozycji "Czat" |
+Aby zapobiec przyszłym problemom i dać użytkownikom kontrolę:
 
-### Nowy hook
+**Dla lidera (ustawienia spotkań):**
+- Dodać widoczny selektor strefy czasowej w formularzu ustawień
+- Zapisywać wybraną strefę w `leader_permissions.timezone`
+- Domyślnie: `Europe/Warsaw` lub automatycznie wykryta
 
-**`src/hooks/useChatSidebarVisibility.ts`**
+**Dla użytkownika rezerwującego:**
+- Wyświetlić WIDOCZNĄ informację o strefie czasowej lidera
+- Pokazać konwersję czasu: "21:00 u lidera (CET) = 20:00 Twój czas (GMT)"
+- Opcjonalnie: selektor własnej strefy czasowej z automatycznym wykryciem
 
-Hook do pobierania ustawień widoczności czatu w sidebarze:
-```typescript
-export const useChatSidebarVisibility = () => {
-  // Pobiera ustawienia z tabeli chat_sidebar_visibility
-  // Zwraca { isVisibleForRole: (role: string) => boolean, loading }
-}
+### Część 3: Wizualna prezentacja (opcjonalne)
+
+Na etapie potwierdzenia rezerwacji pokazać:
+```
+┌─────────────────────────────────────────┐
+│  📅 Potwierdzenie rezerwacji            │
+│                                         │
+│  Czas u lidera:    21:00 CET            │
+│  Twój czas:        20:00 GMT            │
+│                                         │
+│  Partner: Dawid Kowalczyk               │
+│  Data: 30 stycznia 2026                 │
+└─────────────────────────────────────────┘
 ```
 
-## Szczegóły implementacji
+## Zmiany w plikach
 
-### Krok 1: Migracja bazy danych
+### Plik 1: `src/components/events/PartnerMeetingBooking.tsx`
 
+**Naprawa wyświetlania slotów (funkcja loadAvailableSlots):**
+- Zmienić sposób konwersji z czasu lidera do czasu użytkownika
+- Użyć `fromZonedTime` do prawidłowej interpretacji czasu lidera
+
+**Naprawa zapisu spotkania (funkcja handleBookMeeting):**
+- Użyć `fromZonedTime(leaderTimezone)` zamiast `parse()` dla czasu lidera
+- Zapewnić, że czas zapisywany w bazie jest poprawnym UTC
+
+**Dodanie widocznej informacji o strefie:**
+- W kroku wyboru godziny pokazać "Godziny lidera (CET)" i "Twój czas (GMT)"
+- Na etapie potwierdzenia pokazać obie godziny wyraźnie
+
+### Plik 2: `src/components/events/IndividualMeetingForm.tsx` (opcjonalne)
+
+**Dodanie selektora strefy czasowej dla lidera:**
+- Komponent `Select` z popularnymi strefami czasowymi
+- Zapisywanie do `leader_permissions.timezone` lub `leader_availability.timezone`
+
+### Plik 3: Migracja bazy danych (opcjonalne)
+
+Dodać kolumnę `timezone` do `leader_permissions` jeśli nie istnieje:
 ```sql
-CREATE TABLE chat_sidebar_visibility (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  visible_to_admin boolean NOT NULL DEFAULT true,
-  visible_to_partner boolean NOT NULL DEFAULT true,
-  visible_to_specjalista boolean NOT NULL DEFAULT true,
-  visible_to_client boolean NOT NULL DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
--- Wstaw domyślny wiersz
-INSERT INTO chat_sidebar_visibility (id) VALUES (gen_random_uuid());
-
--- RLS policies
-ALTER TABLE chat_sidebar_visibility ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Authenticated users can read" ON chat_sidebar_visibility
-  FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Only admins can update" ON chat_sidebar_visibility
-  FOR UPDATE TO authenticated USING (
-    EXISTS (
-      SELECT 1 FROM user_roles 
-      WHERE user_id = auth.uid() AND role = 'admin'
-    )
-  );
+ALTER TABLE leader_permissions 
+ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Warsaw';
 ```
 
-### Krok 2: Aktualizacja ChatPermissionsManagement.tsx
+## Priorytety implementacji
 
-Dodanie nowej sekcji na górze komponentu:
+| Priorytet | Element | Opis |
+|-----------|---------|------|
+| 🔴 Krytyczny | Naprawa konwersji | Poprawić `parse()` → `fromZonedTime()` |
+| 🟡 Ważny | Widoczność stref | Pokazać obie godziny przy rezerwacji |
+| 🟢 Opcjonalny | Selektor strefy | Dać liderowi wybór strefy czasowej |
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  💬 Widoczność modułu Czat                                              │
-│  ─────────────────────────────────────────────────────────────────────  │
-│  Określ, które role widzą pozycję "Czat" w menu bocznym                 │
-│                                                                         │
-│  ┌─────────────────┬─────────────────────────────────────────────────┐  │
-│  │  Administrator  │  [🟢 Switch] Administratorzy widzą moduł Czat   │  │
-│  │  Partner        │  [🟢 Switch] Partnerzy widzą moduł Czat         │  │
-│  │  Specjalista    │  [🟢 Switch] Specjaliści widzą moduł Czat       │  │
-│  │  Klient         │  [🟢 Switch] Klienci widzą moduł Czat           │  │
-│  └─────────────────┴─────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+## Korzyści
 
-### Krok 3: Modyfikacja DashboardSidebar.tsx
-
-W sekcji `useEffect` - dodanie pobierania ustawień widoczności czatu:
-
-```typescript
-// Existing visibility fetch
-const [chatVisible, setChatVisible] = useState(true);
-
-useEffect(() => {
-  const fetchChatVisibility = async () => {
-    const { data } = await supabase
-      .from('chat_sidebar_visibility')
-      .select('*')
-      .limit(1)
-      .single();
-      
-    if (data) {
-      const role = userRole?.role?.toLowerCase();
-      const visible = 
-        (role === 'admin' && data.visible_to_admin) ||
-        (role === 'partner' && data.visible_to_partner) ||
-        (role === 'specjalista' && data.visible_to_specjalista) ||
-        (role === 'client' && data.visible_to_client);
-      setChatVisible(visible);
-    }
-  };
-  
-  if (userRole) {
-    fetchChatVisibility();
-  }
-}, [userRole]);
-```
-
-W filtrze `visibleMenuItems`:
-
-```typescript
-// Dodanie warunku dla chat
-if (item.id === 'chat' && !chatVisible) {
-  return false;
-}
-```
-
-## Pliki do utworzenia
-
-| Plik | Opis |
-|------|------|
-| Migracja SQL | Tabela `chat_sidebar_visibility` z RLS |
-
-## Pliki do modyfikacji
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/ChatPermissionsManagement.tsx` | Nowa sekcja "Widoczność modułu Czat" z 4 przełącznikami |
-| `src/components/dashboard/DashboardSidebar.tsx` | Pobieranie i sprawdzanie widoczności przed wyświetleniem "Czat" |
-| `src/integrations/supabase/types.ts` | Automatycznie zaktualizowane przez migrację |
-
-## Flow użytkownika
-
-1. Admin otwiera Panel CMS → Komunikacja → Kierunki komunikacji
-2. Na górze widzi nową sekcję "Widoczność modułu Czat"
-3. Może wyłączyć/włączyć widoczność dla każdej roli osobno
-4. Po wyłączeniu np. dla "Klient" - klienci nie widzą pozycji "Czat" w menu bocznym
-5. Zmiana jest natychmiastowa (po odświeżeniu strony przez użytkownika)
-
-## Zgodność z zasadami projektu
-
-- **Brak elementu = niewidoczność**: Gdy wyłączone - pozycja "Czat" po prostu nie renderuje się (nie jest wyszarzona ani ukryta)
-- **Hierarchia ról zachowana**: Ta funkcja kontroluje tylko widoczność modułu w menu, nie wpływa na istniejące uprawnienia komunikacyjne
-- **Wzorzec singleton**: Jedna tabela, jeden wiersz - jak w `organization_tree_settings`
-
+1. **Poprawna synchronizacja** - spotkania będą zapisywane w prawidłowym czasie UTC
+2. **Przejrzystość** - użytkownicy widzą konwersję czasu między strefami
+3. **Bezpieczeństwo** - automatyczne wykrywanie strefy z opcją ręcznej zmiany
+4. **Zgodność z Google Calendar** - wydarzenia będą się poprawnie synchronizować
