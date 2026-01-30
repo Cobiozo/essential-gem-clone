@@ -1,208 +1,160 @@
 
-# Plan: Rozszerzone wyświetlanie i wybór stref czasowych w panelu potwierdzenia
+# Plan: Obsługa stref czasowych dla wydarzeń publicznych (webinary, spotkania zespołu)
 
 ## Problem
 
-Panel potwierdzenia rezerwacji spotkania nie pokazuje informacji o strefach czasowych, ponieważ:
+Gdy admin tworzy wydarzenie (np. "O!Mega Chill" o 10:00 czasu polskiego), użytkownik w Anglii lub USA widzi tę samą godzinę 10:00-11:00 bez informacji o strefie czasowej. Prowadzi to do nieporozumień - użytkownik z Los Angeles (PST) może myśleć, że spotkanie jest o 10:00 jego czasu, podczas gdy w rzeczywistości jest to 10:00 CET (czyli 01:00 PST).
 
-1. **Warunek ukrycia** - sekcja ze strefami czasowymi jest widoczna TYLKO gdy wykryta strefa czasowa użytkownika różni się od strefy lidera
-2. **Brak selektora** - użytkownik nie może ręcznie wybrać swojej strefy czasowej (np. gdy podróżuje lub chce sprawdzić czas dla innej lokalizacji)
-3. **Automatyczne wykrywanie** - system używa `Intl.DateTimeFormat().resolvedOptions().timeZone` który zwraca lokalną strefę przeglądarki
-
-**Aktualny warunek (linie 959-973):**
-```typescript
-{selectedSlot.leaderTimezone && userTimezone !== selectedSlot.leaderTimezone && (
-  // Sekcja ze strefami - widoczna TYLKO gdy strefy się różnią
-)}
-```
+**Obecna sytuacja:**
+- Tabela `events` ma kolumnę `timezone` (TEXT), ale nie jest ona używana
+- Formularze tworzenia wydarzeń nie pozwalają ustawić strefy czasowej
+- Wyświetlanie godzin nie zawiera informacji o strefie czasowej
+- Brak przeliczania czasu dla użytkowników w innych strefach
 
 ## Proponowane rozwiązanie
 
-### Część 1: Zawsze widoczna sekcja stref czasowych
+### Część 1: Zapisywanie strefy czasowej przy tworzeniu wydarzenia
 
-Usunąć warunek `userTimezone !== selectedSlot.leaderTimezone` - sekcja będzie zawsze widoczna gdy istnieje `leaderTimezone`.
+**Formularze admina (WebinarForm.tsx, TeamTrainingForm.tsx):**
+- Dodać selektor strefy czasowej z domyślną wartością `Europe/Warsaw`
+- Zapisywać wybraną strefę w kolumnie `events.timezone`
+- Informacja wizualna przy polu daty/godziny: "Czas w strefie: Europe/Warsaw"
 
-**Przed:**
-```text
-┌───────────────────────────────────────────────────────┐
-│  Dawid Kowalczyk                                      │
-│  📅 2 lutego 2026                                     │
-│  🕐 16:00 (60 min)                                    │
-│  📹 Zoom                                              │
-│                                                       │
-│  [Potwierdź rezerwację]                              │
-└───────────────────────────────────────────────────────┘
+### Część 2: Wyświetlanie z oznaczeniem strefy (minimalne)
+
+Na listach wydarzeń i w kalendarzu pokazać oznaczenie strefy przy czasie:
+
+```
+Przed:  10:00 - 11:00
+Po:     10:00 - 11:00 (PL)
 ```
 
-**Po:**
-```text
-┌───────────────────────────────────────────────────────┐
-│  Dawid Kowalczyk                                      │
-│  📅 2 lutego 2026                                     │
-│  🕐 16:00 (60 min)                                    │
-│                                                       │
-│  ┌─────────────────────────────────────────────────┐  │
-│  │ 🌍 Strefy czasowe                               │  │
-│  │                                                 │  │
-│  │ Twoja strefa: [Europe/Warsaw      ▾]           │  │
-│  │ Twój czas:    16:00 (Warsaw)                   │  │
-│  │                                                 │  │
-│  │ Czas lidera:  16:00 (Warsaw) ✓ Te same strefy  │  │
-│  └─────────────────────────────────────────────────┘  │
-│                                                       │
-│  📹 Zoom                                              │
-│  [Potwierdź rezerwację]                              │
-└───────────────────────────────────────────────────────┘
+Gdzie "(PL)" to skrót od Europe/Warsaw. Podobnie "(UK)" dla Europe/London, "(NY)" dla America/New_York itd.
+
+### Część 3: Szczegóły wydarzenia z dwoma czasami
+
+W dialogu szczegółów (EventDetailsDialog.tsx) i rozwiniętym widoku karty (EventCardCompact.tsx) pokazać oba czasy gdy strefa użytkownika różni się od strefy wydarzenia:
+
 ```
-
-### Część 2: Selektor strefy czasowej użytkownika
-
-Dodać rozwijany selektor z popularnymi strefami czasowymi, który pozwala użytkownikowi:
-- Zobaczyć automatycznie wykrytą strefę (domyślnie)
-- Zmienić na inną strefę (np. gdy podróżuje)
-- Dynamicznie przeliczać wyświetlany czas
-
-**Lista stref czasowych:**
-- Europe/Warsaw (CET) - domyślna dla PL
-- Europe/London (GMT)
-- Europe/Berlin (CET)
-- Europe/Paris (CET)
-- America/New_York (EST)
-- America/Los_Angeles (PST)
-- Asia/Tokyo (JST)
-- UTC
-
-### Część 3: Dynamiczne przeliczanie czasu
-
-Gdy użytkownik zmieni swoją strefę czasową:
-1. Czas lidera pozostaje stały (np. 16:00 CET)
-2. Wyświetlany "Twój czas" jest przeliczany dynamicznie
-3. Wizualna informacja gdy strefy są różne vs identyczne
-
-**Przykład różnych stref:**
-```text
 ┌─────────────────────────────────────────────────────┐
-│ 🌍 Strefy czasowe                                   │
+│ 🕐 Czas wydarzenia                                  │
 │                                                     │
-│ Twoja strefa: [Europe/London      ▾]               │
-│ Twój czas:    15:00 (London)                       │
+│ Czas oryginalny:  10:00 - 11:00 (Polska, CET)       │
+│ Twój czas:        09:00 - 10:00 (Wielka Brytania)   │
 │                                                     │
-│ Czas lidera:  16:00 (Warsaw)                       │
-│ ⚠️ Różnica: -1 godzina                             │
+│ lub gdy strefy są takie same:                       │
+│ 10:00 - 11:00 (Polska, CET) ✓ Twoja strefa          │
 └─────────────────────────────────────────────────────┘
 ```
 
+### Część 4: Widget kalendarza i "Moje spotkania"
+
+**CalendarWidget.tsx:**
+- Przy wyświetlaniu godziny dodać skrót strefy: `10:00 - 11:00 (PL)`
+- W rozwiniętej sekcji dnia pokazać konwersję jeśli strefa różna
+
+**MyMeetingsWidget.tsx:**
+- Format godziny: `31 sty 10:00 (PL)` zamiast `31 sty 10:00`
+
 ## Zmiany w plikach
 
-### Plik: `src/components/events/PartnerMeetingBooking.tsx`
+### 1. Formularze tworzenia wydarzeń
 
-**1. Dodać stan do przechowywania wybranej strefy użytkownika (po linii 77):**
+**src/components/admin/WebinarForm.tsx:**
+- Dodać stan `timezone` z domyślną wartością `Europe/Warsaw`
+- Dodać selektor strefy czasowej obok pola daty/godziny
+- Zapisywać do bazy przy tworzeniu/edycji
+
+**src/components/admin/TeamTrainingForm.tsx:**
+- Analogiczne zmiany jak w WebinarForm
+
+### 2. Nowy helper do formatowania stref czasowych
+
+**src/lib/timezone-utils.ts (nowy plik):**
 ```typescript
-const [selectedUserTimezone, setSelectedUserTimezone] = useState<string>(
-  Intl.DateTimeFormat().resolvedOptions().timeZone
-);
+// Mapowanie stref na czytelne skróty
+const TIMEZONE_LABELS: Record<string, { short: string; full: string }> = {
+  'Europe/Warsaw': { short: 'PL', full: 'Polska (CET)' },
+  'Europe/London': { short: 'UK', full: 'Wielka Brytania (GMT)' },
+  'Europe/Berlin': { short: 'DE', full: 'Niemcy (CET)' },
+  'America/New_York': { short: 'NY', full: 'Nowy Jork (EST)' },
+  'America/Los_Angeles': { short: 'LA', full: 'Los Angeles (PST)' },
+  // ...
+};
+
+// Funkcja konwertująca czas z jednej strefy do drugiej
+export function convertEventTime(
+  eventTime: Date, 
+  eventTimezone: string, 
+  userTimezone: string
+): Date;
+
+// Funkcja formatująca czas z etykietą strefy
+export function formatTimeWithTimezone(
+  time: Date, 
+  timezone: string,
+  format: 'short' | 'full'
+): string;
+
+// Sprawdzenie czy strefy są różne
+export function areTimezonesEqual(tz1: string, tz2: string): boolean;
 ```
 
-**2. Dodać listę popularnych stref czasowych:**
-```typescript
-const TIMEZONE_OPTIONS = [
-  { value: 'Europe/Warsaw', label: 'Polska (CET)' },
-  { value: 'Europe/London', label: 'Wielka Brytania (GMT)' },
-  { value: 'Europe/Berlin', label: 'Niemcy (CET)' },
-  { value: 'Europe/Paris', label: 'Francja (CET)' },
-  { value: 'America/New_York', label: 'Nowy Jork (EST)' },
-  { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
-  { value: 'UTC', label: 'UTC' },
-];
-```
+### 3. Komponenty wyświetlające wydarzenia
 
-**3. Dodać funkcję obliczającą przeliczony czas użytkownika:**
+**src/components/events/EventCardCompact.tsx:**
+- Import helpera timezone-utils
+- Pobierać `event.timezone` (domyślnie `Europe/Warsaw` jeśli brak)
+- W wyświetlaniu godzin dodać etykietę: `{format(..., 'HH:mm')} ({getTimezoneLabel(event.timezone)})`
+- W rozwiniętym widoku pokazać sekcję z konwersją stref jeśli różne
+
+**src/components/events/EventDetailsDialog.tsx:**
+- Dodać sekcję "Strefy czasowe" pod datą/godziną
+- Pokazać czas oryginalny (strefa wydarzenia) i czas użytkownika (strefa przeglądarki)
+- Wizualne wyróżnienie gdy strefy są różne
+
+**src/components/dashboard/widgets/CalendarWidget.tsx:**
+- Przy formacie godziny dodać skrót strefy
+- W rozwiniętych eventach pokazać konwersję
+
+**src/components/dashboard/widgets/MyMeetingsWidget.tsx:**
+- Dodać skrót strefy przy wyświetlanej godzinie
+
+### 4. Hook do wykrywania strefy użytkownika
+
+**src/hooks/useUserTimezone.ts (nowy plik):**
 ```typescript
-const calculateUserTime = useMemo(() => {
-  if (!selectedSlot?.leaderTime || !selectedSlot?.leaderTimezone) return null;
+export function useUserTimezone() {
+  // Automatyczne wykrywanie strefy przeglądarki
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   
-  try {
-    const leaderDateTime = parse(
-      `${selectedSlot.date} ${selectedSlot.leaderTime}`, 
-      'yyyy-MM-dd HH:mm', 
-      new Date()
-    );
-    const utcDateTime = fromZonedTime(leaderDateTime, selectedSlot.leaderTimezone);
-    return formatInTimeZone(utcDateTime, selectedUserTimezone, 'HH:mm');
-  } catch (e) {
-    return selectedSlot.time;
-  }
-}, [selectedSlot, selectedUserTimezone]);
-```
-
-**4. Zamienić warunkową sekcję stref (linie 959-973) na zawsze widoczną:**
-```typescript
-{selectedSlot.leaderTimezone && (
-  <div className="bg-muted/50 rounded-lg p-3 space-y-3">
-    <div className="flex items-center gap-2 text-sm font-medium">
-      <Globe className="h-4 w-4 text-primary" />
-      <span>Strefy czasowe</span>
-    </div>
-    
-    {/* Selektor strefy użytkownika */}
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Twoja strefa:</span>
-      <Select value={selectedUserTimezone} onValueChange={setSelectedUserTimezone}>
-        <SelectTrigger className="w-[180px] h-8">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {TIMEZONE_OPTIONS.map(tz => (
-            <SelectItem key={tz.value} value={tz.value}>
-              {tz.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-    
-    {/* Wyświetlanie czasów */}
-    <div className="flex items-center gap-2 text-sm">
-      <Clock className="h-4 w-4 text-primary" />
-      <span className="font-medium">Twój czas: {calculateUserTime}</span>
-    </div>
-    
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Clock className="h-4 w-4" />
-      <span>Czas lidera: {selectedSlot.leaderTime}</span>
-      <span>({selectedSlot.leaderTimezone.split('/')[1]})</span>
-    </div>
-    
-    {selectedUserTimezone === selectedSlot.leaderTimezone && (
-      <div className="text-xs text-green-600">✓ Te same strefy czasowe</div>
-    )}
-    
-    {selectedUserTimezone !== selectedSlot.leaderTimezone && (
-      <div className="text-xs text-amber-600">⚠️ Różne strefy czasowe</div>
-    )}
-  </div>
-)}
-```
-
-## Dodatkowe importy
-
-Dodać import komponentów Select:
-```typescript
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+  // Możliwość ręcznego override
+  const [selectedTimezone, setSelectedTimezone] = useState(browserTimezone);
+  
+  return {
+    timezone: selectedTimezone,
+    setTimezone: setSelectedTimezone,
+    isAutoDetected: selectedTimezone === browserTimezone,
+  };
+}
 ```
 
 ## Podsumowanie zmian
 
-| Element | Przed | Po |
-|---------|-------|-----|
-| Widoczność sekcji stref | Tylko gdy strefy się różnią | Zawsze widoczna |
-| Wybór strefy użytkownika | Brak (automatyczne wykrywanie) | Selektor z popularnymi strefami |
-| Przeliczanie czasu | Statyczne | Dynamiczne po zmianie strefy |
-| Informacja o różnicy | Brak | Wizualna informacja gdy strefy różne |
+| Komponent | Zmiana |
+|-----------|--------|
+| WebinarForm | Selektor strefy przy tworzeniu |
+| TeamTrainingForm | Selektor strefy przy tworzeniu |
+| EventCardCompact | Etykieta (PL) przy godzinie, sekcja konwersji w detailach |
+| EventDetailsDialog | Sekcja stref z czasem oryginalnym i użytkownika |
+| CalendarWidget | Etykieta strefy przy godzinach wydarzeń |
+| MyMeetingsWidget | Etykieta strefy przy godzinach |
+| timezone-utils.ts | Nowy helper do konwersji i formatowania |
+| useUserTimezone.ts | Nowy hook do wykrywania strefy użytkownika |
 
 ## Korzyści
 
-1. **Przejrzystość** - użytkownik zawsze wie, w jakiej strefie czasowej jest ustalony termin
-2. **Elastyczność** - możliwość ręcznego ustawienia strefy (dla podróżujących)
-3. **Bezpieczeństwo** - dynamiczne przeliczanie zapobiega pomyłkom
-4. **Spójność UX** - informacja o strefach zawsze w tym samym miejscu
+1. **Jasność** - użytkownik zawsze wie, w której strefie czasowej jest wydarzenie
+2. **Automatyczna konwersja** - użytkownik widzi czas w swojej strefie
+3. **Spójność** - wszystkie komponenty używają tego samego systemu
+4. **Kompatybilność wsteczna** - istniejące wydarzenia bez `timezone` domyślnie używają `Europe/Warsaw`
