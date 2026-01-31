@@ -1,134 +1,247 @@
 
+# Plan: Naprawa problemów iPhone + UX w lekcjach wideo
 
-# Plan: Widoczność Eventów według ról + przycisk powrotu
+## Zidentyfikowane problemy ze screenshotów
 
-## Zidentyfikowane problemy
-
-### Problem 1: "Eventy" widoczne dla wszystkich ról
-Element `paid-events` w sidebarze jest wyświetlany wszystkim użytkownikom, mimo że w tabeli `paid_events_settings` administrator ustawił:
-- `visible_to_admin: true` ✓
-- `visible_to_partner: false` ✗
-- `visible_to_specjalista: false` ✗
-- `visible_to_client: false` ✗
-
-**Przyczyna:** W `DashboardSidebar.tsx` (linia 308) element jest dodany bez żadnego sprawdzenia widoczności - brak analogicznego mechanizmu jak dla `chat` (hook `useChatSidebarVisibility`).
-
-### Problem 2: Brak przycisku powrotu na stronie wydarzenia
-Na stronie szczegółów wydarzenia (`/paid-events/:slug`) brakuje przycisku powrotu w lewym górnym rogu, który pozwoliłby wrócić na stronę główną.
+| # | Screenshot | Problem | Przyczyna |
+|---|------------|---------|-----------|
+| 1 | 169, 170 | Spinner "Ładowanie..." wyświetla się mimo że wideo gra (5:01/18:43) | `isBuffering=true` pozostaje aktywne nawet gdy wideo odtwarza się normalnie - brak timeoutu na ukrycie spinnera |
+| 2 | 171 | Zapis obrazu do "Pliki" zamiast galerii | Brak implementacji Web Share API dla iOS |
+| 3 | 172 | Sidebar może nie reagować na dotyk na iOS | Brak `touch-action: manipulation` eliminującego 300ms delay |
+| 4 | 173 | Nagłówek "Strona główna" ucięty, elementy przepełniają ekran | Brak `overflow-hidden` i `flex-shrink` w nawigacji mobilnej |
+| 5 | 169, 170 | Wideo ma `max-h-96` (384px) co ogranicza widoczność | Zbyt restrykcyjna maksymalna wysokość na mobile |
 
 ---
 
-## Rozwiązanie
+## Rozwiązania techniczne
 
-### Część 1: Hook widoczności dla paid-events
+### 1. Spinner "Ładowanie..." - timeout wymuszający ukrycie
 
-Utworzyć nowy hook `usePaidEventsVisibility.ts` wzorowany na istniejącym `useChatSidebarVisibility.ts`:
+**Problem:** Spinner pozostaje widoczny mimo że wideo gra (widać pasek postępu 5:01/18:43).
 
-| Plik | Opis |
-|------|------|
-| `src/hooks/usePaidEventsVisibility.ts` | **Nowy plik** - pobiera ustawienia z `paid_events_settings` |
+**Rozwiązanie:** Dodać timeout 3 sekundy od rozpoczęcia odtwarzania - jeśli wideo gra, ukryj spinner niezależnie od `isBuffering` state.
 
-**Struktura hooka:**
+**Plik:** `src/components/SecureMedia.tsx`
+
 ```typescript
-interface PaidEventsVisibility {
-  is_enabled: boolean;
-  visible_to_admin: boolean;
-  visible_to_partner: boolean;
-  visible_to_specjalista: boolean;
-  visible_to_client: boolean;
-}
+// Nowy state i ref:
+const [forceHideBuffering, setForceHideBuffering] = useState(false);
+const playStartTimeRef = useRef<number | null>(null);
 
-export const usePaidEventsVisibility = () => {
-  return useQuery({
-    queryKey: ['paid-events-visibility'],
-    queryFn: async () => {
-      // Pobiera z paid_events_settings
-    },
-    staleTime: 1000 * 60 * 5, // 5 minut cache
-  });
+// W handlePlay():
+const handlePlay = () => {
+  setIsPlaying(true);
+  onPlayStateChangeRef.current?.(true);
+  
+  // Start timer to force-hide buffering after 3s of playback
+  playStartTimeRef.current = Date.now();
+  setTimeout(() => {
+    if (playStartTimeRef.current && Date.now() - playStartTimeRef.current >= 2900) {
+      setForceHideBuffering(true);
+    }
+  }, 3000);
 };
 
-export const isRoleVisibleForPaidEvents = (
-  visibility: PaidEventsVisibility | undefined,
-  role: string | undefined
-): boolean => {
-  // Sprawdza czy dana rola ma dostęp
+// W handlePause():
+const handlePause = () => {
+  setIsPlaying(false);
+  playStartTimeRef.current = null;
+  setForceHideBuffering(false);
+  // ... reszta
 };
+
+// W JSX - zmienić warunek wyświetlania spinnera:
+{isBuffering && !forceHideBuffering && (
+  <div className="absolute inset-0 ...">
+    ...
+  </div>
+)}
 ```
 
-### Część 2: Filtrowanie w sidebarze
+**Lokalizacje zmian:**
+- Linia ~88: Dodać nowe stany
+- Linia ~813: Zmodyfikować `handlePlay`
+- Linia ~823: Zmodyfikować `handlePause`
+- Linie ~1177, ~1266: Zmienić warunek renderowania spinnera
 
-W pliku `src/components/dashboard/DashboardSidebar.tsx`:
+---
 
-1. **Import hooka** (linia ~59):
+### 2. Zapis obrazu do galerii na iOS (Web Share API)
+
+**Problem:** Na iOS obraz zapisuje się do "Pliki" zamiast do galerii zdjęć.
+
+**Rozwiązanie:** Utworzyć helper `imageShareUtils.ts` i zaktualizować `GalleryElement.tsx` z przyciskiem "Zapisz do galerii".
+
+**Nowy plik:** `src/lib/imageShareUtils.ts`
+
 ```typescript
-import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
-```
+export const isIOSDevice = (): boolean => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+};
 
-2. **Wywołanie hooka** (po linii ~131):
-```typescript
-const { data: paidEventsVisibility } = usePaidEventsVisibility();
-```
+export const canUseWebShare = (): boolean => {
+  return 'share' in navigator && 'canShare' in navigator;
+};
 
-3. **Dodanie warunku filtrowania** (w `visibleMenuItems`, po linii ~422):
-```typescript
-// Check paid-events visibility based on role settings
-if (item.id === 'paid-events') {
-  if (!isRoleVisibleForPaidEvents(paidEventsVisibility, userRole?.role)) {
+export const shareOrDownloadImage = async (
+  imageUrl: string,
+  fileName: string = 'image.jpg'
+): Promise<boolean> => {
+  try {
+    if (canUseWebShare() && isIOSDevice()) {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: blob.type });
+      
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Zapisz obraz' });
+        return true;
+      }
+    }
+    
+    // Fallback - standardowe pobieranie
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = fileName;
+    link.click();
+    return true;
+  } catch (error) {
+    console.error('Share/download failed:', error);
     return false;
   }
-}
+};
 ```
 
-### Część 3: Przycisk powrotu na stronie wydarzenia
+**Plik:** `src/components/elements/GalleryElement.tsx`
 
-W pliku `src/components/paid-events/public/PaidEventHero.tsx`:
-
-Dodać przycisk powrotu w lewym górnym rogu, nad badge'ami:
-
+Dodać przycisk w dialogu powiększonego obrazu:
 ```tsx
-import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { shareOrDownloadImage, isIOSDevice } from '@/lib/imageShareUtils';
+import { Download, Share2 } from 'lucide-react';
 
-// W komponencie:
-const navigate = useNavigate();
-
-// W JSX (przed badges, linia ~59):
-<div className="mb-4">
+// W DialogContent, po obrazie:
+<div className="absolute top-4 right-4">
   <Button
-    variant="ghost"
+    variant="secondary"
     size="sm"
-    onClick={() => navigate('/')}
-    className="gap-2 text-muted-foreground hover:text-foreground"
+    onClick={() => shareOrDownloadImage(selectedImage.url, 'gallery-image.jpg')}
+    className="gap-2"
   >
-    <ArrowLeft className="w-4 h-4" />
-    Strona główna
+    {isIOSDevice() ? <Share2 className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+    {isIOSDevice() ? 'Zapisz' : 'Pobierz'}
   </Button>
 </div>
 ```
 
 ---
 
-## Zmiany w plikach
+### 3. Touch responsiveness na iOS (300ms delay fix)
 
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/usePaidEventsVisibility.ts` | **Nowy** - hook pobierający ustawienia widoczności |
-| `src/components/dashboard/DashboardSidebar.tsx` | Import + wywołanie hooka + warunek filtrowania |
-| `src/components/paid-events/public/PaidEventHero.tsx` | Dodanie przycisku powrotu w lewym górnym rogu |
+**Problem:** Sidebar i przyciski mogą nie reagować na dotyk na iOS Safari.
+
+**Rozwiązanie:** Dodać `touch-action: manipulation` do CSS i komponentu Sheet.
+
+**Plik:** `src/index.css` (dodać po linii 218)
+
+```css
+/* iOS Safari touch responsiveness - eliminacja 300ms delay */
+button,
+a,
+[role="button"],
+[data-sidebar],
+[data-sidebar-trigger],
+[data-state] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Lepsze zachowanie scroll na iOS */
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto,
+[data-radix-scroll-area-viewport] {
+  -webkit-overflow-scrolling: touch;
+}
+```
+
+**Plik:** `src/components/ui/sheet.tsx` (linia ~58)
+
+```tsx
+<SheetPrimitive.Content 
+  ref={ref} 
+  className={cn(sheetVariants({ side }), className)} 
+  style={{ touchAction: 'manipulation' }}
+  {...props}
+>
+```
+
+---
+
+### 4. Viewport i meta tagi dla iOS
+
+**Problem:** Rozdzielczość nie dopasowuje się do iPhone, elementy ucięte.
+
+**Rozwiązanie:** Zaktualizować meta tagi w `index.html`.
+
+**Plik:** `index.html` (linia 5)
+
+```html
+<!-- PRZED -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, viewport-fit=cover" />
+
+<!-- PO -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+
+<!-- Dodać po linii 5: -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="format-detection" content="telephone=no" />
+```
+
+---
+
+### 5. Responsywna wysokość wideo w lekcjach
+
+**Problem:** `max-h-96` (384px) ogranicza wysokość wideo, przez co na mobile jest za małe.
+
+**Rozwiązanie:** Zmienić na responsywną wysokość `max-h-[60vh]`.
+
+**Plik:** `src/pages/TrainingModule.tsx` (linia ~1314)
+
+```tsx
+// PRZED
+className="w-full max-h-96 object-contain"
+
+// PO  
+className="w-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
+```
+
+---
+
+## Podsumowanie zmian
+
+| Plik | Typ | Problem |
+|------|-----|---------|
+| `src/components/SecureMedia.tsx` | Edycja | #1 - Spinner timeout |
+| `src/lib/imageShareUtils.ts` | **Nowy** | #2 - iOS Web Share |
+| `src/components/elements/GalleryElement.tsx` | Edycja | #2 - Przycisk zapisz |
+| `src/index.css` | Edycja | #3 - Touch action |
+| `src/components/ui/sheet.tsx` | Edycja | #3 - Sheet touch |
+| `index.html` | Edycja | #4 - iOS meta tags |
+| `src/pages/TrainingModule.tsx` | Edycja | #5 - Responsywne wideo |
 
 ---
 
 ## Rezultat
 
-### Sidebar:
-- Element "Eventy" widoczny **tylko** dla ról z flagą `visible_to_[rola] = true`
-- Zmiana ustawień przez admina natychmiast (po 5 min lub odświeżeniu) aktualizuje sidebar
-- Partner/Specjalista/Klient nie widzą elementu jeśli admin wyłączył widoczność
+Po zmianach:
 
-### Strona wydarzenia:
-- W lewym górnym rogu widoczny przycisk "Strona główna" z ikoną strzałki
-- Kliknięcie przekierowuje na `/` (stronę główną)
-- Przycisk jest subtelny (ghost variant), nie przeszkadza w odbiorze treści
+1. **Spinner "Ładowanie..."** - ukrywa się automatycznie po 3 sekundach odtwarzania, nawet jeśli `isBuffering` błędnie pozostaje `true`
 
+2. **Zapis do galerii na iOS** - przycisk "Zapisz" w powiększonej galerii używa Web Share API, pokazując natywny iOS sheet z opcją "Save Image" bezpośrednio do Photos
+
+3. **Touch responsiveness** - eliminacja 300ms delay na iOS Safari przez `touch-action: manipulation`
+
+4. **Viewport iOS** - blokada zoom + meta tagi Apple dla lepszej integracji PWA
+
+5. **Wysokość wideo** - responsywna wysokość `50vh` na mobile, `60vh` na tablet, `70vh` na desktop zamiast stałych 384px
