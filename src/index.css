@@ -217,6 +217,25 @@ All colors MUST be HSL.
     }
   }
 
+  /* iOS Safari touch responsiveness - eliminacja 300ms delay */
+  button,
+  a,
+  [role="button"],
+  [data-sidebar],
+  [data-sidebar-trigger],
+  [data-state] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Lepsze zachowanie scroll na iOS */
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  [data-radix-scroll-area-viewport] {
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* Prevent text overflow on mobile */
   @media (max-width: 640px) {
     p, span, li, td, th {

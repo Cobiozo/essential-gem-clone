@@ -85,6 +85,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [duration, setDuration] = useState(0);
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [forceHideBuffering, setForceHideBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
   
@@ -119,6 +120,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const lastProgressTimeRef = useRef<number>(0);
   const bufferingTimeoutRef = useRef<NodeJS.Timeout>(); // NEW: Timeout for smart buffering delay
   const lastActivityEmitRef = useRef<number>(0); // Throttle video-activity events for inactivity timeout
+  const playStartTimeRef = useRef<number | null>(null); // NEW: Track when playback started (for force-hide buffering)
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1); // Playback speed for secure mode
   
@@ -388,6 +390,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     isSeekingRef.current = false;
     isBufferingRef.current = false;
     setIsBuffering(false);
+    setForceHideBuffering(false);
+    playStartTimeRef.current = null;
     setRetryCount(0); // Reset retry count on new video
     setHasExhaustedRetries(false); // Reset flagi wyczerpanych prób
     // NEW: Reset buffering states
@@ -814,6 +818,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setIsPlaying(true);
       onPlayStateChangeRef.current?.(true);
       
+      // NEW: Start timer to force-hide buffering spinner after 3s of playback
+      playStartTimeRef.current = Date.now();
+      setTimeout(() => {
+        if (playStartTimeRef.current && Date.now() - playStartTimeRef.current >= 2900) {
+          setForceHideBuffering(true);
+        }
+      }, 3000);
+      
       // Emit video-activity event to prevent auto-logout during video playback
       window.dispatchEvent(new CustomEvent('video-activity', { 
         detail: { type: 'play' } 
@@ -823,6 +835,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handlePause = () => {
       setIsPlaying(false);
       onPlayStateChangeRef.current?.(false);
+      
+      // NEW: Reset play timer and force-hide flag on pause
+      playStartTimeRef.current = null;
+      setForceHideBuffering(false);
       
       // CRITICAL: Save current position on pause for accurate progress tracking
       if (video) {
@@ -1174,7 +1190,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {isBuffering && (
+            {isBuffering && !forceHideBuffering && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
@@ -1263,7 +1279,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {isBuffering && !isSmartBuffering && (
+            {isBuffering && !isSmartBuffering && !forceHideBuffering && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
