@@ -151,30 +151,31 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                   <span>{formatInTimeZone(eventStart, eventTimezone, 'EEEE, d MMMM', { locale })}</span>
                 </div>
 
-                {/* Sekcja stref czasowych - ujednolicona jak w spotkaniach indywidualnych */}
-                {timezonesAreDifferent ? (
+                {/* ZAWSZE wyświetlamy stałą godzinę wydarzenia */}
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span>
+                    {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} - {formatInTimeZone(eventEnd, eventTimezone, 'HH:mm')} ({durationMinutes} min)
+                  </span>
+                </div>
+
+                {/* Ramka porównania - TYLKO gdy strefy różne */}
+                {timezonesAreDifferent && (
                   <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                     <div className="flex items-center gap-2 text-sm">
                       <Globe className="h-4 w-4 text-primary flex-shrink-0" />
                       <span className="font-medium">Twój czas:</span>
                       <span>
-                        {formatInTimeZone(eventStart, userTimezone, 'HH:mm')} ({getTimezoneAbbr(userTimezone)})
+                        {formatInTimeZone(eventStart, userTimezone, 'HH:mm')} ({userTimezone.split('/')[1]?.replace('_', ' ') || userTimezone})
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4 flex-shrink-0" />
                       <span>Czas wydarzenia:</span>
                       <span>
-                        {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} ({getTimezoneAbbr(eventTimezone)})
+                        {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} ({eventTimezone.split('/')[1]?.replace('_', ' ') || eventTimezone})
                       </span>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>
-                      {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} - {formatInTimeZone(eventEnd, eventTimezone, 'HH:mm')} ({durationMinutes} min)
-                    </span>
                   </div>
                 )}
 

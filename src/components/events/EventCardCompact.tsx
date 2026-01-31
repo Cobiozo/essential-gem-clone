@@ -562,7 +562,7 @@ Zapisz się tutaj: ${inviteUrl}
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>{format(startDate, 'HH:mm')}</span>
+              <span>{formatInTimeZone(startDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})</span>
             </div>
           </div>
 
@@ -596,7 +596,7 @@ Zapisz się tutaj: ${inviteUrl}
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
+                <span>{formatInTimeZone(startDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(endDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})</span>
               </div>
             </div>
 
