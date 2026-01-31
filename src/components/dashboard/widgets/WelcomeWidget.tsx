@@ -15,15 +15,15 @@ import {
 } from '@/components/ui/select';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { NewsTicker } from '@/components/news-ticker';
+import { COMMON_TIMEZONES, getTimezoneAbbr } from '@/utils/timezoneHelpers';
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
   const { t, language } = useLanguage();
   
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [selectedTimezone, setSelectedTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone
-  );
+  const [selectedTimezone, setSelectedTimezone] = useState(userTimezone);
 
   // Update time every second - pause when tab is hidden
   useEffect(() => {
@@ -63,20 +63,23 @@ export const WelcomeWidget: React.FC = () => {
     };
   }, []);
 
-  // Popular timezones
-  const timezones = useMemo(() => [
-    { value: 'Europe/Warsaw', label: 'Polska (CET)' },
-    { value: 'Europe/London', label: 'Londyn (GMT)' },
-    { value: 'Europe/Paris', label: 'Paryż (CET)' },
-    { value: 'Europe/Berlin', label: 'Berlin (CET)' },
-    { value: 'America/New_York', label: 'Nowy Jork (EST)' },
-    { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
-    { value: 'America/Chicago', label: 'Chicago (CST)' },
-    { value: 'Asia/Tokyo', label: 'Tokio (JST)' },
-    { value: 'Asia/Dubai', label: 'Dubaj (GST)' },
-    { value: 'Australia/Sydney', label: 'Sydney (AEDT)' },
-    { value: 'Pacific/Auckland', label: 'Auckland (NZDT)' },
-  ], []);
+  // Timezone list - use central COMMON_TIMEZONES, auto-add user's timezone if not in list
+  const timezones = useMemo(() => {
+    const userTzExists = COMMON_TIMEZONES.some(tz => tz.value === userTimezone);
+    
+    if (userTzExists) {
+      return COMMON_TIMEZONES;
+    }
+    
+    // Add user's timezone at the top
+    const cityName = userTimezone.split('/').pop()?.replace(/_/g, ' ') || userTimezone;
+    const abbr = getTimezoneAbbr(userTimezone);
+    
+    return [
+      { value: userTimezone, label: `${cityName} (${abbr})` },
+      ...COMMON_TIMEZONES
+    ];
+  }, [userTimezone]);
 
   const firstName = profile?.first_name || '';
   const now = new Date();

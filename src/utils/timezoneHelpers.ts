@@ -271,13 +271,19 @@ export const COMMON_TIMEZONES = [
   { value: 'Europe/Athens', label: 'Grecja (EET)' },
   { value: 'Europe/Moscow', label: 'Rosja (MSK)' },
   { value: 'Europe/Istanbul', label: 'Turcja (TRT)' },
-  // Americas
+  // Americas - USA
   { value: 'America/New_York', label: 'Nowy Jork (EST)' },
   { value: 'America/Chicago', label: 'Chicago (CST)' },
+  { value: 'America/Denver', label: 'Denver (MST)' },
+  { value: 'America/Phoenix', label: 'Arizona (MST)' },
   { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
+  { value: 'America/Anchorage', label: 'Alaska (AKST)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaje (HST)' },
+  // Americas - Canada
   { value: 'America/Toronto', label: 'Toronto (EST)' },
   { value: 'America/Vancouver', label: 'Vancouver (PST)' },
   { value: 'America/St_Johns', label: 'Nowa Fundlandia (NST)' },
+  // Americas - Other
   { value: 'America/Mexico_City', label: 'Meksyk (CST)' },
   { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
   { value: 'America/Buenos_Aires', label: 'Buenos Aires (ART)' },
