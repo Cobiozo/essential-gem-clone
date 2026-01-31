@@ -1,16 +1,24 @@
 import { useMemo } from 'react';
 import { parseISO, isBefore, isAfter, addMinutes, compareAsc } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 import type { EventOccurrence, ExpandedOccurrence, EventOccurrenceInfo } from '@/types/occurrences';
 import type { EventWithRegistration } from '@/types/events';
+import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
 /**
  * Parse occurrence to get start and end datetime
+ * Times are interpreted as being in the event's timezone (Warsaw), not the user's local timezone
  */
 export const parseOccurrence = (occurrence: EventOccurrence, index: number): ExpandedOccurrence => {
   const [year, month, day] = occurrence.date.split('-').map(Number);
   const [hours, minutes] = occurrence.time.split(':').map(Number);
   
-  const start_datetime = new Date(year, month - 1, day, hours, minutes);
+  // Create a Date object with the time components
+  const localDateTime = new Date(year, month - 1, day, hours, minutes);
+  
+  // Convert from event timezone (Warsaw) to UTC
+  // This ensures 10:00 Warsaw = 09:00 UTC, regardless of user's browser timezone
+  const start_datetime = fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE);
   const end_datetime = addMinutes(start_datetime, occurrence.duration_minutes);
   const now = new Date();
   
