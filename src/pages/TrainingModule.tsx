@@ -1311,7 +1311,7 @@ const TrainingModule = () => {
                       onTimeUpdate={handleVideoTimeUpdate}
                       onDurationChange={handleDurationChange}
                       initialTime={positionLoaded ? (progress[currentLesson?.id]?.video_position_seconds || 0) : 0}
-                      className="w-full max-h-96 object-contain"
+                      className="w-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
                       noteMarkers={noteMarkers}
                       onNoteMarkerClick={handleNoteMarkerClick}
                       seekToTimeRef={seekToTimeRef}
