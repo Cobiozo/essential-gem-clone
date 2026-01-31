@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,18 +25,6 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { PartnerWithAvailability } from '@/types/events';
-
-// Popular timezone options for user selection
-const TIMEZONE_OPTIONS = [
-  { value: 'Europe/Warsaw', label: 'Polska (CET)' },
-  { value: 'Europe/London', label: 'Wielka Brytania (GMT)' },
-  { value: 'Europe/Berlin', label: 'Niemcy (CET)' },
-  { value: 'Europe/Paris', label: 'Francja (CET)' },
-  { value: 'America/New_York', label: 'Nowy Jork (EST)' },
-  { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
-  { value: 'Asia/Tokyo', label: 'Tokio (JST)' },
-  { value: 'UTC', label: 'UTC' },
-];
 
 interface PartnerMeetingBookingProps {
   meetingType: 'tripartite' | 'consultation';
@@ -86,30 +73,8 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     image_url: string;
   } | null>(null);
   
-  // Get user's local timezone (auto-detected)
+  // Get user's local timezone
   const userTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
-  
-  // User-selectable timezone (defaults to auto-detected)
-  const [selectedUserTimezone, setSelectedUserTimezone] = useState<string>(
-    Intl.DateTimeFormat().resolvedOptions().timeZone
-  );
-  
-  // Calculate user time dynamically based on selected timezone
-  const calculateUserTime = useMemo(() => {
-    if (!selectedSlot?.leaderTime || !selectedSlot?.leaderTimezone) return null;
-    
-    try {
-      const leaderDateTime = parse(
-        `${selectedSlot.date} ${selectedSlot.leaderTime}`, 
-        'yyyy-MM-dd HH:mm', 
-        new Date()
-      );
-      const utcDateTime = fromZonedTime(leaderDateTime, selectedSlot.leaderTimezone);
-      return formatInTimeZone(utcDateTime, selectedUserTimezone, 'HH:mm');
-    } catch (e) {
-      return selectedSlot.time;
-    }
-  }, [selectedSlot, selectedUserTimezone]);
 
   // Load partners with enabled permissions and availability
   useEffect(() => {
@@ -991,50 +956,19 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
               <span className="text-muted-foreground">({selectedSlot.slot_duration_minutes} min)</span>
             </div>
             
-            {/* Always show timezone section when leader timezone is known */}
-            {selectedSlot.leaderTimezone && (
-              <div className="bg-muted/50 rounded-lg p-3 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Globe className="h-4 w-4 text-primary" />
-                  <span>Strefy czasowe</span>
-                </div>
-                
-                {/* User timezone selector */}
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Twoja strefa:</span>
-                  <Select value={selectedUserTimezone} onValueChange={setSelectedUserTimezone}>
-                    <SelectTrigger className="w-[180px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMEZONE_OPTIONS.map(tz => (
-                        <SelectItem key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* User time display */}
+            {/* Show both times when timezones differ */}
+            {selectedSlot.leaderTimezone && userTimezone !== selectedSlot.leaderTimezone && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                 <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Twój czas: {calculateUserTime || selectedSlot.time}</span>
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Twój czas:</span>
+                  <span>{selectedSlot.time} ({userTimezone.split('/')[1]?.replace('_', ' ') || userTimezone})</span>
                 </div>
-                
-                {/* Leader time display */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  <span>Czas lidera: {selectedSlot.leaderTime}</span>
-                  <span>({selectedSlot.leaderTimezone.split('/')[1]?.replace('_', ' ') || selectedSlot.leaderTimezone})</span>
+                  <span>Czas lidera:</span>
+                  <span>{selectedSlot.leaderTime} ({selectedSlot.leaderTimezone.split('/')[1]?.replace('_', ' ') || selectedSlot.leaderTimezone})</span>
                 </div>
-                
-                {/* Same/different timezone indicator */}
-                {selectedUserTimezone === selectedSlot.leaderTimezone ? (
-                  <div className="text-xs text-green-600 dark:text-green-400">✓ Te same strefy czasowe</div>
-                ) : (
-                  <div className="text-xs text-amber-600 dark:text-amber-400">⚠️ Różne strefy czasowe</div>
-                )}
               </div>
             )}
 

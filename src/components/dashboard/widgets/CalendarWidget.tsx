@@ -15,8 +15,6 @@ import type { EventWithRegistration, EventButton } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
-import { DEFAULT_EVENT_TIMEZONE, getTimezoneLabel } from '@/lib/timezone-utils';
-import { formatInTimeZone } from 'date-fns-tz';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -42,15 +40,13 @@ export const CalendarWidget: React.FC = () => {
   const handleCopyInvitation = (event: EventWithRegistration) => {
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
-    const eventTimezone = (event as any).timezone || DEFAULT_EVENT_TIMEZONE;
-    const tzLabel = getTimezoneLabel(eventTimezone, 'short');
     const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
     const invitationText = `
 🎥 Zaproszenie na webinar: ${event.title}
 
 📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - ${formatInTimeZone(endDate, eventTimezone, 'HH:mm')} (${tzLabel})
+⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
 ${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
 
 Zapisz się tutaj: ${inviteUrl}
@@ -385,8 +381,7 @@ Zapisz się tutaj: ${inviteUrl}
                     
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {formatInTimeZone(new Date(event.start_time), (event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(new Date(event.end_time), (event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')}
-                        <span className="ml-1">({getTimezoneLabel((event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'short')})</span>
+                        {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
                       </span>
                       <div className="flex items-center gap-1 flex-wrap justify-end">
                         <Button

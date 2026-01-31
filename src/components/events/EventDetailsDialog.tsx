@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,16 +15,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { EventWithRegistration } from '@/types/events';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  DEFAULT_EVENT_TIMEZONE, 
-  TIMEZONE_OPTIONS, 
-  getTimezoneLabel, 
-  areTimezonesEqual,
-  getBrowserTimezone,
-  formatTimeRangeWithTimezone
-} from '@/lib/timezone-utils';
-import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
 interface EventDetailsDialogProps {
   event: EventWithRegistration | null;
@@ -44,49 +34,6 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const { language } = useLanguage();
   const locale = language === 'pl' ? pl : enUS;
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
-  const [selectedUserTimezone, setSelectedUserTimezone] = useState<string>(getBrowserTimezone());
-
-  // Prepare data safely (can be null)
-  const eventStart = event ? new Date(event.start_time) : new Date();
-  const eventEnd = event ? new Date(event.end_time) : new Date();
-  const eventTimezone = (event as any)?.timezone || DEFAULT_EVENT_TIMEZONE;
-
-  // ALL useMemo hooks BEFORE conditional return - React Rules of Hooks
-  const userStartTime = useMemo(() => {
-    if (!event) return '';
-    try {
-      return formatInTimeZone(eventStart, selectedUserTimezone, 'HH:mm');
-    } catch {
-      return format(eventStart, 'HH:mm');
-    }
-  }, [event, eventStart, selectedUserTimezone]);
-  
-  const userEndTime = useMemo(() => {
-    if (!event) return '';
-    try {
-      return formatInTimeZone(eventEnd, selectedUserTimezone, 'HH:mm');
-    } catch {
-      return format(eventEnd, 'HH:mm');
-    }
-  }, [event, eventEnd, selectedUserTimezone]);
-  
-  const eventStartTimeFormatted = useMemo(() => {
-    if (!event) return '';
-    try {
-      return formatInTimeZone(eventStart, eventTimezone, 'HH:mm');
-    } catch {
-      return format(eventStart, 'HH:mm');
-    }
-  }, [event, eventStart, eventTimezone]);
-  
-  const eventEndTimeFormatted = useMemo(() => {
-    if (!event) return '';
-    try {
-      return formatInTimeZone(eventEnd, eventTimezone, 'HH:mm');
-    } catch {
-      return format(eventEnd, 'HH:mm');
-    }
-  }, [event, eventEnd, eventTimezone]);
 
   // Fetch zoom_link from leader_permissions if event doesn't have one
   useEffect(() => {
@@ -111,13 +58,13 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
     if (event) fetchDynamicZoomLink();
   }, [event]);
 
-  // Conditional return AFTER all hooks
   if (!event) return null;
 
+  const eventStart = new Date(event.start_time);
+  const eventEnd = new Date(event.end_time);
   const now = new Date();
   const fifteenMinutesBefore = subMinutes(eventStart, 15);
   const durationMinutes = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60));
-  const timezonesMatch = areTimezonesEqual(eventTimezone, selectedUserTimezone);
 
   // Use dynamic zoom link as fallback
   const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
@@ -200,8 +147,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span>
-                    {eventStartTimeFormatted} - {eventEndTimeFormatted} ({durationMinutes} min)
-                    <span className="ml-1 text-muted-foreground">({getTimezoneLabel(eventTimezone, 'short')})</span>
+                    {format(eventStart, 'HH:mm')} - {format(eventEnd, 'HH:mm')} ({durationMinutes} min)
                   </span>
                 </div>
 
@@ -233,62 +179,6 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 )}
               </div>
             </div>
-
-            {/* Timezone Section - always visible for public events */}
-            {(event.event_type === 'webinar' || event.event_type === 'team_training' || event.event_type === 'meeting_public') && (
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Globe className="h-4 w-4 text-primary" />
-                  <span>Strefy czasowe</span>
-                </div>
-                
-                {/* User timezone selector */}
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Twoja strefa:</span>
-                  <Select value={selectedUserTimezone} onValueChange={setSelectedUserTimezone}>
-                    <SelectTrigger className="w-[180px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMEZONE_OPTIONS.map(tz => (
-                        <SelectItem key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Display times */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span className="font-medium">
-                    Twój czas: {userStartTime} - {userEndTime}
-                  </span>
-                  <span className="text-muted-foreground">
-                    ({getTimezoneLabel(selectedUserTimezone, 'short')})
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>
-                    Czas wydarzenia: {eventStartTimeFormatted} - {eventEndTimeFormatted}
-                  </span>
-                  <span>({getTimezoneLabel(eventTimezone, 'short')})</span>
-                </div>
-                
-                {timezonesMatch ? (
-                  <div className="text-xs text-green-600 flex items-center gap-1">
-                    ✓ Te same strefy czasowe
-                  </div>
-                ) : (
-                  <div className="text-xs text-amber-600 flex items-center gap-1">
-                    ⚠️ Różne strefy czasowe
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* External platform banner */}
             {isExternalPlatform && !isEnded && (

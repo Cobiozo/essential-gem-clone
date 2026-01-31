@@ -1,149 +1,111 @@
 
-
-# Plan: Naprawa wyświetlania czasów wydarzeń w strefie czasowej wydarzenia
+# Plan: Naprawa synchronizacji stref czasowych w spotkaniach indywidualnych
 
 ## Problem
 
-Czasy wydarzeń są wyświetlane w strefie czasowej przeglądarki użytkownika zamiast w strefie czasowej w której admin utworzył wydarzenie.
+Spotkania indywidualne mają błędną obsługę stref czasowych. Gdy lider ustawia dostępność w CET (Polska), a użytkownik z innej strefy czasowej (np. Anglia GMT) rezerwuje spotkanie, dochodzi do rozbieżności godzin.
 
-**Obecne zachowanie (BŁĘDNE):**
-- Admin tworzy "O!Mega Chill" o 10:00 czasu polskiego (Europe/Warsaw)
-- W bazie zapisuje się jako UTC 09:00 (bo CET = UTC+1)
-- Użytkownik w Londynie (UTC+0) widzi czas jako 09:00 (jego lokalna strefa)
-- Użytkownik w LA (UTC-8) widzi czas jako 01:00 (jego lokalna strefa)
-
-**Oczekiwane zachowanie (POPRAWNE):**
-- Wszystkie wyświetlane czasy powinny pokazywać 10:00 (PL)
-- Czas oryginalny wydarzenia jest stały - to czas w strefie czasowej admina
-- W szczegółach można dodatkowo pokazać przeliczenie na lokalną strefę użytkownika
+**Przykład z dzisiejszego dnia:**
+- Lider Dawid Kowalczyk ustawił dostępność na 21:00 CET
+- Marcin Kipa (Anglia, GMT) zarezerwował "21:00" 
+- W kalendarzu lidera pojawiła się godzina 22:00 CET (błąd!)
 
 ## Przyczyna techniczna
 
-Funkcja `format(date, 'HH:mm')` z date-fns formatuje datę w **lokalnej strefie czasowej przeglądarki**. To jest źródło problemu.
+W pliku `PartnerMeetingBooking.tsx` funkcja `parse()` parsuje czas lidera jako czas lokalny przeglądarki użytkownika rezerwującego, zamiast jako czas w strefie lidera.
 
-**Kod powodujący problem (występuje w wielu miejscach):**
-```typescript
-// ŹLE - formatuje w strefie przeglądarki
-format(new Date(event.start_time), 'HH:mm')
-// Wynik: 01:00 (dla użytkownika w LA gdy event jest o 10:00 PL)
+```
+Lider ustawia: 21:00 CET (Europe/Warsaw)
+Marcin w Anglii widzi: 21:00 (powinno być 20:00 GMT)
+Zapis do bazy: 21:00 GMT → 22:00 CET (błąd!)
 ```
 
-**Poprawny kod:**
-```typescript
-// DOBRZE - formatuje w strefie czasowej wydarzenia
-formatInTimeZone(new Date(event.start_time), eventTimezone, 'HH:mm')
-// Wynik: 10:00 (zawsze, niezależnie od strefy przeglądarki)
+## Proponowane rozwiązanie
+
+### Część 1: Naprawa konwersji stref czasowych (krytyczne)
+
+Poprawić logikę w `PartnerMeetingBooking.tsx`:
+
+1. **Wyświetlanie slotów** - użyć `fromZonedTime` do prawidłowej konwersji:
+   ```
+   Czas lidera (21:00 CET) → UTC → Czas użytkownika (20:00 GMT)
+   ```
+
+2. **Zapis spotkania** - konwertować czas lidera do UTC przed zapisem:
+   ```
+   Czas lidera (21:00 CET) → fromZonedTime(leaderTimezone) → UTC ISO
+   ```
+
+### Część 2: Wybór strefy czasowej przez użytkownika
+
+Aby zapobiec przyszłym problemom i dać użytkownikom kontrolę:
+
+**Dla lidera (ustawienia spotkań):**
+- Dodać widoczny selektor strefy czasowej w formularzu ustawień
+- Zapisywać wybraną strefę w `leader_permissions.timezone`
+- Domyślnie: `Europe/Warsaw` lub automatycznie wykryta
+
+**Dla użytkownika rezerwującego:**
+- Wyświetlić WIDOCZNĄ informację o strefie czasowej lidera
+- Pokazać konwersję czasu: "21:00 u lidera (CET) = 20:00 Twój czas (GMT)"
+- Opcjonalnie: selektor własnej strefy czasowej z automatycznym wykryciem
+
+### Część 3: Wizualna prezentacja (opcjonalne)
+
+Na etapie potwierdzenia rezerwacji pokazać:
+```
+┌─────────────────────────────────────────┐
+│  📅 Potwierdzenie rezerwacji            │
+│                                         │
+│  Czas u lidera:    21:00 CET            │
+│  Twój czas:        20:00 GMT            │
+│                                         │
+│  Partner: Dawid Kowalczyk               │
+│  Data: 30 stycznia 2026                 │
+└─────────────────────────────────────────┘
 ```
 
-## Zmiany do wprowadzenia
+## Zmiany w plikach
 
-### 1. EventCardCompact.tsx
+### Plik 1: `src/components/events/PartnerMeetingBooking.tsx`
 
-**Linia 560** - nagłówek karty:
-```typescript
-// Przed:
-{format(startDate, 'HH:mm')}
+**Naprawa wyświetlania slotów (funkcja loadAvailableSlots):**
+- Zmienić sposób konwersji z czasu lidera do czasu użytkownika
+- Użyć `fromZonedTime` do prawidłowej interpretacji czasu lidera
 
-// Po:
-{formatInTimeZone(startDate, eventTimezone, 'HH:mm')}
+**Naprawa zapisu spotkania (funkcja handleBookMeeting):**
+- Użyć `fromZonedTime(leaderTimezone)` zamiast `parse()` dla czasu lidera
+- Zapewnić, że czas zapisywany w bazie jest poprawnym UTC
+
+**Dodanie widocznej informacji o strefie:**
+- W kroku wyboru godziny pokazać "Godziny lidera (CET)" i "Twój czas (GMT)"
+- Na etapie potwierdzenia pokazać obie godziny wyraźnie
+
+### Plik 2: `src/components/events/IndividualMeetingForm.tsx` (opcjonalne)
+
+**Dodanie selektora strefy czasowej dla lidera:**
+- Komponent `Select` z popularnymi strefami czasowymi
+- Zapisywanie do `leader_permissions.timezone` lub `leader_availability.timezone`
+
+### Plik 3: Migracja bazy danych (opcjonalne)
+
+Dodać kolumnę `timezone` do `leader_permissions` jeśli nie istnieje:
+```sql
+ALTER TABLE leader_permissions 
+ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Warsaw';
 ```
 
-**Linia 596** - rozwinięty widok mobilny:
-```typescript
-// Przed:
-{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+## Priorytety implementacji
 
-// Po:
-{formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - {formatInTimeZone(endDate, eventTimezone, 'HH:mm')}
-```
+| Priorytet | Element | Opis |
+|-----------|---------|------|
+| 🔴 Krytyczny | Naprawa konwersji | Poprawić `parse()` → `fromZonedTime()` |
+| 🟡 Ważny | Widoczność stref | Pokazać obie godziny przy rezerwacji |
+| 🟢 Opcjonalny | Selektor strefy | Dać liderowi wybór strefy czasowej |
 
-**Dodać zmienną eventTimezone** (około linia 165):
-```typescript
-const eventTimezone = (event as any).timezone || DEFAULT_EVENT_TIMEZONE;
-```
+## Korzyści
 
-**Dodać import:**
-```typescript
-import { formatInTimeZone } from 'date-fns-tz';
-```
-
-### 2. CalendarWidget.tsx
-
-**Linia 386** - wyświetlanie czasu wydarzenia:
-```typescript
-// Przed:
-{format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
-
-// Po:
-{formatInTimeZone(new Date(event.start_time), eventTimezone, 'HH:mm')} - {formatInTimeZone(new Date(event.end_time), eventTimezone, 'HH:mm')}
-```
-
-**Import już istnieje** (linia 19)
-
-### 3. MyMeetingsWidget.tsx
-
-**Linia 419** - wyświetlanie czasu wydarzenia:
-```typescript
-// Przed:
-{format(new Date(event.start_time), 'd MMM HH:mm', { locale })}
-
-// Po - rozbić na dwie części:
-{format(new Date(event.start_time), 'd MMM', { locale })} {formatInTimeZone(new Date(event.start_time), eventTimezone, 'HH:mm')}
-```
-
-**Dodać import:**
-```typescript
-import { formatInTimeZone } from 'date-fns-tz';
-```
-
-### 4. PastOccurrenceRow i OccurrenceRow (w EventCardCompact.tsx)
-
-**Linie 57 i 105** - wyświetlanie czasu w occurrence rows:
-```typescript
-// Przed:
-{format(occurrence.start_datetime, 'HH:mm')}
-
-// Po:
-{formatInTimeZone(occurrence.start_datetime, eventTimezone, 'HH:mm')}
-```
-
-Te komponenty muszą otrzymać `eventTimezone` jako prop.
-
-### 5. CalendarWidget.tsx - funkcja handleCopyInvitation
-
-**Linie 51** - tekst zaproszenia:
-```typescript
-// Przed:
-⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
-
-// Po:
-⏰ Godzina: ${formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - ${formatInTimeZone(endDate, eventTimezone, 'HH:mm')} (${getTimezoneLabel(eventTimezone, 'short')})
-```
-
-### 6. EventCardCompact.tsx - funkcja handleCopyInvitation
-
-**Linia 390** - tekst zaproszenia:
-```typescript
-// Przed:
-⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
-
-// Po:
-⏰ Godzina: ${formatInTimeZone(startDate, eventTimezone, 'HH:mm')} - ${formatInTimeZone(endDate, eventTimezone, 'HH:mm')} (${getTimezoneLabel(eventTimezone, 'short')})
-```
-
-## Podsumowanie zmian
-
-| Plik | Zmiana |
-|------|--------|
-| EventCardCompact.tsx | Użyć formatInTimeZone zamiast format dla czasów, dodać eventTimezone, przekazać do OccurrenceRow |
-| CalendarWidget.tsx | Użyć formatInTimeZone dla wyświetlania czasów i kopiowania zaproszeń |
-| MyMeetingsWidget.tsx | Użyć formatInTimeZone dla wyświetlania czasów, dodać import |
-
-## Oczekiwany rezultat
-
-Po zmianach wszystkie czasy będą wyświetlane jako:
-- `10:00 (PL)` zamiast `01:00 (PL)`
-- Czas jest zawsze w strefie czasowej w której admin utworzył wydarzenie
-- Etykieta (PL) informuje o strefie czasowej
-- W szczegółach wydarzenia (EventDetailsDialog) użytkownik może zobaczyć przeliczenie na swoją lokalną strefę
-
+1. **Poprawna synchronizacja** - spotkania będą zapisywane w prawidłowym czasie UTC
+2. **Przejrzystość** - użytkownicy widzą konwersję czasu między strefami
+3. **Bezpieczeństwo** - automatyczne wykrywanie strefy z opcją ręcznej zmiany
+4. **Zgodność z Google Calendar** - wydarzenia będą się poprawnie synchronizować
