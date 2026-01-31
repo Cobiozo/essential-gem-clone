@@ -1,54 +1,115 @@
 
-# Plan: Poprawka wyświetlania stref czasowych dla webinarów i spotkań zespołu
+# Plan: Naprawa parsowania stref czasowych dla wydarzeń cyklicznych
 
-## Status: ✅ ZAIMPLEMENTOWANO
+## Problem
 
-## Problem (rozwiązany)
+W funkcji `parseOccurrence` w `src/hooks/useOccurrences.ts` czas występowania (occurrence) jest parsowany jako czas lokalny przeglądarki użytkownika zamiast jako czas w strefie wydarzenia (Europe/Warsaw).
 
-1. **Formularze zapisu wydarzeń** używały `toISOString()` bez `fromZonedTime` - co powodowało że godziny były zapisywane w lokalnej strefie admina zamiast w Europe/Warsaw
-2. **Ramka porównania stref** w dialogu szczegółów wydarzeń - teraz poprawnie wyświetla się identycznie jak przy spotkaniach indywidualnych
+### Przykład błędu:
 
-## Zmiany wprowadzone
+**Dane w bazie:**
+```json
+{ "date": "2026-01-31", "time": "10:00", "duration_minutes": 60 }
+timezone: Europe/Warsaw
+```
 
-### 1. WebinarForm.tsx
-- Dodano import `fromZonedTime` z `date-fns-tz`
-- Dodano import `DEFAULT_EVENT_TIMEZONE` z `@/utils/timezoneHelpers`
-- Przy zapisie czasu: zamieniono `localDate.toISOString()` na `fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE).toISOString()`
+**Przy użytkowniku z London (UTC):**
+1. `new Date(2026, 0, 31, 10, 0)` tworzy datę jako 10:00 **w strefie London** (UTC)
+2. `toISOString()` daje `2026-01-31T10:00:00.000Z` (10:00 UTC)
+3. `formatInTimeZone(..., 'Europe/Warsaw', 'HH:mm')` wyświetla **11:00** (bo Warsaw = UTC+1)
 
-### 2. TeamTrainingForm.tsx  
-- Dodano import `fromZonedTime` z `date-fns-tz`
-- Dodano import `DEFAULT_EVENT_TIMEZONE` z `@/utils/timezoneHelpers`
-- Przy zapisie czasu: zamieniono `localDate.toISOString()` na `fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE).toISOString()`
+**Powinno być:**
+1. `10:00` powinno być interpretowane jako 10:00 **Warsaw**
+2. To odpowiada `09:00 UTC`
+3. Dla użytkownika z London: wyświetlane jako `09:00` (jego czas) vs `10:00` (czas wydarzenia)
 
-### 3. EventDetailsDialog.tsx (bez zmian - już prawidłowo)
-- Główna godzina wydarzenia wyświetlana zawsze: `formatInTimeZone(eventStart, eventTimezone, 'HH:mm')`
-- Ramka porównania stref pokazuje się TYLKO gdy `timezonesAreDifferent`
-- Format nazwy strefy: nazwa miasta (Warsaw/Hebron) zamiast skrótów
+## Rozwiązanie
 
-### 4. EventCardCompact.tsx (bez zmian - już prawidłowo)
-- Już używa `formatInTimeZone` z `event.timezone || DEFAULT_EVENT_TIMEZONE`
+### 1. Zmiana w `src/hooks/useOccurrences.ts`
 
-## Rezultat końcowy
+**Linia 9-14 - funkcja `parseOccurrence`:**
 
-Wydarzenie ustawione na **10:00-11:00** przez admina:
+```typescript
+// PRZED (błędnie):
+const start_datetime = new Date(year, month - 1, day, hours, minutes);
+
+// PO (poprawnie):
+import { fromZonedTime } from 'date-fns-tz';
+import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+
+// Interpretuj czas jako Warsaw (strefa utworzenia), nie jako lokalna przeglądarka
+const start_datetime = fromZonedTime(
+  new Date(year, month - 1, day, hours, minutes),
+  DEFAULT_EVENT_TIMEZONE
+);
+```
+
+### 2. Zmiany szczegółowe
+
+**Dodać importy na górze pliku:**
+```typescript
+import { fromZonedTime } from 'date-fns-tz';
+import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+```
+
+**Zmienić funkcję `parseOccurrence`:**
+```typescript
+export const parseOccurrence = (occurrence: EventOccurrence, index: number): ExpandedOccurrence => {
+  const [year, month, day] = occurrence.date.split('-').map(Number);
+  const [hours, minutes] = occurrence.time.split(':').map(Number);
+  
+  // Create a local-like Date object representing the time parts
+  const localDateTime = new Date(year, month - 1, day, hours, minutes);
+  
+  // Convert from event timezone (Warsaw) to UTC
+  // This ensures 10:00 Warsaw = 09:00 UTC, regardless of user's browser timezone
+  const start_datetime = fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE);
+  const end_datetime = addMinutes(start_datetime, occurrence.duration_minutes);
+  const now = new Date();
+  
+  return {
+    ...occurrence,
+    index,
+    start_datetime,
+    end_datetime,
+    is_past: isAfter(now, end_datetime),
+  };
+};
+```
+
+## Rezultat
+
+**Po naprawie:**
+
+Wydarzenie utworzone na 10:00 Warsaw, oglądane przez użytkownika z London:
 
 **W karcie:**
 ```
-📅 20 stycznia 2026
-⏰ 10:00 (CET)          ← STAŁA godzina niezależna od strefy użytkownika
+📅 31 stycznia 2026
+⏰ 10:00 (CET)          ← STAŁA godzina wydarzenia
 ```
 
-**W szczegółach (użytkownik w innej strefie np. Asia/Hebron):**
+**W dialogu szczegółów:**
 ```
-📅 Poniedziałek, 20 stycznia
+📅 Sobota, 31 stycznia
 ⏰ 10:00 - 11:00 (60 min)   ← STAŁA godzina wydarzenia
 
 ┌────────────────────────────────────────────┐
-│ 🌍 Twój czas:      11:00 (Hebron)         │
-│ ⏰ Czas wydarzenia: 10:00 (Warsaw)         │
+│ 🌍 Twój czas:      09:00 (London)         │  ← 1h wcześniej
+│ ⏰ Czas wydarzenia: 10:00 (Warsaw)         │  ← stały
 └────────────────────────────────────────────┘
 ```
 
-## Uwaga dla istniejących wydarzeń
+## Podsumowanie zmian
 
-Istniejące wydarzenia, które zostały utworzone przed tą poprawką, mogą nadal mieć nieprawidłowe czasy w bazie danych. Aby je naprawić, admin musi je edytować i ponownie zapisać.
+| Plik | Zmiana |
+|------|--------|
+| `src/hooks/useOccurrences.ts` | Użyć `fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE)` zamiast `new Date(...)` |
+
+## Notatka techniczna
+
+`fromZonedTime(date, timezone)` interpretuje podaną datę jako będącą w danej strefie czasowej i zwraca jej odpowiednik UTC. Dzięki temu:
+- Admin wpisuje 10:00 → zapisywane jest jako "10:00 Warsaw" 
+- System przechowuje to jako 09:00 UTC
+- `formatInTimeZone(..., 'Europe/Warsaw', 'HH:mm')` zawsze pokaże 10:00
+- `formatInTimeZone(..., 'Europe/London', 'HH:mm')` pokaże 09:00
