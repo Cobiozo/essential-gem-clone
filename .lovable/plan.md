@@ -1,145 +1,134 @@
 
-# Plan: Poprawa wyświetlania daty i strefy czasowej w EventCardCompact
+
+# Plan: Widoczność Eventów według ról + przycisk powrotu
 
 ## Zidentyfikowane problemy
 
-### Problem 1: Błędna data w nagłówku karty cyklicznej
-Na screenie widać datę "24 sty" w nagłówku karty, mimo że to minione spotkanie. Dla wydarzeń cyklicznych nagłówek powinien pokazywać datę **najbliższego przyszłego** spotkania (31 sty).
+### Problem 1: "Eventy" widoczne dla wszystkich ról
+Element `paid-events` w sidebarze jest wyświetlany wszystkim użytkownikom, mimo że w tabeli `paid_events_settings` administrator ustawił:
+- `visible_to_admin: true` ✓
+- `visible_to_partner: false` ✗
+- `visible_to_specjalista: false` ✗
+- `visible_to_client: false` ✗
 
-**Przyczyna**: Kod w linii 558-567 używa `startDate` (z `event.start_time`), które odnosi się do pierwszego wystąpienia, a nie do najbliższego.
+**Przyczyna:** W `DashboardSidebar.tsx` (linia 308) element jest dodany bez żadnego sprawdzenia widoczności - brak analogicznego mechanizmu jak dla `chat` (hook `useChatSidebarVisibility`).
 
-### Problem 2: Brak porównania stref czasowych
-W karcie wydarzeń brakuje ramki "Twój czas" / "Czas wydarzenia" dla użytkowników z innej strefy czasowej. Ta ramka jest już zaimplementowana w `EventDetailsDialog.tsx`, ale nie ma jej w `EventCardCompact.tsx`.
+### Problem 2: Brak przycisku powrotu na stronie wydarzenia
+Na stronie szczegółów wydarzenia (`/paid-events/:slug`) brakuje przycisku powrotu w lewym górnym rogu, który pozwoliłby wrócić na stronę główną.
+
+---
 
 ## Rozwiązanie
 
-### Zmiana 1: Wyświetlanie daty najbliższego wystąpienia w nagłówku
+### Część 1: Hook widoczności dla paid-events
 
-W sekcji nagłówka (linie ~557-567) dla wydarzeń cyklicznych użyć daty z `getNextActiveOccurrence()`:
+Utworzyć nowy hook `usePaidEventsVisibility.ts` wzorowany na istniejącym `useChatSidebarVisibility.ts`:
 
+| Plik | Opis |
+|------|------|
+| `src/hooks/usePaidEventsVisibility.ts` | **Nowy plik** - pobiera ustawienia z `paid_events_settings` |
+
+**Struktura hooka:**
 ```typescript
-// Ustalenie daty do wyświetlenia w nagłówku
-const nextOccurrence = isMultiOccurrence ? getNextActiveOccurrence(event) : null;
-const displayDate = nextOccurrence ? nextOccurrence.start_datetime : startDate;
+interface PaidEventsVisibility {
+  is_enabled: boolean;
+  visible_to_admin: boolean;
+  visible_to_partner: boolean;
+  visible_to_specjalista: boolean;
+  visible_to_client: boolean;
+}
+
+export const usePaidEventsVisibility = () => {
+  return useQuery({
+    queryKey: ['paid-events-visibility'],
+    queryFn: async () => {
+      // Pobiera z paid_events_settings
+    },
+    staleTime: 1000 * 60 * 5, // 5 minut cache
+  });
+};
+
+export const isRoleVisibleForPaidEvents = (
+  visibility: PaidEventsVisibility | undefined,
+  role: string | undefined
+): boolean => {
+  // Sprawdza czy dana rola ma dostęp
+};
 ```
 
-Następnie w nagłówku użyć `displayDate` zamiast `startDate`.
+### Część 2: Filtrowanie w sidebarze
 
-### Zmiana 2: Dodanie ramki porównania stref czasowych
+W pliku `src/components/dashboard/DashboardSidebar.tsx`:
 
-Dodać logikę wykrywania różnicy stref (jak w EventDetailsDialog):
-
+1. **Import hooka** (linia ~59):
 ```typescript
-import { getUserTimezone } from '@/utils/timezoneHelpers';
-
-// W komponencie:
-const eventTimezone = event.timezone || DEFAULT_EVENT_TIMEZONE;
-const userTimezone = getUserTimezone();
-const timezonesAreDifferent = userTimezone !== eventTimezone;
+import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
 ```
 
-Dodać ramkę porównania pod opisem wydarzenia w rozwiniętym widoku:
+2. **Wywołanie hooka** (po linii ~131):
+```typescript
+const { data: paidEventsVisibility } = usePaidEventsVisibility();
+```
+
+3. **Dodanie warunku filtrowania** (w `visibleMenuItems`, po linii ~422):
+```typescript
+// Check paid-events visibility based on role settings
+if (item.id === 'paid-events') {
+  if (!isRoleVisibleForPaidEvents(paidEventsVisibility, userRole?.role)) {
+    return false;
+  }
+}
+```
+
+### Część 3: Przycisk powrotu na stronie wydarzenia
+
+W pliku `src/components/paid-events/public/PaidEventHero.tsx`:
+
+Dodać przycisk powrotu w lewym górnym rogu, nad badge'ami:
 
 ```tsx
-{timezonesAreDifferent && (
-  <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-    <div className="flex items-center gap-2 text-sm">
-      <Globe className="h-4 w-4 text-primary" />
-      <span className="font-medium">Twój czas:</span>
-      <span>
-        {formatInTimeZone(startDate, userTimezone, 'HH:mm')} 
-        ({userTimezone.split('/')[1]?.replace('_', ' ')})
-      </span>
-    </div>
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Clock className="h-4 w-4" />
-      <span>Czas wydarzenia:</span>
-      <span>
-        {formatInTimeZone(startDate, eventTimezone, 'HH:mm')} 
-        ({eventTimezone.split('/')[1]?.replace('_', ' ')})
-      </span>
-    </div>
-  </div>
-)}
+import { ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+
+// W komponencie:
+const navigate = useNavigate();
+
+// W JSX (przed badges, linia ~59):
+<div className="mb-4">
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={() => navigate('/')}
+    className="gap-2 text-muted-foreground hover:text-foreground"
+  >
+    <ArrowLeft className="w-4 h-4" />
+    Strona główna
+  </Button>
+</div>
 ```
+
+---
 
 ## Zmiany w plikach
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/events/EventCardCompact.tsx` | 1) Dodać import `getUserTimezone` 2) Użyć `getNextActiveOccurrence()` dla daty w nagłówku 3) Dodać logikę porównania stref 4) Dodać ramkę porównania w rozwinięciu |
+| `src/hooks/usePaidEventsVisibility.ts` | **Nowy** - hook pobierający ustawienia widoczności |
+| `src/components/dashboard/DashboardSidebar.tsx` | Import + wywołanie hooka + warunek filtrowania |
+| `src/components/paid-events/public/PaidEventHero.tsx` | Dodanie przycisku powrotu w lewym górnym rogu |
 
-## Szczegółowe lokalizacje zmian
-
-### 1. Import (linia ~12)
-```typescript
-import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE, getUserTimezone } from '@/utils/timezoneHelpers';
-```
-
-### 2. Import funkcji (linia ~32)
-```typescript
-import { isMultiOccurrenceEvent, getAllOccurrences, getNextActiveOccurrence } from '@/hooks/useOccurrences';
-```
-
-### 3. Zmienne w komponencie (po linii ~180)
-```typescript
-// Dla nagłówka: data najbliższego wystąpienia (lub start_time dla zwykłych)
-const nextOccurrence = isMultiOccurrence ? getNextActiveOccurrence(event) : null;
-const displayDate = nextOccurrence ? nextOccurrence.start_datetime : startDate;
-
-// Porównanie stref czasowych
-const eventTimezone = event.timezone || DEFAULT_EVENT_TIMEZONE;
-const userTimezone = getUserTimezone();
-const timezonesAreDifferent = userTimezone !== eventTimezone;
-```
-
-### 4. Nagłówek - data (linie ~558-566)
-Zamienić `startDate` na `displayDate`:
-```typescript
-<span>{format(displayDate, 'd MMM', { locale: dateLocale })}</span>
-...
-<span>{formatInTimeZone(displayDate, eventTimezone, 'HH:mm')} ({getTimezoneAbbr(eventTimezone)})</span>
-```
-
-### 5. Ramka porównania w CollapsibleContent (przed sekcją "Details grid", po opisie, ~linia 620)
-```tsx
-{/* Timezone comparison - when user is in different timezone */}
-{timezonesAreDifferent && (
-  <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-    <div className="flex items-center gap-2 text-sm">
-      <Globe className="h-4 w-4 text-primary flex-shrink-0" />
-      <span className="font-medium">Twój czas:</span>
-      <span>
-        {formatInTimeZone(displayDate, userTimezone, 'HH:mm')} ({userTimezone.split('/')[1]?.replace('_', ' ') || userTimezone})
-      </span>
-    </div>
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Clock className="h-4 w-4 flex-shrink-0" />
-      <span>Czas wydarzenia:</span>
-      <span>
-        {formatInTimeZone(displayDate, eventTimezone, 'HH:mm')} ({eventTimezone.split('/')[1]?.replace('_', ' ') || eventTimezone})
-      </span>
-    </div>
-  </div>
-)}
-```
+---
 
 ## Rezultat
 
-Po zmianach dla wydarzenia cyklicznego "O!Mega Chill":
+### Sidebar:
+- Element "Eventy" widoczny **tylko** dla ról z flagą `visible_to_[rola] = true`
+- Zmiana ustawień przez admina natychmiast (po 5 min lub odświeżeniu) aktualizuje sidebar
+- Partner/Specjalista/Klient nie widzą elementu jeśli admin wyłączył widoczność
 
-**Nagłówek karty:**
-- Data: **31 sty** (zamiast 24 sty) ← najbliższe przyszłe spotkanie
-- Czas: **10:00 (CET)**
+### Strona wydarzenia:
+- W lewym górnym rogu widoczny przycisk "Strona główna" z ikoną strzałki
+- Kliknięcie przekierowuje na `/` (stronę główną)
+- Przycisk jest subtelny (ghost variant), nie przeszkadza w odbiorze treści
 
-**Rozwinięta karta (gdy użytkownik z Arizony):**
-```
-┌─────────────────────────────────────────────┐
-│ 🌍 Twój czas:      02:00 (Phoenix)         │
-│ ⏰ Czas wydarzenia: 10:00 (Warsaw)          │
-└─────────────────────────────────────────────┘
-```
-
-**Lista terminów:**
-- ~~24 sty (Sobota) 10:00 (CET)~~ **Zakończony** ✓ Uczestniczył
-- 31 sty (Sobota) 10:00 (CET) [Wypisz się]
