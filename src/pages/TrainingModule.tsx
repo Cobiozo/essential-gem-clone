@@ -20,8 +20,10 @@ import {
   ExternalLink,
   Link,
   Download,
-  StickyNote
+  StickyNote,
+  ChevronDown
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { SecureMedia } from "@/components/SecureMedia";
 import { LessonActionButton } from "@/types/training";
@@ -1194,9 +1196,80 @@ const TrainingModule = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <div className="grid lg:grid-cols-4 gap-4 lg:gap-6">
+          {/* Mobile: Collapsible lesson list */}
+          <div className="lg:col-span-1 lg:hidden">
+            <Card>
+              <Collapsible defaultOpen={false}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer p-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Lekcje ({currentLessonIndex + 1}/{lessons.length})</CardTitle>
+                      <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2 pt-0">
+                    {lessons.map((lesson, index) => {
+                      const lessonProgress = progress[lesson.id];
+                      const isCompleted = lessonProgress?.is_completed;
+                      const isCurrent = index === currentLessonIndex;
+                      const hasProgressInLesson = lessonProgress && (
+                        lessonProgress.time_spent_seconds > 0 || 
+                        (lessonProgress.video_position_seconds && lessonProgress.video_position_seconds > 0)
+                      );
+                      const isLocked = index > 0 && 
+                        !progress[lessons[index - 1].id]?.is_completed && 
+                        !hasProgressInLesson;
+
+                      return (
+                        <button
+                          key={lesson.id}
+                          onClick={() => jumpToLesson(index)}
+                          disabled={isLocked}
+                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                            isCurrent 
+                              ? 'border-primary bg-primary/5' 
+                              : isLocked 
+                              ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            {isLocked ? (
+                              <Lock className="h-4 w-4 text-muted-foreground" />
+                            ) : isCompleted ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              getMediaIcon(lesson.media_type)
+                            )}
+                            <span className="text-sm font-medium truncate">
+                              {lesson.title}
+                            </span>
+                          </div>
+                          {(lesson.video_duration_seconds || lesson.min_time_seconds) > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>
+                                {lesson.video_duration_seconds && lesson.video_duration_seconds > 0 
+                                  ? formatTime(lesson.video_duration_seconds)
+                                  : `min. ${formatTime(lesson.min_time_seconds)}`}
+                              </span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          </div>
+
+          {/* Desktop: Regular lesson list */}
+          <div className="hidden lg:block lg:col-span-1">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Lekcje</CardTitle>
@@ -1258,10 +1331,12 @@ const TrainingModule = () => {
 
           <div className="lg:col-span-3">
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{currentLesson.title}</CardTitle>
-                  <div className="flex items-center gap-2">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0">
+                    {currentLesson.title}
+                  </CardTitle>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {/* Notes button - only for video lessons */}
                     {hasVideo && (
                       <Button
@@ -1271,7 +1346,7 @@ const TrainingModule = () => {
                         className="flex items-center gap-1.5"
                       >
                         <StickyNote className="h-4 w-4" />
-                        Notatki
+                        <span className="hidden sm:inline">Notatki</span>
                         {notes.length > 0 && (
                           <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                             {notes.length}
@@ -1279,7 +1354,7 @@ const TrainingModule = () => {
                         )}
                       </Button>
                     )}
-                    <Badge variant={isLessonCompleted ? "default" : "secondary"}>
+                    <Badge variant={isLessonCompleted ? "default" : "secondary"} className="whitespace-nowrap">
                       {isLessonCompleted ? "Ukończone" : "W trakcie"}
                     </Badge>
                   </div>
