@@ -1,110 +1,44 @@
 
 # Plan: Poprawka wyświetlania stref czasowych dla webinarów i spotkań zespołu
 
-## Problem
+## Status: ✅ ZAIMPLEMENTOWANO
 
-Na podstawie screenshotów użytkownika:
+## Problem (rozwiązany)
 
-1. **Główna godzina wydarzeń** (np. "10:00 - 11:00") zmienia się nieprawidłowo gdy użytkownik ma inną strefę czasową - powinna być STAŁA
-2. **Ramka porównania stref** ma wyglądać identycznie jak w spotkaniach indywidualnych (screenshot):
-   - 🌍 **Twój czas:** 17:00 (Hebron)
-   - ⏰ **Czas wydarzenia:** 16:00 (Warsaw)
+1. **Formularze zapisu wydarzeń** używały `toISOString()` bez `fromZonedTime` - co powodowało że godziny były zapisywane w lokalnej strefie admina zamiast w Europe/Warsaw
+2. **Ramka porównania stref** w dialogu szczegółów wydarzeń - teraz poprawnie wyświetla się identycznie jak przy spotkaniach indywidualnych
 
-## Obecny błąd
+## Zmiany wprowadzone
 
-W `EventDetailsDialog.tsx`:
-- Główna godzina jest wyświetlana ZAWSZE, ale może być źle formatowana
-- W ramce porównania używamy `formatInTimeZone(eventStart, eventTimezone, ...)` - to POWINNO być stałe
-- Problem może być w zapisie wydarzeń - czas nie jest konwertowany z lokalnej strefy do UTC z użyciem `fromZonedTime`
+### 1. WebinarForm.tsx
+- Dodano import `fromZonedTime` z `date-fns-tz`
+- Dodano import `DEFAULT_EVENT_TIMEZONE` z `@/utils/timezoneHelpers`
+- Przy zapisie czasu: zamieniono `localDate.toISOString()` na `fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE).toISOString()`
 
-## Rozwiązanie
+### 2. TeamTrainingForm.tsx  
+- Dodano import `fromZonedTime` z `date-fns-tz`
+- Dodano import `DEFAULT_EVENT_TIMEZONE` z `@/utils/timezoneHelpers`
+- Przy zapisie czasu: zamieniono `localDate.toISOString()` na `fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE).toISOString()`
 
-### 1. Naprawa zapisu w WebinarForm.tsx i TeamTrainingForm.tsx
+### 3. EventDetailsDialog.tsx (bez zmian - już prawidłowo)
+- Główna godzina wydarzenia wyświetlana zawsze: `formatInTimeZone(eventStart, eventTimezone, 'HH:mm')`
+- Ramka porównania stref pokazuje się TYLKO gdy `timezonesAreDifferent`
+- Format nazwy strefy: nazwa miasta (Warsaw/Hebron) zamiast skrótów
 
-Dodać import i użyć `fromZonedTime` przy zapisie, aby jawnie określić że czas jest w strefie Europe/Warsaw:
-
-```typescript
-import { fromZonedTime } from 'date-fns-tz';
-
-// Zamiast:
-const localDate = new Date(year, month - 1, day, hours, minutes);
-setForm({ ...form, start_time: localDate.toISOString() });
-
-// Na:
-const localDateTime = new Date(year, month - 1, day, hours, minutes);
-const eventTimezone = 'Europe/Warsaw'; // lub z formularza jeśli wybierany
-const utcDateTime = fromZonedTime(localDateTime, eventTimezone);
-setForm({ ...form, start_time: utcDateTime.toISOString() });
-```
-
-### 2. Weryfikacja wyświetlania w EventDetailsDialog.tsx
-
-Upewnić się że struktura jest prawidłowa:
-
-```typescript
-{/* GŁÓWNA GODZINA - ZAWSZE STAŁA */}
-<div className="flex items-center gap-2">
-  <Clock className="h-4 w-4 text-muted-foreground" />
-  <span>
-    {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} - 
-    {formatInTimeZone(eventEnd, eventTimezone, 'HH:mm')} 
-    ({durationMinutes} min)
-  </span>
-</div>
-
-{/* RAMKA PORÓWNANIA - tylko gdy strefy różne */}
-{timezonesAreDifferent && (
-  <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-    <div className="flex items-center gap-2 text-sm">
-      <Globe className="h-4 w-4 text-primary" />
-      <span className="font-medium">Twój czas:</span>
-      <span>
-        {formatInTimeZone(eventStart, userTimezone, 'HH:mm')} 
-        ({userTimezone.split('/')[1]?.replace('_', ' ')})
-      </span>
-    </div>
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Clock className="h-4 w-4" />
-      <span>Czas wydarzenia:</span>
-      <span>
-        {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} 
-        ({eventTimezone.split('/')[1]?.replace('_', ' ')})
-      </span>
-    </div>
-  </div>
-)}
-```
-
-### 3. Poprawka w EventCardCompact.tsx
-
-Analogiczna struktura dla mobilnego widoku rozwinięcia karty.
-
-## Zmiany w plikach
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/WebinarForm.tsx` | Użyć `fromZonedTime` przy zapisie start_time |
-| `src/components/admin/TeamTrainingForm.tsx` | Użyć `fromZonedTime` przy zapisie start_time |
-| `src/components/events/EventDetailsDialog.tsx` | Zweryfikować strukturę (już powinna być OK z poprzedniej poprawki) |
-| `src/components/events/EventCardCompact.tsx` | Zweryfikować formatowanie czasu |
+### 4. EventCardCompact.tsx (bez zmian - już prawidłowo)
+- Już używa `formatInTimeZone` z `event.timezone || DEFAULT_EVENT_TIMEZONE`
 
 ## Rezultat końcowy
 
-Wydarzenie ustawione na **10:00-11:00 CET**:
+Wydarzenie ustawione na **10:00-11:00** przez admina:
 
 **W karcie:**
 ```
 📅 20 stycznia 2026
-⏰ 10:00 (CET)          ← STAŁA godzina
+⏰ 10:00 (CET)          ← STAŁA godzina niezależna od strefy użytkownika
 ```
 
-**W szczegółach (użytkownik w tej samej strefie):**
-```
-📅 Poniedziałek, 20 stycznia
-⏰ 10:00 - 11:00 (60 min)   ← STAŁA godzina
-```
-
-**W szczegółach (użytkownik w innej strefie np. UTC+2):**
+**W szczegółach (użytkownik w innej strefie np. Asia/Hebron):**
 ```
 📅 Poniedziałek, 20 stycznia
 ⏰ 10:00 - 11:00 (60 min)   ← STAŁA godzina wydarzenia
@@ -114,3 +48,7 @@ Wydarzenie ustawione na **10:00-11:00 CET**:
 │ ⏰ Czas wydarzenia: 10:00 (Warsaw)         │
 └────────────────────────────────────────────┘
 ```
+
+## Uwaga dla istniejących wydarzeń
+
+Istniejące wydarzenia, które zostały utworzone przed tą poprawką, mogą nadal mieć nieprawidłowe czasy w bazie danych. Aby je naprawić, admin musi je edytować i ponownie zapisać.
