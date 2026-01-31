@@ -1,11 +1,18 @@
 /**
- * iOS Image Share Utilities
- * Uses Web Share API to allow saving images directly to Photos on iOS
+ * Mobile Image Share Utilities
+ * Uses Web Share API to allow saving images directly to Photos on mobile devices
  */
 
 export const isIOSDevice = (): boolean => {
   if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window);
+};
+
+export const isMobileDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    ('ontouchstart' in window) ||
+    (navigator.maxTouchPoints > 0);
 };
 
 export const canUseWebShare = (): boolean => {
@@ -15,7 +22,7 @@ export const canUseWebShare = (): boolean => {
 
 /**
  * Share or download an image.
- * On iOS, uses Web Share API to show native share sheet with "Save Image" option.
+ * On mobile devices with Web Share API, shows native share sheet with "Save Image" option.
  * On other platforms, falls back to standard download.
  */
 export const shareOrDownloadImage = async (
@@ -23,9 +30,9 @@ export const shareOrDownloadImage = async (
   fileName: string = 'image.jpg'
 ): Promise<boolean> => {
   try {
-    // On iOS, use Web Share API to enable "Save to Photos"
-    if (canUseWebShare() && isIOSDevice()) {
-      console.log('[imageShareUtils] Using Web Share API for iOS');
+    // On mobile, use Web Share API to enable "Save to Photos/Gallery"
+    if (canUseWebShare()) {
+      console.log('[imageShareUtils] Using Web Share API for mobile');
       
       const response = await fetch(imageUrl, { mode: 'cors' });
       if (!response.ok) {
