@@ -1,8 +1,10 @@
 import React from 'react';
-import { Calendar, MapPin, Clock, Globe } from 'lucide-react';
+import { Calendar, MapPin, Clock, Globe, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface PaidEventHeroProps {
   title: string;
@@ -23,6 +25,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
   location,
   isOnline,
 }) => {
+  const navigate = useNavigate();
   const startDate = new Date(eventDate);
   const endDate = eventEndDate ? new Date(eventEndDate) : null;
 
@@ -55,6 +58,19 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
       <div className={`relative ${bannerUrl ? 'pt-[200px] md:pt-[280px]' : 'pt-8'} pb-6`}>
         <div className="container mx-auto px-4">
           <div className="max-w-4xl">
+            {/* Back Button */}
+            <div className="mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/')}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Strona główna
+              </Button>
+            </div>
+
             {/* Badges */}
             <div className="flex flex-wrap gap-2 mb-4">
               {isOnline && (

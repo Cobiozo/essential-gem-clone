@@ -57,6 +57,7 @@ import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
 
 // Tooltip descriptions for navigation items (2s delay)
 const menuTooltipDescriptions: Record<string, string> = {
@@ -129,6 +130,7 @@ export const DashboardSidebar: React.FC = () => {
 
   // Chat sidebar visibility
   const { data: chatVisibility } = useChatSidebarVisibility();
+  const { data: paidEventsVisibility } = usePaidEventsVisibility();
 
   // Visibility settings
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
@@ -420,6 +422,11 @@ export const DashboardSidebar: React.FC = () => {
 
     // Check chat visibility based on role settings
     if (item.id === 'chat' && !isRoleVisibleForChat(chatVisibility, userRole?.role)) {
+      return false;
+    }
+
+    // Check paid-events visibility based on role settings
+    if (item.id === 'paid-events' && !isRoleVisibleForPaidEvents(paidEventsVisibility, userRole?.role)) {
       return false;
     }
 
