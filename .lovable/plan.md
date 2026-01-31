@@ -1,111 +1,210 @@
 
-# Plan: Naprawa synchronizacji stref czasowych w spotkaniach indywidualnych
+# Plan: Wyświetlanie stref czasowych dla webinarów i spotkań zespołu
 
 ## Problem
 
-Spotkania indywidualne mają błędną obsługę stref czasowych. Gdy lider ustawia dostępność w CET (Polska), a użytkownik z innej strefy czasowej (np. Anglia GMT) rezerwuje spotkanie, dochodzi do rozbieżności godzin.
+Obecnie webinary i spotkania zespołu wyświetlają czas bez uwzględnienia strefy czasowej. Użytkownicy z różnych stref czasowych (np. CET vs GMT) widzą ten sam czas bez konwersji, co prowadzi do nieporozumień.
 
-**Przykład z dzisiejszego dnia:**
-- Lider Dawid Kowalczyk ustawił dostępność na 21:00 CET
-- Marcin Kipa (Anglia, GMT) zarezerwował "21:00" 
-- W kalendarzu lidera pojawiła się godzina 22:00 CET (błąd!)
+**Przykład:**
+- Admin tworzy webinar na 21:00 CET (Europe/Warsaw)
+- Użytkownik z Anglii (GMT) widzi "21:00" zamiast "20:00 (czas lokalny)" lub "21:00 (PL)"
 
-## Przyczyna techniczna
+## Rozwiązanie
 
-W pliku `PartnerMeetingBooking.tsx` funkcja `parse()` parsuje czas lidera jako czas lokalny przeglądarki użytkownika rezerwującego, zamiast jako czas w strefie lidera.
+Wdrożyć politykę "fixed-timezone display" - wyświetlać czas w strefie czasowej wydarzenia z wyraźnym oznaczeniem, a w dialogu szczegółów pokazać również konwersję na czas lokalny użytkownika.
 
-```
-Lider ustawia: 21:00 CET (Europe/Warsaw)
-Marcin w Anglii widzi: 21:00 (powinno być 20:00 GMT)
-Zapis do bazy: 21:00 GMT → 22:00 CET (błąd!)
-```
+## Architektura rozwiązania
 
-## Proponowane rozwiązanie
-
-### Część 1: Naprawa konwersji stref czasowych (krytyczne)
-
-Poprawić logikę w `PartnerMeetingBooking.tsx`:
-
-1. **Wyświetlanie slotów** - użyć `fromZonedTime` do prawidłowej konwersji:
-   ```
-   Czas lidera (21:00 CET) → UTC → Czas użytkownika (20:00 GMT)
-   ```
-
-2. **Zapis spotkania** - konwertować czas lidera do UTC przed zapisem:
-   ```
-   Czas lidera (21:00 CET) → fromZonedTime(leaderTimezone) → UTC ISO
-   ```
-
-### Część 2: Wybór strefy czasowej przez użytkownika
-
-Aby zapobiec przyszłym problemom i dać użytkownikom kontrolę:
-
-**Dla lidera (ustawienia spotkań):**
-- Dodać widoczny selektor strefy czasowej w formularzu ustawień
-- Zapisywać wybraną strefę w `leader_permissions.timezone`
-- Domyślnie: `Europe/Warsaw` lub automatycznie wykryta
-
-**Dla użytkownika rezerwującego:**
-- Wyświetlić WIDOCZNĄ informację o strefie czasowej lidera
-- Pokazać konwersję czasu: "21:00 u lidera (CET) = 20:00 Twój czas (GMT)"
-- Opcjonalnie: selektor własnej strefy czasowej z automatycznym wykryciem
-
-### Część 3: Wizualna prezentacja (opcjonalne)
-
-Na etapie potwierdzenia rezerwacji pokazać:
-```
-┌─────────────────────────────────────────┐
-│  📅 Potwierdzenie rezerwacji            │
-│                                         │
-│  Czas u lidera:    21:00 CET            │
-│  Twój czas:        20:00 GMT            │
-│                                         │
-│  Partner: Dawid Kowalczyk               │
-│  Data: 30 stycznia 2026                 │
-└─────────────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  WEBINAR/SPOTKANIE - Wyświetlanie czasu                                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  W kartach wydarzeń (główny widok):                                          │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  📅 30 stycznia 2026                                                   │  │
+│  │  ⏰ 21:00 (CET)                                                        │  │
+│  │     ↑ Czas w strefie wydarzenia + oznaczenie strefy                    │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  W dialogu szczegółów (jeśli różne strefy):                                  │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  📅 Piątek, 30 stycznia                                                │  │
+│  │  ⏰ 21:00 - 22:30 (60 min) (CET)                                       │  │
+│  │                                                                        │  │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │  │
+│  │  │ 🌍 Czas w Twojej strefie: 20:00 - 21:30 (GMT)                   │  │  │
+│  │  │    (Wykryto różnicę stref czasowych)                            │  │  │
+│  │  └──────────────────────────────────────────────────────────────────┘  │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Zmiany w plikach
 
-### Plik 1: `src/components/events/PartnerMeetingBooking.tsx`
+### 1. EventCardCompact.tsx - Główne karty wydarzeń
 
-**Naprawa wyświetlania slotów (funkcja loadAvailableSlots):**
-- Zmienić sposób konwersji z czasu lidera do czasu użytkownika
-- Użyć `fromZonedTime` do prawidłowej interpretacji czasu lidera
+**Zmiana wyświetlania czasu:**
 
-**Naprawa zapisu spotkania (funkcja handleBookMeeting):**
-- Użyć `fromZonedTime(leaderTimezone)` zamiast `parse()` dla czasu lidera
-- Zapewnić, że czas zapisywany w bazie jest poprawnym UTC
-
-**Dodanie widocznej informacji o strefie:**
-- W kroku wyboru godziny pokazać "Godziny lidera (CET)" i "Twój czas (GMT)"
-- Na etapie potwierdzenia pokazać obie godziny wyraźnie
-
-### Plik 2: `src/components/events/IndividualMeetingForm.tsx` (opcjonalne)
-
-**Dodanie selektora strefy czasowej dla lidera:**
-- Komponent `Select` z popularnymi strefami czasowymi
-- Zapisywanie do `leader_permissions.timezone` lub `leader_availability.timezone`
-
-### Plik 3: Migracja bazy danych (opcjonalne)
-
-Dodać kolumnę `timezone` do `leader_permissions` jeśli nie istnieje:
-```sql
-ALTER TABLE leader_permissions 
-ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Warsaw';
+Zamienić:
+```typescript
+format(startDate, 'HH:mm')
 ```
 
-## Priorytety implementacji
+Na:
+```typescript
+formatInTimeZone(startDate, eventTimezone, 'HH:mm') + ` (${getTimezoneAbbr(eventTimezone)})`
+```
 
-| Priorytet | Element | Opis |
-|-----------|---------|------|
-| 🔴 Krytyczny | Naprawa konwersji | Poprawić `parse()` → `fromZonedTime()` |
-| 🟡 Ważny | Widoczność stref | Pokazać obie godziny przy rezerwacji |
-| 🟢 Opcjonalny | Selektor strefy | Dać liderowi wybór strefy czasowej |
+**Dodać import:**
+```typescript
+import { formatInTimeZone } from 'date-fns-tz';
+```
+
+**Dodać helper do skrótu strefy:**
+```typescript
+const getTimezoneAbbr = (tz: string) => {
+  const abbrs: Record<string, string> = {
+    'Europe/Warsaw': 'CET',
+    'Europe/London': 'GMT',
+    'America/New_York': 'EST',
+    // ... inne popularne strefy
+  };
+  return abbrs[tz] || tz.split('/').pop();
+};
+```
+
+### 2. EventDetailsDialog.tsx - Dialog szczegółów
+
+**Dodać sekcję porównania stref czasowych:**
+
+```typescript
+// Wykryj strefę użytkownika
+const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const eventTimezone = event.timezone || 'Europe/Warsaw';
+const timezonesAreDifferent = userTimezone !== eventTimezone;
+
+// W sekcji czasu:
+<div className="flex items-center gap-2">
+  <Clock className="h-4 w-4 text-muted-foreground" />
+  <span>
+    {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} - 
+    {formatInTimeZone(eventEnd, eventTimezone, 'HH:mm')} 
+    ({durationMinutes} min) ({getTimezoneAbbr(eventTimezone)})
+  </span>
+</div>
+
+// Dodać sekcję porównania (jeśli różne strefy):
+{timezonesAreDifferent && (
+  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-sm">
+    <Globe className="h-4 w-4 text-blue-500" />
+    <span>
+      Twój czas: {formatInTimeZone(eventStart, userTimezone, 'HH:mm')} - 
+      {formatInTimeZone(eventEnd, userTimezone, 'HH:mm')} 
+      ({getTimezoneAbbr(userTimezone)})
+    </span>
+  </div>
+)}
+```
+
+### 3. CalendarWidget.tsx - Widżet kalendarza
+
+**Zmienić formatowanie czasu w liście wydarzeń dnia:**
+
+```typescript
+// Zamiast:
+{format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
+
+// Na:
+{formatInTimeZone(new Date(event.start_time), event.timezone || 'Europe/Warsaw', 'HH:mm')} - 
+{formatInTimeZone(new Date(event.end_time), event.timezone || 'Europe/Warsaw', 'HH:mm')} 
+({getTimezoneAbbr(event.timezone || 'Europe/Warsaw')})
+```
+
+### 4. MyMeetingsWidget.tsx - Widżet "Moje spotkania"
+
+**Podobna zmiana jak w CalendarWidget:**
+
+```typescript
+{formatInTimeZone(new Date(event.start_time), event.timezone || 'Europe/Warsaw', 'd MMM HH:mm')} 
+({getTimezoneAbbr(event.timezone || 'Europe/Warsaw')})
+```
+
+### 5. EventCard.tsx - Pełna karta wydarzenia
+
+**Zmienić wyświetlanie daty/czasu:**
+
+```typescript
+<div className="flex items-center gap-2 text-sm text-muted-foreground">
+  <Clock className="h-4 w-4" />
+  <span>
+    {formatInTimeZone(startDate, event.timezone || 'Europe/Warsaw', 'HH:mm')} - 
+    {formatInTimeZone(endDate, event.timezone || 'Europe/Warsaw', 'HH:mm')}
+    ({getTimezoneAbbr(event.timezone || 'Europe/Warsaw')})
+  </span>
+</div>
+```
+
+### 6. Nowy helper: src/utils/timezoneHelpers.ts
+
+```typescript
+export const TIMEZONE_ABBREVIATIONS: Record<string, string> = {
+  'Europe/Warsaw': 'CET',
+  'Europe/Berlin': 'CET',
+  'Europe/Paris': 'CET',
+  'Europe/London': 'GMT',
+  'Europe/Dublin': 'GMT',
+  'Europe/Lisbon': 'WET',
+  'America/New_York': 'EST',
+  'America/Chicago': 'CST',
+  'America/Los_Angeles': 'PST',
+  'Asia/Tokyo': 'JST',
+  'Asia/Shanghai': 'CST',
+  'Australia/Sydney': 'AEST',
+};
+
+export const getTimezoneAbbr = (timezone: string): string => {
+  return TIMEZONE_ABBREVIATIONS[timezone] || timezone.split('/').pop() || 'UTC';
+};
+
+export const getUserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'Europe/Warsaw';
+  }
+};
+```
+
+### 7. WebinarForm.tsx i TeamTrainingForm.tsx (opcjonalne)
+
+Dodać selektor strefy czasowej dla admina, aby mógł jawnie wybrać strefę przy tworzeniu wydarzenia (zamiast domyślnej Europe/Warsaw).
+
+## Podsumowanie zmian
+
+| Plik | Zmiana |
+|------|--------|
+| `src/utils/timezoneHelpers.ts` | Nowy helper z mapowaniem stref na skróty |
+| `src/components/events/EventCardCompact.tsx` | Dodanie sufiksu strefy czasowej do wyświetlanego czasu |
+| `src/components/events/EventDetailsDialog.tsx` | Sekcja porównania "Czas wydarzenia" vs "Twój czas" |
+| `src/components/events/EventCard.tsx` | Dodanie sufiksu strefy czasowej |
+| `src/components/dashboard/widgets/CalendarWidget.tsx` | Formatowanie czasu z `formatInTimeZone` |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Formatowanie czasu z `formatInTimeZone` |
+
+## Kluczowe zasady
+
+1. **Czas główny = strefa wydarzenia**: Zawsze wyświetlamy czas w strefie, w której wydarzenie zostało utworzone (domyślnie Europe/Warsaw)
+
+2. **Wyraźne oznaczenie**: Każdy czas ma sufiks ze skrótem strefy, np. "(CET)", "(GMT)"
+
+3. **Porównanie opcjonalne**: W dialogu szczegółów, jeśli strefa użytkownika różni się od strefy wydarzenia, pokazujemy dodatkową linię z konwersją
+
+4. **Brak automatycznej konwersji głównego czasu**: NIE konwertujemy głównie wyświetlanego czasu na strefę użytkownika - to prowadziłoby do zamieszania ("o której naprawdę jest webinar?")
 
 ## Korzyści
 
-1. **Poprawna synchronizacja** - spotkania będą zapisywane w prawidłowym czasie UTC
-2. **Przejrzystość** - użytkownicy widzą konwersję czasu między strefami
-3. **Bezpieczeństwo** - automatyczne wykrywanie strefy z opcją ręcznej zmiany
-4. **Zgodność z Google Calendar** - wydarzenia będą się poprawnie synchronizować
+- Użytkownicy z różnych stref wiedzą, że 21:00 CET to 21:00 w strefie polskiej
+- W dialogu szczegółów mogą sprawdzić, jaka to godzina u nich lokalnie
+- Spójna polityka wyświetlania we wszystkich komponentach
+- Zgodność z istniejącym rozwiązaniem dla spotkań indywidualnych
