@@ -1,118 +1,96 @@
 
 
-# Plan: Naprawa wyświetlania wideo na mobile - długie tytuły
+# Plan: Zapisz do galerii na wszystkich urządzeniach mobilnych
 
-## Problem ze screenshota
+## Obecny problem
 
-Na iPhonie wideo jest ucięte bo:
-
-1. **Długi tytuł lekcji** "CZEGO NIE MÓWIĆ O OMEGA-3? CZ. 1 (OBIETNICE EFSA)" rozciąga CardHeader i wypycha wideo poza ekran
-2. **Lista lekcji** na mobile jest wyświetlana nad wideo, zabierając cenną przestrzeń 
-3. **Tytuł nie zawija się** - brak `break-words` powoduje że długie słowa rozciągają kontener
-4. **Brak ograniczenia linii** - tytuł może mieć dowolną liczbę linii
+1. **`imageShareUtils.ts`** - Web Share API jest używane tylko na iOS (`isIOSDevice()`)
+2. **`SocialShareDialog.tsx`** - nie używa `shareOrDownloadImage()`, tylko `window.open()`
 
 ## Rozwiązanie
 
-### 1. Zawijanie i ograniczenie tytułu lekcji
+### 1. Zaktualizować `imageShareUtils.ts`
 
-W `CardHeader` dla lekcji (linia 1262-1263):
+Usunąć warunek `isIOSDevice()` - Web Share API działa na:
+- iOS Safari, Chrome, Firefox
+- Android Chrome, Samsung Internet, Firefox
+- Desktop Chrome (częściowo), Edge
 
-```tsx
+```typescript
 // PRZED
-<div className="flex items-center justify-between">
-  <CardTitle>{currentLesson.title}</CardTitle>
-  ...
-</div>
+if (canUseWebShare() && isIOSDevice()) {
 
-// PO
-<div className="flex items-start justify-between gap-2">
-  <CardTitle className="break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0">
-    {currentLesson.title}
-  </CardTitle>
-  ...
-</div>
+// PO - na wszystkich urządzeniach z Web Share API
+if (canUseWebShare()) {
 ```
 
-Zmiany:
-- `items-center` → `items-start` (wyrównanie do góry gdy tytuł jest wieloliniowy)
-- `gap-2` - odstęp między tytułem a przyciskami
-- `break-words` - zawijanie długich słów
-- `line-clamp-2` - maksymalnie 2 linie z wielokropkiem
-- `text-lg sm:text-xl lg:text-2xl` - mniejszy font na mobile
-- `flex-1 min-w-0` - pozwala na kurczenie się tytułu
+Dodać funkcję wykrywania urządzeń mobilnych:
 
-### 2. Zwijana lista lekcji na mobile
-
-Zamiast wyświetlać całą listę lekcji na górze na mobile, zrobimy ją zwijalną (collapsible):
-
-```tsx
-// Na mobile: lista lekcji w zwijanym panelu
-<div className="lg:col-span-1">
-  <Card>
-    <Collapsible defaultOpen={false} className="lg:hidden">
-      <CollapsibleTrigger asChild>
-        <CardHeader className="cursor-pointer">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Lekcje ({currentLessonIndex + 1}/{lessons.length})</CardTitle>
-            <ChevronDown className="h-4 w-4 transition-transform" />
-          </div>
-        </CardHeader>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <CardContent>...</CardContent>
-      </CollapsibleContent>
-    </Collapsible>
-    
-    {/* Na desktop: normalna lista */}
-    <div className="hidden lg:block">
-      <CardHeader><CardTitle>Lekcje</CardTitle></CardHeader>
-      <CardContent>...</CardContent>
-    </div>
-  </Card>
-</div>
+```typescript
+export const isMobileDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    ('ontouchstart' in window) ||
+    (navigator.maxTouchPoints > 0);
+};
 ```
 
-### 3. Mniejszy padding na mobile
+### 2. Zaktualizować `SocialShareDialog.tsx`
 
-Zmniejszyć padding w głównym kontenerze na mobile:
+Dodać import i zmienić `handleDownload`:
 
-```tsx
-// PRZED
-<div className="container mx-auto px-4 py-8">
+```typescript
+import { shareOrDownloadImage, isMobileDevice, canUseWebShare } from '@/lib/imageShareUtils';
 
-// PO  
-<div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+const handleDownload = async () => {
+  const success = await shareOrDownloadImage(imageUrl, `${title}.jpg`);
+  
+  if (success) {
+    toast({
+      title: isMobileDevice() && canUseWebShare() ? 'Udostępnij lub zapisz' : t('dashboard.download'),
+      description: title,
+    });
+  }
+};
 ```
 
-### 4. Kompaktowy header lekcji na mobile
-
-CardHeader z mniejszym paddingiem na mobile:
+Zmienić przycisk:
 
 ```tsx
-<CardHeader className="p-4 sm:p-6">
+<Button onClick={handleDownload} className="flex-1 gap-2">
+  {isMobileDevice() && canUseWebShare() ? (
+    <>
+      <Share2 className="h-4 w-4" />
+      Zapisz do galerii
+    </>
+  ) : (
+    <>
+      <Download className="h-4 w-4" />
+      {t('dashboard.download')}
+    </>
+  )}
+</Button>
 ```
 
 ---
 
-## Szczegóły techniczne
+## Szczegółowe zmiany
 
-### Plik: `src/pages/TrainingModule.tsx`
+### Plik: `src/lib/imageShareUtils.ts`
+
+| Zmiana | Opis |
+|--------|------|
+| Dodać `isMobileDevice()` | Wykrywanie wszystkich urządzeń mobilnych |
+| Usunąć `&& isIOSDevice()` z warunku | Web Share API na wszystkich wspieranych przeglądarkach |
+| Zaktualizować komentarze | Zmienić "iOS" na "mobile devices" |
+
+### Plik: `src/components/share/SocialShareDialog.tsx`
 
 | Lokalizacja | Zmiana |
 |-------------|--------|
-| Linia ~1197 | Zmniejszyć padding: `px-2 sm:px-4 py-4 sm:py-8` |
-| Linia ~1199-1257 | Dodać `Collapsible` wrapper dla listy lekcji na mobile |
-| Linia ~1261-1263 | CardHeader: `p-4 sm:p-6` |
-| Linia ~1262 | Flex: `items-start gap-2` zamiast `items-center` |
-| Linia ~1263 | CardTitle: dodać `break-words line-clamp-2 text-lg sm:text-2xl flex-1 min-w-0` |
-| Linia ~1301 | CardContent: `p-4 sm:p-6` |
-
-### Import do dodania
-
-```tsx
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
-```
+| Import | Dodać `shareOrDownloadImage, isMobileDevice, canUseWebShare` |
+| `handleDownload()` | Zmienić na async, użyć `shareOrDownloadImage()` |
+| Przycisk (linia ~132) | Warunkowa ikona i tekst dla mobile |
 
 ---
 
@@ -120,8 +98,12 @@ import { ChevronDown } from 'lucide-react';
 
 Po zmianach:
 
-1. **Długi tytuł** - będzie zawijany i ograniczony do 2 linii z wielokropkiem
-2. **Lista lekcji na mobile** - domyślnie zwinięta, użytkownik może rozwinąć gdy potrzebuje
-3. **Więcej miejsca na wideo** - dzięki kompaktowym marginesom i ukrytej liście lekcji
-4. **Wideo nie będzie ucinane** - więcej przestrzeni dla playera
+| Urządzenie | Zachowanie |
+|------------|------------|
+| **iPhone (Safari, Chrome)** | Native share sheet → "Zapisz obraz" do Photos |
+| **Android (Chrome, Samsung)** | Native share sheet → opcje zapisu/udostępnienia |
+| **Desktop (Chrome, Edge)** | Native share sheet (jeśli wspierane) lub standardowe pobieranie |
+| **Desktop (Firefox, starsze)** | Standardowe pobieranie do Downloads |
+
+Wszystkie urządzenia mobilne z Web Share API dostaną natywny sheet z opcją zapisu do galerii zdjęć.
 
