@@ -1,92 +1,74 @@
 
-# Plan: Rozszerzenie listy obsługiwanych stref czasowych
+# Plan: Dodanie Arizony i synchronizacja list stref czasowych
 
 ## Problem
 
-System nie rozpoznaje strefy czasowej Nowej Fundlandii (Kanada) która ma unikatowy offset **UTC-3:30**. Przeglądarka zwraca `America/St_Johns` ale tej strefy nie ma w słowniku `TIMEZONE_ABBREVIATIONS`.
-
-Aktualnie obsługiwanych jest tylko około 30 stref czasowych, a na świecie jest ich ponad 400.
+1. **WelcomeWidget** używa własnej statycznej listy 11 stref czasowych, niezależnej od `COMMON_TIMEZONES`
+2. Lista w WelcomeWidget nie zawiera `America/Phoenix` (Arizona, MST bez DST)
+3. Użytkownik z Arizoną widzi poprawny czas, ale nie może zobaczyć/wybrać swojej strefy z dropdown-a
 
 ## Rozwiązanie
 
-Rozszerzyć plik `src/utils/timezoneHelpers.ts` o brakujące strefy czasowe, w tym:
+### 1. Rozszerzyć COMMON_TIMEZONES w timezoneHelpers.ts
 
-### 1. Kanada - wszystkie strefy
-- `America/St_Johns` - Nowa Fundlandia (NST, UTC-3:30)
-- `America/Halifax` - Atlantycka Kanada (AST)
-- `America/Winnipeg` - Manitoba (CST)
-- `America/Edmonton` - Alberta (MST)
-- `America/Regina` - Saskatchewan (CST, bez DST)
-
-### 2. USA - brakujące strefy
-- `America/Phoenix` - Arizona (MST, bez DST)
+Dodać brakujące popularne strefy czasowe:
+- `America/Phoenix` - Arizona (MST, bez zmiany czasu)
+- `America/Denver` - Góry Skaliste (MST)
 - `America/Anchorage` - Alaska (AKST)
 - `Pacific/Honolulu` - Hawaje (HST)
+- Dodatkowe europejskie i azjatyckie strefy
 
-### 3. Ameryka Środkowa i Południowa
-- `America/Mexico_City` - Meksyk (CST)
-- `America/Bogota` - Kolumbia (COT)
-- `America/Lima` - Peru (PET)
-- `America/Santiago` - Chile (CLT)
-- `America/Buenos_Aires` - Argentyna (ART)
+### 2. Zaktualizować WelcomeWidget
 
-### 4. Azja - rozszerzenie
-- `Asia/Jerusalem` / `Asia/Hebron` - Izrael/Palestyna (IST)
-- `Asia/Bangkok` - Tajlandia (ICT)
-- `Asia/Jakarta` - Indonezja (WIB)
-- `Asia/Seoul` - Korea (KST)
-- `Asia/Manila` - Filipiny (PHT)
-- `Asia/Karachi` - Pakistan (PKT)
-- `Asia/Dhaka` - Bangladesz (BST)
-- `Asia/Kathmandu` - Nepal (NPT, UTC+5:45)
-- `Asia/Almaty` - Kazachstan (ALMT)
+Zmienić komponent aby używał `COMMON_TIMEZONES` z `timezoneHelpers.ts` zamiast własnej statycznej listy. Dodatkowo - jeśli strefa użytkownika nie jest na liście, automatycznie ją dodać na górze.
 
-### 5. Bliski Wschód i Afryka
-- `Africa/Cairo` - Egipt (EET)
-- `Africa/Lagos` - Nigeria (WAT)
-- `Africa/Johannesburg` - RPA (SAST)
-- `Africa/Nairobi` - Kenia (EAT)
-- `Asia/Riyadh` - Arabia Saudyjska (AST)
-- `Asia/Tehran` - Iran (IRST, UTC+3:30)
+## Zmiany w plikach
 
-### 6. Oceania
-- `Australia/Brisbane` - Queensland (AEST, bez DST)
-- `Australia/Adelaide` - Australia Pd. (ACST)
-- `Australia/Darwin` - Terytorium Północne (ACST)
-- `Pacific/Fiji` - Fidżi (FJT)
-- `Pacific/Guam` - Guam (ChST)
+| Plik | Zmiana |
+|------|--------|
+| `src/utils/timezoneHelpers.ts` | Dodać Arizona, Denver, Alaska, Hawaii do COMMON_TIMEZONES |
+| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Użyć COMMON_TIMEZONES + automatycznie dodać strefę użytkownika |
 
-### 7. Europa - uzupełnienia
-- `Europe/Moscow` - Rosja (MSK)
-- `Europe/Istanbul` - Turcja (TRT)
-- `Europe/Zurich` - Szwajcaria (CET)
+## Logika dodawania strefy użytkownika
 
-## Zmiany w pliku
-
-### `src/utils/timezoneHelpers.ts`
-
-**Rozszerzenie `TIMEZONE_ABBREVIATIONS`** - dodanie około 50 nowych stref czasowych do słownika.
-
-**Rozszerzenie `COMMON_TIMEZONES`** - opcjonalnie dodanie popularnych stref do selektora (dla adminów tworzących wydarzenia).
-
-## Fallback dla nieznanych stref
-
-Aktualna implementacja już ma fallback:
 ```typescript
-export const getTimezoneAbbr = (timezone: string): string => {
-  if (!timezone) return 'CET';
-  return TIMEZONE_ABBREVIATIONS[timezone] || timezone.split('/').pop() || 'UTC';
-};
+import { COMMON_TIMEZONES, getTimezoneAbbr } from '@/utils/timezoneHelpers';
+
+const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const timezones = useMemo(() => {
+  // Sprawdź czy strefa użytkownika jest na liście
+  const userTzExists = COMMON_TIMEZONES.some(tz => tz.value === userTimezone);
+  
+  if (userTzExists) {
+    return COMMON_TIMEZONES;
+  }
+  
+  // Dodaj strefę użytkownika na górę listy
+  const cityName = userTimezone.split('/').pop()?.replace('_', ' ') || userTimezone;
+  const abbr = getTimezoneAbbr(userTimezone);
+  
+  return [
+    { value: userTimezone, label: `${cityName} (${abbr})` },
+    ...COMMON_TIMEZONES
+  ];
+}, [userTimezone]);
 ```
 
-Czyli dla `America/St_Johns` zwróci `St_Johns` zamiast `NST`. Po dodaniu do słownika zwróci poprawny skrót.
+## Rozszerzona lista COMMON_TIMEZONES
+
+Dodać do listy:
+```typescript
+// USA - dodatkowe strefy
+{ value: 'America/Phoenix', label: 'Arizona (MST)' },
+{ value: 'America/Denver', label: 'Denver (MST)' },
+{ value: 'America/Anchorage', label: 'Alaska (AKST)' },
+{ value: 'Pacific/Honolulu', label: 'Hawaje (HST)' },
+```
 
 ## Rezultat
 
-Po zmianie użytkownik z Nowej Fundlandii zobaczy:
-- Poprawny skrót strefy: `NST` zamiast `St_Johns`
-- Poprawne obliczenie różnicy czasu (UTC-3:30 vs Warsaw UTC+1 = 4.5h różnicy)
-
-Wydarzenie o 10:00 Warsaw będzie wyświetlane jako:
-- **Twój czas:** 05:30 (St Johns) ← poprawnie -4:30 różnicy
-- **Czas wydarzenia:** 10:00 (Warsaw)
+Po zmianie:
+- Arizona (`America/Phoenix`) będzie widoczna w dropdown-ie
+- Jeśli użytkownik ma ustawioną jakąkolwiek inną strefę spoza listy - pojawi się automatycznie na górze
+- WelcomeWidget będzie zsynchronizowany z centralną listą stref czasowych
