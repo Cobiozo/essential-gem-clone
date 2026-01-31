@@ -6,6 +6,7 @@
  */
 
 export const TIMEZONE_ABBREVIATIONS: Record<string, string> = {
+  // ============ EUROPE ============
   // Central European Time
   'Europe/Warsaw': 'CET',
   'Europe/Berlin': 'CET',
@@ -20,11 +21,25 @@ export const TIMEZONE_ABBREVIATIONS: Record<string, string> = {
   'Europe/Stockholm': 'CET',
   'Europe/Oslo': 'CET',
   'Europe/Copenhagen': 'CET',
+  'Europe/Zurich': 'CET',
+  'Europe/Zagreb': 'CET',
+  'Europe/Belgrade': 'CET',
+  'Europe/Bratislava': 'CET',
+  'Europe/Ljubljana': 'CET',
+  'Europe/Luxembourg': 'CET',
+  'Europe/Monaco': 'CET',
+  'Europe/Malta': 'CET',
+  'Europe/Andorra': 'CET',
+  'Europe/Vatican': 'CET',
+  'Europe/San_Marino': 'CET',
   
   // Greenwich Mean Time / Western European Time
   'Europe/London': 'GMT',
   'Europe/Dublin': 'GMT',
   'Europe/Lisbon': 'WET',
+  'Atlantic/Reykjavik': 'GMT',
+  'Atlantic/Canary': 'WET',
+  'Atlantic/Faroe': 'WET',
   
   // Eastern European Time
   'Europe/Helsinki': 'EET',
@@ -32,33 +47,174 @@ export const TIMEZONE_ABBREVIATIONS: Record<string, string> = {
   'Europe/Bucharest': 'EET',
   'Europe/Kiev': 'EET',
   'Europe/Kyiv': 'EET',
+  'Europe/Sofia': 'EET',
+  'Europe/Tallinn': 'EET',
+  'Europe/Riga': 'EET',
+  'Europe/Vilnius': 'EET',
+  'Europe/Chisinau': 'EET',
   
-  // Americas
+  // Other European
+  'Europe/Moscow': 'MSK',
+  'Europe/Istanbul': 'TRT',
+  'Europe/Minsk': 'MSK',
+  'Europe/Kaliningrad': 'EET',
+  
+  // ============ AMERICAS ============
+  // Canada
+  'America/St_Johns': 'NST',        // Newfoundland UTC-3:30
+  'America/Halifax': 'AST',         // Atlantic Canada
+  'America/Moncton': 'AST',
+  'America/Toronto': 'EST',
+  'America/Montreal': 'EST',
+  'America/Winnipeg': 'CST',
+  'America/Regina': 'CST',          // Saskatchewan (no DST)
+  'America/Edmonton': 'MST',
+  'America/Calgary': 'MST',
+  'America/Vancouver': 'PST',
+  'America/Whitehorse': 'PST',
+  'America/Yellowknife': 'MST',
+  'America/Iqaluit': 'EST',
+  
+  // USA
   'America/New_York': 'EST',
   'America/Chicago': 'CST',
   'America/Denver': 'MST',
   'America/Los_Angeles': 'PST',
-  'America/Toronto': 'EST',
-  'America/Vancouver': 'PST',
-  'America/Sao_Paulo': 'BRT',
+  'America/Phoenix': 'MST',         // Arizona (no DST)
+  'America/Anchorage': 'AKST',      // Alaska
+  'America/Detroit': 'EST',
+  'America/Indianapolis': 'EST',
+  'America/Boise': 'MST',
+  'Pacific/Honolulu': 'HST',        // Hawaii
   
-  // Asia
+  // Mexico
+  'America/Mexico_City': 'CST',
+  'America/Tijuana': 'PST',
+  'America/Cancun': 'EST',
+  'America/Monterrey': 'CST',
+  
+  // Central America
+  'America/Guatemala': 'CST',
+  'America/Costa_Rica': 'CST',
+  'America/Panama': 'EST',
+  
+  // Caribbean
+  'America/Havana': 'CST',
+  'America/Puerto_Rico': 'AST',
+  'America/Jamaica': 'EST',
+  'America/Santo_Domingo': 'AST',
+  
+  // South America
+  'America/Sao_Paulo': 'BRT',
+  'America/Buenos_Aires': 'ART',
+  'America/Argentina/Buenos_Aires': 'ART',
+  'America/Santiago': 'CLT',
+  'America/Bogota': 'COT',
+  'America/Lima': 'PET',
+  'America/Caracas': 'VET',
+  'America/La_Paz': 'BOT',
+  'America/Montevideo': 'UYT',
+  'America/Asuncion': 'PYT',
+  'America/Guayaquil': 'ECT',
+  
+  // ============ ASIA ============
+  // East Asia
   'Asia/Tokyo': 'JST',
+  'Asia/Seoul': 'KST',
   'Asia/Shanghai': 'CST',
   'Asia/Hong_Kong': 'HKT',
-  'Asia/Singapore': 'SGT',
-  'Asia/Dubai': 'GST',
-  'Asia/Kolkata': 'IST',
+  'Asia/Taipei': 'CST',
+  'Asia/Macau': 'CST',
+  'Asia/Ulaanbaatar': 'ULAT',
   
-  // Pacific
+  // Southeast Asia
+  'Asia/Singapore': 'SGT',
+  'Asia/Bangkok': 'ICT',
+  'Asia/Jakarta': 'WIB',
+  'Asia/Ho_Chi_Minh': 'ICT',
+  'Asia/Manila': 'PHT',
+  'Asia/Kuala_Lumpur': 'MYT',
+  'Asia/Phnom_Penh': 'ICT',
+  'Asia/Yangon': 'MMT',
+  
+  // South Asia
+  'Asia/Kolkata': 'IST',
+  'Asia/Calcutta': 'IST',
+  'Asia/Mumbai': 'IST',
+  'Asia/Dhaka': 'BST',
+  'Asia/Karachi': 'PKT',
+  'Asia/Colombo': 'IST',
+  'Asia/Kathmandu': 'NPT',          // Nepal UTC+5:45
+  
+  // Central Asia
+  'Asia/Almaty': 'ALMT',
+  'Asia/Tashkent': 'UZT',
+  'Asia/Bishkek': 'KGT',
+  
+  // West Asia / Middle East
+  'Asia/Dubai': 'GST',
+  'Asia/Riyadh': 'AST',
+  'Asia/Jerusalem': 'IST',
+  'Asia/Tel_Aviv': 'IST',
+  'Asia/Hebron': 'EET',
+  'Asia/Gaza': 'EET',
+  'Asia/Tehran': 'IRST',            // Iran UTC+3:30
+  'Asia/Baghdad': 'AST',
+  'Asia/Kuwait': 'AST',
+  'Asia/Qatar': 'AST',
+  'Asia/Bahrain': 'AST',
+  'Asia/Muscat': 'GST',
+  'Asia/Amman': 'EET',
+  'Asia/Beirut': 'EET',
+  'Asia/Damascus': 'EET',
+  'Asia/Baku': 'AZT',
+  'Asia/Tbilisi': 'GET',
+  'Asia/Yerevan': 'AMT',
+  
+  // ============ AFRICA ============
+  'Africa/Cairo': 'EET',
+  'Africa/Lagos': 'WAT',
+  'Africa/Johannesburg': 'SAST',
+  'Africa/Nairobi': 'EAT',
+  'Africa/Casablanca': 'WET',
+  'Africa/Algiers': 'CET',
+  'Africa/Tunis': 'CET',
+  'Africa/Tripoli': 'EET',
+  'Africa/Khartoum': 'CAT',
+  'Africa/Addis_Ababa': 'EAT',
+  'Africa/Accra': 'GMT',
+  'Africa/Abidjan': 'GMT',
+  'Africa/Dakar': 'GMT',
+  'Africa/Dar_es_Salaam': 'EAT',
+  'Africa/Kampala': 'EAT',
+  'Africa/Harare': 'CAT',
+  'Africa/Maputo': 'CAT',
+  'Africa/Lusaka': 'CAT',
+  'Africa/Windhoek': 'CAT',
+  
+  // ============ OCEANIA / PACIFIC ============
   'Australia/Sydney': 'AEST',
   'Australia/Melbourne': 'AEST',
+  'Australia/Brisbane': 'AEST',     // Queensland (no DST)
   'Australia/Perth': 'AWST',
+  'Australia/Adelaide': 'ACST',
+  'Australia/Darwin': 'ACST',
+  'Australia/Hobart': 'AEST',
+  'Australia/Canberra': 'AEST',
   'Pacific/Auckland': 'NZST',
+  'Pacific/Wellington': 'NZST',
+  'Pacific/Fiji': 'FJT',
+  'Pacific/Guam': 'ChST',
+  'Pacific/Tahiti': 'TAHT',
+  'Pacific/Noumea': 'NCT',
+  'Pacific/Port_Moresby': 'PGT',
+  'Pacific/Samoa': 'SST',
+  'Pacific/Tongatapu': 'TOT',
   
-  // UTC
+  // ============ UTC ============
   'UTC': 'UTC',
   'Etc/UTC': 'UTC',
+  'Etc/GMT': 'GMT',
 };
 
 /**
@@ -98,6 +254,7 @@ export const DEFAULT_EVENT_TIMEZONE = 'Europe/Warsaw';
  * Common timezones for selector dropdowns
  */
 export const COMMON_TIMEZONES = [
+  // Europe
   { value: 'Europe/Warsaw', label: 'Polska (CET)' },
   { value: 'Europe/London', label: 'Wielka Brytania (GMT)' },
   { value: 'Europe/Berlin', label: 'Niemcy (CET)' },
@@ -112,7 +269,29 @@ export const COMMON_TIMEZONES = [
   { value: 'Europe/Stockholm', label: 'Szwecja (CET)' },
   { value: 'Europe/Helsinki', label: 'Finlandia (EET)' },
   { value: 'Europe/Athens', label: 'Grecja (EET)' },
+  { value: 'Europe/Moscow', label: 'Rosja (MSK)' },
+  { value: 'Europe/Istanbul', label: 'Turcja (TRT)' },
+  // Americas
   { value: 'America/New_York', label: 'Nowy Jork (EST)' },
+  { value: 'America/Chicago', label: 'Chicago (CST)' },
   { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
+  { value: 'America/Toronto', label: 'Toronto (EST)' },
+  { value: 'America/Vancouver', label: 'Vancouver (PST)' },
+  { value: 'America/St_Johns', label: 'Nowa Fundlandia (NST)' },
+  { value: 'America/Mexico_City', label: 'Meksyk (CST)' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
+  { value: 'America/Buenos_Aires', label: 'Buenos Aires (ART)' },
+  // Asia & Middle East
   { value: 'Asia/Tokyo', label: 'Tokio (JST)' },
+  { value: 'Asia/Seoul', label: 'Seul (KST)' },
+  { value: 'Asia/Shanghai', label: 'Szanghaj (CST)' },
+  { value: 'Asia/Hong_Kong', label: 'Hongkong (HKT)' },
+  { value: 'Asia/Singapore', label: 'Singapur (SGT)' },
+  { value: 'Asia/Bangkok', label: 'Bangkok (ICT)' },
+  { value: 'Asia/Dubai', label: 'Dubaj (GST)' },
+  { value: 'Asia/Jerusalem', label: 'Jerozolima (IST)' },
+  { value: 'Asia/Kolkata', label: 'Indie (IST)' },
+  // Oceania
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'Pacific/Auckland', label: 'Auckland (NZST)' },
 ];
