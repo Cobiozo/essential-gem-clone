@@ -15,7 +15,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, addMinutes, parseISO } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
+import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { 
   Calendar, 
   Copy, 
@@ -333,12 +335,14 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
                 value={form.start_time ? format(new Date(form.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
                 onChange={(e) => {
                   if (e.target.value) {
-                    // Preserve local time by parsing without timezone conversion
+                    // Parse the input as time in event timezone (Europe/Warsaw)
                     const [datePart, timePart] = e.target.value.split('T');
                     const [year, month, day] = datePart.split('-').map(Number);
                     const [hours, minutes] = timePart.split(':').map(Number);
-                    const localDate = new Date(year, month - 1, day, hours, minutes);
-                    setForm({ ...form, start_time: localDate.toISOString() });
+                    const localDateTime = new Date(year, month - 1, day, hours, minutes);
+                    // Convert from event timezone to UTC for storage
+                    const utcDateTime = fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE);
+                    setForm({ ...form, start_time: utcDateTime.toISOString() });
                   } else {
                     setForm({ ...form, start_time: '' });
                   }
