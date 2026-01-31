@@ -9,11 +9,13 @@ import { useEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
+import { subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
+import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
 export const MyMeetingsWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -415,7 +417,7 @@ export const MyMeetingsWidget: React.FC = () => {
                         <span className="text-sm font-medium truncate flex-1">{event.title}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(event.start_time), 'd MMM HH:mm', { locale })}
+                            {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'd MMM HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
                           </span>
                           {getActionButton(event)}
                         </div>

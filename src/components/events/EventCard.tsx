@@ -6,8 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format, isPast, isFuture, differenceInMinutes } from 'date-fns';
+import { isPast, isFuture, differenceInMinutes } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
+import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { 
   Calendar, 
   Clock, 
@@ -227,12 +229,13 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   // Copy invitation text to clipboard
   const handleCopyInvitation = () => {
+    const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
     const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     const invitationText = `
 🎥 Zaproszenie na webinar: ${event.title}
 
-📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
+📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
+⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
 ${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
 
 Zapisz się tutaj: ${inviteUrl}
@@ -393,17 +396,18 @@ Zapisz się tutaj: ${inviteUrl}
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Date & Time */}
+        {/* Date & Time with timezone */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
-          <span>{format(startDate, 'PPP', { locale: dateLocale })}</span>
+          <span>{formatInTimeZone(startDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'PPP', { locale: dateLocale })}</span>
         </div>
         
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="h-4 w-4" />
           <span>
-            {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+            {formatInTimeZone(startDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(endDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')}
             {durationMinutes && <span className="ml-1">({durationMinutes} min)</span>}
+            <span className="ml-1 text-xs">({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})</span>
           </span>
         </div>
 
