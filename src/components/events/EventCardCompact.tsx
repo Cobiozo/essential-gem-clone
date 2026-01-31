@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, isPast, isFuture, differenceInMinutes, type Locale } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
-import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE, getUserTimezone } from '@/utils/timezoneHelpers';
 import { 
   Calendar, 
   Clock, 
@@ -29,7 +29,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { EventWithRegistration, EventButton } from '@/types/events';
 import type { ExpandedOccurrence } from '@/types/occurrences';
-import { isMultiOccurrenceEvent, getAllOccurrences } from '@/hooks/useOccurrences';
+import { isMultiOccurrenceEvent, getAllOccurrences, getNextActiveOccurrence } from '@/hooks/useOccurrences';
 
 interface EventCardCompactProps {
   event: EventWithRegistration;
@@ -179,6 +179,15 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const isMultiOccurrence = isMultiOccurrenceEvent(event);
   const allOccurrences = isMultiOccurrence ? getAllOccurrences(event) : [];
   const futureOccurrences = allOccurrences.filter(occ => !occ.is_past);
+  
+  // For header: show next occurrence date (or start_time for single events)
+  const nextOccurrence = isMultiOccurrence ? getNextActiveOccurrence(event) : null;
+  const displayDate = nextOccurrence ? nextOccurrence.start_datetime : startDate;
+  
+  // Timezone comparison
+  const eventTimezone = event.timezone || DEFAULT_EVENT_TIMEZONE;
+  const userTimezone = getUserTimezone();
+  const timezonesAreDifferent = userTimezone !== eventTimezone;
   
   // Check if this is an external platform event
   const isExternalPlatform = (event as any).is_external_platform === true;
@@ -558,11 +567,11 @@ Zapisz się tutaj: ${inviteUrl}
           <div className="hidden md:flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <span>{format(startDate, 'd MMM', { locale: dateLocale })}</span>
+              <span>{format(displayDate, 'd MMM', { locale: dateLocale })}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>{formatInTimeZone(startDate, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})</span>
+              <span>{formatInTimeZone(displayDate, eventTimezone, 'HH:mm')} ({getTimezoneAbbr(eventTimezone)})</span>
             </div>
           </div>
 
@@ -616,6 +625,26 @@ Zapisz się tutaj: ${inviteUrl}
                 className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert"
                 dangerouslySetInnerHTML={{ __html: event.description }}
               />
+            )}
+
+            {/* Timezone comparison - when user is in different timezone */}
+            {timezonesAreDifferent && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2 text-sm">
+                  <Globe className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="font-medium">Twój czas:</span>
+                  <span>
+                    {formatInTimeZone(displayDate, userTimezone, 'HH:mm')} ({userTimezone.split('/')[1]?.replace(/_/g, ' ') || userTimezone})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 flex-shrink-0" />
+                  <span>Czas wydarzenia:</span>
+                  <span>
+                    {formatInTimeZone(displayDate, eventTimezone, 'HH:mm')} ({eventTimezone.split('/')[1]?.replace(/_/g, ' ') || eventTimezone})
+                  </span>
+                </div>
+              </div>
             )}
 
             {/* Details grid */}
