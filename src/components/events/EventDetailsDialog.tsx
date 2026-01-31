@@ -9,12 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe } from 'lucide-react';
-import { format, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
+import { subMinutes, isAfter, isBefore } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EventWithRegistration } from '@/types/events';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { getTimezoneAbbr, getUserTimezone, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
 interface EventDetailsDialogProps {
   event: EventWithRegistration | null;
@@ -65,6 +67,11 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const now = new Date();
   const fifteenMinutesBefore = subMinutes(eventStart, 15);
   const durationMinutes = Math.round((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60));
+  
+  // Timezone handling
+  const eventTimezone = event.timezone || DEFAULT_EVENT_TIMEZONE;
+  const userTimezone = getUserTimezone();
+  const timezonesAreDifferent = userTimezone !== eventTimezone;
 
   // Use dynamic zoom link as fallback
   const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
@@ -141,15 +148,25 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               <div className="flex-1 space-y-1.5 text-sm">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span>{format(eventStart, 'EEEE, d MMMM', { locale })}</span>
+                  <span>{formatInTimeZone(eventStart, eventTimezone, 'EEEE, d MMMM', { locale })}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span>
-                    {format(eventStart, 'HH:mm')} - {format(eventEnd, 'HH:mm')} ({durationMinutes} min)
+                    {formatInTimeZone(eventStart, eventTimezone, 'HH:mm')} - {formatInTimeZone(eventEnd, eventTimezone, 'HH:mm')} ({durationMinutes} min) ({getTimezoneAbbr(eventTimezone)})
                   </span>
                 </div>
+                
+                {/* User's local time comparison (only if different timezone) */}
+                {timezonesAreDifferent && (
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-xs">
+                    <Globe className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                    <span>
+                      Twój czas: {formatInTimeZone(eventStart, userTimezone, 'HH:mm')} - {formatInTimeZone(eventEnd, userTimezone, 'HH:mm')} ({getTimezoneAbbr(userTimezone)})
+                    </span>
+                  </div>
+                )}
 
                 {(event.host_name || event.host_profile) && (
                   <div className="flex items-center gap-2">

@@ -9,12 +9,14 @@ import { useEvents } from '@/hooks/useEvents';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { EventWithRegistration, EventButton } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
+import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
 export const CalendarWidget: React.FC = () => {
   const { t, language } = useLanguage();
@@ -40,13 +42,14 @@ export const CalendarWidget: React.FC = () => {
   const handleCopyInvitation = (event: EventWithRegistration) => {
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
+    const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
     const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
     const invitationText = `
 🎥 Zaproszenie na webinar: ${event.title}
 
-📅 Data: ${format(startDate, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${format(startDate, 'HH:mm')} - ${format(endDate, 'HH:mm')}
+📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
+⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
 ${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
 
 Zapisz się tutaj: ${inviteUrl}
@@ -381,7 +384,7 @@ Zapisz się tutaj: ${inviteUrl}
                     
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(event.start_time), 'HH:mm')} - {format(new Date(event.end_time), 'HH:mm')}
+                        {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
                       </span>
                       <div className="flex items-center gap-1 flex-wrap justify-end">
                         <Button
