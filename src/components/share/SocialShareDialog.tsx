@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { shareOrDownloadImage, isMobileDevice, canUseWebShare } from '@/lib/imageShareUtils';
 
 interface SocialShareDialogProps {
   open: boolean;
@@ -50,12 +51,17 @@ export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
   const encodedUrl = encodeURIComponent(imageUrl);
   const encodedText = encodeURIComponent(shareText);
 
-  const handleDownload = () => {
-    window.open(downloadUrl, '_blank');
-    toast({
-      title: t('dashboard.download'),
-      description: title,
-    });
+  const isMobileWithShare = isMobileDevice() && canUseWebShare();
+
+  const handleDownload = async () => {
+    const success = await shareOrDownloadImage(imageUrl, `${title}.jpg`);
+    
+    if (success) {
+      toast({
+        title: isMobileWithShare ? 'Udostępnij lub zapisz' : t('dashboard.download'),
+        description: title,
+      });
+    }
   };
 
   const handleCopyLink = async () => {
@@ -130,8 +136,17 @@ export const SocialShareDialog: React.FC<SocialShareDialogProps> = ({
             {/* Download Button - conditional */}
             {allowDownload && (
               <Button onClick={handleDownload} className="flex-1 gap-2">
-                <Download className="h-4 w-4" />
-                {t('dashboard.download')}
+                {isMobileWithShare ? (
+                  <>
+                    <Share2 className="h-4 w-4" />
+                    Zapisz do galerii
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    {t('dashboard.download')}
+                  </>
+                )}
               </Button>
             )}
 

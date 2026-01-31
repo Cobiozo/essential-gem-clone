@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Download, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { shareOrDownloadImage, isIOSDevice } from '@/lib/imageShareUtils';
+import { shareOrDownloadImage, isMobileDevice, canUseWebShare } from '@/lib/imageShareUtils';
 
 interface GalleryImage {
   url: string;
@@ -76,7 +76,7 @@ export const GalleryElement: React.FC<GalleryElementProps> = ({
             {selectedImage?.alt || 'Podgląd obrazu'}
           </DialogTitle>
           <div className="relative">
-            {/* Save/Download button for iOS (top-right) */}
+            {/* Save/Download button for mobile (top-right) */}
             <div className="absolute top-4 right-4 z-10">
               <Button
                 variant="secondary"
@@ -84,8 +84,8 @@ export const GalleryElement: React.FC<GalleryElementProps> = ({
                 onClick={() => selectedImage && shareOrDownloadImage(selectedImage.url, 'gallery-image.jpg')}
                 className="gap-2 bg-white/90 dark:bg-black/70 backdrop-blur-sm shadow-lg"
               >
-                {isIOSDevice() ? <Share2 className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                {isIOSDevice() ? 'Zapisz' : 'Pobierz'}
+                {isMobileDevice() && canUseWebShare() ? <Share2 className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                {isMobileDevice() && canUseWebShare() ? 'Zapisz do galerii' : 'Pobierz'}
               </Button>
             </div>
             <img
