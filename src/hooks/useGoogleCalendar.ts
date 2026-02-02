@@ -7,6 +7,7 @@ interface GoogleCalendarState {
   isConnected: boolean;
   isLoading: boolean;
   expiresAt: Date | null;
+  googleEmail: string | null;
 }
 
 // Error messages mapping for user-friendly display
@@ -42,6 +43,7 @@ export const useGoogleCalendar = () => {
     isConnected: false,
     isLoading: true,
     expiresAt: null,
+    googleEmail: null,
   });
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number>(0);
@@ -50,20 +52,20 @@ export const useGoogleCalendar = () => {
   // Check connection status
   const checkConnection = useCallback(async () => {
     if (!user) {
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
+      setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
       return;
     }
 
     try {
       const { data, error } = await supabase
         .from('user_google_tokens')
-        .select('expires_at')
+        .select('expires_at, google_email')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) {
         console.error('[useGoogleCalendar] Error checking connection:', error);
-        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
         return;
       }
 
@@ -73,13 +75,14 @@ export const useGoogleCalendar = () => {
           isConnected: true,
           isLoading: false,
           expiresAt,
+          googleEmail: data.google_email || null,
         });
       } else {
-        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
       }
     } catch (error) {
       console.error('[useGoogleCalendar] Unexpected error:', error);
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
+      setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
     }
   }, [user]);
 
@@ -193,7 +196,7 @@ export const useGoogleCalendar = () => {
         .delete()
         .eq('user_id', user.id);
 
-      setState({ isConnected: false, isLoading: false, expiresAt: null });
+      setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
 
       toast({
         title: 'Rozłączono',
@@ -265,7 +268,7 @@ export const useGoogleCalendar = () => {
       // Check if token was revoked
       if (data?.token_revoked) {
         console.log('[useGoogleCalendar] Token was revoked, updating state');
-        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
         toast({
           title: 'Połączenie wygasło',
           description: 'Token Google Calendar został unieważniony. Połącz się ponownie.',
@@ -319,7 +322,7 @@ export const useGoogleCalendar = () => {
       });
       
       if (testResult.data?.token_revoked) {
-        setState({ isConnected: false, isLoading: false, expiresAt: null });
+        setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
         toast({
           title: 'Połączenie wygasło',
           description: 'Token Google Calendar został unieważniony. Połącz się ponownie.',
@@ -446,6 +449,7 @@ export const useGoogleCalendar = () => {
     isConnected: state.isConnected,
     isLoading: state.isLoading,
     expiresAt: state.expiresAt,
+    googleEmail: state.googleEmail,
     isSyncing,
     connect,
     disconnect,
