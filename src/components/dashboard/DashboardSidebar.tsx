@@ -137,6 +137,19 @@ export const DashboardSidebar: React.FC = () => {
   const [canGenerateReflinks, setCanGenerateReflinks] = useState(false);
   const [hasInfoLinks, setHasInfoLinks] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const [manuallyClosedSubmenu, setManuallyClosedSubmenu] = useState<string | null>(null);
+  
+  // Reset manually closed state when navigating to a new path
+  useEffect(() => {
+    setManuallyClosedSubmenu(null);
+  }, [location.pathname]);
+  
+  // Helper to determine if submenu should be open
+  const isSubmenuOpen = (item: MenuItem) => {
+    if (openSubmenu === item.id) return true;
+    if (manuallyClosedSubmenu === item.id) return false;
+    return isSubmenuParentActive(item);
+  };
   
   // Individual meetings permissions for partners
   const [individualMeetingsEnabled, setIndividualMeetingsEnabled] = useState({
@@ -574,8 +587,16 @@ export const DashboardSidebar: React.FC = () => {
             <SidebarMenuItem key={item.id} data-tour={`menu-${item.id}`}>
               {item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0 ? (
                 <Collapsible
-                  open={openSubmenu === item.id || isSubmenuParentActive(item)}
-                  onOpenChange={(open) => setOpenSubmenu(open ? item.id : null)}
+                  open={isSubmenuOpen(item)}
+                  onOpenChange={(open) => {
+                    if (open) {
+                      setOpenSubmenu(item.id);
+                      setManuallyClosedSubmenu(null);
+                    } else {
+                      setOpenSubmenu(null);
+                      setManuallyClosedSubmenu(item.id);
+                    }
+                  }}
                 >
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
@@ -586,7 +607,7 @@ export const DashboardSidebar: React.FC = () => {
                       <item.icon className="h-4 w-4" />
                       <span className="flex-1">{t(item.labelKey)}</span>
                       <ChevronDown 
-                        className={`h-4 w-4 transition-transform ${openSubmenu === item.id || isSubmenuParentActive(item) ? 'rotate-180' : ''}`} 
+                        className={`h-4 w-4 transition-transform ${isSubmenuOpen(item) ? 'rotate-180' : ''}`} 
                       />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>

@@ -239,20 +239,26 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
     if (!user || !signal) return;
 
     const reactionTime = Date.now() - bannerShownAtRef.current;
+    const currentSignal = signal;
+    const currentSettings = settings;
+
+    // OPTIMISTIC: Close UI immediately, then sync with database
+    setShowBanner(false);
+    onDismiss?.();
 
     try {
-      // Track accept interaction
+      // Track accept interaction (async, don't block UI)
       trackBannerInteraction(supabase, {
         bannerType: 'signal',
-        bannerId: signal.id,
+        bannerId: currentSignal.id,
         userId: user.id,
         userRole: userRole ? String(userRole) : null,
         interactionType: 'accept',
         reactionTimeMs: reactionTime,
-        bannerTone: signal.signal_type || 'supportive',
-        contentLength: signal.main_message?.length || 0,
-        hasAnimation: settings?.animation_intensity !== 'off',
-        animationLevel: settings?.animation_intensity,
+        bannerTone: currentSignal.signal_type || 'supportive',
+        contentLength: currentSignal.main_message?.length || 0,
+        hasAnimation: currentSettings?.animation_intensity !== 'off',
+        animationLevel: currentSettings?.animation_intensity,
       });
 
       // Upsert user preferences with timestamp
@@ -262,15 +268,13 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           user_id: user.id,
           show_daily_signal: true,
           last_signal_shown_at: new Date().toISOString(),
-          last_signal_id: signal.id
+          last_signal_id: currentSignal.id
         }, {
           onConflict: 'user_id'
         });
-
-      setShowBanner(false);
-      onDismiss?.();
     } catch (error) {
-      console.error('Error accepting signal:', error);
+      console.error('Error saving signal acceptance:', error);
+      // UI already closed - don't block user
     }
   };
 
@@ -278,21 +282,27 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
     if (!user) return;
 
     const reactionTime = Date.now() - bannerShownAtRef.current;
+    const currentSignal = signal;
+    const currentSettings = settings;
+
+    // OPTIMISTIC: Close UI immediately, then sync with database
+    setShowBanner(false);
+    onDismiss?.();
 
     try {
-      // Track disable interaction
-      if (signal) {
+      // Track disable interaction (async, don't block UI)
+      if (currentSignal) {
         trackBannerInteraction(supabase, {
           bannerType: 'signal',
-          bannerId: signal.id,
+          bannerId: currentSignal.id,
           userId: user.id,
           userRole: userRole ? String(userRole) : null,
           interactionType: 'disable',
           reactionTimeMs: reactionTime,
-          bannerTone: signal.signal_type || 'supportive',
-          contentLength: signal.main_message?.length || 0,
-          hasAnimation: settings?.animation_intensity !== 'off',
-          animationLevel: settings?.animation_intensity,
+          bannerTone: currentSignal.signal_type || 'supportive',
+          contentLength: currentSignal.main_message?.length || 0,
+          hasAnimation: currentSettings?.animation_intensity !== 'off',
+          animationLevel: currentSettings?.animation_intensity,
         });
       }
 
@@ -302,15 +312,13 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           user_id: user.id,
           show_daily_signal: false,
           last_signal_shown_at: new Date().toISOString(),
-          last_signal_id: signal?.id || null
+          last_signal_id: currentSignal?.id || null
         }, {
           onConflict: 'user_id'
         });
-
-      setShowBanner(false);
-      onDismiss?.();
     } catch (error) {
       console.error('Error disabling signal:', error);
+      // UI already closed - don't block user
     }
   };
 

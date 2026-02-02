@@ -215,40 +215,42 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
     if (!user || !banner) return;
 
     const reactionTime = Date.now() - bannerShownAtRef.current;
+    const currentBanner = banner;
+
+    // OPTIMISTIC: Close UI immediately, then sync with database
+    setShowBanner(false);
+    onDismiss();
 
     try {
-      // Track accept interaction
+      // Track accept interaction (async, don't block UI)
       trackBannerInteraction(supabase, {
         bannerType: 'info',
-        bannerId: banner.id,
+        bannerId: currentBanner.id,
         userId: user.id,
         userRole: userRole ? String(userRole) : null,
         interactionType: 'accept',
         reactionTimeMs: reactionTime,
-        contentLength: banner.content?.length || 0,
-        hasAnimation: banner.animation_intensity !== 'off',
-        animationLevel: banner.animation_intensity || 'subtle',
+        contentLength: currentBanner.content?.length || 0,
+        hasAnimation: currentBanner.animation_intensity !== 'off',
+        animationLevel: currentBanner.animation_intensity || 'subtle',
       });
 
-      if (banner.display_frequency === 'once') {
+      if (currentBanner.display_frequency === 'once') {
         // Record dismissal permanently for 'once' banners
         await supabase
           .from('user_dismissed_banners')
           .upsert({
             user_id: user.id,
-            banner_id: banner.id,
+            banner_id: currentBanner.id,
             dismissed_at: new Date().toISOString()
           }, {
             onConflict: 'user_id,banner_id'
           });
       }
       // For every_login mode - no sessionStorage needed, loginTrigger handles reset
-
-      setShowBanner(false);
-      // Trigger parent to move to next banner
-      onDismiss();
     } catch (error) {
-      console.error('Error dismissing banner:', error);
+      console.error('Error saving banner dismissal:', error);
+      // UI already closed - don't block user
     }
   };
 
