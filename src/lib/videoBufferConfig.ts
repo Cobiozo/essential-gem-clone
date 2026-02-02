@@ -12,7 +12,8 @@ export interface BufferConfig {
   stuckDetectionIntervalMs: number;
   bufferingStateDelayMs: number;
   seekToleranceSeconds: number;
-  smartBufferingDelayMs: number; // NEW: Delay before activating smart buffering
+  smartBufferingDelayMs: number; // Delay before activating smart buffering
+  spinnerDebounceMs: number; // NEW: Delay before showing spinner (without pausing video)
 }
 
 export const VIDEO_BUFFER_CONFIG = {
@@ -37,9 +38,10 @@ export const VIDEO_BUFFER_CONFIG = {
   // Common settings (device-independent)
   common: {
     stuckDetectionIntervalMs: 20000,  // Check every 20s for stuck playback - less invasive
-    bufferingStateDelayMs: 1200,      // Zwiększone z 1000 na 1200ms - mniej fałszywych spinnerów
+    bufferingStateDelayMs: 800,       // Zmniejszone z 1200 na 800ms - szybsze wznowienie po buforowaniu
     seekToleranceSeconds: 5,          // Max allowed time jump before blocking
-    smartBufferingDelayMs: 2000,      // Zwiększone z 1500 na 2000ms - więcej tolerancji dla mikro-zacinań
+    smartBufferingDelayMs: 3500,      // Zwiększone z 2000 na 3500ms - większa tolerancja dla mikro-zacinań
+    spinnerDebounceMs: 1500,          // NEW: Opóźnienie przed pokazaniem spinnera (nie pauzuje wideo)
   }
 } as const;
 

@@ -89,6 +89,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
   
+  // NEW: Debounced spinner state - spinner appears only after delay without pausing video
+  const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
+  const spinnerTimeoutRef = useRef<NodeJS.Timeout>();
+  
   // Use adaptive buffer config based on device and network
   const bufferConfigRef = useRef<BufferConfig>(getAdaptiveBufferConfig());
   
@@ -400,6 +404,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setIsSmartBuffering(false);
     wasPlayingBeforeBufferRef.current = false;
     setBufferedRanges([]);
+    // NEW: Reset debounced spinner state
+    setShowBufferingSpinner(false);
+    if (spinnerTimeoutRef.current) {
+      clearTimeout(spinnerTimeoutRef.current);
+      spinnerTimeoutRef.current = undefined;
+    }
     // Refresh buffer config on new video
     bufferConfigRef.current = getAdaptiveBufferConfig();
   }, [mediaUrl]);
@@ -567,44 +577,70 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     console.log('[SecureMedia] Attaching event listeners to video element');
 
     // Buffering handlers - prevent false seek detection during network delays
-    // NEW: Added tolerance for micro-stalls to avoid unnecessary interruptions
+    // OPTIMIZED: Smarter buffering logic - only pause on slow networks, debounced spinner
     const handleWaiting = () => {
-      const bufferedAhead = getBufferedAhead(video);
-      const networkQuality = getNetworkQuality();
+      const bufferedAheadValue = getBufferedAhead(video);
+      const networkQualityNow = getNetworkQuality();
+      const isSlowNetworkNow = isSlowNetwork() || networkQualityNow === '3g';
+      
       console.log('[SecureMedia] Video waiting for data:', {
         currentTime: video.currentTime.toFixed(2),
-        bufferedAhead: bufferedAhead.toFixed(2),
+        bufferedAhead: bufferedAheadValue.toFixed(2),
         readyState: video.readyState,
-        networkQuality,
+        networkQuality: networkQualityNow,
+        isSlowNetwork: isSlowNetworkNow,
         duration: video.duration?.toFixed(2) || 'unknown',
         paused: video.paused
       });
       
-      // Clear any existing buffering timeout
+      // Clear any existing timeouts
       if (bufferingTimeoutRef.current) {
         clearTimeout(bufferingTimeoutRef.current);
       }
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+      }
       
-      // Delay smart buffering activation to ignore micro-stalls (2s tolerance)
-      const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 2000;
+      // Delay smart buffering activation - increased tolerance for micro-stalls
+      const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 3500;
+      const spinnerDebounce = bufferConfigRef.current.spinnerDebounceMs || 1500;
+      const minRequired = bufferConfigRef.current.minBufferSeconds * 0.5; // Half of min buffer
       
+      // START: Debounced spinner - shows after 1.5s without pausing video
+      spinnerTimeoutRef.current = setTimeout(() => {
+        // Only show spinner if video is still waiting and has insufficient data
+        if (!video.paused && video.readyState < 3) {
+          console.log('[SecureMedia] Showing buffering spinner (debounced)');
+          setShowBufferingSpinner(true);
+        }
+      }, spinnerDebounce);
+      
+      // Smart buffering - only for SLOW networks, pause video and wait for buffer
       bufferingTimeoutRef.current = setTimeout(() => {
-        // Check if video already recovered
-        if (video.paused || video.readyState >= 3) {
-          console.log('[SecureMedia] Video recovered before smart buffering activation');
+        // Check if video already recovered or has sufficient buffer
+        const currentBufferedAhead = getBufferedAhead(video);
+        if (video.paused || video.readyState >= 3 || currentBufferedAhead >= minRequired) {
+          console.log('[SecureMedia] Video recovered before smart buffering activation', {
+            paused: video.paused,
+            readyState: video.readyState,
+            bufferedAhead: currentBufferedAhead.toFixed(2)
+          });
           return;
         }
         
-        console.log('[SecureMedia] Buffering timeout reached, activating smart buffering');
+        console.log('[SecureMedia] Buffering timeout reached');
         isBufferingRef.current = true;
         setIsBuffering(true);
         
-        // Remember if video was playing before buffering
-        if (!video.paused) {
+        // CONDITIONAL PAUSE: Only pause on slow networks - let fast connections recover naturally
+        if (isSlowNetworkNow && !video.paused) {
           wasPlayingBeforeBufferRef.current = true;
-          video.pause(); // Pause until buffer is sufficient
+          video.pause();
           setIsSmartBuffering(true);
-          console.log('[SecureMedia] Smart buffering activated - waiting for sufficient buffer');
+          console.log('[SecureMedia] Smart buffering activated (slow network) - pausing until sufficient buffer');
+        } else {
+          // For good networks - just show spinner, don't pause
+          console.log('[SecureMedia] Good network detected - not pausing, waiting for browser to catch up');
         }
       }, smartBufferingDelay);
     };
@@ -618,11 +654,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handleCanPlay = () => {
       console.log('[SecureMedia] Video can play');
       
-      // NEW: Clear any pending buffering timeout - video recovered
+      // NEW: Clear any pending timeouts - video recovered
       if (bufferingTimeoutRef.current) {
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = undefined;
       }
+      // NEW: Immediately hide spinner
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
+      setShowBufferingSpinner(false);
       
       // NEW: Immediately resume if smart buffering was active (faster recovery)
       if (isSmartBuffering && wasPlayingBeforeBufferRef.current) {
@@ -646,14 +688,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           // Check if buffer is sufficient for immediate playback
           if (video.buffered.length > 0 && video.duration > 0) {
             // Use utility that correctly finds range containing current position
-            const bufferedAhead = getBufferedAhead(video);
+            const bufferedAheadValue = getBufferedAhead(video);
             const remainingDuration = video.duration - video.currentTime;
             const minBuffer = bufferConfigRef.current.minBufferSeconds;
             const targetBuffer = Math.min(minBuffer, remainingDuration);
             
             // Calculate and set buffer progress (ensure 0-100 range)
             const progress = targetBuffer > 0 
-              ? Math.max(0, Math.min(100, (bufferedAhead / targetBuffer) * 100)) 
+              ? Math.max(0, Math.min(100, (bufferedAheadValue / targetBuffer) * 100)) 
               : 100;
             setBufferProgress(progress);
             
@@ -661,12 +703,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             setBufferedRanges(getBufferedRanges(video));
             
             // Disable initial buffering when buffer is ready
-            if (isInitialBuffering && (bufferedAhead >= targetBuffer || progress >= 100)) {
+            if (isInitialBuffering && (bufferedAheadValue >= targetBuffer || progress >= 100)) {
               console.log('[SecureMedia] Initial buffer complete via canPlay, Play button enabled');
               setIsInitialBuffering(false);
             }
             
-            if (bufferedAhead >= targetBuffer || bufferedAhead >= remainingDuration) {
+            if (bufferedAheadValue >= targetBuffer || bufferedAheadValue >= remainingDuration) {
               setIsSmartBuffering(false);
               if (wasPlayingBeforeBufferRef.current) {
                 video.play().catch(console.error);
@@ -677,7 +719,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         }
         isBufferingRef.current = false;
         setIsBuffering(false);
-      }, bufferConfigRef.current.bufferingStateDelayMs); // Use config delay
+      }, bufferConfigRef.current.bufferingStateDelayMs); // Use config delay (800ms)
     };
     
     // NEW: Progress handler for buffer calculation
@@ -1268,7 +1310,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
-              preload={bufferConfigRef.current.preloadStrategy}
+              preload={signedUrl.includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
@@ -1279,7 +1321,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {isBuffering && !isSmartBuffering && !forceHideBuffering && (
+            {/* OPTIMIZED: Use debounced spinner state instead of isBuffering */}
+            {showBufferingSpinner && !isSmartBuffering && !forceHideBuffering && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
