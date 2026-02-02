@@ -223,6 +223,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch Google user info to get email
+    let googleEmail: string | null = null;
+    try {
+      console.log('[google-oauth-callback] Fetching user info from Google...');
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+        },
+      });
+
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json();
+        googleEmail = userInfo.email || null;
+        console.log('[google-oauth-callback] Google email:', googleEmail);
+      } else {
+        console.warn('[google-oauth-callback] Failed to fetch user info:', userInfoResponse.status);
+      }
+    } catch (userInfoError) {
+      console.warn('[google-oauth-callback] Error fetching user info:', userInfoError);
+      // Continue without email - it's not critical
+    }
+
     // Calculate token expiration
     const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000)).toISOString();
     console.log('[google-oauth-callback] Token expires at:', expiresAt);
@@ -245,6 +267,7 @@ Deno.serve(async (req) => {
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
         calendar_id: 'primary',
+        google_email: googleEmail,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id',

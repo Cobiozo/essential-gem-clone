@@ -12,6 +12,7 @@ export const GoogleCalendarConnect = () => {
     isLoading, 
     isSyncing,
     expiresAt,
+    googleEmail,
     connect, 
     disconnect,
     syncAllEvents,
@@ -63,6 +64,14 @@ export const GoogleCalendarConnect = () => {
             </Badge>
           )}
         </div>
+
+        {/* Connected Google account email */}
+        {isConnected && googleEmail && (
+          <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/50">
+            <span className="text-sm font-medium">{t('Konto Google:')}</span>
+            <span className="text-sm text-muted-foreground">{googleEmail}</span>
+          </div>
+        )}
 
         {/* Token expiration warning */}
         {isConnected && isTokenExpiringSoon && (
