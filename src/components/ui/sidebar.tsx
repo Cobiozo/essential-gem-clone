@@ -580,31 +580,75 @@ const SidebarMenuSubItem = React.forwardRef<HTMLLIElement, React.ComponentProps<
 SidebarMenuSubItem.displayName = "SidebarMenuSubItem";
 
 const SidebarMenuSubButton = React.forwardRef<
-  HTMLAnchorElement,
-  React.ComponentProps<"a"> & {
+  HTMLElement,
+  {
     asChild?: boolean;
     size?: "sm" | "md";
     isActive?: boolean;
+    href?: string;
+    onClick?: React.MouseEventHandler<HTMLElement>;
+    className?: string;
+    children?: React.ReactNode;
+    title?: string;
   }
->(({ asChild = false, size = "md", isActive, className, ...props }, ref) => {
-  const Comp = asChild ? Slot : "a";
+>(({ asChild = false, size = "md", isActive, className, onClick, href, children, ...props }, ref) => {
+  // If has onClick without href - use button for better touch handling on iOS
+  const useButton = Boolean(onClick && !href);
+
+  const sharedClassName = cn(
+    "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring aria-disabled:pointer-events-none aria-disabled:opacity-50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",
+    "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+    size === "sm" && "text-xs",
+    size === "md" && "text-sm",
+    "group-data-[collapsible=icon]:hidden",
+    className,
+  );
+
+  if (asChild) {
+    return (
+      <Slot
+        ref={ref}
+        data-sidebar="menu-sub-button"
+        data-size={size}
+        data-active={isActive}
+        className={sharedClassName}
+        {...props}
+      >
+        {children}
+      </Slot>
+    );
+  }
+
+  if (useButton) {
+    return (
+      <button
+        ref={ref as React.Ref<HTMLButtonElement>}
+        type="button"
+        onClick={onClick}
+        data-sidebar="menu-sub-button"
+        data-size={size}
+        data-active={isActive}
+        className={sharedClassName}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
 
   return (
-    <Comp
-      ref={ref}
+    <a
+      ref={ref as React.Ref<HTMLAnchorElement>}
+      href={href}
+      onClick={onClick}
       data-sidebar="menu-sub-button"
       data-size={size}
       data-active={isActive}
-      className={cn(
-        "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring aria-disabled:pointer-events-none aria-disabled:opacity-50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",
-        "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
-        size === "sm" && "text-xs",
-        size === "md" && "text-sm",
-        "group-data-[collapsible=icon]:hidden",
-        className,
-      )}
+      className={sharedClassName}
       {...props}
-    />
+    >
+      {children}
+    </a>
   );
 });
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton";
