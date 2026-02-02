@@ -26,17 +26,23 @@ interface EventData {
 }
 
 // Get specific occurrence datetime for cyclic events
+// Returns local time strings (not UTC) with timezone info for Google Calendar API
 function getOccurrenceDateTime(
   occurrences: any, 
   occurrenceIndex: number | undefined,
   baseStartTime: string,
-  baseEndTime: string | null
-): { start_time: string; end_time: string } {
-  // If no occurrence_index or no occurrences array, use base times
+  baseEndTime: string | null,
+  eventTimezone?: string
+): { start_time: string; end_time: string; timezone: string; is_local_time: boolean } {
+  const timezone = eventTimezone || 'Europe/Warsaw';
+  
+  // If no occurrence_index or no occurrences array, use base times (already in UTC)
   if (occurrenceIndex === undefined || occurrenceIndex === null) {
     return { 
       start_time: baseStartTime, 
-      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
+      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString(),
+      timezone,
+      is_local_time: false, // Base times are already UTC/ISO
     };
   }
 
@@ -58,26 +64,33 @@ function getOccurrenceDateTime(
     console.log('[sync-google-calendar] No valid occurrence found for index:', occurrenceIndex, 'total:', parsedOccurrences?.length);
     return { 
       start_time: baseStartTime, 
-      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString()
+      end_time: baseEndTime || new Date(new Date(baseStartTime).getTime() + 60*60*1000).toISOString(),
+      timezone,
+      is_local_time: false,
     };
   }
 
   const occurrence = parsedOccurrences[occurrenceIndex];
-  
-  // Parse occurrence date/time
-  const [year, month, day] = occurrence.date.split('-').map(Number);
-  const [hours, minutes] = occurrence.time.split(':').map(Number);
   const durationMinutes = occurrence.duration_minutes || 60;
+  
+  // Parse time to calculate end time
+  const [hours, minutes] = occurrence.time.split(':').map(Number);
+  const endHours = hours + Math.floor((minutes + durationMinutes) / 60);
+  const endMinutes = (minutes + durationMinutes) % 60;
+  const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 
-  // Create Date objects - use UTC to avoid timezone issues, then format for Warsaw
-  const startDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
-  const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+  // Return LOCAL time strings (not UTC!) - Google Calendar API will interpret them with timezone
+  const startTimeLocal = `${occurrence.date}T${occurrence.time}:00`;
+  const endTimeLocal = `${occurrence.date}T${endTime}:00`;
 
-  console.log('[sync-google-calendar] Using occurrence', occurrenceIndex, ':', occurrence.date, occurrence.time, 'duration:', durationMinutes);
+  console.log('[sync-google-calendar] Using occurrence', occurrenceIndex, ':', occurrence.date, occurrence.time, 
+    'duration:', durationMinutes, 'timezone:', timezone, '→ local times:', startTimeLocal, '-', endTimeLocal);
 
   return {
-    start_time: startDate.toISOString(),
-    end_time: endDate.toISOString(),
+    start_time: startTimeLocal,
+    end_time: endTimeLocal,
+    timezone,
+    is_local_time: true, // These are local times, need to be used with timeZone in Google API
   };
 }
 
@@ -222,11 +235,32 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<{
 }
 
 // Format event for Google Calendar
-function formatGoogleEvent(event: EventData, hostName?: string) {
-  const startTime = new Date(event.start_time);
-  const endTime = event.end_time 
-    ? new Date(event.end_time) 
-    : new Date(startTime.getTime() + 60 * 60 * 1000); // Default 1 hour
+// Supports both UTC ISO strings and local time strings with timezone
+function formatGoogleEvent(
+  event: EventData, 
+  hostName?: string, 
+  occurrenceData?: { start_time: string; end_time: string; timezone: string; is_local_time: boolean }
+) {
+  let startDateTime: string;
+  let endDateTime: string;
+  let timeZone: string;
+
+  if (occurrenceData?.is_local_time) {
+    // For cyclic events: use local time strings directly (NOT converted to ISO/UTC)
+    // Google Calendar API will interpret these with the provided timeZone
+    startDateTime = occurrenceData.start_time;
+    endDateTime = occurrenceData.end_time;
+    timeZone = occurrenceData.timezone;
+  } else {
+    // For non-cyclic events: convert to ISO (UTC)
+    const startTime = new Date(event.start_time);
+    const endTime = event.end_time 
+      ? new Date(event.end_time) 
+      : new Date(startTime.getTime() + 60 * 60 * 1000);
+    startDateTime = startTime.toISOString();
+    endDateTime = endTime.toISOString();
+    timeZone = 'Europe/Warsaw';
+  }
 
   let description = event.description || '';
   
@@ -244,12 +278,12 @@ function formatGoogleEvent(event: EventData, hostName?: string) {
     summary: `${event.title} - PureLife`,
     description: description.trim(),
     start: {
-      dateTime: startTime.toISOString(),
-      timeZone: 'Europe/Warsaw',
+      dateTime: startDateTime,
+      timeZone: timeZone,
     },
     end: {
-      dateTime: endTime.toISOString(),
-      timeZone: 'Europe/Warsaw',
+      dateTime: endDateTime,
+      timeZone: timeZone,
     },
     location: event.zoom_link || undefined,
     reminders: {
@@ -354,7 +388,8 @@ async function processSyncForUser(
   action: string,
   eventData?: EventData,
   hostName?: string,
-  occurrenceIndex?: number
+  occurrenceIndex?: number,
+  occurrenceData?: { start_time: string; end_time: string; timezone: string; is_local_time: boolean }
 ): Promise<{ success: boolean; reason?: string; google_event_id?: string }> {
   const startTime = Date.now();
   
@@ -440,7 +475,7 @@ async function processSyncForUser(
       return { success: false, reason: 'no_event_data' };
     }
 
-    const googleEventData = formatGoogleEvent(eventData, hostName);
+    const googleEventData = formatGoogleEvent(eventData, hostName, occurrenceData);
 
     if (action === 'update' && eventId) {
       // Check for existing sync record - include occurrence_index
@@ -728,22 +763,30 @@ Deno.serve(async (req) => {
       eventData = eventResult;
 
       // Override start/end times with specific occurrence if provided (for cyclic events)
+      // Store full occurrence data to pass to formatGoogleEvent for timezone handling
+      let occurrenceData: { start_time: string; end_time: string; timezone: string; is_local_time: boolean } | undefined;
+      
       if (occurrence_index !== undefined && eventData) {
-        const occurrenceTimes = getOccurrenceDateTime(
+        occurrenceData = getOccurrenceDateTime(
           eventResult.occurrences,
           occurrence_index,
           eventResult.start_time,
-          eventResult.end_time
+          eventResult.end_time,
+          undefined // eventTimezone - could be added to events table if needed
         );
         
-        eventData = {
-          ...eventData,
-          start_time: occurrenceTimes.start_time,
-          end_time: occurrenceTimes.end_time,
-        };
+        // For non-local times (fallback), update eventData
+        if (!occurrenceData.is_local_time) {
+          eventData = {
+            ...eventData,
+            start_time: occurrenceData.start_time,
+            end_time: occurrenceData.end_time,
+          };
+        }
         
         console.log('[sync-google-calendar] Cyclic event: using occurrence', occurrence_index, 
-          'start:', occurrenceTimes.start_time, 'end:', occurrenceTimes.end_time);
+          'start:', occurrenceData.start_time, 'end:', occurrenceData.end_time, 
+          'is_local_time:', occurrenceData.is_local_time, 'timezone:', occurrenceData.timezone);
       }
 
       // Get host name if available
@@ -758,17 +801,41 @@ Deno.serve(async (req) => {
           hostName = `${hostProfile.first_name || ''} ${hostProfile.last_name || ''}`.trim();
         }
       }
+
+      // Process sync for each user sequentially (to avoid Google API rate limiting)
+      const results: { user_id: string; success: boolean; reason?: string }[] = [];
+      
+      for (const uid of usersToSync) {
+        const result = await processSyncForUser(supabaseAdmin, uid, event_id, action, eventData!, hostName, occurrence_index, occurrenceData);
+        results.push({ user_id: uid, ...result });
+      }
+
+      // Check overall success
+      const allSuccess = results.every(r => r.success);
+      const successCount = results.filter(r => r.success).length;
+
+      return new Response(JSON.stringify({ 
+        success: allSuccess,
+        results,
+        summary: {
+          total: results.length,
+          success: successCount,
+          failed: results.length - successCount,
+        }
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Process sync for each user sequentially (to avoid Google API rate limiting)
+    // For delete action (no event data fetched)
     const results: { user_id: string; success: boolean; reason?: string }[] = [];
     
     for (const uid of usersToSync) {
-      const result = await processSyncForUser(supabaseAdmin, uid, event_id, action, eventData!, hostName, occurrence_index);
+      const result = await processSyncForUser(supabaseAdmin, uid, event_id, action, undefined, undefined, occurrence_index, undefined);
       results.push({ user_id: uid, ...result });
     }
 
-    // Check overall success
     const allSuccess = results.every(r => r.success);
     const successCount = results.filter(r => r.success).length;
 
