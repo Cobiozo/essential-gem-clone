@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { ParsedElement } from './types';
 import { parseHtmlToElements } from './hooks/useHtmlParser';
 import { serializeElementsToHtml } from './hooks/useHtmlSerializer';
@@ -50,6 +50,11 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     })
   );
   
+  // REAL-TIME PREVIEW - computed directly from elements state
+  const previewHtml = useMemo(() => {
+    return serializeElementsToHtml(elements);
+  }, [elements]);
+  
   // Parse HTML on mount and when htmlContent changes externally
   useEffect(() => {
     const parsed = parseHtmlToElements(htmlContent);
@@ -62,13 +67,12 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     }
   }, [htmlContent]);
   
-  // Sync code view with visual changes
+  // Sync code view ONLY when switching to code tab
   useEffect(() => {
-    if (activeTab === 'visual' && elements.length > 0) {
-      const html = serializeElementsToHtml(elements);
-      setCodeValue(html);
+    if (activeTab === 'code') {
+      setCodeValue(previewHtml);
     }
-  }, [elements, activeTab]);
+  }, [activeTab, previewHtml]);
   
   // Save to history
   const saveToHistory = useCallback((html: string) => {
@@ -105,7 +109,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     }
   }, [historyIndex, history, onChange]);
   
-  // Open real preview in new window
+  // Open real preview in new window - uses real-time previewHtml
   const openRealPreview = useCallback(() => {
     const fullHtml = `
 <!DOCTYPE html>
@@ -129,7 +133,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   </style>
 </head>
 <body>
-  ${codeValue}
+  ${previewHtml}
   <script>
     if (window.lucide) {
       lucide.createIcons();
@@ -142,7 +146,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
-  }, [codeValue, customCss]);
+  }, [previewHtml, customCss]);
 
   // NOTE: Keyboard shortcuts moved after handleDelete declaration (see below)
   
@@ -720,7 +724,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
           </div>
         </TabsContent>
         
-        {/* Full Preview Tab */}
+        {/* Full Preview Tab - uses real-time previewHtml */}
         <TabsContent value="preview" className="flex-1 m-0 overflow-hidden">
           <div className="h-full bg-white border-t">
             <iframe
@@ -746,7 +750,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                   </style>
                 </head>
                 <body>
-                  ${codeValue}
+                  ${previewHtml}
                   <script>
                     if (window.lucide) {
                       lucide.createIcons();
