@@ -73,35 +73,64 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
   
   const pendingUpdateRef = useRef<NodeJS.Timeout>();
   const elementIdRef = useRef<string | undefined>(undefined);
+  const isUpdatingRef = useRef(false);
   
-  // Sync local state when element.id changes (new element selected)
+  // REFS for current values - breaks cyclic dependencies
+  const localStylesRef = useRef(localStyles);
+  const localAttributesRef = useRef(localAttributes);
+  const localTextContentRef = useRef(localTextContent);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    localStylesRef.current = localStyles;
+  }, [localStyles]);
+  
+  useEffect(() => {
+    localAttributesRef.current = localAttributes;
+  }, [localAttributes]);
+  
+  useEffect(() => {
+    localTextContentRef.current = localTextContent;
+  }, [localTextContent]);
+  
+  // Sync local state ONLY when element.id changes (new element selected)
   useEffect(() => {
     if (element?.id !== elementIdRef.current) {
       elementIdRef.current = element?.id;
+      isUpdatingRef.current = true;
       setLocalStyles(element?.styles || {});
       setLocalAttributes(element?.attributes || {});
       setLocalTextContent(element?.textContent || '');
+      // Reset flag after React batch update
+      setTimeout(() => {
+        isUpdatingRef.current = false;
+      }, 0);
     }
-  }, [element?.id, element?.styles, element?.attributes, element?.textContent]);
+  }, [element?.id]); // ONLY element.id - NOT styles/attributes!
   
-  // Debounced sync to parent
+  // Debounced sync to parent - NO state dependencies, uses refs
   const scheduleUpdate = useCallback(() => {
     if (pendingUpdateRef.current) {
       clearTimeout(pendingUpdateRef.current);
     }
     
     pendingUpdateRef.current = setTimeout(() => {
-      onUpdate({
-        styles: localStyles,
-        attributes: localAttributes,
-        textContent: localTextContent
-      });
+      if (!isUpdatingRef.current) {
+        onUpdate({
+          styles: localStylesRef.current,
+          attributes: localAttributesRef.current,
+          textContent: localTextContentRef.current
+        });
+      }
     }, 300);
-  }, [localStyles, localAttributes, localTextContent, onUpdate]);
+  }, [onUpdate]); // ONLY onUpdate - breaks the cycle!
   
   // Trigger debounced update when local state changes
   useEffect(() => {
-    // Only schedule if we have an element and local state differs from initial
+    // Skip if we're syncing from props (element change)
+    if (isUpdatingRef.current) return;
+    
+    // Only schedule if we have an element
     if (element?.id && elementIdRef.current === element.id) {
       scheduleUpdate();
     }

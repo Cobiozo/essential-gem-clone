@@ -27,7 +27,7 @@ const EDITABLE_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'bu
 // Void elements - cannot have children in React
 const VOID_ELEMENTS = ['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
 
-export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
+const HtmlElementRendererInner: React.FC<HtmlElementRendererProps> = ({
   element,
   selectedId,
   hoveredId,
@@ -352,3 +352,22 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
     </div>
   );
 };
+
+// React.memo with custom comparator to prevent unnecessary re-renders
+export const HtmlElementRenderer = React.memo(HtmlElementRendererInner, (prevProps, nextProps) => {
+  // Re-render only when these specific things change
+  return (
+    prevProps.element.id === nextProps.element.id &&
+    prevProps.selectedId === nextProps.selectedId &&
+    prevProps.hoveredId === nextProps.hoveredId &&
+    prevProps.editingId === nextProps.editingId &&
+    prevProps.isEditMode === nextProps.isEditMode &&
+    prevProps.showOutlines === nextProps.showOutlines &&
+    prevProps.depth === nextProps.depth &&
+    // Deep compare styles and attributes for actual content changes
+    JSON.stringify(prevProps.element.styles) === JSON.stringify(nextProps.element.styles) &&
+    JSON.stringify(prevProps.element.attributes) === JSON.stringify(nextProps.element.attributes) &&
+    prevProps.element.textContent === nextProps.element.textContent &&
+    prevProps.element.children.length === nextProps.element.children.length
+  );
+});
