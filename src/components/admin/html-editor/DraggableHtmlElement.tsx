@@ -17,6 +17,7 @@ interface DraggableHtmlElementProps {
   onHover: (id: string | null) => void;
   onStartEdit?: (id: string) => void;
   onEndEdit?: (id: string, newContent: string) => void;
+  onUpdate?: (elementId: string, updates: Partial<ParsedElement>) => void;
   showOutlines?: boolean;
   depth?: number;
 }
@@ -31,6 +32,7 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
   onHover,
   onStartEdit,
   onEndEdit,
+  onUpdate,
   showOutlines,
   depth = 0
 }) => {
@@ -101,6 +103,8 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
           onHover={onHover}
           onStartEdit={onStartEdit}
           onEndEdit={onEndEdit}
+          onUpdate={onUpdate ? (updates) => onUpdate(element.id, updates) : undefined}
+          isEditMode={isEditMode}
           showOutlines={showOutlines}
           renderChildren={() => (
             <SortableContext 
@@ -119,6 +123,7 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
                   onHover={onHover}
                   onStartEdit={onStartEdit}
                   onEndEdit={onEndEdit}
+                  onUpdate={onUpdate}
                   showOutlines={showOutlines}
                   depth={depth + 1}
                 />
@@ -136,6 +141,8 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
           onHover={onHover}
           onStartEdit={onStartEdit}
           onEndEdit={onEndEdit}
+          onUpdate={onUpdate ? (updates) => onUpdate(element.id, updates) : undefined}
+          isEditMode={isEditMode}
           showOutlines={showOutlines}
         />
       )}

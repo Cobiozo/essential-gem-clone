@@ -10,7 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Type, Link, Image, Box, Palette, AlignLeft, AlignCenter, AlignRight, 
-  Bold, Trash2, Copy, X, FileImage, Settings, Wand2, Play, Layout, Sparkles
+  Bold, Trash2, Copy, X, FileImage, Settings, Wand2, Play, Layout, Sparkles,
+  Columns2, Columns3, LayoutGrid, Video
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconPicker } from '@/components/cms/IconPicker';
@@ -22,6 +23,7 @@ interface HtmlPropertiesPanelProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onClose: () => void;
+  onInsertChild?: (parentId: string, childHtml: string) => void;
 }
 
 // Extract CollapsibleSection OUTSIDE the main component to prevent React Error #137
@@ -47,7 +49,8 @@ export const HtmlPropertiesPanel: React.FC<HtmlPropertiesPanelProps> = ({
   onUpdate,
   onDelete,
   onDuplicate,
-  onClose
+  onClose,
+  onInsertChild
 }) => {
   const [activeTab, setActiveTab] = useState('content');
 
@@ -447,6 +450,98 @@ export const HtmlPropertiesPanel: React.FC<HtmlPropertiesPanelProps> = ({
                 </div>
               </CollapsibleSection>
 
+              {/* Quick Layouts - only for containers */}
+              {elementType === 'container' && (
+                <CollapsibleSection title="Szybkie układy" icon={<LayoutGrid className="w-4 h-4" />} defaultOpen={true}>
+                  <div className="space-y-3">
+                    <Label className="text-xs">Zmień kontener na układ kolumn:</Label>
+                    <div className="flex flex-wrap gap-1">
+                      <Button
+                        variant={element.styles.display !== 'grid' && element.styles.display !== 'flex' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => onUpdate({
+                          styles: {
+                            ...element.styles,
+                            display: 'block',
+                            gridTemplateColumns: undefined,
+                            gap: undefined
+                          }
+                        })}
+                      >
+                        1 kol.
+                      </Button>
+                      <Button
+                        variant={element.styles.gridTemplateColumns === 'repeat(2, 1fr)' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1 gap-1"
+                        onClick={() => onUpdate({
+                          styles: {
+                            ...element.styles,
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: element.styles.gap || '1rem'
+                          }
+                        })}
+                      >
+                        <Columns2 className="w-3.5 h-3.5" />
+                        2 kol.
+                      </Button>
+                      <Button
+                        variant={element.styles.gridTemplateColumns === 'repeat(3, 1fr)' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1 gap-1"
+                        onClick={() => onUpdate({
+                          styles: {
+                            ...element.styles,
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: element.styles.gap || '1rem'
+                          }
+                        })}
+                      >
+                        <Columns3 className="w-3.5 h-3.5" />
+                        3 kol.
+                      </Button>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant={element.styles.display === 'flex' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => onUpdate({
+                          styles: {
+                            ...element.styles,
+                            display: 'flex',
+                            flexDirection: 'row',
+                            gap: element.styles.gap || '1rem',
+                            gridTemplateColumns: undefined
+                          }
+                        })}
+                      >
+                        Flex Row
+                      </Button>
+                      <Button
+                        variant={element.styles.display === 'flex' && element.styles.flexDirection === 'column' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => onUpdate({
+                          styles: {
+                            ...element.styles,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: element.styles.gap || '1rem',
+                            gridTemplateColumns: undefined
+                          }
+                        })}
+                      >
+                        Flex Column
+                      </Button>
+                    </div>
+                  </div>
+                </CollapsibleSection>
+              )}
+
               {/* Layout */}
               <CollapsibleSection title="Layout (Flexbox/Grid)" icon={<Layout className="w-4 h-4" />} defaultOpen={false}>
                 <div className="space-y-3">
@@ -824,6 +919,35 @@ export const HtmlPropertiesPanel: React.FC<HtmlPropertiesPanelProps> = ({
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                </CollapsibleSection>
+              )}
+              
+              {/* Insert Video into Container */}
+              {elementType === 'container' && onInsertChild && (
+                <CollapsibleSection title="Wstaw wideo do kontenera" icon={<Video className="w-4 h-4" />}>
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Dodaj element &lt;video&gt; wewnątrz tego kontenera.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        const videoHtml = `<video controls style="width: 100%; max-width: 100%; border-radius: 8px;">
+                          <source src="/placeholder-video.mp4" type="video/mp4">
+                          Twoja przeglądarka nie obsługuje wideo.
+                        </video>`;
+                        onInsertChild(element.id, videoHtml);
+                      }}
+                    >
+                      <Video className="w-4 h-4" />
+                      Wstaw element wideo
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground">
+                      Po wstawieniu zaznacz element wideo i prześlij plik w zakładce Media.
+                    </p>
                   </div>
                 </CollapsibleSection>
               )}
