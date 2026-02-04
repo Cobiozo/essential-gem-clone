@@ -360,6 +360,13 @@ const Admin = () => {
   const [ogImageLoading, setOgImageLoading] = useState(false);
   const [ogImageUploadLoading, setOgImageUploadLoading] = useState(false);
   
+  // OG Meta Tags state
+  const [ogTitle, setOgTitle] = useState('');
+  const [ogDescription, setOgDescription] = useState('');
+  const [ogSiteName, setOgSiteName] = useState('');
+  const [ogUrl, setOgUrl] = useState('');
+  const [ogMetaLoading, setOgMetaLoading] = useState(false);
+  
    // Password change state
    const [passwordData, setPasswordData] = useState({
      currentPassword: '',
@@ -1545,7 +1552,7 @@ const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('page_settings')
-        .select('favicon_url, og_image_url')
+        .select('favicon_url, og_image_url, og_title, og_description, og_site_name, og_url')
         .eq('page_type', 'homepage')
         .maybeSingle();
       
@@ -1554,13 +1561,24 @@ const Admin = () => {
       if (data) {
         setFaviconUrl(data.favicon_url || '');
         setOgImageUrl(data.og_image_url || '');
+        setOgTitle(data.og_title || '');
+        setOgDescription(data.og_description || '');
+        setOgSiteName(data.og_site_name || '');
+        setOgUrl(data.og_url || '');
       }
     } catch (error) {
       console.error('Error loading page settings:', error);
     }
   };
 
-  const updatePageSettings = async (updates: { favicon_url?: string; og_image_url?: string }) => {
+  const updatePageSettings = async (updates: { 
+    favicon_url?: string; 
+    og_image_url?: string;
+    og_title?: string;
+    og_description?: string;
+    og_site_name?: string;
+    og_url?: string;
+  }) => {
     try {
       const { data: existing } = await supabase
         .from('page_settings')
@@ -1597,6 +1615,20 @@ const Admin = () => {
         description: error.message || "Nie udało się zaktualizować ustawień",
         variant: "destructive",
       });
+    }
+  };
+
+  const updateOgMetaTags = async () => {
+    try {
+      setOgMetaLoading(true);
+      await updatePageSettings({
+        og_title: ogTitle,
+        og_description: ogDescription,
+        og_site_name: ogSiteName,
+        og_url: ogUrl,
+      });
+    } finally {
+      setOgMetaLoading(false);
     }
   };
 
@@ -3570,87 +3602,166 @@ const Admin = () => {
                </Card>
              </div>
 
-             {/* OG Image Management */}
-             <div className="mb-8">
-               <Card>
-                 <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
-                     <Layout className="w-5 h-5" />
-                     Open Graph Image
-                   </CardTitle>
-                   <CardDescription>
-                     Zarządzaj obrazem wyświetlanym przy udostępnianiu w mediach społecznościowych
-                   </CardDescription>
-                 </CardHeader>
-                 <CardContent className="space-y-6">
-                   {ogImageUrl && (
-                     <div>
-                       <Label className="text-sm font-medium">Aktualny obraz OG</Label>
-                       <div className="mt-2 p-4 border border-border rounded-lg bg-muted/50 flex items-center justify-center">
-                         <img 
-                           src={ogImageUrl} 
-                           alt="Current OG Image" 
-                           className="max-w-full h-auto max-h-48 object-contain"
-                         />
-                       </div>
-                     </div>
-                   )}
+              {/* OG Meta Tags Management */}
+              <div className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Ustawienia SEO / Social Media
+                    </CardTitle>
+                    <CardDescription>
+                      Zarządzaj meta tagami wyświetlanymi przy udostępnianiu linków w social media (WhatsApp, Facebook, Messenger)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="og-title">Tytuł strony (og:title)</Label>
+                      <Input
+                        id="og-title"
+                        value={ogTitle}
+                        onChange={(e) => setOgTitle(e.target.value)}
+                        placeholder="Pure Life Center"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="og-description">Opis strony (og:description)</Label>
+                      <Textarea
+                        id="og-description"
+                        value={ogDescription}
+                        onChange={(e) => setOgDescription(e.target.value)}
+                        placeholder="Zmieniamy życie i zdrowie ludzi na lepsze"
+                        rows={3}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="og-site-name">Nazwa witryny (og:site_name)</Label>
+                      <Input
+                        id="og-site-name"
+                        value={ogSiteName}
+                        onChange={(e) => setOgSiteName(e.target.value)}
+                        placeholder="Pure Life Center"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="og-url">URL strony (og:url)</Label>
+                      <Input
+                        id="og-url"
+                        type="url"
+                        value={ogUrl}
+                        onChange={(e) => setOgUrl(e.target.value)}
+                        placeholder="https://purelife.info.pl"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        onClick={updateOgMetaTags}
+                        disabled={ogMetaLoading}
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {ogMetaLoading ? 'Zapisywanie...' : 'Zapisz ustawienia OG'}
+                      </Button>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Ważne:</strong> Po zmianie ustawień pamiętaj o odświeżeniu cache na platformach social media. 
+                        Użyj <a href="https://developers.facebook.com/tools/debug/" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Facebook Sharing Debugger</a> i kliknij "Scrape Again" dla Twojego URL.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-                   <div>
-                     <Label className="text-sm font-medium">Prześlij z urządzenia</Label>
-                     <div className="mt-2">
-                       <input
-                         type="file"
-                         accept="image/*"
-                         onChange={handleOgImageFileChange}
-                         disabled={ogImageUploadLoading}
-                         className="block w-full text-sm text-muted-foreground
-                           file:mr-4 file:py-2 file:px-4
-                           file:rounded-md file:border-0
-                           file:text-sm file:font-medium
-                           file:bg-primary file:text-primary-foreground
-                           hover:file:bg-primary/90
-                           file:disabled:opacity-50 file:disabled:cursor-not-allowed"
-                       />
-                       <p className="text-xs text-muted-foreground mt-1">
-                         Obsługiwane formaty: JPG, PNG, GIF, WEBP (max 5MB, zalecane: 1200x630px)
-                       </p>
-                     </div>
-                   </div>
+              {/* OG Image Management */}
+              <div className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layout className="w-5 h-5" />
+                      Open Graph Image
+                    </CardTitle>
+                    <CardDescription>
+                      Zarządzaj obrazem wyświetlanym przy udostępnianiu w mediach społecznościowych
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {ogImageUrl && (
+                      <div>
+                        <Label className="text-sm font-medium">Aktualny obraz OG</Label>
+                        <div className="mt-2 p-4 border border-border rounded-lg bg-muted/50 flex items-center justify-center">
+                          <img 
+                            src={ogImageUrl} 
+                            alt="Current OG Image" 
+                            className="max-w-full h-auto max-h-48 object-contain"
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                   <div>
-                     <Label htmlFor="og-image-url" className="text-sm font-medium">
-                       Lub podaj adres URL
-                     </Label>
-                     <div className="mt-2 flex gap-2">
-                       <Input
-                         id="og-image-url"
-                         type="url"
-                         value={ogImageUrlInput}
-                         onChange={(e) => setOgImageUrlInput(e.target.value)}
-                         placeholder="https://example.com/og-image.jpg"
-                         disabled={ogImageLoading}
-                       />
-                       <Button
-                         onClick={() => updateOgImage(ogImageUrlInput)}
-                         disabled={ogImageLoading || !ogImageUrlInput.trim()}
-                         className="flex items-center gap-2"
-                       >
-                         <Save className="w-4 h-4" />
-                         {ogImageLoading ? 'Zapisywanie...' : 'Ustaw'}
-                       </Button>
-                     </div>
-                   </div>
+                    <div>
+                      <Label className="text-sm font-medium">Prześlij z urządzenia</Label>
+                      <div className="mt-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleOgImageFileChange}
+                          disabled={ogImageUploadLoading}
+                          className="block w-full text-sm text-muted-foreground
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-md file:border-0
+                            file:text-sm file:font-medium
+                            file:bg-primary file:text-primary-foreground
+                            hover:file:bg-primary/90
+                            file:disabled:opacity-50 file:disabled:cursor-not-allowed"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Obsługiwane formaty: JPG, PNG, GIF, WEBP (max 5MB, zalecane: 1200x630px)
+                        </p>
+                      </div>
+                    </div>
 
-                   {(ogImageUploadLoading || ogImageLoading) && (
-                     <div className="text-center text-sm text-muted-foreground">
-                       <div className="animate-pulse">
-                         {ogImageUploadLoading ? 'Przesyłanie obrazu OG...' : 'Zapisywanie...'}
-                       </div>
-                     </div>
-                   )}
-                 </CardContent>
-               </Card>
+                    <div>
+                      <Label htmlFor="og-image-url" className="text-sm font-medium">
+                        Lub podaj adres URL
+                      </Label>
+                      <div className="mt-2 flex gap-2">
+                        <Input
+                          id="og-image-url"
+                          type="url"
+                          value={ogImageUrlInput}
+                          onChange={(e) => setOgImageUrlInput(e.target.value)}
+                          placeholder="https://example.com/og-image.jpg"
+                          disabled={ogImageLoading}
+                        />
+                        <Button
+                          onClick={() => updateOgImage(ogImageUrlInput)}
+                          disabled={ogImageLoading || !ogImageUrlInput.trim()}
+                          className="flex items-center gap-2"
+                        >
+                          <Save className="w-4 h-4" />
+                          {ogImageLoading ? 'Zapisywanie...' : 'Ustaw'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {(ogImageUploadLoading || ogImageLoading) && (
+                      <div className="text-center text-sm text-muted-foreground">
+                        <div className="animate-pulse">
+                          {ogImageUploadLoading ? 'Przesyłanie obrazu OG...' : 'Zapisywanie...'}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Reflinks Management */}
