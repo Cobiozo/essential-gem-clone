@@ -394,6 +394,32 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     });
   }, [elements, selectedElement, duplicateElementById, syncAndSave, toast]);
   
+  // Handle inserting child element into a container
+  const handleInsertChild = useCallback((parentId: string, childHtml: string) => {
+    const parent = findElementById(elements, parentId);
+    if (!parent) return;
+    
+    const newChildren = parseHtmlToElements(childHtml);
+    if (newChildren.length === 0) return;
+    
+    const updatedElements = updateElementById(elements, parentId, {
+      children: [...parent.children, ...newChildren]
+    });
+    
+    syncAndSave(updatedElements);
+    
+    // Select the newly inserted child
+    const updatedParent = findElementById(updatedElements, parentId);
+    if (updatedParent && updatedParent.children.length > 0) {
+      setSelectedElement(updatedParent.children[updatedParent.children.length - 1]);
+    }
+    
+    toast({
+      title: "Element dodany",
+      description: "Element wideo został wstawiony do kontenera."
+    });
+  }, [elements, findElementById, updateElementById, syncAndSave, toast]);
+  
   // Handle close panel
   const handleClosePanel = useCallback(() => {
     setSelectedElement(null);
@@ -554,6 +580,14 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                               onHover={setHoveredId}
                               onStartEdit={handleStartInlineEdit}
                               onEndEdit={handleEndInlineEdit}
+                              onUpdate={(elementId, updates) => {
+                                const updatedElements = updateElementById(elements, elementId, updates);
+                                syncAndSave(updatedElements);
+                                const updatedSelected = findElementById(updatedElements, elementId);
+                                if (updatedSelected && selectedElement?.id === elementId) {
+                                  setSelectedElement(updatedSelected);
+                                }
+                              }}
                               showOutlines={showOutlines}
                             />
                           ))
@@ -575,6 +609,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                     onDelete={handleDelete}
                     onDuplicate={handleDuplicate}
                     onClose={handleClosePanel}
+                    onInsertChild={handleInsertChild}
                   />
                 </ResizablePanel>
               </>

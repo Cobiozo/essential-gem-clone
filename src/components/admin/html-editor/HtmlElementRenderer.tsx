@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ParsedElement, getElementType } from './types';
 import { cn } from '@/lib/utils';
+import { ResizableImageWrapper } from './ResizableImageWrapper';
 
 interface HtmlElementRendererProps {
   element: ParsedElement;
@@ -11,6 +12,8 @@ interface HtmlElementRendererProps {
   onHover: (id: string | null) => void;
   onStartEdit?: (id: string) => void;
   onEndEdit?: (id: string, newContent: string) => void;
+  onUpdate?: (updates: Partial<ParsedElement>) => void;
+  isEditMode?: boolean;
   depth?: number;
   showOutlines?: boolean;
   renderChildren?: () => React.ReactNode;
@@ -31,6 +34,8 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
   onHover,
   onStartEdit,
   onEndEdit,
+  onUpdate,
+  isEditMode = true,
   depth = 0,
   showOutlines,
   renderChildren
@@ -124,17 +129,47 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
     (inlineStyles as any)[key] = value;
   });
   
+  // Handle resize for images
+  const handleImageResize = (width: string, height: string) => {
+    if (onUpdate) {
+      onUpdate({
+        styles: {
+          ...element.styles,
+          width,
+          height
+        }
+      });
+    }
+  };
+  
   // Render content
   const renderContent = () => {
     if (element.tagName === 'img') {
-      return (
+      const imgElement = (
         <img 
           src={element.attributes.src || '/placeholder.svg'} 
           alt={element.attributes.alt || ''} 
           className={element.attributes.class}
-          style={inlineStyles}
+          style={{ ...inlineStyles, width: '100%', height: '100%', objectFit: inlineStyles.objectFit as any || 'cover' }}
         />
       );
+      
+      // Wrap in resizable wrapper when in edit mode
+      if (isEditMode && onUpdate) {
+        return (
+          <ResizableImageWrapper
+            isSelected={isSelected}
+            isEditMode={isEditMode}
+            currentWidth={element.styles.width}
+            currentHeight={element.styles.height}
+            onResize={handleImageResize}
+          >
+            {imgElement}
+          </ResizableImageWrapper>
+        );
+      }
+      
+      return imgElement;
     }
     
     if (element.tagName === 'i' && element.attributes['data-lucide']) {
