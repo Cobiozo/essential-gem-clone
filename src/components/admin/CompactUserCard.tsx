@@ -199,102 +199,113 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
     <div className={`bg-card border rounded-lg transition-shadow ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''} ${isCurrentUser ? 'border-primary/30' : ''}`}>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         {/* Main card content */}
-        <div className="flex items-center gap-3 p-3">
-          {/* Selection checkbox */}
-          {showCheckbox && (
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={(checked) => onSelectionChange?.(userProfile.user_id, !!checked)}
-              className="flex-shrink-0"
-            />
-          )}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3">
+          {/* Top row on mobile: checkbox + status + main info */}
+          <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            {/* Selection checkbox */}
+            {showCheckbox && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelectionChange?.(userProfile.user_id, !!checked)}
+                className="flex-shrink-0 mt-1 sm:mt-0"
+              />
+            )}
 
-          {/* Status dot */}
-          <StatusDot status={status} />
-
-          {/* Main info */}
-          <div className="flex-1 min-w-0">
-            {/* First line: Bold name + role badge */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm truncate">{displayName}</span>
-              <Badge className={`text-xs h-5 ${getRoleBadgeClasses(userProfile.role)}`}>
-                {getRoleDisplayName(userProfile.role)}
-              </Badge>
-              {/* Email status badge */}
-              {userProfile.email_activated ? (
-                <Badge variant="outline" className="text-xs h-5 border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
-                  ✓ Email
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs h-5 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
-                  ✗ Email
-                </Badge>
-              )}
-              {!userProfile.is_active && (
-                <Badge variant="destructive" className="text-xs h-5">
-                  Zablokowany
-                </Badge>
-              )}
+            {/* Status dot */}
+            <div className="flex-shrink-0 mt-1.5 sm:mt-0">
+              <StatusDot status={status} />
             </div>
-            
-            {/* Second line: EQ ID, email, date, phone */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
-              {userProfile.eq_id && (
-                <>
-                  <span className="font-medium">EQ: {userProfile.eq_id}</span>
-                  <span className="text-muted-foreground/50">•</span>
-                </>
-              )}
-              {hasName && (
-                <>
-                  <span className="truncate">{userProfile.email}</span>
-                  <span className="text-muted-foreground/50">•</span>
-                </>
-              )}
-              <span>{new Date(userProfile.created_at).toLocaleDateString('pl-PL')}</span>
-              {userProfile.phone_number && (
-                <>
-                  <span className="text-muted-foreground/50">•</span>
-                  <span>{userProfile.phone_number}</span>
-                </>
-              )}
-              {/* Last sign in */}
-              {userProfile.last_sign_in_at && (
-                <>
-                  <span className="text-muted-foreground/50">•</span>
-                  <span>Ostatnio: {new Date(userProfile.last_sign_in_at).toLocaleString('pl-PL', { 
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: 'numeric', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}</span>
-                </>
-              )}
+
+            {/* Main info */}
+            <div className="flex-1 min-w-0">
+              {/* First line: Bold name + role badge */}
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="font-semibold text-sm truncate max-w-[180px] sm:max-w-none">{displayName}</span>
+                <Badge className={`text-xs h-5 ${getRoleBadgeClasses(userProfile.role)}`}>
+                  {getRoleDisplayName(userProfile.role)}
+                </Badge>
+                {/* Email status badge */}
+                {userProfile.email_activated ? (
+                  <Badge variant="outline" className="text-xs h-5 border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                    ✓ Email
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs h-5 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
+                    ✗ Email
+                  </Badge>
+                )}
+                {!userProfile.is_active && (
+                  <Badge variant="destructive" className="text-xs h-5">
+                    Zablokowany
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Second line: EQ ID, email - mobile optimized */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 text-xs text-muted-foreground mt-1 sm:mt-0.5">
+                {/* Row 1: EQ + Email */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {userProfile.eq_id && (
+                    <>
+                      <span className="font-medium whitespace-nowrap">EQ: {userProfile.eq_id}</span>
+                      <span className="text-muted-foreground/50 hidden sm:inline">•</span>
+                    </>
+                  )}
+                  {hasName && (
+                    <span className="truncate max-w-[200px] sm:max-w-none">{userProfile.email}</span>
+                  )}
+                </div>
+                
+                {/* Row 2: Date + Phone */}
+                <div className="flex items-center gap-1.5 flex-wrap text-muted-foreground/80">
+                  <span className="hidden sm:inline text-muted-foreground/50">•</span>
+                  <span className="whitespace-nowrap">{new Date(userProfile.created_at).toLocaleDateString('pl-PL')}</span>
+                  {userProfile.phone_number && (
+                    <>
+                      <span className="text-muted-foreground/50">•</span>
+                      <span className="whitespace-nowrap">{userProfile.phone_number}</span>
+                    </>
+                  )}
+                  {/* Last sign in - hidden on mobile, shown on desktop */}
+                  {userProfile.last_sign_in_at && (
+                    <span className="hidden lg:inline">
+                      <span className="text-muted-foreground/50 mx-1">•</span>
+                      Ostatnio: {new Date(userProfile.last_sign_in_at).toLocaleString('pl-PL', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Expand button - only if there's content to show */}
-          {hasExpandableContent && (
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground">
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="w-3.5 h-3.5 mr-1" />
-                    Mniej
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3.5 h-3.5 mr-1" />
-                    Więcej
-                  </>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-          )}
+          {/* Action buttons row - full width on mobile */}
+          <div className="flex items-center gap-1.5 sm:gap-2 justify-end sm:justify-start flex-shrink-0 pl-7 sm:pl-0">
+            {/* Expand button - only if there's content to show */}
+            {hasExpandableContent && (
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground">
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="w-3.5 h-3.5 mr-1" />
+                      <span className="hidden sm:inline">Mniej</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5 mr-1" />
+                      <span className="hidden sm:inline">Więcej</span>
+                    </>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            )}
 
-          {/* Quick action buttons */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Quick action buttons */}
             {/* Approve button */}
             {needsApproval && (
               needsGuardianFirst ? (
