@@ -44,33 +44,30 @@ export const ResizableImageWrapper: React.FC<ResizableImageWrapperProps> = ({
     if (!isResizing || !activeHandle) return;
     
     const deltaX = e.clientX - startPos.current.x;
-    const deltaY = e.clientY - startPos.current.y;
+    
+    // Calculate aspect ratio from starting dimensions
+    const aspectRatio = startSize.current.width / startSize.current.height;
     
     let newWidth = startSize.current.width;
     let newHeight = startSize.current.height;
     
-    // Calculate new dimensions based on which handle is being dragged
+    // Use width as primary dimension and maintain aspect ratio
     switch (activeHandle) {
       case 'se':
-        newWidth = startSize.current.width + deltaX;
-        newHeight = startSize.current.height + deltaY;
+      case 'ne':
+        // Right corners - add deltaX to width
+        newWidth = Math.max(20, startSize.current.width + deltaX);
+        newHeight = newWidth / aspectRatio;
         break;
       case 'sw':
-        newWidth = startSize.current.width - deltaX;
-        newHeight = startSize.current.height + deltaY;
-        break;
-      case 'ne':
-        newWidth = startSize.current.width + deltaX;
-        newHeight = startSize.current.height - deltaY;
-        break;
       case 'nw':
-        newWidth = startSize.current.width - deltaX;
-        newHeight = startSize.current.height - deltaY;
+        // Left corners - subtract deltaX from width
+        newWidth = Math.max(20, startSize.current.width - deltaX);
+        newHeight = newWidth / aspectRatio;
         break;
     }
     
-    // Minimum size constraints
-    newWidth = Math.max(20, newWidth);
+    // Ensure minimum height
     newHeight = Math.max(20, newHeight);
     
     // Apply to wrapper for visual feedback
