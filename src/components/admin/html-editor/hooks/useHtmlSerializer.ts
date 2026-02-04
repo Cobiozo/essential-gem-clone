@@ -18,10 +18,24 @@ const serializeElement = (element: ParsedElement): string => {
   const attrParts: string[] = [];
   
   Object.entries(attributes).forEach(([key, value]) => {
+    // Skip empty src for video (don't render src="")
+    if (tagName === 'video' && key === 'src' && !value) {
+      return;
+    }
     if (value) {
       attrParts.push(`${key}="${value}"`);
     }
   });
+  
+  // Special handling for video - always add controls and controlslist
+  if (tagName === 'video') {
+    if (!attrParts.some(a => a.startsWith('controls'))) {
+      attrParts.push('controls');
+    }
+    if (!attrParts.some(a => a.includes('controlslist'))) {
+      attrParts.push('controlslist="nodownload"');
+    }
+  }
   
   const styleString = stylesToString(styles);
   if (styleString) {
