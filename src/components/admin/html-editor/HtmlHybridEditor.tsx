@@ -255,16 +255,53 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     
     if (!activeResult.element || !overResult.element) return;
     
-    // Only allow reordering within the same parent
+    // Check if over element is a container (can accept children)
+    const containerTags = ['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'figure'];
+    const isOverContainer = containerTags.includes(overResult.element.tagName.toLowerCase());
+    
+    // CASE 1: Moving BETWEEN different containers
     if (activeResult.parent?.id !== overResult.parent?.id) {
+      // Step 1: Remove element from old location
+      let updatedElements = deleteElementById(elements, activeId);
+      
+      // Step 2: Determine where to insert
+      if (isOverContainer && overResult.element.id !== activeResult.parent?.id) {
+        // Drop into the container (as first child)
+        const targetContainer = findElementById(updatedElements, overId);
+        if (targetContainer) {
+          updatedElements = updateElementById(updatedElements, overId, {
+            children: [activeResult.element, ...targetContainer.children]
+          });
+        }
+      } else {
+        // Drop beside the over element (in its parent)
+        if (overResult.parent) {
+          // Re-find the parent in updated elements (after deletion)
+          const freshParent = findElementById(updatedElements, overResult.parent.id);
+          if (freshParent) {
+            const overIndex = freshParent.children.findIndex(c => c.id === overId);
+            const newChildren = [...freshParent.children];
+            newChildren.splice(overIndex + 1, 0, activeResult.element);
+            updatedElements = updateElementById(updatedElements, overResult.parent.id, {
+              children: newChildren
+            });
+          }
+        } else {
+          // Over is at root level
+          const overIndex = updatedElements.findIndex(el => el.id === overId);
+          updatedElements.splice(overIndex + 1, 0, activeResult.element);
+        }
+      }
+      
+      syncAndSave(updatedElements);
       toast({
-        title: "Niedozwolona operacja",
-        description: "Można przenosić elementy tylko w obrębie tego samego kontenera.",
-        variant: "destructive"
+        title: "Element przeniesiony",
+        description: "Element został przeniesiony do innego kontenera."
       });
       return;
     }
     
+    // CASE 2: Reordering within SAME container (existing logic)
     const oldIndex = activeResult.siblings.findIndex(el => el.id === activeId);
     const newIndex = overResult.siblings.findIndex(el => el.id === overId);
     
@@ -290,7 +327,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
       title: "Elementy posortowane",
       description: "Kolejność elementów została zmieniona."
     });
-  }, [elements, syncAndSave, toast, updateElementById]);
+  }, [elements, syncAndSave, toast, updateElementById, deleteElementById, findElementById]);
   
   // Add new element
   const addElement = useCallback((html: string, position: 'before' | 'after' | 'inside' = 'after') => {
