@@ -1,183 +1,196 @@
 
-# Plan: Stabilizacja edytora HTML - naprawa zamykania się podczas edycji
+# Plan: Naprawa krytycznych problemów edytora HTML
 
-## Zdiagnozowane problemy
+## Zidentyfikowane problemy
 
-### Problem 1: Panel zamyka się po aktualizacji elementu
-**Przyczyna:** `handleUpdate` wywołuje `setSelectedElement(updatedSelected)` z nowym obiektem po każdej zmianie. Jeśli `findElementById` zwróci `null` (np. z powodu asynchronicznej aktualizacji), panel się zamyka.
+### Problem 1: Rozbieżność między edytorem a podglądem
+**Przyczyna:** Edytor wizualny pokazuje elementy z opakowaniem (`<div className={wrapperClasses}>`) i dodatkowymi stylami (ring, cursor-pointer), podczas gdy podgląd/serializer używa czystego HTML z `codeValue`. Dodatkowo podgląd iframe używa `codeValue`, który jest aktualizowany z opóźnieniem lub może nie zawierać najnowszych zmian.
 
-### Problem 2: Re-render całego drzewa elementów przy każdej zmianie
-**Przyczyna:** `syncAndSave()` wywołuje `setElements(newElements)`, co powoduje pełny re-render wszystkich komponentów. To może powodować utratę focusu mimo `DebouncedStyleInput`.
+### Problem 2: Edytor resetuje się / zamyka panel po zmianach
+**Przyczyna:** Mimo implementacji `selectedElementId` i lokalnego stanu w panelu, problem nadal występuje. Analiza kodu ujawnia:
 
-### Problem 3: Utrata focusu na komponentach nieobjętych debounce
-**Przyczyna:** Niektóre kontrolki (Slider, color input) nadal wywołują `updateStyle()` natychmiast (bez debounce), co powoduje pełny re-render.
+1. **Niesynchronizowany lokalny stan** - `scheduleUpdate` w `SimplifiedPropertiesPanel` tworzy się przy każdej zmianie `localStyles`, co powoduje nieskończoną pętlę `useEffect → setLocalStyles → scheduleUpdate → useEffect`
+
+2. **Brak izolacji useCallback** - `scheduleUpdate` jest w dependency array `useEffect`, ale sam zależy od `localStyles`, tworząc cykl
+
+3. **Element props się zmieniają** - Gdy `syncAndSave()` wywołuje `setElements()`, React re-renderuje `findElementById(elements, selectedElementId)` z nowym obiektem elementu, co triggeruje sync w panelu
+
+### Problem 3: Podgląd nie pokazuje zmian natychmiast
+**Przyczyna:** `codeValue` jest aktualizowany w `useEffect` gdy `activeTab === 'visual'`, ale serializacja może następować przed zakończeniem sync. Podgląd iframe używa `codeValue` który może być stale o krok za rzeczywistym stanem `elements`.
 
 ---
 
-## Rozwiązanie
+## Rozwiązania
 
-### Zmiana 1: Zabezpieczenie `selectedElement` przed nullem
+### Rozwiązanie 1: Usunięcie cyklicznych zależności w panelu
 
-W `handleUpdate` dodam sprawdzenie, czy element nadal istnieje po aktualizacji:
+Problem jest w tych liniach `SimplifiedPropertiesPanel.tsx`:
 
-```text
-Plik: src/components/admin/html-editor/HtmlHybridEditor.tsx
+```tsx
+// PROBLEM: scheduleUpdate zależy od localStyles, a useEffect zależy od scheduleUpdate
+const scheduleUpdate = useCallback(() => {...}, [localStyles, localAttributes, localTextContent, onUpdate]);
 
-handleUpdate:
-  1. Po aktualizacji, NIE resetuj selectedElement jeśli nowy obiekt jest null
-  2. Użyj referencji do ID zamiast całego obiektu
-  3. Tylko aktualizuj styles/attributes w selectedElement, zachowując ID
+useEffect(() => {
+  scheduleUpdate();  // <- To tworzy cykl!
+}, [localStyles, localAttributes, localTextContent, scheduleUpdate]);
 ```
 
-### Zmiana 2: Lokalne zarządzanie stanem elementu w panelu
+**Rozwiązanie:** Użyć `useRef` do przechowywania aktualnych wartości i usunąć zależności ze scheduleUpdate:
 
-Panel właściwości będzie przechowywał **lokalną kopię elementu** zamiast bezpośrednio korzystać z props:
+```tsx
+// Przechowuj aktualne wartości w ref
+const localStylesRef = useRef(localStyles);
+const localAttributesRef = useRef(localAttributes);
+const localTextContentRef = useRef(localTextContent);
 
-```text
-Plik: src/components/admin/html-editor/SimplifiedPropertiesPanel.tsx
+// Aktualizuj ref przy każdej zmianie
+useEffect(() => {
+  localStylesRef.current = localStyles;
+  localAttributesRef.current = localAttributes;
+  localTextContentRef.current = localTextContent;
+});
 
-Nowa architektura:
-  1. Lokalne state: const [localElement, setLocalElement] = useState(element)
-  2. Zmiany stylów aktualizują LOKALNY stan (instant feedback)
-  3. Debounced sync do parent (onUpdate) co 500ms lub onBlur
-  4. useEffect synchronizuje lokalny stan gdy props.element.id się zmieni
+// scheduleUpdate BEZ zależności od lokalnych stanów
+const scheduleUpdate = useCallback(() => {
+  if (pendingUpdateRef.current) {
+    clearTimeout(pendingUpdateRef.current);
+  }
+  
+  pendingUpdateRef.current = setTimeout(() => {
+    onUpdate({
+      styles: localStylesRef.current,
+      attributes: localAttributesRef.current,
+      textContent: localTextContentRef.current
+    });
+  }, 300);
+}, [onUpdate]); // Tylko onUpdate w dependencies!
+
+// Prostszy useEffect - triggerowany tylko przez rzeczywiste zmiany
+useEffect(() => {
+  if (element?.id && elementIdRef.current === element.id) {
+    scheduleUpdate();
+  }
+}, [localStyles, localAttributes, localTextContent, element?.id, scheduleUpdate]);
 ```
 
-### Zmiana 3: Stabilne ID zamiast pełnych obiektów
+### Rozwiązanie 2: Natychmiastowa synchronizacja podglądu
 
-Zamiast przekazywać pełny obiekt `selectedElement`, będę używać stabilnego `selectedElementId`:
+Zamiast używać `codeValue` dla podglądu, obliczaj HTML bezpośrednio z `elements`:
 
-```text
-Zmiany w HtmlHybridEditor:
-  1. const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
-  2. selectedElement = useMemo(() => findElementById(elements, selectedElementId), [elements, selectedElementId])
-  3. Panel dostaje element obliczony z memo - stabilny render
+```tsx
+// W HtmlHybridEditor - oblicz podgląd HTML bezpośrednio z elements
+const previewHtml = useMemo(() => {
+  return serializeElementsToHtml(elements);
+}, [elements]);
+
+// Podgląd używa previewHtml zamiast codeValue
+<iframe srcDoc={`...${previewHtml}...`} />
 ```
 
-### Zmiana 4: Debounced onUpdate w panelu
+### Rozwiązanie 3: Zabezpieczenie przed resetem selekcji
 
-Cały `onUpdate` z panelu będzie debounced na poziomie panelu:
+Dodanie warunku w sync elementu - nie resetuj lokalnego stanu jeśli tylko style/attributes się zmieniły:
 
-```text
-SimplifiedPropertiesPanel:
-  1. Wszystkie zmiany (slider, color, input) aktualizują LOKALNY stan
-  2. Jeden useEffect z debounce (500ms) wywołuje onUpdate
-  3. Natychmiastowy wizualny feedback w panelu
-  4. Brak re-renderów drzewa podczas edycji
+```tsx
+// W SimplifiedPropertiesPanel - lepszy warunek sync
+useEffect(() => {
+  // TYLKO sync gdy element.id się zmienił (nowy element wybrany)
+  // NIE sync gdy ten sam element ma nowe style (bo to my je zmieniliśmy)
+  if (element?.id !== elementIdRef.current) {
+    elementIdRef.current = element?.id;
+    setLocalStyles(element?.styles || {});
+    setLocalAttributes(element?.attributes || {});
+    setLocalTextContent(element?.textContent || '');
+  }
+}, [element?.id]); // TYLKO element.id, nie element.styles!
+```
+
+### Rozwiązanie 4: Izolacja renderowania elementów
+
+Dodanie `React.memo` do `HtmlElementRenderer` aby zapobiec niepotrzebnym re-renderom:
+
+```tsx
+export const HtmlElementRenderer = React.memo<HtmlElementRendererProps>(({
+  element,
+  // ...
+}) => {
+  // ...
+}, (prevProps, nextProps) => {
+  // Custom comparison - re-render tylko gdy naprawdę potrzebne
+  return (
+    prevProps.element.id === nextProps.element.id &&
+    prevProps.selectedId === nextProps.selectedId &&
+    prevProps.hoveredId === nextProps.hoveredId &&
+    prevProps.editingId === nextProps.editingId &&
+    JSON.stringify(prevProps.element.styles) === JSON.stringify(nextProps.element.styles)
+  );
+});
 ```
 
 ---
 
 ## Szczegóły implementacji
 
-### HtmlHybridEditor.tsx - Stabilne ID
+### Plik 1: SimplifiedPropertiesPanel.tsx
 
-```tsx
-// Zmiana stanu - używaj ID zamiast pełnego obiektu
-const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+Kluczowe zmiany:
+- Dodanie `useRef` dla lokalnych wartości
+- Usunięcie cyklicznych zależności w `scheduleUpdate`
+- Uproszczenie warunku sync (tylko `element?.id`)
+- Dodanie flagi `isUpdatingRef` zapobiegającej podwójnym aktualizacjom
 
-// Oblicz element z memo dla stabilności
-const selectedElement = useMemo(() => {
-  if (!selectedElementId) return null;
-  return findElementById(elements, selectedElementId);
-}, [elements, selectedElementId, findElementById]);
+### Plik 2: HtmlHybridEditor.tsx
 
-// handleSelect używa ID
-const handleSelect = useCallback((element: ParsedElement) => {
-  setSelectedElementId(element.id);
-  setEditingElementId(null);
-}, []);
+Kluczowe zmiany:
+- Dodanie `previewHtml = useMemo(() => serializeElementsToHtml(elements), [elements])`
+- Użycie `previewHtml` w iframe podglądu i w `openRealPreview`
+- Synchronizacja `codeValue` tylko przy przełączaniu na zakładkę "code"
 
-// handleUpdate NIE resetuje selekcji
-const handleUpdate = useCallback((updates: Partial<ParsedElement>) => {
-  if (!selectedElementId) return;
-  
-  const updatedElements = updateElementById(elements, selectedElementId, updates);
-  syncAndSave(updatedElements);
-  // NIE wywołuj setSelectedElementId - element zostaje wybrany
-}, [elements, selectedElementId, updateElementById, syncAndSave]);
+### Plik 3: HtmlElementRenderer.tsx
 
-// handleDelete czyści ID
-const handleDelete = useCallback(() => {
-  if (!selectedElementId) return;
-  
-  const updatedElements = deleteElementById(elements, selectedElementId);
-  syncAndSave(updatedElements);
-  setSelectedElementId(null);  // Czyść po usunięciu
-  setEditingElementId(null);
-}, [elements, selectedElementId, deleteElementById, syncAndSave]);
-```
+Kluczowe zmiany:
+- Dodanie `React.memo` z custom comparator
+- Izolacja re-renderów do faktycznie zmienionych elementów
 
-### SimplifiedPropertiesPanel.tsx - Lokalne zarządzanie stanem
+---
 
-```tsx
-export const SimplifiedPropertiesPanel: React.FC<Props> = ({
-  element,
-  onUpdate,
-  onDelete,
-  onDuplicate,
-  onClose,
-}) => {
-  // LOKALNA kopia elementu dla natychmiastowego feedbacku
-  const [localStyles, setLocalStyles] = useState(element?.styles || {});
-  const [localAttributes, setLocalAttributes] = useState(element?.attributes || {});
-  const [localTextContent, setLocalTextContent] = useState(element?.textContent || '');
-  
-  const pendingUpdateRef = useRef<NodeJS.Timeout>();
-  const elementIdRef = useRef(element?.id);
-  
-  // Sync gdy element.id się zmieni (nowy element wybrany)
-  useEffect(() => {
-    if (element?.id !== elementIdRef.current) {
-      elementIdRef.current = element?.id;
-      setLocalStyles(element?.styles || {});
-      setLocalAttributes(element?.attributes || {});
-      setLocalTextContent(element?.textContent || '');
-    }
-  }, [element?.id, element?.styles, element?.attributes, element?.textContent]);
-  
-  // Debounced sync do parent
-  const scheduleUpdate = useCallback(() => {
-    if (pendingUpdateRef.current) {
-      clearTimeout(pendingUpdateRef.current);
-    }
-    
-    pendingUpdateRef.current = setTimeout(() => {
-      onUpdate({
-        styles: localStyles,
-        attributes: localAttributes,
-        textContent: localTextContent
-      });
-    }, 300);
-  }, [localStyles, localAttributes, localTextContent, onUpdate]);
-  
-  // Lokalna aktualizacja stylu (natychmiastowa)
-  const updateStyle = useCallback((key: string, value: string) => {
-    setLocalStyles(prev => ({ ...prev, [key]: value }));
-  }, []);
-  
-  // Trigger debounced update przy każdej zmianie
-  useEffect(() => {
-    scheduleUpdate();
-    return () => {
-      if (pendingUpdateRef.current) {
-        clearTimeout(pendingUpdateRef.current);
-      }
-    };
-  }, [localStyles, localAttributes, localTextContent]);
-  
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (pendingUpdateRef.current) {
-        clearTimeout(pendingUpdateRef.current);
-      }
-    };
-  }, []);
-  
-  // UI używa localStyles zamiast element.styles
-  // np. <Slider value={[parseFloat(localStyles.width)]} ... />
-};
+## Diagram przepływu danych po naprawie
+
+```text
+Panel edycji (SimplifiedPropertiesPanel)
+    │
+    ├─ [1] Użytkownik zmienia style (slider, input)
+    │       │
+    │       └── setLocalStyles() ← Natychmiastowy feedback w panelu
+    │           │
+    │           └── useEffect triggeruje scheduleUpdate()
+    │               │
+    │               └── setTimeout(300ms)
+    │                   │
+    │                   └── [2] onUpdate() → HtmlHybridEditor
+    │
+HtmlHybridEditor
+    │
+    ├─ [3] handleUpdate() otrzymuje zmiany
+    │       │
+    │       └── updateElementById() → nowe elements
+    │           │
+    │           └── syncAndSave(newElements)
+    │               │
+    │               ├── setElements() → aktualizuje drzewo
+    │               └── onChange() → zapisuje do parent
+    │
+    ├─ [4] useMemo(previewHtml) przelicza HTML
+    │       │
+    │       └── Podgląd iframe natychmiast pokazuje zmiany
+    │
+    └─ [5] Panel NIE resetuje się
+            │
+            └── element?.id nie zmienił się
+                │
+                └── useEffect sync NIE triggerowany
+                    │
+                    └── Lokalny stan pozostaje nietknięty
 ```
 
 ---
@@ -186,15 +199,16 @@ export const SimplifiedPropertiesPanel: React.FC<Props> = ({
 
 | Plik | Zmiana |
 |------|--------|
-| `HtmlHybridEditor.tsx` | Zmiana na `selectedElementId` + useMemo, stabilne handlery |
-| `SimplifiedPropertiesPanel.tsx` | Lokalne state dla stylów/atrybutów z debounced sync |
+| `SimplifiedPropertiesPanel.tsx` | Naprawa cyklicznych zależności, izolacja aktualizacji |
+| `HtmlHybridEditor.tsx` | Natychmiastowy podgląd z `useMemo`, sync `codeValue` |
+| `HtmlElementRenderer.tsx` | `React.memo` z custom comparator |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. **Panel NIE zamyka się** podczas edycji szerokości lub innych stylów
-2. **Natychmiastowy feedback** - zmiany widoczne od razu w panelu
-3. **Stabilne drzewo** - brak pełnych re-renderów podczas edycji
-4. **Usunięcie działa poprawnie** - panel zamyka się tylko po kliknięciu "Usuń"
-5. **Focus zachowany** - wszystkie pola input zachowują focus podczas pisania
+1. **Podgląd identyczny z edytorem** - ten sam HTML, natychmiastowe odświeżanie
+2. **Panel NIE zamyka się** - lokalne zmiany nie resetują selekcji
+3. **Real-time feedback** - zmiany widoczne natychmiast
+4. **Brak cyklicznych re-renderów** - stabilna wydajność
+5. **Edycja płynna** - wpisywanie, slidery, kolory działają bez zacięć
